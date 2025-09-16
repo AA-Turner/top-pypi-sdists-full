@@ -1,22 +1,14 @@
 Metadata-Version: 2.1
 Name: langchain-google-genai
-Version: 2.1.10
+Version: 2.1.11
 Summary: An integration package connecting Google's genai package and LangChain
-Home-page: https://github.com/langchain-ai/langchain-google
 License: MIT
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: filetype (>=1.2.0,<2.0.0)
-Requires-Dist: google-ai-generativelanguage (>=0.6.18,<0.7.0)
-Requires-Dist: langchain-core (>=0.3.75,<0.4.0)
-Requires-Dist: pydantic (>=2,<3)
-Project-URL: Repository, https://github.com/langchain-ai/langchain-google
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-google/tree/main/libs/genai
+Requires-Python: >=3.9
+Requires-Dist: langchain-core>=0.3.75
+Requires-Dist: google-ai-generativelanguage<1,>=0.7
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: filetype<2,>=1.2
 Description-Content-Type: text/markdown
 
 # langchain-google-genai
@@ -258,4 +250,3 @@ print("Answerable probability:", response.answerable_probability)
 - [LangChain Documentation](https://docs.langchain.com/)
 - [Google Generative AI SDK](https://googleapis.github.io/python-genai/)
 - [Gemini Model Documentation](https://ai.google.dev/)
-

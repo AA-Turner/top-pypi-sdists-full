@@ -74,7 +74,1907 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.APIKeyReference",
+    jsii_struct_bases=[],
+    name_mapping={"api_key_arn": "apiKeyArn", "key_name": "keyName"},
+)
+class APIKeyReference:
+    def __init__(self, *, api_key_arn: builtins.str, key_name: builtins.str) -> None:
+        '''A reference to a APIKey resource.
+
+        :param api_key_arn: The ARN of the APIKey resource.
+        :param key_name: The KeyName of the APIKey resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            a_pIKey_reference = location.APIKeyReference(
+                api_key_arn="apiKeyArn",
+                key_name="keyName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a31ab3b05e45b4bb0e245d0b99583b796b483b44af30e74217abcd58c498ffe)
+            check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
+            check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_key_arn": api_key_arn,
+            "key_name": key_name,
+        }
+
+    @builtins.property
+    def api_key_arn(self) -> builtins.str:
+        '''The ARN of the APIKey resource.'''
+        result = self._values.get("api_key_arn")
+        assert result is not None, "Required property 'api_key_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def key_name(self) -> builtins.str:
+        '''The KeyName of the APIKey resource.'''
+        result = self._values.get("key_name")
+        assert result is not None, "Required property 'key_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APIKeyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnAPIKeyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "key_name": "keyName",
+        "restrictions": "restrictions",
+        "description": "description",
+        "expire_time": "expireTime",
+        "force_delete": "forceDelete",
+        "force_update": "forceUpdate",
+        "no_expiry": "noExpiry",
+        "tags": "tags",
+    },
+)
+class CfnAPIKeyProps:
+    def __init__(
+        self,
+        *,
+        key_name: builtins.str,
+        restrictions: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAPIKey.ApiKeyRestrictionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        expire_time: typing.Optional[builtins.str] = None,
+        force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAPIKey``.
+
+        :param key_name: A custom name for the API key resource. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique API key name. - No spaces allowed. For example, ``ExampleAPIKey`` .
+        :param restrictions: The API key restrictions for the API key resource.
+        :param description: Updates the description for the API key resource.
+        :param expire_time: The optional timestamp for when the API key resource will expire in `ISO 8601 format <https://docs.aws.amazon.com/https://www.iso.org/iso-8601-date-and-time-format.html>`_ .
+        :param force_delete: ForceDelete bypasses an API key's expiry conditions and deletes the key. Set the parameter ``true`` to delete the key or to ``false`` to not preemptively delete the API key. Valid values: ``true`` , or ``false`` . .. epigraph:: This action is irreversible. Only use ForceDelete if you are certain the key is no longer in use.
+        :param force_update: The boolean flag to be included for updating ``ExpireTime`` or Restrictions details. Must be set to ``true`` to update an API key resource that has been used in the past 7 days. ``False`` if force update is not preferred.
+        :param no_expiry: Whether the API key should expire. Set to ``true`` to set the API key to have no expiration time.
+        :param tags: Applies one or more tags to the map resource. A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_aPIKey_props = location.CfnAPIKeyProps(
+                key_name="keyName",
+                restrictions=location.CfnAPIKey.ApiKeyRestrictionsProperty(
+                    allow_actions=["allowActions"],
+                    allow_resources=["allowResources"],
+            
+                    # the properties below are optional
+                    allow_referers=["allowReferers"]
+                ),
+            
+                # the properties below are optional
+                description="description",
+                expire_time="expireTime",
+                force_delete=False,
+                force_update=False,
+                no_expiry=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4)
+            check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
+            check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument expire_time", value=expire_time, expected_type=type_hints["expire_time"])
+            check_type(argname="argument force_delete", value=force_delete, expected_type=type_hints["force_delete"])
+            check_type(argname="argument force_update", value=force_update, expected_type=type_hints["force_update"])
+            check_type(argname="argument no_expiry", value=no_expiry, expected_type=type_hints["no_expiry"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_name": key_name,
+            "restrictions": restrictions,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if expire_time is not None:
+            self._values["expire_time"] = expire_time
+        if force_delete is not None:
+            self._values["force_delete"] = force_delete
+        if force_update is not None:
+            self._values["force_update"] = force_update
+        if no_expiry is not None:
+            self._values["no_expiry"] = no_expiry
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def key_name(self) -> builtins.str:
+        '''A custom name for the API key resource.
+
+        Requirements:
+
+        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
+        - Must be a unique API key name.
+        - No spaces allowed. For example, ``ExampleAPIKey`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-keyname
+        '''
+        result = self._values.get("key_name")
+        assert result is not None, "Required property 'key_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def restrictions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAPIKey.ApiKeyRestrictionsProperty"]:
+        '''The API key restrictions for the API key resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-restrictions
+        '''
+        result = self._values.get("restrictions")
+        assert result is not None, "Required property 'restrictions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAPIKey.ApiKeyRestrictionsProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Updates the description for the API key resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expire_time(self) -> typing.Optional[builtins.str]:
+        '''The optional timestamp for when the API key resource will expire in `ISO 8601 format <https://docs.aws.amazon.com/https://www.iso.org/iso-8601-date-and-time-format.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-expiretime
+        '''
+        result = self._values.get("expire_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def force_delete(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''ForceDelete bypasses an API key's expiry conditions and deletes the key.
+
+        Set the parameter ``true`` to delete the key or to ``false`` to not preemptively delete the API key.
+
+        Valid values: ``true`` , or ``false`` .
+        .. epigraph::
+
+           This action is irreversible. Only use ForceDelete if you are certain the key is no longer in use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forcedelete
+        '''
+        result = self._values.get("force_delete")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def force_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The boolean flag to be included for updating ``ExpireTime`` or Restrictions details.
+
+        Must be set to ``true`` to update an API key resource that has been used in the past 7 days. ``False`` if force update is not preferred.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forceupdate
+        '''
+        result = self._values.get("force_update")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def no_expiry(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether the API key should expire.
+
+        Set to ``true`` to set the API key to have no expiration time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-noexpiry
+        '''
+        result = self._values.get("no_expiry")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Applies one or more tags to the map resource.
+
+        A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAPIKeyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnGeofenceCollectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_name": "collectionName",
+        "description": "description",
+        "kms_key_id": "kmsKeyId",
+        "pricing_plan": "pricingPlan",
+        "pricing_plan_data_source": "pricingPlanDataSource",
+        "tags": "tags",
+    },
+)
+class CfnGeofenceCollectionProps:
+    def __init__(
+        self,
+        *,
+        collection_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        pricing_plan_data_source: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGeofenceCollection``.
+
+        :param collection_name: A custom name for the geofence collection. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique geofence collection name. - No spaces allowed. For example, ``ExampleGeofenceCollection`` .
+        :param description: An optional description for the geofence collection.
+        :param kms_key_id: A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
+        :param pricing_plan: 
+        :param pricing_plan_data_source: (deprecated) This shape is deprecated since 2022-02-01: Deprecated. No longer allowed.
+        :param tags: Applies one or more tags to the geofence collection. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_geofence_collection_props = location.CfnGeofenceCollectionProps(
+                collection_name="collectionName",
+            
+                # the properties below are optional
+                description="description",
+                kms_key_id="kmsKeyId",
+                pricing_plan="pricingPlan",
+                pricing_plan_data_source="pricingPlanDataSource",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b)
+            check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument pricing_plan_data_source", value=pricing_plan_data_source, expected_type=type_hints["pricing_plan_data_source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_name": collection_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if pricing_plan_data_source is not None:
+            self._values["pricing_plan_data_source"] = pricing_plan_data_source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def collection_name(self) -> builtins.str:
+        '''A custom name for the geofence collection.
+
+        Requirements:
+
+        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
+        - Must be a unique geofence collection name.
+        - No spaces allowed. For example, ``ExampleGeofenceCollection`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-collectionname
+        '''
+        result = self._values.get("collection_name")
+        assert result is not None, "Required property 'collection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for the geofence collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-pricingplan
+        :stability: deprecated
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan_data_source(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This shape is deprecated since 2022-02-01: Deprecated.
+
+        No longer allowed.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-pricingplandatasource
+        :stability: deprecated
+        '''
+        result = self._values.get("pricing_plan_data_source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Applies one or more tags to the geofence collection.
+
+        A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
+
+        Format: ``"key" : "value"``
+
+        Restrictions:
+
+        - Maximum 50 tags per resource
+        - Each resource tag must be unique with a maximum of one value.
+        - Maximum key length: 128 Unicode characters in UTF-8
+        - Maximum value length: 256 Unicode characters in UTF-8
+        - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-tags
+        ::
+
+        .
+
+        - Cannot use "aws:" as a prefix for a key.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGeofenceCollectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnMapProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "map_name": "mapName",
+        "description": "description",
+        "pricing_plan": "pricingPlan",
+        "tags": "tags",
+    },
+)
+class CfnMapProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMap.MapConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        map_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMap``.
+
+        :param configuration: Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create. The map style defines the look of maps and the data provider for your map resource.
+        :param map_name: The name for the map resource. Requirements: - Must contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique map resource name. - No spaces allowed. For example, ``ExampleMap`` .
+        :param description: An optional description for the map resource.
+        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
+        :param tags: Applies one or more tags to the map resource. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_map_props = location.CfnMapProps(
+                configuration=location.CfnMap.MapConfigurationProperty(
+                    style="style",
+            
+                    # the properties below are optional
+                    custom_layers=["customLayers"],
+                    political_view="politicalView"
+                ),
+                map_name="mapName",
+            
+                # the properties below are optional
+                description="description",
+                pricing_plan="pricingPlan",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+            "map_name": map_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMap.MapConfigurationProperty"]:
+        '''Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create.
+
+        The map style defines the look of maps and the data provider for your map resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMap.MapConfigurationProperty"], result)
+
+    @builtins.property
+    def map_name(self) -> builtins.str:
+        '''The name for the map resource.
+
+        Requirements:
+
+        - Must contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
+        - Must be a unique map resource name.
+        - No spaces allowed. For example, ``ExampleMap`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-mapname
+        '''
+        result = self._values.get("map_name")
+        assert result is not None, "Required property 'map_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for the map resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
+
+        *Allowed Values* : ``RequestBasedUsage``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-pricingplan
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Applies one or more tags to the map resource.
+
+        A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
+
+        Format: ``"key" : "value"``
+
+        Restrictions:
+
+        - Maximum 50 tags per resource
+        - Each resource tag must be unique with a maximum of one value.
+        - Maximum key length: 128 Unicode characters in UTF-8
+        - Maximum value length: 256 Unicode characters in UTF-8
+        - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-tags
+        ::
+
+        .
+
+        - Cannot use "aws:" as a prefix for a key.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMapProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnPlaceIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source": "dataSource",
+        "index_name": "indexName",
+        "data_source_configuration": "dataSourceConfiguration",
+        "description": "description",
+        "pricing_plan": "pricingPlan",
+        "tags": "tags",
+    },
+)
+class CfnPlaceIndexProps:
+    def __init__(
+        self,
+        *,
+        data_source: builtins.str,
+        index_name: builtins.str,
+        data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaceIndex.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPlaceIndex``.
+
+        :param data_source: Specifies the geospatial data provider for the new place index. .. epigraph:: This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error. Valid values include: - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on geocoding coverage <https://docs.aws.amazon.com/https://developers.arcgis.com/rest/geocode/api-reference/geocode-coverage.htm>`_ . - ``Grab`` – Grab provides place index functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ . - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE details on goecoding coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/geocoder/dev_guide/topics/coverage-geocoder.html>`_ . .. epigraph:: If you specify HERE Technologies ( ``Here`` ) as the data provider, you may not `store results <https://docs.aws.amazon.com//location-places/latest/APIReference/API_DataSourceConfiguration.html>`_ for locations in Japan. For more information, see the `AWS service terms <https://docs.aws.amazon.com/service-terms/>`_ for Amazon Location Service. For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service developer guide* .
+        :param index_name: The name of the place index resource. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique place index resource name. - No spaces allowed. For example, ``ExamplePlaceIndex`` .
+        :param data_source_configuration: Specifies the data storage option requesting Places.
+        :param description: The optional description for the place index resource.
+        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_place_index_props = location.CfnPlaceIndexProps(
+                data_source="dataSource",
+                index_name="indexName",
+            
+                # the properties below are optional
+                data_source_configuration=location.CfnPlaceIndex.DataSourceConfigurationProperty(
+                    intended_use="intendedUse"
+                ),
+                description="description",
+                pricing_plan="pricingPlan",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4)
+            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source": data_source,
+            "index_name": index_name,
+        }
+        if data_source_configuration is not None:
+            self._values["data_source_configuration"] = data_source_configuration
+        if description is not None:
+            self._values["description"] = description
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_source(self) -> builtins.str:
+        '''Specifies the geospatial data provider for the new place index.
+
+        .. epigraph::
+
+           This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error.
+
+        Valid values include:
+
+        - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on geocoding coverage <https://docs.aws.amazon.com/https://developers.arcgis.com/rest/geocode/api-reference/geocode-coverage.htm>`_ .
+        - ``Grab`` – Grab provides place index functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ .
+        - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE details on goecoding coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/geocoder/dev_guide/topics/coverage-geocoder.html>`_ .
+
+        .. epigraph::
+
+           If you specify HERE Technologies ( ``Here`` ) as the data provider, you may not `store results <https://docs.aws.amazon.com//location-places/latest/APIReference/API_DataSourceConfiguration.html>`_ for locations in Japan. For more information, see the `AWS service terms <https://docs.aws.amazon.com/service-terms/>`_ for Amazon Location Service.
+
+        For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service developer guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-datasource
+        '''
+        result = self._values.get("data_source")
+        assert result is not None, "Required property 'data_source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The name of the place index resource.
+
+        Requirements:
+
+        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
+        - Must be a unique place index resource name.
+        - No spaces allowed. For example, ``ExamplePlaceIndex`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-indexname
+        '''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaceIndex.DataSourceConfigurationProperty"]]:
+        '''Specifies the data storage option requesting Places.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-datasourceconfiguration
+        '''
+        result = self._values.get("data_source_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaceIndex.DataSourceConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The optional description for the place index resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
+
+        *Allowed Values* : ``RequestBasedUsage``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-pricingplan
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPlaceIndexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnRouteCalculatorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "calculator_name": "calculatorName",
+        "data_source": "dataSource",
+        "description": "description",
+        "pricing_plan": "pricingPlan",
+        "tags": "tags",
+    },
+)
+class CfnRouteCalculatorProps:
+    def __init__(
+        self,
+        *,
+        calculator_name: builtins.str,
+        data_source: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRouteCalculator``.
+
+        :param calculator_name: The name of the route calculator resource. Requirements: - Can use alphanumeric characters (A–Z, a–z, 0–9) , hyphens (-), periods (.), and underscores (_). - Must be a unique Route calculator resource name. - No spaces allowed. For example, ``ExampleRouteCalculator`` .
+        :param data_source: Specifies the data provider of traffic and road network data. .. epigraph:: This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error. Valid values include: - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on street networks and traffic coverage <https://docs.aws.amazon.com/https://doc.arcgis.com/en/arcgis-online/reference/network-coverage.htm>`_ . Route calculators that use Esri as a data source only calculate routes that are shorter than 400 km. - ``Grab`` – Grab provides routing functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ . - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE car routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/car-routing.html>`_ and `HERE truck routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/truck-routing.html>`_ . For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service Developer Guide* .
+        :param description: The optional description for the route calculator resource.
+        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_route_calculator_props = location.CfnRouteCalculatorProps(
+                calculator_name="calculatorName",
+                data_source="dataSource",
+            
+                # the properties below are optional
+                description="description",
+                pricing_plan="pricingPlan",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9)
+            check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
+            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "calculator_name": calculator_name,
+            "data_source": data_source,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def calculator_name(self) -> builtins.str:
+        '''The name of the route calculator resource.
+
+        Requirements:
+
+        - Can use alphanumeric characters (A–Z, a–z, 0–9) , hyphens (-), periods (.), and underscores (_).
+        - Must be a unique Route calculator resource name.
+        - No spaces allowed. For example, ``ExampleRouteCalculator`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-calculatorname
+        '''
+        result = self._values.get("calculator_name")
+        assert result is not None, "Required property 'calculator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_source(self) -> builtins.str:
+        '''Specifies the data provider of traffic and road network data.
+
+        .. epigraph::
+
+           This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error.
+
+        Valid values include:
+
+        - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on street networks and traffic coverage <https://docs.aws.amazon.com/https://doc.arcgis.com/en/arcgis-online/reference/network-coverage.htm>`_ .
+
+        Route calculators that use Esri as a data source only calculate routes that are shorter than 400 km.
+
+        - ``Grab`` – Grab provides routing functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ .
+        - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE car routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/car-routing.html>`_ and `HERE truck routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/truck-routing.html>`_ .
+
+        For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-datasource
+        '''
+        result = self._values.get("data_source")
+        assert result is not None, "Required property 'data_source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The optional description for the route calculator resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
+
+        *Allowed Values* : ``RequestBasedUsage``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-pricingplan
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRouteCalculatorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnTrackerConsumerProps",
+    jsii_struct_bases=[],
+    name_mapping={"consumer_arn": "consumerArn", "tracker_name": "trackerName"},
+)
+class CfnTrackerConsumerProps:
+    def __init__(
+        self,
+        *,
+        consumer_arn: builtins.str,
+        tracker_name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnTrackerConsumer``.
+
+        :param consumer_arn: The Amazon Resource Name (ARN) for the geofence collection to be associated to tracker resource. Used when you need to specify a resource across all AWS . - Format example: ``arn:aws:geo:region:account-id:geofence-collection/ExampleGeofenceCollectionConsumer``
+        :param tracker_name: The name for the tracker resource. Requirements: - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_). - Must be a unique tracker resource name. - No spaces allowed. For example, ``ExampleTracker`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_tracker_consumer_props = location.CfnTrackerConsumerProps(
+                consumer_arn="consumerArn",
+                tracker_name="trackerName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8)
+            check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
+            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "consumer_arn": consumer_arn,
+            "tracker_name": tracker_name,
+        }
+
+    @builtins.property
+    def consumer_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the geofence collection to be associated to tracker resource.
+
+        Used when you need to specify a resource across all AWS .
+
+        - Format example: ``arn:aws:geo:region:account-id:geofence-collection/ExampleGeofenceCollectionConsumer``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html#cfn-location-trackerconsumer-consumerarn
+        '''
+        result = self._values.get("consumer_arn")
+        assert result is not None, "Required property 'consumer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tracker_name(self) -> builtins.str:
+        '''The name for the tracker resource.
+
+        Requirements:
+
+        - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_).
+        - Must be a unique tracker resource name.
+        - No spaces allowed. For example, ``ExampleTracker`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html#cfn-location-trackerconsumer-trackername
+        '''
+        result = self._values.get("tracker_name")
+        assert result is not None, "Required property 'tracker_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrackerConsumerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.CfnTrackerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "tracker_name": "trackerName",
+        "description": "description",
+        "event_bridge_enabled": "eventBridgeEnabled",
+        "kms_key_enable_geospatial_queries": "kmsKeyEnableGeospatialQueries",
+        "kms_key_id": "kmsKeyId",
+        "position_filtering": "positionFiltering",
+        "pricing_plan": "pricingPlan",
+        "pricing_plan_data_source": "pricingPlanDataSource",
+        "tags": "tags",
+    },
+)
+class CfnTrackerProps:
+    def __init__(
+        self,
+        *,
+        tracker_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        position_filtering: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        pricing_plan_data_source: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTracker``.
+
+        :param tracker_name: The name for the tracker resource. Requirements: - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_). - Must be a unique tracker resource name. - No spaces allowed. For example, ``ExampleTracker`` .
+        :param description: An optional description for the tracker resource.
+        :param event_bridge_enabled: 
+        :param kms_key_enable_geospatial_queries: 
+        :param kms_key_id: A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
+        :param position_filtering: Specifies the position filtering for the tracker resource. Valid values: - ``TimeBased`` - Location updates are evaluated against linked geofence collections, but not every location update is stored. If your update frequency is more often than 30 seconds, only one update per 30 seconds is stored for each unique device ID. - ``DistanceBased`` - If the device has moved less than 30 m (98.4 ft), location updates are ignored. Location updates within this area are neither evaluated against linked geofence collections, nor stored. This helps control costs by reducing the number of geofence evaluations and historical device positions to paginate through. Distance-based filtering can also reduce the effects of GPS noise when displaying device trajectories on a map. - ``AccuracyBased`` - If the device has moved less than the measured accuracy, location updates are ignored. For example, if two consecutive updates from a device have a horizontal accuracy of 5 m and 10 m, the second update is ignored if the device has moved less than 15 m. Ignored location updates are neither evaluated against linked geofence collections, nor stored. This can reduce the effects of GPS noise when displaying device trajectories on a map, and can help control your costs by reducing the number of geofence evaluations. This field is optional. If not specified, the default value is ``TimeBased`` .
+        :param pricing_plan: 
+        :param pricing_plan_data_source: (deprecated) This shape is deprecated since 2022-02-01: Deprecated. No longer allowed.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            cfn_tracker_props = location.CfnTrackerProps(
+                tracker_name="trackerName",
+            
+                # the properties below are optional
+                description="description",
+                event_bridge_enabled=False,
+                kms_key_enable_geospatial_queries=False,
+                kms_key_id="kmsKeyId",
+                position_filtering="positionFiltering",
+                pricing_plan="pricingPlan",
+                pricing_plan_data_source="pricingPlanDataSource",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9)
+            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_bridge_enabled", value=event_bridge_enabled, expected_type=type_hints["event_bridge_enabled"])
+            check_type(argname="argument kms_key_enable_geospatial_queries", value=kms_key_enable_geospatial_queries, expected_type=type_hints["kms_key_enable_geospatial_queries"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument position_filtering", value=position_filtering, expected_type=type_hints["position_filtering"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument pricing_plan_data_source", value=pricing_plan_data_source, expected_type=type_hints["pricing_plan_data_source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tracker_name": tracker_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if event_bridge_enabled is not None:
+            self._values["event_bridge_enabled"] = event_bridge_enabled
+        if kms_key_enable_geospatial_queries is not None:
+            self._values["kms_key_enable_geospatial_queries"] = kms_key_enable_geospatial_queries
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if position_filtering is not None:
+            self._values["position_filtering"] = position_filtering
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if pricing_plan_data_source is not None:
+            self._values["pricing_plan_data_source"] = pricing_plan_data_source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def tracker_name(self) -> builtins.str:
+        '''The name for the tracker resource.
+
+        Requirements:
+
+        - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_).
+        - Must be a unique tracker resource name.
+        - No spaces allowed. For example, ``ExampleTracker`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-trackername
+        '''
+        result = self._values.get("tracker_name")
+        assert result is not None, "Required property 'tracker_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for the tracker resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_bridge_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-eventbridgeenabled
+        '''
+        result = self._values.get("event_bridge_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_key_enable_geospatial_queries(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-kmskeyenablegeospatialqueries
+        '''
+        result = self._values.get("kms_key_enable_geospatial_queries")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def position_filtering(self) -> typing.Optional[builtins.str]:
+        '''Specifies the position filtering for the tracker resource.
+
+        Valid values:
+
+        - ``TimeBased`` - Location updates are evaluated against linked geofence collections, but not every location update is stored. If your update frequency is more often than 30 seconds, only one update per 30 seconds is stored for each unique device ID.
+        - ``DistanceBased`` - If the device has moved less than 30 m (98.4 ft), location updates are ignored. Location updates within this area are neither evaluated against linked geofence collections, nor stored. This helps control costs by reducing the number of geofence evaluations and historical device positions to paginate through. Distance-based filtering can also reduce the effects of GPS noise when displaying device trajectories on a map.
+        - ``AccuracyBased`` - If the device has moved less than the measured accuracy, location updates are ignored. For example, if two consecutive updates from a device have a horizontal accuracy of 5 m and 10 m, the second update is ignored if the device has moved less than 15 m. Ignored location updates are neither evaluated against linked geofence collections, nor stored. This can reduce the effects of GPS noise when displaying device trajectories on a map, and can help control your costs by reducing the number of geofence evaluations.
+
+        This field is optional. If not specified, the default value is ``TimeBased`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-positionfiltering
+        '''
+        result = self._values.get("position_filtering")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-pricingplan
+        :stability: deprecated
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan_data_source(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This shape is deprecated since 2022-02-01: Deprecated.
+
+        No longer allowed.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-pricingplandatasource
+        :stability: deprecated
+        '''
+        result = self._values.get("pricing_plan_data_source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrackerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.GeofenceCollectionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_name": "collectionName",
+        "geofence_collection_arn": "geofenceCollectionArn",
+    },
+)
+class GeofenceCollectionReference:
+    def __init__(
+        self,
+        *,
+        collection_name: builtins.str,
+        geofence_collection_arn: builtins.str,
+    ) -> None:
+        '''A reference to a GeofenceCollection resource.
+
+        :param collection_name: The CollectionName of the GeofenceCollection resource.
+        :param geofence_collection_arn: The ARN of the GeofenceCollection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            geofence_collection_reference = location.GeofenceCollectionReference(
+                collection_name="collectionName",
+                geofence_collection_arn="geofenceCollectionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9c3e0a941f225a79a6b07422264d07ec90645df5b011d4c2a74adba9aa2be1d)
+            check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
+            check_type(argname="argument geofence_collection_arn", value=geofence_collection_arn, expected_type=type_hints["geofence_collection_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_name": collection_name,
+            "geofence_collection_arn": geofence_collection_arn,
+        }
+
+    @builtins.property
+    def collection_name(self) -> builtins.str:
+        '''The CollectionName of the GeofenceCollection resource.'''
+        result = self._values.get("collection_name")
+        assert result is not None, "Required property 'collection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def geofence_collection_arn(self) -> builtins.str:
+        '''The ARN of the GeofenceCollection resource.'''
+        result = self._values.get("geofence_collection_arn")
+        assert result is not None, "Required property 'geofence_collection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GeofenceCollectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.IAPIKeyRef")
+class IAPIKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a APIKey.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyRef")
+    def api_key_ref(self) -> APIKeyReference:
+        '''(experimental) A reference to a APIKey resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAPIKeyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a APIKey.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.IAPIKeyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyRef")
+    def api_key_ref(self) -> APIKeyReference:
+        '''(experimental) A reference to a APIKey resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(APIKeyReference, jsii.get(self, "apiKeyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAPIKeyRef).__jsii_proxy_class__ = lambda : _IAPIKeyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.IGeofenceCollectionRef")
+class IGeofenceCollectionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a GeofenceCollection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="geofenceCollectionRef")
+    def geofence_collection_ref(self) -> GeofenceCollectionReference:
+        '''(experimental) A reference to a GeofenceCollection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGeofenceCollectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GeofenceCollection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.IGeofenceCollectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="geofenceCollectionRef")
+    def geofence_collection_ref(self) -> GeofenceCollectionReference:
+        '''(experimental) A reference to a GeofenceCollection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GeofenceCollectionReference, jsii.get(self, "geofenceCollectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGeofenceCollectionRef).__jsii_proxy_class__ = lambda : _IGeofenceCollectionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.IMapRef")
+class IMapRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Map.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRef")
+    def map_ref(self) -> "MapReference":
+        '''(experimental) A reference to a Map resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMapRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Map.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.IMapRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRef")
+    def map_ref(self) -> "MapReference":
+        '''(experimental) A reference to a Map resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MapReference", jsii.get(self, "mapRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMapRef).__jsii_proxy_class__ = lambda : _IMapRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.IPlaceIndexRef")
+class IPlaceIndexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PlaceIndex.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="placeIndexRef")
+    def place_index_ref(self) -> "PlaceIndexReference":
+        '''(experimental) A reference to a PlaceIndex resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPlaceIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PlaceIndex.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.IPlaceIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="placeIndexRef")
+    def place_index_ref(self) -> "PlaceIndexReference":
+        '''(experimental) A reference to a PlaceIndex resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PlaceIndexReference", jsii.get(self, "placeIndexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPlaceIndexRef).__jsii_proxy_class__ = lambda : _IPlaceIndexRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.IRouteCalculatorRef")
+class IRouteCalculatorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a RouteCalculator.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="routeCalculatorRef")
+    def route_calculator_ref(self) -> "RouteCalculatorReference":
+        '''(experimental) A reference to a RouteCalculator resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRouteCalculatorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RouteCalculator.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.IRouteCalculatorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="routeCalculatorRef")
+    def route_calculator_ref(self) -> "RouteCalculatorReference":
+        '''(experimental) A reference to a RouteCalculator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RouteCalculatorReference", jsii.get(self, "routeCalculatorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRouteCalculatorRef).__jsii_proxy_class__ = lambda : _IRouteCalculatorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.ITrackerConsumerRef")
+class ITrackerConsumerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TrackerConsumer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trackerConsumerRef")
+    def tracker_consumer_ref(self) -> "TrackerConsumerReference":
+        '''(experimental) A reference to a TrackerConsumer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrackerConsumerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrackerConsumer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.ITrackerConsumerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trackerConsumerRef")
+    def tracker_consumer_ref(self) -> "TrackerConsumerReference":
+        '''(experimental) A reference to a TrackerConsumer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrackerConsumerReference", jsii.get(self, "trackerConsumerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrackerConsumerRef).__jsii_proxy_class__ = lambda : _ITrackerConsumerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_location.ITrackerRef")
+class ITrackerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Tracker.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trackerRef")
+    def tracker_ref(self) -> "TrackerReference":
+        '''(experimental) A reference to a Tracker resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrackerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Tracker.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_location.ITrackerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trackerRef")
+    def tracker_ref(self) -> "TrackerReference":
+        '''(experimental) A reference to a Tracker resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrackerReference", jsii.get(self, "trackerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrackerRef).__jsii_proxy_class__ = lambda : _ITrackerRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.MapReference",
+    jsii_struct_bases=[],
+    name_mapping={"map_arn": "mapArn", "map_name": "mapName"},
+)
+class MapReference:
+    def __init__(self, *, map_arn: builtins.str, map_name: builtins.str) -> None:
+        '''A reference to a Map resource.
+
+        :param map_arn: The ARN of the Map resource.
+        :param map_name: The MapName of the Map resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            map_reference = location.MapReference(
+                map_arn="mapArn",
+                map_name="mapName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3ea56b8a11a8afa0e67fa222c515dae6b85aa67f7b4ab4333a6dd4ae68020b3)
+            check_type(argname="argument map_arn", value=map_arn, expected_type=type_hints["map_arn"])
+            check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "map_arn": map_arn,
+            "map_name": map_name,
+        }
+
+    @builtins.property
+    def map_arn(self) -> builtins.str:
+        '''The ARN of the Map resource.'''
+        result = self._values.get("map_arn")
+        assert result is not None, "Required property 'map_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def map_name(self) -> builtins.str:
+        '''The MapName of the Map resource.'''
+        result = self._values.get("map_name")
+        assert result is not None, "Required property 'map_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MapReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.PlaceIndexReference",
+    jsii_struct_bases=[],
+    name_mapping={"index_name": "indexName", "place_index_arn": "placeIndexArn"},
+)
+class PlaceIndexReference:
+    def __init__(
+        self,
+        *,
+        index_name: builtins.str,
+        place_index_arn: builtins.str,
+    ) -> None:
+        '''A reference to a PlaceIndex resource.
+
+        :param index_name: The IndexName of the PlaceIndex resource.
+        :param place_index_arn: The ARN of the PlaceIndex resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            place_index_reference = location.PlaceIndexReference(
+                index_name="indexName",
+                place_index_arn="placeIndexArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2115dabf55a586a0bb15ab2faff3d2d77b5b38672c4bd5b10f1580f5ec9b6de)
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument place_index_arn", value=place_index_arn, expected_type=type_hints["place_index_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_name": index_name,
+            "place_index_arn": place_index_arn,
+        }
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The IndexName of the PlaceIndex resource.'''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def place_index_arn(self) -> builtins.str:
+        '''The ARN of the PlaceIndex resource.'''
+        result = self._values.get("place_index_arn")
+        assert result is not None, "Required property 'place_index_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PlaceIndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.RouteCalculatorReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "calculator_name": "calculatorName",
+        "route_calculator_arn": "routeCalculatorArn",
+    },
+)
+class RouteCalculatorReference:
+    def __init__(
+        self,
+        *,
+        calculator_name: builtins.str,
+        route_calculator_arn: builtins.str,
+    ) -> None:
+        '''A reference to a RouteCalculator resource.
+
+        :param calculator_name: The CalculatorName of the RouteCalculator resource.
+        :param route_calculator_arn: The ARN of the RouteCalculator resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            route_calculator_reference = location.RouteCalculatorReference(
+                calculator_name="calculatorName",
+                route_calculator_arn="routeCalculatorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c56163820eb3f59621ae07ec7c44e1c26499cc9a17013005f9e9ce275d69a7c3)
+            check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
+            check_type(argname="argument route_calculator_arn", value=route_calculator_arn, expected_type=type_hints["route_calculator_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "calculator_name": calculator_name,
+            "route_calculator_arn": route_calculator_arn,
+        }
+
+    @builtins.property
+    def calculator_name(self) -> builtins.str:
+        '''The CalculatorName of the RouteCalculator resource.'''
+        result = self._values.get("calculator_name")
+        assert result is not None, "Required property 'calculator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def route_calculator_arn(self) -> builtins.str:
+        '''The ARN of the RouteCalculator resource.'''
+        result = self._values.get("route_calculator_arn")
+        assert result is not None, "Required property 'route_calculator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RouteCalculatorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.TrackerConsumerReference",
+    jsii_struct_bases=[],
+    name_mapping={"consumer_arn": "consumerArn", "tracker_name": "trackerName"},
+)
+class TrackerConsumerReference:
+    def __init__(
+        self,
+        *,
+        consumer_arn: builtins.str,
+        tracker_name: builtins.str,
+    ) -> None:
+        '''A reference to a TrackerConsumer resource.
+
+        :param consumer_arn: The ConsumerArn of the TrackerConsumer resource.
+        :param tracker_name: The TrackerName of the TrackerConsumer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            tracker_consumer_reference = location.TrackerConsumerReference(
+                consumer_arn="consumerArn",
+                tracker_name="trackerName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1dd2b3b4d950a7ac3e04206a467d457948c6e0e80c0a432dce5ce11407688a88)
+            check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
+            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "consumer_arn": consumer_arn,
+            "tracker_name": tracker_name,
+        }
+
+    @builtins.property
+    def consumer_arn(self) -> builtins.str:
+        '''The ConsumerArn of the TrackerConsumer resource.'''
+        result = self._values.get("consumer_arn")
+        assert result is not None, "Required property 'consumer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tracker_name(self) -> builtins.str:
+        '''The TrackerName of the TrackerConsumer resource.'''
+        result = self._values.get("tracker_name")
+        assert result is not None, "Required property 'tracker_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrackerConsumerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_location.TrackerReference",
+    jsii_struct_bases=[],
+    name_mapping={"tracker_arn": "trackerArn", "tracker_name": "trackerName"},
+)
+class TrackerReference:
+    def __init__(
+        self,
+        *,
+        tracker_arn: builtins.str,
+        tracker_name: builtins.str,
+    ) -> None:
+        '''A reference to a Tracker resource.
+
+        :param tracker_arn: The ARN of the Tracker resource.
+        :param tracker_name: The TrackerName of the Tracker resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_location as location
+            
+            tracker_reference = location.TrackerReference(
+                tracker_arn="trackerArn",
+                tracker_name="trackerName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e11affc747a5d26cc7ec172d27ff48c6d39d7b7e8ddfe3f7e99c474899e8fd9b)
+            check_type(argname="argument tracker_arn", value=tracker_arn, expected_type=type_hints["tracker_arn"])
+            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tracker_arn": tracker_arn,
+            "tracker_name": tracker_name,
+        }
+
+    @builtins.property
+    def tracker_arn(self) -> builtins.str:
+        '''The ARN of the Tracker resource.'''
+        result = self._values.get("tracker_arn")
+        assert result is not None, "Required property 'tracker_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tracker_name(self) -> builtins.str:
+        '''The TrackerName of the Tracker resource.'''
+        result = self._values.get("tracker_name")
+        assert result is not None, "Required property 'tracker_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrackerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAPIKeyRef, _ITaggableV2_4e6798f8)
 class CfnAPIKey(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -187,6 +2087,12 @@ class CfnAPIKey(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeyRef")
+    def api_key_ref(self) -> APIKeyReference:
+        '''A reference to a APIKey resource.'''
+        return typing.cast(APIKeyReference, jsii.get(self, "apiKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -513,216 +2419,7 @@ class CfnAPIKey(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnAPIKeyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "key_name": "keyName",
-        "restrictions": "restrictions",
-        "description": "description",
-        "expire_time": "expireTime",
-        "force_delete": "forceDelete",
-        "force_update": "forceUpdate",
-        "no_expiry": "noExpiry",
-        "tags": "tags",
-    },
-)
-class CfnAPIKeyProps:
-    def __init__(
-        self,
-        *,
-        key_name: builtins.str,
-        restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        expire_time: typing.Optional[builtins.str] = None,
-        force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAPIKey``.
-
-        :param key_name: A custom name for the API key resource. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique API key name. - No spaces allowed. For example, ``ExampleAPIKey`` .
-        :param restrictions: The API key restrictions for the API key resource.
-        :param description: Updates the description for the API key resource.
-        :param expire_time: The optional timestamp for when the API key resource will expire in `ISO 8601 format <https://docs.aws.amazon.com/https://www.iso.org/iso-8601-date-and-time-format.html>`_ .
-        :param force_delete: ForceDelete bypasses an API key's expiry conditions and deletes the key. Set the parameter ``true`` to delete the key or to ``false`` to not preemptively delete the API key. Valid values: ``true`` , or ``false`` . .. epigraph:: This action is irreversible. Only use ForceDelete if you are certain the key is no longer in use.
-        :param force_update: The boolean flag to be included for updating ``ExpireTime`` or Restrictions details. Must be set to ``true`` to update an API key resource that has been used in the past 7 days. ``False`` if force update is not preferred.
-        :param no_expiry: Whether the API key should expire. Set to ``true`` to set the API key to have no expiration time.
-        :param tags: Applies one or more tags to the map resource. A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_aPIKey_props = location.CfnAPIKeyProps(
-                key_name="keyName",
-                restrictions=location.CfnAPIKey.ApiKeyRestrictionsProperty(
-                    allow_actions=["allowActions"],
-                    allow_resources=["allowResources"],
-            
-                    # the properties below are optional
-                    allow_referers=["allowReferers"]
-                ),
-            
-                # the properties below are optional
-                description="description",
-                expire_time="expireTime",
-                force_delete=False,
-                force_update=False,
-                no_expiry=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4)
-            check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
-            check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument expire_time", value=expire_time, expected_type=type_hints["expire_time"])
-            check_type(argname="argument force_delete", value=force_delete, expected_type=type_hints["force_delete"])
-            check_type(argname="argument force_update", value=force_update, expected_type=type_hints["force_update"])
-            check_type(argname="argument no_expiry", value=no_expiry, expected_type=type_hints["no_expiry"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key_name": key_name,
-            "restrictions": restrictions,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if expire_time is not None:
-            self._values["expire_time"] = expire_time
-        if force_delete is not None:
-            self._values["force_delete"] = force_delete
-        if force_update is not None:
-            self._values["force_update"] = force_update
-        if no_expiry is not None:
-            self._values["no_expiry"] = no_expiry
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def key_name(self) -> builtins.str:
-        '''A custom name for the API key resource.
-
-        Requirements:
-
-        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
-        - Must be a unique API key name.
-        - No spaces allowed. For example, ``ExampleAPIKey`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-keyname
-        '''
-        result = self._values.get("key_name")
-        assert result is not None, "Required property 'key_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def restrictions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAPIKey.ApiKeyRestrictionsProperty]:
-        '''The API key restrictions for the API key resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-restrictions
-        '''
-        result = self._values.get("restrictions")
-        assert result is not None, "Required property 'restrictions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAPIKey.ApiKeyRestrictionsProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Updates the description for the API key resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expire_time(self) -> typing.Optional[builtins.str]:
-        '''The optional timestamp for when the API key resource will expire in `ISO 8601 format <https://docs.aws.amazon.com/https://www.iso.org/iso-8601-date-and-time-format.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-expiretime
-        '''
-        result = self._values.get("expire_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def force_delete(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''ForceDelete bypasses an API key's expiry conditions and deletes the key.
-
-        Set the parameter ``true`` to delete the key or to ``false`` to not preemptively delete the API key.
-
-        Valid values: ``true`` , or ``false`` .
-        .. epigraph::
-
-           This action is irreversible. Only use ForceDelete if you are certain the key is no longer in use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forcedelete
-        '''
-        result = self._values.get("force_delete")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def force_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The boolean flag to be included for updating ``ExpireTime`` or Restrictions details.
-
-        Must be set to ``true`` to update an API key resource that has been used in the past 7 days. ``False`` if force update is not preferred.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-forceupdate
-        '''
-        result = self._values.get("force_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def no_expiry(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether the API key should expire.
-
-        Set to ``true`` to set the API key to have no expiration time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-noexpiry
-        '''
-        result = self._values.get("no_expiry")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Applies one or more tags to the map resource.
-
-        A tag is a key-value pair that helps manage, identify, search, and filter your resources by labelling them.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-apikey.html#cfn-location-apikey-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAPIKeyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IGeofenceCollectionRef, _ITaggableV2_4e6798f8)
 class CfnGeofenceCollection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -878,6 +2575,12 @@ class CfnGeofenceCollection(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="geofenceCollectionRef")
+    def geofence_collection_ref(self) -> GeofenceCollectionReference:
+        '''A reference to a GeofenceCollection resource.'''
+        return typing.cast(GeofenceCollectionReference, jsii.get(self, "geofenceCollectionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="collectionName")
     def collection_name(self) -> builtins.str:
         '''A custom name for the geofence collection.'''
@@ -965,181 +2668,7 @@ class CfnGeofenceCollection(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnGeofenceCollectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "collection_name": "collectionName",
-        "description": "description",
-        "kms_key_id": "kmsKeyId",
-        "pricing_plan": "pricingPlan",
-        "pricing_plan_data_source": "pricingPlanDataSource",
-        "tags": "tags",
-    },
-)
-class CfnGeofenceCollectionProps:
-    def __init__(
-        self,
-        *,
-        collection_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGeofenceCollection``.
-
-        :param collection_name: A custom name for the geofence collection. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique geofence collection name. - No spaces allowed. For example, ``ExampleGeofenceCollection`` .
-        :param description: An optional description for the geofence collection.
-        :param kms_key_id: A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
-        :param pricing_plan: 
-        :param pricing_plan_data_source: (deprecated) This shape is deprecated since 2022-02-01: Deprecated. No longer allowed.
-        :param tags: Applies one or more tags to the geofence collection. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_geofence_collection_props = location.CfnGeofenceCollectionProps(
-                collection_name="collectionName",
-            
-                # the properties below are optional
-                description="description",
-                kms_key_id="kmsKeyId",
-                pricing_plan="pricingPlan",
-                pricing_plan_data_source="pricingPlanDataSource",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b)
-            check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument pricing_plan_data_source", value=pricing_plan_data_source, expected_type=type_hints["pricing_plan_data_source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "collection_name": collection_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if pricing_plan_data_source is not None:
-            self._values["pricing_plan_data_source"] = pricing_plan_data_source
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def collection_name(self) -> builtins.str:
-        '''A custom name for the geofence collection.
-
-        Requirements:
-
-        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
-        - Must be a unique geofence collection name.
-        - No spaces allowed. For example, ``ExampleGeofenceCollection`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-collectionname
-        '''
-        result = self._values.get("collection_name")
-        assert result is not None, "Required property 'collection_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for the geofence collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-pricingplan
-        :stability: deprecated
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan_data_source(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This shape is deprecated since 2022-02-01: Deprecated.
-
-        No longer allowed.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-pricingplandatasource
-        :stability: deprecated
-        '''
-        result = self._values.get("pricing_plan_data_source")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Applies one or more tags to the geofence collection.
-
-        A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
-
-        Format: ``"key" : "value"``
-
-        Restrictions:
-
-        - Maximum 50 tags per resource
-        - Each resource tag must be unique with a maximum of one value.
-        - Maximum key length: 128 Unicode characters in UTF-8
-        - Maximum value length: 256 Unicode characters in UTF-8
-        - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-geofencecollection.html#cfn-location-geofencecollection-tags
-        ::
-
-        .
-
-        - Cannot use "aws:" as a prefix for a key.
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGeofenceCollectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMapRef, _ITaggableV2_4e6798f8)
 class CfnMap(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1301,6 +2830,12 @@ class CfnMap(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRef")
+    def map_ref(self) -> MapReference:
+        '''A reference to a Map resource.'''
+        return typing.cast(MapReference, jsii.get(self, "mapRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
@@ -1515,170 +3050,7 @@ class CfnMap(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnMapProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration": "configuration",
-        "map_name": "mapName",
-        "description": "description",
-        "pricing_plan": "pricingPlan",
-        "tags": "tags",
-    },
-)
-class CfnMapProps:
-    def __init__(
-        self,
-        *,
-        configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        map_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMap``.
-
-        :param configuration: Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create. The map style defines the look of maps and the data provider for your map resource.
-        :param map_name: The name for the map resource. Requirements: - Must contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique map resource name. - No spaces allowed. For example, ``ExampleMap`` .
-        :param description: An optional description for the map resource.
-        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
-        :param tags: Applies one or more tags to the map resource. A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them. Format: ``"key" : "value"`` Restrictions: - Maximum 50 tags per resource - Each resource tag must be unique with a maximum of one value. - Maximum key length: 128 Unicode characters in UTF-8 - Maximum value length: 256 Unicode characters in UTF-8 - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_map_props = location.CfnMapProps(
-                configuration=location.CfnMap.MapConfigurationProperty(
-                    style="style",
-            
-                    # the properties below are optional
-                    custom_layers=["customLayers"],
-                    political_view="politicalView"
-                ),
-                map_name="mapName",
-            
-                # the properties below are optional
-                description="description",
-                pricing_plan="pricingPlan",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8)
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration": configuration,
-            "map_name": map_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMap.MapConfigurationProperty]:
-        '''Specifies the ``MapConfiguration`` , including the map style, for the map resource that you create.
-
-        The map style defines the look of maps and the data provider for your map resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMap.MapConfigurationProperty], result)
-
-    @builtins.property
-    def map_name(self) -> builtins.str:
-        '''The name for the map resource.
-
-        Requirements:
-
-        - Must contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
-        - Must be a unique map resource name.
-        - No spaces allowed. For example, ``ExampleMap`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-mapname
-        '''
-        result = self._values.get("map_name")
-        assert result is not None, "Required property 'map_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for the map resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
-
-        *Allowed Values* : ``RequestBasedUsage``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-pricingplan
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Applies one or more tags to the map resource.
-
-        A tag is a key-value pair helps manage, identify, search, and filter your resources by labelling them.
-
-        Format: ``"key" : "value"``
-
-        Restrictions:
-
-        - Maximum 50 tags per resource
-        - Each resource tag must be unique with a maximum of one value.
-        - Maximum key length: 128 Unicode characters in UTF-8
-        - Maximum value length: 256 Unicode characters in UTF-8
-        - Can use alphanumeric characters (A–Z, a–z, 0–9), and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-map.html#cfn-location-map-tags
-        ::
-
-        .
-
-        - Cannot use "aws:" as a prefix for a key.
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMapProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPlaceIndexRef, _ITaggableV2_4e6798f8)
 class CfnPlaceIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1839,6 +3211,12 @@ class CfnPlaceIndex(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="placeIndexRef")
+    def place_index_ref(self) -> PlaceIndexReference:
+        '''A reference to a PlaceIndex resource.'''
+        return typing.cast(PlaceIndexReference, jsii.get(self, "placeIndexRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="dataSource")
     def data_source(self) -> builtins.str:
         '''Specifies the geospatial data provider for the new place index.'''
@@ -1987,179 +3365,7 @@ class CfnPlaceIndex(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnPlaceIndexProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_source": "dataSource",
-        "index_name": "indexName",
-        "data_source_configuration": "dataSourceConfiguration",
-        "description": "description",
-        "pricing_plan": "pricingPlan",
-        "tags": "tags",
-    },
-)
-class CfnPlaceIndexProps:
-    def __init__(
-        self,
-        *,
-        data_source: builtins.str,
-        index_name: builtins.str,
-        data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPlaceIndex``.
-
-        :param data_source: Specifies the geospatial data provider for the new place index. .. epigraph:: This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error. Valid values include: - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on geocoding coverage <https://docs.aws.amazon.com/https://developers.arcgis.com/rest/geocode/api-reference/geocode-coverage.htm>`_ . - ``Grab`` – Grab provides place index functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ . - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE details on goecoding coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/geocoder/dev_guide/topics/coverage-geocoder.html>`_ . .. epigraph:: If you specify HERE Technologies ( ``Here`` ) as the data provider, you may not `store results <https://docs.aws.amazon.com//location-places/latest/APIReference/API_DataSourceConfiguration.html>`_ for locations in Japan. For more information, see the `AWS service terms <https://docs.aws.amazon.com/service-terms/>`_ for Amazon Location Service. For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service developer guide* .
-        :param index_name: The name of the place index resource. Requirements: - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_). - Must be a unique place index resource name. - No spaces allowed. For example, ``ExamplePlaceIndex`` .
-        :param data_source_configuration: Specifies the data storage option requesting Places.
-        :param description: The optional description for the place index resource.
-        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_place_index_props = location.CfnPlaceIndexProps(
-                data_source="dataSource",
-                index_name="indexName",
-            
-                # the properties below are optional
-                data_source_configuration=location.CfnPlaceIndex.DataSourceConfigurationProperty(
-                    intended_use="intendedUse"
-                ),
-                description="description",
-                pricing_plan="pricingPlan",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4)
-            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
-            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_source": data_source,
-            "index_name": index_name,
-        }
-        if data_source_configuration is not None:
-            self._values["data_source_configuration"] = data_source_configuration
-        if description is not None:
-            self._values["description"] = description
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def data_source(self) -> builtins.str:
-        '''Specifies the geospatial data provider for the new place index.
-
-        .. epigraph::
-
-           This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error.
-
-        Valid values include:
-
-        - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on geocoding coverage <https://docs.aws.amazon.com/https://developers.arcgis.com/rest/geocode/api-reference/geocode-coverage.htm>`_ .
-        - ``Grab`` – Grab provides place index functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ .
-        - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE details on goecoding coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/geocoder/dev_guide/topics/coverage-geocoder.html>`_ .
-
-        .. epigraph::
-
-           If you specify HERE Technologies ( ``Here`` ) as the data provider, you may not `store results <https://docs.aws.amazon.com//location-places/latest/APIReference/API_DataSourceConfiguration.html>`_ for locations in Japan. For more information, see the `AWS service terms <https://docs.aws.amazon.com/service-terms/>`_ for Amazon Location Service.
-
-        For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service developer guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-datasource
-        '''
-        result = self._values.get("data_source")
-        assert result is not None, "Required property 'data_source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def index_name(self) -> builtins.str:
-        '''The name of the place index resource.
-
-        Requirements:
-
-        - Contain only alphanumeric characters (A–Z, a–z, 0–9), hyphens (-), periods (.), and underscores (_).
-        - Must be a unique place index resource name.
-        - No spaces allowed. For example, ``ExamplePlaceIndex`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-indexname
-        '''
-        result = self._values.get("index_name")
-        assert result is not None, "Required property 'index_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_source_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaceIndex.DataSourceConfigurationProperty]]:
-        '''Specifies the data storage option requesting Places.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-datasourceconfiguration
-        '''
-        result = self._values.get("data_source_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaceIndex.DataSourceConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The optional description for the place index resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
-
-        *Allowed Values* : ``RequestBasedUsage``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-pricingplan
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-placeindex.html#cfn-location-placeindex-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPlaceIndexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IRouteCalculatorRef, _ITaggableV2_4e6798f8)
 class CfnRouteCalculator(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2316,6 +3522,12 @@ class CfnRouteCalculator(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="routeCalculatorRef")
+    def route_calculator_ref(self) -> RouteCalculatorReference:
+        '''A reference to a RouteCalculator resource.'''
+        return typing.cast(RouteCalculatorReference, jsii.get(self, "routeCalculatorRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="calculatorName")
     def calculator_name(self) -> builtins.str:
         '''The name of the route calculator resource.'''
@@ -2384,158 +3596,7 @@ class CfnRouteCalculator(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnRouteCalculatorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "calculator_name": "calculatorName",
-        "data_source": "dataSource",
-        "description": "description",
-        "pricing_plan": "pricingPlan",
-        "tags": "tags",
-    },
-)
-class CfnRouteCalculatorProps:
-    def __init__(
-        self,
-        *,
-        calculator_name: builtins.str,
-        data_source: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRouteCalculator``.
-
-        :param calculator_name: The name of the route calculator resource. Requirements: - Can use alphanumeric characters (A–Z, a–z, 0–9) , hyphens (-), periods (.), and underscores (_). - Must be a unique Route calculator resource name. - No spaces allowed. For example, ``ExampleRouteCalculator`` .
-        :param data_source: Specifies the data provider of traffic and road network data. .. epigraph:: This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error. Valid values include: - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on street networks and traffic coverage <https://docs.aws.amazon.com/https://doc.arcgis.com/en/arcgis-online/reference/network-coverage.htm>`_ . Route calculators that use Esri as a data source only calculate routes that are shorter than 400 km. - ``Grab`` – Grab provides routing functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ . - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE car routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/car-routing.html>`_ and `HERE truck routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/truck-routing.html>`_ . For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service Developer Guide* .
-        :param description: The optional description for the route calculator resource.
-        :param pricing_plan: No longer used. If included, the only allowed value is ``RequestBasedUsage`` . *Allowed Values* : ``RequestBasedUsage``
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_route_calculator_props = location.CfnRouteCalculatorProps(
-                calculator_name="calculatorName",
-                data_source="dataSource",
-            
-                # the properties below are optional
-                description="description",
-                pricing_plan="pricingPlan",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9)
-            check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
-            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "calculator_name": calculator_name,
-            "data_source": data_source,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def calculator_name(self) -> builtins.str:
-        '''The name of the route calculator resource.
-
-        Requirements:
-
-        - Can use alphanumeric characters (A–Z, a–z, 0–9) , hyphens (-), periods (.), and underscores (_).
-        - Must be a unique Route calculator resource name.
-        - No spaces allowed. For example, ``ExampleRouteCalculator`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-calculatorname
-        '''
-        result = self._values.get("calculator_name")
-        assert result is not None, "Required property 'calculator_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_source(self) -> builtins.str:
-        '''Specifies the data provider of traffic and road network data.
-
-        .. epigraph::
-
-           This field is case-sensitive. Enter the valid values as shown. For example, entering ``HERE`` returns an error.
-
-        Valid values include:
-
-        - ``Esri`` – For additional information about `Esri <https://docs.aws.amazon.com/location/previous/developerguide/esri.html>`_ 's coverage in your region of interest, see `Esri details on street networks and traffic coverage <https://docs.aws.amazon.com/https://doc.arcgis.com/en/arcgis-online/reference/network-coverage.htm>`_ .
-
-        Route calculators that use Esri as a data source only calculate routes that are shorter than 400 km.
-
-        - ``Grab`` – Grab provides routing functionality for Southeast Asia. For additional information about `GrabMaps <https://docs.aws.amazon.com/location/previous/developerguide/grab.html>`_ ' coverage, see `GrabMaps countries and areas covered <https://docs.aws.amazon.com/location/previous/developerguide/grab.html#grab-coverage-area>`_ .
-        - ``Here`` – For additional information about `HERE Technologies <https://docs.aws.amazon.com/location/previous/developerguide/HERE.html>`_ ' coverage in your region of interest, see `HERE car routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/car-routing.html>`_ and `HERE truck routing coverage <https://docs.aws.amazon.com/https://developer.here.com/documentation/routing-api/dev_guide/topics/coverage/truck-routing.html>`_ .
-
-        For additional information , see `Data providers <https://docs.aws.amazon.com/location/previous/developerguide/what-is-data-provider.html>`_ on the *Amazon Location Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-datasource
-        '''
-        result = self._values.get("data_source")
-        assert result is not None, "Required property 'data_source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The optional description for the route calculator resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''No longer used. If included, the only allowed value is ``RequestBasedUsage`` .
-
-        *Allowed Values* : ``RequestBasedUsage``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-pricingplan
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-routecalculator.html#cfn-location-routecalculator-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRouteCalculatorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITrackerRef, _ITaggableV2_4e6798f8)
 class CfnTracker(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2703,6 +3764,12 @@ class CfnTracker(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="trackerRef")
+    def tracker_ref(self) -> TrackerReference:
+        '''A reference to a Tracker resource.'''
+        return typing.cast(TrackerReference, jsii.get(self, "trackerRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="trackerName")
     def tracker_name(self) -> builtins.str:
         '''The name for the tracker resource.'''
@@ -2837,7 +3904,7 @@ class CfnTracker(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITrackerConsumerRef)
 class CfnTrackerConsumer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2926,6 +3993,12 @@ class CfnTrackerConsumer(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="trackerConsumerRef")
+    def tracker_consumer_ref(self) -> TrackerConsumerReference:
+        '''A reference to a TrackerConsumer resource.'''
+        return typing.cast(TrackerConsumerReference, jsii.get(self, "trackerConsumerRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="consumerArn")
     def consumer_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) for the geofence collection to be associated to tracker resource.'''
@@ -2952,304 +4025,8 @@ class CfnTrackerConsumer(
         jsii.set(self, "trackerName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnTrackerConsumerProps",
-    jsii_struct_bases=[],
-    name_mapping={"consumer_arn": "consumerArn", "tracker_name": "trackerName"},
-)
-class CfnTrackerConsumerProps:
-    def __init__(
-        self,
-        *,
-        consumer_arn: builtins.str,
-        tracker_name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnTrackerConsumer``.
-
-        :param consumer_arn: The Amazon Resource Name (ARN) for the geofence collection to be associated to tracker resource. Used when you need to specify a resource across all AWS . - Format example: ``arn:aws:geo:region:account-id:geofence-collection/ExampleGeofenceCollectionConsumer``
-        :param tracker_name: The name for the tracker resource. Requirements: - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_). - Must be a unique tracker resource name. - No spaces allowed. For example, ``ExampleTracker`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_tracker_consumer_props = location.CfnTrackerConsumerProps(
-                consumer_arn="consumerArn",
-                tracker_name="trackerName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8)
-            check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
-            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "consumer_arn": consumer_arn,
-            "tracker_name": tracker_name,
-        }
-
-    @builtins.property
-    def consumer_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for the geofence collection to be associated to tracker resource.
-
-        Used when you need to specify a resource across all AWS .
-
-        - Format example: ``arn:aws:geo:region:account-id:geofence-collection/ExampleGeofenceCollectionConsumer``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html#cfn-location-trackerconsumer-consumerarn
-        '''
-        result = self._values.get("consumer_arn")
-        assert result is not None, "Required property 'consumer_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tracker_name(self) -> builtins.str:
-        '''The name for the tracker resource.
-
-        Requirements:
-
-        - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_).
-        - Must be a unique tracker resource name.
-        - No spaces allowed. For example, ``ExampleTracker`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-trackerconsumer.html#cfn-location-trackerconsumer-trackername
-        '''
-        result = self._values.get("tracker_name")
-        assert result is not None, "Required property 'tracker_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrackerConsumerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_location.CfnTrackerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "tracker_name": "trackerName",
-        "description": "description",
-        "event_bridge_enabled": "eventBridgeEnabled",
-        "kms_key_enable_geospatial_queries": "kmsKeyEnableGeospatialQueries",
-        "kms_key_id": "kmsKeyId",
-        "position_filtering": "positionFiltering",
-        "pricing_plan": "pricingPlan",
-        "pricing_plan_data_source": "pricingPlanDataSource",
-        "tags": "tags",
-    },
-)
-class CfnTrackerProps:
-    def __init__(
-        self,
-        *,
-        tracker_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        position_filtering: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        pricing_plan_data_source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTracker``.
-
-        :param tracker_name: The name for the tracker resource. Requirements: - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_). - Must be a unique tracker resource name. - No spaces allowed. For example, ``ExampleTracker`` .
-        :param description: An optional description for the tracker resource.
-        :param event_bridge_enabled: 
-        :param kms_key_enable_geospatial_queries: 
-        :param kms_key_id: A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
-        :param position_filtering: Specifies the position filtering for the tracker resource. Valid values: - ``TimeBased`` - Location updates are evaluated against linked geofence collections, but not every location update is stored. If your update frequency is more often than 30 seconds, only one update per 30 seconds is stored for each unique device ID. - ``DistanceBased`` - If the device has moved less than 30 m (98.4 ft), location updates are ignored. Location updates within this area are neither evaluated against linked geofence collections, nor stored. This helps control costs by reducing the number of geofence evaluations and historical device positions to paginate through. Distance-based filtering can also reduce the effects of GPS noise when displaying device trajectories on a map. - ``AccuracyBased`` - If the device has moved less than the measured accuracy, location updates are ignored. For example, if two consecutive updates from a device have a horizontal accuracy of 5 m and 10 m, the second update is ignored if the device has moved less than 15 m. Ignored location updates are neither evaluated against linked geofence collections, nor stored. This can reduce the effects of GPS noise when displaying device trajectories on a map, and can help control your costs by reducing the number of geofence evaluations. This field is optional. If not specified, the default value is ``TimeBased`` .
-        :param pricing_plan: 
-        :param pricing_plan_data_source: (deprecated) This shape is deprecated since 2022-02-01: Deprecated. No longer allowed.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_location as location
-            
-            cfn_tracker_props = location.CfnTrackerProps(
-                tracker_name="trackerName",
-            
-                # the properties below are optional
-                description="description",
-                event_bridge_enabled=False,
-                kms_key_enable_geospatial_queries=False,
-                kms_key_id="kmsKeyId",
-                position_filtering="positionFiltering",
-                pricing_plan="pricingPlan",
-                pricing_plan_data_source="pricingPlanDataSource",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9)
-            check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_bridge_enabled", value=event_bridge_enabled, expected_type=type_hints["event_bridge_enabled"])
-            check_type(argname="argument kms_key_enable_geospatial_queries", value=kms_key_enable_geospatial_queries, expected_type=type_hints["kms_key_enable_geospatial_queries"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument position_filtering", value=position_filtering, expected_type=type_hints["position_filtering"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument pricing_plan_data_source", value=pricing_plan_data_source, expected_type=type_hints["pricing_plan_data_source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "tracker_name": tracker_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if event_bridge_enabled is not None:
-            self._values["event_bridge_enabled"] = event_bridge_enabled
-        if kms_key_enable_geospatial_queries is not None:
-            self._values["kms_key_enable_geospatial_queries"] = kms_key_enable_geospatial_queries
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if position_filtering is not None:
-            self._values["position_filtering"] = position_filtering
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if pricing_plan_data_source is not None:
-            self._values["pricing_plan_data_source"] = pricing_plan_data_source
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def tracker_name(self) -> builtins.str:
-        '''The name for the tracker resource.
-
-        Requirements:
-
-        - Contain only alphanumeric characters (A-Z, a-z, 0-9) , hyphens (-), periods (.), and underscores (_).
-        - Must be a unique tracker resource name.
-        - No spaces allowed. For example, ``ExampleTracker`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-trackername
-        '''
-        result = self._values.get("tracker_name")
-        assert result is not None, "Required property 'tracker_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for the tracker resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_bridge_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-eventbridgeenabled
-        '''
-        result = self._values.get("event_bridge_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def kms_key_enable_geospatial_queries(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-kmskeyenablegeospatialqueries
-        '''
-        result = self._values.get("kms_key_enable_geospatial_queries")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''A key identifier for an `AWS KMS customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html>`_ . Enter a key ID, key ARN, alias name, or alias ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def position_filtering(self) -> typing.Optional[builtins.str]:
-        '''Specifies the position filtering for the tracker resource.
-
-        Valid values:
-
-        - ``TimeBased`` - Location updates are evaluated against linked geofence collections, but not every location update is stored. If your update frequency is more often than 30 seconds, only one update per 30 seconds is stored for each unique device ID.
-        - ``DistanceBased`` - If the device has moved less than 30 m (98.4 ft), location updates are ignored. Location updates within this area are neither evaluated against linked geofence collections, nor stored. This helps control costs by reducing the number of geofence evaluations and historical device positions to paginate through. Distance-based filtering can also reduce the effects of GPS noise when displaying device trajectories on a map.
-        - ``AccuracyBased`` - If the device has moved less than the measured accuracy, location updates are ignored. For example, if two consecutive updates from a device have a horizontal accuracy of 5 m and 10 m, the second update is ignored if the device has moved less than 15 m. Ignored location updates are neither evaluated against linked geofence collections, nor stored. This can reduce the effects of GPS noise when displaying device trajectories on a map, and can help control your costs by reducing the number of geofence evaluations.
-
-        This field is optional. If not specified, the default value is ``TimeBased`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-positionfiltering
-        '''
-        result = self._values.get("position_filtering")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-pricingplan
-        :stability: deprecated
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan_data_source(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This shape is deprecated since 2022-02-01: Deprecated.
-
-        No longer allowed.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-pricingplandatasource
-        :stability: deprecated
-        '''
-        result = self._values.get("pricing_plan_data_source")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-location-tracker.html#cfn-location-tracker-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrackerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "APIKeyReference",
     "CfnAPIKey",
     "CfnAPIKeyProps",
     "CfnGeofenceCollection",
@@ -3264,9 +4041,161 @@ __all__ = [
     "CfnTrackerConsumer",
     "CfnTrackerConsumerProps",
     "CfnTrackerProps",
+    "GeofenceCollectionReference",
+    "IAPIKeyRef",
+    "IGeofenceCollectionRef",
+    "IMapRef",
+    "IPlaceIndexRef",
+    "IRouteCalculatorRef",
+    "ITrackerConsumerRef",
+    "ITrackerRef",
+    "MapReference",
+    "PlaceIndexReference",
+    "RouteCalculatorReference",
+    "TrackerConsumerReference",
+    "TrackerReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1a31ab3b05e45b4bb0e245d0b99583b796b483b44af30e74217abcd58c498ffe(
+    *,
+    api_key_arn: builtins.str,
+    key_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4(
+    *,
+    key_name: builtins.str,
+    restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    expire_time: typing.Optional[builtins.str] = None,
+    force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b(
+    *,
+    collection_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    pricing_plan_data_source: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8(
+    *,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    map_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4(
+    *,
+    data_source: builtins.str,
+    index_name: builtins.str,
+    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9(
+    *,
+    calculator_name: builtins.str,
+    data_source: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8(
+    *,
+    consumer_arn: builtins.str,
+    tracker_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9(
+    *,
+    tracker_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    position_filtering: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    pricing_plan_data_source: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9c3e0a941f225a79a6b07422264d07ec90645df5b011d4c2a74adba9aa2be1d(
+    *,
+    collection_name: builtins.str,
+    geofence_collection_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3ea56b8a11a8afa0e67fa222c515dae6b85aa67f7b4ab4333a6dd4ae68020b3(
+    *,
+    map_arn: builtins.str,
+    map_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2115dabf55a586a0bb15ab2faff3d2d77b5b38672c4bd5b10f1580f5ec9b6de(
+    *,
+    index_name: builtins.str,
+    place_index_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c56163820eb3f59621ae07ec7c44e1c26499cc9a17013005f9e9ce275d69a7c3(
+    *,
+    calculator_name: builtins.str,
+    route_calculator_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dd2b3b4d950a7ac3e04206a467d457948c6e0e80c0a432dce5ce11407688a88(
+    *,
+    consumer_arn: builtins.str,
+    tracker_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e11affc747a5d26cc7ec172d27ff48c6d39d7b7e8ddfe3f7e99c474899e8fd9b(
+    *,
+    tracker_arn: builtins.str,
+    tracker_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e2ae0e8c734c36fc4dfc2e50264fbc5e41cc44ca78d64c47f19cac56e4318d32(
     scope: _constructs_77d1e7e8.Construct,
@@ -3353,20 +4282,6 @@ def _typecheckingstub__0c74737f1e32f7583c8c63e1c8de07d36792e8e3aee5f799d6c8a265f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ebe99c80388f80e304ec3579f14c21edc069b0865131b2673a8f49e8274c07f4(
-    *,
-    key_name: builtins.str,
-    restrictions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAPIKey.ApiKeyRestrictionsProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    expire_time: typing.Optional[builtins.str] = None,
-    force_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    force_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    no_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8e0601ccc1fece7d46bccf997c94a7f51bea09a1590d5ce84823ed5c0b2041c1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3425,18 +4340,6 @@ def _typecheckingstub__ac440741201f7074f72462a372fb1e02f934a32f1d63e4645ed0506f4
 
 def _typecheckingstub__73c685a12991ff080fc342ecb024cac707829ec5c29f69506f34e69631875f71(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__307d0c98cf0385e786cd529fa95282bdfb460c6c7bb7e72dde3e3e36be5b809b(
-    *,
-    collection_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3501,17 +4404,6 @@ def _typecheckingstub__f994438dc4a55ff175f7c8b92debb9548b8c21e2896a0380a521bcdba
     style: builtins.str,
     custom_layers: typing.Optional[typing.Sequence[builtins.str]] = None,
     political_view: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__702a4eb1b8c53d553ad5479cf127f6ed1090248f0a9d4806eec0b368c1165ea8(
-    *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMap.MapConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    map_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3585,18 +4477,6 @@ def _typecheckingstub__b631c3e00c6906f33efa721d356034e81e693d6aa037787fadb69355e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fa21f8e355faff509cae18242ebc62f8af877465a5ef051abbedc5885bb64cd4(
-    *,
-    data_source: builtins.str,
-    index_name: builtins.str,
-    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaceIndex.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a900f380dbd4e0012dcb474730041f91eeaecc9218db4d6163fd730394a66f3a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3648,17 +4528,6 @@ def _typecheckingstub__3f40cb810c37a798bfec946670c6e7a33c338d2fe035b50de2d1bee9b
 
 def _typecheckingstub__74454734a6df8a4308849a60f8d80541ab1a10fc08d73d9f6faa0474841ec604(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__986eaab9e9d4b82fd7bedac19af61096151542baed90ee4afaad1d66b4b219c9(
-    *,
-    calculator_name: builtins.str,
-    data_source: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3776,29 +4645,6 @@ def _typecheckingstub__3101704451bf83d25aae3a96e950bccc978a403a238456dffbfa02203
 
 def _typecheckingstub__aa34370ea71108b33b5119b9fcb8ca5029e1349c5ec4e2fb3d74745ed6952b4a(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7c4f2c66be9e9a4dcfdb7c07a9f472259b9cfbd8f7d951a99362fad4aecdf9d8(
-    *,
-    consumer_arn: builtins.str,
-    tracker_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4963cd9bb9360f72e2ea99e0d8d6626ac02c1681099b08a5a4acc54e079dfa9(
-    *,
-    tracker_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    event_bridge_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_enable_geospatial_queries: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    position_filtering: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    pricing_plan_data_source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

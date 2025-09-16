@@ -66,211 +66,6 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnGrant(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_licensemanager.CfnGrant",
-):
-    '''Specifies a grant.
-
-    A grant shares the use of license entitlements with specific AWS accounts . For more information, see `Granted licenses <https://docs.aws.amazon.com/license-manager/latest/userguide/granted-licenses.html>`_ in the *AWS License Manager User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-grant.html
-    :cloudformationResource: AWS::LicenseManager::Grant
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_licensemanager as licensemanager
-        
-        cfn_grant = licensemanager.CfnGrant(self, "MyCfnGrant",
-            allowed_operations=["allowedOperations"],
-            grant_name="grantName",
-            home_region="homeRegion",
-            license_arn="licenseArn",
-            principals=["principals"],
-            status="status"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        allowed_operations: typing.Optional[typing.Sequence[builtins.str]] = None,
-        grant_name: typing.Optional[builtins.str] = None,
-        home_region: typing.Optional[builtins.str] = None,
-        license_arn: typing.Optional[builtins.str] = None,
-        principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param allowed_operations: Allowed operations for the grant.
-        :param grant_name: Grant name.
-        :param home_region: Home Region of the grant.
-        :param license_arn: License ARN.
-        :param principals: The grant principals. You can specify one of the following as an Amazon Resource Name (ARN):. - An AWS account, which includes only the account specified. - An organizational unit (OU), which includes all accounts in the OU. - An organization, which will include all accounts across your organization.
-        :param status: Granted license status.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8429ee81c009103dd15c76170dfb52e5ca38f72a8912b82d6e63e3f460c3022)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnGrantProps(
-            allowed_operations=allowed_operations,
-            grant_name=grant_name,
-            home_region=home_region,
-            license_arn=license_arn,
-            principals=principals,
-            status=status,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f3d843a99f00dd40b93f69a334bda31af66745c91ef0da13aef948b5e7cd3b)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f21921653469c34829dafde09a61b6573c5caa1cd6413329ac50f150c61edce)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrGrantArn")
-    def attr_grant_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the grant.
-
-        :cloudformationAttribute: GrantArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrGrantArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrVersion")
-    def attr_version(self) -> builtins.str:
-        '''The grant version.
-
-        :cloudformationAttribute: Version
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="allowedOperations")
-    def allowed_operations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Allowed operations for the grant.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allowedOperations"))
-
-    @allowed_operations.setter
-    def allowed_operations(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0365c0a6e5122b9fa8e724dcae1d11a86ea3be7b9c43576ae3984046a8a866a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedOperations", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="grantName")
-    def grant_name(self) -> typing.Optional[builtins.str]:
-        '''Grant name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "grantName"))
-
-    @grant_name.setter
-    def grant_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f4a134c7bb2f22cd48211ed5100e65a75fc658d9d8f836ea5c12000691c0cb2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "grantName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="homeRegion")
-    def home_region(self) -> typing.Optional[builtins.str]:
-        '''Home Region of the grant.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "homeRegion"))
-
-    @home_region.setter
-    def home_region(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5031789a0d9f35bd09ee7810379dcbe0da55436888a38e9623b68c7226da0990)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "homeRegion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="licenseArn")
-    def license_arn(self) -> typing.Optional[builtins.str]:
-        '''License ARN.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "licenseArn"))
-
-    @license_arn.setter
-    def license_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9ad1871340fca01eaad30a6180a827f5d9f498e7a913dbc15898d39ace8e741)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="principals")
-    def principals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The grant principals.
-
-        You can specify one of the following as an Amazon Resource Name (ARN):.
-        '''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "principals"))
-
-    @principals.setter
-    def principals(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c571a4cf4f9bf1814a1015ca4a37680ca14b1356d42232abd8a71042c1e07bc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principals", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''Granted license status.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__979cc3eeb34a65f4beb72557bbf7486f2c8b526da9a872d958b13f140f65edb0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_licensemanager.CfnGrantProps",
     jsii_struct_bases=[],
@@ -413,7 +208,656 @@ class CfnGrantProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "consumption_configuration": "consumptionConfiguration",
+        "entitlements": "entitlements",
+        "home_region": "homeRegion",
+        "issuer": "issuer",
+        "license_name": "licenseName",
+        "product_name": "productName",
+        "validity": "validity",
+        "beneficiary": "beneficiary",
+        "license_metadata": "licenseMetadata",
+        "product_sku": "productSku",
+        "status": "status",
+    },
+)
+class CfnLicenseProps:
+    def __init__(
+        self,
+        *,
+        consumption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLicense.ConsumptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        entitlements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLicense.EntitlementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        home_region: builtins.str,
+        issuer: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLicense.IssuerDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        license_name: builtins.str,
+        product_name: builtins.str,
+        validity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLicense.ValidityDateFormatProperty", typing.Dict[builtins.str, typing.Any]]],
+        beneficiary: typing.Optional[builtins.str] = None,
+        license_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLicense.MetadataProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        product_sku: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLicense``.
+
+        :param consumption_configuration: Configuration for consumption of the license.
+        :param entitlements: License entitlements.
+        :param home_region: Home Region of the license.
+        :param issuer: License issuer.
+        :param license_name: License name.
+        :param product_name: Product name.
+        :param validity: Date and time range during which the license is valid, in ISO8601-UTC format.
+        :param beneficiary: License beneficiary.
+        :param license_metadata: License metadata.
+        :param product_sku: Product SKU.
+        :param status: License status.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            cfn_license_props = licensemanager.CfnLicenseProps(
+                consumption_configuration=licensemanager.CfnLicense.ConsumptionConfigurationProperty(
+                    borrow_configuration=licensemanager.CfnLicense.BorrowConfigurationProperty(
+                        allow_early_check_in=False,
+                        max_time_to_live_in_minutes=123
+                    ),
+                    provisional_configuration=licensemanager.CfnLicense.ProvisionalConfigurationProperty(
+                        max_time_to_live_in_minutes=123
+                    ),
+                    renew_type="renewType"
+                ),
+                entitlements=[licensemanager.CfnLicense.EntitlementProperty(
+                    name="name",
+                    unit="unit",
+            
+                    # the properties below are optional
+                    allow_check_in=False,
+                    max_count=123,
+                    overage=False,
+                    value="value"
+                )],
+                home_region="homeRegion",
+                issuer=licensemanager.CfnLicense.IssuerDataProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    sign_key="signKey"
+                ),
+                license_name="licenseName",
+                product_name="productName",
+                validity=licensemanager.CfnLicense.ValidityDateFormatProperty(
+                    begin="begin",
+                    end="end"
+                ),
+            
+                # the properties below are optional
+                beneficiary="beneficiary",
+                license_metadata=[licensemanager.CfnLicense.MetadataProperty(
+                    name="name",
+                    value="value"
+                )],
+                product_sku="productSku",
+                status="status"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da333c424)
+            check_type(argname="argument consumption_configuration", value=consumption_configuration, expected_type=type_hints["consumption_configuration"])
+            check_type(argname="argument entitlements", value=entitlements, expected_type=type_hints["entitlements"])
+            check_type(argname="argument home_region", value=home_region, expected_type=type_hints["home_region"])
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument license_name", value=license_name, expected_type=type_hints["license_name"])
+            check_type(argname="argument product_name", value=product_name, expected_type=type_hints["product_name"])
+            check_type(argname="argument validity", value=validity, expected_type=type_hints["validity"])
+            check_type(argname="argument beneficiary", value=beneficiary, expected_type=type_hints["beneficiary"])
+            check_type(argname="argument license_metadata", value=license_metadata, expected_type=type_hints["license_metadata"])
+            check_type(argname="argument product_sku", value=product_sku, expected_type=type_hints["product_sku"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "consumption_configuration": consumption_configuration,
+            "entitlements": entitlements,
+            "home_region": home_region,
+            "issuer": issuer,
+            "license_name": license_name,
+            "product_name": product_name,
+            "validity": validity,
+        }
+        if beneficiary is not None:
+            self._values["beneficiary"] = beneficiary
+        if license_metadata is not None:
+            self._values["license_metadata"] = license_metadata
+        if product_sku is not None:
+            self._values["product_sku"] = product_sku
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def consumption_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLicense.ConsumptionConfigurationProperty"]:
+        '''Configuration for consumption of the license.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-consumptionconfiguration
+        '''
+        result = self._values.get("consumption_configuration")
+        assert result is not None, "Required property 'consumption_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLicense.ConsumptionConfigurationProperty"], result)
+
+    @builtins.property
+    def entitlements(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLicense.EntitlementProperty"]]]:
+        '''License entitlements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-entitlements
+        '''
+        result = self._values.get("entitlements")
+        assert result is not None, "Required property 'entitlements' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLicense.EntitlementProperty"]]], result)
+
+    @builtins.property
+    def home_region(self) -> builtins.str:
+        '''Home Region of the license.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-homeregion
+        '''
+        result = self._values.get("home_region")
+        assert result is not None, "Required property 'home_region' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def issuer(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLicense.IssuerDataProperty"]:
+        '''License issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-issuer
+        '''
+        result = self._values.get("issuer")
+        assert result is not None, "Required property 'issuer' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLicense.IssuerDataProperty"], result)
+
+    @builtins.property
+    def license_name(self) -> builtins.str:
+        '''License name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-licensename
+        '''
+        result = self._values.get("license_name")
+        assert result is not None, "Required property 'license_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def product_name(self) -> builtins.str:
+        '''Product name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-productname
+        '''
+        result = self._values.get("product_name")
+        assert result is not None, "Required property 'product_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def validity(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLicense.ValidityDateFormatProperty"]:
+        '''Date and time range during which the license is valid, in ISO8601-UTC format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-validity
+        '''
+        result = self._values.get("validity")
+        assert result is not None, "Required property 'validity' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLicense.ValidityDateFormatProperty"], result)
+
+    @builtins.property
+    def beneficiary(self) -> typing.Optional[builtins.str]:
+        '''License beneficiary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-beneficiary
+        '''
+        result = self._values.get("beneficiary")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def license_metadata(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLicense.MetadataProperty"]]]]:
+        '''License metadata.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-licensemetadata
+        '''
+        result = self._values.get("license_metadata")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLicense.MetadataProperty"]]]], result)
+
+    @builtins.property
+    def product_sku(self) -> typing.Optional[builtins.str]:
+        '''Product SKU.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-productsku
+        '''
+        result = self._values.get("product_sku")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''License status.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLicenseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.GrantReference",
+    jsii_struct_bases=[],
+    name_mapping={"grant_arn": "grantArn"},
+)
+class GrantReference:
+    def __init__(self, *, grant_arn: builtins.str) -> None:
+        '''A reference to a Grant resource.
+
+        :param grant_arn: The GrantArn of the Grant resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            grant_reference = licensemanager.GrantReference(
+                grant_arn="grantArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3907eb5e63c3cea37c1e59bc7fafb078d3e3b7a3a401443d4b161902394a4496)
+            check_type(argname="argument grant_arn", value=grant_arn, expected_type=type_hints["grant_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "grant_arn": grant_arn,
+        }
+
+    @builtins.property
+    def grant_arn(self) -> builtins.str:
+        '''The GrantArn of the Grant resource.'''
+        result = self._values.get("grant_arn")
+        assert result is not None, "Required property 'grant_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GrantReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_licensemanager.IGrantRef")
+class IGrantRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Grant.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="grantRef")
+    def grant_ref(self) -> GrantReference:
+        '''(experimental) A reference to a Grant resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGrantRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Grant.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_licensemanager.IGrantRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="grantRef")
+    def grant_ref(self) -> GrantReference:
+        '''(experimental) A reference to a Grant resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GrantReference, jsii.get(self, "grantRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGrantRef).__jsii_proxy_class__ = lambda : _IGrantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_licensemanager.ILicenseRef")
+class ILicenseRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a License.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseRef")
+    def license_ref(self) -> "LicenseReference":
+        '''(experimental) A reference to a License resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILicenseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a License.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_licensemanager.ILicenseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseRef")
+    def license_ref(self) -> "LicenseReference":
+        '''(experimental) A reference to a License resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LicenseReference", jsii.get(self, "licenseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILicenseRef).__jsii_proxy_class__ = lambda : _ILicenseRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.LicenseReference",
+    jsii_struct_bases=[],
+    name_mapping={"license_arn": "licenseArn"},
+)
+class LicenseReference:
+    def __init__(self, *, license_arn: builtins.str) -> None:
+        '''A reference to a License resource.
+
+        :param license_arn: The LicenseArn of the License resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            license_reference = licensemanager.LicenseReference(
+                license_arn="licenseArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebeda1c01c67a7d948fa66c18bfed241dbfd462d14f063b875fb3cbb37256048)
+            check_type(argname="argument license_arn", value=license_arn, expected_type=type_hints["license_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "license_arn": license_arn,
+        }
+
+    @builtins.property
+    def license_arn(self) -> builtins.str:
+        '''The LicenseArn of the License resource.'''
+        result = self._values.get("license_arn")
+        assert result is not None, "Required property 'license_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LicenseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IGrantRef)
+class CfnGrant(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnGrant",
+):
+    '''Specifies a grant.
+
+    A grant shares the use of license entitlements with specific AWS accounts . For more information, see `Granted licenses <https://docs.aws.amazon.com/license-manager/latest/userguide/granted-licenses.html>`_ in the *AWS License Manager User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-grant.html
+    :cloudformationResource: AWS::LicenseManager::Grant
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_licensemanager as licensemanager
+        
+        cfn_grant = licensemanager.CfnGrant(self, "MyCfnGrant",
+            allowed_operations=["allowedOperations"],
+            grant_name="grantName",
+            home_region="homeRegion",
+            license_arn="licenseArn",
+            principals=["principals"],
+            status="status"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        allowed_operations: typing.Optional[typing.Sequence[builtins.str]] = None,
+        grant_name: typing.Optional[builtins.str] = None,
+        home_region: typing.Optional[builtins.str] = None,
+        license_arn: typing.Optional[builtins.str] = None,
+        principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param allowed_operations: Allowed operations for the grant.
+        :param grant_name: Grant name.
+        :param home_region: Home Region of the grant.
+        :param license_arn: License ARN.
+        :param principals: The grant principals. You can specify one of the following as an Amazon Resource Name (ARN):. - An AWS account, which includes only the account specified. - An organizational unit (OU), which includes all accounts in the OU. - An organization, which will include all accounts across your organization.
+        :param status: Granted license status.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8429ee81c009103dd15c76170dfb52e5ca38f72a8912b82d6e63e3f460c3022)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGrantProps(
+            allowed_operations=allowed_operations,
+            grant_name=grant_name,
+            home_region=home_region,
+            license_arn=license_arn,
+            principals=principals,
+            status=status,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06f3d843a99f00dd40b93f69a334bda31af66745c91ef0da13aef948b5e7cd3b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f21921653469c34829dafde09a61b6573c5caa1cd6413329ac50f150c61edce)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGrantArn")
+    def attr_grant_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the grant.
+
+        :cloudformationAttribute: GrantArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGrantArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The grant version.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantRef")
+    def grant_ref(self) -> GrantReference:
+        '''A reference to a Grant resource.'''
+        return typing.cast(GrantReference, jsii.get(self, "grantRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allowedOperations")
+    def allowed_operations(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Allowed operations for the grant.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allowedOperations"))
+
+    @allowed_operations.setter
+    def allowed_operations(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0365c0a6e5122b9fa8e724dcae1d11a86ea3be7b9c43576ae3984046a8a866a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowedOperations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="grantName")
+    def grant_name(self) -> typing.Optional[builtins.str]:
+        '''Grant name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "grantName"))
+
+    @grant_name.setter
+    def grant_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f4a134c7bb2f22cd48211ed5100e65a75fc658d9d8f836ea5c12000691c0cb2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "grantName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="homeRegion")
+    def home_region(self) -> typing.Optional[builtins.str]:
+        '''Home Region of the grant.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "homeRegion"))
+
+    @home_region.setter
+    def home_region(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5031789a0d9f35bd09ee7810379dcbe0da55436888a38e9623b68c7226da0990)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "homeRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseArn")
+    def license_arn(self) -> typing.Optional[builtins.str]:
+        '''License ARN.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "licenseArn"))
+
+    @license_arn.setter
+    def license_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9ad1871340fca01eaad30a6180a827f5d9f498e7a913dbc15898d39ace8e741)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="principals")
+    def principals(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The grant principals.
+
+        You can specify one of the following as an Amazon Resource Name (ARN):.
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "principals"))
+
+    @principals.setter
+    def principals(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c571a4cf4f9bf1814a1015ca4a37680ca14b1356d42232abd8a71042c1e07bc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principals", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''Granted license status.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__979cc3eeb34a65f4beb72557bbf7486f2c8b526da9a872d958b13f140f65edb0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ILicenseRef)
 class CfnLicense(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -583,6 +1027,12 @@ class CfnLicense(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseRef")
+    def license_ref(self) -> LicenseReference:
+        '''A reference to a License resource.'''
+        return typing.cast(LicenseReference, jsii.get(self, "licenseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="consumptionConfiguration")
@@ -1334,274 +1784,61 @@ class CfnLicense(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "consumption_configuration": "consumptionConfiguration",
-        "entitlements": "entitlements",
-        "home_region": "homeRegion",
-        "issuer": "issuer",
-        "license_name": "licenseName",
-        "product_name": "productName",
-        "validity": "validity",
-        "beneficiary": "beneficiary",
-        "license_metadata": "licenseMetadata",
-        "product_sku": "productSku",
-        "status": "status",
-    },
-)
-class CfnLicenseProps:
-    def __init__(
-        self,
-        *,
-        consumption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ConsumptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        entitlements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.EntitlementProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        home_region: builtins.str,
-        issuer: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.IssuerDataProperty, typing.Dict[builtins.str, typing.Any]]],
-        license_name: builtins.str,
-        product_name: builtins.str,
-        validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ValidityDateFormatProperty, typing.Dict[builtins.str, typing.Any]]],
-        beneficiary: typing.Optional[builtins.str] = None,
-        license_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.MetadataProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        product_sku: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLicense``.
-
-        :param consumption_configuration: Configuration for consumption of the license.
-        :param entitlements: License entitlements.
-        :param home_region: Home Region of the license.
-        :param issuer: License issuer.
-        :param license_name: License name.
-        :param product_name: Product name.
-        :param validity: Date and time range during which the license is valid, in ISO8601-UTC format.
-        :param beneficiary: License beneficiary.
-        :param license_metadata: License metadata.
-        :param product_sku: Product SKU.
-        :param status: License status.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_licensemanager as licensemanager
-            
-            cfn_license_props = licensemanager.CfnLicenseProps(
-                consumption_configuration=licensemanager.CfnLicense.ConsumptionConfigurationProperty(
-                    borrow_configuration=licensemanager.CfnLicense.BorrowConfigurationProperty(
-                        allow_early_check_in=False,
-                        max_time_to_live_in_minutes=123
-                    ),
-                    provisional_configuration=licensemanager.CfnLicense.ProvisionalConfigurationProperty(
-                        max_time_to_live_in_minutes=123
-                    ),
-                    renew_type="renewType"
-                ),
-                entitlements=[licensemanager.CfnLicense.EntitlementProperty(
-                    name="name",
-                    unit="unit",
-            
-                    # the properties below are optional
-                    allow_check_in=False,
-                    max_count=123,
-                    overage=False,
-                    value="value"
-                )],
-                home_region="homeRegion",
-                issuer=licensemanager.CfnLicense.IssuerDataProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    sign_key="signKey"
-                ),
-                license_name="licenseName",
-                product_name="productName",
-                validity=licensemanager.CfnLicense.ValidityDateFormatProperty(
-                    begin="begin",
-                    end="end"
-                ),
-            
-                # the properties below are optional
-                beneficiary="beneficiary",
-                license_metadata=[licensemanager.CfnLicense.MetadataProperty(
-                    name="name",
-                    value="value"
-                )],
-                product_sku="productSku",
-                status="status"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da333c424)
-            check_type(argname="argument consumption_configuration", value=consumption_configuration, expected_type=type_hints["consumption_configuration"])
-            check_type(argname="argument entitlements", value=entitlements, expected_type=type_hints["entitlements"])
-            check_type(argname="argument home_region", value=home_region, expected_type=type_hints["home_region"])
-            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
-            check_type(argname="argument license_name", value=license_name, expected_type=type_hints["license_name"])
-            check_type(argname="argument product_name", value=product_name, expected_type=type_hints["product_name"])
-            check_type(argname="argument validity", value=validity, expected_type=type_hints["validity"])
-            check_type(argname="argument beneficiary", value=beneficiary, expected_type=type_hints["beneficiary"])
-            check_type(argname="argument license_metadata", value=license_metadata, expected_type=type_hints["license_metadata"])
-            check_type(argname="argument product_sku", value=product_sku, expected_type=type_hints["product_sku"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "consumption_configuration": consumption_configuration,
-            "entitlements": entitlements,
-            "home_region": home_region,
-            "issuer": issuer,
-            "license_name": license_name,
-            "product_name": product_name,
-            "validity": validity,
-        }
-        if beneficiary is not None:
-            self._values["beneficiary"] = beneficiary
-        if license_metadata is not None:
-            self._values["license_metadata"] = license_metadata
-        if product_sku is not None:
-            self._values["product_sku"] = product_sku
-        if status is not None:
-            self._values["status"] = status
-
-    @builtins.property
-    def consumption_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLicense.ConsumptionConfigurationProperty]:
-        '''Configuration for consumption of the license.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-consumptionconfiguration
-        '''
-        result = self._values.get("consumption_configuration")
-        assert result is not None, "Required property 'consumption_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLicense.ConsumptionConfigurationProperty], result)
-
-    @builtins.property
-    def entitlements(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLicense.EntitlementProperty]]]:
-        '''License entitlements.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-entitlements
-        '''
-        result = self._values.get("entitlements")
-        assert result is not None, "Required property 'entitlements' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLicense.EntitlementProperty]]], result)
-
-    @builtins.property
-    def home_region(self) -> builtins.str:
-        '''Home Region of the license.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-homeregion
-        '''
-        result = self._values.get("home_region")
-        assert result is not None, "Required property 'home_region' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def issuer(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLicense.IssuerDataProperty]:
-        '''License issuer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-issuer
-        '''
-        result = self._values.get("issuer")
-        assert result is not None, "Required property 'issuer' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLicense.IssuerDataProperty], result)
-
-    @builtins.property
-    def license_name(self) -> builtins.str:
-        '''License name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-licensename
-        '''
-        result = self._values.get("license_name")
-        assert result is not None, "Required property 'license_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def product_name(self) -> builtins.str:
-        '''Product name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-productname
-        '''
-        result = self._values.get("product_name")
-        assert result is not None, "Required property 'product_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def validity(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLicense.ValidityDateFormatProperty]:
-        '''Date and time range during which the license is valid, in ISO8601-UTC format.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-validity
-        '''
-        result = self._values.get("validity")
-        assert result is not None, "Required property 'validity' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLicense.ValidityDateFormatProperty], result)
-
-    @builtins.property
-    def beneficiary(self) -> typing.Optional[builtins.str]:
-        '''License beneficiary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-beneficiary
-        '''
-        result = self._values.get("beneficiary")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def license_metadata(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLicense.MetadataProperty]]]]:
-        '''License metadata.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-licensemetadata
-        '''
-        result = self._values.get("license_metadata")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLicense.MetadataProperty]]]], result)
-
-    @builtins.property
-    def product_sku(self) -> typing.Optional[builtins.str]:
-        '''Product SKU.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-productsku
-        '''
-        result = self._values.get("product_sku")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''License status.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-license.html#cfn-licensemanager-license-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLicenseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnGrant",
     "CfnGrantProps",
     "CfnLicense",
     "CfnLicenseProps",
+    "GrantReference",
+    "IGrantRef",
+    "ILicenseRef",
+    "LicenseReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__55c62319564e7f4daffb2869290c03b511d6440828cc8d89ddb4e628ea3e0f93(
+    *,
+    allowed_operations: typing.Optional[typing.Sequence[builtins.str]] = None,
+    grant_name: typing.Optional[builtins.str] = None,
+    home_region: typing.Optional[builtins.str] = None,
+    license_arn: typing.Optional[builtins.str] = None,
+    principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da333c424(
+    *,
+    consumption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ConsumptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    entitlements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.EntitlementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    home_region: builtins.str,
+    issuer: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.IssuerDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    license_name: builtins.str,
+    product_name: builtins.str,
+    validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ValidityDateFormatProperty, typing.Dict[builtins.str, typing.Any]]],
+    beneficiary: typing.Optional[builtins.str] = None,
+    license_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.MetadataProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    product_sku: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3907eb5e63c3cea37c1e59bc7fafb078d3e3b7a3a401443d4b161902394a4496(
+    *,
+    grant_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebeda1c01c67a7d948fa66c18bfed241dbfd462d14f063b875fb3cbb37256048(
+    *,
+    license_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e8429ee81c009103dd15c76170dfb52e5ca38f72a8912b82d6e63e3f460c3022(
     scope: _constructs_77d1e7e8.Construct,
@@ -1661,18 +1898,6 @@ def _typecheckingstub__2c571a4cf4f9bf1814a1015ca4a37680ca14b1356d42232abd8a71042
 
 def _typecheckingstub__979cc3eeb34a65f4beb72557bbf7486f2c8b526da9a872d958b13f140f65edb0(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__55c62319564e7f4daffb2869290c03b511d6440828cc8d89ddb4e628ea3e0f93(
-    *,
-    allowed_operations: typing.Optional[typing.Sequence[builtins.str]] = None,
-    grant_name: typing.Optional[builtins.str] = None,
-    home_region: typing.Optional[builtins.str] = None,
-    license_arn: typing.Optional[builtins.str] = None,
-    principals: typing.Optional[typing.Sequence[builtins.str]] = None,
-    status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1830,23 +2055,6 @@ def _typecheckingstub__483b5b4e301dfddf60a6c6da8bdc4898ec615b5045a70ceeeefc10fe7
     *,
     begin: builtins.str,
     end: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da333c424(
-    *,
-    consumption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ConsumptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    entitlements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.EntitlementProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    home_region: builtins.str,
-    issuer: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.IssuerDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    license_name: builtins.str,
-    product_name: builtins.str,
-    validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.ValidityDateFormatProperty, typing.Dict[builtins.str, typing.Any]]],
-    beneficiary: typing.Optional[builtins.str] = None,
-    license_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLicense.MetadataProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    product_sku: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

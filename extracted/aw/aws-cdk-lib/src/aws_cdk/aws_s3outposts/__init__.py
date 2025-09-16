@@ -69,7 +69,847 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.AccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={"access_point_arn": "accessPointArn"},
+)
+class AccessPointReference:
+    def __init__(self, *, access_point_arn: builtins.str) -> None:
+        '''A reference to a AccessPoint resource.
+
+        :param access_point_arn: The Arn of the AccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            access_point_reference = s3outposts.AccessPointReference(
+                access_point_arn="accessPointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9c0d6ecbc9b33903726a2f8b53a567323e59f27a2b3e19cdf8485286871fa60)
+            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_point_arn": access_point_arn,
+        }
+
+    @builtins.property
+    def access_point_arn(self) -> builtins.str:
+        '''The Arn of the AccessPoint resource.'''
+        result = self._values.get("access_point_arn")
+        assert result is not None, "Required property 'access_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.BucketPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket"},
+)
+class BucketPolicyReference:
+    def __init__(self, *, bucket: builtins.str) -> None:
+        '''A reference to a BucketPolicy resource.
+
+        :param bucket: The Bucket of the BucketPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            bucket_policy_reference = s3outposts.BucketPolicyReference(
+                bucket="bucket"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3a60cecb2459610c6f8afdeb87ae4d8f5ce412cd2379842257b2196cdf8b075)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The Bucket of the BucketPolicy resource.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.BucketReference",
+    jsii_struct_bases=[],
+    name_mapping={"bucket_arn": "bucketArn"},
+)
+class BucketReference:
+    def __init__(self, *, bucket_arn: builtins.str) -> None:
+        '''A reference to a Bucket resource.
+
+        :param bucket_arn: The Arn of the Bucket resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            bucket_reference = s3outposts.BucketReference(
+                bucket_arn="bucketArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__582dd54b14840073874fc262d5685edca908651059ba4594c784d4264b3c28a2)
+            check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_arn": bucket_arn,
+        }
+
+    @builtins.property
+    def bucket_arn(self) -> builtins.str:
+        '''The Arn of the Bucket resource.'''
+        result = self._values.get("bucket_arn")
+        assert result is not None, "Required property 'bucket_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.CfnAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket": "bucket",
+        "name": "name",
+        "vpc_configuration": "vpcConfiguration",
+        "policy": "policy",
+    },
+)
+class CfnAccessPointProps:
+    def __init__(
+        self,
+        *,
+        bucket: builtins.str,
+        name: builtins.str,
+        vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        policy: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPoint``.
+
+        :param bucket: The Amazon Resource Name (ARN) of the S3 on Outposts bucket that is associated with this access point.
+        :param name: The name of this access point.
+        :param vpc_configuration: The virtual private cloud (VPC) configuration for this access point, if one exists.
+        :param policy: The access point policy associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            # policy: Any
+            
+            cfn_access_point_props = s3outposts.CfnAccessPointProps(
+                bucket="bucket",
+                name="name",
+                vpc_configuration=s3outposts.CfnAccessPoint.VpcConfigurationProperty(
+                    vpc_id="vpcId"
+                ),
+            
+                # the properties below are optional
+                policy=policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+            "name": name,
+            "vpc_configuration": vpc_configuration,
+        }
+        if policy is not None:
+            self._values["policy"] = policy
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the S3 on Outposts bucket that is associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"]:
+        '''The virtual private cloud (VPC) configuration for this access point, if one exists.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-vpcconfiguration
+        '''
+        result = self._values.get("vpc_configuration")
+        assert result is not None, "Required property 'vpc_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"], result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucketPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
+)
+class CfnBucketPolicyProps:
+    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
+        '''Properties for defining a ``CfnBucketPolicy``.
+
+        :param bucket: The name of the Amazon S3 Outposts bucket to which the policy applies.
+        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            # policy_document: Any
+            
+            cfn_bucket_policy_props = s3outposts.CfnBucketPolicyProps(
+                bucket="bucket",
+                policy_document=policy_document
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+            "policy_document": policy_document,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The name of the Amazon S3 Outposts bucket to which the policy applies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html#cfn-s3outposts-bucketpolicy-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''A policy document containing permissions to add to the specified bucket.
+
+        In IAM, you must provide policy documents in JSON format. However, in CloudFormation, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html#cfn-s3outposts-bucketpolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBucketPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucketProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_name": "bucketName",
+        "outpost_id": "outpostId",
+        "lifecycle_configuration": "lifecycleConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnBucketProps:
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        outpost_id: builtins.str,
+        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBucket``.
+
+        :param bucket_name: A name for the S3 on Outposts bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html>`_ . For more information, see `Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html#bucketnamingrules>`_ . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param outpost_id: The ID of the Outpost of the specified bucket.
+        :param lifecycle_configuration: Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration. Outposts buckets only support lifecycle configurations that delete/expire objects after a certain period of time and abort incomplete multipart uploads.
+        :param tags: Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ . Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ . .. epigraph:: Within a bucket, if you add a tag that has the same key as an existing tag, the new value overwrites the old value. For more information, see `Using cost allocation and bucket tags <https://docs.aws.amazon.com/AmazonS3/latest/userguide/CostAllocTagging.html>`_ . To use this resource, you must have permissions to perform the ``s3-outposts:PutBucketTagging`` . The S3 on Outposts bucket owner has this permission by default and can grant this permission to others. For more information about permissions, see `Permissions Related to Bucket Subresource Operations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html#using-with-s3-actions-related-to-bucket-subresources>`_ and `Managing access permissions to your Amazon S3 resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            # filter: Any
+            
+            cfn_bucket_props = s3outposts.CfnBucketProps(
+                bucket_name="bucketName",
+                outpost_id="outpostId",
+            
+                # the properties below are optional
+                lifecycle_configuration=s3outposts.CfnBucket.LifecycleConfigurationProperty(
+                    rules=[s3outposts.CfnBucket.RuleProperty(
+                        status="status",
+            
+                        # the properties below are optional
+                        abort_incomplete_multipart_upload=s3outposts.CfnBucket.AbortIncompleteMultipartUploadProperty(
+                            days_after_initiation=123
+                        ),
+                        expiration_date="expirationDate",
+                        expiration_in_days=123,
+                        filter=filter,
+                        id="id"
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7)
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
+            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_name": bucket_name,
+            "outpost_id": outpost_id,
+        }
+        if lifecycle_configuration is not None:
+            self._values["lifecycle_configuration"] = lifecycle_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''A name for the S3 on Outposts bucket.
+
+        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html>`_ . For more information, see `Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html#bucketnamingrules>`_ .
+        .. epigraph::
+
+           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def outpost_id(self) -> builtins.str:
+        '''The ID of the Outpost of the specified bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-outpostid
+        '''
+        result = self._values.get("outpost_id")
+        assert result is not None, "Required property 'outpost_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lifecycle_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LifecycleConfigurationProperty"]]:
+        '''Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration.
+
+        Outposts buckets only support lifecycle configurations that delete/expire objects after a certain period of time and abort incomplete multipart uploads.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-lifecycleconfiguration
+        '''
+        result = self._values.get("lifecycle_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LifecycleConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ .
+
+        Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ .
+        .. epigraph::
+
+           Within a bucket, if you add a tag that has the same key as an existing tag, the new value overwrites the old value. For more information, see `Using cost allocation and bucket tags <https://docs.aws.amazon.com/AmazonS3/latest/userguide/CostAllocTagging.html>`_ .
+
+        To use this resource, you must have permissions to perform the ``s3-outposts:PutBucketTagging`` . The S3 on Outposts bucket owner has this permission by default and can grant this permission to others. For more information about permissions, see `Permissions Related to Bucket Subresource Operations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html#using-with-s3-actions-related-to-bucket-subresources>`_ and `Managing access permissions to your Amazon S3 resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBucketProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.CfnEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "outpost_id": "outpostId",
+        "security_group_id": "securityGroupId",
+        "subnet_id": "subnetId",
+        "access_type": "accessType",
+        "customer_owned_ipv4_pool": "customerOwnedIpv4Pool",
+        "failed_reason": "failedReason",
+    },
+)
+class CfnEndpointProps:
+    def __init__(
+        self,
+        *,
+        outpost_id: builtins.str,
+        security_group_id: builtins.str,
+        subnet_id: builtins.str,
+        access_type: typing.Optional[builtins.str] = None,
+        customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
+        failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.FailedReasonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEndpoint``.
+
+        :param outpost_id: The ID of the Outpost.
+        :param security_group_id: The ID of the security group used for the endpoint.
+        :param subnet_id: The ID of the subnet used for the endpoint.
+        :param access_type: The container for the type of connectivity used to access the Amazon S3 on Outposts endpoint. To use the Amazon VPC , choose ``Private`` . To use the endpoint with an on-premises network, choose ``CustomerOwnedIp`` . If you choose ``CustomerOwnedIp`` , you must also provide the customer-owned IP address pool (CoIP pool). .. epigraph:: ``Private`` is the default access type value. Default: - "Private"
+        :param customer_owned_ipv4_pool: The ID of the customer-owned IPv4 address pool (CoIP pool) for the endpoint. IP addresses are allocated from this pool for the endpoint.
+        :param failed_reason: The failure reason, if any, for a create or delete endpoint operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            cfn_endpoint_props = s3outposts.CfnEndpointProps(
+                outpost_id="outpostId",
+                security_group_id="securityGroupId",
+                subnet_id="subnetId",
+            
+                # the properties below are optional
+                access_type="accessType",
+                customer_owned_ipv4_pool="customerOwnedIpv4Pool",
+                failed_reason=s3outposts.CfnEndpoint.FailedReasonProperty(
+                    error_code="errorCode",
+                    message="message"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56)
+            check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
+            check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            check_type(argname="argument access_type", value=access_type, expected_type=type_hints["access_type"])
+            check_type(argname="argument customer_owned_ipv4_pool", value=customer_owned_ipv4_pool, expected_type=type_hints["customer_owned_ipv4_pool"])
+            check_type(argname="argument failed_reason", value=failed_reason, expected_type=type_hints["failed_reason"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "outpost_id": outpost_id,
+            "security_group_id": security_group_id,
+            "subnet_id": subnet_id,
+        }
+        if access_type is not None:
+            self._values["access_type"] = access_type
+        if customer_owned_ipv4_pool is not None:
+            self._values["customer_owned_ipv4_pool"] = customer_owned_ipv4_pool
+        if failed_reason is not None:
+            self._values["failed_reason"] = failed_reason
+
+    @builtins.property
+    def outpost_id(self) -> builtins.str:
+        '''The ID of the Outpost.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-outpostid
+        '''
+        result = self._values.get("outpost_id")
+        assert result is not None, "Required property 'outpost_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_group_id(self) -> builtins.str:
+        '''The ID of the security group used for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-securitygroupid
+        '''
+        result = self._values.get("security_group_id")
+        assert result is not None, "Required property 'security_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_id(self) -> builtins.str:
+        '''The ID of the subnet used for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-subnetid
+        '''
+        result = self._values.get("subnet_id")
+        assert result is not None, "Required property 'subnet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_type(self) -> typing.Optional[builtins.str]:
+        '''The container for the type of connectivity used to access the Amazon S3 on Outposts endpoint.
+
+        To use the Amazon VPC , choose ``Private`` . To use the endpoint with an on-premises network, choose ``CustomerOwnedIp`` . If you choose ``CustomerOwnedIp`` , you must also provide the customer-owned IP address pool (CoIP pool).
+        .. epigraph::
+
+           ``Private`` is the default access type value.
+
+        :default: - "Private"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-accesstype
+        '''
+        result = self._values.get("access_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def customer_owned_ipv4_pool(self) -> typing.Optional[builtins.str]:
+        '''The ID of the customer-owned IPv4 address pool (CoIP pool) for the endpoint.
+
+        IP addresses are allocated from this pool for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-customerownedipv4pool
+        '''
+        result = self._values.get("customer_owned_ipv4_pool")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def failed_reason(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.FailedReasonProperty"]]:
+        '''The failure reason, if any, for a create or delete endpoint operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-failedreason
+        '''
+        result = self._values.get("failed_reason")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.FailedReasonProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3outposts.EndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"endpoint_arn": "endpointArn"},
+)
+class EndpointReference:
+    def __init__(self, *, endpoint_arn: builtins.str) -> None:
+        '''A reference to a Endpoint resource.
+
+        :param endpoint_arn: The Arn of the Endpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3outposts as s3outposts
+            
+            endpoint_reference = s3outposts.EndpointReference(
+                endpoint_arn="endpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07a5c09e668ff2164cf0ae25a4108f85c0cb0ca425bfbb3f0848f3692a35c385)
+            check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_arn": endpoint_arn,
+        }
+
+    @builtins.property
+    def endpoint_arn(self) -> builtins.str:
+        '''The Arn of the Endpoint resource.'''
+        result = self._values.get("endpoint_arn")
+        assert result is not None, "Required property 'endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3outposts.IAccessPointRef")
+class IAccessPointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3outposts.IAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAccessPointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3outposts.IBucketPolicyRef")
+class IBucketPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBucketPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3outposts.IBucketPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketPolicyRef).__jsii_proxy_class__ = lambda : _IBucketPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3outposts.IBucketRef")
+class IBucketRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Bucket.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''(experimental) A reference to a Bucket resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBucketRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Bucket.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3outposts.IBucketRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''(experimental) A reference to a Bucket resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BucketReference, jsii.get(self, "bucketRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketRef).__jsii_proxy_class__ = lambda : _IBucketRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3outposts.IEndpointRef")
+class IEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''(experimental) A reference to a Endpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3outposts.IEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''(experimental) A reference to a Endpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEndpointRef).__jsii_proxy_class__ = lambda : _IEndpointRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessPointRef)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -166,6 +1006,12 @@ class CfnAccessPoint(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''A reference to a AccessPoint resource.'''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -292,122 +1138,7 @@ class CfnAccessPoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3outposts.CfnAccessPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket": "bucket",
-        "name": "name",
-        "vpc_configuration": "vpcConfiguration",
-        "policy": "policy",
-    },
-)
-class CfnAccessPointProps:
-    def __init__(
-        self,
-        *,
-        bucket: builtins.str,
-        name: builtins.str,
-        vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        policy: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPoint``.
-
-        :param bucket: The Amazon Resource Name (ARN) of the S3 on Outposts bucket that is associated with this access point.
-        :param name: The name of this access point.
-        :param vpc_configuration: The virtual private cloud (VPC) configuration for this access point, if one exists.
-        :param policy: The access point policy associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3outposts as s3outposts
-            
-            # policy: Any
-            
-            cfn_access_point_props = s3outposts.CfnAccessPointProps(
-                bucket="bucket",
-                name="name",
-                vpc_configuration=s3outposts.CfnAccessPoint.VpcConfigurationProperty(
-                    vpc_id="vpcId"
-                ),
-            
-                # the properties below are optional
-                policy=policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-            "name": name,
-            "vpc_configuration": vpc_configuration,
-        }
-        if policy is not None:
-            self._values["policy"] = policy
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the S3 on Outposts bucket that is associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]:
-        '''The virtual private cloud (VPC) configuration for this access point, if one exists.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-vpcconfiguration
-        '''
-        result = self._values.get("vpc_configuration")
-        assert result is not None, "Required property 'vpc_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty], result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-accesspoint.html#cfn-s3outposts-accesspoint-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IBucketRef, _ITaggable_36806126)
 class CfnBucket(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -533,6 +1264,12 @@ class CfnBucket(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''A reference to a Bucket resource.'''
+        return typing.cast(BucketReference, jsii.get(self, "bucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1119,7 +1856,7 @@ class CfnBucket(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBucketPolicyRef)
 class CfnBucketPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1207,6 +1944,12 @@ class CfnBucketPolicy(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''A reference to a BucketPolicy resource.'''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1238,221 +1981,7 @@ class CfnBucketPolicy(
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucketPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
-)
-class CfnBucketPolicyProps:
-    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
-        '''Properties for defining a ``CfnBucketPolicy``.
-
-        :param bucket: The name of the Amazon S3 Outposts bucket to which the policy applies.
-        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3outposts as s3outposts
-            
-            # policy_document: Any
-            
-            cfn_bucket_policy_props = s3outposts.CfnBucketPolicyProps(
-                bucket="bucket",
-                policy_document=policy_document
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-            "policy_document": policy_document,
-        }
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The name of the Amazon S3 Outposts bucket to which the policy applies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html#cfn-s3outposts-bucketpolicy-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_document(self) -> typing.Any:
-        '''A policy document containing permissions to add to the specified bucket.
-
-        In IAM, you must provide policy documents in JSON format. However, in CloudFormation, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucketpolicy.html#cfn-s3outposts-bucketpolicy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBucketPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3outposts.CfnBucketProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket_name": "bucketName",
-        "outpost_id": "outpostId",
-        "lifecycle_configuration": "lifecycleConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnBucketProps:
-    def __init__(
-        self,
-        *,
-        bucket_name: builtins.str,
-        outpost_id: builtins.str,
-        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBucket``.
-
-        :param bucket_name: A name for the S3 on Outposts bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html>`_ . For more information, see `Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html#bucketnamingrules>`_ . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-        :param outpost_id: The ID of the Outpost of the specified bucket.
-        :param lifecycle_configuration: Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration. Outposts buckets only support lifecycle configurations that delete/expire objects after a certain period of time and abort incomplete multipart uploads.
-        :param tags: Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ . Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ . .. epigraph:: Within a bucket, if you add a tag that has the same key as an existing tag, the new value overwrites the old value. For more information, see `Using cost allocation and bucket tags <https://docs.aws.amazon.com/AmazonS3/latest/userguide/CostAllocTagging.html>`_ . To use this resource, you must have permissions to perform the ``s3-outposts:PutBucketTagging`` . The S3 on Outposts bucket owner has this permission by default and can grant this permission to others. For more information about permissions, see `Permissions Related to Bucket Subresource Operations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html#using-with-s3-actions-related-to-bucket-subresources>`_ and `Managing access permissions to your Amazon S3 resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3outposts as s3outposts
-            
-            # filter: Any
-            
-            cfn_bucket_props = s3outposts.CfnBucketProps(
-                bucket_name="bucketName",
-                outpost_id="outpostId",
-            
-                # the properties below are optional
-                lifecycle_configuration=s3outposts.CfnBucket.LifecycleConfigurationProperty(
-                    rules=[s3outposts.CfnBucket.RuleProperty(
-                        status="status",
-            
-                        # the properties below are optional
-                        abort_incomplete_multipart_upload=s3outposts.CfnBucket.AbortIncompleteMultipartUploadProperty(
-                            days_after_initiation=123
-                        ),
-                        expiration_date="expirationDate",
-                        expiration_in_days=123,
-                        filter=filter,
-                        id="id"
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7)
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
-            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket_name": bucket_name,
-            "outpost_id": outpost_id,
-        }
-        if lifecycle_configuration is not None:
-            self._values["lifecycle_configuration"] = lifecycle_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def bucket_name(self) -> builtins.str:
-        '''A name for the S3 on Outposts bucket.
-
-        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html>`_ . For more information, see `Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/BucketRestrictions.html#bucketnamingrules>`_ .
-        .. epigraph::
-
-           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        assert result is not None, "Required property 'bucket_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def outpost_id(self) -> builtins.str:
-        '''The ID of the Outpost of the specified bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-outpostid
-        '''
-        result = self._values.get("outpost_id")
-        assert result is not None, "Required property 'outpost_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def lifecycle_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LifecycleConfigurationProperty]]:
-        '''Creates a new lifecycle configuration for the S3 on Outposts bucket or replaces an existing lifecycle configuration.
-
-        Outposts buckets only support lifecycle configurations that delete/expire objects after a certain period of time and abort incomplete multipart uploads.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-lifecycleconfiguration
-        '''
-        result = self._values.get("lifecycle_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LifecycleConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Sets the tags for an S3 on Outposts bucket. For more information, see `Using Amazon S3 on Outposts <https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html>`_ .
-
-        Use tags to organize your AWS bill to reflect your own cost structure. To do this, sign up to get your AWS account bill with tag key values included. Then, to see the cost of combined resources, organize your billing information according to resources with the same tag key values. For example, you can tag several resources with a specific application name, and then organize your billing information to see the total cost of that application across several services. For more information, see `Cost allocation and tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ .
-        .. epigraph::
-
-           Within a bucket, if you add a tag that has the same key as an existing tag, the new value overwrites the old value. For more information, see `Using cost allocation and bucket tags <https://docs.aws.amazon.com/AmazonS3/latest/userguide/CostAllocTagging.html>`_ .
-
-        To use this resource, you must have permissions to perform the ``s3-outposts:PutBucketTagging`` . The S3 on Outposts bucket owner has this permission by default and can grant this permission to others. For more information about permissions, see `Permissions Related to Bucket Subresource Operations <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html#using-with-s3-actions-related-to-bucket-subresources>`_ and `Managing access permissions to your Amazon S3 resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-access-control.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-bucket.html#cfn-s3outposts-bucket-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBucketProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEndpointRef)
 class CfnEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1615,6 +2144,12 @@ class CfnEndpoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''A reference to a Endpoint resource.'''
+        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="outpostId")
@@ -1822,162 +2357,10 @@ class CfnEndpoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3outposts.CfnEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "outpost_id": "outpostId",
-        "security_group_id": "securityGroupId",
-        "subnet_id": "subnetId",
-        "access_type": "accessType",
-        "customer_owned_ipv4_pool": "customerOwnedIpv4Pool",
-        "failed_reason": "failedReason",
-    },
-)
-class CfnEndpointProps:
-    def __init__(
-        self,
-        *,
-        outpost_id: builtins.str,
-        security_group_id: builtins.str,
-        subnet_id: builtins.str,
-        access_type: typing.Optional[builtins.str] = None,
-        customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-        failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEndpoint``.
-
-        :param outpost_id: The ID of the Outpost.
-        :param security_group_id: The ID of the security group used for the endpoint.
-        :param subnet_id: The ID of the subnet used for the endpoint.
-        :param access_type: The container for the type of connectivity used to access the Amazon S3 on Outposts endpoint. To use the Amazon VPC , choose ``Private`` . To use the endpoint with an on-premises network, choose ``CustomerOwnedIp`` . If you choose ``CustomerOwnedIp`` , you must also provide the customer-owned IP address pool (CoIP pool). .. epigraph:: ``Private`` is the default access type value. Default: - "Private"
-        :param customer_owned_ipv4_pool: The ID of the customer-owned IPv4 address pool (CoIP pool) for the endpoint. IP addresses are allocated from this pool for the endpoint.
-        :param failed_reason: The failure reason, if any, for a create or delete endpoint operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3outposts as s3outposts
-            
-            cfn_endpoint_props = s3outposts.CfnEndpointProps(
-                outpost_id="outpostId",
-                security_group_id="securityGroupId",
-                subnet_id="subnetId",
-            
-                # the properties below are optional
-                access_type="accessType",
-                customer_owned_ipv4_pool="customerOwnedIpv4Pool",
-                failed_reason=s3outposts.CfnEndpoint.FailedReasonProperty(
-                    error_code="errorCode",
-                    message="message"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56)
-            check_type(argname="argument outpost_id", value=outpost_id, expected_type=type_hints["outpost_id"])
-            check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-            check_type(argname="argument access_type", value=access_type, expected_type=type_hints["access_type"])
-            check_type(argname="argument customer_owned_ipv4_pool", value=customer_owned_ipv4_pool, expected_type=type_hints["customer_owned_ipv4_pool"])
-            check_type(argname="argument failed_reason", value=failed_reason, expected_type=type_hints["failed_reason"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "outpost_id": outpost_id,
-            "security_group_id": security_group_id,
-            "subnet_id": subnet_id,
-        }
-        if access_type is not None:
-            self._values["access_type"] = access_type
-        if customer_owned_ipv4_pool is not None:
-            self._values["customer_owned_ipv4_pool"] = customer_owned_ipv4_pool
-        if failed_reason is not None:
-            self._values["failed_reason"] = failed_reason
-
-    @builtins.property
-    def outpost_id(self) -> builtins.str:
-        '''The ID of the Outpost.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-outpostid
-        '''
-        result = self._values.get("outpost_id")
-        assert result is not None, "Required property 'outpost_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_group_id(self) -> builtins.str:
-        '''The ID of the security group used for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-securitygroupid
-        '''
-        result = self._values.get("security_group_id")
-        assert result is not None, "Required property 'security_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_id(self) -> builtins.str:
-        '''The ID of the subnet used for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-subnetid
-        '''
-        result = self._values.get("subnet_id")
-        assert result is not None, "Required property 'subnet_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_type(self) -> typing.Optional[builtins.str]:
-        '''The container for the type of connectivity used to access the Amazon S3 on Outposts endpoint.
-
-        To use the Amazon VPC , choose ``Private`` . To use the endpoint with an on-premises network, choose ``CustomerOwnedIp`` . If you choose ``CustomerOwnedIp`` , you must also provide the customer-owned IP address pool (CoIP pool).
-        .. epigraph::
-
-           ``Private`` is the default access type value.
-
-        :default: - "Private"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-accesstype
-        '''
-        result = self._values.get("access_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def customer_owned_ipv4_pool(self) -> typing.Optional[builtins.str]:
-        '''The ID of the customer-owned IPv4 address pool (CoIP pool) for the endpoint.
-
-        IP addresses are allocated from this pool for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-customerownedipv4pool
-        '''
-        result = self._values.get("customer_owned_ipv4_pool")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def failed_reason(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.FailedReasonProperty]]:
-        '''The failure reason, if any, for a create or delete endpoint operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3outposts-endpoint.html#cfn-s3outposts-endpoint-failedreason
-        '''
-        result = self._values.get("failed_reason")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.FailedReasonProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessPointReference",
+    "BucketPolicyReference",
+    "BucketReference",
     "CfnAccessPoint",
     "CfnAccessPointProps",
     "CfnBucket",
@@ -1986,9 +2369,82 @@ __all__ = [
     "CfnBucketProps",
     "CfnEndpoint",
     "CfnEndpointProps",
+    "EndpointReference",
+    "IAccessPointRef",
+    "IBucketPolicyRef",
+    "IBucketRef",
+    "IEndpointRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c9c0d6ecbc9b33903726a2f8b53a567323e59f27a2b3e19cdf8485286871fa60(
+    *,
+    access_point_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3a60cecb2459610c6f8afdeb87ae4d8f5ce412cd2379842257b2196cdf8b075(
+    *,
+    bucket: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__582dd54b14840073874fc262d5685edca908651059ba4594c784d4264b3c28a2(
+    *,
+    bucket_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58(
+    *,
+    bucket: builtins.str,
+    name: builtins.str,
+    vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    policy: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d(
+    *,
+    bucket: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7(
+    *,
+    bucket_name: builtins.str,
+    outpost_id: builtins.str,
+    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56(
+    *,
+    outpost_id: builtins.str,
+    security_group_id: builtins.str,
+    subnet_id: builtins.str,
+    access_type: typing.Optional[builtins.str] = None,
+    customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
+    failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07a5c09e668ff2164cf0ae25a4108f85c0cb0ca425bfbb3f0848f3692a35c385(
+    *,
+    endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__49ce0f4ffe62c399adc97a97059924fb12bb82ce4aee91b030e12a91c6e7e762(
     scope: _constructs_77d1e7e8.Construct,
@@ -2041,16 +2497,6 @@ def _typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb29724
 def _typecheckingstub__6373f239cd33cf735848ce0486ac6581bfc5991eec9f4021c51d60abb6373929(
     *,
     vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__502dc2c537076304a47cf0b8c88787bfe3b392befb36e1fd4e4308ab73f93f58(
-    *,
-    bucket: builtins.str,
-    name: builtins.str,
-    vpc_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    policy: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2188,24 +2634,6 @@ def _typecheckingstub__4ffad2ccdd340afaf3b9f3e5724d20005a21c4915036ad7585f744478
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__464384deacb9b2f89cb8023b99378a89537e525526e6aed164958feab20ce13d(
-    *,
-    bucket: builtins.str,
-    policy_document: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__683fc987670f90a28e1010c8937c6cb1351f51f7df54c1c1514e859e524938d7(
-    *,
-    bucket_name: builtins.str,
-    outpost_id: builtins.str,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__318ea1d78b8b7ecc9087263403bda92a5fe62c88a967ba59a389878a95c540d2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2279,18 +2707,6 @@ def _typecheckingstub__cefcf0227ba3f5441cbda4abb28ee44e8ed7a6036bee1479dcf2b9bcb
 def _typecheckingstub__716f324c013a03cb5114197c4289096c6cfb4b86efb957ed96da99423bb4e82a(
     *,
     network_interface_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e86072181b15ea735510a9a25cc41f7969d6075b4e3a14868638c9fbbe0cdd56(
-    *,
-    outpost_id: builtins.str,
-    security_group_id: builtins.str,
-    subnet_id: builtins.str,
-    access_type: typing.Optional[builtins.str] = None,
-    customer_owned_ipv4_pool: typing.Optional[builtins.str] = None,
-    failed_reason: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.FailedReasonProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

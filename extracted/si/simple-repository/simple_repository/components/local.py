@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 import os
 import pathlib
+import typing
 
 import packaging.utils
 
@@ -39,7 +40,7 @@ class LocalRepository(core.SimpleRepository):
     async def get_project_list(
         self,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.ProjectList:
         return model.ProjectList(
             meta=model.Meta("1.0"),
@@ -55,7 +56,7 @@ class LocalRepository(core.SimpleRepository):
         self,
         project_name: str,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.ProjectDetail:
         project_dir = (self._index_path / project_name).resolve()
         if not project_dir.is_dir():
@@ -90,11 +91,12 @@ class LocalRepository(core.SimpleRepository):
         project_name: str,
         resource_name: str,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.Resource:
         repository_uri = (self._index_path / project_name).resolve()
         resource_uri = (repository_uri / resource_name).resolve()
 
+        # Validate both paths for security (path traversal prevention)
         if (
             not utils.is_relative_to(repository_uri, self._index_path) or
             not utils.is_relative_to(resource_uri, repository_uri)
@@ -102,6 +104,12 @@ class LocalRepository(core.SimpleRepository):
             raise ValueError(
                 f"{resource_uri} is not contained in {repository_uri}",
             )
+
+        # Check if project directory exists
+        if not repository_uri.is_dir():
+            raise errors.PackageNotFoundError(project_name)
+
+        # Check if resource file exists
         if not resource_uri.is_file():
             raise errors.ResourceUnavailable(resource_name)
 

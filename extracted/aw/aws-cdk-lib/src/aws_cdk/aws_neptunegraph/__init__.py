@@ -79,7 +79,499 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "provisioned_memory": "provisionedMemory",
+        "deletion_protection": "deletionProtection",
+        "graph_name": "graphName",
+        "public_connectivity": "publicConnectivity",
+        "replica_count": "replicaCount",
+        "tags": "tags",
+        "vector_search_configuration": "vectorSearchConfiguration",
+    },
+)
+class CfnGraphProps:
+    def __init__(
+        self,
+        *,
+        provisioned_memory: jsii.Number,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        graph_name: typing.Optional[builtins.str] = None,
+        public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        replica_count: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGraph.VectorSearchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGraph``.
+
+        :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
+        :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
+        :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+        :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
+        :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
+        :param tags: Adds metadata tags to the new graph. These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
+        :param vector_search_configuration: Specifies the number of dimensions for vector embeddings that will be loaded into the graph. The value is specified as ``dimension=`` value. Max = 65,535
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptunegraph as neptunegraph
+            
+            cfn_graph_props = neptunegraph.CfnGraphProps(
+                provisioned_memory=123,
+            
+                # the properties below are optional
+                deletion_protection=False,
+                graph_name="graphName",
+                public_connectivity=False,
+                replica_count=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vector_search_configuration=neptunegraph.CfnGraph.VectorSearchConfigurationProperty(
+                    vector_search_dimension=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71)
+            check_type(argname="argument provisioned_memory", value=provisioned_memory, expected_type=type_hints["provisioned_memory"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
+            check_type(argname="argument graph_name", value=graph_name, expected_type=type_hints["graph_name"])
+            check_type(argname="argument public_connectivity", value=public_connectivity, expected_type=type_hints["public_connectivity"])
+            check_type(argname="argument replica_count", value=replica_count, expected_type=type_hints["replica_count"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vector_search_configuration", value=vector_search_configuration, expected_type=type_hints["vector_search_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "provisioned_memory": provisioned_memory,
+        }
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
+        if graph_name is not None:
+            self._values["graph_name"] = graph_name
+        if public_connectivity is not None:
+            self._values["public_connectivity"] = public_connectivity
+        if replica_count is not None:
+            self._values["replica_count"] = replica_count
+        if tags is not None:
+            self._values["tags"] = tags
+        if vector_search_configuration is not None:
+            self._values["vector_search_configuration"] = vector_search_configuration
+
+    @builtins.property
+    def provisioned_memory(self) -> jsii.Number:
+        '''The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph.
+
+        Min = 16
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-provisionedmemory
+        '''
+        result = self._values.get("provisioned_memory")
+        assert result is not None, "Required property 'provisioned_memory' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A value that indicates whether the graph has deletion protection enabled.
+
+        The graph can't be deleted when deletion protection is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def graph_name(self) -> typing.Optional[builtins.str]:
+        '''The graph name. For example: ``my-graph-1`` .
+
+        The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens.
+
+        If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-graphname
+        '''
+        result = self._values.get("graph_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def public_connectivity(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated.
+
+        When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC.
+
+        Default: If not specified, the default value is false.
+        .. epigraph::
+
+           If enabling public connectivity for the first time, there will be a delay while it is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-publicconnectivity
+        '''
+        result = self._values.get("public_connectivity")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def replica_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of replicas in other AZs.
+
+        Default: If not specified, the default value is 1.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-replicacount
+        '''
+        result = self._values.get("replica_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Adds metadata tags to the new graph.
+
+        These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vector_search_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGraph.VectorSearchConfigurationProperty"]]:
+        '''Specifies the number of dimensions for vector embeddings that will be loaded into the graph.
+
+        The value is specified as ``dimension=`` value. Max = 65,535
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-vectorsearchconfiguration
+        '''
+        result = self._values.get("vector_search_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGraph.VectorSearchConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGraphProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnPrivateGraphEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "graph_identifier": "graphIdentifier",
+        "vpc_id": "vpcId",
+        "security_group_ids": "securityGroupIds",
+        "subnet_ids": "subnetIds",
+    },
+)
+class CfnPrivateGraphEndpointProps:
+    def __init__(
+        self,
+        *,
+        graph_identifier: builtins.str,
+        vpc_id: builtins.str,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrivateGraphEndpoint``.
+
+        :param graph_identifier: The unique identifier of the Neptune Analytics graph.
+        :param vpc_id: The VPC in which the private graph endpoint needs to be created.
+        :param security_group_ids: Security groups to be attached to the private graph endpoint..
+        :param subnet_ids: Subnets in which private graph endpoint ENIs are created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptunegraph as neptunegraph
+            
+            cfn_private_graph_endpoint_props = neptunegraph.CfnPrivateGraphEndpointProps(
+                graph_identifier="graphIdentifier",
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                security_group_ids=["securityGroupIds"],
+                subnet_ids=["subnetIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186)
+            check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "graph_identifier": graph_identifier,
+            "vpc_id": vpc_id,
+        }
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if subnet_ids is not None:
+            self._values["subnet_ids"] = subnet_ids
+
+    @builtins.property
+    def graph_identifier(self) -> builtins.str:
+        '''The unique identifier of the Neptune Analytics graph.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-graphidentifier
+        '''
+        result = self._values.get("graph_identifier")
+        assert result is not None, "Required property 'graph_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The VPC in which the private graph endpoint needs to be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Security groups to be attached to the private graph endpoint..
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Subnets in which private graph endpoint ENIs are created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrivateGraphEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptunegraph.GraphReference",
+    jsii_struct_bases=[],
+    name_mapping={"graph_arn": "graphArn", "graph_id": "graphId"},
+)
+class GraphReference:
+    def __init__(self, *, graph_arn: builtins.str, graph_id: builtins.str) -> None:
+        '''A reference to a Graph resource.
+
+        :param graph_arn: The ARN of the Graph resource.
+        :param graph_id: The GraphId of the Graph resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptunegraph as neptunegraph
+            
+            graph_reference = neptunegraph.GraphReference(
+                graph_arn="graphArn",
+                graph_id="graphId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36095b0cace6fb45da73b6dcfc4816c4d58f2f53c3cf9cb208f34bb087faacb1)
+            check_type(argname="argument graph_arn", value=graph_arn, expected_type=type_hints["graph_arn"])
+            check_type(argname="argument graph_id", value=graph_id, expected_type=type_hints["graph_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "graph_arn": graph_arn,
+            "graph_id": graph_id,
+        }
+
+    @builtins.property
+    def graph_arn(self) -> builtins.str:
+        '''The ARN of the Graph resource.'''
+        result = self._values.get("graph_arn")
+        assert result is not None, "Required property 'graph_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def graph_id(self) -> builtins.str:
+        '''The GraphId of the Graph resource.'''
+        result = self._values.get("graph_id")
+        assert result is not None, "Required property 'graph_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GraphReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_neptunegraph.IGraphRef")
+class IGraphRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Graph.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="graphRef")
+    def graph_ref(self) -> GraphReference:
+        '''(experimental) A reference to a Graph resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGraphRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Graph.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_neptunegraph.IGraphRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="graphRef")
+    def graph_ref(self) -> GraphReference:
+        '''(experimental) A reference to a Graph resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GraphReference, jsii.get(self, "graphRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGraphRef).__jsii_proxy_class__ = lambda : _IGraphRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_neptunegraph.IPrivateGraphEndpointRef")
+class IPrivateGraphEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PrivateGraphEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="privateGraphEndpointRef")
+    def private_graph_endpoint_ref(self) -> "PrivateGraphEndpointReference":
+        '''(experimental) A reference to a PrivateGraphEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPrivateGraphEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PrivateGraphEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_neptunegraph.IPrivateGraphEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="privateGraphEndpointRef")
+    def private_graph_endpoint_ref(self) -> "PrivateGraphEndpointReference":
+        '''(experimental) A reference to a PrivateGraphEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PrivateGraphEndpointReference", jsii.get(self, "privateGraphEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPrivateGraphEndpointRef).__jsii_proxy_class__ = lambda : _IPrivateGraphEndpointRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptunegraph.PrivateGraphEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "private_graph_endpoint_identifier": "privateGraphEndpointIdentifier",
+    },
+)
+class PrivateGraphEndpointReference:
+    def __init__(self, *, private_graph_endpoint_identifier: builtins.str) -> None:
+        '''A reference to a PrivateGraphEndpoint resource.
+
+        :param private_graph_endpoint_identifier: The PrivateGraphEndpointIdentifier of the PrivateGraphEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptunegraph as neptunegraph
+            
+            private_graph_endpoint_reference = neptunegraph.PrivateGraphEndpointReference(
+                private_graph_endpoint_identifier="privateGraphEndpointIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3236867d0d2250ff074acf8d3d4713bcdbbc999eb60b0a4afc6953ec6f142488)
+            check_type(argname="argument private_graph_endpoint_identifier", value=private_graph_endpoint_identifier, expected_type=type_hints["private_graph_endpoint_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "private_graph_endpoint_identifier": private_graph_endpoint_identifier,
+        }
+
+    @builtins.property
+    def private_graph_endpoint_identifier(self) -> builtins.str:
+        '''The PrivateGraphEndpointIdentifier of the PrivateGraphEndpoint resource.'''
+        result = self._values.get("private_graph_endpoint_identifier")
+        assert result is not None, "Required property 'private_graph_endpoint_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PrivateGraphEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IGraphRef, _ITaggableV2_4e6798f8)
 class CfnGraph(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -232,6 +724,12 @@ class CfnGraph(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="graphRef")
+    def graph_ref(self) -> GraphReference:
+        '''A reference to a Graph resource.'''
+        return typing.cast(GraphReference, jsii.get(self, "graphRef"))
 
     @builtins.property
     @jsii.member(jsii_name="provisionedMemory")
@@ -398,196 +896,7 @@ class CfnGraph(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraphProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "provisioned_memory": "provisionedMemory",
-        "deletion_protection": "deletionProtection",
-        "graph_name": "graphName",
-        "public_connectivity": "publicConnectivity",
-        "replica_count": "replicaCount",
-        "tags": "tags",
-        "vector_search_configuration": "vectorSearchConfiguration",
-    },
-)
-class CfnGraphProps:
-    def __init__(
-        self,
-        *,
-        provisioned_memory: jsii.Number,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        graph_name: typing.Optional[builtins.str] = None,
-        public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        replica_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGraph``.
-
-        :param provisioned_memory: The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph. Min = 16
-        :param deletion_protection: A value that indicates whether the graph has deletion protection enabled. The graph can't be deleted when deletion protection is enabled.
-        :param graph_name: The graph name. For example: ``my-graph-1`` . The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens. If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
-        :param public_connectivity: Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated. When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC. Default: If not specified, the default value is false. .. epigraph:: If enabling public connectivity for the first time, there will be a delay while it is enabled.
-        :param replica_count: The number of replicas in other AZs. Default: If not specified, the default value is 1.
-        :param tags: Adds metadata tags to the new graph. These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
-        :param vector_search_configuration: Specifies the number of dimensions for vector embeddings that will be loaded into the graph. The value is specified as ``dimension=`` value. Max = 65,535
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_neptunegraph as neptunegraph
-            
-            cfn_graph_props = neptunegraph.CfnGraphProps(
-                provisioned_memory=123,
-            
-                # the properties below are optional
-                deletion_protection=False,
-                graph_name="graphName",
-                public_connectivity=False,
-                replica_count=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vector_search_configuration=neptunegraph.CfnGraph.VectorSearchConfigurationProperty(
-                    vector_search_dimension=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71)
-            check_type(argname="argument provisioned_memory", value=provisioned_memory, expected_type=type_hints["provisioned_memory"])
-            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
-            check_type(argname="argument graph_name", value=graph_name, expected_type=type_hints["graph_name"])
-            check_type(argname="argument public_connectivity", value=public_connectivity, expected_type=type_hints["public_connectivity"])
-            check_type(argname="argument replica_count", value=replica_count, expected_type=type_hints["replica_count"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vector_search_configuration", value=vector_search_configuration, expected_type=type_hints["vector_search_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "provisioned_memory": provisioned_memory,
-        }
-        if deletion_protection is not None:
-            self._values["deletion_protection"] = deletion_protection
-        if graph_name is not None:
-            self._values["graph_name"] = graph_name
-        if public_connectivity is not None:
-            self._values["public_connectivity"] = public_connectivity
-        if replica_count is not None:
-            self._values["replica_count"] = replica_count
-        if tags is not None:
-            self._values["tags"] = tags
-        if vector_search_configuration is not None:
-            self._values["vector_search_configuration"] = vector_search_configuration
-
-    @builtins.property
-    def provisioned_memory(self) -> jsii.Number:
-        '''The provisioned memory-optimized Neptune Capacity Units (m-NCUs) to use for the graph.
-
-        Min = 16
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-provisionedmemory
-        '''
-        result = self._values.get("provisioned_memory")
-        assert result is not None, "Required property 'provisioned_memory' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def deletion_protection(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A value that indicates whether the graph has deletion protection enabled.
-
-        The graph can't be deleted when deletion protection is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-deletionprotection
-        '''
-        result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def graph_name(self) -> typing.Optional[builtins.str]:
-        '''The graph name. For example: ``my-graph-1`` .
-
-        The name must contain from 1 to 63 letters, numbers, or hyphens, and its first character must be a letter. It cannot end with a hyphen or contain two consecutive hyphens.
-
-        If you don't specify a graph name, a unique graph name is generated for you using the prefix ``graph-for`` , followed by a combination of ``Stack Name`` and a ``UUID`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-graphname
-        '''
-        result = self._values.get("graph_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def public_connectivity(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether or not the graph can be reachable over the internet. All access to graphs is IAM authenticated.
-
-        When the graph is publicly available, its domain name system (DNS) endpoint resolves to the public IP address from the internet. When the graph isn't publicly available, you need to create a ``PrivateGraphEndpoint`` in a given VPC to ensure the DNS name resolves to a private IP address that is reachable from the VPC.
-
-        Default: If not specified, the default value is false.
-        .. epigraph::
-
-           If enabling public connectivity for the first time, there will be a delay while it is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-publicconnectivity
-        '''
-        result = self._values.get("public_connectivity")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def replica_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of replicas in other AZs.
-
-        Default: If not specified, the default value is 1.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-replicacount
-        '''
-        result = self._values.get("replica_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Adds metadata tags to the new graph.
-
-        These tags can also be used with cost allocation reporting, or used in a Condition statement in an IAM policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vector_search_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGraph.VectorSearchConfigurationProperty]]:
-        '''Specifies the number of dimensions for vector embeddings that will be loaded into the graph.
-
-        The value is specified as ``dimension=`` value. Max = 65,535
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graph.html#cfn-neptunegraph-graph-vectorsearchconfiguration
-        '''
-        result = self._values.get("vector_search_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGraph.VectorSearchConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGraphProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPrivateGraphEndpointRef)
 class CfnPrivateGraphEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -709,6 +1018,12 @@ class CfnPrivateGraphEndpoint(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="privateGraphEndpointRef")
+    def private_graph_endpoint_ref(self) -> PrivateGraphEndpointReference:
+        '''A reference to a PrivateGraphEndpoint resource.'''
+        return typing.cast(PrivateGraphEndpointReference, jsii.get(self, "privateGraphEndpointRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="graphIdentifier")
     def graph_identifier(self) -> builtins.str:
         '''The unique identifier of the Neptune Analytics graph.'''
@@ -764,123 +1079,56 @@ class CfnPrivateGraphEndpoint(
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_neptunegraph.CfnPrivateGraphEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "graph_identifier": "graphIdentifier",
-        "vpc_id": "vpcId",
-        "security_group_ids": "securityGroupIds",
-        "subnet_ids": "subnetIds",
-    },
-)
-class CfnPrivateGraphEndpointProps:
-    def __init__(
-        self,
-        *,
-        graph_identifier: builtins.str,
-        vpc_id: builtins.str,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPrivateGraphEndpoint``.
-
-        :param graph_identifier: The unique identifier of the Neptune Analytics graph.
-        :param vpc_id: The VPC in which the private graph endpoint needs to be created.
-        :param security_group_ids: Security groups to be attached to the private graph endpoint..
-        :param subnet_ids: Subnets in which private graph endpoint ENIs are created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_neptunegraph as neptunegraph
-            
-            cfn_private_graph_endpoint_props = neptunegraph.CfnPrivateGraphEndpointProps(
-                graph_identifier="graphIdentifier",
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                security_group_ids=["securityGroupIds"],
-                subnet_ids=["subnetIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186)
-            check_type(argname="argument graph_identifier", value=graph_identifier, expected_type=type_hints["graph_identifier"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "graph_identifier": graph_identifier,
-            "vpc_id": vpc_id,
-        }
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if subnet_ids is not None:
-            self._values["subnet_ids"] = subnet_ids
-
-    @builtins.property
-    def graph_identifier(self) -> builtins.str:
-        '''The unique identifier of the Neptune Analytics graph.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-graphidentifier
-        '''
-        result = self._values.get("graph_identifier")
-        assert result is not None, "Required property 'graph_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The VPC in which the private graph endpoint needs to be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Security groups to be attached to the private graph endpoint..
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Subnets in which private graph endpoint ENIs are created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-privategraphendpoint.html#cfn-neptunegraph-privategraphendpoint-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPrivateGraphEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnGraph",
     "CfnGraphProps",
     "CfnPrivateGraphEndpoint",
     "CfnPrivateGraphEndpointProps",
+    "GraphReference",
+    "IGraphRef",
+    "IPrivateGraphEndpointRef",
+    "PrivateGraphEndpointReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71(
+    *,
+    provisioned_memory: jsii.Number,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    graph_name: typing.Optional[builtins.str] = None,
+    public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    replica_count: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186(
+    *,
+    graph_identifier: builtins.str,
+    vpc_id: builtins.str,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36095b0cace6fb45da73b6dcfc4816c4d58f2f53c3cf9cb208f34bb087faacb1(
+    *,
+    graph_arn: builtins.str,
+    graph_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3236867d0d2250ff074acf8d3d4713bcdbbc999eb60b0a4afc6953ec6f142488(
+    *,
+    private_graph_endpoint_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e963857650d4e99964bc9bad7da0b29a5d2d3c66d3452d1e9b4f35e89330e04b(
     scope: _constructs_77d1e7e8.Construct,
@@ -958,19 +1206,6 @@ def _typecheckingstub__0a4625f08e1fb2af5a059a020fbbe4f9b64ced8f30cb593a275b3af90
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1c5873f5b0997b6619747c309d6a4e6c52de08653e961a9abf16f71c41b60b71(
-    *,
-    provisioned_memory: jsii.Number,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    graph_name: typing.Optional[builtins.str] = None,
-    public_connectivity: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    replica_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vector_search_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGraph.VectorSearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__01fbeae7e1567a93f602c30b996e949980cb85f4a6668a45a57e1fc68b7c6e1c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1015,16 +1250,6 @@ def _typecheckingstub__682bcd6c1c60a24355d9121c725518329acfd29ac4c1e75c30476fa59
 
 def _typecheckingstub__b4fc8bb9e26efd06ea5bc87d6e7358de98fcb83d1fb96fc3f74ed77165366cd5(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4034e8161715769ce918d492497f1ae3b63217d21450c72a2386f26fb2a4b186(
-    *,
-    graph_identifier: builtins.str,
-    vpc_id: builtins.str,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

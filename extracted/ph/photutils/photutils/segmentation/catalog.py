@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides tools for calculating the properties of sources
-defined by a segmentation image.
+Define tools for calculating the properties of sources defined by a
+segmentation image.
 """
 
 import functools
@@ -205,7 +205,9 @@ class SourceCatalog:
         * 'none': do not mask any pixels (equivalent to MASK_TYPE=NONE
           in SourceExtractor).
 
-        This keyword will be ignored if ``detection_cat`` is input.
+        This keyword will be ignored if ``detection_cat`` is input. In
+        that case, the ``apermask_method`` set in the ``detection_cat``
+        will be used.
 
     kron_params : tuple of 2 or 3 floats, optional
         A list of parameters used to determine the Kron aperture.
@@ -240,8 +242,6 @@ class SourceCatalog:
         ``fluxfrac_radius``, ``circular_photometry``, ``centroid_win``,
         ``centroid_quad``). The progress bar requires that the `tqdm
         <https://tqdm.github.io/>`_ optional dependency be installed.
-        Note that the progress bar does not currently work in the
-        Jupyter console due to limitations in ``tqdm``.
 
     Notes
     -----
@@ -336,8 +336,8 @@ class SourceCatalog:
         self._labels = self._segment_img.labels
 
         if self._labels.shape == (0,):
-            raise ValueError('segment_img must have at least one non-zero '
-                             'label.')
+            msg = 'segment_img must have at least one non-zero label'
+            raise ValueError(msg)
 
         self._detection_cat = self._validate_detection_cat(detection_cat)
         attrs = ('wcs', 'apermask_method', 'kron_params')
@@ -352,7 +352,7 @@ class SourceCatalog:
             'circ': {'method': 'exact'},
             'kron': {'method': 'exact'},
             'fluxfrac': {'method': 'exact'},
-            'cen_win': {'method': 'center'}
+            'cen_win': {'method': 'center'},
         }
 
         self.default_columns = DEFAULT_COLUMNS
@@ -362,9 +362,11 @@ class SourceCatalog:
 
     def _validate_segment_img(self, segment_img):
         if not isinstance(segment_img, SegmentationImage):
-            raise TypeError('segment_img must be a SegmentationImage')
+            msg = 'segment_img must be a SegmentationImage'
+            raise TypeError(msg)
         if segment_img.shape != self._data.shape:
-            raise ValueError('segment_img and data must have the same shape.')
+            msg = 'segment_img and data must have the same shape'
+            raise ValueError(msg)
         return segment_img
 
     def _validate_array(self, array, name, shape=True):
@@ -375,39 +377,49 @@ class SourceCatalog:
             # local_background from int data; convert to float
             array = np.asanyarray(array)
             if array.ndim != 2:
-                raise ValueError(f'{name} must be a 2D array.')
+                msg = f'{name} must be a 2D array'
+                raise ValueError(msg)
             if shape and array.shape != self._data.shape:
-                raise ValueError(f'data and {name} must have the same shape.')
+                msg = f'data and {name} must have the same shape'
+                raise ValueError(msg)
         return array
 
     @staticmethod
     def _validate_localbkg_width(localbkg_width):
         if localbkg_width < 0:
-            raise ValueError('localbkg_width must be >= 0')
+            msg = 'localbkg_width must be >= 0'
+            raise ValueError(msg)
         localbkg_width_int = int(localbkg_width)
         if localbkg_width_int != localbkg_width:
-            raise ValueError('localbkg_width must be an integer')
+            msg = 'localbkg_width must be an integer'
+            raise ValueError(msg)
         return localbkg_width_int
 
     @staticmethod
     def _validate_apermask_method(apermask_method):
         if apermask_method not in ('none', 'mask', 'correct'):
-            raise ValueError('Invalid apermask_method value')
+            msg = 'Invalid apermask_method value'
+            raise ValueError(msg)
         return apermask_method
 
     @staticmethod
     def _validate_kron_params(kron_params):
         if np.ndim(kron_params) != 1:
-            raise ValueError('kron_params must be 1D')
+            msg = 'kron_params must be 1D'
+            raise ValueError(msg)
         nparams = len(kron_params)
         if nparams not in (2, 3):
-            raise ValueError('kron_params must have 2 or 3 elements')
+            msg = 'kron_params must have 2 or 3 elements'
+            raise ValueError(msg)
         if kron_params[0] <= 0:
-            raise ValueError('kron_params[0] must be > 0')
+            msg = 'kron_params[0] must be > 0'
+            raise ValueError(msg)
         if kron_params[1] <= 0:
-            raise ValueError('kron_params[1] must be > 0')
+            msg = 'kron_params[1] must be > 0'
+            raise ValueError(msg)
         if nparams == 3 and kron_params[2] < 0:
-            raise ValueError('kron_params[2] must be >= 0')
+            msg = 'kron_params[2] must be >= 0'
+            raise ValueError(msg)
         return tuple(kron_params)
 
     def _validate_detection_cat(self, detection_cat):
@@ -415,11 +427,12 @@ class SourceCatalog:
             return None
 
         if not isinstance(detection_cat, SourceCatalog):
-            raise TypeError('detection_cat must be a SourceCatalog '
-                            'instance')
+            msg = 'detection_cat must be a SourceCatalog instance'
+            raise TypeError(msg)
         if not np.array_equal(detection_cat._segment_img, self._segment_img):
-            raise ValueError('detection_cat must have same segment_img as '
-                             'the input segment_img')
+            msg = ('detection_cat must have same segment_img as the '
+                   'input segment_img')
+            raise ValueError(msg)
         return detection_cat
 
     def _update_meta(self):
@@ -433,7 +446,7 @@ class SourceCatalog:
             'circ': {'method': 'subpixel', 'subpixels': 5},
             'kron': {'method': 'center'},
             'fluxfrac': {'method': 'subpixel', 'subpixels': 5},
-            'cen_win': {'method': 'subpixel', 'subpixels': 11}
+            'cen_win': {'method': 'subpixel', 'subpixels': 11},
         }
 
     @property
@@ -475,8 +488,9 @@ class SourceCatalog:
 
     def __getitem__(self, index):
         if self.isscalar:
-            raise TypeError(f'A scalar {self.__class__.__name__!r} object '
-                            'cannot be indexed')
+            msg = (f'A scalar {self.__class__.__name__!r} object cannot '
+                   'be indexed')
+            raise TypeError(msg)
 
         newcls = object.__new__(self.__class__)
 
@@ -554,8 +568,8 @@ class SourceCatalog:
 
     def __len__(self):
         if self.isscalar:
-            raise TypeError(f'Scalar {self.__class__.__name__!r} object has '
-                            'no len()')
+            msg = f'Scalar {self.__class__.__name__!r} object has no len()'
+            raise TypeError(msg)
         return self.nlabels
 
     def __iter__(self):
@@ -626,17 +640,18 @@ class SourceCatalog:
                                | set(self._properties))
                                - set(self.extra_properties))
         if name in internal_attributes:
-            raise ValueError(f'{name} cannot be set because it is a '
-                             'built-in attribute')
+            msg = f'{name} cannot be set because it is a built-in attribute'
+            raise ValueError(msg)
 
         if not overwrite:
             if hasattr(self, name):
-                raise ValueError(f'{name} already exists as an attribute. '
-                                 'Set overwrite=True to overwrite an existing '
-                                 'attribute.')
+                msg = (f'{name} already exists as an attribute. Set '
+                       'overwrite=True to overwrite an existing attribute.')
+                raise ValueError(msg)
             if name in self._extra_properties:
-                raise ValueError(f'{name} already exists in the '
-                                 '"extra_properties" attribute list.')
+                msg = (f'{name} already exists in the extra_properties '
+                       'attribute list.')
+                raise ValueError(msg)
 
         property_error = False
         if self.isscalar:
@@ -654,12 +669,12 @@ class SourceCatalog:
         elif not self._has_len(value) or len(value) != self.nlabels:
             property_error = True
         if property_error:
-            raise ValueError('value must have the same number of elements as '
-                             'the catalog in order to add it as an extra '
-                             'property.')
+            msg = ('value must have the same number of elements as the '
+                   'catalog in order to add it as an extra property.')
+            raise ValueError(msg)
 
         setattr(self, name, value)
-        if not overwrite:
+        if name not in self._extra_properties:
             self._extra_properties.append(name)
 
     def remove_extra_property(self, name):
@@ -695,7 +710,7 @@ class SourceCatalog:
 
         # we copy the list here to prevent changing the list in-place
         # during the for loop below, e.g., in case a user inputs
-        # names=self.extra_properties
+        # self.extra_properties to ``names``
         extra_properties = self._extra_properties.copy()
 
         for name in names:
@@ -703,7 +718,8 @@ class SourceCatalog:
                 delattr(self, name)
                 extra_properties.remove(name)
             else:
-                raise ValueError(f'{name} is not a defined extra property.')
+                msg = f'{name} is not a defined extra property'
+                raise ValueError(msg)
         self._extra_properties = extra_properties
 
     def rename_extra_property(self, name, new_name):
@@ -904,7 +920,8 @@ class SourceCatalog:
         Prepare cutouts by applying optional units, masks, or dtype.
         """
         if units and masked:
-            raise ValueError('Both units and masked cannot be True')
+            msg = 'Both units and masked cannot be True'
+            raise ValueError(msg)
 
         if dtype is not None:
             cutouts = [cutout.astype(dtype, copy=True) for cutout in arrays]
@@ -1215,6 +1232,8 @@ class SourceCatalog:
         An array with a single NaN is returned for completely-masked
         sources.
         """
+        if self._error is None:
+            return self._null_objects
         return self._get_values(self.error_ma)
 
     @lazyproperty
@@ -1225,6 +1244,8 @@ class SourceCatalog:
         An array with a single NaN is returned for completely-masked
         sources.
         """
+        if self._background is None:
+            return self._null_objects
         return self._get_values(self.background_ma)
 
     @lazyproperty
@@ -2784,7 +2805,8 @@ class SourceCatalog:
         """
         radius = np.broadcast_to(radius, len(self._xcentroid))
         if np.any(radius <= 0):
-            raise ValueError('radius must be > 0')
+            msg = 'radius must be > 0'
+            raise ValueError(msg)
 
         apertures = []
         for (xcen, ycen, radius_, all_masked) in zip(self._xcentroid,
@@ -2907,7 +2929,8 @@ class SourceCatalog:
             completely masked).
         """
         if radius <= 0:
-            raise ValueError('radius must be > 0')
+            msg = 'radius must be > 0'
+            raise ValueError(msg)
 
         apertures = self._make_circular_apertures(radius)
         kwargs = self._apermask_kwargs['circ']
@@ -3601,7 +3624,8 @@ class SourceCatalog:
             or where the Kron flux is zero or non-finite.
         """
         if fluxfrac <= 0 or fluxfrac > 1:
-            raise ValueError('fluxfrac must be > 0 and <= 1')
+            msg = 'fluxfrac must be > 0 and <= 1'
+            raise ValueError(msg)
 
         args = self._fluxfrac_optimizer_args
         if self.progress_bar:  # pragma: no cover
@@ -3660,7 +3684,8 @@ class SourceCatalog:
         return result
 
     @as_scalar
-    def make_cutouts(self, shape, mode='partial', fill_value=np.nan):
+    def make_cutouts(self, shape, *, array=None, mode='partial',
+                     fill_value=np.nan):
         """
         Make cutout arrays for each source.
 
@@ -3672,6 +3697,14 @@ class SourceCatalog:
         ----------
         shape : 2-tuple
             The cutout shape along each axis in ``(ny, nx)`` order.
+
+        array : `None` or 2D `~numpy.ndarray`
+            A 2D array with the same shape as the ``data`` array input
+            to `~photutils.segmentation.SourceCatalog`. If `None` then
+            the ``data`` array will be used. If any cutout arrays
+            are not fully contained within the ``array`` array and
+            ``mode='partial'`` with ``fill_value=np.nan``, then the
+            input ``array`` must have a float data type.
 
         mode : {'partial', 'trim'}, optional
             The mode used for extracting the cutout array. In
@@ -3698,8 +3731,15 @@ class SourceCatalog:
             cutout will be `None` where the source `centroid` position
             is not finite or where the source is completely masked.
         """
+        if array is None:
+            array = self._data
+        elif array.shape != self._data.shape:
+            msg = 'array must have the same shape as data'
+            raise ValueError(msg)
+
         if mode not in ('partial', 'trim'):
-            raise ValueError('mode must be "partial" or "trim"')
+            msg = 'mode must be "partial" or "trim"'
+            raise ValueError(msg)
 
         cutouts = []
         for (xcen, ycen, all_masked) in zip(self._xcentroid,
@@ -3710,7 +3750,7 @@ class SourceCatalog:
                 cutouts.append(None)
                 continue
 
-            cutouts.append(CutoutImage(self._data, (ycen, xcen), shape,
+            cutouts.append(CutoutImage(array, (ycen, xcen), shape,
                                        mode=mode, fill_value=fill_value))
 
         return cutouts

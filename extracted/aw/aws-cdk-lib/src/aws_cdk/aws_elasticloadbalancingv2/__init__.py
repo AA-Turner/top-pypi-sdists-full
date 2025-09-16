@@ -1242,7 +1242,7 @@ from ..aws_ec2 import (
     SubnetSelection as _SubnetSelection_e57d76df,
 )
 from ..aws_iam import IPrincipal as _IPrincipal_539bb2fd
-from ..aws_s3 import IBucket as _IBucket_42e086fd
+from ..aws_s3 import IBucket as _IBucket_42e086fd, IBucketRef as _IBucketRef_fb8fe266
 
 
 @jsii.data_type(
@@ -3742,1972 +3742,6 @@ class BaseTargetGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnListener(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener",
-):
-    '''Specifies a listener for an Application Load Balancer, Network Load Balancer, or Gateway Load Balancer.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::Listener
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_listener = elbv2.CfnListener(self, "MyCfnListener",
-            default_actions=[elbv2.CfnListener.ActionProperty(
-                type="type",
-        
-                # the properties below are optional
-                authenticate_cognito_config=elbv2.CfnListener.AuthenticateCognitoConfigProperty(
-                    user_pool_arn="userPoolArn",
-                    user_pool_client_id="userPoolClientId",
-                    user_pool_domain="userPoolDomain",
-        
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout="sessionTimeout"
-                ),
-                authenticate_oidc_config=elbv2.CfnListener.AuthenticateOidcConfigProperty(
-                    authorization_endpoint="authorizationEndpoint",
-                    client_id="clientId",
-                    issuer="issuer",
-                    token_endpoint="tokenEndpoint",
-                    user_info_endpoint="userInfoEndpoint",
-        
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    client_secret="clientSecret",
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout="sessionTimeout",
-                    use_existing_client_secret=False
-                ),
-                fixed_response_config=elbv2.CfnListener.FixedResponseConfigProperty(
-                    status_code="statusCode",
-        
-                    # the properties below are optional
-                    content_type="contentType",
-                    message_body="messageBody"
-                ),
-                forward_config=elbv2.CfnListener.ForwardConfigProperty(
-                    target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
-                        target_group_arn="targetGroupArn",
-                        weight=123
-                    )],
-                    target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
-                        duration_seconds=123,
-                        enabled=False
-                    )
-                ),
-                order=123,
-                redirect_config=elbv2.CfnListener.RedirectConfigProperty(
-                    status_code="statusCode",
-        
-                    # the properties below are optional
-                    host="host",
-                    path="path",
-                    port="port",
-                    protocol="protocol",
-                    query="query"
-                ),
-                target_group_arn="targetGroupArn"
-            )],
-            load_balancer_arn="loadBalancerArn",
-        
-            # the properties below are optional
-            alpn_policy=["alpnPolicy"],
-            certificates=[elbv2.CfnListener.CertificateProperty(
-                certificate_arn="certificateArn"
-            )],
-            listener_attributes=[elbv2.CfnListener.ListenerAttributeProperty(
-                key="key",
-                value="value"
-            )],
-            mutual_authentication=elbv2.CfnListener.MutualAuthenticationProperty(
-                advertise_trust_store_ca_names="advertiseTrustStoreCaNames",
-                ignore_client_certificate_expiry=False,
-                mode="mode",
-                trust_store_arn="trustStoreArn"
-            ),
-            port=123,
-            protocol="protocol",
-            ssl_policy="sslPolicy"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        load_balancer_arn: builtins.str,
-        alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        port: typing.Optional[jsii.Number] = None,
-        protocol: typing.Optional[builtins.str] = None,
-        ssl_policy: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param default_actions: The actions for the default rule. You cannot define a condition for a default rule. To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
-        :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
-        :param alpn_policy: [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
-        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. For an HTTPS listener, update requires some interruptions. For a TLS listener, update requires no interruption. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
-        :param listener_attributes: The listener attributes. Attributes that you do not modify retain their current values.
-        :param mutual_authentication: The mutual authentication configuration information.
-        :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
-        :param protocol: The protocol for connections from clients to the load balancer. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, and TCP_UDP. You can’t specify the UDP or TCP_UDP protocol if dual-stack mode is enabled. You can't specify a protocol for a Gateway Load Balancer.
-        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported. For more information, see `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`_ in the *Application Load Balancers Guide* and `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`_ in the *Network Load Balancers Guide* . [HTTPS listeners] Updating the security policy can result in interruptions if the load balancer is handling a high volume of traffic. To decrease the possibility of an interruption if your load balancer is handling a high volume of traffic, create an additional load balancer or request an LCU reservation.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnListenerProps(
-            default_actions=default_actions,
-            load_balancer_arn=load_balancer_arn,
-            alpn_policy=alpn_policy,
-            certificates=certificates,
-            listener_attributes=listener_attributes,
-            mutual_authentication=mutual_authentication,
-            port=port,
-            protocol=protocol,
-            ssl_policy=ssl_policy,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrListenerArn")
-    def attr_listener_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the listener.
-
-        :cloudformationAttribute: ListenerArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrListenerArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultActions")
-    def default_actions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]]:
-        '''The actions for the default rule.
-
-        You cannot define a condition for a default rule.
-        '''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]], jsii.get(self, "defaultActions"))
-
-    @default_actions.setter
-    def default_actions(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="loadBalancerArn")
-    def load_balancer_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the load balancer.'''
-        return typing.cast(builtins.str, jsii.get(self, "loadBalancerArn"))
-
-    @load_balancer_arn.setter
-    def load_balancer_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loadBalancerArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alpnPolicy")
-    def alpn_policy(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''[TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alpnPolicy"))
-
-    @alpn_policy.setter
-    def alpn_policy(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alpnPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificates")
-    def certificates(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]]:
-        '''The default SSL server certificate for a secure listener.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]], jsii.get(self, "certificates"))
-
-    @certificates.setter
-    def certificates(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="listenerAttributes")
-    def listener_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]]:
-        '''The listener attributes.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]], jsii.get(self, "listenerAttributes"))
-
-    @listener_attributes.setter
-    def listener_attributes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "listenerAttributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="mutualAuthentication")
-    def mutual_authentication(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]]:
-        '''The mutual authentication configuration information.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]], jsii.get(self, "mutualAuthentication"))
-
-    @mutual_authentication.setter
-    def mutual_authentication(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mutualAuthentication", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="port")
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port on which the load balancer is listening.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
-
-    @port.setter
-    def port(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="protocol")
-    def protocol(self) -> typing.Optional[builtins.str]:
-        '''The protocol for connections from clients to the load balancer.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocol"))
-
-    @protocol.setter
-    def protocol(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sslPolicy")
-    def ssl_policy(self) -> typing.Optional[builtins.str]:
-        '''[HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sslPolicy"))
-
-    @ssl_policy.setter
-    def ssl_policy(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sslPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ActionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "type": "type",
-            "authenticate_cognito_config": "authenticateCognitoConfig",
-            "authenticate_oidc_config": "authenticateOidcConfig",
-            "fixed_response_config": "fixedResponseConfig",
-            "forward_config": "forwardConfig",
-            "order": "order",
-            "redirect_config": "redirectConfig",
-            "target_group_arn": "targetGroupArn",
-        },
-    )
-    class ActionProperty:
-        def __init__(
-            self,
-            *,
-            type: builtins.str,
-            authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            order: typing.Optional[jsii.Number] = None,
-            redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target_group_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies an action for a listener rule.
-
-            :param type: The type of action.
-            :param authenticate_cognito_config: [HTTPS listeners] Information for using Amazon Cognito to authenticate users. Specify only when ``Type`` is ``authenticate-cognito`` .
-            :param authenticate_oidc_config: [HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC). Specify only when ``Type`` is ``authenticate-oidc`` .
-            :param fixed_response_config: [Application Load Balancer] Information for creating an action that returns a custom HTTP response. Specify only when ``Type`` is ``fixed-response`` .
-            :param forward_config: Information for creating an action that distributes requests among one or more target groups. For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-            :param order: The order for the action. This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
-            :param redirect_config: [Application Load Balancer] Information for creating a redirect action. Specify only when ``Type`` is ``redirect`` .
-            :param target_group_arn: The Amazon Resource Name (ARN) of the target group. Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                action_property = elbv2.CfnListener.ActionProperty(
-                    type="type",
-                
-                    # the properties below are optional
-                    authenticate_cognito_config=elbv2.CfnListener.AuthenticateCognitoConfigProperty(
-                        user_pool_arn="userPoolArn",
-                        user_pool_client_id="userPoolClientId",
-                        user_pool_domain="userPoolDomain",
-                
-                        # the properties below are optional
-                        authentication_request_extra_params={
-                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                        },
-                        on_unauthenticated_request="onUnauthenticatedRequest",
-                        scope="scope",
-                        session_cookie_name="sessionCookieName",
-                        session_timeout="sessionTimeout"
-                    ),
-                    authenticate_oidc_config=elbv2.CfnListener.AuthenticateOidcConfigProperty(
-                        authorization_endpoint="authorizationEndpoint",
-                        client_id="clientId",
-                        issuer="issuer",
-                        token_endpoint="tokenEndpoint",
-                        user_info_endpoint="userInfoEndpoint",
-                
-                        # the properties below are optional
-                        authentication_request_extra_params={
-                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                        },
-                        client_secret="clientSecret",
-                        on_unauthenticated_request="onUnauthenticatedRequest",
-                        scope="scope",
-                        session_cookie_name="sessionCookieName",
-                        session_timeout="sessionTimeout",
-                        use_existing_client_secret=False
-                    ),
-                    fixed_response_config=elbv2.CfnListener.FixedResponseConfigProperty(
-                        status_code="statusCode",
-                
-                        # the properties below are optional
-                        content_type="contentType",
-                        message_body="messageBody"
-                    ),
-                    forward_config=elbv2.CfnListener.ForwardConfigProperty(
-                        target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
-                            target_group_arn="targetGroupArn",
-                            weight=123
-                        )],
-                        target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
-                            duration_seconds=123,
-                            enabled=False
-                        )
-                    ),
-                    order=123,
-                    redirect_config=elbv2.CfnListener.RedirectConfigProperty(
-                        status_code="statusCode",
-                
-                        # the properties below are optional
-                        host="host",
-                        path="path",
-                        port="port",
-                        protocol="protocol",
-                        query="query"
-                    ),
-                    target_group_arn="targetGroupArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349)
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
-                check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
-                check_type(argname="argument fixed_response_config", value=fixed_response_config, expected_type=type_hints["fixed_response_config"])
-                check_type(argname="argument forward_config", value=forward_config, expected_type=type_hints["forward_config"])
-                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
-                check_type(argname="argument redirect_config", value=redirect_config, expected_type=type_hints["redirect_config"])
-                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "type": type,
-            }
-            if authenticate_cognito_config is not None:
-                self._values["authenticate_cognito_config"] = authenticate_cognito_config
-            if authenticate_oidc_config is not None:
-                self._values["authenticate_oidc_config"] = authenticate_oidc_config
-            if fixed_response_config is not None:
-                self._values["fixed_response_config"] = fixed_response_config
-            if forward_config is not None:
-                self._values["forward_config"] = forward_config
-            if order is not None:
-                self._values["order"] = order
-            if redirect_config is not None:
-                self._values["redirect_config"] = redirect_config
-            if target_group_arn is not None:
-                self._values["target_group_arn"] = target_group_arn
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The type of action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authenticate_cognito_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateCognitoConfigProperty"]]:
-            '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
-
-            Specify only when ``Type`` is ``authenticate-cognito`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticatecognitoconfig
-            '''
-            result = self._values.get("authenticate_cognito_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateCognitoConfigProperty"]], result)
-
-        @builtins.property
-        def authenticate_oidc_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateOidcConfigProperty"]]:
-            '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
-
-            Specify only when ``Type`` is ``authenticate-oidc`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticateoidcconfig
-            '''
-            result = self._values.get("authenticate_oidc_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateOidcConfigProperty"]], result)
-
-        @builtins.property
-        def fixed_response_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.FixedResponseConfigProperty"]]:
-            '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
-
-            Specify only when ``Type`` is ``fixed-response`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-fixedresponseconfig
-            '''
-            result = self._values.get("fixed_response_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.FixedResponseConfigProperty"]], result)
-
-        @builtins.property
-        def forward_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.ForwardConfigProperty"]]:
-            '''Information for creating an action that distributes requests among one or more target groups.
-
-            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-forwardconfig
-            '''
-            result = self._values.get("forward_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.ForwardConfigProperty"]], result)
-
-        @builtins.property
-        def order(self) -> typing.Optional[jsii.Number]:
-            '''The order for the action.
-
-            This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-order
-            '''
-            result = self._values.get("order")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def redirect_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.RedirectConfigProperty"]]:
-            '''[Application Load Balancer] Information for creating a redirect action.
-
-            Specify only when ``Type`` is ``redirect`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-redirectconfig
-            '''
-            result = self._values.get("redirect_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.RedirectConfigProperty"]], result)
-
-        @builtins.property
-        def target_group_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the target group.
-
-            Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-targetgrouparn
-            '''
-            result = self._values.get("target_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ActionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.AuthenticateCognitoConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "user_pool_arn": "userPoolArn",
-            "user_pool_client_id": "userPoolClientId",
-            "user_pool_domain": "userPoolDomain",
-            "authentication_request_extra_params": "authenticationRequestExtraParams",
-            "on_unauthenticated_request": "onUnauthenticatedRequest",
-            "scope": "scope",
-            "session_cookie_name": "sessionCookieName",
-            "session_timeout": "sessionTimeout",
-        },
-    )
-    class AuthenticateCognitoConfigProperty:
-        def __init__(
-            self,
-            *,
-            user_pool_arn: builtins.str,
-            user_pool_client_id: builtins.str,
-            user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-            on_unauthenticated_request: typing.Optional[builtins.str] = None,
-            scope: typing.Optional[builtins.str] = None,
-            session_cookie_name: typing.Optional[builtins.str] = None,
-            session_timeout: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies information required when integrating with Amazon Cognito to authenticate users.
-
-            :param user_pool_arn: The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
-            :param user_pool_client_id: The ID of the Amazon Cognito user pool client.
-            :param user_pool_domain: The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
-            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
-            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                authenticate_cognito_config_property = elbv2.CfnListener.AuthenticateCognitoConfigProperty(
-                    user_pool_arn="userPoolArn",
-                    user_pool_client_id="userPoolClientId",
-                    user_pool_domain="userPoolDomain",
-                
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout="sessionTimeout"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e)
-                check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
-                check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
-                check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
-                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
-                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
-                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
-                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "user_pool_arn": user_pool_arn,
-                "user_pool_client_id": user_pool_client_id,
-                "user_pool_domain": user_pool_domain,
-            }
-            if authentication_request_extra_params is not None:
-                self._values["authentication_request_extra_params"] = authentication_request_extra_params
-            if on_unauthenticated_request is not None:
-                self._values["on_unauthenticated_request"] = on_unauthenticated_request
-            if scope is not None:
-                self._values["scope"] = scope
-            if session_cookie_name is not None:
-                self._values["session_cookie_name"] = session_cookie_name
-            if session_timeout is not None:
-                self._values["session_timeout"] = session_timeout
-
-        @builtins.property
-        def user_pool_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpoolarn
-            '''
-            result = self._values.get("user_pool_arn")
-            assert result is not None, "Required property 'user_pool_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_pool_client_id(self) -> builtins.str:
-            '''The ID of the Amazon Cognito user pool client.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpoolclientid
-            '''
-            result = self._values.get("user_pool_client_id")
-            assert result is not None, "Required property 'user_pool_client_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_pool_domain(self) -> builtins.str:
-            '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpooldomain
-            '''
-            result = self._values.get("user_pool_domain")
-            assert result is not None, "Required property 'user_pool_domain' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authentication_request_extra_params(
-            self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-authenticationrequestextraparams
-            '''
-            result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-            '''The behavior if the user is not authenticated. The following are possible values:.
-
-            - deny `` - Return an HTTP 401 Unauthorized error.
-            - allow `` - Allow the request to be forwarded to the target.
-            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-onunauthenticatedrequest
-            '''
-            result = self._values.get("on_unauthenticated_request")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def scope(self) -> typing.Optional[builtins.str]:
-            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
-
-            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-scope
-            '''
-            result = self._values.get("scope")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_cookie_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the cookie used to maintain session information.
-
-            The default is AWSELBAuthSessionCookie.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-sessioncookiename
-            '''
-            result = self._values.get("session_cookie_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_timeout(self) -> typing.Optional[builtins.str]:
-            '''The maximum duration of the authentication session, in seconds.
-
-            The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-sessiontimeout
-            '''
-            result = self._values.get("session_timeout")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AuthenticateCognitoConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.AuthenticateOidcConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "authorization_endpoint": "authorizationEndpoint",
-            "client_id": "clientId",
-            "issuer": "issuer",
-            "token_endpoint": "tokenEndpoint",
-            "user_info_endpoint": "userInfoEndpoint",
-            "authentication_request_extra_params": "authenticationRequestExtraParams",
-            "client_secret": "clientSecret",
-            "on_unauthenticated_request": "onUnauthenticatedRequest",
-            "scope": "scope",
-            "session_cookie_name": "sessionCookieName",
-            "session_timeout": "sessionTimeout",
-            "use_existing_client_secret": "useExistingClientSecret",
-        },
-    )
-    class AuthenticateOidcConfigProperty:
-        def __init__(
-            self,
-            *,
-            authorization_endpoint: builtins.str,
-            client_id: builtins.str,
-            issuer: builtins.str,
-            token_endpoint: builtins.str,
-            user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-            client_secret: typing.Optional[builtins.str] = None,
-            on_unauthenticated_request: typing.Optional[builtins.str] = None,
-            scope: typing.Optional[builtins.str] = None,
-            session_cookie_name: typing.Optional[builtins.str] = None,
-            session_timeout: typing.Optional[builtins.str] = None,
-            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
-
-            :param authorization_endpoint: The authorization endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param client_id: The OAuth 2.0 client identifier.
-            :param issuer: The OIDC issuer identifier of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param token_endpoint: The token endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param user_info_endpoint: The user info endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-            :param client_secret: The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
-            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
-            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
-            :param use_existing_client_secret: Indicates whether to use the existing client secret when modifying a rule. If you are creating a rule, you can omit this parameter or set it to false.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                authenticate_oidc_config_property = elbv2.CfnListener.AuthenticateOidcConfigProperty(
-                    authorization_endpoint="authorizationEndpoint",
-                    client_id="clientId",
-                    issuer="issuer",
-                    token_endpoint="tokenEndpoint",
-                    user_info_endpoint="userInfoEndpoint",
-                
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    client_secret="clientSecret",
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout="sessionTimeout",
-                    use_existing_client_secret=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06)
-                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
-                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
-                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
-                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
-                check_type(argname="argument user_info_endpoint", value=user_info_endpoint, expected_type=type_hints["user_info_endpoint"])
-                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
-                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
-                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
-                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
-                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
-                check_type(argname="argument use_existing_client_secret", value=use_existing_client_secret, expected_type=type_hints["use_existing_client_secret"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "authorization_endpoint": authorization_endpoint,
-                "client_id": client_id,
-                "issuer": issuer,
-                "token_endpoint": token_endpoint,
-                "user_info_endpoint": user_info_endpoint,
-            }
-            if authentication_request_extra_params is not None:
-                self._values["authentication_request_extra_params"] = authentication_request_extra_params
-            if client_secret is not None:
-                self._values["client_secret"] = client_secret
-            if on_unauthenticated_request is not None:
-                self._values["on_unauthenticated_request"] = on_unauthenticated_request
-            if scope is not None:
-                self._values["scope"] = scope
-            if session_cookie_name is not None:
-                self._values["session_cookie_name"] = session_cookie_name
-            if session_timeout is not None:
-                self._values["session_timeout"] = session_timeout
-            if use_existing_client_secret is not None:
-                self._values["use_existing_client_secret"] = use_existing_client_secret
-
-        @builtins.property
-        def authorization_endpoint(self) -> builtins.str:
-            '''The authorization endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authorizationendpoint
-            '''
-            result = self._values.get("authorization_endpoint")
-            assert result is not None, "Required property 'authorization_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def client_id(self) -> builtins.str:
-            '''The OAuth 2.0 client identifier.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-clientid
-            '''
-            result = self._values.get("client_id")
-            assert result is not None, "Required property 'client_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def issuer(self) -> builtins.str:
-            '''The OIDC issuer identifier of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-issuer
-            '''
-            result = self._values.get("issuer")
-            assert result is not None, "Required property 'issuer' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def token_endpoint(self) -> builtins.str:
-            '''The token endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-tokenendpoint
-            '''
-            result = self._values.get("token_endpoint")
-            assert result is not None, "Required property 'token_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_info_endpoint(self) -> builtins.str:
-            '''The user info endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-userinfoendpoint
-            '''
-            result = self._values.get("user_info_endpoint")
-            assert result is not None, "Required property 'user_info_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authentication_request_extra_params(
-            self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authenticationrequestextraparams
-            '''
-            result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def client_secret(self) -> typing.Optional[builtins.str]:
-            '''The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-clientsecret
-            '''
-            result = self._values.get("client_secret")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-            '''The behavior if the user is not authenticated. The following are possible values:.
-
-            - deny `` - Return an HTTP 401 Unauthorized error.
-            - allow `` - Allow the request to be forwarded to the target.
-            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-onunauthenticatedrequest
-            '''
-            result = self._values.get("on_unauthenticated_request")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def scope(self) -> typing.Optional[builtins.str]:
-            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
-
-            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-scope
-            '''
-            result = self._values.get("scope")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_cookie_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the cookie used to maintain session information.
-
-            The default is AWSELBAuthSessionCookie.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-sessioncookiename
-            '''
-            result = self._values.get("session_cookie_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_timeout(self) -> typing.Optional[builtins.str]:
-            '''The maximum duration of the authentication session, in seconds.
-
-            The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-sessiontimeout
-            '''
-            result = self._values.get("session_timeout")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def use_existing_client_secret(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether to use the existing client secret when modifying a rule.
-
-            If you are creating a rule, you can omit this parameter or set it to false.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-useexistingclientsecret
-            '''
-            result = self._values.get("use_existing_client_secret")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AuthenticateOidcConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.CertificateProperty",
-        jsii_struct_bases=[],
-        name_mapping={"certificate_arn": "certificateArn"},
-    )
-    class CertificateProperty:
-        def __init__(
-            self,
-            *,
-            certificate_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies an SSL server certificate to use as the default certificate for a secure listener.
-
-            :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-certificate.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                certificate_property = elbv2.CfnListener.CertificateProperty(
-                    certificate_arn="certificateArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1)
-                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if certificate_arn is not None:
-                self._values["certificate_arn"] = certificate_arn
-
-        @builtins.property
-        def certificate_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the certificate.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-certificate.html#cfn-elasticloadbalancingv2-listener-certificate-certificatearn
-            '''
-            result = self._values.get("certificate_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CertificateProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.FixedResponseConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "status_code": "statusCode",
-            "content_type": "contentType",
-            "message_body": "messageBody",
-        },
-    )
-    class FixedResponseConfigProperty:
-        def __init__(
-            self,
-            *,
-            status_code: builtins.str,
-            content_type: typing.Optional[builtins.str] = None,
-            message_body: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies information required when returning a custom HTTP response.
-
-            :param status_code: The HTTP response code (2XX, 4XX, or 5XX).
-            :param content_type: The content type. Valid Values: text/plain | text/css | text/html | application/javascript | application/json
-            :param message_body: The message.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                fixed_response_config_property = elbv2.CfnListener.FixedResponseConfigProperty(
-                    status_code="statusCode",
-                
-                    # the properties below are optional
-                    content_type="contentType",
-                    message_body="messageBody"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33)
-                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
-                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
-                check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "status_code": status_code,
-            }
-            if content_type is not None:
-                self._values["content_type"] = content_type
-            if message_body is not None:
-                self._values["message_body"] = message_body
-
-        @builtins.property
-        def status_code(self) -> builtins.str:
-            '''The HTTP response code (2XX, 4XX, or 5XX).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-statuscode
-            '''
-            result = self._values.get("status_code")
-            assert result is not None, "Required property 'status_code' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def content_type(self) -> typing.Optional[builtins.str]:
-            '''The content type.
-
-            Valid Values: text/plain | text/css | text/html | application/javascript | application/json
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-contenttype
-            '''
-            result = self._values.get("content_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def message_body(self) -> typing.Optional[builtins.str]:
-            '''The message.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-messagebody
-            '''
-            result = self._values.get("message_body")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "FixedResponseConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ForwardConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "target_groups": "targetGroups",
-            "target_group_stickiness_config": "targetGroupStickinessConfig",
-        },
-    )
-    class ForwardConfigProperty:
-        def __init__(
-            self,
-            *,
-            target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Information for creating an action that distributes requests among one or more target groups.
-
-            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-
-            :param target_groups: Information about how traffic will be distributed between multiple target groups in a forward rule.
-            :param target_group_stickiness_config: Information about the target group stickiness for a rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                forward_config_property = elbv2.CfnListener.ForwardConfigProperty(
-                    target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
-                        target_group_arn="targetGroupArn",
-                        weight=123
-                    )],
-                    target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
-                        duration_seconds=123,
-                        enabled=False
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977)
-                check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
-                check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if target_groups is not None:
-                self._values["target_groups"] = target_groups
-            if target_group_stickiness_config is not None:
-                self._values["target_group_stickiness_config"] = target_group_stickiness_config
-
-        @builtins.property
-        def target_groups(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupTupleProperty"]]]]:
-            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroups
-            '''
-            result = self._values.get("target_groups")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupTupleProperty"]]]], result)
-
-        @builtins.property
-        def target_group_stickiness_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupStickinessConfigProperty"]]:
-            '''Information about the target group stickiness for a rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroupstickinessconfig
-            '''
-            result = self._values.get("target_group_stickiness_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupStickinessConfigProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ForwardConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ListenerAttributeProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class ListenerAttributeProperty:
-        def __init__(
-            self,
-            *,
-            key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a listener attribute.
-
-            :param key: The name of the attribute. The following attribute is supported by Network Load Balancers, and Gateway Load Balancers. - ``tcp.idle_timeout.seconds`` - The tcp idle timeout value, in seconds. The valid range is 60-6000 seconds. The default is 350 seconds. The following attributes are only supported by Application Load Balancers. - ``routing.http.request.x_amzn_mtls_clientcert_serial_number.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Serial-Number* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_issuer.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Issuer* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_subject.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Subject* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_validity.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Validity* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_leaf.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Leaf* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert* HTTP request header. - ``routing.http.request.x_amzn_tls_version.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Version* HTTP request header. - ``routing.http.request.x_amzn_tls_cipher_suite.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Cipher-Suite* HTTP request header. - ``routing.http.response.server.enabled`` - Enables you to allow or remove the HTTP response server header. - ``routing.http.response.strict_transport_security.header_value`` - Informs browsers that the site should only be accessed using HTTPS, and that any future attempts to access it using HTTP should automatically be converted to HTTPS. - ``routing.http.response.access_control_allow_origin.header_value`` - Specifies which origins are allowed to access the server. - ``routing.http.response.access_control_allow_methods.header_value`` - Returns which HTTP methods are allowed when accessing the server from a different origin. - ``routing.http.response.access_control_allow_headers.header_value`` - Specifies which headers can be used during the request. - ``routing.http.response.access_control_allow_credentials.header_value`` - Indicates whether the browser should include credentials such as cookies or authentication when making requests. - ``routing.http.response.access_control_expose_headers.header_value`` - Returns which headers the browser can expose to the requesting client. - ``routing.http.response.access_control_max_age.header_value`` - Specifies how long the results of a preflight request can be cached, in seconds. - ``routing.http.response.content_security_policy.header_value`` - Specifies restrictions enforced by the browser to help minimize the risk of certain types of security threats. - ``routing.http.response.x_content_type_options.header_value`` - Indicates whether the MIME types advertised in the *Content-Type* headers should be followed and not be changed. - ``routing.http.response.x_frame_options.header_value`` - Indicates whether the browser is allowed to render a page in a *frame* , *iframe* , *embed* or *object* .
-            :param value: The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                listener_attribute_property = elbv2.CfnListener.ListenerAttributeProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if key is not None:
-                self._values["key"] = key
-            if value is not None:
-                self._values["value"] = value
-
-        @builtins.property
-        def key(self) -> typing.Optional[builtins.str]:
-            '''The name of the attribute.
-
-            The following attribute is supported by Network Load Balancers, and Gateway Load Balancers.
-
-            - ``tcp.idle_timeout.seconds`` - The tcp idle timeout value, in seconds. The valid range is 60-6000 seconds. The default is 350 seconds.
-
-            The following attributes are only supported by Application Load Balancers.
-
-            - ``routing.http.request.x_amzn_mtls_clientcert_serial_number.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Serial-Number* HTTP request header.
-            - ``routing.http.request.x_amzn_mtls_clientcert_issuer.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Issuer* HTTP request header.
-            - ``routing.http.request.x_amzn_mtls_clientcert_subject.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Subject* HTTP request header.
-            - ``routing.http.request.x_amzn_mtls_clientcert_validity.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Validity* HTTP request header.
-            - ``routing.http.request.x_amzn_mtls_clientcert_leaf.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Leaf* HTTP request header.
-            - ``routing.http.request.x_amzn_mtls_clientcert.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert* HTTP request header.
-            - ``routing.http.request.x_amzn_tls_version.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Version* HTTP request header.
-            - ``routing.http.request.x_amzn_tls_cipher_suite.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Cipher-Suite* HTTP request header.
-            - ``routing.http.response.server.enabled`` - Enables you to allow or remove the HTTP response server header.
-            - ``routing.http.response.strict_transport_security.header_value`` - Informs browsers that the site should only be accessed using HTTPS, and that any future attempts to access it using HTTP should automatically be converted to HTTPS.
-            - ``routing.http.response.access_control_allow_origin.header_value`` - Specifies which origins are allowed to access the server.
-            - ``routing.http.response.access_control_allow_methods.header_value`` - Returns which HTTP methods are allowed when accessing the server from a different origin.
-            - ``routing.http.response.access_control_allow_headers.header_value`` - Specifies which headers can be used during the request.
-            - ``routing.http.response.access_control_allow_credentials.header_value`` - Indicates whether the browser should include credentials such as cookies or authentication when making requests.
-            - ``routing.http.response.access_control_expose_headers.header_value`` - Returns which headers the browser can expose to the requesting client.
-            - ``routing.http.response.access_control_max_age.header_value`` - Specifies how long the results of a preflight request can be cached, in seconds.
-            - ``routing.http.response.content_security_policy.header_value`` - Specifies restrictions enforced by the browser to help minimize the risk of certain types of security threats.
-            - ``routing.http.response.x_content_type_options.header_value`` - Indicates whether the MIME types advertised in the *Content-Type* headers should be followed and not be changed.
-            - ``routing.http.response.x_frame_options.header_value`` - Indicates whether the browser is allowed to render a page in a *frame* , *iframe* , *embed* or *object* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html#cfn-elasticloadbalancingv2-listener-listenerattribute-key
-            '''
-            result = self._values.get("key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def value(self) -> typing.Optional[builtins.str]:
-            '''The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html#cfn-elasticloadbalancingv2-listener-listenerattribute-value
-            '''
-            result = self._values.get("value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ListenerAttributeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.MutualAuthenticationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "advertise_trust_store_ca_names": "advertiseTrustStoreCaNames",
-            "ignore_client_certificate_expiry": "ignoreClientCertificateExpiry",
-            "mode": "mode",
-            "trust_store_arn": "trustStoreArn",
-        },
-    )
-    class MutualAuthenticationProperty:
-        def __init__(
-            self,
-            *,
-            advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
-            ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            mode: typing.Optional[builtins.str] = None,
-            trust_store_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The mutual authentication configuration information.
-
-            :param advertise_trust_store_ca_names: Indicates whether trust store CA certificate names are advertised.
-            :param ignore_client_certificate_expiry: Indicates whether expired client certificates are ignored.
-            :param mode: The client certificate handling method. Options are ``off`` , ``passthrough`` or ``verify`` . The default value is ``off`` .
-            :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                mutual_authentication_property = elbv2.CfnListener.MutualAuthenticationProperty(
-                    advertise_trust_store_ca_names="advertiseTrustStoreCaNames",
-                    ignore_client_certificate_expiry=False,
-                    mode="mode",
-                    trust_store_arn="trustStoreArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0)
-                check_type(argname="argument advertise_trust_store_ca_names", value=advertise_trust_store_ca_names, expected_type=type_hints["advertise_trust_store_ca_names"])
-                check_type(argname="argument ignore_client_certificate_expiry", value=ignore_client_certificate_expiry, expected_type=type_hints["ignore_client_certificate_expiry"])
-                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-                check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if advertise_trust_store_ca_names is not None:
-                self._values["advertise_trust_store_ca_names"] = advertise_trust_store_ca_names
-            if ignore_client_certificate_expiry is not None:
-                self._values["ignore_client_certificate_expiry"] = ignore_client_certificate_expiry
-            if mode is not None:
-                self._values["mode"] = mode
-            if trust_store_arn is not None:
-                self._values["trust_store_arn"] = trust_store_arn
-
-        @builtins.property
-        def advertise_trust_store_ca_names(self) -> typing.Optional[builtins.str]:
-            '''Indicates whether trust store CA certificate names are advertised.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-advertisetruststorecanames
-            '''
-            result = self._values.get("advertise_trust_store_ca_names")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def ignore_client_certificate_expiry(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether expired client certificates are ignored.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-ignoreclientcertificateexpiry
-            '''
-            result = self._values.get("ignore_client_certificate_expiry")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def mode(self) -> typing.Optional[builtins.str]:
-            '''The client certificate handling method.
-
-            Options are ``off`` , ``passthrough`` or ``verify`` . The default value is ``off`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-mode
-            '''
-            result = self._values.get("mode")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def trust_store_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the trust store.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-truststorearn
-            '''
-            result = self._values.get("trust_store_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MutualAuthenticationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.RedirectConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "status_code": "statusCode",
-            "host": "host",
-            "path": "path",
-            "port": "port",
-            "protocol": "protocol",
-            "query": "query",
-        },
-    )
-    class RedirectConfigProperty:
-        def __init__(
-            self,
-            *,
-            status_code: builtins.str,
-            host: typing.Optional[builtins.str] = None,
-            path: typing.Optional[builtins.str] = None,
-            port: typing.Optional[builtins.str] = None,
-            protocol: typing.Optional[builtins.str] = None,
-            query: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a redirect action.
-
-            A URI consists of the following components: protocol://hostname:port/path?query. You must modify at least one of the following components to avoid a redirect loop: protocol, hostname, port, or path. Any components that you do not modify retain their original values.
-
-            You can reuse URI components using the following reserved keywords:
-
-            - #{protocol}
-            - #{host}
-            - #{port}
-            - #{path} (the leading "/" is removed)
-            - #{query}
-
-            For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}", or the query to "#{query}&value=xyz".
-
-            :param status_code: The HTTP redirect code. The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
-            :param host: The hostname. This component is not percent-encoded. The hostname can contain #{host}.
-            :param path: The absolute path, starting with the leading "/". This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
-            :param port: The port. You can specify a value from 1 to 65535 or #{port}.
-            :param protocol: The protocol. You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
-            :param query: The query parameters, URL-encoded when necessary, but not percent-encoded. Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                redirect_config_property = elbv2.CfnListener.RedirectConfigProperty(
-                    status_code="statusCode",
-                
-                    # the properties below are optional
-                    host="host",
-                    path="path",
-                    port="port",
-                    protocol="protocol",
-                    query="query"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f)
-                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
-                check_type(argname="argument host", value=host, expected_type=type_hints["host"])
-                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "status_code": status_code,
-            }
-            if host is not None:
-                self._values["host"] = host
-            if path is not None:
-                self._values["path"] = path
-            if port is not None:
-                self._values["port"] = port
-            if protocol is not None:
-                self._values["protocol"] = protocol
-            if query is not None:
-                self._values["query"] = query
-
-        @builtins.property
-        def status_code(self) -> builtins.str:
-            '''The HTTP redirect code.
-
-            The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-statuscode
-            '''
-            result = self._values.get("status_code")
-            assert result is not None, "Required property 'status_code' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def host(self) -> typing.Optional[builtins.str]:
-            '''The hostname.
-
-            This component is not percent-encoded. The hostname can contain #{host}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-host
-            '''
-            result = self._values.get("host")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def path(self) -> typing.Optional[builtins.str]:
-            '''The absolute path, starting with the leading "/".
-
-            This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-path
-            '''
-            result = self._values.get("path")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def port(self) -> typing.Optional[builtins.str]:
-            '''The port.
-
-            You can specify a value from 1 to 65535 or #{port}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-port
-            '''
-            result = self._values.get("port")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def protocol(self) -> typing.Optional[builtins.str]:
-            '''The protocol.
-
-            You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-protocol
-            '''
-            result = self._values.get("protocol")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def query(self) -> typing.Optional[builtins.str]:
-            '''The query parameters, URL-encoded when necessary, but not percent-encoded.
-
-            Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-query
-            '''
-            result = self._values.get("query")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RedirectConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.TargetGroupStickinessConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"duration_seconds": "durationSeconds", "enabled": "enabled"},
-    )
-    class TargetGroupStickinessConfigProperty:
-        def __init__(
-            self,
-            *,
-            duration_seconds: typing.Optional[jsii.Number] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Information about the target group stickiness for a rule.
-
-            :param duration_seconds: The time period, in seconds, during which requests from a client should be routed to the same target group. The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
-            :param enabled: Indicates whether target group stickiness is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_group_stickiness_config_property = elbv2.CfnListener.TargetGroupStickinessConfigProperty(
-                    duration_seconds=123,
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f)
-                check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if duration_seconds is not None:
-                self._values["duration_seconds"] = duration_seconds
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def duration_seconds(self) -> typing.Optional[jsii.Number]:
-            '''The time period, in seconds, during which requests from a client should be routed to the same target group.
-
-            The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listener-targetgroupstickinessconfig-durationseconds
-            '''
-            result = self._values.get("duration_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether target group stickiness is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listener-targetgroupstickinessconfig-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetGroupStickinessConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.TargetGroupTupleProperty",
-        jsii_struct_bases=[],
-        name_mapping={"target_group_arn": "targetGroupArn", "weight": "weight"},
-    )
-    class TargetGroupTupleProperty:
-        def __init__(
-            self,
-            *,
-            target_group_arn: typing.Optional[builtins.str] = None,
-            weight: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
-
-            :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
-            :param weight: The weight. The range is 0 to 999.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_group_tuple_property = elbv2.CfnListener.TargetGroupTupleProperty(
-                    target_group_arn="targetGroupArn",
-                    weight=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7)
-                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
-                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if target_group_arn is not None:
-                self._values["target_group_arn"] = target_group_arn
-            if weight is not None:
-                self._values["weight"] = weight
-
-        @builtins.property
-        def target_group_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the target group.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html#cfn-elasticloadbalancingv2-listener-targetgrouptuple-targetgrouparn
-            '''
-            result = self._values.get("target_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def weight(self) -> typing.Optional[jsii.Number]:
-            '''The weight.
-
-            The range is 0 to 999.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html#cfn-elasticloadbalancingv2-listener-targetgrouptuple-weight
-            '''
-            result = self._values.get("weight")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetGroupTupleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnListenerCertificate(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificate",
-):
-    '''Specifies an SSL server certificate to add to the certificate list for an HTTPS or TLS listener.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::ListenerCertificate
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_listener_certificate = elbv2.CfnListenerCertificate(self, "MyCfnListenerCertificate",
-            certificates=[elbv2.CfnListenerCertificate.CertificateProperty(
-                certificate_arn="certificateArn"
-            )],
-            listener_arn="listenerArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        listener_arn: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param certificates: The certificate. You can specify one certificate per resource.
-        :param listener_arn: The Amazon Resource Name (ARN) of the listener.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnListenerCertificateProps(
-            certificates=certificates, listener_arn=listener_arn
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="certificates")
-    def certificates(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]]:
-        '''The certificate.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]], jsii.get(self, "certificates"))
-
-    @certificates.setter
-    def certificates(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="listenerArn")
-    def listener_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the listener.'''
-        return typing.cast(builtins.str, jsii.get(self, "listenerArn"))
-
-    @listener_arn.setter
-    def listener_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificate.CertificateProperty",
-        jsii_struct_bases=[],
-        name_mapping={"certificate_arn": "certificateArn"},
-    )
-    class CertificateProperty:
-        def __init__(
-            self,
-            *,
-            certificate_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies an SSL server certificate for the certificate list of a secure listener.
-
-            :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenercertificate-certificate.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                certificate_property = elbv2.CfnListenerCertificate.CertificateProperty(
-                    certificate_arn="certificateArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57)
-                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if certificate_arn is not None:
-                self._values["certificate_arn"] = certificate_arn
-
-        @builtins.property
-        def certificate_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the certificate.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenercertificate-certificate.html#cfn-elasticloadbalancingv2-listenercertificate-certificate-certificatearn
-            '''
-            result = self._values.get("certificate_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CertificateProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificateProps",
     jsii_struct_bases=[],
@@ -5717,7 +3751,7 @@ class CfnListenerCertificateProps:
     def __init__(
         self,
         *,
-        certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
         listener_arn: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnListenerCertificate``.
@@ -5753,7 +3787,7 @@ class CfnListenerCertificateProps:
     @builtins.property
     def certificates(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerCertificate.CertificateProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]]:
         '''The certificate.
 
         You can specify one certificate per resource.
@@ -5762,7 +3796,7 @@ class CfnListenerCertificateProps:
         '''
         result = self._values.get("certificates")
         assert result is not None, "Required property 'certificates' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerCertificate.CertificateProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]], result)
 
     @builtins.property
     def listener_arn(self) -> builtins.str:
@@ -5805,12 +3839,12 @@ class CfnListenerProps:
     def __init__(
         self,
         *,
-        default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         load_balancer_arn: builtins.str,
         alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         ssl_policy: typing.Optional[builtins.str] = None,
@@ -5958,7 +3992,7 @@ class CfnListenerProps:
     @builtins.property
     def default_actions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ActionProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]]:
         '''The actions for the default rule. You cannot define a condition for a default rule.
 
         To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
@@ -5967,7 +4001,7 @@ class CfnListenerProps:
         '''
         result = self._values.get("default_actions")
         assert result is not None, "Required property 'default_actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ActionProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]], result)
 
     @builtins.property
     def load_balancer_arn(self) -> builtins.str:
@@ -5991,7 +4025,7 @@ class CfnListenerProps:
     @builtins.property
     def certificates(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.CertificateProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]]:
         '''The default SSL server certificate for a secure listener.
 
         You must provide exactly one certificate if the listener protocol is HTTPS or TLS.
@@ -6003,12 +4037,12 @@ class CfnListenerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-certificates
         '''
         result = self._values.get("certificates")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.CertificateProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]], result)
 
     @builtins.property
     def listener_attributes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ListenerAttributeProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]]:
         '''The listener attributes.
 
         Attributes that you do not modify retain their current values.
@@ -6016,18 +4050,18 @@ class CfnListenerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-listenerattributes
         '''
         result = self._values.get("listener_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ListenerAttributeProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]], result)
 
     @builtins.property
     def mutual_authentication(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnListener.MutualAuthenticationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]]:
         '''The mutual authentication configuration information.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-mutualauthentication
         '''
         result = self._values.get("mutual_authentication")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnListener.MutualAuthenticationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
@@ -6076,2160 +4110,6 @@ class CfnListenerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnListenerRule(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule",
-):
-    '''Specifies a listener rule.
-
-    The listener must be associated with an Application Load Balancer. Each rule consists of a priority, one or more actions, and one or more conditions.
-
-    For more information, see `Quotas for your Application Load Balancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html>`_ in the *User Guide for Application Load Balancers* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::ListenerRule
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_listener_rule = elbv2.CfnListenerRule(self, "MyCfnListenerRule",
-            actions=[elbv2.CfnListenerRule.ActionProperty(
-                type="type",
-        
-                # the properties below are optional
-                authenticate_cognito_config=elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
-                    user_pool_arn="userPoolArn",
-                    user_pool_client_id="userPoolClientId",
-                    user_pool_domain="userPoolDomain",
-        
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout=123
-                ),
-                authenticate_oidc_config=elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
-                    authorization_endpoint="authorizationEndpoint",
-                    client_id="clientId",
-                    issuer="issuer",
-                    token_endpoint="tokenEndpoint",
-                    user_info_endpoint="userInfoEndpoint",
-        
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    client_secret="clientSecret",
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout=123,
-                    use_existing_client_secret=False
-                ),
-                fixed_response_config=elbv2.CfnListenerRule.FixedResponseConfigProperty(
-                    status_code="statusCode",
-        
-                    # the properties below are optional
-                    content_type="contentType",
-                    message_body="messageBody"
-                ),
-                forward_config=elbv2.CfnListenerRule.ForwardConfigProperty(
-                    target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
-                        target_group_arn="targetGroupArn",
-                        weight=123
-                    )],
-                    target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
-                        duration_seconds=123,
-                        enabled=False
-                    )
-                ),
-                order=123,
-                redirect_config=elbv2.CfnListenerRule.RedirectConfigProperty(
-                    status_code="statusCode",
-        
-                    # the properties below are optional
-                    host="host",
-                    path="path",
-                    port="port",
-                    protocol="protocol",
-                    query="query"
-                ),
-                target_group_arn="targetGroupArn"
-            )],
-            conditions=[elbv2.CfnListenerRule.RuleConditionProperty(
-                field="field",
-                host_header_config=elbv2.CfnListenerRule.HostHeaderConfigProperty(
-                    values=["values"]
-                ),
-                http_header_config=elbv2.CfnListenerRule.HttpHeaderConfigProperty(
-                    http_header_name="httpHeaderName",
-                    values=["values"]
-                ),
-                http_request_method_config=elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
-                    values=["values"]
-                ),
-                path_pattern_config=elbv2.CfnListenerRule.PathPatternConfigProperty(
-                    values=["values"]
-                ),
-                query_string_config=elbv2.CfnListenerRule.QueryStringConfigProperty(
-                    values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
-                    values=["values"]
-                ),
-                values=["values"]
-            )],
-            priority=123,
-        
-            # the properties below are optional
-            listener_arn="listenerArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        priority: jsii.Number,
-        listener_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param actions: The actions. The rule must include exactly one of the following types of actions: ``forward`` , ``fixed-response`` , or ``redirect`` , and it must be the last action to be performed. If the rule is for an HTTPS listener, it can also optionally include an authentication action.
-        :param conditions: The conditions. The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
-        :param priority: The rule priority. A listener can't have multiple rules with the same priority. If you try to reorder rules by updating their priorities, do not specify a new priority if an existing rule already uses this priority, as this can cause an error. If you need to reuse a priority with a different rule, you must remove it as a priority first, and then specify it in a subsequent update.
-        :param listener_arn: The Amazon Resource Name (ARN) of the listener.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnListenerRuleProps(
-            actions=actions,
-            conditions=conditions,
-            priority=priority,
-            listener_arn=listener_arn,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrIsDefault")
-    def attr_is_default(self) -> _IResolvable_da3f097b:
-        '''Indicates whether this is the default rule.
-
-        :cloudformationAttribute: IsDefault
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsDefault"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRuleArn")
-    def attr_rule_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the rule.
-
-        :cloudformationAttribute: RuleArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRuleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="actions")
-    def actions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]]:
-        '''The actions.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]], jsii.get(self, "actions"))
-
-    @actions.setter
-    def actions(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="conditions")
-    def conditions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]]:
-        '''The conditions.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]], jsii.get(self, "conditions"))
-
-    @conditions.setter
-    def conditions(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="priority")
-    def priority(self) -> jsii.Number:
-        '''The rule priority.
-
-        A listener can't have multiple rules with the same priority.
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "priority"))
-
-    @priority.setter
-    def priority(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="listenerArn")
-    def listener_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the listener.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "listenerArn"))
-
-    @listener_arn.setter
-    def listener_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.ActionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "type": "type",
-            "authenticate_cognito_config": "authenticateCognitoConfig",
-            "authenticate_oidc_config": "authenticateOidcConfig",
-            "fixed_response_config": "fixedResponseConfig",
-            "forward_config": "forwardConfig",
-            "order": "order",
-            "redirect_config": "redirectConfig",
-            "target_group_arn": "targetGroupArn",
-        },
-    )
-    class ActionProperty:
-        def __init__(
-            self,
-            *,
-            type: builtins.str,
-            authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            order: typing.Optional[jsii.Number] = None,
-            redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            target_group_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies an action for a listener rule.
-
-            :param type: The type of action.
-            :param authenticate_cognito_config: [HTTPS listeners] Information for using Amazon Cognito to authenticate users. Specify only when ``Type`` is ``authenticate-cognito`` .
-            :param authenticate_oidc_config: [HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC). Specify only when ``Type`` is ``authenticate-oidc`` .
-            :param fixed_response_config: [Application Load Balancer] Information for creating an action that returns a custom HTTP response. Specify only when ``Type`` is ``fixed-response`` .
-            :param forward_config: Information for creating an action that distributes requests among one or more target groups. For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-            :param order: The order for the action. This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
-            :param redirect_config: [Application Load Balancer] Information for creating a redirect action. Specify only when ``Type`` is ``redirect`` .
-            :param target_group_arn: The Amazon Resource Name (ARN) of the target group. Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                action_property = elbv2.CfnListenerRule.ActionProperty(
-                    type="type",
-                
-                    # the properties below are optional
-                    authenticate_cognito_config=elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
-                        user_pool_arn="userPoolArn",
-                        user_pool_client_id="userPoolClientId",
-                        user_pool_domain="userPoolDomain",
-                
-                        # the properties below are optional
-                        authentication_request_extra_params={
-                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                        },
-                        on_unauthenticated_request="onUnauthenticatedRequest",
-                        scope="scope",
-                        session_cookie_name="sessionCookieName",
-                        session_timeout=123
-                    ),
-                    authenticate_oidc_config=elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
-                        authorization_endpoint="authorizationEndpoint",
-                        client_id="clientId",
-                        issuer="issuer",
-                        token_endpoint="tokenEndpoint",
-                        user_info_endpoint="userInfoEndpoint",
-                
-                        # the properties below are optional
-                        authentication_request_extra_params={
-                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                        },
-                        client_secret="clientSecret",
-                        on_unauthenticated_request="onUnauthenticatedRequest",
-                        scope="scope",
-                        session_cookie_name="sessionCookieName",
-                        session_timeout=123,
-                        use_existing_client_secret=False
-                    ),
-                    fixed_response_config=elbv2.CfnListenerRule.FixedResponseConfigProperty(
-                        status_code="statusCode",
-                
-                        # the properties below are optional
-                        content_type="contentType",
-                        message_body="messageBody"
-                    ),
-                    forward_config=elbv2.CfnListenerRule.ForwardConfigProperty(
-                        target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
-                            target_group_arn="targetGroupArn",
-                            weight=123
-                        )],
-                        target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
-                            duration_seconds=123,
-                            enabled=False
-                        )
-                    ),
-                    order=123,
-                    redirect_config=elbv2.CfnListenerRule.RedirectConfigProperty(
-                        status_code="statusCode",
-                
-                        # the properties below are optional
-                        host="host",
-                        path="path",
-                        port="port",
-                        protocol="protocol",
-                        query="query"
-                    ),
-                    target_group_arn="targetGroupArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17)
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
-                check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
-                check_type(argname="argument fixed_response_config", value=fixed_response_config, expected_type=type_hints["fixed_response_config"])
-                check_type(argname="argument forward_config", value=forward_config, expected_type=type_hints["forward_config"])
-                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
-                check_type(argname="argument redirect_config", value=redirect_config, expected_type=type_hints["redirect_config"])
-                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "type": type,
-            }
-            if authenticate_cognito_config is not None:
-                self._values["authenticate_cognito_config"] = authenticate_cognito_config
-            if authenticate_oidc_config is not None:
-                self._values["authenticate_oidc_config"] = authenticate_oidc_config
-            if fixed_response_config is not None:
-                self._values["fixed_response_config"] = fixed_response_config
-            if forward_config is not None:
-                self._values["forward_config"] = forward_config
-            if order is not None:
-                self._values["order"] = order
-            if redirect_config is not None:
-                self._values["redirect_config"] = redirect_config
-            if target_group_arn is not None:
-                self._values["target_group_arn"] = target_group_arn
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The type of action.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authenticate_cognito_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateCognitoConfigProperty"]]:
-            '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
-
-            Specify only when ``Type`` is ``authenticate-cognito`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticatecognitoconfig
-            '''
-            result = self._values.get("authenticate_cognito_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateCognitoConfigProperty"]], result)
-
-        @builtins.property
-        def authenticate_oidc_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateOidcConfigProperty"]]:
-            '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
-
-            Specify only when ``Type`` is ``authenticate-oidc`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticateoidcconfig
-            '''
-            result = self._values.get("authenticate_oidc_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateOidcConfigProperty"]], result)
-
-        @builtins.property
-        def fixed_response_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.FixedResponseConfigProperty"]]:
-            '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
-
-            Specify only when ``Type`` is ``fixed-response`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-fixedresponseconfig
-            '''
-            result = self._values.get("fixed_response_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.FixedResponseConfigProperty"]], result)
-
-        @builtins.property
-        def forward_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ForwardConfigProperty"]]:
-            '''Information for creating an action that distributes requests among one or more target groups.
-
-            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-forwardconfig
-            '''
-            result = self._values.get("forward_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ForwardConfigProperty"]], result)
-
-        @builtins.property
-        def order(self) -> typing.Optional[jsii.Number]:
-            '''The order for the action.
-
-            This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-order
-            '''
-            result = self._values.get("order")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def redirect_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RedirectConfigProperty"]]:
-            '''[Application Load Balancer] Information for creating a redirect action.
-
-            Specify only when ``Type`` is ``redirect`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-redirectconfig
-            '''
-            result = self._values.get("redirect_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RedirectConfigProperty"]], result)
-
-        @builtins.property
-        def target_group_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the target group.
-
-            Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-targetgrouparn
-            '''
-            result = self._values.get("target_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ActionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.AuthenticateCognitoConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "user_pool_arn": "userPoolArn",
-            "user_pool_client_id": "userPoolClientId",
-            "user_pool_domain": "userPoolDomain",
-            "authentication_request_extra_params": "authenticationRequestExtraParams",
-            "on_unauthenticated_request": "onUnauthenticatedRequest",
-            "scope": "scope",
-            "session_cookie_name": "sessionCookieName",
-            "session_timeout": "sessionTimeout",
-        },
-    )
-    class AuthenticateCognitoConfigProperty:
-        def __init__(
-            self,
-            *,
-            user_pool_arn: builtins.str,
-            user_pool_client_id: builtins.str,
-            user_pool_domain: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-            on_unauthenticated_request: typing.Optional[builtins.str] = None,
-            scope: typing.Optional[builtins.str] = None,
-            session_cookie_name: typing.Optional[builtins.str] = None,
-            session_timeout: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Specifies information required when integrating with Amazon Cognito to authenticate users.
-
-            :param user_pool_arn: The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
-            :param user_pool_client_id: The ID of the Amazon Cognito user pool client.
-            :param user_pool_domain: The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
-            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
-            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                authenticate_cognito_config_property = elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
-                    user_pool_arn="userPoolArn",
-                    user_pool_client_id="userPoolClientId",
-                    user_pool_domain="userPoolDomain",
-                
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2)
-                check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
-                check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
-                check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
-                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
-                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
-                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
-                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "user_pool_arn": user_pool_arn,
-                "user_pool_client_id": user_pool_client_id,
-                "user_pool_domain": user_pool_domain,
-            }
-            if authentication_request_extra_params is not None:
-                self._values["authentication_request_extra_params"] = authentication_request_extra_params
-            if on_unauthenticated_request is not None:
-                self._values["on_unauthenticated_request"] = on_unauthenticated_request
-            if scope is not None:
-                self._values["scope"] = scope
-            if session_cookie_name is not None:
-                self._values["session_cookie_name"] = session_cookie_name
-            if session_timeout is not None:
-                self._values["session_timeout"] = session_timeout
-
-        @builtins.property
-        def user_pool_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpoolarn
-            '''
-            result = self._values.get("user_pool_arn")
-            assert result is not None, "Required property 'user_pool_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_pool_client_id(self) -> builtins.str:
-            '''The ID of the Amazon Cognito user pool client.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpoolclientid
-            '''
-            result = self._values.get("user_pool_client_id")
-            assert result is not None, "Required property 'user_pool_client_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_pool_domain(self) -> builtins.str:
-            '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpooldomain
-            '''
-            result = self._values.get("user_pool_domain")
-            assert result is not None, "Required property 'user_pool_domain' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authentication_request_extra_params(
-            self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-authenticationrequestextraparams
-            '''
-            result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-            '''The behavior if the user is not authenticated. The following are possible values:.
-
-            - deny `` - Return an HTTP 401 Unauthorized error.
-            - allow `` - Allow the request to be forwarded to the target.
-            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-onunauthenticatedrequest
-            '''
-            result = self._values.get("on_unauthenticated_request")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def scope(self) -> typing.Optional[builtins.str]:
-            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
-
-            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-scope
-            '''
-            result = self._values.get("scope")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_cookie_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the cookie used to maintain session information.
-
-            The default is AWSELBAuthSessionCookie.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-sessioncookiename
-            '''
-            result = self._values.get("session_cookie_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_timeout(self) -> typing.Optional[jsii.Number]:
-            '''The maximum duration of the authentication session, in seconds.
-
-            The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-sessiontimeout
-            '''
-            result = self._values.get("session_timeout")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AuthenticateCognitoConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.AuthenticateOidcConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "authorization_endpoint": "authorizationEndpoint",
-            "client_id": "clientId",
-            "issuer": "issuer",
-            "token_endpoint": "tokenEndpoint",
-            "user_info_endpoint": "userInfoEndpoint",
-            "authentication_request_extra_params": "authenticationRequestExtraParams",
-            "client_secret": "clientSecret",
-            "on_unauthenticated_request": "onUnauthenticatedRequest",
-            "scope": "scope",
-            "session_cookie_name": "sessionCookieName",
-            "session_timeout": "sessionTimeout",
-            "use_existing_client_secret": "useExistingClientSecret",
-        },
-    )
-    class AuthenticateOidcConfigProperty:
-        def __init__(
-            self,
-            *,
-            authorization_endpoint: builtins.str,
-            client_id: builtins.str,
-            issuer: builtins.str,
-            token_endpoint: builtins.str,
-            user_info_endpoint: builtins.str,
-            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-            client_secret: typing.Optional[builtins.str] = None,
-            on_unauthenticated_request: typing.Optional[builtins.str] = None,
-            scope: typing.Optional[builtins.str] = None,
-            session_cookie_name: typing.Optional[builtins.str] = None,
-            session_timeout: typing.Optional[jsii.Number] = None,
-            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
-
-            :param authorization_endpoint: The authorization endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param client_id: The OAuth 2.0 client identifier.
-            :param issuer: The OIDC issuer identifier of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param token_endpoint: The token endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param user_info_endpoint: The user info endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
-            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-            :param client_secret: The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
-            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
-            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
-            :param use_existing_client_secret: Indicates whether to use the existing client secret when modifying a rule. If you are creating a rule, you can omit this parameter or set it to false.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                authenticate_oidc_config_property = elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
-                    authorization_endpoint="authorizationEndpoint",
-                    client_id="clientId",
-                    issuer="issuer",
-                    token_endpoint="tokenEndpoint",
-                    user_info_endpoint="userInfoEndpoint",
-                
-                    # the properties below are optional
-                    authentication_request_extra_params={
-                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
-                    },
-                    client_secret="clientSecret",
-                    on_unauthenticated_request="onUnauthenticatedRequest",
-                    scope="scope",
-                    session_cookie_name="sessionCookieName",
-                    session_timeout=123,
-                    use_existing_client_secret=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78)
-                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
-                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
-                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
-                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
-                check_type(argname="argument user_info_endpoint", value=user_info_endpoint, expected_type=type_hints["user_info_endpoint"])
-                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
-                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
-                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
-                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
-                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
-                check_type(argname="argument use_existing_client_secret", value=use_existing_client_secret, expected_type=type_hints["use_existing_client_secret"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "authorization_endpoint": authorization_endpoint,
-                "client_id": client_id,
-                "issuer": issuer,
-                "token_endpoint": token_endpoint,
-                "user_info_endpoint": user_info_endpoint,
-            }
-            if authentication_request_extra_params is not None:
-                self._values["authentication_request_extra_params"] = authentication_request_extra_params
-            if client_secret is not None:
-                self._values["client_secret"] = client_secret
-            if on_unauthenticated_request is not None:
-                self._values["on_unauthenticated_request"] = on_unauthenticated_request
-            if scope is not None:
-                self._values["scope"] = scope
-            if session_cookie_name is not None:
-                self._values["session_cookie_name"] = session_cookie_name
-            if session_timeout is not None:
-                self._values["session_timeout"] = session_timeout
-            if use_existing_client_secret is not None:
-                self._values["use_existing_client_secret"] = use_existing_client_secret
-
-        @builtins.property
-        def authorization_endpoint(self) -> builtins.str:
-            '''The authorization endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authorizationendpoint
-            '''
-            result = self._values.get("authorization_endpoint")
-            assert result is not None, "Required property 'authorization_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def client_id(self) -> builtins.str:
-            '''The OAuth 2.0 client identifier.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-clientid
-            '''
-            result = self._values.get("client_id")
-            assert result is not None, "Required property 'client_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def issuer(self) -> builtins.str:
-            '''The OIDC issuer identifier of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-issuer
-            '''
-            result = self._values.get("issuer")
-            assert result is not None, "Required property 'issuer' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def token_endpoint(self) -> builtins.str:
-            '''The token endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-tokenendpoint
-            '''
-            result = self._values.get("token_endpoint")
-            assert result is not None, "Required property 'token_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def user_info_endpoint(self) -> builtins.str:
-            '''The user info endpoint of the IdP.
-
-            This must be a full URL, including the HTTPS protocol, the domain, and the path.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-userinfoendpoint
-            '''
-            result = self._values.get("user_info_endpoint")
-            assert result is not None, "Required property 'user_info_endpoint' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def authentication_request_extra_params(
-            self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authenticationrequestextraparams
-            '''
-            result = self._values.get("authentication_request_extra_params")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def client_secret(self) -> typing.Optional[builtins.str]:
-            '''The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-clientsecret
-            '''
-            result = self._values.get("client_secret")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
-            '''The behavior if the user is not authenticated. The following are possible values:.
-
-            - deny `` - Return an HTTP 401 Unauthorized error.
-            - allow `` - Allow the request to be forwarded to the target.
-            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-onunauthenticatedrequest
-            '''
-            result = self._values.get("on_unauthenticated_request")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def scope(self) -> typing.Optional[builtins.str]:
-            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
-
-            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-scope
-            '''
-            result = self._values.get("scope")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_cookie_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the cookie used to maintain session information.
-
-            The default is AWSELBAuthSessionCookie.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-sessioncookiename
-            '''
-            result = self._values.get("session_cookie_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def session_timeout(self) -> typing.Optional[jsii.Number]:
-            '''The maximum duration of the authentication session, in seconds.
-
-            The default is 604800 seconds (7 days).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-sessiontimeout
-            '''
-            result = self._values.get("session_timeout")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def use_existing_client_secret(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether to use the existing client secret when modifying a rule.
-
-            If you are creating a rule, you can omit this parameter or set it to false.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-useexistingclientsecret
-            '''
-            result = self._values.get("use_existing_client_secret")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AuthenticateOidcConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.FixedResponseConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "status_code": "statusCode",
-            "content_type": "contentType",
-            "message_body": "messageBody",
-        },
-    )
-    class FixedResponseConfigProperty:
-        def __init__(
-            self,
-            *,
-            status_code: builtins.str,
-            content_type: typing.Optional[builtins.str] = None,
-            message_body: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies information required when returning a custom HTTP response.
-
-            :param status_code: The HTTP response code (2XX, 4XX, or 5XX).
-            :param content_type: The content type. Valid Values: text/plain | text/css | text/html | application/javascript | application/json
-            :param message_body: The message.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                fixed_response_config_property = elbv2.CfnListenerRule.FixedResponseConfigProperty(
-                    status_code="statusCode",
-                
-                    # the properties below are optional
-                    content_type="contentType",
-                    message_body="messageBody"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53)
-                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
-                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
-                check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "status_code": status_code,
-            }
-            if content_type is not None:
-                self._values["content_type"] = content_type
-            if message_body is not None:
-                self._values["message_body"] = message_body
-
-        @builtins.property
-        def status_code(self) -> builtins.str:
-            '''The HTTP response code (2XX, 4XX, or 5XX).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-statuscode
-            '''
-            result = self._values.get("status_code")
-            assert result is not None, "Required property 'status_code' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def content_type(self) -> typing.Optional[builtins.str]:
-            '''The content type.
-
-            Valid Values: text/plain | text/css | text/html | application/javascript | application/json
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-contenttype
-            '''
-            result = self._values.get("content_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def message_body(self) -> typing.Optional[builtins.str]:
-            '''The message.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-messagebody
-            '''
-            result = self._values.get("message_body")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "FixedResponseConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.ForwardConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "target_groups": "targetGroups",
-            "target_group_stickiness_config": "targetGroupStickinessConfig",
-        },
-    )
-    class ForwardConfigProperty:
-        def __init__(
-            self,
-            *,
-            target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Information for creating an action that distributes requests among one or more target groups.
-
-            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
-
-            :param target_groups: Information about how traffic will be distributed between multiple target groups in a forward rule.
-            :param target_group_stickiness_config: Information about the target group stickiness for a rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                forward_config_property = elbv2.CfnListenerRule.ForwardConfigProperty(
-                    target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
-                        target_group_arn="targetGroupArn",
-                        weight=123
-                    )],
-                    target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
-                        duration_seconds=123,
-                        enabled=False
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0)
-                check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
-                check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if target_groups is not None:
-                self._values["target_groups"] = target_groups
-            if target_group_stickiness_config is not None:
-                self._values["target_group_stickiness_config"] = target_group_stickiness_config
-
-        @builtins.property
-        def target_groups(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupTupleProperty"]]]]:
-            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroups
-            '''
-            result = self._values.get("target_groups")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupTupleProperty"]]]], result)
-
-        @builtins.property
-        def target_group_stickiness_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupStickinessConfigProperty"]]:
-            '''Information about the target group stickiness for a rule.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroupstickinessconfig
-            '''
-            result = self._values.get("target_group_stickiness_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupStickinessConfigProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ForwardConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HostHeaderConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"values": "values"},
-    )
-    class HostHeaderConfigProperty:
-        def __init__(
-            self,
-            *,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Information about a host header condition.
-
-            :param values: The host names. The maximum size of each name is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). You must include at least one "." character. You can include only alphabetical characters after the final "." character. If you specify multiple strings, the condition is satisfied if one of the strings matches the host name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                host_header_config_property = elbv2.CfnListenerRule.HostHeaderConfigProperty(
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642)
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The host names.
-
-            The maximum size of each name is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). You must include at least one "." character. You can include only alphabetical characters after the final "." character.
-
-            If you specify multiple strings, the condition is satisfied if one of the strings matches the host name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-hostheaderconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "HostHeaderConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HttpHeaderConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"http_header_name": "httpHeaderName", "values": "values"},
-    )
-    class HttpHeaderConfigProperty:
-        def __init__(
-            self,
-            *,
-            http_header_name: typing.Optional[builtins.str] = None,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Information about an HTTP header condition.
-
-            There is a set of standard HTTP header fields. You can also define custom HTTP header fields.
-
-            :param http_header_name: The name of the HTTP header field. The maximum size is 40 characters. The header name is case insensitive. The allowed characters are specified by RFC 7230. Wildcards are not supported.
-            :param values: The strings to compare against the value of the HTTP header. The maximum size of each string is 128 characters. The comparison strings are case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request, we search them in order until a match is found. If you specify multiple strings, the condition is satisfied if one of the strings matches the value of the HTTP header. To require that all of the strings are a match, create one condition per string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                http_header_config_property = elbv2.CfnListenerRule.HttpHeaderConfigProperty(
-                    http_header_name="httpHeaderName",
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40)
-                check_type(argname="argument http_header_name", value=http_header_name, expected_type=type_hints["http_header_name"])
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if http_header_name is not None:
-                self._values["http_header_name"] = http_header_name
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def http_header_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the HTTP header field.
-
-            The maximum size is 40 characters. The header name is case insensitive. The allowed characters are specified by RFC 7230. Wildcards are not supported.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-httpheaderconfig-httpheadername
-            '''
-            result = self._values.get("http_header_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The strings to compare against the value of the HTTP header.
-
-            The maximum size of each string is 128 characters. The comparison strings are case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character).
-
-            If the same header appears multiple times in the request, we search them in order until a match is found.
-
-            If you specify multiple strings, the condition is satisfied if one of the strings matches the value of the HTTP header. To require that all of the strings are a match, create one condition per string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-httpheaderconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "HttpHeaderConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HttpRequestMethodConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"values": "values"},
-    )
-    class HttpRequestMethodConfigProperty:
-        def __init__(
-            self,
-            *,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Information about an HTTP method condition.
-
-            HTTP defines a set of request methods, also referred to as HTTP verbs. For more information, see the `HTTP Method Registry <https://docs.aws.amazon.com/https://www.iana.org/assignments/http-methods/http-methods.xhtml>`_ . You can also define custom HTTP methods.
-
-            :param values: The name of the request method. The maximum size is 40 characters. The allowed characters are A-Z, hyphen (-), and underscore (_). The comparison is case sensitive. Wildcards are not supported; therefore, the method name must be an exact match. If you specify multiple strings, the condition is satisfied if one of the strings matches the HTTP request method. We recommend that you route GET and HEAD requests in the same way, because the response to a HEAD request may be cached.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httprequestmethodconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                http_request_method_config_property = elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed)
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The name of the request method.
-
-            The maximum size is 40 characters. The allowed characters are A-Z, hyphen (-), and underscore (_). The comparison is case sensitive. Wildcards are not supported; therefore, the method name must be an exact match.
-
-            If you specify multiple strings, the condition is satisfied if one of the strings matches the HTTP request method. We recommend that you route GET and HEAD requests in the same way, because the response to a HEAD request may be cached.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httprequestmethodconfig.html#cfn-elasticloadbalancingv2-listenerrule-httprequestmethodconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "HttpRequestMethodConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.PathPatternConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"values": "values"},
-    )
-    class PathPatternConfigProperty:
-        def __init__(
-            self,
-            *,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Information about a path pattern condition.
-
-            :param values: The path patterns to compare against the request URL. The maximum size of each string is 128 characters. The comparison is case sensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If you specify multiple strings, the condition is satisfied if one of them matches the request URL. The path pattern is compared only to the path of the URL, not to its query string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-pathpatternconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                path_pattern_config_property = elbv2.CfnListenerRule.PathPatternConfigProperty(
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5)
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The path patterns to compare against the request URL.
-
-            The maximum size of each string is 128 characters. The comparison is case sensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character).
-
-            If you specify multiple strings, the condition is satisfied if one of them matches the request URL. The path pattern is compared only to the path of the URL, not to its query string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-pathpatternconfig.html#cfn-elasticloadbalancingv2-listenerrule-pathpatternconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PathPatternConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.QueryStringConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"values": "values"},
-    )
-    class QueryStringConfigProperty:
-        def __init__(
-            self,
-            *,
-            values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.QueryStringKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''Information about a query string condition.
-
-            The query string component of a URI starts after the first '?' character and is terminated by either a '#' character or the end of the URI. A typical query string contains key/value pairs separated by '&' characters. The allowed characters are specified by RFC 3986. Any character can be percentage encoded.
-
-            :param values: The key/value pairs or values to find in the query string. The maximum size of each string is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). To search for a literal '*' or '?' character in a query string, you must escape these characters in ``Values`` using a '' character. If you specify multiple key/value pairs or values, the condition is satisfied if one of them is found in the query string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                query_string_config_property = elbv2.CfnListenerRule.QueryStringConfigProperty(
-                    values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
-                        key="key",
-                        value="value"
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4)
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def values(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringKeyValueProperty"]]]]:
-            '''The key/value pairs or values to find in the query string.
-
-            The maximum size of each string is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). To search for a literal '*' or '?' character in a query string, you must escape these characters in ``Values`` using a '' character.
-
-            If you specify multiple key/value pairs or values, the condition is satisfied if one of them is found in the query string.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringconfig.html#cfn-elasticloadbalancingv2-listenerrule-querystringconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringKeyValueProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "QueryStringConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.QueryStringKeyValueProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class QueryStringKeyValueProperty:
-        def __init__(
-            self,
-            *,
-            key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a key/value pair.
-
-            :param key: The key. You can omit the key.
-            :param value: The value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                query_string_key_value_property = elbv2.CfnListenerRule.QueryStringKeyValueProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if key is not None:
-                self._values["key"] = key
-            if value is not None:
-                self._values["value"] = value
-
-        @builtins.property
-        def key(self) -> typing.Optional[builtins.str]:
-            '''The key.
-
-            You can omit the key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html#cfn-elasticloadbalancingv2-listenerrule-querystringkeyvalue-key
-            '''
-            result = self._values.get("key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def value(self) -> typing.Optional[builtins.str]:
-            '''The value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html#cfn-elasticloadbalancingv2-listenerrule-querystringkeyvalue-value
-            '''
-            result = self._values.get("value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "QueryStringKeyValueProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.RedirectConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "status_code": "statusCode",
-            "host": "host",
-            "path": "path",
-            "port": "port",
-            "protocol": "protocol",
-            "query": "query",
-        },
-    )
-    class RedirectConfigProperty:
-        def __init__(
-            self,
-            *,
-            status_code: builtins.str,
-            host: typing.Optional[builtins.str] = None,
-            path: typing.Optional[builtins.str] = None,
-            port: typing.Optional[builtins.str] = None,
-            protocol: typing.Optional[builtins.str] = None,
-            query: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a redirect action.
-
-            A URI consists of the following components: protocol://hostname:port/path?query. You must modify at least one of the following components to avoid a redirect loop: protocol, hostname, port, or path. Any components that you do not modify retain their original values.
-
-            You can reuse URI components using the following reserved keywords:
-
-            - #{protocol}
-            - #{host}
-            - #{port}
-            - #{path} (the leading "/" is removed)
-            - #{query}
-
-            For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}", or the query to "#{query}&value=xyz".
-
-            :param status_code: The HTTP redirect code. The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
-            :param host: The hostname. This component is not percent-encoded. The hostname can contain #{host}.
-            :param path: The absolute path, starting with the leading "/". This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
-            :param port: The port. You can specify a value from 1 to 65535 or #{port}.
-            :param protocol: The protocol. You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
-            :param query: The query parameters, URL-encoded when necessary, but not percent-encoded. Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                redirect_config_property = elbv2.CfnListenerRule.RedirectConfigProperty(
-                    status_code="statusCode",
-                
-                    # the properties below are optional
-                    host="host",
-                    path="path",
-                    port="port",
-                    protocol="protocol",
-                    query="query"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7)
-                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
-                check_type(argname="argument host", value=host, expected_type=type_hints["host"])
-                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "status_code": status_code,
-            }
-            if host is not None:
-                self._values["host"] = host
-            if path is not None:
-                self._values["path"] = path
-            if port is not None:
-                self._values["port"] = port
-            if protocol is not None:
-                self._values["protocol"] = protocol
-            if query is not None:
-                self._values["query"] = query
-
-        @builtins.property
-        def status_code(self) -> builtins.str:
-            '''The HTTP redirect code.
-
-            The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-statuscode
-            '''
-            result = self._values.get("status_code")
-            assert result is not None, "Required property 'status_code' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def host(self) -> typing.Optional[builtins.str]:
-            '''The hostname.
-
-            This component is not percent-encoded. The hostname can contain #{host}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-host
-            '''
-            result = self._values.get("host")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def path(self) -> typing.Optional[builtins.str]:
-            '''The absolute path, starting with the leading "/".
-
-            This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-path
-            '''
-            result = self._values.get("path")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def port(self) -> typing.Optional[builtins.str]:
-            '''The port.
-
-            You can specify a value from 1 to 65535 or #{port}.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-port
-            '''
-            result = self._values.get("port")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def protocol(self) -> typing.Optional[builtins.str]:
-            '''The protocol.
-
-            You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-protocol
-            '''
-            result = self._values.get("protocol")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def query(self) -> typing.Optional[builtins.str]:
-            '''The query parameters, URL-encoded when necessary, but not percent-encoded.
-
-            Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-query
-            '''
-            result = self._values.get("query")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RedirectConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.RuleConditionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "field": "field",
-            "host_header_config": "hostHeaderConfig",
-            "http_header_config": "httpHeaderConfig",
-            "http_request_method_config": "httpRequestMethodConfig",
-            "path_pattern_config": "pathPatternConfig",
-            "query_string_config": "queryStringConfig",
-            "source_ip_config": "sourceIpConfig",
-            "values": "values",
-        },
-    )
-    class RuleConditionProperty:
-        def __init__(
-            self,
-            *,
-            field: typing.Optional[builtins.str] = None,
-            host_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HostHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HttpHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            http_request_method_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HttpRequestMethodConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            path_pattern_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.PathPatternConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_string_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.QueryStringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            source_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Specifies a condition for a listener rule.
-
-            :param field: The field in the HTTP request. The following are the possible values:. - ``http-header`` - ``http-request-method`` - ``host-header`` - ``path-pattern`` - ``query-string`` - ``source-ip``
-            :param host_header_config: Information for a host header condition. Specify only when ``Field`` is ``host-header`` .
-            :param http_header_config: Information for an HTTP header condition. Specify only when ``Field`` is ``http-header`` .
-            :param http_request_method_config: Information for an HTTP method condition. Specify only when ``Field`` is ``http-request-method`` .
-            :param path_pattern_config: Information for a path pattern condition. Specify only when ``Field`` is ``path-pattern`` .
-            :param query_string_config: Information for a query string condition. Specify only when ``Field`` is ``query-string`` .
-            :param source_ip_config: Information for a source IP condition. Specify only when ``Field`` is ``source-ip`` .
-            :param values: The condition value. Specify only when ``Field`` is ``host-header`` or ``path-pattern`` . Alternatively, to specify multiple host names or multiple path patterns, use ``HostHeaderConfig`` or ``PathPatternConfig`` . If ``Field`` is ``host-header`` and you're not using ``HostHeaderConfig`` , you can specify a single host name (for example, my.example.com). A host name is case insensitive, can be up to 128 characters in length, and can contain any of the following characters. - A-Z, a-z, 0-9 - - . - - (matches 0 or more characters) - ? (matches exactly 1 character) If ``Field`` is ``path-pattern`` and you're not using ``PathPatternConfig`` , you can specify a single path pattern (for example, /img/*). A path pattern is case-sensitive, can be up to 128 characters in length, and can contain any of the following characters. - A-Z, a-z, 0-9 - _ - . $ / ~ " ' @ : + - & (using &) - - (matches 0 or more characters) - ? (matches exactly 1 character)
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                rule_condition_property = elbv2.CfnListenerRule.RuleConditionProperty(
-                    field="field",
-                    host_header_config=elbv2.CfnListenerRule.HostHeaderConfigProperty(
-                        values=["values"]
-                    ),
-                    http_header_config=elbv2.CfnListenerRule.HttpHeaderConfigProperty(
-                        http_header_name="httpHeaderName",
-                        values=["values"]
-                    ),
-                    http_request_method_config=elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
-                        values=["values"]
-                    ),
-                    path_pattern_config=elbv2.CfnListenerRule.PathPatternConfigProperty(
-                        values=["values"]
-                    ),
-                    query_string_config=elbv2.CfnListenerRule.QueryStringConfigProperty(
-                        values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
-                            key="key",
-                            value="value"
-                        )]
-                    ),
-                    source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
-                        values=["values"]
-                    ),
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c)
-                check_type(argname="argument field", value=field, expected_type=type_hints["field"])
-                check_type(argname="argument host_header_config", value=host_header_config, expected_type=type_hints["host_header_config"])
-                check_type(argname="argument http_header_config", value=http_header_config, expected_type=type_hints["http_header_config"])
-                check_type(argname="argument http_request_method_config", value=http_request_method_config, expected_type=type_hints["http_request_method_config"])
-                check_type(argname="argument path_pattern_config", value=path_pattern_config, expected_type=type_hints["path_pattern_config"])
-                check_type(argname="argument query_string_config", value=query_string_config, expected_type=type_hints["query_string_config"])
-                check_type(argname="argument source_ip_config", value=source_ip_config, expected_type=type_hints["source_ip_config"])
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if field is not None:
-                self._values["field"] = field
-            if host_header_config is not None:
-                self._values["host_header_config"] = host_header_config
-            if http_header_config is not None:
-                self._values["http_header_config"] = http_header_config
-            if http_request_method_config is not None:
-                self._values["http_request_method_config"] = http_request_method_config
-            if path_pattern_config is not None:
-                self._values["path_pattern_config"] = path_pattern_config
-            if query_string_config is not None:
-                self._values["query_string_config"] = query_string_config
-            if source_ip_config is not None:
-                self._values["source_ip_config"] = source_ip_config
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def field(self) -> typing.Optional[builtins.str]:
-            '''The field in the HTTP request. The following are the possible values:.
-
-            - ``http-header``
-            - ``http-request-method``
-            - ``host-header``
-            - ``path-pattern``
-            - ``query-string``
-            - ``source-ip``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-field
-            '''
-            result = self._values.get("field")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def host_header_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HostHeaderConfigProperty"]]:
-            '''Information for a host header condition.
-
-            Specify only when ``Field`` is ``host-header`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-hostheaderconfig
-            '''
-            result = self._values.get("host_header_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HostHeaderConfigProperty"]], result)
-
-        @builtins.property
-        def http_header_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpHeaderConfigProperty"]]:
-            '''Information for an HTTP header condition.
-
-            Specify only when ``Field`` is ``http-header`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httpheaderconfig
-            '''
-            result = self._values.get("http_header_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpHeaderConfigProperty"]], result)
-
-        @builtins.property
-        def http_request_method_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpRequestMethodConfigProperty"]]:
-            '''Information for an HTTP method condition.
-
-            Specify only when ``Field`` is ``http-request-method`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httprequestmethodconfig
-            '''
-            result = self._values.get("http_request_method_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpRequestMethodConfigProperty"]], result)
-
-        @builtins.property
-        def path_pattern_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.PathPatternConfigProperty"]]:
-            '''Information for a path pattern condition.
-
-            Specify only when ``Field`` is ``path-pattern`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-pathpatternconfig
-            '''
-            result = self._values.get("path_pattern_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.PathPatternConfigProperty"]], result)
-
-        @builtins.property
-        def query_string_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringConfigProperty"]]:
-            '''Information for a query string condition.
-
-            Specify only when ``Field`` is ``query-string`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-querystringconfig
-            '''
-            result = self._values.get("query_string_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringConfigProperty"]], result)
-
-        @builtins.property
-        def source_ip_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.SourceIpConfigProperty"]]:
-            '''Information for a source IP condition.
-
-            Specify only when ``Field`` is ``source-ip`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-sourceipconfig
-            '''
-            result = self._values.get("source_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.SourceIpConfigProperty"]], result)
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The condition value.
-
-            Specify only when ``Field`` is ``host-header`` or ``path-pattern`` . Alternatively, to specify multiple host names or multiple path patterns, use ``HostHeaderConfig`` or ``PathPatternConfig`` .
-
-            If ``Field`` is ``host-header`` and you're not using ``HostHeaderConfig`` , you can specify a single host name (for example, my.example.com). A host name is case insensitive, can be up to 128 characters in length, and can contain any of the following characters.
-
-            - A-Z, a-z, 0-9
-            -
-              - .
-
-            -
-              - (matches 0 or more characters)
-
-            - ? (matches exactly 1 character)
-
-            If ``Field`` is ``path-pattern`` and you're not using ``PathPatternConfig`` , you can specify a single path pattern (for example, /img/*). A path pattern is case-sensitive, can be up to 128 characters in length, and can contain any of the following characters.
-
-            - A-Z, a-z, 0-9
-            - _ - . $ / ~ " ' @ : +
-            - & (using &)
-            -
-              - (matches 0 or more characters)
-
-            - ? (matches exactly 1 character)
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RuleConditionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.SourceIpConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"values": "values"},
-    )
-    class SourceIpConfigProperty:
-        def __init__(
-            self,
-            *,
-            values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''Information about a source IP condition.
-
-            You can use this condition to route based on the IP address of the source that connects to the load balancer. If a client is behind a proxy, this is the IP address of the proxy not the IP address of the client.
-
-            :param values: The source IP addresses, in CIDR format. You can use both IPv4 and IPv6 addresses. Wildcards are not supported. If you specify multiple addresses, the condition is satisfied if the source IP address of the request matches one of the CIDR blocks. This condition is not satisfied by the addresses in the X-Forwarded-For header.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                source_ip_config_property = elbv2.CfnListenerRule.SourceIpConfigProperty(
-                    values=["values"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de)
-                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if values is not None:
-                self._values["values"] = values
-
-        @builtins.property
-        def values(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The source IP addresses, in CIDR format. You can use both IPv4 and IPv6 addresses. Wildcards are not supported.
-
-            If you specify multiple addresses, the condition is satisfied if the source IP address of the request matches one of the CIDR blocks. This condition is not satisfied by the addresses in the X-Forwarded-For header.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html#cfn-elasticloadbalancingv2-listenerrule-sourceipconfig-values
-            '''
-            result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SourceIpConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.TargetGroupStickinessConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"duration_seconds": "durationSeconds", "enabled": "enabled"},
-    )
-    class TargetGroupStickinessConfigProperty:
-        def __init__(
-            self,
-            *,
-            duration_seconds: typing.Optional[jsii.Number] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Information about the target group stickiness for a rule.
-
-            :param duration_seconds: The time period, in seconds, during which requests from a client should be routed to the same target group. The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
-            :param enabled: Indicates whether target group stickiness is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_group_stickiness_config_property = elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
-                    duration_seconds=123,
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc)
-                check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if duration_seconds is not None:
-                self._values["duration_seconds"] = duration_seconds
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def duration_seconds(self) -> typing.Optional[jsii.Number]:
-            '''The time period, in seconds, during which requests from a client should be routed to the same target group.
-
-            The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig-durationseconds
-            '''
-            result = self._values.get("duration_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether target group stickiness is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetGroupStickinessConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.TargetGroupTupleProperty",
-        jsii_struct_bases=[],
-        name_mapping={"target_group_arn": "targetGroupArn", "weight": "weight"},
-    )
-    class TargetGroupTupleProperty:
-        def __init__(
-            self,
-            *,
-            target_group_arn: typing.Optional[builtins.str] = None,
-            weight: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
-
-            :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
-            :param weight: The weight. The range is 0 to 999.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_group_tuple_property = elbv2.CfnListenerRule.TargetGroupTupleProperty(
-                    target_group_arn="targetGroupArn",
-                    weight=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d)
-                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
-                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if target_group_arn is not None:
-                self._values["target_group_arn"] = target_group_arn
-            if weight is not None:
-                self._values["weight"] = weight
-
-        @builtins.property
-        def target_group_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the target group.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html#cfn-elasticloadbalancingv2-listenerrule-targetgrouptuple-targetgrouparn
-            '''
-            result = self._values.get("target_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def weight(self) -> typing.Optional[jsii.Number]:
-            '''The weight.
-
-            The range is 0 to 999.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html#cfn-elasticloadbalancingv2-listenerrule-targetgrouptuple-weight
-            '''
-            result = self._values.get("weight")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetGroupTupleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRuleProps",
     jsii_struct_bases=[],
@@ -8244,8 +4124,8 @@ class CfnListenerRuleProps:
     def __init__(
         self,
         *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         priority: jsii.Number,
         listener_arn: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -8381,7 +4261,7 @@ class CfnListenerRuleProps:
     @builtins.property
     def actions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.ActionProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]]:
         '''The actions.
 
         The rule must include exactly one of the following types of actions: ``forward`` , ``fixed-response`` , or ``redirect`` , and it must be the last action to be performed. If the rule is for an HTTPS listener, it can also optionally include an authentication action.
@@ -8390,12 +4270,12 @@ class CfnListenerRuleProps:
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.ActionProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]], result)
 
     @builtins.property
     def conditions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.RuleConditionProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]]:
         '''The conditions.
 
         The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
@@ -8404,7 +4284,7 @@ class CfnListenerRuleProps:
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.RuleConditionProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]], result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
@@ -8439,702 +4319,6 @@ class CfnListenerRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnLoadBalancer(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer",
-):
-    '''Specifies an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::LoadBalancer
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_load_balancer = elbv2.CfnLoadBalancer(self, "MyCfnLoadBalancer",
-            enable_prefix_for_ipv6_source_nat="enablePrefixForIpv6SourceNat",
-            enforce_security_group_inbound_rules_on_private_link_traffic="enforceSecurityGroupInboundRulesOnPrivateLinkTraffic",
-            ip_address_type="ipAddressType",
-            ipv4_ipam_pool_id="ipv4IpamPoolId",
-            load_balancer_attributes=[elbv2.CfnLoadBalancer.LoadBalancerAttributeProperty(
-                key="key",
-                value="value"
-            )],
-            minimum_load_balancer_capacity=elbv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty(
-                capacity_units=123
-            ),
-            name="name",
-            scheme="scheme",
-            security_groups=["securityGroups"],
-            subnet_mappings=[elbv2.CfnLoadBalancer.SubnetMappingProperty(
-                subnet_id="subnetId",
-        
-                # the properties below are optional
-                allocation_id="allocationId",
-                i_pv6_address="iPv6Address",
-                private_iPv4_address="privateIPv4Address",
-                source_nat_ipv6_prefix="sourceNatIpv6Prefix"
-            )],
-            subnets=["subnets"],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            type="type"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
-        enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
-        ip_address_type: typing.Optional[builtins.str] = None,
-        ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-        load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        scheme: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT. The IP address type must be ``dualstack`` . The default value is ``off`` .
-        :param enforce_security_group_inbound_rules_on_private_link_traffic: Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through AWS PrivateLink . The default is ``on`` . You can't configure this property on a Network Load Balancer unless you associated a security group with the load balancer when you created it.
-        :param ip_address_type: The IP address type. Internal load balancers must use ``ipv4`` . [Application Load Balancers] The possible values are ``ipv4`` (IPv4 addresses), ``dualstack`` (IPv4 and IPv6 addresses), and ``dualstack-without-public-ipv4`` (public IPv6 addresses and private IPv4 and IPv6 addresses). Application Load Balancer authentication supports IPv4 addresses only when connecting to an Identity Provider (IdP) or Amazon Cognito endpoint. Without a public IPv4 address the load balancer can't complete the authentication process, resulting in HTTP 500 errors. [Network Load Balancers and Gateway Load Balancers] The possible values are ``ipv4`` (IPv4 addresses) and ``dualstack`` (IPv4 and IPv6 addresses).
-        :param ipv4_ipam_pool_id: The ID of the IPv4 IPAM pool.
-        :param load_balancer_attributes: The load balancer attributes. Attributes that you do not modify retain their current values.
-        :param minimum_load_balancer_capacity: The minimum capacity for a load balancer.
-        :param name: The name of the load balancer. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, must not begin or end with a hyphen, and must not begin with "internal-". If you don't specify a name, AWS CloudFormation generates a unique physical ID for the load balancer. If you specify a name, you cannot perform updates that require replacement of this resource, but you can perform other updates. To replace the resource, specify a new name.
-        :param scheme: The nodes of an Internet-facing load balancer have public IP addresses. The DNS name of an Internet-facing load balancer is publicly resolvable to the public IP addresses of the nodes. Therefore, Internet-facing load balancers can route requests from clients over the internet. The nodes of an internal load balancer have only private IP addresses. The DNS name of an internal load balancer is publicly resolvable to the private IP addresses of the nodes. Therefore, internal load balancers can route requests only from clients with access to the VPC for the load balancer. The default is an Internet-facing load balancer. You can't specify a scheme for a Gateway Load Balancer.
-        :param security_groups: [Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.
-        :param subnet_mappings: The IDs of the subnets. You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both. [Application Load Balancers] You must specify subnets from at least two Availability Zones. You can't specify Elastic IP addresses for your subnets. [Application Load Balancers on Outposts] You must specify one Outpost subnet. [Application Load Balancers on Local Zones] You can specify subnets from one or more Local Zones. [Network Load Balancers] You can specify subnets from one or more Availability Zones. You can specify one Elastic IP address per subnet if you need static IP addresses for your internet-facing load balancer. For internal load balancers, you can specify one private IP address per subnet from the IPv4 range of the subnet. For internet-facing load balancer, you can specify one IPv6 address per subnet. [Gateway Load Balancers] You can specify subnets from one or more Availability Zones. You can't specify Elastic IP addresses for your subnets.
-        :param subnets: The IDs of the subnets. You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both. To specify an Elastic IP address, specify subnet mappings instead of subnets. [Application Load Balancers] You must specify subnets from at least two Availability Zones. [Application Load Balancers on Outposts] You must specify one Outpost subnet. [Application Load Balancers on Local Zones] You can specify subnets from one or more Local Zones. [Network Load Balancers and Gateway Load Balancers] You can specify subnets from one or more Availability Zones.
-        :param tags: The tags to assign to the load balancer.
-        :param type: The type of load balancer. The default is ``application`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLoadBalancerProps(
-            enable_prefix_for_ipv6_source_nat=enable_prefix_for_ipv6_source_nat,
-            enforce_security_group_inbound_rules_on_private_link_traffic=enforce_security_group_inbound_rules_on_private_link_traffic,
-            ip_address_type=ip_address_type,
-            ipv4_ipam_pool_id=ipv4_ipam_pool_id,
-            load_balancer_attributes=load_balancer_attributes,
-            minimum_load_balancer_capacity=minimum_load_balancer_capacity,
-            name=name,
-            scheme=scheme,
-            security_groups=security_groups,
-            subnet_mappings=subnet_mappings,
-            subnets=subnets,
-            tags=tags,
-            type=type,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCanonicalHostedZoneId")
-    def attr_canonical_hosted_zone_id(self) -> builtins.str:
-        '''The ID of the Amazon Route 53 hosted zone associated with the load balancer.
-
-        For example, ``Z2P70J7EXAMPLE`` .
-
-        :cloudformationAttribute: CanonicalHostedZoneID
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCanonicalHostedZoneId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDnsName")
-    def attr_dns_name(self) -> builtins.str:
-        '''The DNS name for the load balancer.
-
-        For example, ``my-load-balancer-424835706.us-west-2.elb.amazonaws.com`` .
-
-        :cloudformationAttribute: DNSName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDnsName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLoadBalancerArn")
-    def attr_load_balancer_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the load balancer.
-
-        :cloudformationAttribute: LoadBalancerArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLoadBalancerFullName")
-    def attr_load_balancer_full_name(self) -> builtins.str:
-        '''The full name of the load balancer.
-
-        For example, ``app/my-load-balancer/50dc6c495c0c9188`` .
-
-        :cloudformationAttribute: LoadBalancerFullName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerFullName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLoadBalancerName")
-    def attr_load_balancer_name(self) -> builtins.str:
-        '''The name of the load balancer.
-
-        For example, ``my-load-balancer`` .
-
-        :cloudformationAttribute: LoadBalancerName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrSecurityGroups")
-    def attr_security_groups(self) -> typing.List[builtins.str]:
-        '''The IDs of the security groups for the load balancer.
-
-        :cloudformationAttribute: SecurityGroups
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrSecurityGroups"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="enablePrefixForIpv6SourceNat")
-    def enable_prefix_for_ipv6_source_nat(self) -> typing.Optional[builtins.str]:
-        '''[Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enablePrefixForIpv6SourceNat"))
-
-    @enable_prefix_for_ipv6_source_nat.setter
-    def enable_prefix_for_ipv6_source_nat(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enablePrefixForIpv6SourceNat", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enforceSecurityGroupInboundRulesOnPrivateLinkTraffic")
-    def enforce_security_group_inbound_rules_on_private_link_traffic(
-        self,
-    ) -> typing.Optional[builtins.str]:
-        '''Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through AWS PrivateLink .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enforceSecurityGroupInboundRulesOnPrivateLinkTraffic"))
-
-    @enforce_security_group_inbound_rules_on_private_link_traffic.setter
-    def enforce_security_group_inbound_rules_on_private_link_traffic(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enforceSecurityGroupInboundRulesOnPrivateLinkTraffic", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ipAddressType")
-    def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''The IP address type.
-
-        Internal load balancers must use ``ipv4`` .
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
-
-    @ip_address_type.setter
-    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ipv4IpamPoolId")
-    def ipv4_ipam_pool_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the IPv4 IPAM pool.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipv4IpamPoolId"))
-
-    @ipv4_ipam_pool_id.setter
-    def ipv4_ipam_pool_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipv4IpamPoolId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="loadBalancerAttributes")
-    def load_balancer_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
-        '''The load balancer attributes.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], jsii.get(self, "loadBalancerAttributes"))
-
-    @load_balancer_attributes.setter
-    def load_balancer_attributes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loadBalancerAttributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="minimumLoadBalancerCapacity")
-    def minimum_load_balancer_capacity(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
-        '''The minimum capacity for a load balancer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], jsii.get(self, "minimumLoadBalancerCapacity"))
-
-    @minimum_load_balancer_capacity.setter
-    def minimum_load_balancer_capacity(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minimumLoadBalancerCapacity", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the load balancer.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="scheme")
-    def scheme(self) -> typing.Optional[builtins.str]:
-        '''The nodes of an Internet-facing load balancer have public IP addresses.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scheme"))
-
-    @scheme.setter
-    def scheme(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheme", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="securityGroups")
-    def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''[Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroups"))
-
-    @security_groups.setter
-    def security_groups(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subnetMappings")
-    def subnet_mappings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]]:
-        '''The IDs of the subnets.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
-
-    @subnet_mappings.setter
-    def subnet_mappings(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subnets")
-    def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The IDs of the subnets.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnets"))
-
-    @subnets.setter
-    def subnets(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to the load balancer.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of load balancer.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.LoadBalancerAttributeProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class LoadBalancerAttributeProperty:
-        def __init__(
-            self,
-            *,
-            key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies an attribute for an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
-
-            :param key: The name of the attribute. The following attributes are supported by all load balancers: - ``deletion_protection.enabled`` - Indicates whether deletion protection is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``load_balancing.cross_zone.enabled`` - Indicates whether cross-zone load balancing is enabled. The possible values are ``true`` and ``false`` . The default for Network Load Balancers and Gateway Load Balancers is ``false`` . The default for Application Load Balancers is ``true`` , and can't be changed. The following attributes are supported by both Application Load Balancers and Network Load Balancers: - ``access_logs.s3.enabled`` - Indicates whether access logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``access_logs.s3.bucket`` - The name of the S3 bucket for the access logs. This attribute is required if access logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket. - ``access_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the access logs. - ``ipv6.deny_all_igw_traffic`` - Blocks internet gateway (IGW) access to the load balancer. It is set to ``false`` for internet-facing load balancers and ``true`` for internal load balancers, preventing unintended access to your internal load balancer through an internet gateway. - ``zonal_shift.config.enabled`` - Indicates whether zonal shift is enabled. The possible values are ``true`` and ``false`` . The default is ``false`` . The following attributes are supported by only Application Load Balancers: - ``idle_timeout.timeout_seconds`` - The idle timeout value, in seconds. The valid range is 1-4000 seconds. The default is 60 seconds. - ``client_keep_alive.seconds`` - The client keep alive value, in seconds. The valid range is 60-604800 seconds. The default is 3600 seconds. - ``connection_logs.s3.enabled`` - Indicates whether connection logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``connection_logs.s3.bucket`` - The name of the S3 bucket for the connection logs. This attribute is required if connection logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket. - ``connection_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the connection logs. - ``routing.http.desync_mitigation_mode`` - Determines how the load balancer handles requests that might pose a security risk to your application. The possible values are ``monitor`` , ``defensive`` , and ``strictest`` . The default is ``defensive`` . - ``routing.http.drop_invalid_header_fields.enabled`` - Indicates whether HTTP headers with invalid header fields are removed by the load balancer ( ``true`` ) or routed to targets ( ``false`` ). The default is ``false`` . - ``routing.http.preserve_host_header.enabled`` - Indicates whether the Application Load Balancer should preserve the ``Host`` header in the HTTP request and send it to the target without any change. The possible values are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.x_amzn_tls_version_and_cipher_suite.enabled`` - Indicates whether the two headers ( ``x-amzn-tls-version`` and ``x-amzn-tls-cipher-suite`` ), which contain information about the negotiated TLS version and cipher suite, are added to the client request before sending it to the target. The ``x-amzn-tls-version`` header has information about the TLS protocol version negotiated with the client, and the ``x-amzn-tls-cipher-suite`` header has information about the cipher suite negotiated with the client. Both headers are in OpenSSL format. The possible values for the attribute are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.xff_client_port.enabled`` - Indicates whether the ``X-Forwarded-For`` header should preserve the source port that the client used to connect to the load balancer. The possible values are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.xff_header_processing.mode`` - Enables you to modify, preserve, or remove the ``X-Forwarded-For`` header in the HTTP request before the Application Load Balancer sends the request to the target. The possible values are ``append`` , ``preserve`` , and ``remove`` . The default is ``append`` . - If the value is ``append`` , the Application Load Balancer adds the client IP address (of the last hop) to the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets. - If the value is ``preserve`` the Application Load Balancer preserves the ``X-Forwarded-For`` header in the HTTP request, and sends it to targets without any change. - If the value is ``remove`` , the Application Load Balancer removes the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets. - ``routing.http2.enabled`` - Indicates whether clients can connect to the load balancer using HTTP/2. If ``true`` , clients can connect using HTTP/2 or HTTP/1.1. However, all client requests are subject to the stricter HTTP/2 header validation rules. For example, message header names must contain only alphanumeric characters and hyphens. If ``false`` , clients must connect using HTTP/1.1. The default is ``true`` . - ``waf.fail_open.enabled`` - Indicates whether to allow a WAF-enabled load balancer to route requests to targets if it is unable to forward the request to AWS WAF. The possible values are ``true`` and ``false`` . The default is ``false`` . The following attributes are supported by only Network Load Balancers: - ``dns_record.client_routing_policy`` - Indicates how traffic is distributed among the load balancer Availability Zones. The possible values are ``availability_zone_affinity`` with 100 percent zonal affinity, ``partial_availability_zone_affinity`` with 85 percent zonal affinity, and ``any_availability_zone`` with 0 percent zonal affinity. - ``secondary_ips.auto_assigned.per_subnet`` - The number of secondary IP addresses to configure for your load balancer nodes. Use to address port allocation errors if you can't add targets. The valid range is 0 to 7. The default is 0. After you set this value, you can't decrease it.
-            :param value: The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                load_balancer_attribute_property = elbv2.CfnLoadBalancer.LoadBalancerAttributeProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if key is not None:
-                self._values["key"] = key
-            if value is not None:
-                self._values["value"] = value
-
-        @builtins.property
-        def key(self) -> typing.Optional[builtins.str]:
-            '''The name of the attribute.
-
-            The following attributes are supported by all load balancers:
-
-            - ``deletion_protection.enabled`` - Indicates whether deletion protection is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
-            - ``load_balancing.cross_zone.enabled`` - Indicates whether cross-zone load balancing is enabled. The possible values are ``true`` and ``false`` . The default for Network Load Balancers and Gateway Load Balancers is ``false`` . The default for Application Load Balancers is ``true`` , and can't be changed.
-
-            The following attributes are supported by both Application Load Balancers and Network Load Balancers:
-
-            - ``access_logs.s3.enabled`` - Indicates whether access logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` .
-            - ``access_logs.s3.bucket`` - The name of the S3 bucket for the access logs. This attribute is required if access logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket.
-            - ``access_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the access logs.
-            - ``ipv6.deny_all_igw_traffic`` - Blocks internet gateway (IGW) access to the load balancer. It is set to ``false`` for internet-facing load balancers and ``true`` for internal load balancers, preventing unintended access to your internal load balancer through an internet gateway.
-            - ``zonal_shift.config.enabled`` - Indicates whether zonal shift is enabled. The possible values are ``true`` and ``false`` . The default is ``false`` .
-
-            The following attributes are supported by only Application Load Balancers:
-
-            - ``idle_timeout.timeout_seconds`` - The idle timeout value, in seconds. The valid range is 1-4000 seconds. The default is 60 seconds.
-            - ``client_keep_alive.seconds`` - The client keep alive value, in seconds. The valid range is 60-604800 seconds. The default is 3600 seconds.
-            - ``connection_logs.s3.enabled`` - Indicates whether connection logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` .
-            - ``connection_logs.s3.bucket`` - The name of the S3 bucket for the connection logs. This attribute is required if connection logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket.
-            - ``connection_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the connection logs.
-            - ``routing.http.desync_mitigation_mode`` - Determines how the load balancer handles requests that might pose a security risk to your application. The possible values are ``monitor`` , ``defensive`` , and ``strictest`` . The default is ``defensive`` .
-            - ``routing.http.drop_invalid_header_fields.enabled`` - Indicates whether HTTP headers with invalid header fields are removed by the load balancer ( ``true`` ) or routed to targets ( ``false`` ). The default is ``false`` .
-            - ``routing.http.preserve_host_header.enabled`` - Indicates whether the Application Load Balancer should preserve the ``Host`` header in the HTTP request and send it to the target without any change. The possible values are ``true`` and ``false`` . The default is ``false`` .
-            - ``routing.http.x_amzn_tls_version_and_cipher_suite.enabled`` - Indicates whether the two headers ( ``x-amzn-tls-version`` and ``x-amzn-tls-cipher-suite`` ), which contain information about the negotiated TLS version and cipher suite, are added to the client request before sending it to the target. The ``x-amzn-tls-version`` header has information about the TLS protocol version negotiated with the client, and the ``x-amzn-tls-cipher-suite`` header has information about the cipher suite negotiated with the client. Both headers are in OpenSSL format. The possible values for the attribute are ``true`` and ``false`` . The default is ``false`` .
-            - ``routing.http.xff_client_port.enabled`` - Indicates whether the ``X-Forwarded-For`` header should preserve the source port that the client used to connect to the load balancer. The possible values are ``true`` and ``false`` . The default is ``false`` .
-            - ``routing.http.xff_header_processing.mode`` - Enables you to modify, preserve, or remove the ``X-Forwarded-For`` header in the HTTP request before the Application Load Balancer sends the request to the target. The possible values are ``append`` , ``preserve`` , and ``remove`` . The default is ``append`` .
-            - If the value is ``append`` , the Application Load Balancer adds the client IP address (of the last hop) to the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets.
-            - If the value is ``preserve`` the Application Load Balancer preserves the ``X-Forwarded-For`` header in the HTTP request, and sends it to targets without any change.
-            - If the value is ``remove`` , the Application Load Balancer removes the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets.
-            - ``routing.http2.enabled`` - Indicates whether clients can connect to the load balancer using HTTP/2. If ``true`` , clients can connect using HTTP/2 or HTTP/1.1. However, all client requests are subject to the stricter HTTP/2 header validation rules. For example, message header names must contain only alphanumeric characters and hyphens. If ``false`` , clients must connect using HTTP/1.1. The default is ``true`` .
-            - ``waf.fail_open.enabled`` - Indicates whether to allow a WAF-enabled load balancer to route requests to targets if it is unable to forward the request to AWS WAF. The possible values are ``true`` and ``false`` . The default is ``false`` .
-
-            The following attributes are supported by only Network Load Balancers:
-
-            - ``dns_record.client_routing_policy`` - Indicates how traffic is distributed among the load balancer Availability Zones. The possible values are ``availability_zone_affinity`` with 100 percent zonal affinity, ``partial_availability_zone_affinity`` with 85 percent zonal affinity, and ``any_availability_zone`` with 0 percent zonal affinity.
-            - ``secondary_ips.auto_assigned.per_subnet`` - The number of secondary IP addresses to configure for your load balancer nodes. Use to address port allocation errors if you can't add targets. The valid range is 0 to 7. The default is 0. After you set this value, you can't decrease it.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattribute-key
-            '''
-            result = self._values.get("key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def value(self) -> typing.Optional[builtins.str]:
-            '''The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattribute-value
-            '''
-            result = self._values.get("value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LoadBalancerAttributeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty",
-        jsii_struct_bases=[],
-        name_mapping={"capacity_units": "capacityUnits"},
-    )
-    class MinimumLoadBalancerCapacityProperty:
-        def __init__(self, *, capacity_units: jsii.Number) -> None:
-            '''The minimum capacity for a load balancer.
-
-            :param capacity_units: The number of capacity units.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                minimum_load_balancer_capacity_property = elbv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty(
-                    capacity_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc)
-                check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "capacity_units": capacity_units,
-            }
-
-        @builtins.property
-        def capacity_units(self) -> jsii.Number:
-            '''The number of capacity units.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity.html#cfn-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity-capacityunits
-            '''
-            result = self._values.get("capacity_units")
-            assert result is not None, "Required property 'capacity_units' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MinimumLoadBalancerCapacityProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.SubnetMappingProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "subnet_id": "subnetId",
-            "allocation_id": "allocationId",
-            "i_pv6_address": "iPv6Address",
-            "private_i_pv4_address": "privateIPv4Address",
-            "source_nat_ipv6_prefix": "sourceNatIpv6Prefix",
-        },
-    )
-    class SubnetMappingProperty:
-        def __init__(
-            self,
-            *,
-            subnet_id: builtins.str,
-            allocation_id: typing.Optional[builtins.str] = None,
-            i_pv6_address: typing.Optional[builtins.str] = None,
-            private_i_pv4_address: typing.Optional[builtins.str] = None,
-            source_nat_ipv6_prefix: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies a subnet for a load balancer.
-
-            :param subnet_id: The ID of the subnet.
-            :param allocation_id: [Network Load Balancers] The allocation ID of the Elastic IP address for an internet-facing load balancer.
-            :param i_pv6_address: [Network Load Balancers] The IPv6 address.
-            :param private_i_pv4_address: [Network Load Balancers] The private IPv4 address for an internal load balancer.
-            :param source_nat_ipv6_prefix: [Network Load Balancers with UDP listeners] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or ``auto_assigned`` to use an IPv6 prefix selected at random from the subnet CIDR block.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                subnet_mapping_property = elbv2.CfnLoadBalancer.SubnetMappingProperty(
-                    subnet_id="subnetId",
-                
-                    # the properties below are optional
-                    allocation_id="allocationId",
-                    i_pv6_address="iPv6Address",
-                    private_iPv4_address="privateIPv4Address",
-                    source_nat_ipv6_prefix="sourceNatIpv6Prefix"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11)
-                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-                check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
-                check_type(argname="argument i_pv6_address", value=i_pv6_address, expected_type=type_hints["i_pv6_address"])
-                check_type(argname="argument private_i_pv4_address", value=private_i_pv4_address, expected_type=type_hints["private_i_pv4_address"])
-                check_type(argname="argument source_nat_ipv6_prefix", value=source_nat_ipv6_prefix, expected_type=type_hints["source_nat_ipv6_prefix"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "subnet_id": subnet_id,
-            }
-            if allocation_id is not None:
-                self._values["allocation_id"] = allocation_id
-            if i_pv6_address is not None:
-                self._values["i_pv6_address"] = i_pv6_address
-            if private_i_pv4_address is not None:
-                self._values["private_i_pv4_address"] = private_i_pv4_address
-            if source_nat_ipv6_prefix is not None:
-                self._values["source_nat_ipv6_prefix"] = source_nat_ipv6_prefix
-
-        @builtins.property
-        def subnet_id(self) -> builtins.str:
-            '''The ID of the subnet.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-subnetid
-            '''
-            result = self._values.get("subnet_id")
-            assert result is not None, "Required property 'subnet_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def allocation_id(self) -> typing.Optional[builtins.str]:
-            '''[Network Load Balancers] The allocation ID of the Elastic IP address for an internet-facing load balancer.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-allocationid
-            '''
-            result = self._values.get("allocation_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def i_pv6_address(self) -> typing.Optional[builtins.str]:
-            '''[Network Load Balancers] The IPv6 address.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-ipv6address
-            '''
-            result = self._values.get("i_pv6_address")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def private_i_pv4_address(self) -> typing.Optional[builtins.str]:
-            '''[Network Load Balancers] The private IPv4 address for an internal load balancer.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-privateipv4address
-            '''
-            result = self._values.get("private_i_pv4_address")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def source_nat_ipv6_prefix(self) -> typing.Optional[builtins.str]:
-            '''[Network Load Balancers with UDP listeners] The IPv6 prefix to use for source NAT.
-
-            Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or ``auto_assigned`` to use an IPv6 prefix selected at random from the subnet CIDR block.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-sourcenatipv6prefix
-            '''
-            result = self._values.get("source_nat_ipv6_prefix")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SubnetMappingProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancerProps",
     jsii_struct_bases=[],
@@ -9162,12 +4346,12 @@ class CfnLoadBalancerProps:
         enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
         ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-        load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         scheme: typing.Optional[builtins.str] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
@@ -9325,7 +4509,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def load_balancer_attributes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LoadBalancerAttributeProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
         '''The load balancer attributes.
 
         Attributes that you do not modify retain their current values.
@@ -9333,18 +4517,18 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattributes
         '''
         result = self._values.get("load_balancer_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LoadBalancerAttributeProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], result)
 
     @builtins.property
     def minimum_load_balancer_capacity(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
         '''The minimum capacity for a load balancer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity
         '''
         result = self._values.get("minimum_load_balancer_capacity")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -9388,7 +4572,7 @@ class CfnLoadBalancerProps:
     @builtins.property
     def subnet_mappings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.SubnetMappingProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]]:
         '''The IDs of the subnets.
 
         You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both.
@@ -9406,7 +4590,7 @@ class CfnLoadBalancerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmappings
         '''
         result = self._values.get("subnet_mappings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.SubnetMappingProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9459,795 +4643,6 @@ class CfnLoadBalancerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnTargetGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup",
-):
-    '''Specifies a target group for an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
-
-    Before you register a Lambda function as a target, you must create a ``AWS::Lambda::Permission`` resource that grants the Elastic Load Balancing service principal permission to invoke the Lambda function.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::TargetGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_target_group = elbv2.CfnTargetGroup(self, "MyCfnTargetGroup",
-            health_check_enabled=False,
-            health_check_interval_seconds=123,
-            health_check_path="healthCheckPath",
-            health_check_port="healthCheckPort",
-            health_check_protocol="healthCheckProtocol",
-            health_check_timeout_seconds=123,
-            healthy_threshold_count=123,
-            ip_address_type="ipAddressType",
-            matcher=elbv2.CfnTargetGroup.MatcherProperty(
-                grpc_code="grpcCode",
-                http_code="httpCode"
-            ),
-            name="name",
-            port=123,
-            protocol="protocol",
-            protocol_version="protocolVersion",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            target_group_attributes=[elbv2.CfnTargetGroup.TargetGroupAttributeProperty(
-                key="key",
-                value="value"
-            )],
-            targets=[elbv2.CfnTargetGroup.TargetDescriptionProperty(
-                id="id",
-        
-                # the properties below are optional
-                availability_zone="availabilityZone",
-                port=123
-            )],
-            target_type="targetType",
-            unhealthy_threshold_count=123,
-            vpc_id="vpcId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        health_check_interval_seconds: typing.Optional[jsii.Number] = None,
-        health_check_path: typing.Optional[builtins.str] = None,
-        health_check_port: typing.Optional[builtins.str] = None,
-        health_check_protocol: typing.Optional[builtins.str] = None,
-        health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
-        healthy_threshold_count: typing.Optional[jsii.Number] = None,
-        ip_address_type: typing.Optional[builtins.str] = None,
-        matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        protocol: typing.Optional[builtins.str] = None,
-        protocol_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        target_type: typing.Optional[builtins.str] = None,
-        unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-        vpc_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param health_check_enabled: Indicates whether health checks are enabled. If the target type is ``lambda`` , health checks are disabled by default but can be enabled. If the target type is ``instance`` , ``ip`` , or ``alb`` , health checks are always enabled and can't be disabled.
-        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an individual target. The range is 5-300. If the target group protocol is TCP, TLS, UDP, TCP_UDP, HTTP or HTTPS, the default is 30 seconds. If the target group protocol is GENEVE, the default is 10 seconds. If the target type is ``lambda`` , the default is 35 seconds.
-        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the targets. [HTTP1 or HTTP2 protocol version] The ping path. The default is /. [GRPC protocol version] The path of a custom health check method with the format /package.service/method. The default is / AWS .ALB/healthcheck.
-        :param health_check_port: The port the load balancer uses when performing health checks on targets. If the protocol is HTTP, HTTPS, TCP, TLS, UDP, or TCP_UDP, the default is ``traffic-port`` , which is the port on which each target receives traffic from the load balancer. If the protocol is GENEVE, the default is port 80.
-        :param health_check_protocol: The protocol the load balancer uses when performing health checks on targets. For Application Load Balancers, the default is HTTP. For Network Load Balancers and Gateway Load Balancers, the default is TCP. The TCP protocol is not supported for health checks if the protocol of the target group is HTTP or HTTPS. The GENEVE, TLS, UDP, and TCP_UDP protocols are not supported for health checks.
-        :param health_check_timeout_seconds: The amount of time, in seconds, during which no response from a target means a failed health check. The range is 2–120 seconds. For target groups with a protocol of HTTP, the default is 6 seconds. For target groups with a protocol of TCP, TLS or HTTPS, the default is 10 seconds. For target groups with a protocol of GENEVE, the default is 5 seconds. If the target type is ``lambda`` , the default is 30 seconds.
-        :param healthy_threshold_count: The number of consecutive health check successes required before considering a target healthy. The range is 2-10. If the target group protocol is TCP, TCP_UDP, UDP, TLS, HTTP or HTTPS, the default is 5. For target groups with a protocol of GENEVE, the default is 5. If the target type is ``lambda`` , the default is 5.
-        :param ip_address_type: The IP address type. The default value is ``ipv4`` .
-        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target. For target groups with a protocol of TCP, TCP_UDP, UDP or TLS the range is 200-599. For target groups with a protocol of HTTP or HTTPS, the range is 200-499. For target groups with a protocol of GENEVE, the range is 200-399.
-        :param name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen.
-        :param port: The port on which the targets receive traffic. This port is used unless you specify a port override when registering the target. If the target is a Lambda function, this parameter does not apply. If the protocol is GENEVE, the supported port is 6081.
-        :param protocol: The protocol to use for routing traffic to the targets. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, or TCP_UDP. For Gateway Load Balancers, the supported protocol is GENEVE. A TCP_UDP listener must be associated with a TCP_UDP target group. If the target is a Lambda function, this parameter does not apply.
-        :param protocol_version: [HTTP/HTTPS protocol] The protocol version. The possible values are ``GRPC`` , ``HTTP1`` , and ``HTTP2`` .
-        :param tags: The tags.
-        :param target_group_attributes: The target group attributes. Attributes that you do not modify retain their current values.
-        :param targets: The targets.
-        :param target_type: The type of target that you must specify when registering targets with this target group. You can't specify targets for a target group using more than one target type. - ``instance`` - Register targets by instance ID. This is the default value. - ``ip`` - Register targets by IP address. You can specify IP addresses from the subnets of the virtual private cloud (VPC) for the target group, the RFC 1918 range (10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16), and the RFC 6598 range (100.64.0.0/10). You can't specify publicly routable IP addresses. - ``lambda`` - Register a single Lambda function as a target. - ``alb`` - Register a single Application Load Balancer as a target.
-        :param unhealthy_threshold_count: The number of consecutive health check failures required before considering a target unhealthy. The range is 2-10. If the target group protocol is TCP, TCP_UDP, UDP, TLS, HTTP or HTTPS, the default is 2. For target groups with a protocol of GENEVE, the default is 2. If the target type is ``lambda`` , the default is 5.
-        :param vpc_id: The identifier of the virtual private cloud (VPC). If the target is a Lambda function, this parameter does not apply. Otherwise, this parameter is required.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTargetGroupProps(
-            health_check_enabled=health_check_enabled,
-            health_check_interval_seconds=health_check_interval_seconds,
-            health_check_path=health_check_path,
-            health_check_port=health_check_port,
-            health_check_protocol=health_check_protocol,
-            health_check_timeout_seconds=health_check_timeout_seconds,
-            healthy_threshold_count=healthy_threshold_count,
-            ip_address_type=ip_address_type,
-            matcher=matcher,
-            name=name,
-            port=port,
-            protocol=protocol,
-            protocol_version=protocol_version,
-            tags=tags,
-            target_group_attributes=target_group_attributes,
-            targets=targets,
-            target_type=target_type,
-            unhealthy_threshold_count=unhealthy_threshold_count,
-            vpc_id=vpc_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLoadBalancerArns")
-    def attr_load_balancer_arns(self) -> typing.List[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the load balancer that routes traffic to this target group.
-
-        :cloudformationAttribute: LoadBalancerArns
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrLoadBalancerArns"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTargetGroupArn")
-    def attr_target_group_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the target group.
-
-        :cloudformationAttribute: TargetGroupArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTargetGroupFullName")
-    def attr_target_group_full_name(self) -> builtins.str:
-        '''The full name of the target group.
-
-        For example, ``targetgroup/my-target-group/cbf133c568e0d028`` .
-
-        :cloudformationAttribute: TargetGroupFullName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupFullName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTargetGroupName")
-    def attr_target_group_name(self) -> builtins.str:
-        '''The name of the target group.
-
-        For example, ``my-target-group`` .
-
-        :cloudformationAttribute: TargetGroupName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckEnabled")
-    def health_check_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether health checks are enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "healthCheckEnabled"))
-
-    @health_check_enabled.setter
-    def health_check_enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckIntervalSeconds")
-    def health_check_interval_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The approximate amount of time, in seconds, between health checks of an individual target.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthCheckIntervalSeconds"))
-
-    @health_check_interval_seconds.setter
-    def health_check_interval_seconds(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckIntervalSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckPath")
-    def health_check_path(self) -> typing.Optional[builtins.str]:
-        '''[HTTP/HTTPS health checks] The destination for health checks on the targets.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckPath"))
-
-    @health_check_path.setter
-    def health_check_path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckPath", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckPort")
-    def health_check_port(self) -> typing.Optional[builtins.str]:
-        '''The port the load balancer uses when performing health checks on targets.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckPort"))
-
-    @health_check_port.setter
-    def health_check_port(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckPort", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckProtocol")
-    def health_check_protocol(self) -> typing.Optional[builtins.str]:
-        '''The protocol the load balancer uses when performing health checks on targets.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckProtocol"))
-
-    @health_check_protocol.setter
-    def health_check_protocol(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckProtocol", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthCheckTimeoutSeconds")
-    def health_check_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The amount of time, in seconds, during which no response from a target means a failed health check.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthCheckTimeoutSeconds"))
-
-    @health_check_timeout_seconds.setter
-    def health_check_timeout_seconds(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckTimeoutSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="healthyThresholdCount")
-    def healthy_threshold_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of consecutive health check successes required before considering a target healthy.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthyThresholdCount"))
-
-    @healthy_threshold_count.setter
-    def healthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthyThresholdCount", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ipAddressType")
-    def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''The IP address type.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
-
-    @ip_address_type.setter
-    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="matcher")
-    def matcher(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]]:
-        '''[HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]], jsii.get(self, "matcher"))
-
-    @matcher.setter
-    def matcher(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "matcher", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the target group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="port")
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port on which the targets receive traffic.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
-
-    @port.setter
-    def port(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="protocol")
-    def protocol(self) -> typing.Optional[builtins.str]:
-        '''The protocol to use for routing traffic to the targets.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocol"))
-
-    @protocol.setter
-    def protocol(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="protocolVersion")
-    def protocol_version(self) -> typing.Optional[builtins.str]:
-        '''[HTTP/HTTPS protocol] The protocol version.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocolVersion"))
-
-    @protocol_version.setter
-    def protocol_version(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "protocolVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetGroupAttributes")
-    def target_group_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
-        '''The target group attributes.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]], jsii.get(self, "targetGroupAttributes"))
-
-    @target_group_attributes.setter
-    def target_group_attributes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetGroupAttributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targets")
-    def targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]]:
-        '''The targets.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]], jsii.get(self, "targets"))
-
-    @targets.setter
-    def targets(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetType")
-    def target_type(self) -> typing.Optional[builtins.str]:
-        '''The type of target that you must specify when registering targets with this target group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetType"))
-
-    @target_type.setter
-    def target_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="unhealthyThresholdCount")
-    def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of consecutive health check failures required before considering a target unhealthy.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "unhealthyThresholdCount"))
-
-    @unhealthy_threshold_count.setter
-    def unhealthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "unhealthyThresholdCount", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcId")
-    def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the virtual private cloud (VPC).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcId"))
-
-    @vpc_id.setter
-    def vpc_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.MatcherProperty",
-        jsii_struct_bases=[],
-        name_mapping={"grpc_code": "grpcCode", "http_code": "httpCode"},
-    )
-    class MatcherProperty:
-        def __init__(
-            self,
-            *,
-            grpc_code: typing.Optional[builtins.str] = None,
-            http_code: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies the HTTP codes that healthy targets must use when responding to an HTTP health check.
-
-            :param grpc_code: You can specify values between 0 and 99. You can specify multiple values (for example, "0,1") or a range of values (for example, "0-5"). The default value is 12.
-            :param http_code: For Application Load Balancers, you can specify values between 200 and 499, with the default value being 200. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299"). For Network Load Balancers, you can specify values between 200 and 599, with the default value being 200-399. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299"). For Gateway Load Balancers, this must be "200–399". Note that when using shorthand syntax, some values such as commas need to be escaped.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                matcher_property = elbv2.CfnTargetGroup.MatcherProperty(
-                    grpc_code="grpcCode",
-                    http_code="httpCode"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb)
-                check_type(argname="argument grpc_code", value=grpc_code, expected_type=type_hints["grpc_code"])
-                check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if grpc_code is not None:
-                self._values["grpc_code"] = grpc_code
-            if http_code is not None:
-                self._values["http_code"] = http_code
-
-        @builtins.property
-        def grpc_code(self) -> typing.Optional[builtins.str]:
-            '''You can specify values between 0 and 99.
-
-            You can specify multiple values (for example, "0,1") or a range of values (for example, "0-5"). The default value is 12.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-grpccode
-            '''
-            result = self._values.get("grpc_code")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def http_code(self) -> typing.Optional[builtins.str]:
-            '''For Application Load Balancers, you can specify values between 200 and 499, with the default value being 200.
-
-            You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299").
-
-            For Network Load Balancers, you can specify values between 200 and 599, with the default value being 200-399. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299").
-
-            For Gateway Load Balancers, this must be "200–399".
-
-            Note that when using shorthand syntax, some values such as commas need to be escaped.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-httpcode
-            '''
-            result = self._values.get("http_code")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MatcherProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.TargetDescriptionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "id": "id",
-            "availability_zone": "availabilityZone",
-            "port": "port",
-        },
-    )
-    class TargetDescriptionProperty:
-        def __init__(
-            self,
-            *,
-            id: builtins.str,
-            availability_zone: typing.Optional[builtins.str] = None,
-            port: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Specifies a target to add to a target group.
-
-            :param id: The ID of the target. If the target type of the target group is ``instance`` , specify an instance ID. If the target type is ``ip`` , specify an IP address. If the target type is ``lambda`` , specify the ARN of the Lambda function. If the target type is ``alb`` , specify the ARN of the Application Load Balancer target.
-            :param availability_zone: An Availability Zone or ``all`` . This determines whether the target receives traffic from the load balancer nodes in the specified Availability Zone or from all enabled Availability Zones for the load balancer. For Application Load Balancer target groups, the specified Availability Zone value is only applicable when cross-zone load balancing is off. Otherwise the parameter is ignored and treated as ``all`` . This parameter is not supported if the target type of the target group is ``instance`` or ``alb`` . If the target type is ``ip`` and the IP address is in a subnet of the VPC for the target group, the Availability Zone is automatically detected and this parameter is optional. If the IP address is outside the VPC, this parameter is required. For Application Load Balancer target groups with cross-zone load balancing off, if the target type is ``ip`` and the IP address is outside of the VPC for the target group, this should be an Availability Zone inside the VPC for the target group. If the target type is ``lambda`` , this parameter is optional and the only supported value is ``all`` .
-            :param port: The port on which the target is listening. If the target group protocol is GENEVE, the supported port is 6081. If the target type is ``alb`` , the targeted Application Load Balancer must have at least one listener whose port matches the target group port. This parameter is not used if the target is a Lambda function.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_description_property = elbv2.CfnTargetGroup.TargetDescriptionProperty(
-                    id="id",
-                
-                    # the properties below are optional
-                    availability_zone="availabilityZone",
-                    port=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a)
-                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "id": id,
-            }
-            if availability_zone is not None:
-                self._values["availability_zone"] = availability_zone
-            if port is not None:
-                self._values["port"] = port
-
-        @builtins.property
-        def id(self) -> builtins.str:
-            '''The ID of the target.
-
-            If the target type of the target group is ``instance`` , specify an instance ID. If the target type is ``ip`` , specify an IP address. If the target type is ``lambda`` , specify the ARN of the Lambda function. If the target type is ``alb`` , specify the ARN of the Application Load Balancer target.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-id
-            '''
-            result = self._values.get("id")
-            assert result is not None, "Required property 'id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def availability_zone(self) -> typing.Optional[builtins.str]:
-            '''An Availability Zone or ``all`` .
-
-            This determines whether the target receives traffic from the load balancer nodes in the specified Availability Zone or from all enabled Availability Zones for the load balancer.
-
-            For Application Load Balancer target groups, the specified Availability Zone value is only applicable when cross-zone load balancing is off. Otherwise the parameter is ignored and treated as ``all`` .
-
-            This parameter is not supported if the target type of the target group is ``instance`` or ``alb`` .
-
-            If the target type is ``ip`` and the IP address is in a subnet of the VPC for the target group, the Availability Zone is automatically detected and this parameter is optional. If the IP address is outside the VPC, this parameter is required.
-
-            For Application Load Balancer target groups with cross-zone load balancing off, if the target type is ``ip`` and the IP address is outside of the VPC for the target group, this should be an Availability Zone inside the VPC for the target group.
-
-            If the target type is ``lambda`` , this parameter is optional and the only supported value is ``all`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-availabilityzone
-            '''
-            result = self._values.get("availability_zone")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def port(self) -> typing.Optional[jsii.Number]:
-            '''The port on which the target is listening.
-
-            If the target group protocol is GENEVE, the supported port is 6081. If the target type is ``alb`` , the targeted Application Load Balancer must have at least one listener whose port matches the target group port. This parameter is not used if the target is a Lambda function.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-port
-            '''
-            result = self._values.get("port")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetDescriptionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.TargetGroupAttributeProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TargetGroupAttributeProperty:
-        def __init__(
-            self,
-            *,
-            key: typing.Optional[builtins.str] = None,
-            value: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies a target group attribute.
-
-            :param key: The name of the attribute. The following attributes are supported by all load balancers: - ``deregistration_delay.timeout_seconds`` - The amount of time, in seconds, for Elastic Load Balancing to wait before changing the state of a deregistering target from ``draining`` to ``unused`` . The range is 0-3600 seconds. The default value is 300 seconds. If the target is a Lambda function, this attribute is not supported. - ``stickiness.enabled`` - Indicates whether target stickiness is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``stickiness.type`` - Indicates the type of stickiness. The possible values are: - ``lb_cookie`` and ``app_cookie`` for Application Load Balancers. - ``source_ip`` for Network Load Balancers. - ``source_ip_dest_ip`` and ``source_ip_dest_ip_proto`` for Gateway Load Balancers. The following attributes are supported by Application Load Balancers and Network Load Balancers: - ``load_balancing.cross_zone.enabled`` - Indicates whether cross zone load balancing is enabled. The value is ``true`` , ``false`` or ``use_load_balancer_configuration`` . The default is ``use_load_balancer_configuration`` . - ``target_group_health.dns_failover.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to the maximum number of targets. The default is 1. - ``target_group_health.dns_failover.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` . - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are 1 to the maximum number of targets. The default is 1. - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` . The following attributes are supported only if the load balancer is an Application Load Balancer and the target is an instance or an IP address: - ``load_balancing.algorithm.type`` - The load balancing algorithm determines how the load balancer selects targets when routing requests. The value is ``round_robin`` , ``least_outstanding_requests`` , or ``weighted_random`` . The default is ``round_robin`` . - ``load_balancing.algorithm.anomaly_mitigation`` - Only available when ``load_balancing.algorithm.type`` is ``weighted_random`` . Indicates whether anomaly mitigation is enabled. The value is ``on`` or ``off`` . The default is ``off`` . - ``slow_start.duration_seconds`` - The time period, in seconds, during which a newly registered target receives an increasing share of the traffic to the target group. After this time period ends, the target receives its full share of traffic. The range is 30-900 seconds (15 minutes). The default is 0 seconds (disabled). - ``stickiness.app_cookie.cookie_name`` - Indicates the name of the application-based cookie. Names that start with the following prefixes are not allowed: ``AWSALB`` , ``AWSALBAPP`` , and ``AWSALBTG`` ; they're reserved for use by the load balancer. - ``stickiness.app_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the application-based cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds). - ``stickiness.lb_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the load balancer-generated cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds). The following attribute is supported only if the load balancer is an Application Load Balancer and the target is a Lambda function: - ``lambda.multi_value_headers.enabled`` - Indicates whether the request and response headers that are exchanged between the load balancer and the Lambda function include arrays of values or strings. The value is ``true`` or ``false`` . The default is ``false`` . If the value is ``false`` and the request contains a duplicate header field name or query parameter key, the load balancer uses the last value sent by the client. The following attributes are supported only by Network Load Balancers: - ``deregistration_delay.connection_termination.enabled`` - Indicates whether the load balancer terminates connections at the end of the deregistration timeout. The value is ``true`` or ``false`` . For new UDP/TCP_UDP target groups the default is ``true`` . Otherwise, the default is ``false`` . - ``preserve_client_ip.enabled`` - Indicates whether client IP preservation is enabled. The value is ``true`` or ``false`` . The default is disabled if the target group type is IP address and the target group protocol is TCP or TLS. Otherwise, the default is enabled. Client IP preservation can't be disabled for UDP and TCP_UDP target groups. - ``proxy_protocol_v2.enabled`` - Indicates whether Proxy Protocol version 2 is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``target_health_state.unhealthy.connection_termination.enabled`` - Indicates whether the load balancer terminates connections to unhealthy targets. The value is ``true`` or ``false`` . The default is ``true`` . This attribute can't be enabled for UDP and TCP_UDP target groups. - ``target_health_state.unhealthy.draining_interval_seconds`` - The amount of time for Elastic Load Balancing to wait before changing the state of an unhealthy target from ``unhealthy.draining`` to ``unhealthy`` . The range is 0-360000 seconds. The default value is 0 seconds. Note: This attribute can only be configured when ``target_health_state.unhealthy.connection_termination.enabled`` is ``false`` . The following attributes are supported only by Gateway Load Balancers: - ``target_failover.on_deregistration`` - Indicates how the Gateway Load Balancer handles existing flows when a target is deregistered. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same. - ``target_failover.on_unhealthy`` - Indicates how the Gateway Load Balancer handles existing flows when a target is unhealthy. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
-            :param value: The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                target_group_attribute_property = elbv2.CfnTargetGroup.TargetGroupAttributeProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if key is not None:
-                self._values["key"] = key
-            if value is not None:
-                self._values["value"] = value
-
-        @builtins.property
-        def key(self) -> typing.Optional[builtins.str]:
-            '''The name of the attribute.
-
-            The following attributes are supported by all load balancers:
-
-            - ``deregistration_delay.timeout_seconds`` - The amount of time, in seconds, for Elastic Load Balancing to wait before changing the state of a deregistering target from ``draining`` to ``unused`` . The range is 0-3600 seconds. The default value is 300 seconds. If the target is a Lambda function, this attribute is not supported.
-            - ``stickiness.enabled`` - Indicates whether target stickiness is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
-            - ``stickiness.type`` - Indicates the type of stickiness. The possible values are:
-            - ``lb_cookie`` and ``app_cookie`` for Application Load Balancers.
-            - ``source_ip`` for Network Load Balancers.
-            - ``source_ip_dest_ip`` and ``source_ip_dest_ip_proto`` for Gateway Load Balancers.
-
-            The following attributes are supported by Application Load Balancers and Network Load Balancers:
-
-            - ``load_balancing.cross_zone.enabled`` - Indicates whether cross zone load balancing is enabled. The value is ``true`` , ``false`` or ``use_load_balancer_configuration`` . The default is ``use_load_balancer_configuration`` .
-            - ``target_group_health.dns_failover.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to the maximum number of targets. The default is 1.
-            - ``target_group_health.dns_failover.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` .
-            - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are 1 to the maximum number of targets. The default is 1.
-            - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` .
-
-            The following attributes are supported only if the load balancer is an Application Load Balancer and the target is an instance or an IP address:
-
-            - ``load_balancing.algorithm.type`` - The load balancing algorithm determines how the load balancer selects targets when routing requests. The value is ``round_robin`` , ``least_outstanding_requests`` , or ``weighted_random`` . The default is ``round_robin`` .
-            - ``load_balancing.algorithm.anomaly_mitigation`` - Only available when ``load_balancing.algorithm.type`` is ``weighted_random`` . Indicates whether anomaly mitigation is enabled. The value is ``on`` or ``off`` . The default is ``off`` .
-            - ``slow_start.duration_seconds`` - The time period, in seconds, during which a newly registered target receives an increasing share of the traffic to the target group. After this time period ends, the target receives its full share of traffic. The range is 30-900 seconds (15 minutes). The default is 0 seconds (disabled).
-            - ``stickiness.app_cookie.cookie_name`` - Indicates the name of the application-based cookie. Names that start with the following prefixes are not allowed: ``AWSALB`` , ``AWSALBAPP`` , and ``AWSALBTG`` ; they're reserved for use by the load balancer.
-            - ``stickiness.app_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the application-based cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds).
-            - ``stickiness.lb_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the load balancer-generated cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds).
-
-            The following attribute is supported only if the load balancer is an Application Load Balancer and the target is a Lambda function:
-
-            - ``lambda.multi_value_headers.enabled`` - Indicates whether the request and response headers that are exchanged between the load balancer and the Lambda function include arrays of values or strings. The value is ``true`` or ``false`` . The default is ``false`` . If the value is ``false`` and the request contains a duplicate header field name or query parameter key, the load balancer uses the last value sent by the client.
-
-            The following attributes are supported only by Network Load Balancers:
-
-            - ``deregistration_delay.connection_termination.enabled`` - Indicates whether the load balancer terminates connections at the end of the deregistration timeout. The value is ``true`` or ``false`` . For new UDP/TCP_UDP target groups the default is ``true`` . Otherwise, the default is ``false`` .
-            - ``preserve_client_ip.enabled`` - Indicates whether client IP preservation is enabled. The value is ``true`` or ``false`` . The default is disabled if the target group type is IP address and the target group protocol is TCP or TLS. Otherwise, the default is enabled. Client IP preservation can't be disabled for UDP and TCP_UDP target groups.
-            - ``proxy_protocol_v2.enabled`` - Indicates whether Proxy Protocol version 2 is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
-            - ``target_health_state.unhealthy.connection_termination.enabled`` - Indicates whether the load balancer terminates connections to unhealthy targets. The value is ``true`` or ``false`` . The default is ``true`` . This attribute can't be enabled for UDP and TCP_UDP target groups.
-            - ``target_health_state.unhealthy.draining_interval_seconds`` - The amount of time for Elastic Load Balancing to wait before changing the state of an unhealthy target from ``unhealthy.draining`` to ``unhealthy`` . The range is 0-360000 seconds. The default value is 0 seconds.
-
-            Note: This attribute can only be configured when ``target_health_state.unhealthy.connection_termination.enabled`` is ``false`` .
-
-            The following attributes are supported only by Gateway Load Balancers:
-
-            - ``target_failover.on_deregistration`` - Indicates how the Gateway Load Balancer handles existing flows when a target is deregistered. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
-            - ``target_failover.on_unhealthy`` - Indicates how the Gateway Load Balancer handles existing flows when a target is unhealthy. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattribute-key
-            '''
-            result = self._values.get("key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def value(self) -> typing.Optional[builtins.str]:
-            '''The value of the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattribute-value
-            '''
-            result = self._values.get("value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetGroupAttributeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroupProps",
     jsii_struct_bases=[],
@@ -10285,14 +4680,14 @@ class CfnTargetGroupProps:
         health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
         healthy_threshold_count: typing.Optional[jsii.Number] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
-        matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         protocol_version: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         target_type: typing.Optional[builtins.str] = None,
         unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
         vpc_id: typing.Optional[builtins.str] = None,
@@ -10521,7 +4916,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def matcher(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.MatcherProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]]:
         '''[HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.
 
         For target groups with a protocol of TCP, TCP_UDP, UDP or TLS the range is 200-599. For target groups with a protocol of HTTP or HTTPS, the range is 200-499. For target groups with a protocol of GENEVE, the range is 200-399.
@@ -10529,7 +4924,7 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-matcher
         '''
         result = self._values.get("matcher")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.MatcherProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -10587,7 +4982,7 @@ class CfnTargetGroupProps:
     @builtins.property
     def target_group_attributes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupAttributeProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
         '''The target group attributes.
 
         Attributes that you do not modify retain their current values.
@@ -10595,18 +4990,18 @@ class CfnTargetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattributes
         '''
         result = self._values.get("target_group_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupAttributeProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]], result)
 
     @builtins.property
     def targets(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetDescriptionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]]:
         '''The targets.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html#cfn-elasticloadbalancingv2-targetgroup-targets
         '''
         result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetDescriptionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]], result)
 
     @builtins.property
     def target_type(self) -> typing.Optional[builtins.str]:
@@ -10656,217 +5051,6 @@ class CfnTargetGroupProps:
         return "CfnTargetGroupProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnTrustStore(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStore",
-):
-    '''Creates a trust store.
-
-    You must specify ``CaCertificatesBundleS3Bucket`` and ``CaCertificatesBundleS3Key`` . When you create a trust store, you must specify ``Name`` .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststore.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::TrustStore
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_trust_store = elbv2.CfnTrustStore(self, "MyCfnTrustStore",
-            ca_certificates_bundle_s3_bucket="caCertificatesBundleS3Bucket",
-            ca_certificates_bundle_s3_key="caCertificatesBundleS3Key",
-            ca_certificates_bundle_s3_object_version="caCertificatesBundleS3ObjectVersion",
-            name="name",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        ca_certificates_bundle_s3_bucket: typing.Optional[builtins.str] = None,
-        ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
-        ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param ca_certificates_bundle_s3_bucket: The Amazon S3 bucket for the ca certificates bundle.
-        :param ca_certificates_bundle_s3_key: The Amazon S3 path for the ca certificates bundle.
-        :param ca_certificates_bundle_s3_object_version: The Amazon S3 object version for the ca certificates bundle. If undefined the current version is used.
-        :param name: The name of the trust store.
-        :param tags: The tags to assign to the trust store.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTrustStoreProps(
-            ca_certificates_bundle_s3_bucket=ca_certificates_bundle_s3_bucket,
-            ca_certificates_bundle_s3_key=ca_certificates_bundle_s3_key,
-            ca_certificates_bundle_s3_object_version=ca_certificates_bundle_s3_object_version,
-            name=name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrNumberOfCaCertificates")
-    def attr_number_of_ca_certificates(self) -> jsii.Number:
-        '''The number of ca certificates in the trust store.
-
-        :cloudformationAttribute: NumberOfCaCertificates
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrNumberOfCaCertificates"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The status of the trust store.
-
-        The possible values are ``CREATING`` and ``ACTIVE`` .
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTrustStoreArn")
-    def attr_trust_store_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the trust store.
-
-        :cloudformationAttribute: TrustStoreArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTrustStoreArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="caCertificatesBundleS3Bucket")
-    def ca_certificates_bundle_s3_bucket(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 bucket for the ca certificates bundle.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3Bucket"))
-
-    @ca_certificates_bundle_s3_bucket.setter
-    def ca_certificates_bundle_s3_bucket(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificatesBundleS3Bucket", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="caCertificatesBundleS3Key")
-    def ca_certificates_bundle_s3_key(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 path for the ca certificates bundle.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3Key"))
-
-    @ca_certificates_bundle_s3_key.setter
-    def ca_certificates_bundle_s3_key(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificatesBundleS3Key", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="caCertificatesBundleS3ObjectVersion")
-    def ca_certificates_bundle_s3_object_version(self) -> typing.Optional[builtins.str]:
-        '''The Amazon S3 object version for the ca certificates bundle.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3ObjectVersion"))
-
-    @ca_certificates_bundle_s3_object_version.setter
-    def ca_certificates_bundle_s3_object_version(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificatesBundleS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the trust store.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to the trust store.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -10996,360 +5180,6 @@ class CfnTrustStoreProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnTrustStoreRevocation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation",
-):
-    '''Adds the specified revocation contents to the specified trust store.
-
-    You must specify ``TrustStoreArn`` .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststorerevocation.html
-    :cloudformationResource: AWS::ElasticLoadBalancingV2::TrustStoreRevocation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-        
-        cfn_trust_store_revocation = elbv2.CfnTrustStoreRevocation(self, "MyCfnTrustStoreRevocation",
-            revocation_contents=[elbv2.CfnTrustStoreRevocation.RevocationContentProperty(
-                revocation_type="revocationType",
-                s3_bucket="s3Bucket",
-                s3_key="s3Key",
-                s3_object_version="s3ObjectVersion"
-            )],
-            trust_store_arn="trustStoreArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        trust_store_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param revocation_contents: The revocation file to add.
-        :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTrustStoreRevocationProps(
-            revocation_contents=revocation_contents, trust_store_arn=trust_store_arn
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRevocationId")
-    def attr_revocation_id(self) -> jsii.Number:
-        '''The revocation ID of the revocation file.
-
-        :cloudformationAttribute: RevocationId
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrRevocationId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTrustStoreRevocations")
-    def attr_trust_store_revocations(self) -> _IResolvable_da3f097b:
-        '''Information about the revocation file in the trust store.
-
-        For more information, see `TrustStoreRevocation <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html>`_ .
-
-        :cloudformationAttribute: TrustStoreRevocations
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrTrustStoreRevocations"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="revocationContents")
-    def revocation_contents(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
-        '''The revocation file to add.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]], jsii.get(self, "revocationContents"))
-
-    @revocation_contents.setter
-    def revocation_contents(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "revocationContents", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="trustStoreArn")
-    def trust_store_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the trust store.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "trustStoreArn"))
-
-    @trust_store_arn.setter
-    def trust_store_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trustStoreArn", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation.RevocationContentProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "revocation_type": "revocationType",
-            "s3_bucket": "s3Bucket",
-            "s3_key": "s3Key",
-            "s3_object_version": "s3ObjectVersion",
-        },
-    )
-    class RevocationContentProperty:
-        def __init__(
-            self,
-            *,
-            revocation_type: typing.Optional[builtins.str] = None,
-            s3_bucket: typing.Optional[builtins.str] = None,
-            s3_key: typing.Optional[builtins.str] = None,
-            s3_object_version: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a revocation file.
-
-            You must specify ``S3Bucket`` and ``S3Key`` .
-
-            :param revocation_type: The type of revocation file.
-            :param s3_bucket: The Amazon S3 bucket for the revocation file.
-            :param s3_key: The Amazon S3 path for the revocation file.
-            :param s3_object_version: The Amazon S3 object version of the revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                revocation_content_property = elbv2.CfnTrustStoreRevocation.RevocationContentProperty(
-                    revocation_type="revocationType",
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key",
-                    s3_object_version="s3ObjectVersion"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840)
-                check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
-                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
-                check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
-                check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if revocation_type is not None:
-                self._values["revocation_type"] = revocation_type
-            if s3_bucket is not None:
-                self._values["s3_bucket"] = s3_bucket
-            if s3_key is not None:
-                self._values["s3_key"] = s3_key
-            if s3_object_version is not None:
-                self._values["s3_object_version"] = s3_object_version
-
-        @builtins.property
-        def revocation_type(self) -> typing.Optional[builtins.str]:
-            '''The type of revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-revocationtype
-            '''
-            result = self._values.get("revocation_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_bucket(self) -> typing.Optional[builtins.str]:
-            '''The Amazon S3 bucket for the revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3bucket
-            '''
-            result = self._values.get("s3_bucket")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_key(self) -> typing.Optional[builtins.str]:
-            '''The Amazon S3 path for the revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3key
-            '''
-            result = self._values.get("s3_key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_object_version(self) -> typing.Optional[builtins.str]:
-            '''The Amazon S3 object version of the revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3objectversion
-            '''
-            result = self._values.get("s3_object_version")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RevocationContentProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation.TrustStoreRevocationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "number_of_revoked_entries": "numberOfRevokedEntries",
-            "revocation_id": "revocationId",
-            "revocation_type": "revocationType",
-            "trust_store_arn": "trustStoreArn",
-        },
-    )
-    class TrustStoreRevocationProperty:
-        def __init__(
-            self,
-            *,
-            number_of_revoked_entries: typing.Optional[jsii.Number] = None,
-            revocation_id: typing.Optional[builtins.str] = None,
-            revocation_type: typing.Optional[builtins.str] = None,
-            trust_store_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a revocation file in use by a trust store.
-
-            :param number_of_revoked_entries: The number of revoked certificates.
-            :param revocation_id: The revocation ID of the revocation file.
-            :param revocation_type: The type of revocation file.
-            :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
-                
-                trust_store_revocation_property = elbv2.CfnTrustStoreRevocation.TrustStoreRevocationProperty(
-                    number_of_revoked_entries=123,
-                    revocation_id="revocationId",
-                    revocation_type="revocationType",
-                    trust_store_arn="trustStoreArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd)
-                check_type(argname="argument number_of_revoked_entries", value=number_of_revoked_entries, expected_type=type_hints["number_of_revoked_entries"])
-                check_type(argname="argument revocation_id", value=revocation_id, expected_type=type_hints["revocation_id"])
-                check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
-                check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if number_of_revoked_entries is not None:
-                self._values["number_of_revoked_entries"] = number_of_revoked_entries
-            if revocation_id is not None:
-                self._values["revocation_id"] = revocation_id
-            if revocation_type is not None:
-                self._values["revocation_type"] = revocation_type
-            if trust_store_arn is not None:
-                self._values["trust_store_arn"] = trust_store_arn
-
-        @builtins.property
-        def number_of_revoked_entries(self) -> typing.Optional[jsii.Number]:
-            '''The number of revoked certificates.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-numberofrevokedentries
-            '''
-            result = self._values.get("number_of_revoked_entries")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def revocation_id(self) -> typing.Optional[builtins.str]:
-            '''The revocation ID of the revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-revocationid
-            '''
-            result = self._values.get("revocation_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def revocation_type(self) -> typing.Optional[builtins.str]:
-            '''The type of revocation file.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-revocationtype
-            '''
-            result = self._values.get("revocation_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def trust_store_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the trust store.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-truststorearn
-            '''
-            result = self._values.get("trust_store_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TrustStoreRevocationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocationProps",
     jsii_struct_bases=[],
@@ -11362,7 +5192,7 @@ class CfnTrustStoreRevocationProps:
     def __init__(
         self,
         *,
-        revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnTrustStoreRevocation``.
@@ -11402,13 +5232,13 @@ class CfnTrustStoreRevocationProps:
     @builtins.property
     def revocation_contents(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrustStoreRevocation.RevocationContentProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
         '''The revocation file to add.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontents
         '''
         result = self._values.get("revocation_contents")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrustStoreRevocation.RevocationContentProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]], result)
 
     @builtins.property
     def trust_store_arn(self) -> typing.Optional[builtins.str]:
@@ -15090,12 +8920,12 @@ class IListenerAction(typing_extensions.Protocol):
     '''Interface for listener actions.'''
 
     @jsii.member(jsii_name="renderActions")
-    def render_actions(self) -> typing.List[CfnListener.ActionProperty]:
+    def render_actions(self) -> typing.List["CfnListener.ActionProperty"]:
         '''Render the listener default actions in this chain.'''
         ...
 
     @jsii.member(jsii_name="renderRuleActions")
-    def render_rule_actions(self) -> typing.List[CfnListenerRule.ActionProperty]:
+    def render_rule_actions(self) -> typing.List["CfnListenerRule.ActionProperty"]:
         '''Render the listener rule actions in this chain.'''
         ...
 
@@ -15106,14 +8936,14 @@ class _IListenerActionProxy:
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.IListenerAction"
 
     @jsii.member(jsii_name="renderActions")
-    def render_actions(self) -> typing.List[CfnListener.ActionProperty]:
+    def render_actions(self) -> typing.List["CfnListener.ActionProperty"]:
         '''Render the listener default actions in this chain.'''
-        return typing.cast(typing.List[CfnListener.ActionProperty], jsii.invoke(self, "renderActions", []))
+        return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renderActions", []))
 
     @jsii.member(jsii_name="renderRuleActions")
-    def render_rule_actions(self) -> typing.List[CfnListenerRule.ActionProperty]:
+    def render_rule_actions(self) -> typing.List["CfnListenerRule.ActionProperty"]:
         '''Render the listener rule actions in this chain.'''
-        return typing.cast(typing.List[CfnListenerRule.ActionProperty], jsii.invoke(self, "renderRuleActions", []))
+        return typing.cast(typing.List["CfnListenerRule.ActionProperty"], jsii.invoke(self, "renderRuleActions", []))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IListenerAction).__jsii_proxy_class__ = lambda : _IListenerActionProxy
@@ -15145,6 +8975,171 @@ class _IListenerCertificateProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IListenerCertificate).__jsii_proxy_class__ = lambda : _IListenerCertificateProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IListenerCertificateRef"
+)
+class IListenerCertificateRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ListenerCertificate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerCertificateRef")
+    def listener_certificate_ref(self) -> "ListenerCertificateReference":
+        '''(experimental) A reference to a ListenerCertificate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IListenerCertificateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ListenerCertificate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.IListenerCertificateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerCertificateRef")
+    def listener_certificate_ref(self) -> "ListenerCertificateReference":
+        '''(experimental) A reference to a ListenerCertificate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ListenerCertificateReference", jsii.get(self, "listenerCertificateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IListenerCertificateRef).__jsii_proxy_class__ = lambda : _IListenerCertificateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IListenerRef")
+class IListenerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Listener.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> "ListenerReference":
+        '''(experimental) A reference to a Listener resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IListenerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Listener.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.IListenerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> "ListenerReference":
+        '''(experimental) A reference to a Listener resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ListenerReference", jsii.get(self, "listenerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IListenerRef).__jsii_proxy_class__ = lambda : _IListenerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IListenerRuleRef")
+class IListenerRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ListenerRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRuleRef")
+    def listener_rule_ref(self) -> "ListenerRuleReference":
+        '''(experimental) A reference to a ListenerRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IListenerRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ListenerRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.IListenerRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRuleRef")
+    def listener_rule_ref(self) -> "ListenerRuleReference":
+        '''(experimental) A reference to a ListenerRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ListenerRuleReference", jsii.get(self, "listenerRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IListenerRuleRef).__jsii_proxy_class__ = lambda : _IListenerRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ILoadBalancerRef")
+class ILoadBalancerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LoadBalancer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="loadBalancerRef")
+    def load_balancer_ref(self) -> "LoadBalancerReference":
+        '''(experimental) A reference to a LoadBalancer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILoadBalancerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoadBalancer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.ILoadBalancerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="loadBalancerRef")
+    def load_balancer_ref(self) -> "LoadBalancerReference":
+        '''(experimental) A reference to a LoadBalancer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LoadBalancerReference", jsii.get(self, "loadBalancerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILoadBalancerRef).__jsii_proxy_class__ = lambda : _ILoadBalancerRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ILoadBalancerV2")
@@ -16527,6 +10522,46 @@ class _ITargetGroupProxy(
 typing.cast(typing.Any, ITargetGroup).__jsii_proxy_class__ = lambda : _ITargetGroupProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITargetGroupRef")
+class ITargetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> "TargetGroupReference":
+        '''(experimental) A reference to a TargetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITargetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.ITargetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> "TargetGroupReference":
+        '''(experimental) A reference to a TargetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TargetGroupReference", jsii.get(self, "targetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITargetGroupRef).__jsii_proxy_class__ = lambda : _ITargetGroupRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStore")
 class ITrustStore(_IResource_c80c4260, typing_extensions.Protocol):
     '''Represents a Trust Store.'''
@@ -16577,6 +10612,91 @@ class _ITrustStoreProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITrustStore).__jsii_proxy_class__ = lambda : _ITrustStoreProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStoreRef")
+class ITrustStoreRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStore.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> "TrustStoreReference":
+        '''(experimental) A reference to a TrustStore resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrustStoreRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStore.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStoreRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> "TrustStoreReference":
+        '''(experimental) A reference to a TrustStore resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrustStoreReference", jsii.get(self, "trustStoreRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrustStoreRef).__jsii_proxy_class__ = lambda : _ITrustStoreRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStoreRevocationRef"
+)
+class ITrustStoreRevocationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStoreRevocation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRevocationRef")
+    def trust_store_revocation_ref(self) -> "TrustStoreRevocationReference":
+        '''(experimental) A reference to a TrustStoreRevocation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrustStoreRevocationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStoreRevocation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticloadbalancingv2.ITrustStoreRevocationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRevocationRef")
+    def trust_store_revocation_ref(self) -> "TrustStoreRevocationReference":
+        '''(experimental) A reference to a TrustStoreRevocation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrustStoreRevocationReference", jsii.get(self, "trustStoreRevocationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrustStoreRevocationRef).__jsii_proxy_class__ = lambda : _ITrustStoreRevocationRefProxy
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.IpAddressType")
@@ -16663,7 +10783,7 @@ class ListenerAction(
 
     def __init__(
         self,
-        default_action_json: typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]],
+        default_action_json: typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]],
         next: typing.Optional["ListenerAction"] = None,
     ) -> None:
         '''Create an instance of ListenerAction.
@@ -16861,12 +10981,12 @@ class ListenerAction(
         self,
         *,
         type: builtins.str,
-        authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         order: typing.Optional[jsii.Number] = None,
-        redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Sets the Action for the ``ListenerRule``.
@@ -16918,20 +11038,20 @@ class ListenerAction(
         return typing.cast(None, jsii.invoke(self, "bind", [scope, listener, associating_construct]))
 
     @jsii.member(jsii_name="renderActions")
-    def render_actions(self) -> typing.List[CfnListener.ActionProperty]:
+    def render_actions(self) -> typing.List["CfnListener.ActionProperty"]:
         '''Render the listener default actions in this chain.'''
-        return typing.cast(typing.List[CfnListener.ActionProperty], jsii.invoke(self, "renderActions", []))
+        return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renderActions", []))
 
     @jsii.member(jsii_name="renderRuleActions")
-    def render_rule_actions(self) -> typing.List[CfnListenerRule.ActionProperty]:
+    def render_rule_actions(self) -> typing.List["CfnListenerRule.ActionProperty"]:
         '''Render the listener rule actions in this chain.'''
-        return typing.cast(typing.List[CfnListenerRule.ActionProperty], jsii.invoke(self, "renderRuleActions", []))
+        return typing.cast(typing.List["CfnListenerRule.ActionProperty"], jsii.invoke(self, "renderRuleActions", []))
 
     @jsii.member(jsii_name="renumber")
     def _renumber(
         self,
-        actions: typing.Sequence[typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> typing.List[CfnListener.ActionProperty]:
+        actions: typing.Sequence[typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> typing.List["CfnListener.ActionProperty"]:
         '''Renumber the "order" fields in the actions array.
 
         We don't number for 0 or 1 elements, but otherwise number them 1...#actions
@@ -16945,7 +11065,7 @@ class ListenerAction(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d5ba384783250859c36c1c7de2d2d0b7aca659e51e425b4c53e86a38491fd73)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        return typing.cast(typing.List[CfnListener.ActionProperty], jsii.invoke(self, "renumber", [actions]))
+        return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renumber", [actions]))
 
     @builtins.property
     @jsii.member(jsii_name="next")
@@ -17012,6 +11132,55 @@ class ListenerCertificate(
     def certificate_arn(self) -> builtins.str:
         '''The ARN of the certificate to use.'''
         return typing.cast(builtins.str, jsii.get(self, "certificateArn"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ListenerCertificateReference",
+    jsii_struct_bases=[],
+    name_mapping={"listener_certificate_id": "listenerCertificateId"},
+)
+class ListenerCertificateReference:
+    def __init__(self, *, listener_certificate_id: builtins.str) -> None:
+        '''A reference to a ListenerCertificate resource.
+
+        :param listener_certificate_id: The Id of the ListenerCertificate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            listener_certificate_reference = elbv2.ListenerCertificateReference(
+                listener_certificate_id="listenerCertificateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d34f42426eb589809f97328a70f3144b4e327131ad2f897bf00b428be85771b7)
+            check_type(argname="argument listener_certificate_id", value=listener_certificate_id, expected_type=type_hints["listener_certificate_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "listener_certificate_id": listener_certificate_id,
+        }
+
+    @builtins.property
+    def listener_certificate_id(self) -> builtins.str:
+        '''The Id of the ListenerCertificate resource.'''
+        result = self._values.get("listener_certificate_id")
+        assert result is not None, "Required property 'listener_certificate_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListenerCertificateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class ListenerCondition(
@@ -17144,6 +11313,153 @@ class _ListenerConditionProxy(ListenerCondition):
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ListenerCondition).__jsii_proxy_class__ = lambda : _ListenerConditionProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ListenerReference",
+    jsii_struct_bases=[],
+    name_mapping={"listener_arn": "listenerArn"},
+)
+class ListenerReference:
+    def __init__(self, *, listener_arn: builtins.str) -> None:
+        '''A reference to a Listener resource.
+
+        :param listener_arn: The ListenerArn of the Listener resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            listener_reference = elbv2.ListenerReference(
+                listener_arn="listenerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b646bfc8ad5e26bd7a4e6e65bac14738dc103f94b09517ebed614e6f3026bd65)
+            check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "listener_arn": listener_arn,
+        }
+
+    @builtins.property
+    def listener_arn(self) -> builtins.str:
+        '''The ListenerArn of the Listener resource.'''
+        result = self._values.get("listener_arn")
+        assert result is not None, "Required property 'listener_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListenerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.ListenerRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class ListenerRuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a ListenerRule resource.
+
+        :param rule_arn: The RuleArn of the ListenerRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            listener_rule_reference = elbv2.ListenerRuleReference(
+                rule_arn="ruleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03f0d05656ca45440957b946b123dee100822b63288225fbc25a3b55a1597f20)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
+
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The RuleArn of the ListenerRule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListenerRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.LoadBalancerReference",
+    jsii_struct_bases=[],
+    name_mapping={"load_balancer_arn": "loadBalancerArn"},
+)
+class LoadBalancerReference:
+    def __init__(self, *, load_balancer_arn: builtins.str) -> None:
+        '''A reference to a LoadBalancer resource.
+
+        :param load_balancer_arn: The LoadBalancerArn of the LoadBalancer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            load_balancer_reference = elbv2.LoadBalancerReference(
+                load_balancer_arn="loadBalancerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e18d41fefc7fc78fc493831fa135576d4fe8d3cb7f64ba6aae93a914c7314416)
+            check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "load_balancer_arn": load_balancer_arn,
+        }
+
+    @builtins.property
+    def load_balancer_arn(self) -> builtins.str:
+        '''The LoadBalancerArn of the LoadBalancer resource.'''
+        result = self._values.get("load_balancer_arn")
+        assert result is not None, "Required property 'load_balancer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoadBalancerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -17478,7 +11794,7 @@ class NetworkListenerAction(
 
     def __init__(
         self,
-        default_action_json: typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]],
+        default_action_json: typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]],
         next: typing.Optional["NetworkListenerAction"] = None,
     ) -> None:
         '''Create an instance of NetworkListenerAction.
@@ -17554,20 +11870,20 @@ class NetworkListenerAction(
         return typing.cast(None, jsii.invoke(self, "bind", [scope, listener]))
 
     @jsii.member(jsii_name="renderActions")
-    def render_actions(self) -> typing.List[CfnListener.ActionProperty]:
+    def render_actions(self) -> typing.List["CfnListener.ActionProperty"]:
         '''Render the listener default actions in this chain.'''
-        return typing.cast(typing.List[CfnListener.ActionProperty], jsii.invoke(self, "renderActions", []))
+        return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renderActions", []))
 
     @jsii.member(jsii_name="renderRuleActions")
-    def render_rule_actions(self) -> typing.List[CfnListenerRule.ActionProperty]:
+    def render_rule_actions(self) -> typing.List["CfnListenerRule.ActionProperty"]:
         '''Render the listener rule actions in this chain.'''
-        return typing.cast(typing.List[CfnListenerRule.ActionProperty], jsii.invoke(self, "renderRuleActions", []))
+        return typing.cast(typing.List["CfnListenerRule.ActionProperty"], jsii.invoke(self, "renderRuleActions", []))
 
     @jsii.member(jsii_name="renumber")
     def _renumber(
         self,
-        actions: typing.Sequence[typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> typing.List[CfnListener.ActionProperty]:
+        actions: typing.Sequence[typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> typing.List["CfnListener.ActionProperty"]:
         '''Renumber the "order" fields in the actions array.
 
         We don't number for 0 or 1 elements, but otherwise number them 1...#actions
@@ -17581,7 +11897,7 @@ class NetworkListenerAction(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91a1890343658bc6cbedb0cf2b919ba00d7797ea76b40bb3e0bd19d013f2db4d)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        return typing.cast(typing.List[CfnListener.ActionProperty], jsii.invoke(self, "renumber", [actions]))
+        return typing.cast(typing.List["CfnListener.ActionProperty"], jsii.invoke(self, "renumber", [actions]))
 
     @builtins.property
     @jsii.member(jsii_name="next")
@@ -19754,7 +14070,7 @@ class RevocationContent:
     def __init__(
         self,
         *,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
         key: builtins.str,
         revocation_type: typing.Optional["RevocationType"] = None,
         version: typing.Optional[builtins.str] = None,
@@ -19775,10 +14091,10 @@ class RevocationContent:
             from aws_cdk import aws_elasticloadbalancingv2 as elbv2
             from aws_cdk import aws_s3 as s3
             
-            # bucket: s3.Bucket
+            # bucket_ref: s3.IBucketRef
             
             revocation_content = elbv2.RevocationContent(
-                bucket=bucket,
+                bucket=bucket_ref,
                 key="key",
             
                 # the properties below are optional
@@ -19802,11 +14118,11 @@ class RevocationContent:
             self._values["version"] = version
 
     @builtins.property
-    def bucket(self) -> _IBucket_42e086fd:
+    def bucket(self) -> _IBucketRef_fb8fe266:
         '''The Amazon S3 bucket for the revocation file.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
+        return typing.cast(_IBucketRef_fb8fe266, result)
 
     @builtins.property
     def key(self) -> builtins.str:
@@ -20603,6 +14919,55 @@ class TargetGroupLoadBalancingAlgorithmType(enum.Enum):
     '''weighted_random.'''
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TargetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"target_group_arn": "targetGroupArn"},
+)
+class TargetGroupReference:
+    def __init__(self, *, target_group_arn: builtins.str) -> None:
+        '''A reference to a TargetGroup resource.
+
+        :param target_group_arn: The TargetGroupArn of the TargetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            target_group_reference = elbv2.TargetGroupReference(
+                target_group_arn="targetGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b22d0445cb034b55d9115fd027b3d892bce86e7f1261aa808a4125edf21d635)
+            check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "target_group_arn": target_group_arn,
+        }
+
+    @builtins.property
+    def target_group_arn(self) -> builtins.str:
+        '''The TargetGroupArn of the TargetGroup resource.'''
+        result = self._values.get("target_group_arn")
+        assert result is not None, "Required property 'target_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TargetGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TargetType")
 class TargetType(enum.Enum):
     '''How to interpret the load balancing target identifiers.
@@ -20681,7 +15046,7 @@ class TrustStore(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
         key: builtins.str,
         trust_store_name: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -20782,7 +15147,7 @@ class TrustStoreProps:
     def __init__(
         self,
         *,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
         key: builtins.str,
         trust_store_name: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
@@ -20840,11 +15205,11 @@ class TrustStoreProps:
             self._values["version"] = version
 
     @builtins.property
-    def bucket(self) -> _IBucket_42e086fd:
+    def bucket(self) -> _IBucketRef_fb8fe266:
         '''The bucket that the trust store is hosted in.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
+        return typing.cast(_IBucketRef_fb8fe266, result)
 
     @builtins.property
     def key(self) -> builtins.str:
@@ -20881,6 +15246,55 @@ class TrustStoreProps:
 
     def __repr__(self) -> str:
         return "TrustStoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TrustStoreReference",
+    jsii_struct_bases=[],
+    name_mapping={"trust_store_arn": "trustStoreArn"},
+)
+class TrustStoreReference:
+    def __init__(self, *, trust_store_arn: builtins.str) -> None:
+        '''A reference to a TrustStore resource.
+
+        :param trust_store_arn: The TrustStoreArn of the TrustStore resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            trust_store_reference = elbv2.TrustStoreReference(
+                trust_store_arn="trustStoreArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d10f77ba02946e13f44603e6dec6e6c1edb44c7bed3ad810532244262918e07d)
+            check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "trust_store_arn": trust_store_arn,
+        }
+
+    @builtins.property
+    def trust_store_arn(self) -> builtins.str:
+        '''The TrustStoreArn of the TrustStore resource.'''
+        result = self._values.get("trust_store_arn")
+        assert result is not None, "Required property 'trust_store_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrustStoreReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -21011,6 +15425,71 @@ class TrustStoreRevocationProps:
 
     def __repr__(self) -> str:
         return "TrustStoreRevocationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TrustStoreRevocationReference",
+    jsii_struct_bases=[],
+    name_mapping={"revocation_id": "revocationId", "trust_store_arn": "trustStoreArn"},
+)
+class TrustStoreRevocationReference:
+    def __init__(
+        self,
+        *,
+        revocation_id: builtins.str,
+        trust_store_arn: builtins.str,
+    ) -> None:
+        '''A reference to a TrustStoreRevocation resource.
+
+        :param revocation_id: The RevocationId of the TrustStoreRevocation resource.
+        :param trust_store_arn: The TrustStoreArn of the TrustStoreRevocation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+            
+            trust_store_revocation_reference = elbv2.TrustStoreRevocationReference(
+                revocation_id="revocationId",
+                trust_store_arn="trustStoreArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6119c9cbc05c162cda530b1db42aecd49355c616ad3ddb01a1ba5841944fce2e)
+            check_type(argname="argument revocation_id", value=revocation_id, expected_type=type_hints["revocation_id"])
+            check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "revocation_id": revocation_id,
+            "trust_store_arn": trust_store_arn,
+        }
+
+    @builtins.property
+    def revocation_id(self) -> builtins.str:
+        '''The RevocationId of the TrustStoreRevocation resource.'''
+        result = self._values.get("revocation_id")
+        assert result is not None, "Required property 'revocation_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trust_store_arn(self) -> builtins.str:
+        '''The TrustStoreArn of the TrustStoreRevocation resource.'''
+        result = self._values.get("trust_store_arn")
+        assert result is not None, "Required property 'trust_store_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrustStoreRevocationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -23068,6 +17547,6218 @@ class _BaseListenerProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, BaseListener).__jsii_proxy_class__ = lambda : _BaseListenerProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IListenerRef)
+class CfnListener(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener",
+):
+    '''Specifies a listener for an Application Load Balancer, Network Load Balancer, or Gateway Load Balancer.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::Listener
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_listener = elbv2.CfnListener(self, "MyCfnListener",
+            default_actions=[elbv2.CfnListener.ActionProperty(
+                type="type",
+        
+                # the properties below are optional
+                authenticate_cognito_config=elbv2.CfnListener.AuthenticateCognitoConfigProperty(
+                    user_pool_arn="userPoolArn",
+                    user_pool_client_id="userPoolClientId",
+                    user_pool_domain="userPoolDomain",
+        
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout="sessionTimeout"
+                ),
+                authenticate_oidc_config=elbv2.CfnListener.AuthenticateOidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+        
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout="sessionTimeout",
+                    use_existing_client_secret=False
+                ),
+                fixed_response_config=elbv2.CfnListener.FixedResponseConfigProperty(
+                    status_code="statusCode",
+        
+                    # the properties below are optional
+                    content_type="contentType",
+                    message_body="messageBody"
+                ),
+                forward_config=elbv2.CfnListener.ForwardConfigProperty(
+                    target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
+                        target_group_arn="targetGroupArn",
+                        weight=123
+                    )],
+                    target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
+                        duration_seconds=123,
+                        enabled=False
+                    )
+                ),
+                order=123,
+                redirect_config=elbv2.CfnListener.RedirectConfigProperty(
+                    status_code="statusCode",
+        
+                    # the properties below are optional
+                    host="host",
+                    path="path",
+                    port="port",
+                    protocol="protocol",
+                    query="query"
+                ),
+                target_group_arn="targetGroupArn"
+            )],
+            load_balancer_arn="loadBalancerArn",
+        
+            # the properties below are optional
+            alpn_policy=["alpnPolicy"],
+            certificates=[elbv2.CfnListener.CertificateProperty(
+                certificate_arn="certificateArn"
+            )],
+            listener_attributes=[elbv2.CfnListener.ListenerAttributeProperty(
+                key="key",
+                value="value"
+            )],
+            mutual_authentication=elbv2.CfnListener.MutualAuthenticationProperty(
+                advertise_trust_store_ca_names="advertiseTrustStoreCaNames",
+                ignore_client_certificate_expiry=False,
+                mode="mode",
+                trust_store_arn="trustStoreArn"
+            ),
+            port=123,
+            protocol="protocol",
+            ssl_policy="sslPolicy"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        load_balancer_arn: builtins.str,
+        alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
+        certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ListenerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.MutualAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        port: typing.Optional[jsii.Number] = None,
+        protocol: typing.Optional[builtins.str] = None,
+        ssl_policy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param default_actions: The actions for the default rule. You cannot define a condition for a default rule. To create additional rules for an Application Load Balancer, use `AWS::ElasticLoadBalancingV2::ListenerRule <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html>`_ .
+        :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
+        :param alpn_policy: [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
+        :param certificates: The default SSL server certificate for a secure listener. You must provide exactly one certificate if the listener protocol is HTTPS or TLS. For an HTTPS listener, update requires some interruptions. For a TLS listener, update requires no interruption. To create a certificate list for a secure listener, use `AWS::ElasticLoadBalancingV2::ListenerCertificate <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html>`_ .
+        :param listener_attributes: The listener attributes. Attributes that you do not modify retain their current values.
+        :param mutual_authentication: The mutual authentication configuration information.
+        :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
+        :param protocol: The protocol for connections from clients to the load balancer. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, and TCP_UDP. You can’t specify the UDP or TCP_UDP protocol if dual-stack mode is enabled. You can't specify a protocol for a Gateway Load Balancer.
+        :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported. For more information, see `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`_ in the *Application Load Balancers Guide* and `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`_ in the *Network Load Balancers Guide* . [HTTPS listeners] Updating the security policy can result in interruptions if the load balancer is handling a high volume of traffic. To decrease the possibility of an interruption if your load balancer is handling a high volume of traffic, create an additional load balancer or request an LCU reservation.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnListenerProps(
+            default_actions=default_actions,
+            load_balancer_arn=load_balancer_arn,
+            alpn_policy=alpn_policy,
+            certificates=certificates,
+            listener_attributes=listener_attributes,
+            mutual_authentication=mutual_authentication,
+            port=port,
+            protocol=protocol,
+            ssl_policy=ssl_policy,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrListenerArn")
+    def attr_listener_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the listener.
+
+        :cloudformationAttribute: ListenerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrListenerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> ListenerReference:
+        '''A reference to a Listener resource.'''
+        return typing.cast(ListenerReference, jsii.get(self, "listenerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultActions")
+    def default_actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]]:
+        '''The actions for the default rule.
+
+        You cannot define a condition for a default rule.
+        '''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]], jsii.get(self, "defaultActions"))
+
+    @default_actions.setter
+    def default_actions(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ActionProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loadBalancerArn")
+    def load_balancer_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the load balancer.'''
+        return typing.cast(builtins.str, jsii.get(self, "loadBalancerArn"))
+
+    @load_balancer_arn.setter
+    def load_balancer_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loadBalancerArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alpnPolicy")
+    def alpn_policy(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''[TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alpnPolicy"))
+
+    @alpn_policy.setter
+    def alpn_policy(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alpnPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificates")
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]]:
+        '''The default SSL server certificate for a secure listener.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]], jsii.get(self, "certificates"))
+
+    @certificates.setter
+    def certificates(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.CertificateProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerAttributes")
+    def listener_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]]:
+        '''The listener attributes.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]], jsii.get(self, "listenerAttributes"))
+
+    @listener_attributes.setter
+    def listener_attributes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.ListenerAttributeProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listenerAttributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mutualAuthentication")
+    def mutual_authentication(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]]:
+        '''The mutual authentication configuration information.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]], jsii.get(self, "mutualAuthentication"))
+
+    @mutual_authentication.setter
+    def mutual_authentication(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.MutualAuthenticationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mutualAuthentication", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="port")
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port on which the load balancer is listening.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
+
+    @port.setter
+    def port(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="protocol")
+    def protocol(self) -> typing.Optional[builtins.str]:
+        '''The protocol for connections from clients to the load balancer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocol"))
+
+    @protocol.setter
+    def protocol(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sslPolicy")
+    def ssl_policy(self) -> typing.Optional[builtins.str]:
+        '''[HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sslPolicy"))
+
+    @ssl_policy.setter
+    def ssl_policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sslPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "authenticate_cognito_config": "authenticateCognitoConfig",
+            "authenticate_oidc_config": "authenticateOidcConfig",
+            "fixed_response_config": "fixedResponseConfig",
+            "forward_config": "forwardConfig",
+            "order": "order",
+            "redirect_config": "redirectConfig",
+            "target_group_arn": "targetGroupArn",
+        },
+    )
+    class ActionProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            order: typing.Optional[jsii.Number] = None,
+            redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_group_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an action for a listener rule.
+
+            :param type: The type of action.
+            :param authenticate_cognito_config: [HTTPS listeners] Information for using Amazon Cognito to authenticate users. Specify only when ``Type`` is ``authenticate-cognito`` .
+            :param authenticate_oidc_config: [HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC). Specify only when ``Type`` is ``authenticate-oidc`` .
+            :param fixed_response_config: [Application Load Balancer] Information for creating an action that returns a custom HTTP response. Specify only when ``Type`` is ``fixed-response`` .
+            :param forward_config: Information for creating an action that distributes requests among one or more target groups. For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+            :param order: The order for the action. This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
+            :param redirect_config: [Application Load Balancer] Information for creating a redirect action. Specify only when ``Type`` is ``redirect`` .
+            :param target_group_arn: The Amazon Resource Name (ARN) of the target group. Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                action_property = elbv2.CfnListener.ActionProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    authenticate_cognito_config=elbv2.CfnListener.AuthenticateCognitoConfigProperty(
+                        user_pool_arn="userPoolArn",
+                        user_pool_client_id="userPoolClientId",
+                        user_pool_domain="userPoolDomain",
+                
+                        # the properties below are optional
+                        authentication_request_extra_params={
+                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                        },
+                        on_unauthenticated_request="onUnauthenticatedRequest",
+                        scope="scope",
+                        session_cookie_name="sessionCookieName",
+                        session_timeout="sessionTimeout"
+                    ),
+                    authenticate_oidc_config=elbv2.CfnListener.AuthenticateOidcConfigProperty(
+                        authorization_endpoint="authorizationEndpoint",
+                        client_id="clientId",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint",
+                        user_info_endpoint="userInfoEndpoint",
+                
+                        # the properties below are optional
+                        authentication_request_extra_params={
+                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                        },
+                        client_secret="clientSecret",
+                        on_unauthenticated_request="onUnauthenticatedRequest",
+                        scope="scope",
+                        session_cookie_name="sessionCookieName",
+                        session_timeout="sessionTimeout",
+                        use_existing_client_secret=False
+                    ),
+                    fixed_response_config=elbv2.CfnListener.FixedResponseConfigProperty(
+                        status_code="statusCode",
+                
+                        # the properties below are optional
+                        content_type="contentType",
+                        message_body="messageBody"
+                    ),
+                    forward_config=elbv2.CfnListener.ForwardConfigProperty(
+                        target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
+                            target_group_arn="targetGroupArn",
+                            weight=123
+                        )],
+                        target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
+                            duration_seconds=123,
+                            enabled=False
+                        )
+                    ),
+                    order=123,
+                    redirect_config=elbv2.CfnListener.RedirectConfigProperty(
+                        status_code="statusCode",
+                
+                        # the properties below are optional
+                        host="host",
+                        path="path",
+                        port="port",
+                        protocol="protocol",
+                        query="query"
+                    ),
+                    target_group_arn="targetGroupArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
+                check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
+                check_type(argname="argument fixed_response_config", value=fixed_response_config, expected_type=type_hints["fixed_response_config"])
+                check_type(argname="argument forward_config", value=forward_config, expected_type=type_hints["forward_config"])
+                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
+                check_type(argname="argument redirect_config", value=redirect_config, expected_type=type_hints["redirect_config"])
+                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if authenticate_cognito_config is not None:
+                self._values["authenticate_cognito_config"] = authenticate_cognito_config
+            if authenticate_oidc_config is not None:
+                self._values["authenticate_oidc_config"] = authenticate_oidc_config
+            if fixed_response_config is not None:
+                self._values["fixed_response_config"] = fixed_response_config
+            if forward_config is not None:
+                self._values["forward_config"] = forward_config
+            if order is not None:
+                self._values["order"] = order
+            if redirect_config is not None:
+                self._values["redirect_config"] = redirect_config
+            if target_group_arn is not None:
+                self._values["target_group_arn"] = target_group_arn
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authenticate_cognito_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateCognitoConfigProperty"]]:
+            '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
+
+            Specify only when ``Type`` is ``authenticate-cognito`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticatecognitoconfig
+            '''
+            result = self._values.get("authenticate_cognito_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateCognitoConfigProperty"]], result)
+
+        @builtins.property
+        def authenticate_oidc_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateOidcConfigProperty"]]:
+            '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
+
+            Specify only when ``Type`` is ``authenticate-oidc`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-authenticateoidcconfig
+            '''
+            result = self._values.get("authenticate_oidc_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.AuthenticateOidcConfigProperty"]], result)
+
+        @builtins.property
+        def fixed_response_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.FixedResponseConfigProperty"]]:
+            '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
+
+            Specify only when ``Type`` is ``fixed-response`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-fixedresponseconfig
+            '''
+            result = self._values.get("fixed_response_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.FixedResponseConfigProperty"]], result)
+
+        @builtins.property
+        def forward_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.ForwardConfigProperty"]]:
+            '''Information for creating an action that distributes requests among one or more target groups.
+
+            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-forwardconfig
+            '''
+            result = self._values.get("forward_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.ForwardConfigProperty"]], result)
+
+        @builtins.property
+        def order(self) -> typing.Optional[jsii.Number]:
+            '''The order for the action.
+
+            This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-order
+            '''
+            result = self._values.get("order")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def redirect_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.RedirectConfigProperty"]]:
+            '''[Application Load Balancer] Information for creating a redirect action.
+
+            Specify only when ``Type`` is ``redirect`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-redirectconfig
+            '''
+            result = self._values.get("redirect_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.RedirectConfigProperty"]], result)
+
+        @builtins.property
+        def target_group_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the target group.
+
+            Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-action.html#cfn-elasticloadbalancingv2-listener-action-targetgrouparn
+            '''
+            result = self._values.get("target_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.AuthenticateCognitoConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "user_pool_arn": "userPoolArn",
+            "user_pool_client_id": "userPoolClientId",
+            "user_pool_domain": "userPoolDomain",
+            "authentication_request_extra_params": "authenticationRequestExtraParams",
+            "on_unauthenticated_request": "onUnauthenticatedRequest",
+            "scope": "scope",
+            "session_cookie_name": "sessionCookieName",
+            "session_timeout": "sessionTimeout",
+        },
+    )
+    class AuthenticateCognitoConfigProperty:
+        def __init__(
+            self,
+            *,
+            user_pool_arn: builtins.str,
+            user_pool_client_id: builtins.str,
+            user_pool_domain: builtins.str,
+            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            on_unauthenticated_request: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[builtins.str] = None,
+            session_cookie_name: typing.Optional[builtins.str] = None,
+            session_timeout: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies information required when integrating with Amazon Cognito to authenticate users.
+
+            :param user_pool_arn: The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+            :param user_pool_client_id: The ID of the Amazon Cognito user pool client.
+            :param user_pool_domain: The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
+            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                authenticate_cognito_config_property = elbv2.CfnListener.AuthenticateCognitoConfigProperty(
+                    user_pool_arn="userPoolArn",
+                    user_pool_client_id="userPoolClientId",
+                    user_pool_domain="userPoolDomain",
+                
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout="sessionTimeout"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e)
+                check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
+                check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
+                check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
+                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
+                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
+                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "user_pool_arn": user_pool_arn,
+                "user_pool_client_id": user_pool_client_id,
+                "user_pool_domain": user_pool_domain,
+            }
+            if authentication_request_extra_params is not None:
+                self._values["authentication_request_extra_params"] = authentication_request_extra_params
+            if on_unauthenticated_request is not None:
+                self._values["on_unauthenticated_request"] = on_unauthenticated_request
+            if scope is not None:
+                self._values["scope"] = scope
+            if session_cookie_name is not None:
+                self._values["session_cookie_name"] = session_cookie_name
+            if session_timeout is not None:
+                self._values["session_timeout"] = session_timeout
+
+        @builtins.property
+        def user_pool_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpoolarn
+            '''
+            result = self._values.get("user_pool_arn")
+            assert result is not None, "Required property 'user_pool_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_pool_client_id(self) -> builtins.str:
+            '''The ID of the Amazon Cognito user pool client.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpoolclientid
+            '''
+            result = self._values.get("user_pool_client_id")
+            assert result is not None, "Required property 'user_pool_client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_pool_domain(self) -> builtins.str:
+            '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-userpooldomain
+            '''
+            result = self._values.get("user_pool_domain")
+            assert result is not None, "Required property 'user_pool_domain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authentication_request_extra_params(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-authenticationrequestextraparams
+            '''
+            result = self._values.get("authentication_request_extra_params")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
+            '''The behavior if the user is not authenticated. The following are possible values:.
+
+            - deny `` - Return an HTTP 401 Unauthorized error.
+            - allow `` - Allow the request to be forwarded to the target.
+            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-onunauthenticatedrequest
+            '''
+            result = self._values.get("on_unauthenticated_request")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
+
+            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_cookie_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the cookie used to maintain session information.
+
+            The default is AWSELBAuthSessionCookie.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-sessioncookiename
+            '''
+            result = self._values.get("session_cookie_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_timeout(self) -> typing.Optional[builtins.str]:
+            '''The maximum duration of the authentication session, in seconds.
+
+            The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listener-authenticatecognitoconfig-sessiontimeout
+            '''
+            result = self._values.get("session_timeout")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthenticateCognitoConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.AuthenticateOidcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_endpoint": "authorizationEndpoint",
+            "client_id": "clientId",
+            "issuer": "issuer",
+            "token_endpoint": "tokenEndpoint",
+            "user_info_endpoint": "userInfoEndpoint",
+            "authentication_request_extra_params": "authenticationRequestExtraParams",
+            "client_secret": "clientSecret",
+            "on_unauthenticated_request": "onUnauthenticatedRequest",
+            "scope": "scope",
+            "session_cookie_name": "sessionCookieName",
+            "session_timeout": "sessionTimeout",
+            "use_existing_client_secret": "useExistingClientSecret",
+        },
+    )
+    class AuthenticateOidcConfigProperty:
+        def __init__(
+            self,
+            *,
+            authorization_endpoint: builtins.str,
+            client_id: builtins.str,
+            issuer: builtins.str,
+            token_endpoint: builtins.str,
+            user_info_endpoint: builtins.str,
+            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            client_secret: typing.Optional[builtins.str] = None,
+            on_unauthenticated_request: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[builtins.str] = None,
+            session_cookie_name: typing.Optional[builtins.str] = None,
+            session_timeout: typing.Optional[builtins.str] = None,
+            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
+
+            :param authorization_endpoint: The authorization endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param client_id: The OAuth 2.0 client identifier.
+            :param issuer: The OIDC issuer identifier of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param token_endpoint: The token endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param user_info_endpoint: The user info endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+            :param client_secret: The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
+            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
+            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
+            :param use_existing_client_secret: Indicates whether to use the existing client secret when modifying a rule. If you are creating a rule, you can omit this parameter or set it to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                authenticate_oidc_config_property = elbv2.CfnListener.AuthenticateOidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+                
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout="sessionTimeout",
+                    use_existing_client_secret=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06)
+                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+                check_type(argname="argument user_info_endpoint", value=user_info_endpoint, expected_type=type_hints["user_info_endpoint"])
+                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
+                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+                check_type(argname="argument use_existing_client_secret", value=use_existing_client_secret, expected_type=type_hints["use_existing_client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_endpoint": authorization_endpoint,
+                "client_id": client_id,
+                "issuer": issuer,
+                "token_endpoint": token_endpoint,
+                "user_info_endpoint": user_info_endpoint,
+            }
+            if authentication_request_extra_params is not None:
+                self._values["authentication_request_extra_params"] = authentication_request_extra_params
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if on_unauthenticated_request is not None:
+                self._values["on_unauthenticated_request"] = on_unauthenticated_request
+            if scope is not None:
+                self._values["scope"] = scope
+            if session_cookie_name is not None:
+                self._values["session_cookie_name"] = session_cookie_name
+            if session_timeout is not None:
+                self._values["session_timeout"] = session_timeout
+            if use_existing_client_secret is not None:
+                self._values["use_existing_client_secret"] = use_existing_client_secret
+
+        @builtins.property
+        def authorization_endpoint(self) -> builtins.str:
+            '''The authorization endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authorizationendpoint
+            '''
+            result = self._values.get("authorization_endpoint")
+            assert result is not None, "Required property 'authorization_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The OAuth 2.0 client identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer(self) -> builtins.str:
+            '''The OIDC issuer identifier of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-issuer
+            '''
+            result = self._values.get("issuer")
+            assert result is not None, "Required property 'issuer' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_endpoint(self) -> builtins.str:
+            '''The token endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-tokenendpoint
+            '''
+            result = self._values.get("token_endpoint")
+            assert result is not None, "Required property 'token_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_info_endpoint(self) -> builtins.str:
+            '''The user info endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-userinfoendpoint
+            '''
+            result = self._values.get("user_info_endpoint")
+            assert result is not None, "Required property 'user_info_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authentication_request_extra_params(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-authenticationrequestextraparams
+            '''
+            result = self._values.get("authentication_request_extra_params")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def client_secret(self) -> typing.Optional[builtins.str]:
+            '''The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
+            '''The behavior if the user is not authenticated. The following are possible values:.
+
+            - deny `` - Return an HTTP 401 Unauthorized error.
+            - allow `` - Allow the request to be forwarded to the target.
+            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-onunauthenticatedrequest
+            '''
+            result = self._values.get("on_unauthenticated_request")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
+
+            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_cookie_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the cookie used to maintain session information.
+
+            The default is AWSELBAuthSessionCookie.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-sessioncookiename
+            '''
+            result = self._values.get("session_cookie_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_timeout(self) -> typing.Optional[builtins.str]:
+            '''The maximum duration of the authentication session, in seconds.
+
+            The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-sessiontimeout
+            '''
+            result = self._values.get("session_timeout")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def use_existing_client_secret(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether to use the existing client secret when modifying a rule.
+
+            If you are creating a rule, you can omit this parameter or set it to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listener-authenticateoidcconfig-useexistingclientsecret
+            '''
+            result = self._values.get("use_existing_client_secret")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthenticateOidcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.CertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"certificate_arn": "certificateArn"},
+    )
+    class CertificateProperty:
+        def __init__(
+            self,
+            *,
+            certificate_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an SSL server certificate to use as the default certificate for a secure listener.
+
+            :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-certificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                certificate_property = elbv2.CfnListener.CertificateProperty(
+                    certificate_arn="certificateArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1)
+                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_arn is not None:
+                self._values["certificate_arn"] = certificate_arn
+
+        @builtins.property
+        def certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-certificate.html#cfn-elasticloadbalancingv2-listener-certificate-certificatearn
+            '''
+            result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.FixedResponseConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status_code": "statusCode",
+            "content_type": "contentType",
+            "message_body": "messageBody",
+        },
+    )
+    class FixedResponseConfigProperty:
+        def __init__(
+            self,
+            *,
+            status_code: builtins.str,
+            content_type: typing.Optional[builtins.str] = None,
+            message_body: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies information required when returning a custom HTTP response.
+
+            :param status_code: The HTTP response code (2XX, 4XX, or 5XX).
+            :param content_type: The content type. Valid Values: text/plain | text/css | text/html | application/javascript | application/json
+            :param message_body: The message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                fixed_response_config_property = elbv2.CfnListener.FixedResponseConfigProperty(
+                    status_code="statusCode",
+                
+                    # the properties below are optional
+                    content_type="contentType",
+                    message_body="messageBody"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33)
+                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status_code": status_code,
+            }
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if message_body is not None:
+                self._values["message_body"] = message_body
+
+        @builtins.property
+        def status_code(self) -> builtins.str:
+            '''The HTTP response code (2XX, 4XX, or 5XX).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-statuscode
+            '''
+            result = self._values.get("status_code")
+            assert result is not None, "Required property 'status_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''The content type.
+
+            Valid Values: text/plain | text/css | text/html | application/javascript | application/json
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_body(self) -> typing.Optional[builtins.str]:
+            '''The message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listener-fixedresponseconfig-messagebody
+            '''
+            result = self._values.get("message_body")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FixedResponseConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ForwardConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_groups": "targetGroups",
+            "target_group_stickiness_config": "targetGroupStickinessConfig",
+        },
+    )
+    class ForwardConfigProperty:
+        def __init__(
+            self,
+            *,
+            target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Information for creating an action that distributes requests among one or more target groups.
+
+            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+
+            :param target_groups: Information about how traffic will be distributed between multiple target groups in a forward rule.
+            :param target_group_stickiness_config: Information about the target group stickiness for a rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                forward_config_property = elbv2.CfnListener.ForwardConfigProperty(
+                    target_groups=[elbv2.CfnListener.TargetGroupTupleProperty(
+                        target_group_arn="targetGroupArn",
+                        weight=123
+                    )],
+                    target_group_stickiness_config=elbv2.CfnListener.TargetGroupStickinessConfigProperty(
+                        duration_seconds=123,
+                        enabled=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977)
+                check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
+                check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_groups is not None:
+                self._values["target_groups"] = target_groups
+            if target_group_stickiness_config is not None:
+                self._values["target_group_stickiness_config"] = target_group_stickiness_config
+
+        @builtins.property
+        def target_groups(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupTupleProperty"]]]]:
+            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroups
+            '''
+            result = self._values.get("target_groups")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupTupleProperty"]]]], result)
+
+        @builtins.property
+        def target_group_stickiness_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupStickinessConfigProperty"]]:
+            '''Information about the target group stickiness for a rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-forwardconfig.html#cfn-elasticloadbalancingv2-listener-forwardconfig-targetgroupstickinessconfig
+            '''
+            result = self._values.get("target_group_stickiness_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListener.TargetGroupStickinessConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ForwardConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ListenerAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class ListenerAttributeProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a listener attribute.
+
+            :param key: The name of the attribute. The following attribute is supported by Network Load Balancers, and Gateway Load Balancers. - ``tcp.idle_timeout.seconds`` - The tcp idle timeout value, in seconds. The valid range is 60-6000 seconds. The default is 350 seconds. The following attributes are only supported by Application Load Balancers. - ``routing.http.request.x_amzn_mtls_clientcert_serial_number.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Serial-Number* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_issuer.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Issuer* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_subject.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Subject* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_validity.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Validity* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert_leaf.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Leaf* HTTP request header. - ``routing.http.request.x_amzn_mtls_clientcert.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert* HTTP request header. - ``routing.http.request.x_amzn_tls_version.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Version* HTTP request header. - ``routing.http.request.x_amzn_tls_cipher_suite.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Cipher-Suite* HTTP request header. - ``routing.http.response.server.enabled`` - Enables you to allow or remove the HTTP response server header. - ``routing.http.response.strict_transport_security.header_value`` - Informs browsers that the site should only be accessed using HTTPS, and that any future attempts to access it using HTTP should automatically be converted to HTTPS. - ``routing.http.response.access_control_allow_origin.header_value`` - Specifies which origins are allowed to access the server. - ``routing.http.response.access_control_allow_methods.header_value`` - Returns which HTTP methods are allowed when accessing the server from a different origin. - ``routing.http.response.access_control_allow_headers.header_value`` - Specifies which headers can be used during the request. - ``routing.http.response.access_control_allow_credentials.header_value`` - Indicates whether the browser should include credentials such as cookies or authentication when making requests. - ``routing.http.response.access_control_expose_headers.header_value`` - Returns which headers the browser can expose to the requesting client. - ``routing.http.response.access_control_max_age.header_value`` - Specifies how long the results of a preflight request can be cached, in seconds. - ``routing.http.response.content_security_policy.header_value`` - Specifies restrictions enforced by the browser to help minimize the risk of certain types of security threats. - ``routing.http.response.x_content_type_options.header_value`` - Indicates whether the MIME types advertised in the *Content-Type* headers should be followed and not be changed. - ``routing.http.response.x_frame_options.header_value`` - Indicates whether the browser is allowed to render a page in a *frame* , *iframe* , *embed* or *object* .
+            :param value: The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                listener_attribute_property = elbv2.CfnListener.ListenerAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key is not None:
+                self._values["key"] = key
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The name of the attribute.
+
+            The following attribute is supported by Network Load Balancers, and Gateway Load Balancers.
+
+            - ``tcp.idle_timeout.seconds`` - The tcp idle timeout value, in seconds. The valid range is 60-6000 seconds. The default is 350 seconds.
+
+            The following attributes are only supported by Application Load Balancers.
+
+            - ``routing.http.request.x_amzn_mtls_clientcert_serial_number.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Serial-Number* HTTP request header.
+            - ``routing.http.request.x_amzn_mtls_clientcert_issuer.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Issuer* HTTP request header.
+            - ``routing.http.request.x_amzn_mtls_clientcert_subject.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Subject* HTTP request header.
+            - ``routing.http.request.x_amzn_mtls_clientcert_validity.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Validity* HTTP request header.
+            - ``routing.http.request.x_amzn_mtls_clientcert_leaf.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert-Leaf* HTTP request header.
+            - ``routing.http.request.x_amzn_mtls_clientcert.header_name`` - Enables you to modify the header name of the *X-Amzn-Mtls-Clientcert* HTTP request header.
+            - ``routing.http.request.x_amzn_tls_version.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Version* HTTP request header.
+            - ``routing.http.request.x_amzn_tls_cipher_suite.header_name`` - Enables you to modify the header name of the *X-Amzn-Tls-Cipher-Suite* HTTP request header.
+            - ``routing.http.response.server.enabled`` - Enables you to allow or remove the HTTP response server header.
+            - ``routing.http.response.strict_transport_security.header_value`` - Informs browsers that the site should only be accessed using HTTPS, and that any future attempts to access it using HTTP should automatically be converted to HTTPS.
+            - ``routing.http.response.access_control_allow_origin.header_value`` - Specifies which origins are allowed to access the server.
+            - ``routing.http.response.access_control_allow_methods.header_value`` - Returns which HTTP methods are allowed when accessing the server from a different origin.
+            - ``routing.http.response.access_control_allow_headers.header_value`` - Specifies which headers can be used during the request.
+            - ``routing.http.response.access_control_allow_credentials.header_value`` - Indicates whether the browser should include credentials such as cookies or authentication when making requests.
+            - ``routing.http.response.access_control_expose_headers.header_value`` - Returns which headers the browser can expose to the requesting client.
+            - ``routing.http.response.access_control_max_age.header_value`` - Specifies how long the results of a preflight request can be cached, in seconds.
+            - ``routing.http.response.content_security_policy.header_value`` - Specifies restrictions enforced by the browser to help minimize the risk of certain types of security threats.
+            - ``routing.http.response.x_content_type_options.header_value`` - Indicates whether the MIME types advertised in the *Content-Type* headers should be followed and not be changed.
+            - ``routing.http.response.x_frame_options.header_value`` - Indicates whether the browser is allowed to render a page in a *frame* , *iframe* , *embed* or *object* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html#cfn-elasticloadbalancingv2-listener-listenerattribute-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-listenerattribute.html#cfn-elasticloadbalancingv2-listener-listenerattribute-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ListenerAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.MutualAuthenticationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "advertise_trust_store_ca_names": "advertiseTrustStoreCaNames",
+            "ignore_client_certificate_expiry": "ignoreClientCertificateExpiry",
+            "mode": "mode",
+            "trust_store_arn": "trustStoreArn",
+        },
+    )
+    class MutualAuthenticationProperty:
+        def __init__(
+            self,
+            *,
+            advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
+            ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            mode: typing.Optional[builtins.str] = None,
+            trust_store_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The mutual authentication configuration information.
+
+            :param advertise_trust_store_ca_names: Indicates whether trust store CA certificate names are advertised.
+            :param ignore_client_certificate_expiry: Indicates whether expired client certificates are ignored.
+            :param mode: The client certificate handling method. Options are ``off`` , ``passthrough`` or ``verify`` . The default value is ``off`` .
+            :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                mutual_authentication_property = elbv2.CfnListener.MutualAuthenticationProperty(
+                    advertise_trust_store_ca_names="advertiseTrustStoreCaNames",
+                    ignore_client_certificate_expiry=False,
+                    mode="mode",
+                    trust_store_arn="trustStoreArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0)
+                check_type(argname="argument advertise_trust_store_ca_names", value=advertise_trust_store_ca_names, expected_type=type_hints["advertise_trust_store_ca_names"])
+                check_type(argname="argument ignore_client_certificate_expiry", value=ignore_client_certificate_expiry, expected_type=type_hints["ignore_client_certificate_expiry"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+                check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if advertise_trust_store_ca_names is not None:
+                self._values["advertise_trust_store_ca_names"] = advertise_trust_store_ca_names
+            if ignore_client_certificate_expiry is not None:
+                self._values["ignore_client_certificate_expiry"] = ignore_client_certificate_expiry
+            if mode is not None:
+                self._values["mode"] = mode
+            if trust_store_arn is not None:
+                self._values["trust_store_arn"] = trust_store_arn
+
+        @builtins.property
+        def advertise_trust_store_ca_names(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether trust store CA certificate names are advertised.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-advertisetruststorecanames
+            '''
+            result = self._values.get("advertise_trust_store_ca_names")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ignore_client_certificate_expiry(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether expired client certificates are ignored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-ignoreclientcertificateexpiry
+            '''
+            result = self._values.get("ignore_client_certificate_expiry")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''The client certificate handling method.
+
+            Options are ``off`` , ``passthrough`` or ``verify`` . The default value is ``off`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def trust_store_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the trust store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-mutualauthentication.html#cfn-elasticloadbalancingv2-listener-mutualauthentication-truststorearn
+            '''
+            result = self._values.get("trust_store_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MutualAuthenticationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.RedirectConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status_code": "statusCode",
+            "host": "host",
+            "path": "path",
+            "port": "port",
+            "protocol": "protocol",
+            "query": "query",
+        },
+    )
+    class RedirectConfigProperty:
+        def __init__(
+            self,
+            *,
+            status_code: builtins.str,
+            host: typing.Optional[builtins.str] = None,
+            path: typing.Optional[builtins.str] = None,
+            port: typing.Optional[builtins.str] = None,
+            protocol: typing.Optional[builtins.str] = None,
+            query: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a redirect action.
+
+            A URI consists of the following components: protocol://hostname:port/path?query. You must modify at least one of the following components to avoid a redirect loop: protocol, hostname, port, or path. Any components that you do not modify retain their original values.
+
+            You can reuse URI components using the following reserved keywords:
+
+            - #{protocol}
+            - #{host}
+            - #{port}
+            - #{path} (the leading "/" is removed)
+            - #{query}
+
+            For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}", or the query to "#{query}&value=xyz".
+
+            :param status_code: The HTTP redirect code. The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
+            :param host: The hostname. This component is not percent-encoded. The hostname can contain #{host}.
+            :param path: The absolute path, starting with the leading "/". This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
+            :param port: The port. You can specify a value from 1 to 65535 or #{port}.
+            :param protocol: The protocol. You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
+            :param query: The query parameters, URL-encoded when necessary, but not percent-encoded. Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                redirect_config_property = elbv2.CfnListener.RedirectConfigProperty(
+                    status_code="statusCode",
+                
+                    # the properties below are optional
+                    host="host",
+                    path="path",
+                    port="port",
+                    protocol="protocol",
+                    query="query"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f)
+                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
+                check_type(argname="argument host", value=host, expected_type=type_hints["host"])
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status_code": status_code,
+            }
+            if host is not None:
+                self._values["host"] = host
+            if path is not None:
+                self._values["path"] = path
+            if port is not None:
+                self._values["port"] = port
+            if protocol is not None:
+                self._values["protocol"] = protocol
+            if query is not None:
+                self._values["query"] = query
+
+        @builtins.property
+        def status_code(self) -> builtins.str:
+            '''The HTTP redirect code.
+
+            The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-statuscode
+            '''
+            result = self._values.get("status_code")
+            assert result is not None, "Required property 'status_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def host(self) -> typing.Optional[builtins.str]:
+            '''The hostname.
+
+            This component is not percent-encoded. The hostname can contain #{host}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-host
+            '''
+            result = self._values.get("host")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def path(self) -> typing.Optional[builtins.str]:
+            '''The absolute path, starting with the leading "/".
+
+            This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-path
+            '''
+            result = self._values.get("path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[builtins.str]:
+            '''The port.
+
+            You can specify a value from 1 to 65535 or #{port}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''The protocol.
+
+            You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def query(self) -> typing.Optional[builtins.str]:
+            '''The query parameters, URL-encoded when necessary, but not percent-encoded.
+
+            Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-redirectconfig.html#cfn-elasticloadbalancingv2-listener-redirectconfig-query
+            '''
+            result = self._values.get("query")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RedirectConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.TargetGroupStickinessConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"duration_seconds": "durationSeconds", "enabled": "enabled"},
+    )
+    class TargetGroupStickinessConfigProperty:
+        def __init__(
+            self,
+            *,
+            duration_seconds: typing.Optional[jsii.Number] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Information about the target group stickiness for a rule.
+
+            :param duration_seconds: The time period, in seconds, during which requests from a client should be routed to the same target group. The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
+            :param enabled: Indicates whether target group stickiness is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_group_stickiness_config_property = elbv2.CfnListener.TargetGroupStickinessConfigProperty(
+                    duration_seconds=123,
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f)
+                check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if duration_seconds is not None:
+                self._values["duration_seconds"] = duration_seconds
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The time period, in seconds, during which requests from a client should be routed to the same target group.
+
+            The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listener-targetgroupstickinessconfig-durationseconds
+            '''
+            result = self._values.get("duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether target group stickiness is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listener-targetgroupstickinessconfig-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetGroupStickinessConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.TargetGroupTupleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target_group_arn": "targetGroupArn", "weight": "weight"},
+    )
+    class TargetGroupTupleProperty:
+        def __init__(
+            self,
+            *,
+            target_group_arn: typing.Optional[builtins.str] = None,
+            weight: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
+
+            :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
+            :param weight: The weight. The range is 0 to 999.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_group_tuple_property = elbv2.CfnListener.TargetGroupTupleProperty(
+                    target_group_arn="targetGroupArn",
+                    weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7)
+                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_group_arn is not None:
+                self._values["target_group_arn"] = target_group_arn
+            if weight is not None:
+                self._values["weight"] = weight
+
+        @builtins.property
+        def target_group_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the target group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html#cfn-elasticloadbalancingv2-listener-targetgrouptuple-targetgrouparn
+            '''
+            result = self._values.get("target_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def weight(self) -> typing.Optional[jsii.Number]:
+            '''The weight.
+
+            The range is 0 to 999.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listener-targetgrouptuple.html#cfn-elasticloadbalancingv2-listener-targetgrouptuple-weight
+            '''
+            result = self._values.get("weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetGroupTupleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IListenerCertificateRef)
+class CfnListenerCertificate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificate",
+):
+    '''Specifies an SSL server certificate to add to the certificate list for an HTTPS or TLS listener.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::ListenerCertificate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_listener_certificate = elbv2.CfnListenerCertificate(self, "MyCfnListenerCertificate",
+            certificates=[elbv2.CfnListenerCertificate.CertificateProperty(
+                certificate_arn="certificateArn"
+            )],
+            listener_arn="listenerArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerCertificate.CertificateProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        listener_arn: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param certificates: The certificate. You can specify one certificate per resource.
+        :param listener_arn: The Amazon Resource Name (ARN) of the listener.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnListenerCertificateProps(
+            certificates=certificates, listener_arn=listener_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerCertificateRef")
+    def listener_certificate_ref(self) -> ListenerCertificateReference:
+        '''A reference to a ListenerCertificate resource.'''
+        return typing.cast(ListenerCertificateReference, jsii.get(self, "listenerCertificateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificates")
+    def certificates(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]]:
+        '''The certificate.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]], jsii.get(self, "certificates"))
+
+    @certificates.setter
+    def certificates(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerCertificate.CertificateProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificates", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerArn")
+    def listener_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the listener.'''
+        return typing.cast(builtins.str, jsii.get(self, "listenerArn"))
+
+    @listener_arn.setter
+    def listener_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerCertificate.CertificateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"certificate_arn": "certificateArn"},
+    )
+    class CertificateProperty:
+        def __init__(
+            self,
+            *,
+            certificate_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an SSL server certificate for the certificate list of a secure listener.
+
+            :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenercertificate-certificate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                certificate_property = elbv2.CfnListenerCertificate.CertificateProperty(
+                    certificate_arn="certificateArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57)
+                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_arn is not None:
+                self._values["certificate_arn"] = certificate_arn
+
+        @builtins.property
+        def certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the certificate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenercertificate-certificate.html#cfn-elasticloadbalancingv2-listenercertificate-certificate-certificatearn
+            '''
+            result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IListenerRuleRef)
+class CfnListenerRule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule",
+):
+    '''Specifies a listener rule.
+
+    The listener must be associated with an Application Load Balancer. Each rule consists of a priority, one or more actions, and one or more conditions.
+
+    For more information, see `Quotas for your Application Load Balancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html>`_ in the *User Guide for Application Load Balancers* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenerrule.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::ListenerRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_listener_rule = elbv2.CfnListenerRule(self, "MyCfnListenerRule",
+            actions=[elbv2.CfnListenerRule.ActionProperty(
+                type="type",
+        
+                # the properties below are optional
+                authenticate_cognito_config=elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
+                    user_pool_arn="userPoolArn",
+                    user_pool_client_id="userPoolClientId",
+                    user_pool_domain="userPoolDomain",
+        
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout=123
+                ),
+                authenticate_oidc_config=elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+        
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout=123,
+                    use_existing_client_secret=False
+                ),
+                fixed_response_config=elbv2.CfnListenerRule.FixedResponseConfigProperty(
+                    status_code="statusCode",
+        
+                    # the properties below are optional
+                    content_type="contentType",
+                    message_body="messageBody"
+                ),
+                forward_config=elbv2.CfnListenerRule.ForwardConfigProperty(
+                    target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
+                        target_group_arn="targetGroupArn",
+                        weight=123
+                    )],
+                    target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
+                        duration_seconds=123,
+                        enabled=False
+                    )
+                ),
+                order=123,
+                redirect_config=elbv2.CfnListenerRule.RedirectConfigProperty(
+                    status_code="statusCode",
+        
+                    # the properties below are optional
+                    host="host",
+                    path="path",
+                    port="port",
+                    protocol="protocol",
+                    query="query"
+                ),
+                target_group_arn="targetGroupArn"
+            )],
+            conditions=[elbv2.CfnListenerRule.RuleConditionProperty(
+                field="field",
+                host_header_config=elbv2.CfnListenerRule.HostHeaderConfigProperty(
+                    values=["values"]
+                ),
+                http_header_config=elbv2.CfnListenerRule.HttpHeaderConfigProperty(
+                    http_header_name="httpHeaderName",
+                    values=["values"]
+                ),
+                http_request_method_config=elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
+                    values=["values"]
+                ),
+                path_pattern_config=elbv2.CfnListenerRule.PathPatternConfigProperty(
+                    values=["values"]
+                ),
+                query_string_config=elbv2.CfnListenerRule.QueryStringConfigProperty(
+                    values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
+                    values=["values"]
+                ),
+                values=["values"]
+            )],
+            priority=123,
+        
+            # the properties below are optional
+            listener_arn="listenerArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        priority: jsii.Number,
+        listener_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param actions: The actions. The rule must include exactly one of the following types of actions: ``forward`` , ``fixed-response`` , or ``redirect`` , and it must be the last action to be performed. If the rule is for an HTTPS listener, it can also optionally include an authentication action.
+        :param conditions: The conditions. The rule can optionally include up to one of each of the following conditions: ``http-request-method`` , ``host-header`` , ``path-pattern`` , and ``source-ip`` . A rule can also optionally include one or more of each of the following conditions: ``http-header`` and ``query-string`` .
+        :param priority: The rule priority. A listener can't have multiple rules with the same priority. If you try to reorder rules by updating their priorities, do not specify a new priority if an existing rule already uses this priority, as this can cause an error. If you need to reuse a priority with a different rule, you must remove it as a priority first, and then specify it in a subsequent update.
+        :param listener_arn: The Amazon Resource Name (ARN) of the listener.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnListenerRuleProps(
+            actions=actions,
+            conditions=conditions,
+            priority=priority,
+            listener_arn=listener_arn,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsDefault")
+    def attr_is_default(self) -> _IResolvable_da3f097b:
+        '''Indicates whether this is the default rule.
+
+        :cloudformationAttribute: IsDefault
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsDefault"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuleArn")
+    def attr_rule_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the rule.
+
+        :cloudformationAttribute: RuleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRuleRef")
+    def listener_rule_ref(self) -> ListenerRuleReference:
+        '''A reference to a ListenerRule resource.'''
+        return typing.cast(ListenerRuleReference, jsii.get(self, "listenerRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="actions")
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]]:
+        '''The actions.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]], jsii.get(self, "actions"))
+
+    @actions.setter
+    def actions(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ActionProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="conditions")
+    def conditions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]]:
+        '''The conditions.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]], jsii.get(self, "conditions"))
+
+    @conditions.setter
+    def conditions(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RuleConditionProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> jsii.Number:
+        '''The rule priority.
+
+        A listener can't have multiple rules with the same priority.
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerArn")
+    def listener_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the listener.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "listenerArn"))
+
+    @listener_arn.setter
+    def listener_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listenerArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.ActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "authenticate_cognito_config": "authenticateCognitoConfig",
+            "authenticate_oidc_config": "authenticateOidcConfig",
+            "fixed_response_config": "fixedResponseConfig",
+            "forward_config": "forwardConfig",
+            "order": "order",
+            "redirect_config": "redirectConfig",
+            "target_group_arn": "targetGroupArn",
+        },
+    )
+    class ActionProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateCognitoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.AuthenticateOidcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.FixedResponseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.ForwardConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            order: typing.Optional[jsii.Number] = None,
+            redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.RedirectConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_group_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an action for a listener rule.
+
+            :param type: The type of action.
+            :param authenticate_cognito_config: [HTTPS listeners] Information for using Amazon Cognito to authenticate users. Specify only when ``Type`` is ``authenticate-cognito`` .
+            :param authenticate_oidc_config: [HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC). Specify only when ``Type`` is ``authenticate-oidc`` .
+            :param fixed_response_config: [Application Load Balancer] Information for creating an action that returns a custom HTTP response. Specify only when ``Type`` is ``fixed-response`` .
+            :param forward_config: Information for creating an action that distributes requests among one or more target groups. For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+            :param order: The order for the action. This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
+            :param redirect_config: [Application Load Balancer] Information for creating a redirect action. Specify only when ``Type`` is ``redirect`` .
+            :param target_group_arn: The Amazon Resource Name (ARN) of the target group. Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                action_property = elbv2.CfnListenerRule.ActionProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    authenticate_cognito_config=elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
+                        user_pool_arn="userPoolArn",
+                        user_pool_client_id="userPoolClientId",
+                        user_pool_domain="userPoolDomain",
+                
+                        # the properties below are optional
+                        authentication_request_extra_params={
+                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                        },
+                        on_unauthenticated_request="onUnauthenticatedRequest",
+                        scope="scope",
+                        session_cookie_name="sessionCookieName",
+                        session_timeout=123
+                    ),
+                    authenticate_oidc_config=elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
+                        authorization_endpoint="authorizationEndpoint",
+                        client_id="clientId",
+                        issuer="issuer",
+                        token_endpoint="tokenEndpoint",
+                        user_info_endpoint="userInfoEndpoint",
+                
+                        # the properties below are optional
+                        authentication_request_extra_params={
+                            "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                        },
+                        client_secret="clientSecret",
+                        on_unauthenticated_request="onUnauthenticatedRequest",
+                        scope="scope",
+                        session_cookie_name="sessionCookieName",
+                        session_timeout=123,
+                        use_existing_client_secret=False
+                    ),
+                    fixed_response_config=elbv2.CfnListenerRule.FixedResponseConfigProperty(
+                        status_code="statusCode",
+                
+                        # the properties below are optional
+                        content_type="contentType",
+                        message_body="messageBody"
+                    ),
+                    forward_config=elbv2.CfnListenerRule.ForwardConfigProperty(
+                        target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
+                            target_group_arn="targetGroupArn",
+                            weight=123
+                        )],
+                        target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
+                            duration_seconds=123,
+                            enabled=False
+                        )
+                    ),
+                    order=123,
+                    redirect_config=elbv2.CfnListenerRule.RedirectConfigProperty(
+                        status_code="statusCode",
+                
+                        # the properties below are optional
+                        host="host",
+                        path="path",
+                        port="port",
+                        protocol="protocol",
+                        query="query"
+                    ),
+                    target_group_arn="targetGroupArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument authenticate_cognito_config", value=authenticate_cognito_config, expected_type=type_hints["authenticate_cognito_config"])
+                check_type(argname="argument authenticate_oidc_config", value=authenticate_oidc_config, expected_type=type_hints["authenticate_oidc_config"])
+                check_type(argname="argument fixed_response_config", value=fixed_response_config, expected_type=type_hints["fixed_response_config"])
+                check_type(argname="argument forward_config", value=forward_config, expected_type=type_hints["forward_config"])
+                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
+                check_type(argname="argument redirect_config", value=redirect_config, expected_type=type_hints["redirect_config"])
+                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if authenticate_cognito_config is not None:
+                self._values["authenticate_cognito_config"] = authenticate_cognito_config
+            if authenticate_oidc_config is not None:
+                self._values["authenticate_oidc_config"] = authenticate_oidc_config
+            if fixed_response_config is not None:
+                self._values["fixed_response_config"] = fixed_response_config
+            if forward_config is not None:
+                self._values["forward_config"] = forward_config
+            if order is not None:
+                self._values["order"] = order
+            if redirect_config is not None:
+                self._values["redirect_config"] = redirect_config
+            if target_group_arn is not None:
+                self._values["target_group_arn"] = target_group_arn
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authenticate_cognito_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateCognitoConfigProperty"]]:
+            '''[HTTPS listeners] Information for using Amazon Cognito to authenticate users.
+
+            Specify only when ``Type`` is ``authenticate-cognito`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticatecognitoconfig
+            '''
+            result = self._values.get("authenticate_cognito_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateCognitoConfigProperty"]], result)
+
+        @builtins.property
+        def authenticate_oidc_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateOidcConfigProperty"]]:
+            '''[HTTPS listeners] Information about an identity provider that is compliant with OpenID Connect (OIDC).
+
+            Specify only when ``Type`` is ``authenticate-oidc`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-authenticateoidcconfig
+            '''
+            result = self._values.get("authenticate_oidc_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.AuthenticateOidcConfigProperty"]], result)
+
+        @builtins.property
+        def fixed_response_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.FixedResponseConfigProperty"]]:
+            '''[Application Load Balancer] Information for creating an action that returns a custom HTTP response.
+
+            Specify only when ``Type`` is ``fixed-response`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-fixedresponseconfig
+            '''
+            result = self._values.get("fixed_response_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.FixedResponseConfigProperty"]], result)
+
+        @builtins.property
+        def forward_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ForwardConfigProperty"]]:
+            '''Information for creating an action that distributes requests among one or more target groups.
+
+            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-forwardconfig
+            '''
+            result = self._values.get("forward_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.ForwardConfigProperty"]], result)
+
+        @builtins.property
+        def order(self) -> typing.Optional[jsii.Number]:
+            '''The order for the action.
+
+            This value is required for rules with multiple actions. The action with the lowest value for order is performed first.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-order
+            '''
+            result = self._values.get("order")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def redirect_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RedirectConfigProperty"]]:
+            '''[Application Load Balancer] Information for creating a redirect action.
+
+            Specify only when ``Type`` is ``redirect`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-redirectconfig
+            '''
+            result = self._values.get("redirect_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.RedirectConfigProperty"]], result)
+
+        @builtins.property
+        def target_group_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the target group.
+
+            Specify only when ``Type`` is ``forward`` and you want to route to a single target group. To route to one or more target groups, use ``ForwardConfig`` instead.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-action.html#cfn-elasticloadbalancingv2-listenerrule-action-targetgrouparn
+            '''
+            result = self._values.get("target_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.AuthenticateCognitoConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "user_pool_arn": "userPoolArn",
+            "user_pool_client_id": "userPoolClientId",
+            "user_pool_domain": "userPoolDomain",
+            "authentication_request_extra_params": "authenticationRequestExtraParams",
+            "on_unauthenticated_request": "onUnauthenticatedRequest",
+            "scope": "scope",
+            "session_cookie_name": "sessionCookieName",
+            "session_timeout": "sessionTimeout",
+        },
+    )
+    class AuthenticateCognitoConfigProperty:
+        def __init__(
+            self,
+            *,
+            user_pool_arn: builtins.str,
+            user_pool_client_id: builtins.str,
+            user_pool_domain: builtins.str,
+            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            on_unauthenticated_request: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[builtins.str] = None,
+            session_cookie_name: typing.Optional[builtins.str] = None,
+            session_timeout: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies information required when integrating with Amazon Cognito to authenticate users.
+
+            :param user_pool_arn: The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+            :param user_pool_client_id: The ID of the Amazon Cognito user pool client.
+            :param user_pool_domain: The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
+            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                authenticate_cognito_config_property = elbv2.CfnListenerRule.AuthenticateCognitoConfigProperty(
+                    user_pool_arn="userPoolArn",
+                    user_pool_client_id="userPoolClientId",
+                    user_pool_domain="userPoolDomain",
+                
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2)
+                check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
+                check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
+                check_type(argname="argument user_pool_domain", value=user_pool_domain, expected_type=type_hints["user_pool_domain"])
+                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
+                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
+                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "user_pool_arn": user_pool_arn,
+                "user_pool_client_id": user_pool_client_id,
+                "user_pool_domain": user_pool_domain,
+            }
+            if authentication_request_extra_params is not None:
+                self._values["authentication_request_extra_params"] = authentication_request_extra_params
+            if on_unauthenticated_request is not None:
+                self._values["on_unauthenticated_request"] = on_unauthenticated_request
+            if scope is not None:
+                self._values["scope"] = scope
+            if session_cookie_name is not None:
+                self._values["session_cookie_name"] = session_cookie_name
+            if session_timeout is not None:
+                self._values["session_timeout"] = session_timeout
+
+        @builtins.property
+        def user_pool_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpoolarn
+            '''
+            result = self._values.get("user_pool_arn")
+            assert result is not None, "Required property 'user_pool_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_pool_client_id(self) -> builtins.str:
+            '''The ID of the Amazon Cognito user pool client.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpoolclientid
+            '''
+            result = self._values.get("user_pool_client_id")
+            assert result is not None, "Required property 'user_pool_client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_pool_domain(self) -> builtins.str:
+            '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-userpooldomain
+            '''
+            result = self._values.get("user_pool_domain")
+            assert result is not None, "Required property 'user_pool_domain' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authentication_request_extra_params(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-authenticationrequestextraparams
+            '''
+            result = self._values.get("authentication_request_extra_params")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
+            '''The behavior if the user is not authenticated. The following are possible values:.
+
+            - deny `` - Return an HTTP 401 Unauthorized error.
+            - allow `` - Allow the request to be forwarded to the target.
+            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-onunauthenticatedrequest
+            '''
+            result = self._values.get("on_unauthenticated_request")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
+
+            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_cookie_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the cookie used to maintain session information.
+
+            The default is AWSELBAuthSessionCookie.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-sessioncookiename
+            '''
+            result = self._values.get("session_cookie_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_timeout(self) -> typing.Optional[jsii.Number]:
+            '''The maximum duration of the authentication session, in seconds.
+
+            The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticatecognitoconfig-sessiontimeout
+            '''
+            result = self._values.get("session_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthenticateCognitoConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.AuthenticateOidcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_endpoint": "authorizationEndpoint",
+            "client_id": "clientId",
+            "issuer": "issuer",
+            "token_endpoint": "tokenEndpoint",
+            "user_info_endpoint": "userInfoEndpoint",
+            "authentication_request_extra_params": "authenticationRequestExtraParams",
+            "client_secret": "clientSecret",
+            "on_unauthenticated_request": "onUnauthenticatedRequest",
+            "scope": "scope",
+            "session_cookie_name": "sessionCookieName",
+            "session_timeout": "sessionTimeout",
+            "use_existing_client_secret": "useExistingClientSecret",
+        },
+    )
+    class AuthenticateOidcConfigProperty:
+        def __init__(
+            self,
+            *,
+            authorization_endpoint: builtins.str,
+            client_id: builtins.str,
+            issuer: builtins.str,
+            token_endpoint: builtins.str,
+            user_info_endpoint: builtins.str,
+            authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            client_secret: typing.Optional[builtins.str] = None,
+            on_unauthenticated_request: typing.Optional[builtins.str] = None,
+            scope: typing.Optional[builtins.str] = None,
+            session_cookie_name: typing.Optional[builtins.str] = None,
+            session_timeout: typing.Optional[jsii.Number] = None,
+            use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Specifies information required using an identity provide (IdP) that is compliant with OpenID Connect (OIDC) to authenticate users.
+
+            :param authorization_endpoint: The authorization endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param client_id: The OAuth 2.0 client identifier.
+            :param issuer: The OIDC issuer identifier of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param token_endpoint: The token endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param user_info_endpoint: The user info endpoint of the IdP. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+            :param authentication_request_extra_params: The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+            :param client_secret: The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
+            :param on_unauthenticated_request: The behavior if the user is not authenticated. The following are possible values:. - deny `` - Return an HTTP 401 Unauthorized error. - allow `` - Allow the request to be forwarded to the target. - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+            :param scope: The set of user claims to be requested from the IdP. The default is ``openid`` . To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+            :param session_cookie_name: The name of the cookie used to maintain session information. The default is AWSELBAuthSessionCookie.
+            :param session_timeout: The maximum duration of the authentication session, in seconds. The default is 604800 seconds (7 days).
+            :param use_existing_client_secret: Indicates whether to use the existing client secret when modifying a rule. If you are creating a rule, you can omit this parameter or set it to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                authenticate_oidc_config_property = elbv2.CfnListenerRule.AuthenticateOidcConfigProperty(
+                    authorization_endpoint="authorizationEndpoint",
+                    client_id="clientId",
+                    issuer="issuer",
+                    token_endpoint="tokenEndpoint",
+                    user_info_endpoint="userInfoEndpoint",
+                
+                    # the properties below are optional
+                    authentication_request_extra_params={
+                        "authentication_request_extra_params_key": "authenticationRequestExtraParams"
+                    },
+                    client_secret="clientSecret",
+                    on_unauthenticated_request="onUnauthenticatedRequest",
+                    scope="scope",
+                    session_cookie_name="sessionCookieName",
+                    session_timeout=123,
+                    use_existing_client_secret=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78)
+                check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+                check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
+                check_type(argname="argument user_info_endpoint", value=user_info_endpoint, expected_type=type_hints["user_info_endpoint"])
+                check_type(argname="argument authentication_request_extra_params", value=authentication_request_extra_params, expected_type=type_hints["authentication_request_extra_params"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument on_unauthenticated_request", value=on_unauthenticated_request, expected_type=type_hints["on_unauthenticated_request"])
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+                check_type(argname="argument session_cookie_name", value=session_cookie_name, expected_type=type_hints["session_cookie_name"])
+                check_type(argname="argument session_timeout", value=session_timeout, expected_type=type_hints["session_timeout"])
+                check_type(argname="argument use_existing_client_secret", value=use_existing_client_secret, expected_type=type_hints["use_existing_client_secret"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_endpoint": authorization_endpoint,
+                "client_id": client_id,
+                "issuer": issuer,
+                "token_endpoint": token_endpoint,
+                "user_info_endpoint": user_info_endpoint,
+            }
+            if authentication_request_extra_params is not None:
+                self._values["authentication_request_extra_params"] = authentication_request_extra_params
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if on_unauthenticated_request is not None:
+                self._values["on_unauthenticated_request"] = on_unauthenticated_request
+            if scope is not None:
+                self._values["scope"] = scope
+            if session_cookie_name is not None:
+                self._values["session_cookie_name"] = session_cookie_name
+            if session_timeout is not None:
+                self._values["session_timeout"] = session_timeout
+            if use_existing_client_secret is not None:
+                self._values["use_existing_client_secret"] = use_existing_client_secret
+
+        @builtins.property
+        def authorization_endpoint(self) -> builtins.str:
+            '''The authorization endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authorizationendpoint
+            '''
+            result = self._values.get("authorization_endpoint")
+            assert result is not None, "Required property 'authorization_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The OAuth 2.0 client identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer(self) -> builtins.str:
+            '''The OIDC issuer identifier of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-issuer
+            '''
+            result = self._values.get("issuer")
+            assert result is not None, "Required property 'issuer' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_endpoint(self) -> builtins.str:
+            '''The token endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-tokenendpoint
+            '''
+            result = self._values.get("token_endpoint")
+            assert result is not None, "Required property 'token_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def user_info_endpoint(self) -> builtins.str:
+            '''The user info endpoint of the IdP.
+
+            This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-userinfoendpoint
+            '''
+            result = self._values.get("user_info_endpoint")
+            assert result is not None, "Required property 'user_info_endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authentication_request_extra_params(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+            '''The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-authenticationrequestextraparams
+            '''
+            result = self._values.get("authentication_request_extra_params")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def client_secret(self) -> typing.Optional[builtins.str]:
+            '''The OAuth 2.0 client secret. This parameter is required if you are creating a rule. If you are modifying a rule, you can omit this parameter if you set ``UseExistingClientSecret`` to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def on_unauthenticated_request(self) -> typing.Optional[builtins.str]:
+            '''The behavior if the user is not authenticated. The following are possible values:.
+
+            - deny `` - Return an HTTP 401 Unauthorized error.
+            - allow `` - Allow the request to be forwarded to the target.
+            - authenticate `` - Redirect the request to the IdP authorization endpoint. This is the default value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-onunauthenticatedrequest
+            '''
+            result = self._values.get("on_unauthenticated_request")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scope(self) -> typing.Optional[builtins.str]:
+            '''The set of user claims to be requested from the IdP. The default is ``openid`` .
+
+            To verify which scope values your IdP supports and how to separate multiple values, see the documentation for your IdP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-scope
+            '''
+            result = self._values.get("scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_cookie_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the cookie used to maintain session information.
+
+            The default is AWSELBAuthSessionCookie.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-sessioncookiename
+            '''
+            result = self._values.get("session_cookie_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def session_timeout(self) -> typing.Optional[jsii.Number]:
+            '''The maximum duration of the authentication session, in seconds.
+
+            The default is 604800 seconds (7 days).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-sessiontimeout
+            '''
+            result = self._values.get("session_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def use_existing_client_secret(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether to use the existing client secret when modifying a rule.
+
+            If you are creating a rule, you can omit this parameter or set it to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-authenticateoidcconfig.html#cfn-elasticloadbalancingv2-listenerrule-authenticateoidcconfig-useexistingclientsecret
+            '''
+            result = self._values.get("use_existing_client_secret")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthenticateOidcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.FixedResponseConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status_code": "statusCode",
+            "content_type": "contentType",
+            "message_body": "messageBody",
+        },
+    )
+    class FixedResponseConfigProperty:
+        def __init__(
+            self,
+            *,
+            status_code: builtins.str,
+            content_type: typing.Optional[builtins.str] = None,
+            message_body: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies information required when returning a custom HTTP response.
+
+            :param status_code: The HTTP response code (2XX, 4XX, or 5XX).
+            :param content_type: The content type. Valid Values: text/plain | text/css | text/html | application/javascript | application/json
+            :param message_body: The message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                fixed_response_config_property = elbv2.CfnListenerRule.FixedResponseConfigProperty(
+                    status_code="statusCode",
+                
+                    # the properties below are optional
+                    content_type="contentType",
+                    message_body="messageBody"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53)
+                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument message_body", value=message_body, expected_type=type_hints["message_body"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status_code": status_code,
+            }
+            if content_type is not None:
+                self._values["content_type"] = content_type
+            if message_body is not None:
+                self._values["message_body"] = message_body
+
+        @builtins.property
+        def status_code(self) -> builtins.str:
+            '''The HTTP response code (2XX, 4XX, or 5XX).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-statuscode
+            '''
+            result = self._values.get("status_code")
+            assert result is not None, "Required property 'status_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def content_type(self) -> typing.Optional[builtins.str]:
+            '''The content type.
+
+            Valid Values: text/plain | text/css | text/html | application/javascript | application/json
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-contenttype
+            '''
+            result = self._values.get("content_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_body(self) -> typing.Optional[builtins.str]:
+            '''The message.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-fixedresponseconfig.html#cfn-elasticloadbalancingv2-listenerrule-fixedresponseconfig-messagebody
+            '''
+            result = self._values.get("message_body")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FixedResponseConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.ForwardConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_groups": "targetGroups",
+            "target_group_stickiness_config": "targetGroupStickinessConfig",
+        },
+    )
+    class ForwardConfigProperty:
+        def __init__(
+            self,
+            *,
+            target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.TargetGroupTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.TargetGroupStickinessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Information for creating an action that distributes requests among one or more target groups.
+
+            For Network Load Balancers, you can specify a single target group. Specify only when ``Type`` is ``forward`` . If you specify both ``ForwardConfig`` and ``TargetGroupArn`` , you can specify only one target group using ``ForwardConfig`` and it must be the same target group specified in ``TargetGroupArn`` .
+
+            :param target_groups: Information about how traffic will be distributed between multiple target groups in a forward rule.
+            :param target_group_stickiness_config: Information about the target group stickiness for a rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                forward_config_property = elbv2.CfnListenerRule.ForwardConfigProperty(
+                    target_groups=[elbv2.CfnListenerRule.TargetGroupTupleProperty(
+                        target_group_arn="targetGroupArn",
+                        weight=123
+                    )],
+                    target_group_stickiness_config=elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
+                        duration_seconds=123,
+                        enabled=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0)
+                check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
+                check_type(argname="argument target_group_stickiness_config", value=target_group_stickiness_config, expected_type=type_hints["target_group_stickiness_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_groups is not None:
+                self._values["target_groups"] = target_groups
+            if target_group_stickiness_config is not None:
+                self._values["target_group_stickiness_config"] = target_group_stickiness_config
+
+        @builtins.property
+        def target_groups(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupTupleProperty"]]]]:
+            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroups
+            '''
+            result = self._values.get("target_groups")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupTupleProperty"]]]], result)
+
+        @builtins.property
+        def target_group_stickiness_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupStickinessConfigProperty"]]:
+            '''Information about the target group stickiness for a rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-forwardconfig.html#cfn-elasticloadbalancingv2-listenerrule-forwardconfig-targetgroupstickinessconfig
+            '''
+            result = self._values.get("target_group_stickiness_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.TargetGroupStickinessConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ForwardConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HostHeaderConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"values": "values"},
+    )
+    class HostHeaderConfigProperty:
+        def __init__(
+            self,
+            *,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Information about a host header condition.
+
+            :param values: The host names. The maximum size of each name is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). You must include at least one "." character. You can include only alphabetical characters after the final "." character. If you specify multiple strings, the condition is satisfied if one of the strings matches the host name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                host_header_config_property = elbv2.CfnListenerRule.HostHeaderConfigProperty(
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642)
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The host names.
+
+            The maximum size of each name is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). You must include at least one "." character. You can include only alphabetical characters after the final "." character.
+
+            If you specify multiple strings, the condition is satisfied if one of the strings matches the host name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-hostheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-hostheaderconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HostHeaderConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HttpHeaderConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"http_header_name": "httpHeaderName", "values": "values"},
+    )
+    class HttpHeaderConfigProperty:
+        def __init__(
+            self,
+            *,
+            http_header_name: typing.Optional[builtins.str] = None,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Information about an HTTP header condition.
+
+            There is a set of standard HTTP header fields. You can also define custom HTTP header fields.
+
+            :param http_header_name: The name of the HTTP header field. The maximum size is 40 characters. The header name is case insensitive. The allowed characters are specified by RFC 7230. Wildcards are not supported.
+            :param values: The strings to compare against the value of the HTTP header. The maximum size of each string is 128 characters. The comparison strings are case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request, we search them in order until a match is found. If you specify multiple strings, the condition is satisfied if one of the strings matches the value of the HTTP header. To require that all of the strings are a match, create one condition per string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                http_header_config_property = elbv2.CfnListenerRule.HttpHeaderConfigProperty(
+                    http_header_name="httpHeaderName",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40)
+                check_type(argname="argument http_header_name", value=http_header_name, expected_type=type_hints["http_header_name"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if http_header_name is not None:
+                self._values["http_header_name"] = http_header_name
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def http_header_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the HTTP header field.
+
+            The maximum size is 40 characters. The header name is case insensitive. The allowed characters are specified by RFC 7230. Wildcards are not supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-httpheaderconfig-httpheadername
+            '''
+            result = self._values.get("http_header_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The strings to compare against the value of the HTTP header.
+
+            The maximum size of each string is 128 characters. The comparison strings are case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character).
+
+            If the same header appears multiple times in the request, we search them in order until a match is found.
+
+            If you specify multiple strings, the condition is satisfied if one of the strings matches the value of the HTTP header. To require that all of the strings are a match, create one condition per string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httpheaderconfig.html#cfn-elasticloadbalancingv2-listenerrule-httpheaderconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpHeaderConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.HttpRequestMethodConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"values": "values"},
+    )
+    class HttpRequestMethodConfigProperty:
+        def __init__(
+            self,
+            *,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Information about an HTTP method condition.
+
+            HTTP defines a set of request methods, also referred to as HTTP verbs. For more information, see the `HTTP Method Registry <https://docs.aws.amazon.com/https://www.iana.org/assignments/http-methods/http-methods.xhtml>`_ . You can also define custom HTTP methods.
+
+            :param values: The name of the request method. The maximum size is 40 characters. The allowed characters are A-Z, hyphen (-), and underscore (_). The comparison is case sensitive. Wildcards are not supported; therefore, the method name must be an exact match. If you specify multiple strings, the condition is satisfied if one of the strings matches the HTTP request method. We recommend that you route GET and HEAD requests in the same way, because the response to a HEAD request may be cached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httprequestmethodconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                http_request_method_config_property = elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed)
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The name of the request method.
+
+            The maximum size is 40 characters. The allowed characters are A-Z, hyphen (-), and underscore (_). The comparison is case sensitive. Wildcards are not supported; therefore, the method name must be an exact match.
+
+            If you specify multiple strings, the condition is satisfied if one of the strings matches the HTTP request method. We recommend that you route GET and HEAD requests in the same way, because the response to a HEAD request may be cached.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-httprequestmethodconfig.html#cfn-elasticloadbalancingv2-listenerrule-httprequestmethodconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpRequestMethodConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.PathPatternConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"values": "values"},
+    )
+    class PathPatternConfigProperty:
+        def __init__(
+            self,
+            *,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Information about a path pattern condition.
+
+            :param values: The path patterns to compare against the request URL. The maximum size of each string is 128 characters. The comparison is case sensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If you specify multiple strings, the condition is satisfied if one of them matches the request URL. The path pattern is compared only to the path of the URL, not to its query string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-pathpatternconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                path_pattern_config_property = elbv2.CfnListenerRule.PathPatternConfigProperty(
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5)
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The path patterns to compare against the request URL.
+
+            The maximum size of each string is 128 characters. The comparison is case sensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character).
+
+            If you specify multiple strings, the condition is satisfied if one of them matches the request URL. The path pattern is compared only to the path of the URL, not to its query string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-pathpatternconfig.html#cfn-elasticloadbalancingv2-listenerrule-pathpatternconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PathPatternConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.QueryStringConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"values": "values"},
+    )
+    class QueryStringConfigProperty:
+        def __init__(
+            self,
+            *,
+            values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.QueryStringKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Information about a query string condition.
+
+            The query string component of a URI starts after the first '?' character and is terminated by either a '#' character or the end of the URI. A typical query string contains key/value pairs separated by '&' characters. The allowed characters are specified by RFC 3986. Any character can be percentage encoded.
+
+            :param values: The key/value pairs or values to find in the query string. The maximum size of each string is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). To search for a literal '*' or '?' character in a query string, you must escape these characters in ``Values`` using a '' character. If you specify multiple key/value pairs or values, the condition is satisfied if one of them is found in the query string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                query_string_config_property = elbv2.CfnListenerRule.QueryStringConfigProperty(
+                    values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
+                        key="key",
+                        value="value"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4)
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def values(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringKeyValueProperty"]]]]:
+            '''The key/value pairs or values to find in the query string.
+
+            The maximum size of each string is 128 characters. The comparison is case insensitive. The following wildcard characters are supported: * (matches 0 or more characters) and ? (matches exactly 1 character). To search for a literal '*' or '?' character in a query string, you must escape these characters in ``Values`` using a '' character.
+
+            If you specify multiple key/value pairs or values, the condition is satisfied if one of them is found in the query string.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringconfig.html#cfn-elasticloadbalancingv2-listenerrule-querystringconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringKeyValueProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryStringConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.QueryStringKeyValueProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class QueryStringKeyValueProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a key/value pair.
+
+            :param key: The key. You can omit the key.
+            :param value: The value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                query_string_key_value_property = elbv2.CfnListenerRule.QueryStringKeyValueProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key is not None:
+                self._values["key"] = key
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The key.
+
+            You can omit the key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html#cfn-elasticloadbalancingv2-listenerrule-querystringkeyvalue-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''The value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-querystringkeyvalue.html#cfn-elasticloadbalancingv2-listenerrule-querystringkeyvalue-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryStringKeyValueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.RedirectConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "status_code": "statusCode",
+            "host": "host",
+            "path": "path",
+            "port": "port",
+            "protocol": "protocol",
+            "query": "query",
+        },
+    )
+    class RedirectConfigProperty:
+        def __init__(
+            self,
+            *,
+            status_code: builtins.str,
+            host: typing.Optional[builtins.str] = None,
+            path: typing.Optional[builtins.str] = None,
+            port: typing.Optional[builtins.str] = None,
+            protocol: typing.Optional[builtins.str] = None,
+            query: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a redirect action.
+
+            A URI consists of the following components: protocol://hostname:port/path?query. You must modify at least one of the following components to avoid a redirect loop: protocol, hostname, port, or path. Any components that you do not modify retain their original values.
+
+            You can reuse URI components using the following reserved keywords:
+
+            - #{protocol}
+            - #{host}
+            - #{port}
+            - #{path} (the leading "/" is removed)
+            - #{query}
+
+            For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}", or the query to "#{query}&value=xyz".
+
+            :param status_code: The HTTP redirect code. The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
+            :param host: The hostname. This component is not percent-encoded. The hostname can contain #{host}.
+            :param path: The absolute path, starting with the leading "/". This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
+            :param port: The port. You can specify a value from 1 to 65535 or #{port}.
+            :param protocol: The protocol. You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
+            :param query: The query parameters, URL-encoded when necessary, but not percent-encoded. Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                redirect_config_property = elbv2.CfnListenerRule.RedirectConfigProperty(
+                    status_code="statusCode",
+                
+                    # the properties below are optional
+                    host="host",
+                    path="path",
+                    port="port",
+                    protocol="protocol",
+                    query="query"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7)
+                check_type(argname="argument status_code", value=status_code, expected_type=type_hints["status_code"])
+                check_type(argname="argument host", value=host, expected_type=type_hints["host"])
+                check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+                check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status_code": status_code,
+            }
+            if host is not None:
+                self._values["host"] = host
+            if path is not None:
+                self._values["path"] = path
+            if port is not None:
+                self._values["port"] = port
+            if protocol is not None:
+                self._values["protocol"] = protocol
+            if query is not None:
+                self._values["query"] = query
+
+        @builtins.property
+        def status_code(self) -> builtins.str:
+            '''The HTTP redirect code.
+
+            The redirect is either permanent (HTTP 301) or temporary (HTTP 302).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-statuscode
+            '''
+            result = self._values.get("status_code")
+            assert result is not None, "Required property 'status_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def host(self) -> typing.Optional[builtins.str]:
+            '''The hostname.
+
+            This component is not percent-encoded. The hostname can contain #{host}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-host
+            '''
+            result = self._values.get("host")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def path(self) -> typing.Optional[builtins.str]:
+            '''The absolute path, starting with the leading "/".
+
+            This component is not percent-encoded. The path can contain #{host}, #{path}, and #{port}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-path
+            '''
+            result = self._values.get("path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[builtins.str]:
+            '''The port.
+
+            You can specify a value from 1 to 65535 or #{port}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def protocol(self) -> typing.Optional[builtins.str]:
+            '''The protocol.
+
+            You can specify HTTP, HTTPS, or #{protocol}. You can redirect HTTP to HTTP, HTTP to HTTPS, and HTTPS to HTTPS. You can't redirect HTTPS to HTTP.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-protocol
+            '''
+            result = self._values.get("protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def query(self) -> typing.Optional[builtins.str]:
+            '''The query parameters, URL-encoded when necessary, but not percent-encoded.
+
+            Do not include the leading "?", as it is automatically added. You can specify any of the reserved keywords.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html#cfn-elasticloadbalancingv2-listenerrule-redirectconfig-query
+            '''
+            result = self._values.get("query")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RedirectConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.RuleConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "field": "field",
+            "host_header_config": "hostHeaderConfig",
+            "http_header_config": "httpHeaderConfig",
+            "http_request_method_config": "httpRequestMethodConfig",
+            "path_pattern_config": "pathPatternConfig",
+            "query_string_config": "queryStringConfig",
+            "source_ip_config": "sourceIpConfig",
+            "values": "values",
+        },
+    )
+    class RuleConditionProperty:
+        def __init__(
+            self,
+            *,
+            field: typing.Optional[builtins.str] = None,
+            host_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HostHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HttpHeaderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_request_method_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.HttpRequestMethodConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            path_pattern_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.PathPatternConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.QueryStringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnListenerRule.SourceIpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Specifies a condition for a listener rule.
+
+            :param field: The field in the HTTP request. The following are the possible values:. - ``http-header`` - ``http-request-method`` - ``host-header`` - ``path-pattern`` - ``query-string`` - ``source-ip``
+            :param host_header_config: Information for a host header condition. Specify only when ``Field`` is ``host-header`` .
+            :param http_header_config: Information for an HTTP header condition. Specify only when ``Field`` is ``http-header`` .
+            :param http_request_method_config: Information for an HTTP method condition. Specify only when ``Field`` is ``http-request-method`` .
+            :param path_pattern_config: Information for a path pattern condition. Specify only when ``Field`` is ``path-pattern`` .
+            :param query_string_config: Information for a query string condition. Specify only when ``Field`` is ``query-string`` .
+            :param source_ip_config: Information for a source IP condition. Specify only when ``Field`` is ``source-ip`` .
+            :param values: The condition value. Specify only when ``Field`` is ``host-header`` or ``path-pattern`` . Alternatively, to specify multiple host names or multiple path patterns, use ``HostHeaderConfig`` or ``PathPatternConfig`` . If ``Field`` is ``host-header`` and you're not using ``HostHeaderConfig`` , you can specify a single host name (for example, my.example.com). A host name is case insensitive, can be up to 128 characters in length, and can contain any of the following characters. - A-Z, a-z, 0-9 - - . - - (matches 0 or more characters) - ? (matches exactly 1 character) If ``Field`` is ``path-pattern`` and you're not using ``PathPatternConfig`` , you can specify a single path pattern (for example, /img/*). A path pattern is case-sensitive, can be up to 128 characters in length, and can contain any of the following characters. - A-Z, a-z, 0-9 - _ - . $ / ~ " ' @ : + - & (using &) - - (matches 0 or more characters) - ? (matches exactly 1 character)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                rule_condition_property = elbv2.CfnListenerRule.RuleConditionProperty(
+                    field="field",
+                    host_header_config=elbv2.CfnListenerRule.HostHeaderConfigProperty(
+                        values=["values"]
+                    ),
+                    http_header_config=elbv2.CfnListenerRule.HttpHeaderConfigProperty(
+                        http_header_name="httpHeaderName",
+                        values=["values"]
+                    ),
+                    http_request_method_config=elbv2.CfnListenerRule.HttpRequestMethodConfigProperty(
+                        values=["values"]
+                    ),
+                    path_pattern_config=elbv2.CfnListenerRule.PathPatternConfigProperty(
+                        values=["values"]
+                    ),
+                    query_string_config=elbv2.CfnListenerRule.QueryStringConfigProperty(
+                        values=[elbv2.CfnListenerRule.QueryStringKeyValueProperty(
+                            key="key",
+                            value="value"
+                        )]
+                    ),
+                    source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
+                        values=["values"]
+                    ),
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c)
+                check_type(argname="argument field", value=field, expected_type=type_hints["field"])
+                check_type(argname="argument host_header_config", value=host_header_config, expected_type=type_hints["host_header_config"])
+                check_type(argname="argument http_header_config", value=http_header_config, expected_type=type_hints["http_header_config"])
+                check_type(argname="argument http_request_method_config", value=http_request_method_config, expected_type=type_hints["http_request_method_config"])
+                check_type(argname="argument path_pattern_config", value=path_pattern_config, expected_type=type_hints["path_pattern_config"])
+                check_type(argname="argument query_string_config", value=query_string_config, expected_type=type_hints["query_string_config"])
+                check_type(argname="argument source_ip_config", value=source_ip_config, expected_type=type_hints["source_ip_config"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if field is not None:
+                self._values["field"] = field
+            if host_header_config is not None:
+                self._values["host_header_config"] = host_header_config
+            if http_header_config is not None:
+                self._values["http_header_config"] = http_header_config
+            if http_request_method_config is not None:
+                self._values["http_request_method_config"] = http_request_method_config
+            if path_pattern_config is not None:
+                self._values["path_pattern_config"] = path_pattern_config
+            if query_string_config is not None:
+                self._values["query_string_config"] = query_string_config
+            if source_ip_config is not None:
+                self._values["source_ip_config"] = source_ip_config
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def field(self) -> typing.Optional[builtins.str]:
+            '''The field in the HTTP request. The following are the possible values:.
+
+            - ``http-header``
+            - ``http-request-method``
+            - ``host-header``
+            - ``path-pattern``
+            - ``query-string``
+            - ``source-ip``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-field
+            '''
+            result = self._values.get("field")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def host_header_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HostHeaderConfigProperty"]]:
+            '''Information for a host header condition.
+
+            Specify only when ``Field`` is ``host-header`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-hostheaderconfig
+            '''
+            result = self._values.get("host_header_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HostHeaderConfigProperty"]], result)
+
+        @builtins.property
+        def http_header_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpHeaderConfigProperty"]]:
+            '''Information for an HTTP header condition.
+
+            Specify only when ``Field`` is ``http-header`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httpheaderconfig
+            '''
+            result = self._values.get("http_header_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpHeaderConfigProperty"]], result)
+
+        @builtins.property
+        def http_request_method_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpRequestMethodConfigProperty"]]:
+            '''Information for an HTTP method condition.
+
+            Specify only when ``Field`` is ``http-request-method`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-httprequestmethodconfig
+            '''
+            result = self._values.get("http_request_method_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.HttpRequestMethodConfigProperty"]], result)
+
+        @builtins.property
+        def path_pattern_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.PathPatternConfigProperty"]]:
+            '''Information for a path pattern condition.
+
+            Specify only when ``Field`` is ``path-pattern`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-pathpatternconfig
+            '''
+            result = self._values.get("path_pattern_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.PathPatternConfigProperty"]], result)
+
+        @builtins.property
+        def query_string_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringConfigProperty"]]:
+            '''Information for a query string condition.
+
+            Specify only when ``Field`` is ``query-string`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-querystringconfig
+            '''
+            result = self._values.get("query_string_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.QueryStringConfigProperty"]], result)
+
+        @builtins.property
+        def source_ip_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.SourceIpConfigProperty"]]:
+            '''Information for a source IP condition.
+
+            Specify only when ``Field`` is ``source-ip`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-sourceipconfig
+            '''
+            result = self._values.get("source_ip_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnListenerRule.SourceIpConfigProperty"]], result)
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The condition value.
+
+            Specify only when ``Field`` is ``host-header`` or ``path-pattern`` . Alternatively, to specify multiple host names or multiple path patterns, use ``HostHeaderConfig`` or ``PathPatternConfig`` .
+
+            If ``Field`` is ``host-header`` and you're not using ``HostHeaderConfig`` , you can specify a single host name (for example, my.example.com). A host name is case insensitive, can be up to 128 characters in length, and can contain any of the following characters.
+
+            - A-Z, a-z, 0-9
+            -
+              - .
+
+            -
+              - (matches 0 or more characters)
+
+            - ? (matches exactly 1 character)
+
+            If ``Field`` is ``path-pattern`` and you're not using ``PathPatternConfig`` , you can specify a single path pattern (for example, /img/*). A path pattern is case-sensitive, can be up to 128 characters in length, and can contain any of the following characters.
+
+            - A-Z, a-z, 0-9
+            - _ - . $ / ~ " ' @ : +
+            - & (using &)
+            -
+              - (matches 0 or more characters)
+
+            - ? (matches exactly 1 character)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rulecondition.html#cfn-elasticloadbalancingv2-listenerrule-rulecondition-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.SourceIpConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"values": "values"},
+    )
+    class SourceIpConfigProperty:
+        def __init__(
+            self,
+            *,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Information about a source IP condition.
+
+            You can use this condition to route based on the IP address of the source that connects to the load balancer. If a client is behind a proxy, this is the IP address of the proxy not the IP address of the client.
+
+            :param values: The source IP addresses, in CIDR format. You can use both IPv4 and IPv6 addresses. Wildcards are not supported. If you specify multiple addresses, the condition is satisfied if the source IP address of the request matches one of the CIDR blocks. This condition is not satisfied by the addresses in the X-Forwarded-For header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                source_ip_config_property = elbv2.CfnListenerRule.SourceIpConfigProperty(
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de)
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if values is not None:
+                self._values["values"] = values
+
+        @builtins.property
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The source IP addresses, in CIDR format. You can use both IPv4 and IPv6 addresses. Wildcards are not supported.
+
+            If you specify multiple addresses, the condition is satisfied if the source IP address of the request matches one of the CIDR blocks. This condition is not satisfied by the addresses in the X-Forwarded-For header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html#cfn-elasticloadbalancingv2-listenerrule-sourceipconfig-values
+            '''
+            result = self._values.get("values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceIpConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.TargetGroupStickinessConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"duration_seconds": "durationSeconds", "enabled": "enabled"},
+    )
+    class TargetGroupStickinessConfigProperty:
+        def __init__(
+            self,
+            *,
+            duration_seconds: typing.Optional[jsii.Number] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Information about the target group stickiness for a rule.
+
+            :param duration_seconds: The time period, in seconds, during which requests from a client should be routed to the same target group. The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
+            :param enabled: Indicates whether target group stickiness is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_group_stickiness_config_property = elbv2.CfnListenerRule.TargetGroupStickinessConfigProperty(
+                    duration_seconds=123,
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc)
+                check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if duration_seconds is not None:
+                self._values["duration_seconds"] = duration_seconds
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The time period, in seconds, during which requests from a client should be routed to the same target group.
+
+            The range is 1-604800 seconds (7 days). You must specify this value when enabling target group stickiness.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig-durationseconds
+            '''
+            result = self._values.get("duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether target group stickiness is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig.html#cfn-elasticloadbalancingv2-listenerrule-targetgroupstickinessconfig-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetGroupStickinessConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.TargetGroupTupleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target_group_arn": "targetGroupArn", "weight": "weight"},
+    )
+    class TargetGroupTupleProperty:
+        def __init__(
+            self,
+            *,
+            target_group_arn: typing.Optional[builtins.str] = None,
+            weight: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Information about how traffic will be distributed between multiple target groups in a forward rule.
+
+            :param target_group_arn: The Amazon Resource Name (ARN) of the target group.
+            :param weight: The weight. The range is 0 to 999.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_group_tuple_property = elbv2.CfnListenerRule.TargetGroupTupleProperty(
+                    target_group_arn="targetGroupArn",
+                    weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d)
+                check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_group_arn is not None:
+                self._values["target_group_arn"] = target_group_arn
+            if weight is not None:
+                self._values["weight"] = weight
+
+        @builtins.property
+        def target_group_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the target group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html#cfn-elasticloadbalancingv2-listenerrule-targetgrouptuple-targetgrouparn
+            '''
+            result = self._values.get("target_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def weight(self) -> typing.Optional[jsii.Number]:
+            '''The weight.
+
+            The range is 0 to 999.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-targetgrouptuple.html#cfn-elasticloadbalancingv2-listenerrule-targetgrouptuple-weight
+            '''
+            result = self._values.get("weight")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetGroupTupleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ILoadBalancerRef, _ITaggable_36806126)
+class CfnLoadBalancer(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer",
+):
+    '''Specifies an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::LoadBalancer
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_load_balancer = elbv2.CfnLoadBalancer(self, "MyCfnLoadBalancer",
+            enable_prefix_for_ipv6_source_nat="enablePrefixForIpv6SourceNat",
+            enforce_security_group_inbound_rules_on_private_link_traffic="enforceSecurityGroupInboundRulesOnPrivateLinkTraffic",
+            ip_address_type="ipAddressType",
+            ipv4_ipam_pool_id="ipv4IpamPoolId",
+            load_balancer_attributes=[elbv2.CfnLoadBalancer.LoadBalancerAttributeProperty(
+                key="key",
+                value="value"
+            )],
+            minimum_load_balancer_capacity=elbv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty(
+                capacity_units=123
+            ),
+            name="name",
+            scheme="scheme",
+            security_groups=["securityGroups"],
+            subnet_mappings=[elbv2.CfnLoadBalancer.SubnetMappingProperty(
+                subnet_id="subnetId",
+        
+                # the properties below are optional
+                allocation_id="allocationId",
+                i_pv6_address="iPv6Address",
+                private_iPv4_address="privateIPv4Address",
+                source_nat_ipv6_prefix="sourceNatIpv6Prefix"
+            )],
+            subnets=["subnets"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            type="type"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
+        enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
+        load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.LoadBalancerAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.MinimumLoadBalancerCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        scheme: typing.Optional[builtins.str] = None,
+        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoadBalancer.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param enable_prefix_for_ipv6_source_nat: [Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT. The IP address type must be ``dualstack`` . The default value is ``off`` .
+        :param enforce_security_group_inbound_rules_on_private_link_traffic: Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through AWS PrivateLink . The default is ``on`` . You can't configure this property on a Network Load Balancer unless you associated a security group with the load balancer when you created it.
+        :param ip_address_type: The IP address type. Internal load balancers must use ``ipv4`` . [Application Load Balancers] The possible values are ``ipv4`` (IPv4 addresses), ``dualstack`` (IPv4 and IPv6 addresses), and ``dualstack-without-public-ipv4`` (public IPv6 addresses and private IPv4 and IPv6 addresses). Application Load Balancer authentication supports IPv4 addresses only when connecting to an Identity Provider (IdP) or Amazon Cognito endpoint. Without a public IPv4 address the load balancer can't complete the authentication process, resulting in HTTP 500 errors. [Network Load Balancers and Gateway Load Balancers] The possible values are ``ipv4`` (IPv4 addresses) and ``dualstack`` (IPv4 and IPv6 addresses).
+        :param ipv4_ipam_pool_id: The ID of the IPv4 IPAM pool.
+        :param load_balancer_attributes: The load balancer attributes. Attributes that you do not modify retain their current values.
+        :param minimum_load_balancer_capacity: The minimum capacity for a load balancer.
+        :param name: The name of the load balancer. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, must not begin or end with a hyphen, and must not begin with "internal-". If you don't specify a name, AWS CloudFormation generates a unique physical ID for the load balancer. If you specify a name, you cannot perform updates that require replacement of this resource, but you can perform other updates. To replace the resource, specify a new name.
+        :param scheme: The nodes of an Internet-facing load balancer have public IP addresses. The DNS name of an Internet-facing load balancer is publicly resolvable to the public IP addresses of the nodes. Therefore, Internet-facing load balancers can route requests from clients over the internet. The nodes of an internal load balancer have only private IP addresses. The DNS name of an internal load balancer is publicly resolvable to the private IP addresses of the nodes. Therefore, internal load balancers can route requests only from clients with access to the VPC for the load balancer. The default is an Internet-facing load balancer. You can't specify a scheme for a Gateway Load Balancer.
+        :param security_groups: [Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.
+        :param subnet_mappings: The IDs of the subnets. You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both. [Application Load Balancers] You must specify subnets from at least two Availability Zones. You can't specify Elastic IP addresses for your subnets. [Application Load Balancers on Outposts] You must specify one Outpost subnet. [Application Load Balancers on Local Zones] You can specify subnets from one or more Local Zones. [Network Load Balancers] You can specify subnets from one or more Availability Zones. You can specify one Elastic IP address per subnet if you need static IP addresses for your internet-facing load balancer. For internal load balancers, you can specify one private IP address per subnet from the IPv4 range of the subnet. For internet-facing load balancer, you can specify one IPv6 address per subnet. [Gateway Load Balancers] You can specify subnets from one or more Availability Zones. You can't specify Elastic IP addresses for your subnets.
+        :param subnets: The IDs of the subnets. You can specify only one subnet per Availability Zone. You must specify either subnets or subnet mappings, but not both. To specify an Elastic IP address, specify subnet mappings instead of subnets. [Application Load Balancers] You must specify subnets from at least two Availability Zones. [Application Load Balancers on Outposts] You must specify one Outpost subnet. [Application Load Balancers on Local Zones] You can specify subnets from one or more Local Zones. [Network Load Balancers and Gateway Load Balancers] You can specify subnets from one or more Availability Zones.
+        :param tags: The tags to assign to the load balancer.
+        :param type: The type of load balancer. The default is ``application`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLoadBalancerProps(
+            enable_prefix_for_ipv6_source_nat=enable_prefix_for_ipv6_source_nat,
+            enforce_security_group_inbound_rules_on_private_link_traffic=enforce_security_group_inbound_rules_on_private_link_traffic,
+            ip_address_type=ip_address_type,
+            ipv4_ipam_pool_id=ipv4_ipam_pool_id,
+            load_balancer_attributes=load_balancer_attributes,
+            minimum_load_balancer_capacity=minimum_load_balancer_capacity,
+            name=name,
+            scheme=scheme,
+            security_groups=security_groups,
+            subnet_mappings=subnet_mappings,
+            subnets=subnets,
+            tags=tags,
+            type=type,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCanonicalHostedZoneId")
+    def attr_canonical_hosted_zone_id(self) -> builtins.str:
+        '''The ID of the Amazon Route 53 hosted zone associated with the load balancer.
+
+        For example, ``Z2P70J7EXAMPLE`` .
+
+        :cloudformationAttribute: CanonicalHostedZoneID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCanonicalHostedZoneId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDnsName")
+    def attr_dns_name(self) -> builtins.str:
+        '''The DNS name for the load balancer.
+
+        For example, ``my-load-balancer-424835706.us-west-2.elb.amazonaws.com`` .
+
+        :cloudformationAttribute: DNSName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDnsName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLoadBalancerArn")
+    def attr_load_balancer_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the load balancer.
+
+        :cloudformationAttribute: LoadBalancerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLoadBalancerFullName")
+    def attr_load_balancer_full_name(self) -> builtins.str:
+        '''The full name of the load balancer.
+
+        For example, ``app/my-load-balancer/50dc6c495c0c9188`` .
+
+        :cloudformationAttribute: LoadBalancerFullName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerFullName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLoadBalancerName")
+    def attr_load_balancer_name(self) -> builtins.str:
+        '''The name of the load balancer.
+
+        For example, ``my-load-balancer`` .
+
+        :cloudformationAttribute: LoadBalancerName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLoadBalancerName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSecurityGroups")
+    def attr_security_groups(self) -> typing.List[builtins.str]:
+        '''The IDs of the security groups for the load balancer.
+
+        :cloudformationAttribute: SecurityGroups
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrSecurityGroups"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="loadBalancerRef")
+    def load_balancer_ref(self) -> LoadBalancerReference:
+        '''A reference to a LoadBalancer resource.'''
+        return typing.cast(LoadBalancerReference, jsii.get(self, "loadBalancerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enablePrefixForIpv6SourceNat")
+    def enable_prefix_for_ipv6_source_nat(self) -> typing.Optional[builtins.str]:
+        '''[Network Load Balancers with UDP listeners] Indicates whether to use an IPv6 prefix from each subnet for source NAT.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enablePrefixForIpv6SourceNat"))
+
+    @enable_prefix_for_ipv6_source_nat.setter
+    def enable_prefix_for_ipv6_source_nat(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enablePrefixForIpv6SourceNat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enforceSecurityGroupInboundRulesOnPrivateLinkTraffic")
+    def enforce_security_group_inbound_rules_on_private_link_traffic(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through AWS PrivateLink .'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "enforceSecurityGroupInboundRulesOnPrivateLinkTraffic"))
+
+    @enforce_security_group_inbound_rules_on_private_link_traffic.setter
+    def enforce_security_group_inbound_rules_on_private_link_traffic(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enforceSecurityGroupInboundRulesOnPrivateLinkTraffic", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type.
+
+        Internal load balancers must use ``ipv4`` .
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipv4IpamPoolId")
+    def ipv4_ipam_pool_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the IPv4 IPAM pool.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipv4IpamPoolId"))
+
+    @ipv4_ipam_pool_id.setter
+    def ipv4_ipam_pool_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipv4IpamPoolId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loadBalancerAttributes")
+    def load_balancer_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]]:
+        '''The load balancer attributes.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]], jsii.get(self, "loadBalancerAttributes"))
+
+    @load_balancer_attributes.setter
+    def load_balancer_attributes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.LoadBalancerAttributeProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loadBalancerAttributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="minimumLoadBalancerCapacity")
+    def minimum_load_balancer_capacity(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]]:
+        '''The minimum capacity for a load balancer.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]], jsii.get(self, "minimumLoadBalancerCapacity"))
+
+    @minimum_load_balancer_capacity.setter
+    def minimum_load_balancer_capacity(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.MinimumLoadBalancerCapacityProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "minimumLoadBalancerCapacity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the load balancer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheme")
+    def scheme(self) -> typing.Optional[builtins.str]:
+        '''The nodes of an Internet-facing load balancer have public IP addresses.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scheme"))
+
+    @scheme.setter
+    def scheme(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheme", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="securityGroups")
+    def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''[Application Load Balancers and Network Load Balancers] The IDs of the security groups for the load balancer.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "securityGroups"))
+
+    @security_groups.setter
+    def security_groups(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetMappings")
+    def subnet_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]]:
+        '''The IDs of the subnets.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
+
+    @subnet_mappings.setter
+    def subnet_mappings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoadBalancer.SubnetMappingProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnets")
+    def subnets(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The IDs of the subnets.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnets"))
+
+    @subnets.setter
+    def subnets(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to assign to the load balancer.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of load balancer.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.LoadBalancerAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class LoadBalancerAttributeProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies an attribute for an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
+
+            :param key: The name of the attribute. The following attributes are supported by all load balancers: - ``deletion_protection.enabled`` - Indicates whether deletion protection is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``load_balancing.cross_zone.enabled`` - Indicates whether cross-zone load balancing is enabled. The possible values are ``true`` and ``false`` . The default for Network Load Balancers and Gateway Load Balancers is ``false`` . The default for Application Load Balancers is ``true`` , and can't be changed. The following attributes are supported by both Application Load Balancers and Network Load Balancers: - ``access_logs.s3.enabled`` - Indicates whether access logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``access_logs.s3.bucket`` - The name of the S3 bucket for the access logs. This attribute is required if access logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket. - ``access_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the access logs. - ``ipv6.deny_all_igw_traffic`` - Blocks internet gateway (IGW) access to the load balancer. It is set to ``false`` for internet-facing load balancers and ``true`` for internal load balancers, preventing unintended access to your internal load balancer through an internet gateway. - ``zonal_shift.config.enabled`` - Indicates whether zonal shift is enabled. The possible values are ``true`` and ``false`` . The default is ``false`` . The following attributes are supported by only Application Load Balancers: - ``idle_timeout.timeout_seconds`` - The idle timeout value, in seconds. The valid range is 1-4000 seconds. The default is 60 seconds. - ``client_keep_alive.seconds`` - The client keep alive value, in seconds. The valid range is 60-604800 seconds. The default is 3600 seconds. - ``connection_logs.s3.enabled`` - Indicates whether connection logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``connection_logs.s3.bucket`` - The name of the S3 bucket for the connection logs. This attribute is required if connection logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket. - ``connection_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the connection logs. - ``routing.http.desync_mitigation_mode`` - Determines how the load balancer handles requests that might pose a security risk to your application. The possible values are ``monitor`` , ``defensive`` , and ``strictest`` . The default is ``defensive`` . - ``routing.http.drop_invalid_header_fields.enabled`` - Indicates whether HTTP headers with invalid header fields are removed by the load balancer ( ``true`` ) or routed to targets ( ``false`` ). The default is ``false`` . - ``routing.http.preserve_host_header.enabled`` - Indicates whether the Application Load Balancer should preserve the ``Host`` header in the HTTP request and send it to the target without any change. The possible values are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.x_amzn_tls_version_and_cipher_suite.enabled`` - Indicates whether the two headers ( ``x-amzn-tls-version`` and ``x-amzn-tls-cipher-suite`` ), which contain information about the negotiated TLS version and cipher suite, are added to the client request before sending it to the target. The ``x-amzn-tls-version`` header has information about the TLS protocol version negotiated with the client, and the ``x-amzn-tls-cipher-suite`` header has information about the cipher suite negotiated with the client. Both headers are in OpenSSL format. The possible values for the attribute are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.xff_client_port.enabled`` - Indicates whether the ``X-Forwarded-For`` header should preserve the source port that the client used to connect to the load balancer. The possible values are ``true`` and ``false`` . The default is ``false`` . - ``routing.http.xff_header_processing.mode`` - Enables you to modify, preserve, or remove the ``X-Forwarded-For`` header in the HTTP request before the Application Load Balancer sends the request to the target. The possible values are ``append`` , ``preserve`` , and ``remove`` . The default is ``append`` . - If the value is ``append`` , the Application Load Balancer adds the client IP address (of the last hop) to the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets. - If the value is ``preserve`` the Application Load Balancer preserves the ``X-Forwarded-For`` header in the HTTP request, and sends it to targets without any change. - If the value is ``remove`` , the Application Load Balancer removes the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets. - ``routing.http2.enabled`` - Indicates whether clients can connect to the load balancer using HTTP/2. If ``true`` , clients can connect using HTTP/2 or HTTP/1.1. However, all client requests are subject to the stricter HTTP/2 header validation rules. For example, message header names must contain only alphanumeric characters and hyphens. If ``false`` , clients must connect using HTTP/1.1. The default is ``true`` . - ``waf.fail_open.enabled`` - Indicates whether to allow a WAF-enabled load balancer to route requests to targets if it is unable to forward the request to AWS WAF. The possible values are ``true`` and ``false`` . The default is ``false`` . The following attributes are supported by only Network Load Balancers: - ``dns_record.client_routing_policy`` - Indicates how traffic is distributed among the load balancer Availability Zones. The possible values are ``availability_zone_affinity`` with 100 percent zonal affinity, ``partial_availability_zone_affinity`` with 85 percent zonal affinity, and ``any_availability_zone`` with 0 percent zonal affinity. - ``secondary_ips.auto_assigned.per_subnet`` - The number of secondary IP addresses to configure for your load balancer nodes. Use to address port allocation errors if you can't add targets. The valid range is 0 to 7. The default is 0. After you set this value, you can't decrease it.
+            :param value: The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                load_balancer_attribute_property = elbv2.CfnLoadBalancer.LoadBalancerAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key is not None:
+                self._values["key"] = key
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The name of the attribute.
+
+            The following attributes are supported by all load balancers:
+
+            - ``deletion_protection.enabled`` - Indicates whether deletion protection is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
+            - ``load_balancing.cross_zone.enabled`` - Indicates whether cross-zone load balancing is enabled. The possible values are ``true`` and ``false`` . The default for Network Load Balancers and Gateway Load Balancers is ``false`` . The default for Application Load Balancers is ``true`` , and can't be changed.
+
+            The following attributes are supported by both Application Load Balancers and Network Load Balancers:
+
+            - ``access_logs.s3.enabled`` - Indicates whether access logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` .
+            - ``access_logs.s3.bucket`` - The name of the S3 bucket for the access logs. This attribute is required if access logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket.
+            - ``access_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the access logs.
+            - ``ipv6.deny_all_igw_traffic`` - Blocks internet gateway (IGW) access to the load balancer. It is set to ``false`` for internet-facing load balancers and ``true`` for internal load balancers, preventing unintended access to your internal load balancer through an internet gateway.
+            - ``zonal_shift.config.enabled`` - Indicates whether zonal shift is enabled. The possible values are ``true`` and ``false`` . The default is ``false`` .
+
+            The following attributes are supported by only Application Load Balancers:
+
+            - ``idle_timeout.timeout_seconds`` - The idle timeout value, in seconds. The valid range is 1-4000 seconds. The default is 60 seconds.
+            - ``client_keep_alive.seconds`` - The client keep alive value, in seconds. The valid range is 60-604800 seconds. The default is 3600 seconds.
+            - ``connection_logs.s3.enabled`` - Indicates whether connection logs are enabled. The value is ``true`` or ``false`` . The default is ``false`` .
+            - ``connection_logs.s3.bucket`` - The name of the S3 bucket for the connection logs. This attribute is required if connection logs are enabled. The bucket must exist in the same region as the load balancer and have a bucket policy that grants Elastic Load Balancing permissions to write to the bucket.
+            - ``connection_logs.s3.prefix`` - The prefix for the location in the S3 bucket for the connection logs.
+            - ``routing.http.desync_mitigation_mode`` - Determines how the load balancer handles requests that might pose a security risk to your application. The possible values are ``monitor`` , ``defensive`` , and ``strictest`` . The default is ``defensive`` .
+            - ``routing.http.drop_invalid_header_fields.enabled`` - Indicates whether HTTP headers with invalid header fields are removed by the load balancer ( ``true`` ) or routed to targets ( ``false`` ). The default is ``false`` .
+            - ``routing.http.preserve_host_header.enabled`` - Indicates whether the Application Load Balancer should preserve the ``Host`` header in the HTTP request and send it to the target without any change. The possible values are ``true`` and ``false`` . The default is ``false`` .
+            - ``routing.http.x_amzn_tls_version_and_cipher_suite.enabled`` - Indicates whether the two headers ( ``x-amzn-tls-version`` and ``x-amzn-tls-cipher-suite`` ), which contain information about the negotiated TLS version and cipher suite, are added to the client request before sending it to the target. The ``x-amzn-tls-version`` header has information about the TLS protocol version negotiated with the client, and the ``x-amzn-tls-cipher-suite`` header has information about the cipher suite negotiated with the client. Both headers are in OpenSSL format. The possible values for the attribute are ``true`` and ``false`` . The default is ``false`` .
+            - ``routing.http.xff_client_port.enabled`` - Indicates whether the ``X-Forwarded-For`` header should preserve the source port that the client used to connect to the load balancer. The possible values are ``true`` and ``false`` . The default is ``false`` .
+            - ``routing.http.xff_header_processing.mode`` - Enables you to modify, preserve, or remove the ``X-Forwarded-For`` header in the HTTP request before the Application Load Balancer sends the request to the target. The possible values are ``append`` , ``preserve`` , and ``remove`` . The default is ``append`` .
+            - If the value is ``append`` , the Application Load Balancer adds the client IP address (of the last hop) to the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets.
+            - If the value is ``preserve`` the Application Load Balancer preserves the ``X-Forwarded-For`` header in the HTTP request, and sends it to targets without any change.
+            - If the value is ``remove`` , the Application Load Balancer removes the ``X-Forwarded-For`` header in the HTTP request before it sends it to targets.
+            - ``routing.http2.enabled`` - Indicates whether clients can connect to the load balancer using HTTP/2. If ``true`` , clients can connect using HTTP/2 or HTTP/1.1. However, all client requests are subject to the stricter HTTP/2 header validation rules. For example, message header names must contain only alphanumeric characters and hyphens. If ``false`` , clients must connect using HTTP/1.1. The default is ``true`` .
+            - ``waf.fail_open.enabled`` - Indicates whether to allow a WAF-enabled load balancer to route requests to targets if it is unable to forward the request to AWS WAF. The possible values are ``true`` and ``false`` . The default is ``false`` .
+
+            The following attributes are supported by only Network Load Balancers:
+
+            - ``dns_record.client_routing_policy`` - Indicates how traffic is distributed among the load balancer Availability Zones. The possible values are ``availability_zone_affinity`` with 100 percent zonal affinity, ``partial_availability_zone_affinity`` with 85 percent zonal affinity, and ``any_availability_zone`` with 0 percent zonal affinity.
+            - ``secondary_ips.auto_assigned.per_subnet`` - The number of secondary IP addresses to configure for your load balancer nodes. Use to address port allocation errors if you can't add targets. The valid range is 0 to 7. The default is 0. After you set this value, you can't decrease it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattribute-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-loadbalancerattribute.html#cfn-elasticloadbalancingv2-loadbalancer-loadbalancerattribute-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoadBalancerAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty",
+        jsii_struct_bases=[],
+        name_mapping={"capacity_units": "capacityUnits"},
+    )
+    class MinimumLoadBalancerCapacityProperty:
+        def __init__(self, *, capacity_units: jsii.Number) -> None:
+            '''The minimum capacity for a load balancer.
+
+            :param capacity_units: The number of capacity units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                minimum_load_balancer_capacity_property = elbv2.CfnLoadBalancer.MinimumLoadBalancerCapacityProperty(
+                    capacity_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc)
+                check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "capacity_units": capacity_units,
+            }
+
+        @builtins.property
+        def capacity_units(self) -> jsii.Number:
+            '''The number of capacity units.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity.html#cfn-elasticloadbalancingv2-loadbalancer-minimumloadbalancercapacity-capacityunits
+            '''
+            result = self._values.get("capacity_units")
+            assert result is not None, "Required property 'capacity_units' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MinimumLoadBalancerCapacityProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnLoadBalancer.SubnetMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "subnet_id": "subnetId",
+            "allocation_id": "allocationId",
+            "i_pv6_address": "iPv6Address",
+            "private_i_pv4_address": "privateIPv4Address",
+            "source_nat_ipv6_prefix": "sourceNatIpv6Prefix",
+        },
+    )
+    class SubnetMappingProperty:
+        def __init__(
+            self,
+            *,
+            subnet_id: builtins.str,
+            allocation_id: typing.Optional[builtins.str] = None,
+            i_pv6_address: typing.Optional[builtins.str] = None,
+            private_i_pv4_address: typing.Optional[builtins.str] = None,
+            source_nat_ipv6_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies a subnet for a load balancer.
+
+            :param subnet_id: The ID of the subnet.
+            :param allocation_id: [Network Load Balancers] The allocation ID of the Elastic IP address for an internet-facing load balancer.
+            :param i_pv6_address: [Network Load Balancers] The IPv6 address.
+            :param private_i_pv4_address: [Network Load Balancers] The private IPv4 address for an internal load balancer.
+            :param source_nat_ipv6_prefix: [Network Load Balancers with UDP listeners] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or ``auto_assigned`` to use an IPv6 prefix selected at random from the subnet CIDR block.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                subnet_mapping_property = elbv2.CfnLoadBalancer.SubnetMappingProperty(
+                    subnet_id="subnetId",
+                
+                    # the properties below are optional
+                    allocation_id="allocationId",
+                    i_pv6_address="iPv6Address",
+                    private_iPv4_address="privateIPv4Address",
+                    source_nat_ipv6_prefix="sourceNatIpv6Prefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11)
+                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+                check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
+                check_type(argname="argument i_pv6_address", value=i_pv6_address, expected_type=type_hints["i_pv6_address"])
+                check_type(argname="argument private_i_pv4_address", value=private_i_pv4_address, expected_type=type_hints["private_i_pv4_address"])
+                check_type(argname="argument source_nat_ipv6_prefix", value=source_nat_ipv6_prefix, expected_type=type_hints["source_nat_ipv6_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "subnet_id": subnet_id,
+            }
+            if allocation_id is not None:
+                self._values["allocation_id"] = allocation_id
+            if i_pv6_address is not None:
+                self._values["i_pv6_address"] = i_pv6_address
+            if private_i_pv4_address is not None:
+                self._values["private_i_pv4_address"] = private_i_pv4_address
+            if source_nat_ipv6_prefix is not None:
+                self._values["source_nat_ipv6_prefix"] = source_nat_ipv6_prefix
+
+        @builtins.property
+        def subnet_id(self) -> builtins.str:
+            '''The ID of the subnet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-subnetid
+            '''
+            result = self._values.get("subnet_id")
+            assert result is not None, "Required property 'subnet_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def allocation_id(self) -> typing.Optional[builtins.str]:
+            '''[Network Load Balancers] The allocation ID of the Elastic IP address for an internet-facing load balancer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-allocationid
+            '''
+            result = self._values.get("allocation_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def i_pv6_address(self) -> typing.Optional[builtins.str]:
+            '''[Network Load Balancers] The IPv6 address.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-ipv6address
+            '''
+            result = self._values.get("i_pv6_address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def private_i_pv4_address(self) -> typing.Optional[builtins.str]:
+            '''[Network Load Balancers] The private IPv4 address for an internal load balancer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-privateipv4address
+            '''
+            result = self._values.get("private_i_pv4_address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_nat_ipv6_prefix(self) -> typing.Optional[builtins.str]:
+            '''[Network Load Balancers with UDP listeners] The IPv6 prefix to use for source NAT.
+
+            Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or ``auto_assigned`` to use an IPv6 prefix selected at random from the subnet CIDR block.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-loadbalancer-subnetmapping.html#cfn-elasticloadbalancingv2-loadbalancer-subnetmapping-sourcenatipv6prefix
+            '''
+            result = self._values.get("source_nat_ipv6_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SubnetMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ITargetGroupRef, _ITaggable_36806126)
+class CfnTargetGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup",
+):
+    '''Specifies a target group for an Application Load Balancer, a Network Load Balancer, or a Gateway Load Balancer.
+
+    Before you register a Lambda function as a target, you must create a ``AWS::Lambda::Permission`` resource that grants the Elastic Load Balancing service principal permission to invoke the Lambda function.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-targetgroup.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::TargetGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_target_group = elbv2.CfnTargetGroup(self, "MyCfnTargetGroup",
+            health_check_enabled=False,
+            health_check_interval_seconds=123,
+            health_check_path="healthCheckPath",
+            health_check_port="healthCheckPort",
+            health_check_protocol="healthCheckProtocol",
+            health_check_timeout_seconds=123,
+            healthy_threshold_count=123,
+            ip_address_type="ipAddressType",
+            matcher=elbv2.CfnTargetGroup.MatcherProperty(
+                grpc_code="grpcCode",
+                http_code="httpCode"
+            ),
+            name="name",
+            port=123,
+            protocol="protocol",
+            protocol_version="protocolVersion",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            target_group_attributes=[elbv2.CfnTargetGroup.TargetGroupAttributeProperty(
+                key="key",
+                value="value"
+            )],
+            targets=[elbv2.CfnTargetGroup.TargetDescriptionProperty(
+                id="id",
+        
+                # the properties below are optional
+                availability_zone="availabilityZone",
+                port=123
+            )],
+            target_type="targetType",
+            unhealthy_threshold_count=123,
+            vpc_id="vpcId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        health_check_interval_seconds: typing.Optional[jsii.Number] = None,
+        health_check_path: typing.Optional[builtins.str] = None,
+        health_check_port: typing.Optional[builtins.str] = None,
+        health_check_protocol: typing.Optional[builtins.str] = None,
+        health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
+        healthy_threshold_count: typing.Optional[jsii.Number] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.MatcherProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        protocol: typing.Optional[builtins.str] = None,
+        protocol_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetGroupAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        target_type: typing.Optional[builtins.str] = None,
+        unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param health_check_enabled: Indicates whether health checks are enabled. If the target type is ``lambda`` , health checks are disabled by default but can be enabled. If the target type is ``instance`` , ``ip`` , or ``alb`` , health checks are always enabled and can't be disabled.
+        :param health_check_interval_seconds: The approximate amount of time, in seconds, between health checks of an individual target. The range is 5-300. If the target group protocol is TCP, TLS, UDP, TCP_UDP, HTTP or HTTPS, the default is 30 seconds. If the target group protocol is GENEVE, the default is 10 seconds. If the target type is ``lambda`` , the default is 35 seconds.
+        :param health_check_path: [HTTP/HTTPS health checks] The destination for health checks on the targets. [HTTP1 or HTTP2 protocol version] The ping path. The default is /. [GRPC protocol version] The path of a custom health check method with the format /package.service/method. The default is / AWS .ALB/healthcheck.
+        :param health_check_port: The port the load balancer uses when performing health checks on targets. If the protocol is HTTP, HTTPS, TCP, TLS, UDP, or TCP_UDP, the default is ``traffic-port`` , which is the port on which each target receives traffic from the load balancer. If the protocol is GENEVE, the default is port 80.
+        :param health_check_protocol: The protocol the load balancer uses when performing health checks on targets. For Application Load Balancers, the default is HTTP. For Network Load Balancers and Gateway Load Balancers, the default is TCP. The TCP protocol is not supported for health checks if the protocol of the target group is HTTP or HTTPS. The GENEVE, TLS, UDP, and TCP_UDP protocols are not supported for health checks.
+        :param health_check_timeout_seconds: The amount of time, in seconds, during which no response from a target means a failed health check. The range is 2–120 seconds. For target groups with a protocol of HTTP, the default is 6 seconds. For target groups with a protocol of TCP, TLS or HTTPS, the default is 10 seconds. For target groups with a protocol of GENEVE, the default is 5 seconds. If the target type is ``lambda`` , the default is 30 seconds.
+        :param healthy_threshold_count: The number of consecutive health check successes required before considering a target healthy. The range is 2-10. If the target group protocol is TCP, TCP_UDP, UDP, TLS, HTTP or HTTPS, the default is 5. For target groups with a protocol of GENEVE, the default is 5. If the target type is ``lambda`` , the default is 5.
+        :param ip_address_type: The IP address type. The default value is ``ipv4`` .
+        :param matcher: [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target. For target groups with a protocol of TCP, TCP_UDP, UDP or TLS the range is 200-599. For target groups with a protocol of HTTP or HTTPS, the range is 200-499. For target groups with a protocol of GENEVE, the range is 200-399.
+        :param name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen.
+        :param port: The port on which the targets receive traffic. This port is used unless you specify a port override when registering the target. If the target is a Lambda function, this parameter does not apply. If the protocol is GENEVE, the supported port is 6081.
+        :param protocol: The protocol to use for routing traffic to the targets. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, or TCP_UDP. For Gateway Load Balancers, the supported protocol is GENEVE. A TCP_UDP listener must be associated with a TCP_UDP target group. If the target is a Lambda function, this parameter does not apply.
+        :param protocol_version: [HTTP/HTTPS protocol] The protocol version. The possible values are ``GRPC`` , ``HTTP1`` , and ``HTTP2`` .
+        :param tags: The tags.
+        :param target_group_attributes: The target group attributes. Attributes that you do not modify retain their current values.
+        :param targets: The targets.
+        :param target_type: The type of target that you must specify when registering targets with this target group. You can't specify targets for a target group using more than one target type. - ``instance`` - Register targets by instance ID. This is the default value. - ``ip`` - Register targets by IP address. You can specify IP addresses from the subnets of the virtual private cloud (VPC) for the target group, the RFC 1918 range (10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16), and the RFC 6598 range (100.64.0.0/10). You can't specify publicly routable IP addresses. - ``lambda`` - Register a single Lambda function as a target. - ``alb`` - Register a single Application Load Balancer as a target.
+        :param unhealthy_threshold_count: The number of consecutive health check failures required before considering a target unhealthy. The range is 2-10. If the target group protocol is TCP, TCP_UDP, UDP, TLS, HTTP or HTTPS, the default is 2. For target groups with a protocol of GENEVE, the default is 2. If the target type is ``lambda`` , the default is 5.
+        :param vpc_id: The identifier of the virtual private cloud (VPC). If the target is a Lambda function, this parameter does not apply. Otherwise, this parameter is required.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTargetGroupProps(
+            health_check_enabled=health_check_enabled,
+            health_check_interval_seconds=health_check_interval_seconds,
+            health_check_path=health_check_path,
+            health_check_port=health_check_port,
+            health_check_protocol=health_check_protocol,
+            health_check_timeout_seconds=health_check_timeout_seconds,
+            healthy_threshold_count=healthy_threshold_count,
+            ip_address_type=ip_address_type,
+            matcher=matcher,
+            name=name,
+            port=port,
+            protocol=protocol,
+            protocol_version=protocol_version,
+            tags=tags,
+            target_group_attributes=target_group_attributes,
+            targets=targets,
+            target_type=target_type,
+            unhealthy_threshold_count=unhealthy_threshold_count,
+            vpc_id=vpc_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLoadBalancerArns")
+    def attr_load_balancer_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the load balancer that routes traffic to this target group.
+
+        :cloudformationAttribute: LoadBalancerArns
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrLoadBalancerArns"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTargetGroupArn")
+    def attr_target_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the target group.
+
+        :cloudformationAttribute: TargetGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTargetGroupFullName")
+    def attr_target_group_full_name(self) -> builtins.str:
+        '''The full name of the target group.
+
+        For example, ``targetgroup/my-target-group/cbf133c568e0d028`` .
+
+        :cloudformationAttribute: TargetGroupFullName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupFullName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTargetGroupName")
+    def attr_target_group_name(self) -> builtins.str:
+        '''The name of the target group.
+
+        For example, ``my-target-group`` .
+
+        :cloudformationAttribute: TargetGroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTargetGroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> TargetGroupReference:
+        '''A reference to a TargetGroup resource.'''
+        return typing.cast(TargetGroupReference, jsii.get(self, "targetGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckEnabled")
+    def health_check_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether health checks are enabled.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "healthCheckEnabled"))
+
+    @health_check_enabled.setter
+    def health_check_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckIntervalSeconds")
+    def health_check_interval_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The approximate amount of time, in seconds, between health checks of an individual target.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthCheckIntervalSeconds"))
+
+    @health_check_interval_seconds.setter
+    def health_check_interval_seconds(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckIntervalSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckPath")
+    def health_check_path(self) -> typing.Optional[builtins.str]:
+        '''[HTTP/HTTPS health checks] The destination for health checks on the targets.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckPath"))
+
+    @health_check_path.setter
+    def health_check_path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckPath", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckPort")
+    def health_check_port(self) -> typing.Optional[builtins.str]:
+        '''The port the load balancer uses when performing health checks on targets.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckPort"))
+
+    @health_check_port.setter
+    def health_check_port(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckPort", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckProtocol")
+    def health_check_protocol(self) -> typing.Optional[builtins.str]:
+        '''The protocol the load balancer uses when performing health checks on targets.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "healthCheckProtocol"))
+
+    @health_check_protocol.setter
+    def health_check_protocol(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckProtocol", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthCheckTimeoutSeconds")
+    def health_check_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time, in seconds, during which no response from a target means a failed health check.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthCheckTimeoutSeconds"))
+
+    @health_check_timeout_seconds.setter
+    def health_check_timeout_seconds(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthCheckTimeoutSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="healthyThresholdCount")
+    def healthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of consecutive health check successes required before considering a target healthy.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "healthyThresholdCount"))
+
+    @healthy_threshold_count.setter
+    def healthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "healthyThresholdCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="matcher")
+    def matcher(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]]:
+        '''[HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for a successful response from a target.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]], jsii.get(self, "matcher"))
+
+    @matcher.setter
+    def matcher(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.MatcherProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "matcher", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the target group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="port")
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port on which the targets receive traffic.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
+
+    @port.setter
+    def port(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="protocol")
+    def protocol(self) -> typing.Optional[builtins.str]:
+        '''The protocol to use for routing traffic to the targets.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocol"))
+
+    @protocol.setter
+    def protocol(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="protocolVersion")
+    def protocol_version(self) -> typing.Optional[builtins.str]:
+        '''[HTTP/HTTPS protocol] The protocol version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "protocolVersion"))
+
+    @protocol_version.setter
+    def protocol_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "protocolVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupAttributes")
+    def target_group_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]]:
+        '''The target group attributes.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]], jsii.get(self, "targetGroupAttributes"))
+
+    @target_group_attributes.setter
+    def target_group_attributes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupAttributeProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetGroupAttributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targets")
+    def targets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]]:
+        '''The targets.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]], jsii.get(self, "targets"))
+
+    @targets.setter
+    def targets(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetDescriptionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetType")
+    def target_type(self) -> typing.Optional[builtins.str]:
+        '''The type of target that you must specify when registering targets with this target group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetType"))
+
+    @target_type.setter
+    def target_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="unhealthyThresholdCount")
+    def unhealthy_threshold_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of consecutive health check failures required before considering a target unhealthy.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "unhealthyThresholdCount"))
+
+    @unhealthy_threshold_count.setter
+    def unhealthy_threshold_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "unhealthyThresholdCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcId")
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the virtual private cloud (VPC).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcId"))
+
+    @vpc_id.setter
+    def vpc_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.MatcherProperty",
+        jsii_struct_bases=[],
+        name_mapping={"grpc_code": "grpcCode", "http_code": "httpCode"},
+    )
+    class MatcherProperty:
+        def __init__(
+            self,
+            *,
+            grpc_code: typing.Optional[builtins.str] = None,
+            http_code: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the HTTP codes that healthy targets must use when responding to an HTTP health check.
+
+            :param grpc_code: You can specify values between 0 and 99. You can specify multiple values (for example, "0,1") or a range of values (for example, "0-5"). The default value is 12.
+            :param http_code: For Application Load Balancers, you can specify values between 200 and 499, with the default value being 200. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299"). For Network Load Balancers, you can specify values between 200 and 599, with the default value being 200-399. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299"). For Gateway Load Balancers, this must be "200–399". Note that when using shorthand syntax, some values such as commas need to be escaped.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                matcher_property = elbv2.CfnTargetGroup.MatcherProperty(
+                    grpc_code="grpcCode",
+                    http_code="httpCode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb)
+                check_type(argname="argument grpc_code", value=grpc_code, expected_type=type_hints["grpc_code"])
+                check_type(argname="argument http_code", value=http_code, expected_type=type_hints["http_code"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if grpc_code is not None:
+                self._values["grpc_code"] = grpc_code
+            if http_code is not None:
+                self._values["http_code"] = http_code
+
+        @builtins.property
+        def grpc_code(self) -> typing.Optional[builtins.str]:
+            '''You can specify values between 0 and 99.
+
+            You can specify multiple values (for example, "0,1") or a range of values (for example, "0-5"). The default value is 12.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-grpccode
+            '''
+            result = self._values.get("grpc_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def http_code(self) -> typing.Optional[builtins.str]:
+            '''For Application Load Balancers, you can specify values between 200 and 499, with the default value being 200.
+
+            You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299").
+
+            For Network Load Balancers, you can specify values between 200 and 599, with the default value being 200-399. You can specify multiple values (for example, "200,202") or a range of values (for example, "200-299").
+
+            For Gateway Load Balancers, this must be "200–399".
+
+            Note that when using shorthand syntax, some values such as commas need to be escaped.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-matcher.html#cfn-elasticloadbalancingv2-targetgroup-matcher-httpcode
+            '''
+            result = self._values.get("http_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MatcherProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.TargetDescriptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "id": "id",
+            "availability_zone": "availabilityZone",
+            "port": "port",
+        },
+    )
+    class TargetDescriptionProperty:
+        def __init__(
+            self,
+            *,
+            id: builtins.str,
+            availability_zone: typing.Optional[builtins.str] = None,
+            port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies a target to add to a target group.
+
+            :param id: The ID of the target. If the target type of the target group is ``instance`` , specify an instance ID. If the target type is ``ip`` , specify an IP address. If the target type is ``lambda`` , specify the ARN of the Lambda function. If the target type is ``alb`` , specify the ARN of the Application Load Balancer target.
+            :param availability_zone: An Availability Zone or ``all`` . This determines whether the target receives traffic from the load balancer nodes in the specified Availability Zone or from all enabled Availability Zones for the load balancer. For Application Load Balancer target groups, the specified Availability Zone value is only applicable when cross-zone load balancing is off. Otherwise the parameter is ignored and treated as ``all`` . This parameter is not supported if the target type of the target group is ``instance`` or ``alb`` . If the target type is ``ip`` and the IP address is in a subnet of the VPC for the target group, the Availability Zone is automatically detected and this parameter is optional. If the IP address is outside the VPC, this parameter is required. For Application Load Balancer target groups with cross-zone load balancing off, if the target type is ``ip`` and the IP address is outside of the VPC for the target group, this should be an Availability Zone inside the VPC for the target group. If the target type is ``lambda`` , this parameter is optional and the only supported value is ``all`` .
+            :param port: The port on which the target is listening. If the target group protocol is GENEVE, the supported port is 6081. If the target type is ``alb`` , the targeted Application Load Balancer must have at least one listener whose port matches the target group port. This parameter is not used if the target is a Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_description_property = elbv2.CfnTargetGroup.TargetDescriptionProperty(
+                    id="id",
+                
+                    # the properties below are optional
+                    availability_zone="availabilityZone",
+                    port=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
+            if availability_zone is not None:
+                self._values["availability_zone"] = availability_zone
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The ID of the target.
+
+            If the target type of the target group is ``instance`` , specify an instance ID. If the target type is ``ip`` , specify an IP address. If the target type is ``lambda`` , specify the ARN of the Lambda function. If the target type is ``alb`` , specify the ARN of the Application Load Balancer target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def availability_zone(self) -> typing.Optional[builtins.str]:
+            '''An Availability Zone or ``all`` .
+
+            This determines whether the target receives traffic from the load balancer nodes in the specified Availability Zone or from all enabled Availability Zones for the load balancer.
+
+            For Application Load Balancer target groups, the specified Availability Zone value is only applicable when cross-zone load balancing is off. Otherwise the parameter is ignored and treated as ``all`` .
+
+            This parameter is not supported if the target type of the target group is ``instance`` or ``alb`` .
+
+            If the target type is ``ip`` and the IP address is in a subnet of the VPC for the target group, the Availability Zone is automatically detected and this parameter is optional. If the IP address is outside the VPC, this parameter is required.
+
+            For Application Load Balancer target groups with cross-zone load balancing off, if the target type is ``ip`` and the IP address is outside of the VPC for the target group, this should be an Availability Zone inside the VPC for the target group.
+
+            If the target type is ``lambda`` , this parameter is optional and the only supported value is ``all`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-availabilityzone
+            '''
+            result = self._values.get("availability_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[jsii.Number]:
+            '''The port on which the target is listening.
+
+            If the target group protocol is GENEVE, the supported port is 6081. If the target type is ``alb`` , the targeted Application Load Balancer must have at least one listener whose port matches the target group port. This parameter is not used if the target is a Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetdescription.html#cfn-elasticloadbalancingv2-targetgroup-targetdescription-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetDescriptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTargetGroup.TargetGroupAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TargetGroupAttributeProperty:
+        def __init__(
+            self,
+            *,
+            key: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies a target group attribute.
+
+            :param key: The name of the attribute. The following attributes are supported by all load balancers: - ``deregistration_delay.timeout_seconds`` - The amount of time, in seconds, for Elastic Load Balancing to wait before changing the state of a deregistering target from ``draining`` to ``unused`` . The range is 0-3600 seconds. The default value is 300 seconds. If the target is a Lambda function, this attribute is not supported. - ``stickiness.enabled`` - Indicates whether target stickiness is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``stickiness.type`` - Indicates the type of stickiness. The possible values are: - ``lb_cookie`` and ``app_cookie`` for Application Load Balancers. - ``source_ip`` for Network Load Balancers. - ``source_ip_dest_ip`` and ``source_ip_dest_ip_proto`` for Gateway Load Balancers. The following attributes are supported by Application Load Balancers and Network Load Balancers: - ``load_balancing.cross_zone.enabled`` - Indicates whether cross zone load balancing is enabled. The value is ``true`` , ``false`` or ``use_load_balancer_configuration`` . The default is ``use_load_balancer_configuration`` . - ``target_group_health.dns_failover.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to the maximum number of targets. The default is 1. - ``target_group_health.dns_failover.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` . - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are 1 to the maximum number of targets. The default is 1. - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` . The following attributes are supported only if the load balancer is an Application Load Balancer and the target is an instance or an IP address: - ``load_balancing.algorithm.type`` - The load balancing algorithm determines how the load balancer selects targets when routing requests. The value is ``round_robin`` , ``least_outstanding_requests`` , or ``weighted_random`` . The default is ``round_robin`` . - ``load_balancing.algorithm.anomaly_mitigation`` - Only available when ``load_balancing.algorithm.type`` is ``weighted_random`` . Indicates whether anomaly mitigation is enabled. The value is ``on`` or ``off`` . The default is ``off`` . - ``slow_start.duration_seconds`` - The time period, in seconds, during which a newly registered target receives an increasing share of the traffic to the target group. After this time period ends, the target receives its full share of traffic. The range is 30-900 seconds (15 minutes). The default is 0 seconds (disabled). - ``stickiness.app_cookie.cookie_name`` - Indicates the name of the application-based cookie. Names that start with the following prefixes are not allowed: ``AWSALB`` , ``AWSALBAPP`` , and ``AWSALBTG`` ; they're reserved for use by the load balancer. - ``stickiness.app_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the application-based cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds). - ``stickiness.lb_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the load balancer-generated cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds). The following attribute is supported only if the load balancer is an Application Load Balancer and the target is a Lambda function: - ``lambda.multi_value_headers.enabled`` - Indicates whether the request and response headers that are exchanged between the load balancer and the Lambda function include arrays of values or strings. The value is ``true`` or ``false`` . The default is ``false`` . If the value is ``false`` and the request contains a duplicate header field name or query parameter key, the load balancer uses the last value sent by the client. The following attributes are supported only by Network Load Balancers: - ``deregistration_delay.connection_termination.enabled`` - Indicates whether the load balancer terminates connections at the end of the deregistration timeout. The value is ``true`` or ``false`` . For new UDP/TCP_UDP target groups the default is ``true`` . Otherwise, the default is ``false`` . - ``preserve_client_ip.enabled`` - Indicates whether client IP preservation is enabled. The value is ``true`` or ``false`` . The default is disabled if the target group type is IP address and the target group protocol is TCP or TLS. Otherwise, the default is enabled. Client IP preservation can't be disabled for UDP and TCP_UDP target groups. - ``proxy_protocol_v2.enabled`` - Indicates whether Proxy Protocol version 2 is enabled. The value is ``true`` or ``false`` . The default is ``false`` . - ``target_health_state.unhealthy.connection_termination.enabled`` - Indicates whether the load balancer terminates connections to unhealthy targets. The value is ``true`` or ``false`` . The default is ``true`` . This attribute can't be enabled for UDP and TCP_UDP target groups. - ``target_health_state.unhealthy.draining_interval_seconds`` - The amount of time for Elastic Load Balancing to wait before changing the state of an unhealthy target from ``unhealthy.draining`` to ``unhealthy`` . The range is 0-360000 seconds. The default value is 0 seconds. Note: This attribute can only be configured when ``target_health_state.unhealthy.connection_termination.enabled`` is ``false`` . The following attributes are supported only by Gateway Load Balancers: - ``target_failover.on_deregistration`` - Indicates how the Gateway Load Balancer handles existing flows when a target is deregistered. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same. - ``target_failover.on_unhealthy`` - Indicates how the Gateway Load Balancer handles existing flows when a target is unhealthy. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
+            :param value: The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                target_group_attribute_property = elbv2.CfnTargetGroup.TargetGroupAttributeProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key is not None:
+                self._values["key"] = key
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def key(self) -> typing.Optional[builtins.str]:
+            '''The name of the attribute.
+
+            The following attributes are supported by all load balancers:
+
+            - ``deregistration_delay.timeout_seconds`` - The amount of time, in seconds, for Elastic Load Balancing to wait before changing the state of a deregistering target from ``draining`` to ``unused`` . The range is 0-3600 seconds. The default value is 300 seconds. If the target is a Lambda function, this attribute is not supported.
+            - ``stickiness.enabled`` - Indicates whether target stickiness is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
+            - ``stickiness.type`` - Indicates the type of stickiness. The possible values are:
+            - ``lb_cookie`` and ``app_cookie`` for Application Load Balancers.
+            - ``source_ip`` for Network Load Balancers.
+            - ``source_ip_dest_ip`` and ``source_ip_dest_ip_proto`` for Gateway Load Balancers.
+
+            The following attributes are supported by Application Load Balancers and Network Load Balancers:
+
+            - ``load_balancing.cross_zone.enabled`` - Indicates whether cross zone load balancing is enabled. The value is ``true`` , ``false`` or ``use_load_balancer_configuration`` . The default is ``use_load_balancer_configuration`` .
+            - ``target_group_health.dns_failover.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to the maximum number of targets. The default is 1.
+            - ``target_group_health.dns_failover.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, mark the zone as unhealthy in DNS, so that traffic is routed only to healthy zones. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` .
+            - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.count`` - The minimum number of targets that must be healthy. If the number of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are 1 to the maximum number of targets. The default is 1.
+            - ``target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage`` - The minimum percentage of targets that must be healthy. If the percentage of healthy targets is below this value, send traffic to all targets, including unhealthy targets. The possible values are ``off`` or an integer from 1 to 100. The default is ``off`` .
+
+            The following attributes are supported only if the load balancer is an Application Load Balancer and the target is an instance or an IP address:
+
+            - ``load_balancing.algorithm.type`` - The load balancing algorithm determines how the load balancer selects targets when routing requests. The value is ``round_robin`` , ``least_outstanding_requests`` , or ``weighted_random`` . The default is ``round_robin`` .
+            - ``load_balancing.algorithm.anomaly_mitigation`` - Only available when ``load_balancing.algorithm.type`` is ``weighted_random`` . Indicates whether anomaly mitigation is enabled. The value is ``on`` or ``off`` . The default is ``off`` .
+            - ``slow_start.duration_seconds`` - The time period, in seconds, during which a newly registered target receives an increasing share of the traffic to the target group. After this time period ends, the target receives its full share of traffic. The range is 30-900 seconds (15 minutes). The default is 0 seconds (disabled).
+            - ``stickiness.app_cookie.cookie_name`` - Indicates the name of the application-based cookie. Names that start with the following prefixes are not allowed: ``AWSALB`` , ``AWSALBAPP`` , and ``AWSALBTG`` ; they're reserved for use by the load balancer.
+            - ``stickiness.app_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the application-based cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds).
+            - ``stickiness.lb_cookie.duration_seconds`` - The time period, in seconds, during which requests from a client should be routed to the same target. After this time period expires, the load balancer-generated cookie is considered stale. The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds).
+
+            The following attribute is supported only if the load balancer is an Application Load Balancer and the target is a Lambda function:
+
+            - ``lambda.multi_value_headers.enabled`` - Indicates whether the request and response headers that are exchanged between the load balancer and the Lambda function include arrays of values or strings. The value is ``true`` or ``false`` . The default is ``false`` . If the value is ``false`` and the request contains a duplicate header field name or query parameter key, the load balancer uses the last value sent by the client.
+
+            The following attributes are supported only by Network Load Balancers:
+
+            - ``deregistration_delay.connection_termination.enabled`` - Indicates whether the load balancer terminates connections at the end of the deregistration timeout. The value is ``true`` or ``false`` . For new UDP/TCP_UDP target groups the default is ``true`` . Otherwise, the default is ``false`` .
+            - ``preserve_client_ip.enabled`` - Indicates whether client IP preservation is enabled. The value is ``true`` or ``false`` . The default is disabled if the target group type is IP address and the target group protocol is TCP or TLS. Otherwise, the default is enabled. Client IP preservation can't be disabled for UDP and TCP_UDP target groups.
+            - ``proxy_protocol_v2.enabled`` - Indicates whether Proxy Protocol version 2 is enabled. The value is ``true`` or ``false`` . The default is ``false`` .
+            - ``target_health_state.unhealthy.connection_termination.enabled`` - Indicates whether the load balancer terminates connections to unhealthy targets. The value is ``true`` or ``false`` . The default is ``true`` . This attribute can't be enabled for UDP and TCP_UDP target groups.
+            - ``target_health_state.unhealthy.draining_interval_seconds`` - The amount of time for Elastic Load Balancing to wait before changing the state of an unhealthy target from ``unhealthy.draining`` to ``unhealthy`` . The range is 0-360000 seconds. The default value is 0 seconds.
+
+            Note: This attribute can only be configured when ``target_health_state.unhealthy.connection_termination.enabled`` is ``false`` .
+
+            The following attributes are supported only by Gateway Load Balancers:
+
+            - ``target_failover.on_deregistration`` - Indicates how the Gateway Load Balancer handles existing flows when a target is deregistered. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
+            - ``target_failover.on_unhealthy`` - Indicates how the Gateway Load Balancer handles existing flows when a target is unhealthy. The possible values are ``rebalance`` and ``no_rebalance`` . The default is ``no_rebalance`` . The two attributes ( ``target_failover.on_deregistration`` and ``target_failover.on_unhealthy`` ) can't be set independently. The value you set for both attributes must be the same.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattribute-key
+            '''
+            result = self._values.get("key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''The value of the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-targetgroup-targetgroupattribute.html#cfn-elasticloadbalancingv2-targetgroup-targetgroupattribute-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetGroupAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ITrustStoreRef, _ITaggableV2_4e6798f8)
+class CfnTrustStore(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStore",
+):
+    '''Creates a trust store.
+
+    You must specify ``CaCertificatesBundleS3Bucket`` and ``CaCertificatesBundleS3Key`` . When you create a trust store, you must specify ``Name`` .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststore.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::TrustStore
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_trust_store = elbv2.CfnTrustStore(self, "MyCfnTrustStore",
+            ca_certificates_bundle_s3_bucket="caCertificatesBundleS3Bucket",
+            ca_certificates_bundle_s3_key="caCertificatesBundleS3Key",
+            ca_certificates_bundle_s3_object_version="caCertificatesBundleS3ObjectVersion",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        ca_certificates_bundle_s3_bucket: typing.Optional[builtins.str] = None,
+        ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
+        ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param ca_certificates_bundle_s3_bucket: The Amazon S3 bucket for the ca certificates bundle.
+        :param ca_certificates_bundle_s3_key: The Amazon S3 path for the ca certificates bundle.
+        :param ca_certificates_bundle_s3_object_version: The Amazon S3 object version for the ca certificates bundle. If undefined the current version is used.
+        :param name: The name of the trust store.
+        :param tags: The tags to assign to the trust store.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrustStoreProps(
+            ca_certificates_bundle_s3_bucket=ca_certificates_bundle_s3_bucket,
+            ca_certificates_bundle_s3_key=ca_certificates_bundle_s3_key,
+            ca_certificates_bundle_s3_object_version=ca_certificates_bundle_s3_object_version,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNumberOfCaCertificates")
+    def attr_number_of_ca_certificates(self) -> jsii.Number:
+        '''The number of ca certificates in the trust store.
+
+        :cloudformationAttribute: NumberOfCaCertificates
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNumberOfCaCertificates"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the trust store.
+
+        The possible values are ``CREATING`` and ``ACTIVE`` .
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrustStoreArn")
+    def attr_trust_store_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the trust store.
+
+        :cloudformationAttribute: TrustStoreArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTrustStoreArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> TrustStoreReference:
+        '''A reference to a TrustStore resource.'''
+        return typing.cast(TrustStoreReference, jsii.get(self, "trustStoreRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificatesBundleS3Bucket")
+    def ca_certificates_bundle_s3_bucket(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 bucket for the ca certificates bundle.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3Bucket"))
+
+    @ca_certificates_bundle_s3_bucket.setter
+    def ca_certificates_bundle_s3_bucket(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caCertificatesBundleS3Bucket", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificatesBundleS3Key")
+    def ca_certificates_bundle_s3_key(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 path for the ca certificates bundle.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3Key"))
+
+    @ca_certificates_bundle_s3_key.setter
+    def ca_certificates_bundle_s3_key(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caCertificatesBundleS3Key", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificatesBundleS3ObjectVersion")
+    def ca_certificates_bundle_s3_object_version(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 object version for the ca certificates bundle.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificatesBundleS3ObjectVersion"))
+
+    @ca_certificates_bundle_s3_object_version.setter
+    def ca_certificates_bundle_s3_object_version(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caCertificatesBundleS3ObjectVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the trust store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to assign to the trust store.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ITrustStoreRevocationRef)
+class CfnTrustStoreRevocation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation",
+):
+    '''Adds the specified revocation contents to the specified trust store.
+
+    You must specify ``TrustStoreArn`` .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-truststorerevocation.html
+    :cloudformationResource: AWS::ElasticLoadBalancingV2::TrustStoreRevocation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        
+        cfn_trust_store_revocation = elbv2.CfnTrustStoreRevocation(self, "MyCfnTrustStoreRevocation",
+            revocation_contents=[elbv2.CfnTrustStoreRevocation.RevocationContentProperty(
+                revocation_type="revocationType",
+                s3_bucket="s3Bucket",
+                s3_key="s3Key",
+                s3_object_version="s3ObjectVersion"
+            )],
+            trust_store_arn="trustStoreArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrustStoreRevocation.RevocationContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        trust_store_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param revocation_contents: The revocation file to add.
+        :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrustStoreRevocationProps(
+            revocation_contents=revocation_contents, trust_store_arn=trust_store_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRevocationId")
+    def attr_revocation_id(self) -> jsii.Number:
+        '''The revocation ID of the revocation file.
+
+        :cloudformationAttribute: RevocationId
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrRevocationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrustStoreRevocations")
+    def attr_trust_store_revocations(self) -> _IResolvable_da3f097b:
+        '''Information about the revocation file in the trust store.
+
+        For more information, see `TrustStoreRevocation <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html>`_ .
+
+        :cloudformationAttribute: TrustStoreRevocations
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrTrustStoreRevocations"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRevocationRef")
+    def trust_store_revocation_ref(self) -> TrustStoreRevocationReference:
+        '''A reference to a TrustStoreRevocation resource.'''
+        return typing.cast(TrustStoreRevocationReference, jsii.get(self, "trustStoreRevocationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="revocationContents")
+    def revocation_contents(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]]:
+        '''The revocation file to add.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]], jsii.get(self, "revocationContents"))
+
+    @revocation_contents.setter
+    def revocation_contents(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrustStoreRevocation.RevocationContentProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "revocationContents", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreArn")
+    def trust_store_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the trust store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "trustStoreArn"))
+
+    @trust_store_arn.setter
+    def trust_store_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "trustStoreArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation.RevocationContentProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "revocation_type": "revocationType",
+            "s3_bucket": "s3Bucket",
+            "s3_key": "s3Key",
+            "s3_object_version": "s3ObjectVersion",
+        },
+    )
+    class RevocationContentProperty:
+        def __init__(
+            self,
+            *,
+            revocation_type: typing.Optional[builtins.str] = None,
+            s3_bucket: typing.Optional[builtins.str] = None,
+            s3_key: typing.Optional[builtins.str] = None,
+            s3_object_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a revocation file.
+
+            You must specify ``S3Bucket`` and ``S3Key`` .
+
+            :param revocation_type: The type of revocation file.
+            :param s3_bucket: The Amazon S3 bucket for the revocation file.
+            :param s3_key: The Amazon S3 path for the revocation file.
+            :param s3_object_version: The Amazon S3 object version of the revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                revocation_content_property = elbv2.CfnTrustStoreRevocation.RevocationContentProperty(
+                    revocation_type="revocationType",
+                    s3_bucket="s3Bucket",
+                    s3_key="s3Key",
+                    s3_object_version="s3ObjectVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840)
+                check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
+                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
+                check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
+                check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if revocation_type is not None:
+                self._values["revocation_type"] = revocation_type
+            if s3_bucket is not None:
+                self._values["s3_bucket"] = s3_bucket
+            if s3_key is not None:
+                self._values["s3_key"] = s3_key
+            if s3_object_version is not None:
+                self._values["s3_object_version"] = s3_object_version
+
+        @builtins.property
+        def revocation_type(self) -> typing.Optional[builtins.str]:
+            '''The type of revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-revocationtype
+            '''
+            result = self._values.get("revocation_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_bucket(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 bucket for the revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3bucket
+            '''
+            result = self._values.get("s3_bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_key(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 path for the revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3key
+            '''
+            result = self._values.get("s3_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_object_version(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 object version of the revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-revocationcontent.html#cfn-elasticloadbalancingv2-truststorerevocation-revocationcontent-s3objectversion
+            '''
+            result = self._values.get("s3_object_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RevocationContentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnTrustStoreRevocation.TrustStoreRevocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "number_of_revoked_entries": "numberOfRevokedEntries",
+            "revocation_id": "revocationId",
+            "revocation_type": "revocationType",
+            "trust_store_arn": "trustStoreArn",
+        },
+    )
+    class TrustStoreRevocationProperty:
+        def __init__(
+            self,
+            *,
+            number_of_revoked_entries: typing.Optional[jsii.Number] = None,
+            revocation_id: typing.Optional[builtins.str] = None,
+            revocation_type: typing.Optional[builtins.str] = None,
+            trust_store_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a revocation file in use by a trust store.
+
+            :param number_of_revoked_entries: The number of revoked certificates.
+            :param revocation_id: The revocation ID of the revocation file.
+            :param revocation_type: The type of revocation file.
+            :param trust_store_arn: The Amazon Resource Name (ARN) of the trust store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+                
+                trust_store_revocation_property = elbv2.CfnTrustStoreRevocation.TrustStoreRevocationProperty(
+                    number_of_revoked_entries=123,
+                    revocation_id="revocationId",
+                    revocation_type="revocationType",
+                    trust_store_arn="trustStoreArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd)
+                check_type(argname="argument number_of_revoked_entries", value=number_of_revoked_entries, expected_type=type_hints["number_of_revoked_entries"])
+                check_type(argname="argument revocation_id", value=revocation_id, expected_type=type_hints["revocation_id"])
+                check_type(argname="argument revocation_type", value=revocation_type, expected_type=type_hints["revocation_type"])
+                check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if number_of_revoked_entries is not None:
+                self._values["number_of_revoked_entries"] = number_of_revoked_entries
+            if revocation_id is not None:
+                self._values["revocation_id"] = revocation_id
+            if revocation_type is not None:
+                self._values["revocation_type"] = revocation_type
+            if trust_store_arn is not None:
+                self._values["trust_store_arn"] = trust_store_arn
+
+        @builtins.property
+        def number_of_revoked_entries(self) -> typing.Optional[jsii.Number]:
+            '''The number of revoked certificates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-numberofrevokedentries
+            '''
+            result = self._values.get("number_of_revoked_entries")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def revocation_id(self) -> typing.Optional[builtins.str]:
+            '''The revocation ID of the revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-revocationid
+            '''
+            result = self._values.get("revocation_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def revocation_type(self) -> typing.Optional[builtins.str]:
+            '''The type of revocation file.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-revocationtype
+            '''
+            result = self._values.get("revocation_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def trust_store_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the trust store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-truststorerevocation-truststorerevocation.html#cfn-elasticloadbalancingv2-truststorerevocation-truststorerevocation-truststorearn
+            '''
+            result = self._values.get("trust_store_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrustStoreRevocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.interface(
@@ -27157,6 +27848,10 @@ __all__ = [
     "IListener",
     "IListenerAction",
     "IListenerCertificate",
+    "IListenerCertificateRef",
+    "IListenerRef",
+    "IListenerRuleRef",
+    "ILoadBalancerRef",
     "ILoadBalancerV2",
     "INetworkListener",
     "INetworkLoadBalancer",
@@ -27165,11 +27860,18 @@ __all__ = [
     "INetworkTargetGroup",
     "INetworkTargetGroupMetrics",
     "ITargetGroup",
+    "ITargetGroupRef",
     "ITrustStore",
+    "ITrustStoreRef",
+    "ITrustStoreRevocationRef",
     "IpAddressType",
     "ListenerAction",
     "ListenerCertificate",
+    "ListenerCertificateReference",
     "ListenerCondition",
+    "ListenerReference",
+    "ListenerRuleReference",
+    "LoadBalancerReference",
     "LoadBalancerTargetProps",
     "MutualAuthentication",
     "MutualAuthenticationMode",
@@ -27197,11 +27899,14 @@ __all__ = [
     "TargetGroupBase",
     "TargetGroupIpAddressType",
     "TargetGroupLoadBalancingAlgorithmType",
+    "TargetGroupReference",
     "TargetType",
     "TrustStore",
     "TrustStoreProps",
+    "TrustStoreReference",
     "TrustStoreRevocation",
     "TrustStoreRevocationProps",
+    "TrustStoreRevocationReference",
     "UnauthenticatedAction",
     "WeightedTargetGroup",
     "XffHeaderProcessingMode",
@@ -27443,246 +28148,6 @@ def _typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    load_balancer_arn: builtins.str,
-    alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
-    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    port: typing.Optional[jsii.Number] = None,
-    protocol: typing.Optional[builtins.str] = None,
-    ssl_policy: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ActionProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.CertificateProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ListenerAttributeProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnListener.MutualAuthenticationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349(
-    *,
-    type: builtins.str,
-    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    order: typing.Optional[jsii.Number] = None,
-    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_group_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e(
-    *,
-    user_pool_arn: builtins.str,
-    user_pool_client_id: builtins.str,
-    user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    on_unauthenticated_request: typing.Optional[builtins.str] = None,
-    scope: typing.Optional[builtins.str] = None,
-    session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06(
-    *,
-    authorization_endpoint: builtins.str,
-    client_id: builtins.str,
-    issuer: builtins.str,
-    token_endpoint: builtins.str,
-    user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    client_secret: typing.Optional[builtins.str] = None,
-    on_unauthenticated_request: typing.Optional[builtins.str] = None,
-    scope: typing.Optional[builtins.str] = None,
-    session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[builtins.str] = None,
-    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1(
-    *,
-    certificate_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33(
-    *,
-    status_code: builtins.str,
-    content_type: typing.Optional[builtins.str] = None,
-    message_body: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977(
-    *,
-    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f(
-    *,
-    key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0(
-    *,
-    advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
-    ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    mode: typing.Optional[builtins.str] = None,
-    trust_store_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f(
-    *,
-    status_code: builtins.str,
-    host: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    port: typing.Optional[builtins.str] = None,
-    protocol: typing.Optional[builtins.str] = None,
-    query: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f(
-    *,
-    duration_seconds: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7(
-    *,
-    target_group_arn: typing.Optional[builtins.str] = None,
-    weight: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    listener_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerCertificate.CertificateProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57(
-    *,
-    certificate_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a75452487efc1f762632147a4649a752cebc50169fa389176da35b23232c3434(
     *,
     certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -27706,353 +28171,12 @@ def _typecheckingstub__aab6d22e7b936da7d57033477b79897453525b2ac292509d47ddac8e9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    priority: jsii.Number,
-    listener_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.ActionProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.RuleConditionProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17(
-    *,
-    type: builtins.str,
-    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    order: typing.Optional[jsii.Number] = None,
-    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_group_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2(
-    *,
-    user_pool_arn: builtins.str,
-    user_pool_client_id: builtins.str,
-    user_pool_domain: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    on_unauthenticated_request: typing.Optional[builtins.str] = None,
-    scope: typing.Optional[builtins.str] = None,
-    session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78(
-    *,
-    authorization_endpoint: builtins.str,
-    client_id: builtins.str,
-    issuer: builtins.str,
-    token_endpoint: builtins.str,
-    user_info_endpoint: builtins.str,
-    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    client_secret: typing.Optional[builtins.str] = None,
-    on_unauthenticated_request: typing.Optional[builtins.str] = None,
-    scope: typing.Optional[builtins.str] = None,
-    session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[jsii.Number] = None,
-    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53(
-    *,
-    status_code: builtins.str,
-    content_type: typing.Optional[builtins.str] = None,
-    message_body: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0(
-    *,
-    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642(
-    *,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40(
-    *,
-    http_header_name: typing.Optional[builtins.str] = None,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed(
-    *,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5(
-    *,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4(
-    *,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac(
-    *,
-    key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7(
-    *,
-    status_code: builtins.str,
-    host: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    port: typing.Optional[builtins.str] = None,
-    protocol: typing.Optional[builtins.str] = None,
-    query: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c(
-    *,
-    field: typing.Optional[builtins.str] = None,
-    host_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HostHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    http_request_method_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpRequestMethodConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    path_pattern_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.PathPatternConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    query_string_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de(
-    *,
-    values: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc(
-    *,
-    duration_seconds: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d(
-    *,
-    target_group_arn: typing.Optional[builtins.str] = None,
-    weight: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ca75076613edf0bf6ade8ee145bc71de34aa66567d90d5721bd40f862a5b0a03(
     *,
     actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     priority: jsii.Number,
     listener_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
-    enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
-    ip_address_type: typing.Optional[builtins.str] = None,
-    ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
-    load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    scheme: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LoadBalancerAttributeProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.SubnetMappingProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c(
-    *,
-    key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc(
-    *,
-    capacity_units: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11(
-    *,
-    subnet_id: builtins.str,
-    allocation_id: typing.Optional[builtins.str] = None,
-    i_pv6_address: typing.Optional[builtins.str] = None,
-    private_i_pv4_address: typing.Optional[builtins.str] = None,
-    source_nat_ipv6_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28072,184 +28196,6 @@ def _typecheckingstub__6b1eb30cea756dc45f625ec82ab8cba6ea31d24595a925a4aabceb7e6
     subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    health_check_interval_seconds: typing.Optional[jsii.Number] = None,
-    health_check_path: typing.Optional[builtins.str] = None,
-    health_check_port: typing.Optional[builtins.str] = None,
-    health_check_protocol: typing.Optional[builtins.str] = None,
-    health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
-    healthy_threshold_count: typing.Optional[jsii.Number] = None,
-    ip_address_type: typing.Optional[builtins.str] = None,
-    matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    protocol: typing.Optional[builtins.str] = None,
-    protocol_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    target_type: typing.Optional[builtins.str] = None,
-    unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
-    vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.MatcherProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupAttributeProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetDescriptionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb(
-    *,
-    grpc_code: typing.Optional[builtins.str] = None,
-    http_code: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a(
-    *,
-    id: builtins.str,
-    availability_zone: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31(
-    *,
-    key: typing.Optional[builtins.str] = None,
-    value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28279,61 +28225,6 @@ def _typecheckingstub__5f70479f22fd69f1eb73d26d52854af23412d5ec08abc74e859ad481f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    ca_certificates_bundle_s3_bucket: typing.Optional[builtins.str] = None,
-    ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
-    ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__31bee807e2c9af2ecf78de38eee9f203457cfbf7ca7c01c0ec98de7851d38847(
     *,
     ca_certificates_bundle_s3_bucket: typing.Optional[builtins.str] = None,
@@ -28341,60 +28232,6 @@ def _typecheckingstub__31bee807e2c9af2ecf78de38eee9f203457cfbf7ca7c01c0ec98de785
     ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    trust_store_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrustStoreRevocation.RevocationContentProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840(
-    *,
-    revocation_type: typing.Optional[builtins.str] = None,
-    s3_bucket: typing.Optional[builtins.str] = None,
-    s3_key: typing.Optional[builtins.str] = None,
-    s3_object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd(
-    *,
-    number_of_revoked_entries: typing.Optional[jsii.Number] = None,
-    revocation_id: typing.Optional[builtins.str] = None,
-    revocation_type: typing.Optional[builtins.str] = None,
-    trust_store_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28662,6 +28499,13 @@ def _typecheckingstub__742590919eef2852244729790b1773eca3f144a470fe471af2fb62431
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d34f42426eb589809f97328a70f3144b4e327131ad2f897bf00b428be85771b7(
+    *,
+    listener_certificate_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__10d5f07092c3b8888c8d5362b326299d38120e00c976068cb41e6257ad56ed9d(
     values: typing.Sequence[builtins.str],
 ) -> None:
@@ -28695,6 +28539,27 @@ def _typecheckingstub__53f177501e6b65de0e199e45f6fb0d24e9ca86d5de0bd4262d9f62b40
 
 def _typecheckingstub__6022829a1e89abdf41cecd8a7259acfcf073167d330768bf0dd75727ba06f5e1(
     values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b646bfc8ad5e26bd7a4e6e65bac14738dc103f94b09517ebed614e6f3026bd65(
+    *,
+    listener_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03f0d05656ca45440957b946b123dee100822b63288225fbc25a3b55a1597f20(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e18d41fefc7fc78fc493831fa135576d4fe8d3cb7f64ba6aae93a914c7314416(
+    *,
+    load_balancer_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28960,7 +28825,7 @@ def _typecheckingstub__51d56527f4dc28756e02b9a793d897a5ba076221ea88231c8ab457284
 
 def _typecheckingstub__a2d98c0c87c9335126a85af9c46b02ccfdb480d04d96fb422b8f62f17d09b801(
     *,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
     key: builtins.str,
     revocation_type: typing.Optional[RevocationType] = None,
     version: typing.Optional[builtins.str] = None,
@@ -29027,11 +28892,18 @@ def _typecheckingstub__7c19dd8de36c1c86ebd89e7c24379bf1b20a6e5f343db95042864bf02
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7b22d0445cb034b55d9115fd027b3d892bce86e7f1261aa808a4125edf21d635(
+    *,
+    target_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fbafbf35d05de3ceecc0965698aa7d45dd0a58477f5c8555d0efa8b8cfedbd7d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
     key: builtins.str,
     trust_store_name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
@@ -29049,10 +28921,17 @@ def _typecheckingstub__1e078d73452d520ce829e14315128763e3ef291dcb7c3e40df660393d
 
 def _typecheckingstub__41f3f138d5b55c026366c540abffc84d65da6413c7cfa2972612fb796b1d3206(
     *,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
     key: builtins.str,
     trust_store_name: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d10f77ba02946e13f44603e6dec6e6c1edb44c7bed3ad810532244262918e07d(
+    *,
+    trust_store_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29071,6 +28950,14 @@ def _typecheckingstub__de0bf3e884d9bbf4a0d3582e17910f3a46c89450790ad669a820be588
     *,
     revocation_contents: typing.Sequence[typing.Union[RevocationContent, typing.Dict[builtins.str, typing.Any]]],
     trust_store: ITrustStore,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6119c9cbc05c162cda530b1db42aecd49355c616ad3ddb01a1ba5841944fce2e(
+    *,
+    revocation_id: builtins.str,
+    trust_store_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29233,6 +29120,874 @@ def _typecheckingstub__c50cdcdb39546c11e1129be3e435478ae3110391c8b527b7e659324c4
 def _typecheckingstub__42b74f8396752d37baeef333f99c80d4ed81c443c6410c4f4002f7a35e29fdc6(
     key: builtins.str,
     value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    default_actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    load_balancer_arn: builtins.str,
+    alpn_policy: typing.Optional[typing.Sequence[builtins.str]] = None,
+    certificates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    listener_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ListenerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mutual_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.MutualAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    port: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    ssl_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efb1ba6a44ddc5750b7c27766f69fb76bff6c198064023e2c38b788014a18950(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3165b7e60e60f21e64cce7d56f879e79c17968daed71c8fe1774c4bf5fb5c41(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76cdfbb7a1d2a5bd763f1708cf99f85437574dfd6404ec3f127712a8f8ab5f19(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ActionProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e1553fcbcd81ece9aef607535935c2ac70117072c75a29e987b9bdd6e2f27ef(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__315e0ad319a9a28c97b07c034825d82caf02b6ce33e2fac8892088cd3225ed37(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61f97e9ea7f88d4009c002606c3949415591bdcf9c6178a79e7393f3b502d73e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.CertificateProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b1b9d350ce31742bfadffdc2323f76036aecec151afd7512bdaf44e71eda7fb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListener.ListenerAttributeProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2037bfa810705678f0e924d5416268a866686cb43dd3194eaf57585e0b95ac3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnListener.MutualAuthenticationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b820ec6e8e50b3636af3334a1bded1331b53eaccdc106b52a191013c8d254f4(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab98a02887(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21bb354fe54999be8e8c56cfc027cc3a904c8a530eab683af669ae1b3bdab349(
+    *,
+    type: builtins.str,
+    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    order: typing.Optional[jsii.Number] = None,
+    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_group_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb630af3f99ec9f988fab7fffa2096629884c80f9c598de1cffc4415dd96473e(
+    *,
+    user_pool_arn: builtins.str,
+    user_pool_client_id: builtins.str,
+    user_pool_domain: builtins.str,
+    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    on_unauthenticated_request: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+    session_cookie_name: typing.Optional[builtins.str] = None,
+    session_timeout: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7b01e9ee27f1a990217edb4244feb05b3d91523f87886450f22a447811dea06(
+    *,
+    authorization_endpoint: builtins.str,
+    client_id: builtins.str,
+    issuer: builtins.str,
+    token_endpoint: builtins.str,
+    user_info_endpoint: builtins.str,
+    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    client_secret: typing.Optional[builtins.str] = None,
+    on_unauthenticated_request: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+    session_cookie_name: typing.Optional[builtins.str] = None,
+    session_timeout: typing.Optional[builtins.str] = None,
+    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a189a4c626fb49bdb5306d31b7410074c0cd11d8d7c3dfe46807d912589087d1(
+    *,
+    certificate_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__deda3cbd3c32a1a634f767c56d79a9138e7905118126ba6a0f1fed45f5141a33(
+    *,
+    status_code: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
+    message_body: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76a2843eb97151186fbdfa49596935d3eaaa57f1a9d2a415ebe1955fc93eb977(
+    *,
+    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e09ea6213c5fb2125f07b2f54d7fe6ee24307939dcc06580928b2ef024c5d2f(
+    *,
+    key: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07605e87f763c352d3e6705d69aa07723ad3c005493c1fdef02b175f49d53ee0(
+    *,
+    advertise_trust_store_ca_names: typing.Optional[builtins.str] = None,
+    ignore_client_certificate_expiry: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    mode: typing.Optional[builtins.str] = None,
+    trust_store_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1005775ad1b3b69675170892af51045cd26cfac2b84d47685918d625bf9dd6f(
+    *,
+    status_code: builtins.str,
+    host: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    port: typing.Optional[builtins.str] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    query: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6255fa3ef331571ed69f37968971396b4f13ecef1abc86ac63ea9163d7f08b9f(
+    *,
+    duration_seconds: typing.Optional[jsii.Number] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d357e90d90341d47a75385f36ffc579f412a50ed4012a3516e9d147180508cf7(
+    *,
+    target_group_arn: typing.Optional[builtins.str] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e89f9e0136e3c488e5128ccef62a0eafcc0c1604b19981f275b49a69096825d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    certificates: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerCertificate.CertificateProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    listener_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f866eef42e6d20c2d7df98041853138047231413669ee62d9b81c8356e472bb7(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38f03fef1a2cc232fb888ace710cd433227e4fd97b5c4c0aa487fc5b160217a6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec5ca8f01c291a65cf755d29637c3c74db5a8f3a06639daf262b04cccf5b5093(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerCertificate.CertificateProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8331362067b1be023583132da34a9d680977b1fae07cc46d2d608ff2cf4bf85(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed395ae77f7bb77df7703926a419bb7f40f7ee65acbb6f0689c039e21c2a6c57(
+    *,
+    certificate_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae1e13bd1e6ee2145702f187cf74339faebe22401d39b3e4507fd776f5c1fb00(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    priority: jsii.Number,
+    listener_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89c781f6211dfcef23e4ffbecda0b56302167320681401a6cc301c5c7469a7f9(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8d75ab9d40bd05662afad674828f80eaf50dd43cb073fb400aef95e799e41a5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df2aeb643d7c2201cae7e74943f83c1a2592f7d4a6899f3c1d92b46883ce278f(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.ActionProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b964f9ab4a6998a9e14a30bc2ab293ac60d748a814503bebf4ee3bd3c2a21ec6(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnListenerRule.RuleConditionProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad2ec0aba371a9fd9fe7b43961d981938e552ae6cf69b73a21d00ec69a77c765(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5adb80db0269c5891b4a71aef172af30d3d5bd9e5d96d9809336d9aa10169c73(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7150acf06b4a7b7a17a48e47fbd6b5811449714f9389fb8e4f5e930aeaec2e17(
+    *,
+    type: builtins.str,
+    authenticate_cognito_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateCognitoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authenticate_oidc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.AuthenticateOidcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fixed_response_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.FixedResponseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    forward_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.ForwardConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    order: typing.Optional[jsii.Number] = None,
+    redirect_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.RedirectConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_group_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6e194e191d75c931e965d267b55bf397d80bc25ccd0e9542e90644246e8def2(
+    *,
+    user_pool_arn: builtins.str,
+    user_pool_client_id: builtins.str,
+    user_pool_domain: builtins.str,
+    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    on_unauthenticated_request: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+    session_cookie_name: typing.Optional[builtins.str] = None,
+    session_timeout: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21a149f30354ccc72762bb24e1678187c56a36980a9debb0c082b788318b3f78(
+    *,
+    authorization_endpoint: builtins.str,
+    client_id: builtins.str,
+    issuer: builtins.str,
+    token_endpoint: builtins.str,
+    user_info_endpoint: builtins.str,
+    authentication_request_extra_params: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    client_secret: typing.Optional[builtins.str] = None,
+    on_unauthenticated_request: typing.Optional[builtins.str] = None,
+    scope: typing.Optional[builtins.str] = None,
+    session_cookie_name: typing.Optional[builtins.str] = None,
+    session_timeout: typing.Optional[jsii.Number] = None,
+    use_existing_client_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d2c5c8c718405bf3772dd8beb30dc5b4cd06f239df275015582395f1b5efc53(
+    *,
+    status_code: builtins.str,
+    content_type: typing.Optional[builtins.str] = None,
+    message_body: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a222c6dcf7d01b3749391e772443eef278796e8879c110a3ac64e4cca2fa8fa0(
+    *,
+    target_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_group_stickiness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.TargetGroupStickinessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b5898a49fd69ca72a0823cc1f4cde0c5980f5ac1c3ff34184628db9c4c3d642(
+    *,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc8bc3be7581c3c74e13fd0af458f85ee288dc502b075ed589b066c9d37feb40(
+    *,
+    http_header_name: typing.Optional[builtins.str] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3fe6a1ff6af190d9fb8cf22cffb0c9765117a47c52e2458d5d8ed20b10a1aed(
+    *,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6e360611a9f0b6038a980c629c84350310b974cff3f7263e93acf13f081ebc5(
+    *,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b12474d425c6353bb40f119c8e012c541b83b1da71809efeb5d2ff8d811dece4(
+    *,
+    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f92fea91938582b2d07006390dad102ef289e0d78653d534af1db819fca47aac(
+    *,
+    key: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3c17c21af6d672794fd622b97546367ce3d4977a505e49675848167340a1da7(
+    *,
+    status_code: builtins.str,
+    host: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    port: typing.Optional[builtins.str] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    query: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04d7fb23c(
+    *,
+    field: typing.Optional[builtins.str] = None,
+    host_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HostHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_header_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpHeaderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_request_method_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.HttpRequestMethodConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    path_pattern_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.PathPatternConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    query_string_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.QueryStringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnListenerRule.SourceIpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de(
+    *,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__376b54818a6c5ace5d1b82f43175b3fef12c369c1d9f814146eb2584ea1682dc(
+    *,
+    duration_seconds: typing.Optional[jsii.Number] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__536593b57bfb34d0266501ba53a438ea659bbcb686bea52b916e875da7f74d9d(
+    *,
+    target_group_arn: typing.Optional[builtins.str] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__907e1e3e88136a6a7bdcdac293563447ed893c77b9f7b1e7154fb1749585483f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    enable_prefix_for_ipv6_source_nat: typing.Optional[builtins.str] = None,
+    enforce_security_group_inbound_rules_on_private_link_traffic: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_ipam_pool_id: typing.Optional[builtins.str] = None,
+    load_balancer_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.LoadBalancerAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    minimum_load_balancer_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.MinimumLoadBalancerCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    scheme: typing.Optional[builtins.str] = None,
+    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoadBalancer.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f4fc1db72c9bbcfbaddb7ea6d8213545b1ac543356f1721fbbcb27941d7b19d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a178a2aa61d40ebc079a81b6caeba1ff6649a54d784e4ce75ed79b7efbcac42(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38b5ad2c151ce05a51bb2ba1eaa4eb8a906d379df6a66c99f7a4f368bf663f77(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e2f8dd6221319a07a0c76c857d5cc7ce8ca39adbe164a2ff756135108b1ca21(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa89d4763e09b4dd77b6896bc1e3ca0aec2c737fc1c1fe61ce151075629bca01(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__771a4ecd225b5b92f56a4b9a0a84ed7c75fd81e16cb556169a6648b7d21e82bf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b18943454864026c64dd9c2bc7fdaf60ac5114bf771f7304a82e9bdfd652972(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.LoadBalancerAttributeProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__102164e78a5cf61e67908e476a27971c19e5604c38d90ddca6b4b346581d0209(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.MinimumLoadBalancerCapacityProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__153ca4a32dcbf43c1076bdc45b59a5463ab49120f83591bcbf13f84ce3fffa0e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1687b8b0256f0152680ccdd7765d09ba446fa2f418107fa654acecc9353e3004(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d8791289ff10ea19d01f954382cd0a3d17107bbf2096beacab26be77e51e9eb(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cff330c51e1623c95db837e724e8e3b68ebc69e7bc468d3c1a76a57fce5c8d2b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoadBalancer.SubnetMappingProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcdf355ef9be0f1ccfbb8e05078c4cfd134f99a8790e8d66078c5b4f6bc85803(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47ca7bdbcee5e90bfb350393a41f7a94fc04dae49bd2406a71f6d865bb6f0068(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f97aab40477aaed39ee8981b79b8e7b41a285eae19cb1d0e34b6f44846e303f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__981f45ac63ed8e62237b89c4cadf7d8f1c042e4534c384c148e58bad2bf4694c(
+    *,
+    key: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd0d2d4a891c02fabab09ae876b5f738a440bf3402f1db5dc28e3cdd47b733bc(
+    *,
+    capacity_units: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5362b7e1b57cc75205d80d2c4a4798301f16a110c6add8b836265fc95f89ec11(
+    *,
+    subnet_id: builtins.str,
+    allocation_id: typing.Optional[builtins.str] = None,
+    i_pv6_address: typing.Optional[builtins.str] = None,
+    private_i_pv4_address: typing.Optional[builtins.str] = None,
+    source_nat_ipv6_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7aee86566cb3e5ba745d0d4e2346762fa85e2c43821ab0996eaa139c59b2de11(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    health_check_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    health_check_interval_seconds: typing.Optional[jsii.Number] = None,
+    health_check_path: typing.Optional[builtins.str] = None,
+    health_check_port: typing.Optional[builtins.str] = None,
+    health_check_protocol: typing.Optional[builtins.str] = None,
+    health_check_timeout_seconds: typing.Optional[jsii.Number] = None,
+    healthy_threshold_count: typing.Optional[jsii.Number] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    matcher: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.MatcherProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    protocol_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_group_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetDescriptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    target_type: typing.Optional[builtins.str] = None,
+    unhealthy_threshold_count: typing.Optional[jsii.Number] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0651e05549110bb1db977eda35c987bd90a9e64c51b61bfe2a850ad6b2c13990(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__638ff6bb7ea753f116a5d3ad954ac969fa17690e212d44234a7bd5a26433c48d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ff5cc58de04963cc11c975fd400a3b3cedca5c47c26d8c2b0bbde2e86765175(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47d3dc2d677f261b7ed36f7500d60c18c7e8ce2a9668d1280d9d59677ea299c0(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b48a23a63bdffc48348adf6d6bf680e8da5e666d41536a660b9682dc1e68c36(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5eb382055802f26c476159879cacfff918b5d21c1202d9d8911cbb376c1fa41c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff99cc0f6ea6287d15d1544a7cdbac13da6350673bcac6fd5c3435d7da206d3d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__697051a0b94edeacb2cec657341540ab1559c96c3fa3124a4f0e95b706324a5c(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca78c45b7aff96c23d0e1eb057ca982346db552c0a702378506eaaa9fd9be3ae(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55a9ce7d2e172f64fd44f29162f139583855588c7a3f7b3cd51c4cbdf5d217e3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3f3cfa6dd3413f652c8ceb38e89ededefed98bfd145dbd49b7aabc2a9cdb958(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.MatcherProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c8aa8e76935d05afebffd22774a518671daeecc5747521064a6c9d37098440c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cf86b5c013efabb295c3964fa8bd6419f845793bfea736ddfa9c4375f026ea5(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecaaff446324c10b91997abf2370a4348e4318bd647a716835f3a20dc984264b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4550b3fd15081898b70fc7a1f06ad0693dbf7f759f6adf0a0dede0489143735f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65c80be0d3b8ea2ed041d794a354ab02a7e59679072f139341d1a790950529cf(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb73ac6a2765613179f01b40aa0acd1485f4da7aad297231218b43761d098b56(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupAttributeProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7b91c4bf9dd65200f5a8a19eae6f122c8ba2013d270324ca2d1b69c05b5961b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetDescriptionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c923ba4a3debe61e9ae74fb69913086bc0edac7a7ed4b91beb3fec8906a0b50(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36cee0ff74e391bbf22da13d4085b7b4bb8d7faac3518e1501b34cbdd75845b4(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c46268f2c625ac14256af2878dd97453fb18ee5391161d4b62e2c22a39267ad(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a6ef92734c5336a2d738d92626e463575b16ba783048fc053e8a2f612c6f9fb(
+    *,
+    grpc_code: typing.Optional[builtins.str] = None,
+    http_code: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__388b8f97da2cf2c66b09da23d64a7eb0e4636b7065284e65a0b0762e05c9117a(
+    *,
+    id: builtins.str,
+    availability_zone: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f808b23e9c33012516ee17aeef67f6077d59af3b272397edd3c7583358f4eb31(
+    *,
+    key: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81ebb9f328787770d17d305de9af3d60f18035ef5b573f23ff9c343667c15daa(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    ca_certificates_bundle_s3_bucket: typing.Optional[builtins.str] = None,
+    ca_certificates_bundle_s3_key: typing.Optional[builtins.str] = None,
+    ca_certificates_bundle_s3_object_version: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c83d4a209c996a20f7896e23f28ebc0f58b9744048683b4a39418b67e5f8caa(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__928f5f2ca0134ed2b785ee02ea86216dd9c1b81b5619c39edfd0e7ee66a2909f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d14d81a883ca6c66da1c8241977661c623e7d87f0fbc032d2a18c47e6d04c02(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1be3624ad22bc8e080375a39f74f348e8948697acb97bf9d0dc2a45a0da1ecbb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b1cc6b55e607d3f7b50af18e6f407b241b490a03a37d191dc10695613197055(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3337d71099649abc3c47242a84244ef95b8c731df62e245e24794386c2acec29(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecadc34176804597e7f528cec41ade7e67216a7f15056ab07af2331954c2734e(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ee91151ae6c85e85f0ed9fa1e43ed83de726251e4cf02c510eeb1432f351633(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    revocation_contents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrustStoreRevocation.RevocationContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    trust_store_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6caae0af9c2a55621b7035f5ef7e2c031d83c583d4223528ac5c5f0d2cc70cbd(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4e20534c540c916e9f1b512576882a991f23b38ef025445ce06d353de7f0de2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d9908bd788133bb9849b01d630a4c7dcf50bc2ed03f6b29b780dcd9f4e0c3a7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrustStoreRevocation.RevocationContentProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae30a764e06e87f1e2e0b59ce60d1d1cea467ed30d54af4009f73f33936dd448(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59994dd63e97d7e5e6a65dcc0fb37131667a57072a61c485d2b187068f13f840(
+    *,
+    revocation_type: typing.Optional[builtins.str] = None,
+    s3_bucket: typing.Optional[builtins.str] = None,
+    s3_key: typing.Optional[builtins.str] = None,
+    s3_object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c747e60ec89917d3e0327629c375122dc4f16a4311ffd1d311eb7454b83231fd(
+    *,
+    number_of_revoked_entries: typing.Optional[jsii.Number] = None,
+    revocation_id: typing.Optional[builtins.str] = None,
+    revocation_type: typing.Optional[builtins.str] = None,
+    trust_store_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

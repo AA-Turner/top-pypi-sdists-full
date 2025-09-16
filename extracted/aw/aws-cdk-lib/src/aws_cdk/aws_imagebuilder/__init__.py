@@ -69,316 +69,6 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnComponent(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnComponent",
-):
-    '''Creates a new component that can be used to build, validate, test, and assess your image.
-
-    The component is based on a YAML document that you specify using exactly one of the following methods:
-
-    - Inline, using the ``data`` property in the request body.
-    - A URL that points to a YAML document file stored in Amazon S3, using the ``uri`` property in the request body.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-component.html
-    :cloudformationResource: AWS::ImageBuilder::Component
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_imagebuilder as imagebuilder
-        
-        cfn_component = imagebuilder.CfnComponent(self, "MyCfnComponent",
-            name="name",
-            platform="platform",
-            version="version",
-        
-            # the properties below are optional
-            change_description="changeDescription",
-            data="data",
-            description="description",
-            kms_key_id="kmsKeyId",
-            supported_os_versions=["supportedOsVersions"],
-            tags={
-                "tags_key": "tags"
-            },
-            uri="uri"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        platform: builtins.str,
-        version: builtins.str,
-        change_description: typing.Optional[builtins.str] = None,
-        data: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        supported_os_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        uri: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the component.
-        :param platform: The operating system platform of the component.
-        :param version: The component version. For example, ``1.0.0`` .
-        :param change_description: The change description of the component. Describes what change has been made in this version, or what makes this version different from other versions of the component.
-        :param data: Component ``data`` contains inline YAML document content for the component. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
-        :param description: Describes the contents of the component.
-        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-        :param supported_os_versions: The operating system (OS) version supported by the component. If the OS information is available, a prefix match is performed against the base image OS version during image recipe creation.
-        :param tags: The tags that apply to the component.
-        :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cee6f52d40719e283a6d76c8b6a6d4fb48180c9c7f4901a21ff32e8627d45b9e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnComponentProps(
-            name=name,
-            platform=platform,
-            version=version,
-            change_description=change_description,
-            data=data,
-            description=description,
-            kms_key_id=kms_key_id,
-            supported_os_versions=supported_os_versions,
-            tags=tags,
-            uri=uri,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40b669a1c43c3b3079f4db289296a5190bc19737cdacec67b41121ffeb77db84)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa56b38fd57c0ef3c75a0f7854e12f5650c218ee9da1e6a0fc3566f2d0bb250e)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) of the component.
-
-        The following pattern is applied: ``^arn:aws[^:]*:imagebuilder:[^:]+:(?:\\d{12}|aws):(?:image-recipe|infrastructure-configuration|distribution-configuration|component|image|image-pipeline)/[a-z0-9-_]+(?:/(?:(?:x|\\d+)\\.(?:x|\\d+)\\.(?:x|\\d+))(?:/\\d+)?)?$`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEncrypted")
-    def attr_encrypted(self) -> _IResolvable_da3f097b:
-        '''Returns the encryption status of the component.
-
-        For example ``true`` or ``false`` .
-
-        :cloudformationAttribute: Encrypted
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrEncrypted"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrName")
-    def attr_name(self) -> builtins.str:
-        '''Returns the name of the component.
-
-        :cloudformationAttribute: Name
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrType")
-    def attr_type(self) -> builtins.str:
-        '''Image Builder determines the component type based on the phases that are defined in the component document.
-
-        If there is only one phase, and its name is "test", then the type is ``TEST`` . For all other components, the type is ``BUILD`` .
-
-        :cloudformationAttribute: Type
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the component.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2e949f47b8d1f3fa28e8aecc85097ba0e494b4114a67857ca7449b71baa7eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="platform")
-    def platform(self) -> builtins.str:
-        '''The operating system platform of the component.'''
-        return typing.cast(builtins.str, jsii.get(self, "platform"))
-
-    @platform.setter
-    def platform(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0512be6fd4c9842ff94428cb157263d19145ec3979a5af8b91ef02839bf0a59a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="version")
-    def version(self) -> builtins.str:
-        '''The component version.'''
-        return typing.cast(builtins.str, jsii.get(self, "version"))
-
-    @version.setter
-    def version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff0f73dccd3a4b2cd5091fd524dac54a149f454f8e4b95ebdbc8bf2d847d695a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="changeDescription")
-    def change_description(self) -> typing.Optional[builtins.str]:
-        '''The change description of the component.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "changeDescription"))
-
-    @change_description.setter
-    def change_description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__789ae8523d5582d7b263d5e4e40edc52e6cd54e33a4a8a9da22ce8a46158e664)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "changeDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="data")
-    def data(self) -> typing.Optional[builtins.str]:
-        '''Component ``data`` contains inline YAML document content for the component.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "data"))
-
-    @data.setter
-    def data(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87721af8240816306f3213003a08de03e0d6e02c52557a8099b6c11f6103e348)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "data", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Describes the contents of the component.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fc3d50c994f77416bd1fab3b0e2629efe837f684884eb6608ef71e4e7806ece)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyId")
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
-
-    @kms_key_id.setter
-    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa81ab3ceec1f0c67b1340d453195ce21694d45be0f3dc0f50e114a74e30b9dd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supportedOsVersions")
-    def supported_os_versions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The operating system (OS) version supported by the component.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "supportedOsVersions"))
-
-    @supported_os_versions.setter
-    def supported_os_versions(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eed3fe1a4cf44875823a85284d0c8b80bbf155582b1e12432340633e2da8c80)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportedOsVersions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags that apply to the component.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4a5d66d386d51bc332acca6c875fb548297567b633e53e35d7da1075f8af119)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="uri")
-    def uri(self) -> typing.Optional[builtins.str]:
-        '''The ``uri`` of a YAML component document file.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uri"))
-
-    @uri.setter
-    def uri(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6efe7a7fb79c1c8d2effb9d5fa5a6b2b46eefe80a1dce4011093db23ed26368d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_imagebuilder.CfnComponentProps",
     jsii_struct_bases=[],
@@ -600,7 +290,3134 @@ class CfnComponentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnContainerRecipeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "components": "components",
+        "container_type": "containerType",
+        "name": "name",
+        "parent_image": "parentImage",
+        "target_repository": "targetRepository",
+        "version": "version",
+        "description": "description",
+        "dockerfile_template_data": "dockerfileTemplateData",
+        "dockerfile_template_uri": "dockerfileTemplateUri",
+        "image_os_version_override": "imageOsVersionOverride",
+        "instance_configuration": "instanceConfiguration",
+        "kms_key_id": "kmsKeyId",
+        "platform_override": "platformOverride",
+        "tags": "tags",
+        "working_directory": "workingDirectory",
+    },
+)
+class CfnContainerRecipeProps:
+    def __init__(
+        self,
+        *,
+        components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerRecipe.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        container_type: builtins.str,
+        name: builtins.str,
+        parent_image: builtins.str,
+        target_repository: typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerRecipe.TargetContainerRepositoryProperty", typing.Dict[builtins.str, typing.Any]]],
+        version: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        dockerfile_template_data: typing.Optional[builtins.str] = None,
+        dockerfile_template_uri: typing.Optional[builtins.str] = None,
+        image_os_version_override: typing.Optional[builtins.str] = None,
+        instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerRecipe.InstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        platform_override: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContainerRecipe``.
+
+        :param components: Build and test components that are included in the container recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
+        :param container_type: Specifies the type of container, such as Docker.
+        :param name: The name of the container recipe.
+        :param parent_image: The base image for customizations specified in the container recipe. This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
+        :param target_repository: The destination repository for the container image.
+        :param version: The semantic version of the container recipe. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01. *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
+        :param description: The description of the container recipe.
+        :param dockerfile_template_data: Dockerfiles are text documents that are used to build Docker containers, and ensure that they contain all of the elements required by the application running inside. The template data consists of contextual variables where Image Builder places build information or scripts, based on your container image recipe.
+        :param dockerfile_template_uri: The S3 URI for the Dockerfile that will be used to build your container image.
+        :param image_os_version_override: Specifies the operating system version for the base image.
+        :param instance_configuration: A group of options that can be used to configure an instance for building and testing container images.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+        :param platform_override: Specifies the operating system platform when you use a custom base image.
+        :param tags: Tags that are attached to the container recipe.
+        :param working_directory: The working directory for use during build and test workflows.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_container_recipe_props = imagebuilder.CfnContainerRecipeProps(
+                components=[imagebuilder.CfnContainerRecipe.ComponentConfigurationProperty(
+                    component_arn="componentArn",
+                    parameters=[imagebuilder.CfnContainerRecipe.ComponentParameterProperty(
+                        name="name",
+                        value=["value"]
+                    )]
+                )],
+                container_type="containerType",
+                name="name",
+                parent_image="parentImage",
+                target_repository=imagebuilder.CfnContainerRecipe.TargetContainerRepositoryProperty(
+                    repository_name="repositoryName",
+                    service="service"
+                ),
+                version="version",
+            
+                # the properties below are optional
+                description="description",
+                dockerfile_template_data="dockerfileTemplateData",
+                dockerfile_template_uri="dockerfileTemplateUri",
+                image_os_version_override="imageOsVersionOverride",
+                instance_configuration=imagebuilder.CfnContainerRecipe.InstanceConfigurationProperty(
+                    block_device_mappings=[imagebuilder.CfnContainerRecipe.InstanceBlockDeviceMappingProperty(
+                        device_name="deviceName",
+                        ebs=imagebuilder.CfnContainerRecipe.EbsInstanceBlockDeviceSpecificationProperty(
+                            delete_on_termination=False,
+                            encrypted=False,
+                            iops=123,
+                            kms_key_id="kmsKeyId",
+                            snapshot_id="snapshotId",
+                            throughput=123,
+                            volume_size=123,
+                            volume_type="volumeType"
+                        ),
+                        no_device="noDevice",
+                        virtual_name="virtualName"
+                    )],
+                    image="image"
+                ),
+                kms_key_id="kmsKeyId",
+                platform_override="platformOverride",
+                tags={
+                    "tags_key": "tags"
+                },
+                working_directory="workingDirectory"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67f8d0f3d1045e15583795ba863ee1d218908e506567e7d12e0aa5861d44ab17)
+            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
+            check_type(argname="argument container_type", value=container_type, expected_type=type_hints["container_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_image", value=parent_image, expected_type=type_hints["parent_image"])
+            check_type(argname="argument target_repository", value=target_repository, expected_type=type_hints["target_repository"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument dockerfile_template_data", value=dockerfile_template_data, expected_type=type_hints["dockerfile_template_data"])
+            check_type(argname="argument dockerfile_template_uri", value=dockerfile_template_uri, expected_type=type_hints["dockerfile_template_uri"])
+            check_type(argname="argument image_os_version_override", value=image_os_version_override, expected_type=type_hints["image_os_version_override"])
+            check_type(argname="argument instance_configuration", value=instance_configuration, expected_type=type_hints["instance_configuration"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument platform_override", value=platform_override, expected_type=type_hints["platform_override"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "components": components,
+            "container_type": container_type,
+            "name": name,
+            "parent_image": parent_image,
+            "target_repository": target_repository,
+            "version": version,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if dockerfile_template_data is not None:
+            self._values["dockerfile_template_data"] = dockerfile_template_data
+        if dockerfile_template_uri is not None:
+            self._values["dockerfile_template_uri"] = dockerfile_template_uri
+        if image_os_version_override is not None:
+            self._values["image_os_version_override"] = image_os_version_override
+        if instance_configuration is not None:
+            self._values["instance_configuration"] = instance_configuration
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if platform_override is not None:
+            self._values["platform_override"] = platform_override
+        if tags is not None:
+            self._values["tags"] = tags
+        if working_directory is not None:
+            self._values["working_directory"] = working_directory
+
+    @builtins.property
+    def components(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.ComponentConfigurationProperty"]]]:
+        '''Build and test components that are included in the container recipe.
+
+        Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-components
+        '''
+        result = self._values.get("components")
+        assert result is not None, "Required property 'components' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.ComponentConfigurationProperty"]]], result)
+
+    @builtins.property
+    def container_type(self) -> builtins.str:
+        '''Specifies the type of container, such as Docker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-containertype
+        '''
+        result = self._values.get("container_type")
+        assert result is not None, "Required property 'container_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the container recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parent_image(self) -> builtins.str:
+        '''The base image for customizations specified in the container recipe.
+
+        This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-parentimage
+        '''
+        result = self._values.get("parent_image")
+        assert result is not None, "Required property 'parent_image' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_repository(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.TargetContainerRepositoryProperty"]:
+        '''The destination repository for the container image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-targetrepository
+        '''
+        result = self._values.get("target_repository")
+        assert result is not None, "Required property 'target_repository' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.TargetContainerRepositoryProperty"], result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The semantic version of the container recipe.
+
+        .. epigraph::
+
+           The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them.
+
+           *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node.
+
+           *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
+
+           *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-version
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the container recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dockerfile_template_data(self) -> typing.Optional[builtins.str]:
+        '''Dockerfiles are text documents that are used to build Docker containers, and ensure that they contain all of the elements required by the application running inside.
+
+        The template data consists of contextual variables where Image Builder places build information or scripts, based on your container image recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-dockerfiletemplatedata
+        '''
+        result = self._values.get("dockerfile_template_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dockerfile_template_uri(self) -> typing.Optional[builtins.str]:
+        '''The S3 URI for the Dockerfile that will be used to build your container image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-dockerfiletemplateuri
+        '''
+        result = self._values.get("dockerfile_template_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_os_version_override(self) -> typing.Optional[builtins.str]:
+        '''Specifies the operating system version for the base image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-imageosversionoverride
+        '''
+        result = self._values.get("image_os_version_override")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.InstanceConfigurationProperty"]]:
+        '''A group of options that can be used to configure an instance for building and testing container images.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-instanceconfiguration
+        '''
+        result = self._values.get("instance_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerRecipe.InstanceConfigurationProperty"]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region.
+
+        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def platform_override(self) -> typing.Optional[builtins.str]:
+        '''Specifies the operating system platform when you use a custom base image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-platformoverride
+        '''
+        result = self._values.get("platform_override")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags that are attached to the container recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def working_directory(self) -> typing.Optional[builtins.str]:
+        '''The working directory for use during build and test workflows.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-workingdirectory
+        '''
+        result = self._values.get("working_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContainerRecipeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnDistributionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "distributions": "distributions",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnDistributionConfigurationProps:
+    def __init__(
+        self,
+        *,
+        distributions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionConfiguration.DistributionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDistributionConfiguration``.
+
+        :param distributions: The distributions of this distribution configuration formatted as an array of Distribution objects.
+        :param name: The name of this distribution configuration.
+        :param description: The description of this distribution configuration.
+        :param tags: The tags of this distribution configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            # ami_distribution_configuration: Any
+            # container_distribution_configuration: Any
+            
+            cfn_distribution_configuration_props = imagebuilder.CfnDistributionConfigurationProps(
+                distributions=[imagebuilder.CfnDistributionConfiguration.DistributionProperty(
+                    region="region",
+            
+                    # the properties below are optional
+                    ami_distribution_configuration=ami_distribution_configuration,
+                    container_distribution_configuration=container_distribution_configuration,
+                    fast_launch_configurations=[imagebuilder.CfnDistributionConfiguration.FastLaunchConfigurationProperty(
+                        account_id="accountId",
+                        enabled=False,
+                        launch_template=imagebuilder.CfnDistributionConfiguration.FastLaunchLaunchTemplateSpecificationProperty(
+                            launch_template_id="launchTemplateId",
+                            launch_template_name="launchTemplateName",
+                            launch_template_version="launchTemplateVersion"
+                        ),
+                        max_parallel_launches=123,
+                        snapshot_configuration=imagebuilder.CfnDistributionConfiguration.FastLaunchSnapshotConfigurationProperty(
+                            target_resource_count=123
+                        )
+                    )],
+                    launch_template_configurations=[imagebuilder.CfnDistributionConfiguration.LaunchTemplateConfigurationProperty(
+                        account_id="accountId",
+                        launch_template_id="launchTemplateId",
+                        set_default_version=False
+                    )],
+                    license_configuration_arns=["licenseConfigurationArns"],
+                    ssm_parameter_configurations=[imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
+                        parameter_name="parameterName",
+            
+                        # the properties below are optional
+                        ami_account_id="amiAccountId",
+                        data_type="dataType"
+                    )]
+                )],
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f16c19e0cbb34ea9e02eb4cfcaa69a6cdf4c60af0ca2736a9d0dd6b74445c9d8)
+            check_type(argname="argument distributions", value=distributions, expected_type=type_hints["distributions"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "distributions": distributions,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def distributions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionConfiguration.DistributionProperty"]]]:
+        '''The distributions of this distribution configuration formatted as an array of Distribution objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-distributions
+        '''
+        result = self._values.get("distributions")
+        assert result is not None, "Required property 'distributions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionConfiguration.DistributionProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of this distribution configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of this distribution configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags of this distribution configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDistributionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImagePipelineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "infrastructure_configuration_arn": "infrastructureConfigurationArn",
+        "name": "name",
+        "container_recipe_arn": "containerRecipeArn",
+        "description": "description",
+        "distribution_configuration_arn": "distributionConfigurationArn",
+        "enhanced_image_metadata_enabled": "enhancedImageMetadataEnabled",
+        "execution_role": "executionRole",
+        "image_recipe_arn": "imageRecipeArn",
+        "image_scanning_configuration": "imageScanningConfiguration",
+        "image_tests_configuration": "imageTestsConfiguration",
+        "schedule": "schedule",
+        "status": "status",
+        "tags": "tags",
+        "workflows": "workflows",
+    },
+)
+class CfnImagePipelineProps:
+    def __init__(
+        self,
+        *,
+        infrastructure_configuration_arn: builtins.str,
+        name: builtins.str,
+        container_recipe_arn: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        distribution_configuration_arn: typing.Optional[builtins.str] = None,
+        enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        execution_role: typing.Optional[builtins.str] = None,
+        image_recipe_arn: typing.Optional[builtins.str] = None,
+        image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImagePipeline.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImagePipeline.ImageTestsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImagePipeline.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImagePipeline.WorkflowConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnImagePipeline``.
+
+        :param infrastructure_configuration_arn: The Amazon Resource Name (ARN) of the infrastructure configuration associated with this image pipeline.
+        :param name: The name of the image pipeline.
+        :param container_recipe_arn: The Amazon Resource Name (ARN) of the container recipe that is used for this pipeline.
+        :param description: The description of this image pipeline.
+        :param distribution_configuration_arn: The Amazon Resource Name (ARN) of the distribution configuration associated with this image pipeline.
+        :param enhanced_image_metadata_enabled: Collects additional information about the image being created, including the operating system (OS) version and package list. This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
+        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
+        :param image_recipe_arn: The Amazon Resource Name (ARN) of the image recipe associated with this image pipeline.
+        :param image_scanning_configuration: Contains settings for vulnerability scans.
+        :param image_tests_configuration: The configuration of the image tests that run after image creation to ensure the quality of the image that was created.
+        :param schedule: The schedule of the image pipeline. A schedule configures how often and when a pipeline automatically creates a new image.
+        :param status: The status of the image pipeline.
+        :param tags: The tags of this image pipeline.
+        :param workflows: Contains the workflows that run for the image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_image_pipeline_props = imagebuilder.CfnImagePipelineProps(
+                infrastructure_configuration_arn="infrastructureConfigurationArn",
+                name="name",
+            
+                # the properties below are optional
+                container_recipe_arn="containerRecipeArn",
+                description="description",
+                distribution_configuration_arn="distributionConfigurationArn",
+                enhanced_image_metadata_enabled=False,
+                execution_role="executionRole",
+                image_recipe_arn="imageRecipeArn",
+                image_scanning_configuration=imagebuilder.CfnImagePipeline.ImageScanningConfigurationProperty(
+                    ecr_configuration=imagebuilder.CfnImagePipeline.EcrConfigurationProperty(
+                        container_tags=["containerTags"],
+                        repository_name="repositoryName"
+                    ),
+                    image_scanning_enabled=False
+                ),
+                image_tests_configuration=imagebuilder.CfnImagePipeline.ImageTestsConfigurationProperty(
+                    image_tests_enabled=False,
+                    timeout_minutes=123
+                ),
+                schedule=imagebuilder.CfnImagePipeline.ScheduleProperty(
+                    pipeline_execution_start_condition="pipelineExecutionStartCondition",
+                    schedule_expression="scheduleExpression"
+                ),
+                status="status",
+                tags={
+                    "tags_key": "tags"
+                },
+                workflows=[imagebuilder.CfnImagePipeline.WorkflowConfigurationProperty(
+                    on_failure="onFailure",
+                    parallel_group="parallelGroup",
+                    parameters=[imagebuilder.CfnImagePipeline.WorkflowParameterProperty(
+                        name="name",
+                        value=["value"]
+                    )],
+                    workflow_arn="workflowArn"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95f10c4451c6bf3f2cf15951831cd372e35975262c0be294c1ae7c774045ad9b)
+            check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
+            check_type(argname="argument enhanced_image_metadata_enabled", value=enhanced_image_metadata_enabled, expected_type=type_hints["enhanced_image_metadata_enabled"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
+            check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
+            check_type(argname="argument image_tests_configuration", value=image_tests_configuration, expected_type=type_hints["image_tests_configuration"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "infrastructure_configuration_arn": infrastructure_configuration_arn,
+            "name": name,
+        }
+        if container_recipe_arn is not None:
+            self._values["container_recipe_arn"] = container_recipe_arn
+        if description is not None:
+            self._values["description"] = description
+        if distribution_configuration_arn is not None:
+            self._values["distribution_configuration_arn"] = distribution_configuration_arn
+        if enhanced_image_metadata_enabled is not None:
+            self._values["enhanced_image_metadata_enabled"] = enhanced_image_metadata_enabled
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if image_recipe_arn is not None:
+            self._values["image_recipe_arn"] = image_recipe_arn
+        if image_scanning_configuration is not None:
+            self._values["image_scanning_configuration"] = image_scanning_configuration
+        if image_tests_configuration is not None:
+            self._values["image_tests_configuration"] = image_tests_configuration
+        if schedule is not None:
+            self._values["schedule"] = schedule
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+        if workflows is not None:
+            self._values["workflows"] = workflows
+
+    @builtins.property
+    def infrastructure_configuration_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the infrastructure configuration associated with this image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-infrastructureconfigurationarn
+        '''
+        result = self._values.get("infrastructure_configuration_arn")
+        assert result is not None, "Required property 'infrastructure_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def container_recipe_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the container recipe that is used for this pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-containerrecipearn
+        '''
+        result = self._values.get("container_recipe_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of this image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def distribution_configuration_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the distribution configuration associated with this image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-distributionconfigurationarn
+        '''
+        result = self._values.get("distribution_configuration_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enhanced_image_metadata_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Collects additional information about the image being created, including the operating system (OS) version and package list.
+
+        This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-enhancedimagemetadataenabled
+        '''
+        result = self._values.get("enhanced_image_metadata_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional[builtins.str]:
+        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-executionrole
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_recipe_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the image recipe associated with this image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagerecipearn
+        '''
+        result = self._values.get("image_recipe_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_scanning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ImageScanningConfigurationProperty"]]:
+        '''Contains settings for vulnerability scans.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagescanningconfiguration
+        '''
+        result = self._values.get("image_scanning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ImageScanningConfigurationProperty"]], result)
+
+    @builtins.property
+    def image_tests_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ImageTestsConfigurationProperty"]]:
+        '''The configuration of the image tests that run after image creation to ensure the quality of the image that was created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagetestsconfiguration
+        '''
+        result = self._values.get("image_tests_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ImageTestsConfigurationProperty"]], result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ScheduleProperty"]]:
+        '''The schedule of the image pipeline.
+
+        A schedule configures how often and when a pipeline automatically creates a new image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-schedule
+        '''
+        result = self._values.get("schedule")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.ScheduleProperty"]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags of this image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def workflows(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.WorkflowConfigurationProperty"]]]]:
+        '''Contains the workflows that run for the image pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-workflows
+        '''
+        result = self._values.get("workflows")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImagePipeline.WorkflowConfigurationProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnImagePipelineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_recipe_arn": "containerRecipeArn",
+        "distribution_configuration_arn": "distributionConfigurationArn",
+        "enhanced_image_metadata_enabled": "enhancedImageMetadataEnabled",
+        "execution_role": "executionRole",
+        "image_recipe_arn": "imageRecipeArn",
+        "image_scanning_configuration": "imageScanningConfiguration",
+        "image_tests_configuration": "imageTestsConfiguration",
+        "infrastructure_configuration_arn": "infrastructureConfigurationArn",
+        "tags": "tags",
+        "workflows": "workflows",
+    },
+)
+class CfnImageProps:
+    def __init__(
+        self,
+        *,
+        container_recipe_arn: typing.Optional[builtins.str] = None,
+        distribution_configuration_arn: typing.Optional[builtins.str] = None,
+        enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        execution_role: typing.Optional[builtins.str] = None,
+        image_recipe_arn: typing.Optional[builtins.str] = None,
+        image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImage.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImage.ImageTestsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        infrastructure_configuration_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImage.WorkflowConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnImage``.
+
+        :param container_recipe_arn: The Amazon Resource Name (ARN) of the container recipe that defines how images are configured and tested.
+        :param distribution_configuration_arn: The Amazon Resource Name (ARN) of the distribution configuration that defines and configures the outputs of your pipeline.
+        :param enhanced_image_metadata_enabled: Collects additional information about the image being created, including the operating system (OS) version and package list. This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
+        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
+        :param image_recipe_arn: The Amazon Resource Name (ARN) of the image recipe that defines how images are configured, tested, and assessed.
+        :param image_scanning_configuration: Contains settings for vulnerability scans.
+        :param image_tests_configuration: The image tests configuration of the image.
+        :param infrastructure_configuration_arn: The Amazon Resource Name (ARN) of the infrastructure configuration that defines the environment in which your image will be built and tested.
+        :param tags: The tags of the image.
+        :param workflows: Contains an array of workflow configuration objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_image_props = imagebuilder.CfnImageProps(
+                container_recipe_arn="containerRecipeArn",
+                distribution_configuration_arn="distributionConfigurationArn",
+                enhanced_image_metadata_enabled=False,
+                execution_role="executionRole",
+                image_recipe_arn="imageRecipeArn",
+                image_scanning_configuration=imagebuilder.CfnImage.ImageScanningConfigurationProperty(
+                    ecr_configuration=imagebuilder.CfnImage.EcrConfigurationProperty(
+                        container_tags=["containerTags"],
+                        repository_name="repositoryName"
+                    ),
+                    image_scanning_enabled=False
+                ),
+                image_tests_configuration=imagebuilder.CfnImage.ImageTestsConfigurationProperty(
+                    image_tests_enabled=False,
+                    timeout_minutes=123
+                ),
+                infrastructure_configuration_arn="infrastructureConfigurationArn",
+                tags={
+                    "tags_key": "tags"
+                },
+                workflows=[imagebuilder.CfnImage.WorkflowConfigurationProperty(
+                    on_failure="onFailure",
+                    parallel_group="parallelGroup",
+                    parameters=[imagebuilder.CfnImage.WorkflowParameterProperty(
+                        name="name",
+                        value=["value"]
+                    )],
+                    workflow_arn="workflowArn"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f217922888735234464ee573256caba679b2c1215a99c91ad609c9c75d22d47)
+            check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
+            check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
+            check_type(argname="argument enhanced_image_metadata_enabled", value=enhanced_image_metadata_enabled, expected_type=type_hints["enhanced_image_metadata_enabled"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
+            check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
+            check_type(argname="argument image_tests_configuration", value=image_tests_configuration, expected_type=type_hints["image_tests_configuration"])
+            check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if container_recipe_arn is not None:
+            self._values["container_recipe_arn"] = container_recipe_arn
+        if distribution_configuration_arn is not None:
+            self._values["distribution_configuration_arn"] = distribution_configuration_arn
+        if enhanced_image_metadata_enabled is not None:
+            self._values["enhanced_image_metadata_enabled"] = enhanced_image_metadata_enabled
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if image_recipe_arn is not None:
+            self._values["image_recipe_arn"] = image_recipe_arn
+        if image_scanning_configuration is not None:
+            self._values["image_scanning_configuration"] = image_scanning_configuration
+        if image_tests_configuration is not None:
+            self._values["image_tests_configuration"] = image_tests_configuration
+        if infrastructure_configuration_arn is not None:
+            self._values["infrastructure_configuration_arn"] = infrastructure_configuration_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if workflows is not None:
+            self._values["workflows"] = workflows
+
+    @builtins.property
+    def container_recipe_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the container recipe that defines how images are configured and tested.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-containerrecipearn
+        '''
+        result = self._values.get("container_recipe_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def distribution_configuration_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the distribution configuration that defines and configures the outputs of your pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-distributionconfigurationarn
+        '''
+        result = self._values.get("distribution_configuration_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enhanced_image_metadata_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Collects additional information about the image being created, including the operating system (OS) version and package list.
+
+        This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-enhancedimagemetadataenabled
+        '''
+        result = self._values.get("enhanced_image_metadata_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional[builtins.str]:
+        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-executionrole
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_recipe_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the image recipe that defines how images are configured, tested, and assessed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagerecipearn
+        '''
+        result = self._values.get("image_recipe_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_scanning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImage.ImageScanningConfigurationProperty"]]:
+        '''Contains settings for vulnerability scans.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagescanningconfiguration
+        '''
+        result = self._values.get("image_scanning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImage.ImageScanningConfigurationProperty"]], result)
+
+    @builtins.property
+    def image_tests_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImage.ImageTestsConfigurationProperty"]]:
+        '''The image tests configuration of the image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagetestsconfiguration
+        '''
+        result = self._values.get("image_tests_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImage.ImageTestsConfigurationProperty"]], result)
+
+    @builtins.property
+    def infrastructure_configuration_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the infrastructure configuration that defines the environment in which your image will be built and tested.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-infrastructureconfigurationarn
+        '''
+        result = self._values.get("infrastructure_configuration_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags of the image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def workflows(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImage.WorkflowConfigurationProperty"]]]]:
+        '''Contains an array of workflow configuration objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-workflows
+        '''
+        result = self._values.get("workflows")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImage.WorkflowConfigurationProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnImageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImageRecipeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "components": "components",
+        "name": "name",
+        "parent_image": "parentImage",
+        "version": "version",
+        "additional_instance_configuration": "additionalInstanceConfiguration",
+        "block_device_mappings": "blockDeviceMappings",
+        "description": "description",
+        "tags": "tags",
+        "working_directory": "workingDirectory",
+    },
+)
+class CfnImageRecipeProps:
+    def __init__(
+        self,
+        *,
+        components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageRecipe.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        parent_image: builtins.str,
+        version: builtins.str,
+        additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageRecipe.AdditionalInstanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageRecipe.InstanceBlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnImageRecipe``.
+
+        :param components: The components that are included in the image recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
+        :param name: The name of the image recipe.
+        :param parent_image: The base image for customizations specified in the image recipe. You can specify the parent image using one of the following options: - AMI ID - Image Builder image Amazon Resource Name (ARN) - AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN. - AWS Marketplace product ID
+        :param version: The version of the image recipe.
+        :param additional_instance_configuration: Before you create a new AMI, Image Builder launches temporary Amazon EC2 instances to build and test your image configuration. Instance configuration adds a layer of control over those instances. You can define settings and add scripts to run when an instance is launched from your AMI.
+        :param block_device_mappings: The block device mappings to apply when creating images from this recipe.
+        :param description: The description of the image recipe.
+        :param tags: The tags of the image recipe.
+        :param working_directory: The working directory to be used during build and test workflows.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_image_recipe_props = imagebuilder.CfnImageRecipeProps(
+                components=[imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(
+                    component_arn="componentArn",
+                    parameters=[imagebuilder.CfnImageRecipe.ComponentParameterProperty(
+                        name="name",
+                        value=["value"]
+                    )]
+                )],
+                name="name",
+                parent_image="parentImage",
+                version="version",
+            
+                # the properties below are optional
+                additional_instance_configuration=imagebuilder.CfnImageRecipe.AdditionalInstanceConfigurationProperty(
+                    systems_manager_agent=imagebuilder.CfnImageRecipe.SystemsManagerAgentProperty(
+                        uninstall_after_build=False
+                    ),
+                    user_data_override="userDataOverride"
+                ),
+                block_device_mappings=[imagebuilder.CfnImageRecipe.InstanceBlockDeviceMappingProperty(
+                    device_name="deviceName",
+                    ebs=imagebuilder.CfnImageRecipe.EbsInstanceBlockDeviceSpecificationProperty(
+                        delete_on_termination=False,
+                        encrypted=False,
+                        iops=123,
+                        kms_key_id="kmsKeyId",
+                        snapshot_id="snapshotId",
+                        throughput=123,
+                        volume_size=123,
+                        volume_type="volumeType"
+                    ),
+                    no_device="noDevice",
+                    virtual_name="virtualName"
+                )],
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                },
+                working_directory="workingDirectory"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a289ec10c5f4c9443f1dfb0dc4ecb78a20e5f6e491ed688cb2e3a59ad3d6c88a)
+            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_image", value=parent_image, expected_type=type_hints["parent_image"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument additional_instance_configuration", value=additional_instance_configuration, expected_type=type_hints["additional_instance_configuration"])
+            check_type(argname="argument block_device_mappings", value=block_device_mappings, expected_type=type_hints["block_device_mappings"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "components": components,
+            "name": name,
+            "parent_image": parent_image,
+            "version": version,
+        }
+        if additional_instance_configuration is not None:
+            self._values["additional_instance_configuration"] = additional_instance_configuration
+        if block_device_mappings is not None:
+            self._values["block_device_mappings"] = block_device_mappings
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if working_directory is not None:
+            self._values["working_directory"] = working_directory
+
+    @builtins.property
+    def components(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.ComponentConfigurationProperty"]]]:
+        '''The components that are included in the image recipe.
+
+        Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-components
+        '''
+        result = self._values.get("components")
+        assert result is not None, "Required property 'components' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.ComponentConfigurationProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the image recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parent_image(self) -> builtins.str:
+        '''The base image for customizations specified in the image recipe.
+
+        You can specify the parent image using one of the following options:
+
+        - AMI ID
+        - Image Builder image Amazon Resource Name (ARN)
+        - AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN.
+        - AWS Marketplace product ID
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-parentimage
+        '''
+        result = self._values.get("parent_image")
+        assert result is not None, "Required property 'parent_image' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The version of the image recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-version
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_instance_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.AdditionalInstanceConfigurationProperty"]]:
+        '''Before you create a new AMI, Image Builder launches temporary Amazon EC2 instances to build and test your image configuration.
+
+        Instance configuration adds a layer of control over those instances. You can define settings and add scripts to run when an instance is launched from your AMI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-additionalinstanceconfiguration
+        '''
+        result = self._values.get("additional_instance_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.AdditionalInstanceConfigurationProperty"]], result)
+
+    @builtins.property
+    def block_device_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.InstanceBlockDeviceMappingProperty"]]]]:
+        '''The block device mappings to apply when creating images from this recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-blockdevicemappings
+        '''
+        result = self._values.get("block_device_mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageRecipe.InstanceBlockDeviceMappingProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the image recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags of the image recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def working_directory(self) -> typing.Optional[builtins.str]:
+        '''The working directory to be used during build and test workflows.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-workingdirectory
+        '''
+        result = self._values.get("working_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnImageRecipeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnInfrastructureConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_profile_name": "instanceProfileName",
+        "name": "name",
+        "description": "description",
+        "instance_metadata_options": "instanceMetadataOptions",
+        "instance_types": "instanceTypes",
+        "key_pair": "keyPair",
+        "logging": "logging",
+        "placement": "placement",
+        "resource_tags": "resourceTags",
+        "security_group_ids": "securityGroupIds",
+        "sns_topic_arn": "snsTopicArn",
+        "subnet_id": "subnetId",
+        "tags": "tags",
+        "terminate_instance_on_failure": "terminateInstanceOnFailure",
+    },
+)
+class CfnInfrastructureConfigurationProps:
+    def __init__(
+        self,
+        *,
+        instance_profile_name: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        instance_metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        key_pair: typing.Optional[builtins.str] = None,
+        logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInfrastructureConfiguration.LoggingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInfrastructureConfiguration.PlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        sns_topic_arn: typing.Optional[builtins.str] = None,
+        subnet_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInfrastructureConfiguration``.
+
+        :param instance_profile_name: The instance profile to associate with the instance used to customize your Amazon EC2 AMI.
+        :param name: The name of the infrastructure configuration.
+        :param description: The description of the infrastructure configuration.
+        :param instance_metadata_options: The instance metadata options that you can set for the HTTP requests that pipeline builds use to launch EC2 build and test instances.
+        :param instance_types: The instance types of the infrastructure configuration. You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
+        :param key_pair: The key pair of the infrastructure configuration. You can use this to log on to and debug the instance used to create your image.
+        :param logging: The logging configuration of the infrastructure configuration.
+        :param placement: The instance placement settings that define where the instances that are launched from your image will run.
+        :param resource_tags: The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process. Tags are formatted as key value pairs.
+        :param security_group_ids: The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
+        :param sns_topic_arn: The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications. .. epigraph:: EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
+        :param subnet_id: The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
+        :param tags: The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output. Tags are formatted as key value pairs.
+        :param terminate_instance_on_failure: The terminate instance on failure setting of the infrastructure configuration. Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_infrastructure_configuration_props = imagebuilder.CfnInfrastructureConfigurationProps(
+                instance_profile_name="instanceProfileName",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                instance_metadata_options=imagebuilder.CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty(
+                    http_put_response_hop_limit=123,
+                    http_tokens="httpTokens"
+                ),
+                instance_types=["instanceTypes"],
+                key_pair="keyPair",
+                logging=imagebuilder.CfnInfrastructureConfiguration.LoggingProperty(
+                    s3_logs=imagebuilder.CfnInfrastructureConfiguration.S3LogsProperty(
+                        s3_bucket_name="s3BucketName",
+                        s3_key_prefix="s3KeyPrefix"
+                    )
+                ),
+                placement=imagebuilder.CfnInfrastructureConfiguration.PlacementProperty(
+                    availability_zone="availabilityZone",
+                    host_id="hostId",
+                    host_resource_group_arn="hostResourceGroupArn",
+                    tenancy="tenancy"
+                ),
+                resource_tags={
+                    "resource_tags_key": "resourceTags"
+                },
+                security_group_ids=["securityGroupIds"],
+                sns_topic_arn="snsTopicArn",
+                subnet_id="subnetId",
+                tags={
+                    "tags_key": "tags"
+                },
+                terminate_instance_on_failure=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb6019d47)
+            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument instance_metadata_options", value=instance_metadata_options, expected_type=type_hints["instance_metadata_options"])
+            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
+            check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument placement", value=placement, expected_type=type_hints["placement"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument terminate_instance_on_failure", value=terminate_instance_on_failure, expected_type=type_hints["terminate_instance_on_failure"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_profile_name": instance_profile_name,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if instance_metadata_options is not None:
+            self._values["instance_metadata_options"] = instance_metadata_options
+        if instance_types is not None:
+            self._values["instance_types"] = instance_types
+        if key_pair is not None:
+            self._values["key_pair"] = key_pair
+        if logging is not None:
+            self._values["logging"] = logging
+        if placement is not None:
+            self._values["placement"] = placement
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if sns_topic_arn is not None:
+            self._values["sns_topic_arn"] = sns_topic_arn
+        if subnet_id is not None:
+            self._values["subnet_id"] = subnet_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if terminate_instance_on_failure is not None:
+            self._values["terminate_instance_on_failure"] = terminate_instance_on_failure
+
+    @builtins.property
+    def instance_profile_name(self) -> builtins.str:
+        '''The instance profile to associate with the instance used to customize your Amazon EC2 AMI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instanceprofilename
+        '''
+        result = self._values.get("instance_profile_name")
+        assert result is not None, "Required property 'instance_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the infrastructure configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the infrastructure configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_metadata_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty"]]:
+        '''The instance metadata options that you can set for the HTTP requests that pipeline builds use to launch EC2 build and test instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instancemetadataoptions
+        '''
+        result = self._values.get("instance_metadata_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty"]], result)
+
+    @builtins.property
+    def instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The instance types of the infrastructure configuration.
+
+        You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instancetypes
+        '''
+        result = self._values.get("instance_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def key_pair(self) -> typing.Optional[builtins.str]:
+        '''The key pair of the infrastructure configuration.
+
+        You can use this to log on to and debug the instance used to create your image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-keypair
+        '''
+        result = self._values.get("key_pair")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.LoggingProperty"]]:
+        '''The logging configuration of the infrastructure configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-logging
+        '''
+        result = self._values.get("logging")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.LoggingProperty"]], result)
+
+    @builtins.property
+    def placement(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.PlacementProperty"]]:
+        '''The instance placement settings that define where the instances that are launched from your image will run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-placement
+        '''
+        result = self._values.get("placement")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfrastructureConfiguration.PlacementProperty"]], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process.
+
+        Tags are formatted as key value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def sns_topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications.
+
+        .. epigraph::
+
+           EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-snstopicarn
+        '''
+        result = self._values.get("sns_topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_id(self) -> typing.Optional[builtins.str]:
+        '''The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-subnetid
+        '''
+        result = self._values.get("subnet_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output.
+
+        Tags are formatted as key value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def terminate_instance_on_failure(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The terminate instance on failure setting of the infrastructure configuration.
+
+        Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-terminateinstanceonfailure
+        '''
+        result = self._values.get("terminate_instance_on_failure")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInfrastructureConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnLifecyclePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_role": "executionRole",
+        "name": "name",
+        "policy_details": "policyDetails",
+        "resource_selection": "resourceSelection",
+        "resource_type": "resourceType",
+        "description": "description",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnLifecyclePolicyProps:
+    def __init__(
+        self,
+        *,
+        execution_role: builtins.str,
+        name: builtins.str,
+        policy_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLifecyclePolicy.PolicyDetailProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource_selection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLifecyclePolicy.ResourceSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource_type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLifecyclePolicy``.
+
+        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to run lifecycle actions.
+        :param name: The name of the lifecycle policy to create.
+        :param policy_details: Configuration details for the lifecycle policy rules.
+        :param resource_selection: Selection criteria for the resources that the lifecycle policy applies to.
+        :param resource_type: The type of Image Builder resource that the lifecycle policy applies to.
+        :param description: Optional description for the lifecycle policy.
+        :param status: Indicates whether the lifecycle policy resource is enabled.
+        :param tags: Tags to apply to the lifecycle policy resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_lifecycle_policy_props = imagebuilder.CfnLifecyclePolicyProps(
+                execution_role="executionRole",
+                name="name",
+                policy_details=[imagebuilder.CfnLifecyclePolicy.PolicyDetailProperty(
+                    action=imagebuilder.CfnLifecyclePolicy.ActionProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        include_resources=imagebuilder.CfnLifecyclePolicy.IncludeResourcesProperty(
+                            amis=False,
+                            containers=False,
+                            snapshots=False
+                        )
+                    ),
+                    filter=imagebuilder.CfnLifecyclePolicy.FilterProperty(
+                        type="type",
+                        value=123,
+            
+                        # the properties below are optional
+                        retain_at_least=123,
+                        unit="unit"
+                    ),
+            
+                    # the properties below are optional
+                    exclusion_rules=imagebuilder.CfnLifecyclePolicy.ExclusionRulesProperty(
+                        amis=imagebuilder.CfnLifecyclePolicy.AmiExclusionRulesProperty(
+                            is_public=False,
+                            last_launched=imagebuilder.CfnLifecyclePolicy.LastLaunchedProperty(
+                                unit="unit",
+                                value=123
+                            ),
+                            regions=["regions"],
+                            shared_accounts=["sharedAccounts"],
+                            tag_map={
+                                "tag_map_key": "tagMap"
+                            }
+                        ),
+                        tag_map={
+                            "tag_map_key": "tagMap"
+                        }
+                    )
+                )],
+                resource_selection=imagebuilder.CfnLifecyclePolicy.ResourceSelectionProperty(
+                    recipes=[imagebuilder.CfnLifecyclePolicy.RecipeSelectionProperty(
+                        name="name",
+                        semantic_version="semanticVersion"
+                    )],
+                    tag_map={
+                        "tag_map_key": "tagMap"
+                    }
+                ),
+                resource_type="resourceType",
+            
+                # the properties below are optional
+                description="description",
+                status="status",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d645dc30df568adc41cd2d0c464f623b51b54d8bb6b1351018d90d6c338846f)
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy_details", value=policy_details, expected_type=type_hints["policy_details"])
+            check_type(argname="argument resource_selection", value=resource_selection, expected_type=type_hints["resource_selection"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_role": execution_role,
+            "name": name,
+            "policy_details": policy_details,
+            "resource_selection": resource_selection,
+            "resource_type": resource_type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def execution_role(self) -> builtins.str:
+        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to run lifecycle actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-executionrole
+        '''
+        result = self._values.get("execution_role")
+        assert result is not None, "Required property 'execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the lifecycle policy to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_details(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.PolicyDetailProperty"]]]:
+        '''Configuration details for the lifecycle policy rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-policydetails
+        '''
+        result = self._values.get("policy_details")
+        assert result is not None, "Required property 'policy_details' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.PolicyDetailProperty"]]], result)
+
+    @builtins.property
+    def resource_selection(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.ResourceSelectionProperty"]:
+        '''Selection criteria for the resources that the lifecycle policy applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-resourceselection
+        '''
+        result = self._values.get("resource_selection")
+        assert result is not None, "Required property 'resource_selection' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.ResourceSelectionProperty"], result)
+
+    @builtins.property
+    def resource_type(self) -> builtins.str:
+        '''The type of Image Builder resource that the lifecycle policy applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-resourcetype
+        '''
+        result = self._values.get("resource_type")
+        assert result is not None, "Required property 'resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional description for the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the lifecycle policy resource is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags to apply to the lifecycle policy resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnWorkflowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "type": "type",
+        "version": "version",
+        "change_description": "changeDescription",
+        "data": "data",
+        "description": "description",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+        "uri": "uri",
+    },
+)
+class CfnWorkflowProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        type: builtins.str,
+        version: builtins.str,
+        change_description: typing.Optional[builtins.str] = None,
+        data: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        uri: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkflow``.
+
+        :param name: The name of the workflow to create.
+        :param type: The phase in the image build process for which the workflow resource is responsible.
+        :param version: The semantic version of this workflow resource. The semantic version syntax adheres to the following rules. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
+        :param change_description: Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
+        :param data: Contains the UTF-8 encoded YAML document content for the workflow. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
+        :param description: Describes the workflow.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+        :param tags: Tags that apply to the workflow resource.
+        :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            cfn_workflow_props = imagebuilder.CfnWorkflowProps(
+                name="name",
+                type="type",
+                version="version",
+            
+                # the properties below are optional
+                change_description="changeDescription",
+                data="data",
+                description="description",
+                kms_key_id="kmsKeyId",
+                tags={
+                    "tags_key": "tags"
+                },
+                uri="uri"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35d88d62d7ed1f4b6deb48b19f5f6a93db101eada9232a0e7f6cc8c59ce9e078)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument change_description", value=change_description, expected_type=type_hints["change_description"])
+            check_type(argname="argument data", value=data, expected_type=type_hints["data"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "type": type,
+            "version": version,
+        }
+        if change_description is not None:
+            self._values["change_description"] = change_description
+        if data is not None:
+            self._values["data"] = data
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if uri is not None:
+            self._values["uri"] = uri
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the workflow to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The phase in the image build process for which the workflow resource is responsible.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The semantic version of this workflow resource. The semantic version syntax adheres to the following rules.
+
+        .. epigraph::
+
+           The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them.
+
+           *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node.
+
+           *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-version
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def change_description(self) -> typing.Optional[builtins.str]:
+        '''Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-changedescription
+        '''
+        result = self._values.get("change_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data(self) -> typing.Optional[builtins.str]:
+        '''Contains the UTF-8 encoded YAML document content for the workflow.
+
+        Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-data
+        '''
+        result = self._values.get("data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Describes the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource.
+
+        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tags that apply to the workflow resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def uri(self) -> typing.Optional[builtins.str]:
+        '''The ``uri`` of a YAML component document file.
+
+        This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota.
+
+        Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-uri
+        '''
+        result = self._values.get("uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkflowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.ComponentReference",
+    jsii_struct_bases=[],
+    name_mapping={"component_arn": "componentArn"},
+)
+class ComponentReference:
+    def __init__(self, *, component_arn: builtins.str) -> None:
+        '''A reference to a Component resource.
+
+        :param component_arn: The Arn of the Component resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            component_reference = imagebuilder.ComponentReference(
+                component_arn="componentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78acdac7529bd6c0ee6343ee643225a9d4ec5d608016c29e6f41ea808456b409)
+            check_type(argname="argument component_arn", value=component_arn, expected_type=type_hints["component_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "component_arn": component_arn,
+        }
+
+    @builtins.property
+    def component_arn(self) -> builtins.str:
+        '''The Arn of the Component resource.'''
+        result = self._values.get("component_arn")
+        assert result is not None, "Required property 'component_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComponentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.ContainerRecipeReference",
+    jsii_struct_bases=[],
+    name_mapping={"container_recipe_arn": "containerRecipeArn"},
+)
+class ContainerRecipeReference:
+    def __init__(self, *, container_recipe_arn: builtins.str) -> None:
+        '''A reference to a ContainerRecipe resource.
+
+        :param container_recipe_arn: The Arn of the ContainerRecipe resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            container_recipe_reference = imagebuilder.ContainerRecipeReference(
+                container_recipe_arn="containerRecipeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fa48b0b5391c847d1b60fa9b634d63540d8cf1b395042354a8b2caf72600822)
+            check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_recipe_arn": container_recipe_arn,
+        }
+
+    @builtins.property
+    def container_recipe_arn(self) -> builtins.str:
+        '''The Arn of the ContainerRecipe resource.'''
+        result = self._values.get("container_recipe_arn")
+        assert result is not None, "Required property 'container_recipe_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerRecipeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.DistributionConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"distribution_configuration_arn": "distributionConfigurationArn"},
+)
+class DistributionConfigurationReference:
+    def __init__(self, *, distribution_configuration_arn: builtins.str) -> None:
+        '''A reference to a DistributionConfiguration resource.
+
+        :param distribution_configuration_arn: The Arn of the DistributionConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            distribution_configuration_reference = imagebuilder.DistributionConfigurationReference(
+                distribution_configuration_arn="distributionConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0480968e11b75f03a891342731e8055b792802108c9e4305271b0e2e4b9b7171)
+            check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "distribution_configuration_arn": distribution_configuration_arn,
+        }
+
+    @builtins.property
+    def distribution_configuration_arn(self) -> builtins.str:
+        '''The Arn of the DistributionConfiguration resource.'''
+        result = self._values.get("distribution_configuration_arn")
+        assert result is not None, "Required property 'distribution_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DistributionConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IComponentRef")
+class IComponentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Component.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="componentRef")
+    def component_ref(self) -> ComponentReference:
+        '''(experimental) A reference to a Component resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IComponentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Component.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IComponentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="componentRef")
+    def component_ref(self) -> ComponentReference:
+        '''(experimental) A reference to a Component resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ComponentReference, jsii.get(self, "componentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IComponentRef).__jsii_proxy_class__ = lambda : _IComponentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IContainerRecipeRef")
+class IContainerRecipeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerRecipe.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="containerRecipeRef")
+    def container_recipe_ref(self) -> ContainerRecipeReference:
+        '''(experimental) A reference to a ContainerRecipe resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContainerRecipeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerRecipe.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IContainerRecipeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="containerRecipeRef")
+    def container_recipe_ref(self) -> ContainerRecipeReference:
+        '''(experimental) A reference to a ContainerRecipe resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContainerRecipeReference, jsii.get(self, "containerRecipeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContainerRecipeRef).__jsii_proxy_class__ = lambda : _IContainerRecipeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IDistributionConfigurationRef")
+class IDistributionConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DistributionConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="distributionConfigurationRef")
+    def distribution_configuration_ref(self) -> DistributionConfigurationReference:
+        '''(experimental) A reference to a DistributionConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDistributionConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DistributionConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IDistributionConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="distributionConfigurationRef")
+    def distribution_configuration_ref(self) -> DistributionConfigurationReference:
+        '''(experimental) A reference to a DistributionConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DistributionConfigurationReference, jsii.get(self, "distributionConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDistributionConfigurationRef).__jsii_proxy_class__ = lambda : _IDistributionConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IImagePipelineRef")
+class IImagePipelineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ImagePipeline.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="imagePipelineRef")
+    def image_pipeline_ref(self) -> "ImagePipelineReference":
+        '''(experimental) A reference to a ImagePipeline resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IImagePipelineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ImagePipeline.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IImagePipelineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="imagePipelineRef")
+    def image_pipeline_ref(self) -> "ImagePipelineReference":
+        '''(experimental) A reference to a ImagePipeline resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ImagePipelineReference", jsii.get(self, "imagePipelineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IImagePipelineRef).__jsii_proxy_class__ = lambda : _IImagePipelineRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IImageRecipeRef")
+class IImageRecipeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ImageRecipe.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRecipeRef")
+    def image_recipe_ref(self) -> "ImageRecipeReference":
+        '''(experimental) A reference to a ImageRecipe resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IImageRecipeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ImageRecipe.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IImageRecipeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRecipeRef")
+    def image_recipe_ref(self) -> "ImageRecipeReference":
+        '''(experimental) A reference to a ImageRecipe resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ImageRecipeReference", jsii.get(self, "imageRecipeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IImageRecipeRef).__jsii_proxy_class__ = lambda : _IImageRecipeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IImageRef")
+class IImageRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Image.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRef")
+    def image_ref(self) -> "ImageReference":
+        '''(experimental) A reference to a Image resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IImageRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Image.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IImageRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRef")
+    def image_ref(self) -> "ImageReference":
+        '''(experimental) A reference to a Image resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ImageReference", jsii.get(self, "imageRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IImageRef).__jsii_proxy_class__ = lambda : _IImageRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.IInfrastructureConfigurationRef"
+)
+class IInfrastructureConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InfrastructureConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="infrastructureConfigurationRef")
+    def infrastructure_configuration_ref(
+        self,
+    ) -> "InfrastructureConfigurationReference":
+        '''(experimental) A reference to a InfrastructureConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInfrastructureConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InfrastructureConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IInfrastructureConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="infrastructureConfigurationRef")
+    def infrastructure_configuration_ref(
+        self,
+    ) -> "InfrastructureConfigurationReference":
+        '''(experimental) A reference to a InfrastructureConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InfrastructureConfigurationReference", jsii.get(self, "infrastructureConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInfrastructureConfigurationRef).__jsii_proxy_class__ = lambda : _IInfrastructureConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.ILifecyclePolicyRef")
+class ILifecyclePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILifecyclePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.ILifecyclePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LifecyclePolicyReference", jsii.get(self, "lifecyclePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _ILifecyclePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_imagebuilder.IWorkflowRef")
+class IWorkflowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Workflow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> "WorkflowReference":
+        '''(experimental) A reference to a Workflow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkflowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workflow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_imagebuilder.IWorkflowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> "WorkflowReference":
+        '''(experimental) A reference to a Workflow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkflowReference", jsii.get(self, "workflowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkflowRef).__jsii_proxy_class__ = lambda : _IWorkflowRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.ImagePipelineReference",
+    jsii_struct_bases=[],
+    name_mapping={"image_pipeline_arn": "imagePipelineArn"},
+)
+class ImagePipelineReference:
+    def __init__(self, *, image_pipeline_arn: builtins.str) -> None:
+        '''A reference to a ImagePipeline resource.
+
+        :param image_pipeline_arn: The Arn of the ImagePipeline resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            image_pipeline_reference = imagebuilder.ImagePipelineReference(
+                image_pipeline_arn="imagePipelineArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__692952ff23bacecfb49ba8254ad6fa2ba1beb4d5bddbf6cd929c91e2808d11d0)
+            check_type(argname="argument image_pipeline_arn", value=image_pipeline_arn, expected_type=type_hints["image_pipeline_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_pipeline_arn": image_pipeline_arn,
+        }
+
+    @builtins.property
+    def image_pipeline_arn(self) -> builtins.str:
+        '''The Arn of the ImagePipeline resource.'''
+        result = self._values.get("image_pipeline_arn")
+        assert result is not None, "Required property 'image_pipeline_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ImagePipelineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.ImageRecipeReference",
+    jsii_struct_bases=[],
+    name_mapping={"image_recipe_arn": "imageRecipeArn"},
+)
+class ImageRecipeReference:
+    def __init__(self, *, image_recipe_arn: builtins.str) -> None:
+        '''A reference to a ImageRecipe resource.
+
+        :param image_recipe_arn: The Arn of the ImageRecipe resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            image_recipe_reference = imagebuilder.ImageRecipeReference(
+                image_recipe_arn="imageRecipeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d303c97491cfdb11a490865f1afe8baf0acef23e48fbcf881b7a5fd6ccb2b2f9)
+            check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_recipe_arn": image_recipe_arn,
+        }
+
+    @builtins.property
+    def image_recipe_arn(self) -> builtins.str:
+        '''The Arn of the ImageRecipe resource.'''
+        result = self._values.get("image_recipe_arn")
+        assert result is not None, "Required property 'image_recipe_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ImageRecipeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.ImageReference",
+    jsii_struct_bases=[],
+    name_mapping={"image_arn": "imageArn"},
+)
+class ImageReference:
+    def __init__(self, *, image_arn: builtins.str) -> None:
+        '''A reference to a Image resource.
+
+        :param image_arn: The Arn of the Image resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            image_reference = imagebuilder.ImageReference(
+                image_arn="imageArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70284401330b524d77d3294211fa0988c4d720e53d25644c8b7e36fb554349c9)
+            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_arn": image_arn,
+        }
+
+    @builtins.property
+    def image_arn(self) -> builtins.str:
+        '''The Arn of the Image resource.'''
+        result = self._values.get("image_arn")
+        assert result is not None, "Required property 'image_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ImageReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.InfrastructureConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "infrastructure_configuration_arn": "infrastructureConfigurationArn",
+    },
+)
+class InfrastructureConfigurationReference:
+    def __init__(self, *, infrastructure_configuration_arn: builtins.str) -> None:
+        '''A reference to a InfrastructureConfiguration resource.
+
+        :param infrastructure_configuration_arn: The Arn of the InfrastructureConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            infrastructure_configuration_reference = imagebuilder.InfrastructureConfigurationReference(
+                infrastructure_configuration_arn="infrastructureConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4f7f0f37c3e1422053c3f98beeafab1baad0dff8393e937aa53e81b5524f8a5)
+            check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "infrastructure_configuration_arn": infrastructure_configuration_arn,
+        }
+
+    @builtins.property
+    def infrastructure_configuration_arn(self) -> builtins.str:
+        '''The Arn of the InfrastructureConfiguration resource.'''
+        result = self._values.get("infrastructure_configuration_arn")
+        assert result is not None, "Required property 'infrastructure_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InfrastructureConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.LifecyclePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"lifecycle_policy_arn": "lifecyclePolicyArn"},
+)
+class LifecyclePolicyReference:
+    def __init__(self, *, lifecycle_policy_arn: builtins.str) -> None:
+        '''A reference to a LifecyclePolicy resource.
+
+        :param lifecycle_policy_arn: The Arn of the LifecyclePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            lifecycle_policy_reference = imagebuilder.LifecyclePolicyReference(
+                lifecycle_policy_arn="lifecyclePolicyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0093abf69c4cecb6182c39aedb5bdc2f971e609b2127b06d76528e519cd6a2b)
+            check_type(argname="argument lifecycle_policy_arn", value=lifecycle_policy_arn, expected_type=type_hints["lifecycle_policy_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lifecycle_policy_arn": lifecycle_policy_arn,
+        }
+
+    @builtins.property
+    def lifecycle_policy_arn(self) -> builtins.str:
+        '''The Arn of the LifecyclePolicy resource.'''
+        result = self._values.get("lifecycle_policy_arn")
+        assert result is not None, "Required property 'lifecycle_policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LifecyclePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_imagebuilder.WorkflowReference",
+    jsii_struct_bases=[],
+    name_mapping={"workflow_arn": "workflowArn"},
+)
+class WorkflowReference:
+    def __init__(self, *, workflow_arn: builtins.str) -> None:
+        '''A reference to a Workflow resource.
+
+        :param workflow_arn: The Arn of the Workflow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_imagebuilder as imagebuilder
+            
+            workflow_reference = imagebuilder.WorkflowReference(
+                workflow_arn="workflowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bebc8364190d22573f6ad24d52b0d1cea8d71588dfd000ecf4be68dd82b4a983)
+            check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workflow_arn": workflow_arn,
+        }
+
+    @builtins.property
+    def workflow_arn(self) -> builtins.str:
+        '''The Arn of the Workflow resource.'''
+        result = self._values.get("workflow_arn")
+        assert result is not None, "Required property 'workflow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkflowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IComponentRef, _ITaggable_36806126)
+class CfnComponent(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnComponent",
+):
+    '''Creates a new component that can be used to build, validate, test, and assess your image.
+
+    The component is based on a YAML document that you specify using exactly one of the following methods:
+
+    - Inline, using the ``data`` property in the request body.
+    - A URL that points to a YAML document file stored in Amazon S3, using the ``uri`` property in the request body.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-component.html
+    :cloudformationResource: AWS::ImageBuilder::Component
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_imagebuilder as imagebuilder
+        
+        cfn_component = imagebuilder.CfnComponent(self, "MyCfnComponent",
+            name="name",
+            platform="platform",
+            version="version",
+        
+            # the properties below are optional
+            change_description="changeDescription",
+            data="data",
+            description="description",
+            kms_key_id="kmsKeyId",
+            supported_os_versions=["supportedOsVersions"],
+            tags={
+                "tags_key": "tags"
+            },
+            uri="uri"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        platform: builtins.str,
+        version: builtins.str,
+        change_description: typing.Optional[builtins.str] = None,
+        data: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        supported_os_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        uri: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the component.
+        :param platform: The operating system platform of the component.
+        :param version: The component version. For example, ``1.0.0`` .
+        :param change_description: The change description of the component. Describes what change has been made in this version, or what makes this version different from other versions of the component.
+        :param data: Component ``data`` contains inline YAML document content for the component. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
+        :param description: Describes the contents of the component.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
+        :param supported_os_versions: The operating system (OS) version supported by the component. If the OS information is available, a prefix match is performed against the base image OS version during image recipe creation.
+        :param tags: The tags that apply to the component.
+        :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee6f52d40719e283a6d76c8b6a6d4fb48180c9c7f4901a21ff32e8627d45b9e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnComponentProps(
+            name=name,
+            platform=platform,
+            version=version,
+            change_description=change_description,
+            data=data,
+            description=description,
+            kms_key_id=kms_key_id,
+            supported_os_versions=supported_os_versions,
+            tags=tags,
+            uri=uri,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40b669a1c43c3b3079f4db289296a5190bc19737cdacec67b41121ffeb77db84)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa56b38fd57c0ef3c75a0f7854e12f5650c218ee9da1e6a0fc3566f2d0bb250e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) of the component.
+
+        The following pattern is applied: ``^arn:aws[^:]*:imagebuilder:[^:]+:(?:\\d{12}|aws):(?:image-recipe|infrastructure-configuration|distribution-configuration|component|image|image-pipeline)/[a-z0-9-_]+(?:/(?:(?:x|\\d+)\\.(?:x|\\d+)\\.(?:x|\\d+))(?:/\\d+)?)?$`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEncrypted")
+    def attr_encrypted(self) -> _IResolvable_da3f097b:
+        '''Returns the encryption status of the component.
+
+        For example ``true`` or ``false`` .
+
+        :cloudformationAttribute: Encrypted
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrEncrypted"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''Returns the name of the component.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''Image Builder determines the component type based on the phases that are defined in the component document.
+
+        If there is only one phase, and its name is "test", then the type is ``TEST`` . For all other components, the type is ``BUILD`` .
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="componentRef")
+    def component_ref(self) -> ComponentReference:
+        '''A reference to a Component resource.'''
+        return typing.cast(ComponentReference, jsii.get(self, "componentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the component.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad2e949f47b8d1f3fa28e8aecc85097ba0e494b4114a67857ca7449b71baa7eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="platform")
+    def platform(self) -> builtins.str:
+        '''The operating system platform of the component.'''
+        return typing.cast(builtins.str, jsii.get(self, "platform"))
+
+    @platform.setter
+    def platform(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0512be6fd4c9842ff94428cb157263d19145ec3979a5af8b91ef02839bf0a59a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> builtins.str:
+        '''The component version.'''
+        return typing.cast(builtins.str, jsii.get(self, "version"))
+
+    @version.setter
+    def version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff0f73dccd3a4b2cd5091fd524dac54a149f454f8e4b95ebdbc8bf2d847d695a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="changeDescription")
+    def change_description(self) -> typing.Optional[builtins.str]:
+        '''The change description of the component.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "changeDescription"))
+
+    @change_description.setter
+    def change_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__789ae8523d5582d7b263d5e4e40edc52e6cd54e33a4a8a9da22ce8a46158e664)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "changeDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="data")
+    def data(self) -> typing.Optional[builtins.str]:
+        '''Component ``data`` contains inline YAML document content for the component.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "data"))
+
+    @data.setter
+    def data(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87721af8240816306f3213003a08de03e0d6e02c52557a8099b6c11f6103e348)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "data", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Describes the contents of the component.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fc3d50c994f77416bd1fab3b0e2629efe837f684884eb6608ef71e4e7806ece)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa81ab3ceec1f0c67b1340d453195ce21694d45be0f3dc0f50e114a74e30b9dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportedOsVersions")
+    def supported_os_versions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The operating system (OS) version supported by the component.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "supportedOsVersions"))
+
+    @supported_os_versions.setter
+    def supported_os_versions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0eed3fe1a4cf44875823a85284d0c8b80bbf155582b1e12432340633e2da8c80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportedOsVersions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags that apply to the component.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4a5d66d386d51bc332acca6c875fb548297567b633e53e35d7da1075f8af119)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uri")
+    def uri(self) -> typing.Optional[builtins.str]:
+        '''The ``uri`` of a YAML component document file.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uri"))
+
+    @uri.setter
+    def uri(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6efe7a7fb79c1c8d2effb9d5fa5a6b2b46eefe80a1dce4011093db23ed26368d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IContainerRecipeRef, _ITaggable_36806126)
 class CfnContainerRecipe(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -787,6 +3604,12 @@ class CfnContainerRecipe(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerRecipeRef")
+    def container_recipe_ref(self) -> ContainerRecipeReference:
+        '''A reference to a ContainerRecipe resource.'''
+        return typing.cast(ContainerRecipeReference, jsii.get(self, "containerRecipeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1610,344 +4433,7 @@ class CfnContainerRecipe(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnContainerRecipeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "components": "components",
-        "container_type": "containerType",
-        "name": "name",
-        "parent_image": "parentImage",
-        "target_repository": "targetRepository",
-        "version": "version",
-        "description": "description",
-        "dockerfile_template_data": "dockerfileTemplateData",
-        "dockerfile_template_uri": "dockerfileTemplateUri",
-        "image_os_version_override": "imageOsVersionOverride",
-        "instance_configuration": "instanceConfiguration",
-        "kms_key_id": "kmsKeyId",
-        "platform_override": "platformOverride",
-        "tags": "tags",
-        "working_directory": "workingDirectory",
-    },
-)
-class CfnContainerRecipeProps:
-    def __init__(
-        self,
-        *,
-        components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        container_type: builtins.str,
-        name: builtins.str,
-        parent_image: builtins.str,
-        target_repository: typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.TargetContainerRepositoryProperty, typing.Dict[builtins.str, typing.Any]]],
-        version: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        dockerfile_template_data: typing.Optional[builtins.str] = None,
-        dockerfile_template_uri: typing.Optional[builtins.str] = None,
-        image_os_version_override: typing.Optional[builtins.str] = None,
-        instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        platform_override: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        working_directory: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnContainerRecipe``.
-
-        :param components: Build and test components that are included in the container recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
-        :param container_type: Specifies the type of container, such as Docker.
-        :param name: The name of the container recipe.
-        :param parent_image: The base image for customizations specified in the container recipe. This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
-        :param target_repository: The destination repository for the container image.
-        :param version: The semantic version of the container recipe. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01. *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
-        :param description: The description of the container recipe.
-        :param dockerfile_template_data: Dockerfiles are text documents that are used to build Docker containers, and ensure that they contain all of the elements required by the application running inside. The template data consists of contextual variables where Image Builder places build information or scripts, based on your container image recipe.
-        :param dockerfile_template_uri: The S3 URI for the Dockerfile that will be used to build your container image.
-        :param image_os_version_override: Specifies the operating system version for the base image.
-        :param instance_configuration: A group of options that can be used to configure an instance for building and testing container images.
-        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-        :param platform_override: Specifies the operating system platform when you use a custom base image.
-        :param tags: Tags that are attached to the container recipe.
-        :param working_directory: The working directory for use during build and test workflows.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_container_recipe_props = imagebuilder.CfnContainerRecipeProps(
-                components=[imagebuilder.CfnContainerRecipe.ComponentConfigurationProperty(
-                    component_arn="componentArn",
-                    parameters=[imagebuilder.CfnContainerRecipe.ComponentParameterProperty(
-                        name="name",
-                        value=["value"]
-                    )]
-                )],
-                container_type="containerType",
-                name="name",
-                parent_image="parentImage",
-                target_repository=imagebuilder.CfnContainerRecipe.TargetContainerRepositoryProperty(
-                    repository_name="repositoryName",
-                    service="service"
-                ),
-                version="version",
-            
-                # the properties below are optional
-                description="description",
-                dockerfile_template_data="dockerfileTemplateData",
-                dockerfile_template_uri="dockerfileTemplateUri",
-                image_os_version_override="imageOsVersionOverride",
-                instance_configuration=imagebuilder.CfnContainerRecipe.InstanceConfigurationProperty(
-                    block_device_mappings=[imagebuilder.CfnContainerRecipe.InstanceBlockDeviceMappingProperty(
-                        device_name="deviceName",
-                        ebs=imagebuilder.CfnContainerRecipe.EbsInstanceBlockDeviceSpecificationProperty(
-                            delete_on_termination=False,
-                            encrypted=False,
-                            iops=123,
-                            kms_key_id="kmsKeyId",
-                            snapshot_id="snapshotId",
-                            throughput=123,
-                            volume_size=123,
-                            volume_type="volumeType"
-                        ),
-                        no_device="noDevice",
-                        virtual_name="virtualName"
-                    )],
-                    image="image"
-                ),
-                kms_key_id="kmsKeyId",
-                platform_override="platformOverride",
-                tags={
-                    "tags_key": "tags"
-                },
-                working_directory="workingDirectory"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67f8d0f3d1045e15583795ba863ee1d218908e506567e7d12e0aa5861d44ab17)
-            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
-            check_type(argname="argument container_type", value=container_type, expected_type=type_hints["container_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument parent_image", value=parent_image, expected_type=type_hints["parent_image"])
-            check_type(argname="argument target_repository", value=target_repository, expected_type=type_hints["target_repository"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument dockerfile_template_data", value=dockerfile_template_data, expected_type=type_hints["dockerfile_template_data"])
-            check_type(argname="argument dockerfile_template_uri", value=dockerfile_template_uri, expected_type=type_hints["dockerfile_template_uri"])
-            check_type(argname="argument image_os_version_override", value=image_os_version_override, expected_type=type_hints["image_os_version_override"])
-            check_type(argname="argument instance_configuration", value=instance_configuration, expected_type=type_hints["instance_configuration"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument platform_override", value=platform_override, expected_type=type_hints["platform_override"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "components": components,
-            "container_type": container_type,
-            "name": name,
-            "parent_image": parent_image,
-            "target_repository": target_repository,
-            "version": version,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if dockerfile_template_data is not None:
-            self._values["dockerfile_template_data"] = dockerfile_template_data
-        if dockerfile_template_uri is not None:
-            self._values["dockerfile_template_uri"] = dockerfile_template_uri
-        if image_os_version_override is not None:
-            self._values["image_os_version_override"] = image_os_version_override
-        if instance_configuration is not None:
-            self._values["instance_configuration"] = instance_configuration
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if platform_override is not None:
-            self._values["platform_override"] = platform_override
-        if tags is not None:
-            self._values["tags"] = tags
-        if working_directory is not None:
-            self._values["working_directory"] = working_directory
-
-    @builtins.property
-    def components(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.ComponentConfigurationProperty]]]:
-        '''Build and test components that are included in the container recipe.
-
-        Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-components
-        '''
-        result = self._values.get("components")
-        assert result is not None, "Required property 'components' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.ComponentConfigurationProperty]]], result)
-
-    @builtins.property
-    def container_type(self) -> builtins.str:
-        '''Specifies the type of container, such as Docker.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-containertype
-        '''
-        result = self._values.get("container_type")
-        assert result is not None, "Required property 'container_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the container recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parent_image(self) -> builtins.str:
-        '''The base image for customizations specified in the container recipe.
-
-        This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-parentimage
-        '''
-        result = self._values.get("parent_image")
-        assert result is not None, "Required property 'parent_image' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_repository(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.TargetContainerRepositoryProperty]:
-        '''The destination repository for the container image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-targetrepository
-        '''
-        result = self._values.get("target_repository")
-        assert result is not None, "Required property 'target_repository' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.TargetContainerRepositoryProperty], result)
-
-    @builtins.property
-    def version(self) -> builtins.str:
-        '''The semantic version of the container recipe.
-
-        .. epigraph::
-
-           The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them.
-
-           *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node.
-
-           *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
-
-           *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-version
-        '''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the container recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dockerfile_template_data(self) -> typing.Optional[builtins.str]:
-        '''Dockerfiles are text documents that are used to build Docker containers, and ensure that they contain all of the elements required by the application running inside.
-
-        The template data consists of contextual variables where Image Builder places build information or scripts, based on your container image recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-dockerfiletemplatedata
-        '''
-        result = self._values.get("dockerfile_template_data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dockerfile_template_uri(self) -> typing.Optional[builtins.str]:
-        '''The S3 URI for the Dockerfile that will be used to build your container image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-dockerfiletemplateuri
-        '''
-        result = self._values.get("dockerfile_template_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_os_version_override(self) -> typing.Optional[builtins.str]:
-        '''Specifies the operating system version for the base image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-imageosversionoverride
-        '''
-        result = self._values.get("image_os_version_override")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.InstanceConfigurationProperty]]:
-        '''A group of options that can be used to configure an instance for building and testing container images.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-instanceconfiguration
-        '''
-        result = self._values.get("instance_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerRecipe.InstanceConfigurationProperty]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region.
-
-        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def platform_override(self) -> typing.Optional[builtins.str]:
-        '''Specifies the operating system platform when you use a custom base image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-platformoverride
-        '''
-        result = self._values.get("platform_override")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tags that are attached to the container recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def working_directory(self) -> typing.Optional[builtins.str]:
-        '''The working directory for use during build and test workflows.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-workingdirectory
-        '''
-        result = self._values.get("working_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnContainerRecipeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDistributionConfigurationRef, _ITaggable_36806126)
 class CfnDistributionConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2096,6 +4582,12 @@ class CfnDistributionConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="distributionConfigurationRef")
+    def distribution_configuration_ref(self) -> DistributionConfigurationReference:
+        '''A reference to a DistributionConfiguration resource.'''
+        return typing.cast(DistributionConfigurationReference, jsii.get(self, "distributionConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3269,155 +5761,7 @@ class CfnDistributionConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnDistributionConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "distributions": "distributions",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnDistributionConfigurationProps:
-    def __init__(
-        self,
-        *,
-        distributions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.DistributionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDistributionConfiguration``.
-
-        :param distributions: The distributions of this distribution configuration formatted as an array of Distribution objects.
-        :param name: The name of this distribution configuration.
-        :param description: The description of this distribution configuration.
-        :param tags: The tags of this distribution configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            # ami_distribution_configuration: Any
-            # container_distribution_configuration: Any
-            
-            cfn_distribution_configuration_props = imagebuilder.CfnDistributionConfigurationProps(
-                distributions=[imagebuilder.CfnDistributionConfiguration.DistributionProperty(
-                    region="region",
-            
-                    # the properties below are optional
-                    ami_distribution_configuration=ami_distribution_configuration,
-                    container_distribution_configuration=container_distribution_configuration,
-                    fast_launch_configurations=[imagebuilder.CfnDistributionConfiguration.FastLaunchConfigurationProperty(
-                        account_id="accountId",
-                        enabled=False,
-                        launch_template=imagebuilder.CfnDistributionConfiguration.FastLaunchLaunchTemplateSpecificationProperty(
-                            launch_template_id="launchTemplateId",
-                            launch_template_name="launchTemplateName",
-                            launch_template_version="launchTemplateVersion"
-                        ),
-                        max_parallel_launches=123,
-                        snapshot_configuration=imagebuilder.CfnDistributionConfiguration.FastLaunchSnapshotConfigurationProperty(
-                            target_resource_count=123
-                        )
-                    )],
-                    launch_template_configurations=[imagebuilder.CfnDistributionConfiguration.LaunchTemplateConfigurationProperty(
-                        account_id="accountId",
-                        launch_template_id="launchTemplateId",
-                        set_default_version=False
-                    )],
-                    license_configuration_arns=["licenseConfigurationArns"],
-                    ssm_parameter_configurations=[imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
-                        parameter_name="parameterName",
-            
-                        # the properties below are optional
-                        ami_account_id="amiAccountId",
-                        data_type="dataType"
-                    )]
-                )],
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f16c19e0cbb34ea9e02eb4cfcaa69a6cdf4c60af0ca2736a9d0dd6b74445c9d8)
-            check_type(argname="argument distributions", value=distributions, expected_type=type_hints["distributions"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "distributions": distributions,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def distributions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionConfiguration.DistributionProperty]]]:
-        '''The distributions of this distribution configuration formatted as an array of Distribution objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-distributions
-        '''
-        result = self._values.get("distributions")
-        assert result is not None, "Required property 'distributions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionConfiguration.DistributionProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of this distribution configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of this distribution configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags of this distribution configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-distributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDistributionConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IImageRef, _ITaggable_36806126)
 class CfnImage(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3595,6 +5939,12 @@ class CfnImage(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRef")
+    def image_ref(self) -> ImageReference:
+        '''A reference to a Image resource.'''
+        return typing.cast(ImageReference, jsii.get(self, "imageRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4184,7 +6534,7 @@ class CfnImage(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IImagePipelineRef, _ITaggable_36806126)
 class CfnImagePipeline(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4361,6 +6711,12 @@ class CfnImagePipeline(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagePipelineRef")
+    def image_pipeline_ref(self) -> ImagePipelineReference:
+        '''A reference to a ImagePipeline resource.'''
+        return typing.cast(ImagePipelineReference, jsii.get(self, "imagePipelineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5081,543 +7437,7 @@ class CfnImagePipeline(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImagePipelineProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "infrastructure_configuration_arn": "infrastructureConfigurationArn",
-        "name": "name",
-        "container_recipe_arn": "containerRecipeArn",
-        "description": "description",
-        "distribution_configuration_arn": "distributionConfigurationArn",
-        "enhanced_image_metadata_enabled": "enhancedImageMetadataEnabled",
-        "execution_role": "executionRole",
-        "image_recipe_arn": "imageRecipeArn",
-        "image_scanning_configuration": "imageScanningConfiguration",
-        "image_tests_configuration": "imageTestsConfiguration",
-        "schedule": "schedule",
-        "status": "status",
-        "tags": "tags",
-        "workflows": "workflows",
-    },
-)
-class CfnImagePipelineProps:
-    def __init__(
-        self,
-        *,
-        infrastructure_configuration_arn: builtins.str,
-        name: builtins.str,
-        container_recipe_arn: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        distribution_configuration_arn: typing.Optional[builtins.str] = None,
-        enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        execution_role: typing.Optional[builtins.str] = None,
-        image_recipe_arn: typing.Optional[builtins.str] = None,
-        image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnImagePipeline``.
-
-        :param infrastructure_configuration_arn: The Amazon Resource Name (ARN) of the infrastructure configuration associated with this image pipeline.
-        :param name: The name of the image pipeline.
-        :param container_recipe_arn: The Amazon Resource Name (ARN) of the container recipe that is used for this pipeline.
-        :param description: The description of this image pipeline.
-        :param distribution_configuration_arn: The Amazon Resource Name (ARN) of the distribution configuration associated with this image pipeline.
-        :param enhanced_image_metadata_enabled: Collects additional information about the image being created, including the operating system (OS) version and package list. This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
-        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
-        :param image_recipe_arn: The Amazon Resource Name (ARN) of the image recipe associated with this image pipeline.
-        :param image_scanning_configuration: Contains settings for vulnerability scans.
-        :param image_tests_configuration: The configuration of the image tests that run after image creation to ensure the quality of the image that was created.
-        :param schedule: The schedule of the image pipeline. A schedule configures how often and when a pipeline automatically creates a new image.
-        :param status: The status of the image pipeline.
-        :param tags: The tags of this image pipeline.
-        :param workflows: Contains the workflows that run for the image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_image_pipeline_props = imagebuilder.CfnImagePipelineProps(
-                infrastructure_configuration_arn="infrastructureConfigurationArn",
-                name="name",
-            
-                # the properties below are optional
-                container_recipe_arn="containerRecipeArn",
-                description="description",
-                distribution_configuration_arn="distributionConfigurationArn",
-                enhanced_image_metadata_enabled=False,
-                execution_role="executionRole",
-                image_recipe_arn="imageRecipeArn",
-                image_scanning_configuration=imagebuilder.CfnImagePipeline.ImageScanningConfigurationProperty(
-                    ecr_configuration=imagebuilder.CfnImagePipeline.EcrConfigurationProperty(
-                        container_tags=["containerTags"],
-                        repository_name="repositoryName"
-                    ),
-                    image_scanning_enabled=False
-                ),
-                image_tests_configuration=imagebuilder.CfnImagePipeline.ImageTestsConfigurationProperty(
-                    image_tests_enabled=False,
-                    timeout_minutes=123
-                ),
-                schedule=imagebuilder.CfnImagePipeline.ScheduleProperty(
-                    pipeline_execution_start_condition="pipelineExecutionStartCondition",
-                    schedule_expression="scheduleExpression"
-                ),
-                status="status",
-                tags={
-                    "tags_key": "tags"
-                },
-                workflows=[imagebuilder.CfnImagePipeline.WorkflowConfigurationProperty(
-                    on_failure="onFailure",
-                    parallel_group="parallelGroup",
-                    parameters=[imagebuilder.CfnImagePipeline.WorkflowParameterProperty(
-                        name="name",
-                        value=["value"]
-                    )],
-                    workflow_arn="workflowArn"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95f10c4451c6bf3f2cf15951831cd372e35975262c0be294c1ae7c774045ad9b)
-            check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
-            check_type(argname="argument enhanced_image_metadata_enabled", value=enhanced_image_metadata_enabled, expected_type=type_hints["enhanced_image_metadata_enabled"])
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
-            check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
-            check_type(argname="argument image_tests_configuration", value=image_tests_configuration, expected_type=type_hints["image_tests_configuration"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "infrastructure_configuration_arn": infrastructure_configuration_arn,
-            "name": name,
-        }
-        if container_recipe_arn is not None:
-            self._values["container_recipe_arn"] = container_recipe_arn
-        if description is not None:
-            self._values["description"] = description
-        if distribution_configuration_arn is not None:
-            self._values["distribution_configuration_arn"] = distribution_configuration_arn
-        if enhanced_image_metadata_enabled is not None:
-            self._values["enhanced_image_metadata_enabled"] = enhanced_image_metadata_enabled
-        if execution_role is not None:
-            self._values["execution_role"] = execution_role
-        if image_recipe_arn is not None:
-            self._values["image_recipe_arn"] = image_recipe_arn
-        if image_scanning_configuration is not None:
-            self._values["image_scanning_configuration"] = image_scanning_configuration
-        if image_tests_configuration is not None:
-            self._values["image_tests_configuration"] = image_tests_configuration
-        if schedule is not None:
-            self._values["schedule"] = schedule
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-        if workflows is not None:
-            self._values["workflows"] = workflows
-
-    @builtins.property
-    def infrastructure_configuration_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the infrastructure configuration associated with this image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-infrastructureconfigurationarn
-        '''
-        result = self._values.get("infrastructure_configuration_arn")
-        assert result is not None, "Required property 'infrastructure_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def container_recipe_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the container recipe that is used for this pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-containerrecipearn
-        '''
-        result = self._values.get("container_recipe_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of this image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def distribution_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the distribution configuration associated with this image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-distributionconfigurationarn
-        '''
-        result = self._values.get("distribution_configuration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enhanced_image_metadata_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Collects additional information about the image being created, including the operating system (OS) version and package list.
-
-        This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-enhancedimagemetadataenabled
-        '''
-        result = self._values.get("enhanced_image_metadata_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def execution_role(self) -> typing.Optional[builtins.str]:
-        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-executionrole
-        '''
-        result = self._values.get("execution_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_recipe_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the image recipe associated with this image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagerecipearn
-        '''
-        result = self._values.get("image_recipe_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_scanning_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ImageScanningConfigurationProperty]]:
-        '''Contains settings for vulnerability scans.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagescanningconfiguration
-        '''
-        result = self._values.get("image_scanning_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ImageScanningConfigurationProperty]], result)
-
-    @builtins.property
-    def image_tests_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ImageTestsConfigurationProperty]]:
-        '''The configuration of the image tests that run after image creation to ensure the quality of the image that was created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-imagetestsconfiguration
-        '''
-        result = self._values.get("image_tests_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ImageTestsConfigurationProperty]], result)
-
-    @builtins.property
-    def schedule(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ScheduleProperty]]:
-        '''The schedule of the image pipeline.
-
-        A schedule configures how often and when a pipeline automatically creates a new image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-schedule
-        '''
-        result = self._values.get("schedule")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.ScheduleProperty]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags of this image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def workflows(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.WorkflowConfigurationProperty]]]]:
-        '''Contains the workflows that run for the image pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagepipeline.html#cfn-imagebuilder-imagepipeline-workflows
-        '''
-        result = self._values.get("workflows")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImagePipeline.WorkflowConfigurationProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnImagePipelineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImageProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "container_recipe_arn": "containerRecipeArn",
-        "distribution_configuration_arn": "distributionConfigurationArn",
-        "enhanced_image_metadata_enabled": "enhancedImageMetadataEnabled",
-        "execution_role": "executionRole",
-        "image_recipe_arn": "imageRecipeArn",
-        "image_scanning_configuration": "imageScanningConfiguration",
-        "image_tests_configuration": "imageTestsConfiguration",
-        "infrastructure_configuration_arn": "infrastructureConfigurationArn",
-        "tags": "tags",
-        "workflows": "workflows",
-    },
-)
-class CfnImageProps:
-    def __init__(
-        self,
-        *,
-        container_recipe_arn: typing.Optional[builtins.str] = None,
-        distribution_configuration_arn: typing.Optional[builtins.str] = None,
-        enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        execution_role: typing.Optional[builtins.str] = None,
-        image_recipe_arn: typing.Optional[builtins.str] = None,
-        image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        infrastructure_configuration_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnImage``.
-
-        :param container_recipe_arn: The Amazon Resource Name (ARN) of the container recipe that defines how images are configured and tested.
-        :param distribution_configuration_arn: The Amazon Resource Name (ARN) of the distribution configuration that defines and configures the outputs of your pipeline.
-        :param enhanced_image_metadata_enabled: Collects additional information about the image being created, including the operating system (OS) version and package list. This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
-        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
-        :param image_recipe_arn: The Amazon Resource Name (ARN) of the image recipe that defines how images are configured, tested, and assessed.
-        :param image_scanning_configuration: Contains settings for vulnerability scans.
-        :param image_tests_configuration: The image tests configuration of the image.
-        :param infrastructure_configuration_arn: The Amazon Resource Name (ARN) of the infrastructure configuration that defines the environment in which your image will be built and tested.
-        :param tags: The tags of the image.
-        :param workflows: Contains an array of workflow configuration objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_image_props = imagebuilder.CfnImageProps(
-                container_recipe_arn="containerRecipeArn",
-                distribution_configuration_arn="distributionConfigurationArn",
-                enhanced_image_metadata_enabled=False,
-                execution_role="executionRole",
-                image_recipe_arn="imageRecipeArn",
-                image_scanning_configuration=imagebuilder.CfnImage.ImageScanningConfigurationProperty(
-                    ecr_configuration=imagebuilder.CfnImage.EcrConfigurationProperty(
-                        container_tags=["containerTags"],
-                        repository_name="repositoryName"
-                    ),
-                    image_scanning_enabled=False
-                ),
-                image_tests_configuration=imagebuilder.CfnImage.ImageTestsConfigurationProperty(
-                    image_tests_enabled=False,
-                    timeout_minutes=123
-                ),
-                infrastructure_configuration_arn="infrastructureConfigurationArn",
-                tags={
-                    "tags_key": "tags"
-                },
-                workflows=[imagebuilder.CfnImage.WorkflowConfigurationProperty(
-                    on_failure="onFailure",
-                    parallel_group="parallelGroup",
-                    parameters=[imagebuilder.CfnImage.WorkflowParameterProperty(
-                        name="name",
-                        value=["value"]
-                    )],
-                    workflow_arn="workflowArn"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f217922888735234464ee573256caba679b2c1215a99c91ad609c9c75d22d47)
-            check_type(argname="argument container_recipe_arn", value=container_recipe_arn, expected_type=type_hints["container_recipe_arn"])
-            check_type(argname="argument distribution_configuration_arn", value=distribution_configuration_arn, expected_type=type_hints["distribution_configuration_arn"])
-            check_type(argname="argument enhanced_image_metadata_enabled", value=enhanced_image_metadata_enabled, expected_type=type_hints["enhanced_image_metadata_enabled"])
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument image_recipe_arn", value=image_recipe_arn, expected_type=type_hints["image_recipe_arn"])
-            check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
-            check_type(argname="argument image_tests_configuration", value=image_tests_configuration, expected_type=type_hints["image_tests_configuration"])
-            check_type(argname="argument infrastructure_configuration_arn", value=infrastructure_configuration_arn, expected_type=type_hints["infrastructure_configuration_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if container_recipe_arn is not None:
-            self._values["container_recipe_arn"] = container_recipe_arn
-        if distribution_configuration_arn is not None:
-            self._values["distribution_configuration_arn"] = distribution_configuration_arn
-        if enhanced_image_metadata_enabled is not None:
-            self._values["enhanced_image_metadata_enabled"] = enhanced_image_metadata_enabled
-        if execution_role is not None:
-            self._values["execution_role"] = execution_role
-        if image_recipe_arn is not None:
-            self._values["image_recipe_arn"] = image_recipe_arn
-        if image_scanning_configuration is not None:
-            self._values["image_scanning_configuration"] = image_scanning_configuration
-        if image_tests_configuration is not None:
-            self._values["image_tests_configuration"] = image_tests_configuration
-        if infrastructure_configuration_arn is not None:
-            self._values["infrastructure_configuration_arn"] = infrastructure_configuration_arn
-        if tags is not None:
-            self._values["tags"] = tags
-        if workflows is not None:
-            self._values["workflows"] = workflows
-
-    @builtins.property
-    def container_recipe_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the container recipe that defines how images are configured and tested.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-containerrecipearn
-        '''
-        result = self._values.get("container_recipe_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def distribution_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the distribution configuration that defines and configures the outputs of your pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-distributionconfigurationarn
-        '''
-        result = self._values.get("distribution_configuration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enhanced_image_metadata_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Collects additional information about the image being created, including the operating system (OS) version and package list.
-
-        This information is used to enhance the overall experience of using EC2 Image Builder. Enabled by default.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-enhancedimagemetadataenabled
-        '''
-        result = self._values.get("enhanced_image_metadata_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def execution_role(self) -> typing.Optional[builtins.str]:
-        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to perform workflow actions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-executionrole
-        '''
-        result = self._values.get("execution_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_recipe_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the image recipe that defines how images are configured, tested, and assessed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagerecipearn
-        '''
-        result = self._values.get("image_recipe_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_scanning_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImage.ImageScanningConfigurationProperty]]:
-        '''Contains settings for vulnerability scans.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagescanningconfiguration
-        '''
-        result = self._values.get("image_scanning_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImage.ImageScanningConfigurationProperty]], result)
-
-    @builtins.property
-    def image_tests_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImage.ImageTestsConfigurationProperty]]:
-        '''The image tests configuration of the image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-imagetestsconfiguration
-        '''
-        result = self._values.get("image_tests_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImage.ImageTestsConfigurationProperty]], result)
-
-    @builtins.property
-    def infrastructure_configuration_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the infrastructure configuration that defines the environment in which your image will be built and tested.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-infrastructureconfigurationarn
-        '''
-        result = self._values.get("infrastructure_configuration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags of the image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def workflows(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImage.WorkflowConfigurationProperty]]]]:
-        '''Contains an array of workflow configuration objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-image.html#cfn-imagebuilder-image-workflows
-        '''
-        result = self._values.get("workflows")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImage.WorkflowConfigurationProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnImageProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IImageRecipeRef, _ITaggable_36806126)
 class CfnImageRecipe(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5779,6 +7599,12 @@ class CfnImageRecipe(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imageRecipeRef")
+    def image_recipe_ref(self) -> ImageRecipeReference:
+        '''A reference to a ImageRecipe resource.'''
+        return typing.cast(ImageRecipeReference, jsii.get(self, "imageRecipeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6516,240 +8342,7 @@ class CfnImageRecipe(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnImageRecipeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "components": "components",
-        "name": "name",
-        "parent_image": "parentImage",
-        "version": "version",
-        "additional_instance_configuration": "additionalInstanceConfiguration",
-        "block_device_mappings": "blockDeviceMappings",
-        "description": "description",
-        "tags": "tags",
-        "working_directory": "workingDirectory",
-    },
-)
-class CfnImageRecipeProps:
-    def __init__(
-        self,
-        *,
-        components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        parent_image: builtins.str,
-        version: builtins.str,
-        additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.AdditionalInstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.InstanceBlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        working_directory: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnImageRecipe``.
-
-        :param components: The components that are included in the image recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
-        :param name: The name of the image recipe.
-        :param parent_image: The base image for customizations specified in the image recipe. You can specify the parent image using one of the following options: - AMI ID - Image Builder image Amazon Resource Name (ARN) - AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN. - AWS Marketplace product ID
-        :param version: The version of the image recipe.
-        :param additional_instance_configuration: Before you create a new AMI, Image Builder launches temporary Amazon EC2 instances to build and test your image configuration. Instance configuration adds a layer of control over those instances. You can define settings and add scripts to run when an instance is launched from your AMI.
-        :param block_device_mappings: The block device mappings to apply when creating images from this recipe.
-        :param description: The description of the image recipe.
-        :param tags: The tags of the image recipe.
-        :param working_directory: The working directory to be used during build and test workflows.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_image_recipe_props = imagebuilder.CfnImageRecipeProps(
-                components=[imagebuilder.CfnImageRecipe.ComponentConfigurationProperty(
-                    component_arn="componentArn",
-                    parameters=[imagebuilder.CfnImageRecipe.ComponentParameterProperty(
-                        name="name",
-                        value=["value"]
-                    )]
-                )],
-                name="name",
-                parent_image="parentImage",
-                version="version",
-            
-                # the properties below are optional
-                additional_instance_configuration=imagebuilder.CfnImageRecipe.AdditionalInstanceConfigurationProperty(
-                    systems_manager_agent=imagebuilder.CfnImageRecipe.SystemsManagerAgentProperty(
-                        uninstall_after_build=False
-                    ),
-                    user_data_override="userDataOverride"
-                ),
-                block_device_mappings=[imagebuilder.CfnImageRecipe.InstanceBlockDeviceMappingProperty(
-                    device_name="deviceName",
-                    ebs=imagebuilder.CfnImageRecipe.EbsInstanceBlockDeviceSpecificationProperty(
-                        delete_on_termination=False,
-                        encrypted=False,
-                        iops=123,
-                        kms_key_id="kmsKeyId",
-                        snapshot_id="snapshotId",
-                        throughput=123,
-                        volume_size=123,
-                        volume_type="volumeType"
-                    ),
-                    no_device="noDevice",
-                    virtual_name="virtualName"
-                )],
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                },
-                working_directory="workingDirectory"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a289ec10c5f4c9443f1dfb0dc4ecb78a20e5f6e491ed688cb2e3a59ad3d6c88a)
-            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument parent_image", value=parent_image, expected_type=type_hints["parent_image"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            check_type(argname="argument additional_instance_configuration", value=additional_instance_configuration, expected_type=type_hints["additional_instance_configuration"])
-            check_type(argname="argument block_device_mappings", value=block_device_mappings, expected_type=type_hints["block_device_mappings"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "components": components,
-            "name": name,
-            "parent_image": parent_image,
-            "version": version,
-        }
-        if additional_instance_configuration is not None:
-            self._values["additional_instance_configuration"] = additional_instance_configuration
-        if block_device_mappings is not None:
-            self._values["block_device_mappings"] = block_device_mappings
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if working_directory is not None:
-            self._values["working_directory"] = working_directory
-
-    @builtins.property
-    def components(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.ComponentConfigurationProperty]]]:
-        '''The components that are included in the image recipe.
-
-        Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-components
-        '''
-        result = self._values.get("components")
-        assert result is not None, "Required property 'components' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.ComponentConfigurationProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the image recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parent_image(self) -> builtins.str:
-        '''The base image for customizations specified in the image recipe.
-
-        You can specify the parent image using one of the following options:
-
-        - AMI ID
-        - Image Builder image Amazon Resource Name (ARN)
-        - AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN.
-        - AWS Marketplace product ID
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-parentimage
-        '''
-        result = self._values.get("parent_image")
-        assert result is not None, "Required property 'parent_image' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def version(self) -> builtins.str:
-        '''The version of the image recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-version
-        '''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def additional_instance_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.AdditionalInstanceConfigurationProperty]]:
-        '''Before you create a new AMI, Image Builder launches temporary Amazon EC2 instances to build and test your image configuration.
-
-        Instance configuration adds a layer of control over those instances. You can define settings and add scripts to run when an instance is launched from your AMI.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-additionalinstanceconfiguration
-        '''
-        result = self._values.get("additional_instance_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.AdditionalInstanceConfigurationProperty]], result)
-
-    @builtins.property
-    def block_device_mappings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.InstanceBlockDeviceMappingProperty]]]]:
-        '''The block device mappings to apply when creating images from this recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-blockdevicemappings
-        '''
-        result = self._values.get("block_device_mappings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageRecipe.InstanceBlockDeviceMappingProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the image recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags of the image recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def working_directory(self) -> typing.Optional[builtins.str]:
-        '''The working directory to be used during build and test workflows.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-imagerecipe.html#cfn-imagebuilder-imagerecipe-workingdirectory
-        '''
-        result = self._values.get("working_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnImageRecipeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IInfrastructureConfigurationRef, _ITaggable_36806126)
 class CfnInfrastructureConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6921,6 +8514,12 @@ class CfnInfrastructureConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="infrastructureConfigurationRef")
+    def infrastructure_configuration_ref(self) -> InfrastructureConfigurationReference:
+        '''A reference to a InfrastructureConfiguration resource.'''
+        return typing.cast(InfrastructureConfigurationReference, jsii.get(self, "infrastructureConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7474,317 +9073,7 @@ class CfnInfrastructureConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnInfrastructureConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_profile_name": "instanceProfileName",
-        "name": "name",
-        "description": "description",
-        "instance_metadata_options": "instanceMetadataOptions",
-        "instance_types": "instanceTypes",
-        "key_pair": "keyPair",
-        "logging": "logging",
-        "placement": "placement",
-        "resource_tags": "resourceTags",
-        "security_group_ids": "securityGroupIds",
-        "sns_topic_arn": "snsTopicArn",
-        "subnet_id": "subnetId",
-        "tags": "tags",
-        "terminate_instance_on_failure": "terminateInstanceOnFailure",
-    },
-)
-class CfnInfrastructureConfigurationProps:
-    def __init__(
-        self,
-        *,
-        instance_profile_name: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        instance_metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        key_pair: typing.Optional[builtins.str] = None,
-        logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        sns_topic_arn: typing.Optional[builtins.str] = None,
-        subnet_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInfrastructureConfiguration``.
-
-        :param instance_profile_name: The instance profile to associate with the instance used to customize your Amazon EC2 AMI.
-        :param name: The name of the infrastructure configuration.
-        :param description: The description of the infrastructure configuration.
-        :param instance_metadata_options: The instance metadata options that you can set for the HTTP requests that pipeline builds use to launch EC2 build and test instances.
-        :param instance_types: The instance types of the infrastructure configuration. You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
-        :param key_pair: The key pair of the infrastructure configuration. You can use this to log on to and debug the instance used to create your image.
-        :param logging: The logging configuration of the infrastructure configuration.
-        :param placement: The instance placement settings that define where the instances that are launched from your image will run.
-        :param resource_tags: The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process. Tags are formatted as key value pairs.
-        :param security_group_ids: The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
-        :param sns_topic_arn: The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications. .. epigraph:: EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
-        :param subnet_id: The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
-        :param tags: The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output. Tags are formatted as key value pairs.
-        :param terminate_instance_on_failure: The terminate instance on failure setting of the infrastructure configuration. Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_infrastructure_configuration_props = imagebuilder.CfnInfrastructureConfigurationProps(
-                instance_profile_name="instanceProfileName",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                instance_metadata_options=imagebuilder.CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty(
-                    http_put_response_hop_limit=123,
-                    http_tokens="httpTokens"
-                ),
-                instance_types=["instanceTypes"],
-                key_pair="keyPair",
-                logging=imagebuilder.CfnInfrastructureConfiguration.LoggingProperty(
-                    s3_logs=imagebuilder.CfnInfrastructureConfiguration.S3LogsProperty(
-                        s3_bucket_name="s3BucketName",
-                        s3_key_prefix="s3KeyPrefix"
-                    )
-                ),
-                placement=imagebuilder.CfnInfrastructureConfiguration.PlacementProperty(
-                    availability_zone="availabilityZone",
-                    host_id="hostId",
-                    host_resource_group_arn="hostResourceGroupArn",
-                    tenancy="tenancy"
-                ),
-                resource_tags={
-                    "resource_tags_key": "resourceTags"
-                },
-                security_group_ids=["securityGroupIds"],
-                sns_topic_arn="snsTopicArn",
-                subnet_id="subnetId",
-                tags={
-                    "tags_key": "tags"
-                },
-                terminate_instance_on_failure=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb6019d47)
-            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument instance_metadata_options", value=instance_metadata_options, expected_type=type_hints["instance_metadata_options"])
-            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
-            check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
-            check_type(argname="argument placement", value=placement, expected_type=type_hints["placement"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument terminate_instance_on_failure", value=terminate_instance_on_failure, expected_type=type_hints["terminate_instance_on_failure"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_profile_name": instance_profile_name,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if instance_metadata_options is not None:
-            self._values["instance_metadata_options"] = instance_metadata_options
-        if instance_types is not None:
-            self._values["instance_types"] = instance_types
-        if key_pair is not None:
-            self._values["key_pair"] = key_pair
-        if logging is not None:
-            self._values["logging"] = logging
-        if placement is not None:
-            self._values["placement"] = placement
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if sns_topic_arn is not None:
-            self._values["sns_topic_arn"] = sns_topic_arn
-        if subnet_id is not None:
-            self._values["subnet_id"] = subnet_id
-        if tags is not None:
-            self._values["tags"] = tags
-        if terminate_instance_on_failure is not None:
-            self._values["terminate_instance_on_failure"] = terminate_instance_on_failure
-
-    @builtins.property
-    def instance_profile_name(self) -> builtins.str:
-        '''The instance profile to associate with the instance used to customize your Amazon EC2 AMI.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instanceprofilename
-        '''
-        result = self._values.get("instance_profile_name")
-        assert result is not None, "Required property 'instance_profile_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the infrastructure configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the infrastructure configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_metadata_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty]]:
-        '''The instance metadata options that you can set for the HTTP requests that pipeline builds use to launch EC2 build and test instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instancemetadataoptions
-        '''
-        result = self._values.get("instance_metadata_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty]], result)
-
-    @builtins.property
-    def instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The instance types of the infrastructure configuration.
-
-        You can specify one or more instance types to use for this build. The service will pick one of these instance types based on availability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-instancetypes
-        '''
-        result = self._values.get("instance_types")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def key_pair(self) -> typing.Optional[builtins.str]:
-        '''The key pair of the infrastructure configuration.
-
-        You can use this to log on to and debug the instance used to create your image.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-keypair
-        '''
-        result = self._values.get("key_pair")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.LoggingProperty]]:
-        '''The logging configuration of the infrastructure configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-logging
-        '''
-        result = self._values.get("logging")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.LoggingProperty]], result)
-
-    @builtins.property
-    def placement(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.PlacementProperty]]:
-        '''The instance placement settings that define where the instances that are launched from your image will run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-placement
-        '''
-        result = self._values.get("placement")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfrastructureConfiguration.PlacementProperty]], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The metadata tags to assign to the Amazon EC2 instance that Image Builder launches during the build process.
-
-        Tags are formatted as key value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The security group IDs to associate with the instance used to customize your Amazon EC2 AMI.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) for the SNS topic to which we send image build event notifications.
-
-        .. epigraph::
-
-           EC2 Image Builder is unable to send notifications to SNS topics that are encrypted using keys from other accounts. The key that is used to encrypt the SNS topic must reside in the account that the Image Builder service runs under.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-snstopicarn
-        '''
-        result = self._values.get("sns_topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''The subnet ID in which to place the instance used to customize your Amazon EC2 AMI.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-subnetid
-        '''
-        result = self._values.get("subnet_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The metadata tags to assign to the infrastructure configuration resource that Image Builder creates as output.
-
-        Tags are formatted as key value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def terminate_instance_on_failure(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The terminate instance on failure setting of the infrastructure configuration.
-
-        Set to false if you want Image Builder to retain the instance used to configure your AMI if the build or test phase of your workflow fails.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-infrastructureconfiguration.html#cfn-imagebuilder-infrastructureconfiguration-terminateinstanceonfailure
-        '''
-        result = self._values.get("terminate_instance_on_failure")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInfrastructureConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ILifecyclePolicyRef, _ITaggableV2_4e6798f8)
 class CfnLifecyclePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7956,6 +9245,12 @@ class CfnLifecyclePolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> LifecyclePolicyReference:
+        '''A reference to a LifecyclePolicy resource.'''
+        return typing.cast(LifecyclePolicyReference, jsii.get(self, "lifecyclePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="executionRole")
@@ -8935,232 +10230,7 @@ class CfnLifecyclePolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnLifecyclePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "execution_role": "executionRole",
-        "name": "name",
-        "policy_details": "policyDetails",
-        "resource_selection": "resourceSelection",
-        "resource_type": "resourceType",
-        "description": "description",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnLifecyclePolicyProps:
-    def __init__(
-        self,
-        *,
-        execution_role: builtins.str,
-        name: builtins.str,
-        policy_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        resource_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
-        resource_type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLifecyclePolicy``.
-
-        :param execution_role: The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to run lifecycle actions.
-        :param name: The name of the lifecycle policy to create.
-        :param policy_details: Configuration details for the lifecycle policy rules.
-        :param resource_selection: Selection criteria for the resources that the lifecycle policy applies to.
-        :param resource_type: The type of Image Builder resource that the lifecycle policy applies to.
-        :param description: Optional description for the lifecycle policy.
-        :param status: Indicates whether the lifecycle policy resource is enabled.
-        :param tags: Tags to apply to the lifecycle policy resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_lifecycle_policy_props = imagebuilder.CfnLifecyclePolicyProps(
-                execution_role="executionRole",
-                name="name",
-                policy_details=[imagebuilder.CfnLifecyclePolicy.PolicyDetailProperty(
-                    action=imagebuilder.CfnLifecyclePolicy.ActionProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        include_resources=imagebuilder.CfnLifecyclePolicy.IncludeResourcesProperty(
-                            amis=False,
-                            containers=False,
-                            snapshots=False
-                        )
-                    ),
-                    filter=imagebuilder.CfnLifecyclePolicy.FilterProperty(
-                        type="type",
-                        value=123,
-            
-                        # the properties below are optional
-                        retain_at_least=123,
-                        unit="unit"
-                    ),
-            
-                    # the properties below are optional
-                    exclusion_rules=imagebuilder.CfnLifecyclePolicy.ExclusionRulesProperty(
-                        amis=imagebuilder.CfnLifecyclePolicy.AmiExclusionRulesProperty(
-                            is_public=False,
-                            last_launched=imagebuilder.CfnLifecyclePolicy.LastLaunchedProperty(
-                                unit="unit",
-                                value=123
-                            ),
-                            regions=["regions"],
-                            shared_accounts=["sharedAccounts"],
-                            tag_map={
-                                "tag_map_key": "tagMap"
-                            }
-                        ),
-                        tag_map={
-                            "tag_map_key": "tagMap"
-                        }
-                    )
-                )],
-                resource_selection=imagebuilder.CfnLifecyclePolicy.ResourceSelectionProperty(
-                    recipes=[imagebuilder.CfnLifecyclePolicy.RecipeSelectionProperty(
-                        name="name",
-                        semantic_version="semanticVersion"
-                    )],
-                    tag_map={
-                        "tag_map_key": "tagMap"
-                    }
-                ),
-                resource_type="resourceType",
-            
-                # the properties below are optional
-                description="description",
-                status="status",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d645dc30df568adc41cd2d0c464f623b51b54d8bb6b1351018d90d6c338846f)
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy_details", value=policy_details, expected_type=type_hints["policy_details"])
-            check_type(argname="argument resource_selection", value=resource_selection, expected_type=type_hints["resource_selection"])
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "execution_role": execution_role,
-            "name": name,
-            "policy_details": policy_details,
-            "resource_selection": resource_selection,
-            "resource_type": resource_type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def execution_role(self) -> builtins.str:
-        '''The name or Amazon Resource Name (ARN) for the IAM role you create that grants Image Builder access to run lifecycle actions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-executionrole
-        '''
-        result = self._values.get("execution_role")
-        assert result is not None, "Required property 'execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the lifecycle policy to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.PolicyDetailProperty]]]:
-        '''Configuration details for the lifecycle policy rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-policydetails
-        '''
-        result = self._values.get("policy_details")
-        assert result is not None, "Required property 'policy_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.PolicyDetailProperty]]], result)
-
-    @builtins.property
-    def resource_selection(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.ResourceSelectionProperty]:
-        '''Selection criteria for the resources that the lifecycle policy applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-resourceselection
-        '''
-        result = self._values.get("resource_selection")
-        assert result is not None, "Required property 'resource_selection' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.ResourceSelectionProperty], result)
-
-    @builtins.property
-    def resource_type(self) -> builtins.str:
-        '''The type of Image Builder resource that the lifecycle policy applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-resourcetype
-        '''
-        result = self._values.get("resource_type")
-        assert result is not None, "Required property 'resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Optional description for the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether the lifecycle policy resource is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tags to apply to the lifecycle policy resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-lifecyclepolicy.html#cfn-imagebuilder-lifecyclepolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IWorkflowRef, _ITaggableV2_4e6798f8)
 class CfnWorkflow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9292,6 +10362,12 @@ class CfnWorkflow(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> WorkflowReference:
+        '''A reference to a Workflow resource.'''
+        return typing.cast(WorkflowReference, jsii.get(self, "workflowRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the workflow to create.'''
@@ -9415,213 +10491,6 @@ class CfnWorkflow(
         jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_imagebuilder.CfnWorkflowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "type": "type",
-        "version": "version",
-        "change_description": "changeDescription",
-        "data": "data",
-        "description": "description",
-        "kms_key_id": "kmsKeyId",
-        "tags": "tags",
-        "uri": "uri",
-    },
-)
-class CfnWorkflowProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        type: builtins.str,
-        version: builtins.str,
-        change_description: typing.Optional[builtins.str] = None,
-        data: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        uri: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkflow``.
-
-        :param name: The name of the workflow to create.
-        :param type: The phase in the image build process for which the workflow resource is responsible.
-        :param version: The semantic version of this workflow resource. The semantic version syntax adheres to the following rules. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
-        :param change_description: Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
-        :param data: Contains the UTF-8 encoded YAML document content for the workflow. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
-        :param description: Describes the workflow.
-        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-        :param tags: Tags that apply to the workflow resource.
-        :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_imagebuilder as imagebuilder
-            
-            cfn_workflow_props = imagebuilder.CfnWorkflowProps(
-                name="name",
-                type="type",
-                version="version",
-            
-                # the properties below are optional
-                change_description="changeDescription",
-                data="data",
-                description="description",
-                kms_key_id="kmsKeyId",
-                tags={
-                    "tags_key": "tags"
-                },
-                uri="uri"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35d88d62d7ed1f4b6deb48b19f5f6a93db101eada9232a0e7f6cc8c59ce9e078)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            check_type(argname="argument change_description", value=change_description, expected_type=type_hints["change_description"])
-            check_type(argname="argument data", value=data, expected_type=type_hints["data"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "type": type,
-            "version": version,
-        }
-        if change_description is not None:
-            self._values["change_description"] = change_description
-        if data is not None:
-            self._values["data"] = data
-        if description is not None:
-            self._values["description"] = description
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if tags is not None:
-            self._values["tags"] = tags
-        if uri is not None:
-            self._values["uri"] = uri
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the workflow to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The phase in the image build process for which the workflow resource is responsible.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def version(self) -> builtins.str:
-        '''The semantic version of this workflow resource. The semantic version syntax adheres to the following rules.
-
-        .. epigraph::
-
-           The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them.
-
-           *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node.
-
-           *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-version
-        '''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def change_description(self) -> typing.Optional[builtins.str]:
-        '''Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-changedescription
-        '''
-        result = self._values.get("change_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data(self) -> typing.Optional[builtins.str]:
-        '''Contains the UTF-8 encoded YAML document content for the workflow.
-
-        Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-data
-        '''
-        result = self._values.get("data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Describes the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource.
-
-        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tags that apply to the workflow resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def uri(self) -> typing.Optional[builtins.str]:
-        '''The ``uri`` of a YAML component document file.
-
-        This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota.
-
-        Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-uri
-        '''
-        result = self._values.get("uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkflowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnComponent",
     "CfnComponentProps",
@@ -9641,9 +10510,237 @@ __all__ = [
     "CfnLifecyclePolicyProps",
     "CfnWorkflow",
     "CfnWorkflowProps",
+    "ComponentReference",
+    "ContainerRecipeReference",
+    "DistributionConfigurationReference",
+    "IComponentRef",
+    "IContainerRecipeRef",
+    "IDistributionConfigurationRef",
+    "IImagePipelineRef",
+    "IImageRecipeRef",
+    "IImageRef",
+    "IInfrastructureConfigurationRef",
+    "ILifecyclePolicyRef",
+    "IWorkflowRef",
+    "ImagePipelineReference",
+    "ImageRecipeReference",
+    "ImageReference",
+    "InfrastructureConfigurationReference",
+    "LifecyclePolicyReference",
+    "WorkflowReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__802f9cef9476f7041238f4927a50fed552e7bbbc1054ce0eda41a7b9d75d2d80(
+    *,
+    name: builtins.str,
+    platform: builtins.str,
+    version: builtins.str,
+    change_description: typing.Optional[builtins.str] = None,
+    data: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    supported_os_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67f8d0f3d1045e15583795ba863ee1d218908e506567e7d12e0aa5861d44ab17(
+    *,
+    components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    container_type: builtins.str,
+    name: builtins.str,
+    parent_image: builtins.str,
+    target_repository: typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.TargetContainerRepositoryProperty, typing.Dict[builtins.str, typing.Any]]],
+    version: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    dockerfile_template_data: typing.Optional[builtins.str] = None,
+    dockerfile_template_uri: typing.Optional[builtins.str] = None,
+    image_os_version_override: typing.Optional[builtins.str] = None,
+    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    platform_override: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f16c19e0cbb34ea9e02eb4cfcaa69a6cdf4c60af0ca2736a9d0dd6b74445c9d8(
+    *,
+    distributions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.DistributionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95f10c4451c6bf3f2cf15951831cd372e35975262c0be294c1ae7c774045ad9b(
+    *,
+    infrastructure_configuration_arn: builtins.str,
+    name: builtins.str,
+    container_recipe_arn: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    distribution_configuration_arn: typing.Optional[builtins.str] = None,
+    enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    execution_role: typing.Optional[builtins.str] = None,
+    image_recipe_arn: typing.Optional[builtins.str] = None,
+    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f217922888735234464ee573256caba679b2c1215a99c91ad609c9c75d22d47(
+    *,
+    container_recipe_arn: typing.Optional[builtins.str] = None,
+    distribution_configuration_arn: typing.Optional[builtins.str] = None,
+    enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    execution_role: typing.Optional[builtins.str] = None,
+    image_recipe_arn: typing.Optional[builtins.str] = None,
+    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    infrastructure_configuration_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a289ec10c5f4c9443f1dfb0dc4ecb78a20e5f6e491ed688cb2e3a59ad3d6c88a(
+    *,
+    components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    parent_image: builtins.str,
+    version: builtins.str,
+    additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.AdditionalInstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.InstanceBlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb6019d47(
+    *,
+    instance_profile_name: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    instance_metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    key_pair: typing.Optional[builtins.str] = None,
+    logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    sns_topic_arn: typing.Optional[builtins.str] = None,
+    subnet_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d645dc30df568adc41cd2d0c464f623b51b54d8bb6b1351018d90d6c338846f(
+    *,
+    execution_role: builtins.str,
+    name: builtins.str,
+    policy_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35d88d62d7ed1f4b6deb48b19f5f6a93db101eada9232a0e7f6cc8c59ce9e078(
+    *,
+    name: builtins.str,
+    type: builtins.str,
+    version: builtins.str,
+    change_description: typing.Optional[builtins.str] = None,
+    data: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78acdac7529bd6c0ee6343ee643225a9d4ec5d608016c29e6f41ea808456b409(
+    *,
+    component_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fa48b0b5391c847d1b60fa9b634d63540d8cf1b395042354a8b2caf72600822(
+    *,
+    container_recipe_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0480968e11b75f03a891342731e8055b792802108c9e4305271b0e2e4b9b7171(
+    *,
+    distribution_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__692952ff23bacecfb49ba8254ad6fa2ba1beb4d5bddbf6cd929c91e2808d11d0(
+    *,
+    image_pipeline_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d303c97491cfdb11a490865f1afe8baf0acef23e48fbcf881b7a5fd6ccb2b2f9(
+    *,
+    image_recipe_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70284401330b524d77d3294211fa0988c4d720e53d25644c8b7e36fb554349c9(
+    *,
+    image_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4f7f0f37c3e1422053c3f98beeafab1baad0dff8393e937aa53e81b5524f8a5(
+    *,
+    infrastructure_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0093abf69c4cecb6182c39aedb5bdc2f971e609b2127b06d76528e519cd6a2b(
+    *,
+    lifecycle_policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bebc8364190d22573f6ad24d52b0d1cea8d71588dfd000ecf4be68dd82b4a983(
+    *,
+    workflow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__cee6f52d40719e283a6d76c8b6a6d4fb48180c9c7f4901a21ff32e8627d45b9e(
     scope: _constructs_77d1e7e8.Construct,
@@ -9731,22 +10828,6 @@ def _typecheckingstub__a4a5d66d386d51bc332acca6c875fb548297567b633e53e35d7da1075
 
 def _typecheckingstub__6efe7a7fb79c1c8d2effb9d5fa5a6b2b46eefe80a1dce4011093db23ed26368d(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__802f9cef9476f7041238f4927a50fed552e7bbbc1054ce0eda41a7b9d75d2d80(
-    *,
-    name: builtins.str,
-    platform: builtins.str,
-    version: builtins.str,
-    change_description: typing.Optional[builtins.str] = None,
-    data: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    supported_os_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9932,27 +11013,6 @@ def _typecheckingstub__34199ca5f676bc80945fe7e849c29056158da64657ff83277eecd5cd3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__67f8d0f3d1045e15583795ba863ee1d218908e506567e7d12e0aa5861d44ab17(
-    *,
-    components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    container_type: builtins.str,
-    name: builtins.str,
-    parent_image: builtins.str,
-    target_repository: typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.TargetContainerRepositoryProperty, typing.Dict[builtins.str, typing.Any]]],
-    version: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    dockerfile_template_data: typing.Optional[builtins.str] = None,
-    dockerfile_template_uri: typing.Optional[builtins.str] = None,
-    image_os_version_override: typing.Optional[builtins.str] = None,
-    instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerRecipe.InstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    platform_override: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    working_directory: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__424bed49628b17ab96124c2266e56c022dd960de454a320aa631249933b84238(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10094,16 +11154,6 @@ def _typecheckingstub__fd67a7cda75ae308d03a62ceb5b017b8de54cd08fd47374326a441ec6
     *,
     repository_name: typing.Optional[builtins.str] = None,
     service: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f16c19e0cbb34ea9e02eb4cfcaa69a6cdf4c60af0ca2736a9d0dd6b74445c9d8(
-    *,
-    distributions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.DistributionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10408,42 +11458,6 @@ def _typecheckingstub__2e3c12bbd170116ab79a812e4141a317f3b456ad0a64acefae39ebbdf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__95f10c4451c6bf3f2cf15951831cd372e35975262c0be294c1ae7c774045ad9b(
-    *,
-    infrastructure_configuration_arn: builtins.str,
-    name: builtins.str,
-    container_recipe_arn: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    distribution_configuration_arn: typing.Optional[builtins.str] = None,
-    enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    execution_role: typing.Optional[builtins.str] = None,
-    image_recipe_arn: typing.Optional[builtins.str] = None,
-    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImagePipeline.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f217922888735234464ee573256caba679b2c1215a99c91ad609c9c75d22d47(
-    *,
-    container_recipe_arn: typing.Optional[builtins.str] = None,
-    distribution_configuration_arn: typing.Optional[builtins.str] = None,
-    enhanced_image_metadata_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    execution_role: typing.Optional[builtins.str] = None,
-    image_recipe_arn: typing.Optional[builtins.str] = None,
-    image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_tests_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.ImageTestsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    infrastructure_configuration_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    workflows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImage.WorkflowConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b92e909d03413ceab5b5ff0737ae582bf88ebb71e7e89f62cc57922d15e14688(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10578,21 +11592,6 @@ def _typecheckingstub__49d4c4575e6e8aa63b1188dcd39472139fc5b35a563c27e7b8a0bdf27
 def _typecheckingstub__ad92f3ddc08f7f471aea45f4940171af1f13b6aca47dcb6cecd2627b25787032(
     *,
     uninstall_after_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a289ec10c5f4c9443f1dfb0dc4ecb78a20e5f6e491ed688cb2e3a59ad3d6c88a(
-    *,
-    components: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    parent_image: builtins.str,
-    version: builtins.str,
-    additional_instance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.AdditionalInstanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageRecipe.InstanceBlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10744,26 +11743,6 @@ def _typecheckingstub__606aaff62e915101e470a1274dc963d43831117f9a85493e01f09a1ee
     *,
     s3_bucket_name: typing.Optional[builtins.str] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf8c493013f64742391c2bf93c7050f371ffeff0d9a35a3791f0b9fbb6019d47(
-    *,
-    instance_profile_name: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    instance_metadata_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.InstanceMetadataOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    key_pair: typing.Optional[builtins.str] = None,
-    logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.LoggingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfrastructureConfiguration.PlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    sns_topic_arn: typing.Optional[builtins.str] = None,
-    subnet_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    terminate_instance_on_failure: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10923,20 +11902,6 @@ def _typecheckingstub__a50d1f1937c770dfb0439cdf4e09d340344cb42f76c244b1320fe680a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6d645dc30df568adc41cd2d0c464f623b51b54d8bb6b1351018d90d6c338846f(
-    *,
-    execution_role: builtins.str,
-    name: builtins.str,
-    policy_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    resource_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ResourceSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource_type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__bd82b8722476efd9ae3c84a0cf5b8f1d6b48550745017b0d128afabf5f24b5b2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11016,21 +11981,6 @@ def _typecheckingstub__1212a2dd4ab9ee1b3006c19c3027125ab0148561c4bc08b5d80fc0e29
 
 def _typecheckingstub__2e36c0e0583778b96be119919e9f8e273d4b8ff0bfa5e58c3049f2cc89a520dd(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__35d88d62d7ed1f4b6deb48b19f5f6a93db101eada9232a0e7f6cc8c59ce9e078(
-    *,
-    name: builtins.str,
-    type: builtins.str,
-    version: builtins.str,
-    change_description: typing.Optional[builtins.str] = None,
-    data: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

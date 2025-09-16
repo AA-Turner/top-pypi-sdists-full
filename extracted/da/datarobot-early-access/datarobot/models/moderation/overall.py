@@ -132,15 +132,11 @@ class OverallModerationConfig(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        data = unpaginate(
-            cls._path,
-            {"entityId": entity_id, "entityType": entity_type.value},
-            cls._client,
-        )
-        result = next(data, None)
-        if not result:
-            return None
-        return cls.from_server_data(result)
+        params = {
+            "entityId": entity_id,
+            "entityType": entity_type.value,
+        }
+        return cls.from_location(cls._path, params=params)
 
     @classmethod
     def locate(

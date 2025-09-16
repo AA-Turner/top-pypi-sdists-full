@@ -69,7 +69,561 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_applicationinsights.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_arn: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ApplicationARN of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_applicationinsights as applicationinsights
+            
+            application_reference = applicationinsights.ApplicationReference(
+                application_arn="applicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a875d56816723958450701760f8c373f2cc23b2eff7c5c212c9d100987c6e275)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ApplicationARN of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_applicationinsights.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_group_name": "resourceGroupName",
+        "attach_missing_permission": "attachMissingPermission",
+        "auto_configuration_enabled": "autoConfigurationEnabled",
+        "component_monitoring_settings": "componentMonitoringSettings",
+        "custom_components": "customComponents",
+        "cwe_monitor_enabled": "cweMonitorEnabled",
+        "grouping_type": "groupingType",
+        "log_pattern_sets": "logPatternSets",
+        "ops_center_enabled": "opsCenterEnabled",
+        "ops_item_sns_topic_arn": "opsItemSnsTopicArn",
+        "sns_notification_arn": "snsNotificationArn",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        resource_group_name: builtins.str,
+        attach_missing_permission: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        auto_configuration_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        component_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ComponentMonitoringSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.CustomComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cwe_monitor_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        grouping_type: typing.Optional[builtins.str] = None,
+        log_pattern_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.LogPatternSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ops_center_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ops_item_sns_topic_arn: typing.Optional[builtins.str] = None,
+        sns_notification_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param resource_group_name: The name of the resource group used for the application.
+        :param attach_missing_permission: If set to true, the managed policies for SSM and CW will be attached to the instance roles if they are missing.
+        :param auto_configuration_enabled: If set to ``true`` , the application components will be configured with the monitoring configuration recommended by Application Insights.
+        :param component_monitoring_settings: The monitoring settings of the components. Not required to set up default monitoring for all components. To set up default monitoring for all components, set ``AutoConfigurationEnabled`` to ``true`` .
+        :param custom_components: Describes a custom component by grouping similar standalone instances to monitor.
+        :param cwe_monitor_enabled: Indicates whether Application Insights can listen to CloudWatch events for the application resources, such as ``instance terminated`` , ``failed deployment`` , and others.
+        :param grouping_type: Application Insights can create applications based on a resource group or on an account. To create an account-based application using all of the resources in the account, set this parameter to ``ACCOUNT_BASED`` .
+        :param log_pattern_sets: The log pattern sets.
+        :param ops_center_enabled: Indicates whether Application Insights will create OpsItems for any problem that is detected by Application Insights for an application.
+        :param ops_item_sns_topic_arn: The SNS topic provided to Application Insights that is associated with the created OpsItems to receive SNS notifications for opsItem updates.
+        :param sns_notification_arn: The SNS topic ARN that is associated with SNS notifications for updates or issues.
+        :param tags: An array of ``Tags`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_applicationinsights as applicationinsights
+            
+            cfn_application_props = applicationinsights.CfnApplicationProps(
+                resource_group_name="resourceGroupName",
+            
+                # the properties below are optional
+                attach_missing_permission=False,
+                auto_configuration_enabled=False,
+                component_monitoring_settings=[applicationinsights.CfnApplication.ComponentMonitoringSettingProperty(
+                    component_configuration_mode="componentConfigurationMode",
+                    tier="tier",
+            
+                    # the properties below are optional
+                    component_arn="componentArn",
+                    component_name="componentName",
+                    custom_component_configuration=applicationinsights.CfnApplication.ComponentConfigurationProperty(
+                        configuration_details=applicationinsights.CfnApplication.ConfigurationDetailsProperty(
+                            alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                alarm_metric_name="alarmMetricName"
+                            )],
+                            alarms=[applicationinsights.CfnApplication.AlarmProperty(
+                                alarm_name="alarmName",
+            
+                                # the properties below are optional
+                                severity="severity"
+                            )],
+                            ha_cluster_prometheus_exporter=applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
+                                prometheus_port="prometheusPort"
+                            ),
+                            hana_prometheus_exporter=applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
+                                agree_to_install_hanadb_client=False,
+                                hana_port="hanaPort",
+                                hana_secret_name="hanaSecretName",
+                                hanasid="hanasid",
+            
+                                # the properties below are optional
+                                prometheus_port="prometheusPort"
+                            ),
+                            jmx_prometheus_exporter=applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
+                                host_port="hostPort",
+                                jmxurl="jmxurl",
+                                prometheus_port="prometheusPort"
+                            ),
+                            logs=[applicationinsights.CfnApplication.LogProperty(
+                                log_type="logType",
+            
+                                # the properties below are optional
+                                encoding="encoding",
+                                log_group_name="logGroupName",
+                                log_path="logPath",
+                                pattern_set="patternSet"
+                            )],
+                            net_weaver_prometheus_exporter=applicationinsights.CfnApplication.NetWeaverPrometheusExporterProperty(
+                                instance_numbers=["instanceNumbers"],
+                                sapsid="sapsid",
+            
+                                # the properties below are optional
+                                prometheus_port="prometheusPort"
+                            ),
+                            processes=[applicationinsights.CfnApplication.ProcessProperty(
+                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                    alarm_metric_name="alarmMetricName"
+                                )],
+                                process_name="processName"
+                            )],
+                            sql_server_prometheus_exporter=applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
+                                prometheus_port="prometheusPort",
+                                sql_secret_name="sqlSecretName"
+                            ),
+                            windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
+                                event_levels=["eventLevels"],
+                                event_name="eventName",
+                                log_group_name="logGroupName",
+            
+                                # the properties below are optional
+                                pattern_set="patternSet"
+                            )]
+                        ),
+                        sub_component_type_configurations=[applicationinsights.CfnApplication.SubComponentTypeConfigurationProperty(
+                            sub_component_configuration_details=applicationinsights.CfnApplication.SubComponentConfigurationDetailsProperty(
+                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                    alarm_metric_name="alarmMetricName"
+                                )],
+                                logs=[applicationinsights.CfnApplication.LogProperty(
+                                    log_type="logType",
+            
+                                    # the properties below are optional
+                                    encoding="encoding",
+                                    log_group_name="logGroupName",
+                                    log_path="logPath",
+                                    pattern_set="patternSet"
+                                )],
+                                processes=[applicationinsights.CfnApplication.ProcessProperty(
+                                    alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                        alarm_metric_name="alarmMetricName"
+                                    )],
+                                    process_name="processName"
+                                )],
+                                windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
+                                    event_levels=["eventLevels"],
+                                    event_name="eventName",
+                                    log_group_name="logGroupName",
+            
+                                    # the properties below are optional
+                                    pattern_set="patternSet"
+                                )]
+                            ),
+                            sub_component_type="subComponentType"
+                        )]
+                    ),
+                    default_overwrite_component_configuration=applicationinsights.CfnApplication.ComponentConfigurationProperty(
+                        configuration_details=applicationinsights.CfnApplication.ConfigurationDetailsProperty(
+                            alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                alarm_metric_name="alarmMetricName"
+                            )],
+                            alarms=[applicationinsights.CfnApplication.AlarmProperty(
+                                alarm_name="alarmName",
+            
+                                # the properties below are optional
+                                severity="severity"
+                            )],
+                            ha_cluster_prometheus_exporter=applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
+                                prometheus_port="prometheusPort"
+                            ),
+                            hana_prometheus_exporter=applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
+                                agree_to_install_hanadb_client=False,
+                                hana_port="hanaPort",
+                                hana_secret_name="hanaSecretName",
+                                hanasid="hanasid",
+            
+                                # the properties below are optional
+                                prometheus_port="prometheusPort"
+                            ),
+                            jmx_prometheus_exporter=applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
+                                host_port="hostPort",
+                                jmxurl="jmxurl",
+                                prometheus_port="prometheusPort"
+                            ),
+                            logs=[applicationinsights.CfnApplication.LogProperty(
+                                log_type="logType",
+            
+                                # the properties below are optional
+                                encoding="encoding",
+                                log_group_name="logGroupName",
+                                log_path="logPath",
+                                pattern_set="patternSet"
+                            )],
+                            net_weaver_prometheus_exporter=applicationinsights.CfnApplication.NetWeaverPrometheusExporterProperty(
+                                instance_numbers=["instanceNumbers"],
+                                sapsid="sapsid",
+            
+                                # the properties below are optional
+                                prometheus_port="prometheusPort"
+                            ),
+                            processes=[applicationinsights.CfnApplication.ProcessProperty(
+                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                    alarm_metric_name="alarmMetricName"
+                                )],
+                                process_name="processName"
+                            )],
+                            sql_server_prometheus_exporter=applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
+                                prometheus_port="prometheusPort",
+                                sql_secret_name="sqlSecretName"
+                            ),
+                            windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
+                                event_levels=["eventLevels"],
+                                event_name="eventName",
+                                log_group_name="logGroupName",
+            
+                                # the properties below are optional
+                                pattern_set="patternSet"
+                            )]
+                        ),
+                        sub_component_type_configurations=[applicationinsights.CfnApplication.SubComponentTypeConfigurationProperty(
+                            sub_component_configuration_details=applicationinsights.CfnApplication.SubComponentConfigurationDetailsProperty(
+                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                    alarm_metric_name="alarmMetricName"
+                                )],
+                                logs=[applicationinsights.CfnApplication.LogProperty(
+                                    log_type="logType",
+            
+                                    # the properties below are optional
+                                    encoding="encoding",
+                                    log_group_name="logGroupName",
+                                    log_path="logPath",
+                                    pattern_set="patternSet"
+                                )],
+                                processes=[applicationinsights.CfnApplication.ProcessProperty(
+                                    alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
+                                        alarm_metric_name="alarmMetricName"
+                                    )],
+                                    process_name="processName"
+                                )],
+                                windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
+                                    event_levels=["eventLevels"],
+                                    event_name="eventName",
+                                    log_group_name="logGroupName",
+            
+                                    # the properties below are optional
+                                    pattern_set="patternSet"
+                                )]
+                            ),
+                            sub_component_type="subComponentType"
+                        )]
+                    )
+                )],
+                custom_components=[applicationinsights.CfnApplication.CustomComponentProperty(
+                    component_name="componentName",
+                    resource_list=["resourceList"]
+                )],
+                cwe_monitor_enabled=False,
+                grouping_type="groupingType",
+                log_pattern_sets=[applicationinsights.CfnApplication.LogPatternSetProperty(
+                    log_patterns=[applicationinsights.CfnApplication.LogPatternProperty(
+                        pattern="pattern",
+                        pattern_name="patternName",
+                        rank=123
+                    )],
+                    pattern_set_name="patternSetName"
+                )],
+                ops_center_enabled=False,
+                ops_item_sns_topic_arn="opsItemSnsTopicArn",
+                sns_notification_arn="snsNotificationArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cffa09a5f66aca30b2e15034c06662c459b8bc4a4b3a9e705762d12485b64cc)
+            check_type(argname="argument resource_group_name", value=resource_group_name, expected_type=type_hints["resource_group_name"])
+            check_type(argname="argument attach_missing_permission", value=attach_missing_permission, expected_type=type_hints["attach_missing_permission"])
+            check_type(argname="argument auto_configuration_enabled", value=auto_configuration_enabled, expected_type=type_hints["auto_configuration_enabled"])
+            check_type(argname="argument component_monitoring_settings", value=component_monitoring_settings, expected_type=type_hints["component_monitoring_settings"])
+            check_type(argname="argument custom_components", value=custom_components, expected_type=type_hints["custom_components"])
+            check_type(argname="argument cwe_monitor_enabled", value=cwe_monitor_enabled, expected_type=type_hints["cwe_monitor_enabled"])
+            check_type(argname="argument grouping_type", value=grouping_type, expected_type=type_hints["grouping_type"])
+            check_type(argname="argument log_pattern_sets", value=log_pattern_sets, expected_type=type_hints["log_pattern_sets"])
+            check_type(argname="argument ops_center_enabled", value=ops_center_enabled, expected_type=type_hints["ops_center_enabled"])
+            check_type(argname="argument ops_item_sns_topic_arn", value=ops_item_sns_topic_arn, expected_type=type_hints["ops_item_sns_topic_arn"])
+            check_type(argname="argument sns_notification_arn", value=sns_notification_arn, expected_type=type_hints["sns_notification_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_group_name": resource_group_name,
+        }
+        if attach_missing_permission is not None:
+            self._values["attach_missing_permission"] = attach_missing_permission
+        if auto_configuration_enabled is not None:
+            self._values["auto_configuration_enabled"] = auto_configuration_enabled
+        if component_monitoring_settings is not None:
+            self._values["component_monitoring_settings"] = component_monitoring_settings
+        if custom_components is not None:
+            self._values["custom_components"] = custom_components
+        if cwe_monitor_enabled is not None:
+            self._values["cwe_monitor_enabled"] = cwe_monitor_enabled
+        if grouping_type is not None:
+            self._values["grouping_type"] = grouping_type
+        if log_pattern_sets is not None:
+            self._values["log_pattern_sets"] = log_pattern_sets
+        if ops_center_enabled is not None:
+            self._values["ops_center_enabled"] = ops_center_enabled
+        if ops_item_sns_topic_arn is not None:
+            self._values["ops_item_sns_topic_arn"] = ops_item_sns_topic_arn
+        if sns_notification_arn is not None:
+            self._values["sns_notification_arn"] = sns_notification_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def resource_group_name(self) -> builtins.str:
+        '''The name of the resource group used for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-resourcegroupname
+        '''
+        result = self._values.get("resource_group_name")
+        assert result is not None, "Required property 'resource_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attach_missing_permission(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If set to true, the managed policies for SSM and CW will be attached to the instance roles if they are missing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-attachmissingpermission
+        '''
+        result = self._values.get("attach_missing_permission")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def auto_configuration_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If set to ``true`` , the application components will be configured with the monitoring configuration recommended by Application Insights.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-autoconfigurationenabled
+        '''
+        result = self._values.get("auto_configuration_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def component_monitoring_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentMonitoringSettingProperty"]]]]:
+        '''The monitoring settings of the components.
+
+        Not required to set up default monitoring for all components. To set up default monitoring for all components, set ``AutoConfigurationEnabled`` to ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-componentmonitoringsettings
+        '''
+        result = self._values.get("component_monitoring_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ComponentMonitoringSettingProperty"]]]], result)
+
+    @builtins.property
+    def custom_components(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CustomComponentProperty"]]]]:
+        '''Describes a custom component by grouping similar standalone instances to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-customcomponents
+        '''
+        result = self._values.get("custom_components")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.CustomComponentProperty"]]]], result)
+
+    @builtins.property
+    def cwe_monitor_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether Application Insights can listen to CloudWatch events for the application resources, such as ``instance terminated`` , ``failed deployment`` , and others.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-cwemonitorenabled
+        '''
+        result = self._values.get("cwe_monitor_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def grouping_type(self) -> typing.Optional[builtins.str]:
+        '''Application Insights can create applications based on a resource group or on an account.
+
+        To create an account-based application using all of the resources in the account, set this parameter to ``ACCOUNT_BASED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-groupingtype
+        '''
+        result = self._values.get("grouping_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_pattern_sets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.LogPatternSetProperty"]]]]:
+        '''The log pattern sets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-logpatternsets
+        '''
+        result = self._values.get("log_pattern_sets")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.LogPatternSetProperty"]]]], result)
+
+    @builtins.property
+    def ops_center_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether Application Insights will create OpsItems for any problem that is detected by Application Insights for an application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-opscenterenabled
+        '''
+        result = self._values.get("ops_center_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def ops_item_sns_topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The SNS topic provided to Application Insights that is associated with the created OpsItems to receive SNS notifications for opsItem updates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-opsitemsnstopicarn
+        '''
+        result = self._values.get("ops_item_sns_topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sns_notification_arn(self) -> typing.Optional[builtins.str]:
+        '''The SNS topic ARN that is associated with SNS notifications for updates or issues.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-snsnotificationarn
+        '''
+        result = self._values.get("sns_notification_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of ``Tags`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_applicationinsights.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_applicationinsights.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -399,6 +953,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -2805,477 +3365,39 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_applicationinsights.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_group_name": "resourceGroupName",
-        "attach_missing_permission": "attachMissingPermission",
-        "auto_configuration_enabled": "autoConfigurationEnabled",
-        "component_monitoring_settings": "componentMonitoringSettings",
-        "custom_components": "customComponents",
-        "cwe_monitor_enabled": "cweMonitorEnabled",
-        "grouping_type": "groupingType",
-        "log_pattern_sets": "logPatternSets",
-        "ops_center_enabled": "opsCenterEnabled",
-        "ops_item_sns_topic_arn": "opsItemSnsTopicArn",
-        "sns_notification_arn": "snsNotificationArn",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        resource_group_name: builtins.str,
-        attach_missing_permission: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        auto_configuration_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        component_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ComponentMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CustomComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cwe_monitor_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        grouping_type: typing.Optional[builtins.str] = None,
-        log_pattern_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.LogPatternSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ops_center_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ops_item_sns_topic_arn: typing.Optional[builtins.str] = None,
-        sns_notification_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param resource_group_name: The name of the resource group used for the application.
-        :param attach_missing_permission: If set to true, the managed policies for SSM and CW will be attached to the instance roles if they are missing.
-        :param auto_configuration_enabled: If set to ``true`` , the application components will be configured with the monitoring configuration recommended by Application Insights.
-        :param component_monitoring_settings: The monitoring settings of the components. Not required to set up default monitoring for all components. To set up default monitoring for all components, set ``AutoConfigurationEnabled`` to ``true`` .
-        :param custom_components: Describes a custom component by grouping similar standalone instances to monitor.
-        :param cwe_monitor_enabled: Indicates whether Application Insights can listen to CloudWatch events for the application resources, such as ``instance terminated`` , ``failed deployment`` , and others.
-        :param grouping_type: Application Insights can create applications based on a resource group or on an account. To create an account-based application using all of the resources in the account, set this parameter to ``ACCOUNT_BASED`` .
-        :param log_pattern_sets: The log pattern sets.
-        :param ops_center_enabled: Indicates whether Application Insights will create OpsItems for any problem that is detected by Application Insights for an application.
-        :param ops_item_sns_topic_arn: The SNS topic provided to Application Insights that is associated with the created OpsItems to receive SNS notifications for opsItem updates.
-        :param sns_notification_arn: The SNS topic ARN that is associated with SNS notifications for updates or issues.
-        :param tags: An array of ``Tags`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_applicationinsights as applicationinsights
-            
-            cfn_application_props = applicationinsights.CfnApplicationProps(
-                resource_group_name="resourceGroupName",
-            
-                # the properties below are optional
-                attach_missing_permission=False,
-                auto_configuration_enabled=False,
-                component_monitoring_settings=[applicationinsights.CfnApplication.ComponentMonitoringSettingProperty(
-                    component_configuration_mode="componentConfigurationMode",
-                    tier="tier",
-            
-                    # the properties below are optional
-                    component_arn="componentArn",
-                    component_name="componentName",
-                    custom_component_configuration=applicationinsights.CfnApplication.ComponentConfigurationProperty(
-                        configuration_details=applicationinsights.CfnApplication.ConfigurationDetailsProperty(
-                            alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                alarm_metric_name="alarmMetricName"
-                            )],
-                            alarms=[applicationinsights.CfnApplication.AlarmProperty(
-                                alarm_name="alarmName",
-            
-                                # the properties below are optional
-                                severity="severity"
-                            )],
-                            ha_cluster_prometheus_exporter=applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
-                                prometheus_port="prometheusPort"
-                            ),
-                            hana_prometheus_exporter=applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
-                                agree_to_install_hanadb_client=False,
-                                hana_port="hanaPort",
-                                hana_secret_name="hanaSecretName",
-                                hanasid="hanasid",
-            
-                                # the properties below are optional
-                                prometheus_port="prometheusPort"
-                            ),
-                            jmx_prometheus_exporter=applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
-                                host_port="hostPort",
-                                jmxurl="jmxurl",
-                                prometheus_port="prometheusPort"
-                            ),
-                            logs=[applicationinsights.CfnApplication.LogProperty(
-                                log_type="logType",
-            
-                                # the properties below are optional
-                                encoding="encoding",
-                                log_group_name="logGroupName",
-                                log_path="logPath",
-                                pattern_set="patternSet"
-                            )],
-                            net_weaver_prometheus_exporter=applicationinsights.CfnApplication.NetWeaverPrometheusExporterProperty(
-                                instance_numbers=["instanceNumbers"],
-                                sapsid="sapsid",
-            
-                                # the properties below are optional
-                                prometheus_port="prometheusPort"
-                            ),
-                            processes=[applicationinsights.CfnApplication.ProcessProperty(
-                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                    alarm_metric_name="alarmMetricName"
-                                )],
-                                process_name="processName"
-                            )],
-                            sql_server_prometheus_exporter=applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
-                                prometheus_port="prometheusPort",
-                                sql_secret_name="sqlSecretName"
-                            ),
-                            windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
-                                event_levels=["eventLevels"],
-                                event_name="eventName",
-                                log_group_name="logGroupName",
-            
-                                # the properties below are optional
-                                pattern_set="patternSet"
-                            )]
-                        ),
-                        sub_component_type_configurations=[applicationinsights.CfnApplication.SubComponentTypeConfigurationProperty(
-                            sub_component_configuration_details=applicationinsights.CfnApplication.SubComponentConfigurationDetailsProperty(
-                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                    alarm_metric_name="alarmMetricName"
-                                )],
-                                logs=[applicationinsights.CfnApplication.LogProperty(
-                                    log_type="logType",
-            
-                                    # the properties below are optional
-                                    encoding="encoding",
-                                    log_group_name="logGroupName",
-                                    log_path="logPath",
-                                    pattern_set="patternSet"
-                                )],
-                                processes=[applicationinsights.CfnApplication.ProcessProperty(
-                                    alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                        alarm_metric_name="alarmMetricName"
-                                    )],
-                                    process_name="processName"
-                                )],
-                                windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
-                                    event_levels=["eventLevels"],
-                                    event_name="eventName",
-                                    log_group_name="logGroupName",
-            
-                                    # the properties below are optional
-                                    pattern_set="patternSet"
-                                )]
-                            ),
-                            sub_component_type="subComponentType"
-                        )]
-                    ),
-                    default_overwrite_component_configuration=applicationinsights.CfnApplication.ComponentConfigurationProperty(
-                        configuration_details=applicationinsights.CfnApplication.ConfigurationDetailsProperty(
-                            alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                alarm_metric_name="alarmMetricName"
-                            )],
-                            alarms=[applicationinsights.CfnApplication.AlarmProperty(
-                                alarm_name="alarmName",
-            
-                                # the properties below are optional
-                                severity="severity"
-                            )],
-                            ha_cluster_prometheus_exporter=applicationinsights.CfnApplication.HAClusterPrometheusExporterProperty(
-                                prometheus_port="prometheusPort"
-                            ),
-                            hana_prometheus_exporter=applicationinsights.CfnApplication.HANAPrometheusExporterProperty(
-                                agree_to_install_hanadb_client=False,
-                                hana_port="hanaPort",
-                                hana_secret_name="hanaSecretName",
-                                hanasid="hanasid",
-            
-                                # the properties below are optional
-                                prometheus_port="prometheusPort"
-                            ),
-                            jmx_prometheus_exporter=applicationinsights.CfnApplication.JMXPrometheusExporterProperty(
-                                host_port="hostPort",
-                                jmxurl="jmxurl",
-                                prometheus_port="prometheusPort"
-                            ),
-                            logs=[applicationinsights.CfnApplication.LogProperty(
-                                log_type="logType",
-            
-                                # the properties below are optional
-                                encoding="encoding",
-                                log_group_name="logGroupName",
-                                log_path="logPath",
-                                pattern_set="patternSet"
-                            )],
-                            net_weaver_prometheus_exporter=applicationinsights.CfnApplication.NetWeaverPrometheusExporterProperty(
-                                instance_numbers=["instanceNumbers"],
-                                sapsid="sapsid",
-            
-                                # the properties below are optional
-                                prometheus_port="prometheusPort"
-                            ),
-                            processes=[applicationinsights.CfnApplication.ProcessProperty(
-                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                    alarm_metric_name="alarmMetricName"
-                                )],
-                                process_name="processName"
-                            )],
-                            sql_server_prometheus_exporter=applicationinsights.CfnApplication.SQLServerPrometheusExporterProperty(
-                                prometheus_port="prometheusPort",
-                                sql_secret_name="sqlSecretName"
-                            ),
-                            windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
-                                event_levels=["eventLevels"],
-                                event_name="eventName",
-                                log_group_name="logGroupName",
-            
-                                # the properties below are optional
-                                pattern_set="patternSet"
-                            )]
-                        ),
-                        sub_component_type_configurations=[applicationinsights.CfnApplication.SubComponentTypeConfigurationProperty(
-                            sub_component_configuration_details=applicationinsights.CfnApplication.SubComponentConfigurationDetailsProperty(
-                                alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                    alarm_metric_name="alarmMetricName"
-                                )],
-                                logs=[applicationinsights.CfnApplication.LogProperty(
-                                    log_type="logType",
-            
-                                    # the properties below are optional
-                                    encoding="encoding",
-                                    log_group_name="logGroupName",
-                                    log_path="logPath",
-                                    pattern_set="patternSet"
-                                )],
-                                processes=[applicationinsights.CfnApplication.ProcessProperty(
-                                    alarm_metrics=[applicationinsights.CfnApplication.AlarmMetricProperty(
-                                        alarm_metric_name="alarmMetricName"
-                                    )],
-                                    process_name="processName"
-                                )],
-                                windows_events=[applicationinsights.CfnApplication.WindowsEventProperty(
-                                    event_levels=["eventLevels"],
-                                    event_name="eventName",
-                                    log_group_name="logGroupName",
-            
-                                    # the properties below are optional
-                                    pattern_set="patternSet"
-                                )]
-                            ),
-                            sub_component_type="subComponentType"
-                        )]
-                    )
-                )],
-                custom_components=[applicationinsights.CfnApplication.CustomComponentProperty(
-                    component_name="componentName",
-                    resource_list=["resourceList"]
-                )],
-                cwe_monitor_enabled=False,
-                grouping_type="groupingType",
-                log_pattern_sets=[applicationinsights.CfnApplication.LogPatternSetProperty(
-                    log_patterns=[applicationinsights.CfnApplication.LogPatternProperty(
-                        pattern="pattern",
-                        pattern_name="patternName",
-                        rank=123
-                    )],
-                    pattern_set_name="patternSetName"
-                )],
-                ops_center_enabled=False,
-                ops_item_sns_topic_arn="opsItemSnsTopicArn",
-                sns_notification_arn="snsNotificationArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cffa09a5f66aca30b2e15034c06662c459b8bc4a4b3a9e705762d12485b64cc)
-            check_type(argname="argument resource_group_name", value=resource_group_name, expected_type=type_hints["resource_group_name"])
-            check_type(argname="argument attach_missing_permission", value=attach_missing_permission, expected_type=type_hints["attach_missing_permission"])
-            check_type(argname="argument auto_configuration_enabled", value=auto_configuration_enabled, expected_type=type_hints["auto_configuration_enabled"])
-            check_type(argname="argument component_monitoring_settings", value=component_monitoring_settings, expected_type=type_hints["component_monitoring_settings"])
-            check_type(argname="argument custom_components", value=custom_components, expected_type=type_hints["custom_components"])
-            check_type(argname="argument cwe_monitor_enabled", value=cwe_monitor_enabled, expected_type=type_hints["cwe_monitor_enabled"])
-            check_type(argname="argument grouping_type", value=grouping_type, expected_type=type_hints["grouping_type"])
-            check_type(argname="argument log_pattern_sets", value=log_pattern_sets, expected_type=type_hints["log_pattern_sets"])
-            check_type(argname="argument ops_center_enabled", value=ops_center_enabled, expected_type=type_hints["ops_center_enabled"])
-            check_type(argname="argument ops_item_sns_topic_arn", value=ops_item_sns_topic_arn, expected_type=type_hints["ops_item_sns_topic_arn"])
-            check_type(argname="argument sns_notification_arn", value=sns_notification_arn, expected_type=type_hints["sns_notification_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_group_name": resource_group_name,
-        }
-        if attach_missing_permission is not None:
-            self._values["attach_missing_permission"] = attach_missing_permission
-        if auto_configuration_enabled is not None:
-            self._values["auto_configuration_enabled"] = auto_configuration_enabled
-        if component_monitoring_settings is not None:
-            self._values["component_monitoring_settings"] = component_monitoring_settings
-        if custom_components is not None:
-            self._values["custom_components"] = custom_components
-        if cwe_monitor_enabled is not None:
-            self._values["cwe_monitor_enabled"] = cwe_monitor_enabled
-        if grouping_type is not None:
-            self._values["grouping_type"] = grouping_type
-        if log_pattern_sets is not None:
-            self._values["log_pattern_sets"] = log_pattern_sets
-        if ops_center_enabled is not None:
-            self._values["ops_center_enabled"] = ops_center_enabled
-        if ops_item_sns_topic_arn is not None:
-            self._values["ops_item_sns_topic_arn"] = ops_item_sns_topic_arn
-        if sns_notification_arn is not None:
-            self._values["sns_notification_arn"] = sns_notification_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def resource_group_name(self) -> builtins.str:
-        '''The name of the resource group used for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-resourcegroupname
-        '''
-        result = self._values.get("resource_group_name")
-        assert result is not None, "Required property 'resource_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attach_missing_permission(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If set to true, the managed policies for SSM and CW will be attached to the instance roles if they are missing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-attachmissingpermission
-        '''
-        result = self._values.get("attach_missing_permission")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def auto_configuration_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If set to ``true`` , the application components will be configured with the monitoring configuration recommended by Application Insights.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-autoconfigurationenabled
-        '''
-        result = self._values.get("auto_configuration_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def component_monitoring_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.ComponentMonitoringSettingProperty]]]]:
-        '''The monitoring settings of the components.
-
-        Not required to set up default monitoring for all components. To set up default monitoring for all components, set ``AutoConfigurationEnabled`` to ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-componentmonitoringsettings
-        '''
-        result = self._values.get("component_monitoring_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.ComponentMonitoringSettingProperty]]]], result)
-
-    @builtins.property
-    def custom_components(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.CustomComponentProperty]]]]:
-        '''Describes a custom component by grouping similar standalone instances to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-customcomponents
-        '''
-        result = self._values.get("custom_components")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.CustomComponentProperty]]]], result)
-
-    @builtins.property
-    def cwe_monitor_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether Application Insights can listen to CloudWatch events for the application resources, such as ``instance terminated`` , ``failed deployment`` , and others.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-cwemonitorenabled
-        '''
-        result = self._values.get("cwe_monitor_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def grouping_type(self) -> typing.Optional[builtins.str]:
-        '''Application Insights can create applications based on a resource group or on an account.
-
-        To create an account-based application using all of the resources in the account, set this parameter to ``ACCOUNT_BASED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-groupingtype
-        '''
-        result = self._values.get("grouping_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_pattern_sets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.LogPatternSetProperty]]]]:
-        '''The log pattern sets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-logpatternsets
-        '''
-        result = self._values.get("log_pattern_sets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.LogPatternSetProperty]]]], result)
-
-    @builtins.property
-    def ops_center_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether Application Insights will create OpsItems for any problem that is detected by Application Insights for an application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-opscenterenabled
-        '''
-        result = self._values.get("ops_center_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def ops_item_sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The SNS topic provided to Application Insights that is associated with the created OpsItems to receive SNS notifications for opsItem updates.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-opsitemsnstopicarn
-        '''
-        result = self._values.get("ops_item_sns_topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sns_notification_arn(self) -> typing.Optional[builtins.str]:
-        '''The SNS topic ARN that is associated with SNS notifications for updates or issues.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-snsnotificationarn
-        '''
-        result = self._values.get("sns_notification_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of ``Tags`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationinsights-application.html#cfn-applicationinsights-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
+    "IApplicationRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a875d56816723958450701760f8c373f2cc23b2eff7c5c212c9d100987c6e275(
+    *,
+    application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cffa09a5f66aca30b2e15034c06662c459b8bc4a4b3a9e705762d12485b64cc(
+    *,
+    resource_group_name: builtins.str,
+    attach_missing_permission: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_configuration_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    component_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ComponentMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CustomComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cwe_monitor_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    grouping_type: typing.Optional[builtins.str] = None,
+    log_pattern_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.LogPatternSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ops_center_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ops_item_sns_topic_arn: typing.Optional[builtins.str] = None,
+    sns_notification_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__4243897a1b09da007f04bd9d10c5c58049449cf0c6e94f1290a6e466b9e6148d(
     scope: _constructs_77d1e7e8.Construct,
@@ -3544,24 +3666,6 @@ def _typecheckingstub__c8f686914af1e99a20ac67757008f34ae50702950aeb2221b096df374
     event_name: builtins.str,
     log_group_name: builtins.str,
     pattern_set: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cffa09a5f66aca30b2e15034c06662c459b8bc4a4b3a9e705762d12485b64cc(
-    *,
-    resource_group_name: builtins.str,
-    attach_missing_permission: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_configuration_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    component_monitoring_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ComponentMonitoringSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.CustomComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cwe_monitor_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    grouping_type: typing.Optional[builtins.str] = None,
-    log_pattern_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.LogPatternSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ops_center_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ops_item_sns_topic_arn: typing.Optional[builtins.str] = None,
-    sns_notification_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

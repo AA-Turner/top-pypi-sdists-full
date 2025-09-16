@@ -32,7 +32,8 @@ struct mjtDisableBit {
     std::make_pair("mjDSBL_FRICTIONLOSS", ::mjtDisableBit::mjDSBL_FRICTIONLOSS),
     std::make_pair("mjDSBL_LIMIT", ::mjtDisableBit::mjDSBL_LIMIT),
     std::make_pair("mjDSBL_CONTACT", ::mjtDisableBit::mjDSBL_CONTACT),
-    std::make_pair("mjDSBL_PASSIVE", ::mjtDisableBit::mjDSBL_PASSIVE),
+    std::make_pair("mjDSBL_SPRING", ::mjtDisableBit::mjDSBL_SPRING),
+    std::make_pair("mjDSBL_DAMPER", ::mjtDisableBit::mjDSBL_DAMPER),
     std::make_pair("mjDSBL_GRAVITY", ::mjtDisableBit::mjDSBL_GRAVITY),
     std::make_pair("mjDSBL_CLAMPCTRL", ::mjtDisableBit::mjDSBL_CLAMPCTRL),
     std::make_pair("mjDSBL_WARMSTART", ::mjtDisableBit::mjDSBL_WARMSTART),
@@ -44,6 +45,7 @@ struct mjtDisableBit {
     std::make_pair("mjDSBL_EULERDAMP", ::mjtDisableBit::mjDSBL_EULERDAMP),
     std::make_pair("mjDSBL_AUTORESET", ::mjtDisableBit::mjDSBL_AUTORESET),
     std::make_pair("mjDSBL_NATIVECCD", ::mjtDisableBit::mjDSBL_NATIVECCD),
+    std::make_pair("mjDSBL_ISLAND", ::mjtDisableBit::mjDSBL_ISLAND),
     std::make_pair("mjNDISABLE", ::mjtDisableBit::mjNDISABLE)};
 };
 
@@ -56,7 +58,6 @@ struct mjtEnableBit {
     std::make_pair("mjENBL_FWDINV", ::mjtEnableBit::mjENBL_FWDINV),
     std::make_pair("mjENBL_INVDISCRETE", ::mjtEnableBit::mjENBL_INVDISCRETE),
     std::make_pair("mjENBL_MULTICCD", ::mjtEnableBit::mjENBL_MULTICCD),
-    std::make_pair("mjENBL_ISLAND", ::mjtEnableBit::mjENBL_ISLAND),
     std::make_pair("mjNENABLE", ::mjtEnableBit::mjNENABLE)};
 };
 
@@ -293,31 +294,6 @@ struct mjtObj {
     std::make_pair("mjOBJ_MODEL", ::mjtObj::mjOBJ_MODEL)};
 };
 
-struct mjtConstraint {
-  static constexpr char name[] = "mjtConstraint";
-  using type = ::mjtConstraint;
-  static constexpr auto values = std::array{
-    std::make_pair("mjCNSTR_EQUALITY", ::mjtConstraint::mjCNSTR_EQUALITY),
-    std::make_pair("mjCNSTR_FRICTION_DOF", ::mjtConstraint::mjCNSTR_FRICTION_DOF),
-    std::make_pair("mjCNSTR_FRICTION_TENDON", ::mjtConstraint::mjCNSTR_FRICTION_TENDON),
-    std::make_pair("mjCNSTR_LIMIT_JOINT", ::mjtConstraint::mjCNSTR_LIMIT_JOINT),
-    std::make_pair("mjCNSTR_LIMIT_TENDON", ::mjtConstraint::mjCNSTR_LIMIT_TENDON),
-    std::make_pair("mjCNSTR_CONTACT_FRICTIONLESS", ::mjtConstraint::mjCNSTR_CONTACT_FRICTIONLESS),
-    std::make_pair("mjCNSTR_CONTACT_PYRAMIDAL", ::mjtConstraint::mjCNSTR_CONTACT_PYRAMIDAL),
-    std::make_pair("mjCNSTR_CONTACT_ELLIPTIC", ::mjtConstraint::mjCNSTR_CONTACT_ELLIPTIC)};
-};
-
-struct mjtConstraintState {
-  static constexpr char name[] = "mjtConstraintState";
-  using type = ::mjtConstraintState;
-  static constexpr auto values = std::array{
-    std::make_pair("mjCNSTRSTATE_SATISFIED", ::mjtConstraintState::mjCNSTRSTATE_SATISFIED),
-    std::make_pair("mjCNSTRSTATE_QUADRATIC", ::mjtConstraintState::mjCNSTRSTATE_QUADRATIC),
-    std::make_pair("mjCNSTRSTATE_LINEARNEG", ::mjtConstraintState::mjCNSTRSTATE_LINEARNEG),
-    std::make_pair("mjCNSTRSTATE_LINEARPOS", ::mjtConstraintState::mjCNSTRSTATE_LINEARPOS),
-    std::make_pair("mjCNSTRSTATE_CONE", ::mjtConstraintState::mjCNSTRSTATE_CONE)};
-};
-
 struct mjtSensor {
   static constexpr char name[] = "mjtSensor";
   using type = ::mjtSensor;
@@ -482,6 +458,31 @@ struct mjtState {
     std::make_pair("mjSTATE_INTEGRATION", ::mjtState::mjSTATE_INTEGRATION)};
 };
 
+struct mjtConstraint {
+  static constexpr char name[] = "mjtConstraint";
+  using type = ::mjtConstraint;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCNSTR_EQUALITY", ::mjtConstraint::mjCNSTR_EQUALITY),
+    std::make_pair("mjCNSTR_FRICTION_DOF", ::mjtConstraint::mjCNSTR_FRICTION_DOF),
+    std::make_pair("mjCNSTR_FRICTION_TENDON", ::mjtConstraint::mjCNSTR_FRICTION_TENDON),
+    std::make_pair("mjCNSTR_LIMIT_JOINT", ::mjtConstraint::mjCNSTR_LIMIT_JOINT),
+    std::make_pair("mjCNSTR_LIMIT_TENDON", ::mjtConstraint::mjCNSTR_LIMIT_TENDON),
+    std::make_pair("mjCNSTR_CONTACT_FRICTIONLESS", ::mjtConstraint::mjCNSTR_CONTACT_FRICTIONLESS),
+    std::make_pair("mjCNSTR_CONTACT_PYRAMIDAL", ::mjtConstraint::mjCNSTR_CONTACT_PYRAMIDAL),
+    std::make_pair("mjCNSTR_CONTACT_ELLIPTIC", ::mjtConstraint::mjCNSTR_CONTACT_ELLIPTIC)};
+};
+
+struct mjtConstraintState {
+  static constexpr char name[] = "mjtConstraintState";
+  using type = ::mjtConstraintState;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCNSTRSTATE_SATISFIED", ::mjtConstraintState::mjCNSTRSTATE_SATISFIED),
+    std::make_pair("mjCNSTRSTATE_QUADRATIC", ::mjtConstraintState::mjCNSTRSTATE_QUADRATIC),
+    std::make_pair("mjCNSTRSTATE_LINEARNEG", ::mjtConstraintState::mjCNSTRSTATE_LINEARNEG),
+    std::make_pair("mjCNSTRSTATE_LINEARPOS", ::mjtConstraintState::mjCNSTRSTATE_LINEARPOS),
+    std::make_pair("mjCNSTRSTATE_CONE", ::mjtConstraintState::mjCNSTRSTATE_CONE)};
+};
+
 struct mjtWarning {
   static constexpr char name[] = "mjtWarning";
   using type = ::mjtWarning;
@@ -539,7 +540,8 @@ struct mjtMouse {
     std::make_pair("mjMOUSE_MOVE_V", ::mjtMouse::mjMOUSE_MOVE_V),
     std::make_pair("mjMOUSE_MOVE_H", ::mjtMouse::mjMOUSE_MOVE_H),
     std::make_pair("mjMOUSE_ZOOM", ::mjtMouse::mjMOUSE_ZOOM),
-    std::make_pair("mjMOUSE_SELECT", ::mjtMouse::mjMOUSE_SELECT)};
+    std::make_pair("mjMOUSE_MOVE_V_REL", ::mjtMouse::mjMOUSE_MOVE_V_REL),
+    std::make_pair("mjMOUSE_MOVE_H_REL", ::mjtMouse::mjMOUSE_MOVE_H_REL)};
 };
 
 struct mjtPertBit {
@@ -892,8 +894,6 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtGain{},
     mjtBias{},
     mjtObj{},
-    mjtConstraint{},
-    mjtConstraintState{},
     mjtSensor{},
     mjtStage{},
     mjtDataType{},
@@ -904,6 +904,8 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtSDFType{},
     mjtTaskStatus{},
     mjtState{},
+    mjtConstraint{},
+    mjtConstraintState{},
     mjtWarning{},
     mjtTimer{},
     mjtCatBit{},

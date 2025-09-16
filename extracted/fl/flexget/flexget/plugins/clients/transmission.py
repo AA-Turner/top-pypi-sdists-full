@@ -892,7 +892,7 @@ class PluginTransmissionClean(TransmissionBase):
                 torrent.ratio,
                 torrent.added_date,
             )
-            downloaded, dummy = self.torrent_info(torrent, config)
+            downloaded, _dummy = self.torrent_info(torrent, config)
             if not downloaded:
                 continue
             if config.get('transmission_seed_limits'):

@@ -729,13 +729,16 @@ class TestSourceCatalog:
 
         # key in extra_properties, but not a defined attribute
         cat._extra_properties.append('invalid')
-        match = 'already exists in the "extra_properties" attribute'
+        match = 'already exists in the extra_properties attribute'
         with pytest.raises(ValueError, match=match):
             cat.add_extra_property('invalid', segment_snr)
         cat._extra_properties.remove('invalid')
 
         assert cat._has_len([1, 2, 3])
         assert not cat._has_len('test_string')
+
+        cat.add_extra_property('segment_snr4', segment_snr, overwrite=True)
+        cat.add_extra_property('segment_snr4', segment_snr, overwrite=True)
 
     def test_extra_properties_invalid(self):
         cat = SourceCatalog(self.data, self.segm)
@@ -844,7 +847,19 @@ class TestSourceCatalog:
 
         assert len(cutouts) == len(cat)
         assert isinstance(cutouts[1], CutoutImage)
-        assert cutouts[1].data.shape == shape
+        for cutout in cutouts:
+            assert cutout.data.shape == shape
+
+        # test making cutouts from an input image
+        image = np.ones(data.shape)
+        cutouts = cat.make_cutouts(shape, array=image, mode='partial')
+        for cutout in cutouts:
+            assert np.all(cutout.data[np.isfinite(cutout.data)] == 1)
+            assert cutout.data.shape == shape
+
+        match = 'array must have the same shape as data'
+        with pytest.raises(ValueError, match=match):
+            cat.make_cutouts(shape, array=np.ones((3, 3)), mode='partial')
 
         obj = cat[1]
         cut = obj.make_cutouts(shape)

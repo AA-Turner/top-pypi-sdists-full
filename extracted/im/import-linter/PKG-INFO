@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: import-linter
-Version: 2.4
+Version: 2.5
 Summary: Enforces rules for the imports within and between Python packages.
 Author-email: David Seddon <david@seddonym.me>
 License: BSD 2-Clause License

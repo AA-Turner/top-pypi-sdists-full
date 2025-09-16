@@ -368,7 +368,7 @@ from ..aws_iam import (
     PolicyDocument as _PolicyDocument_3ac34393,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKey as _IKey_5f11635f, IKeyRef as _IKeyRef_1e82344b
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
 
 
@@ -439,156 +439,6 @@ class AttachmentTargetType(enum.Enum):
     '''AWS::DocDB::DBInstance.'''
     DOCDB_DB_CLUSTER = "DOCDB_DB_CLUSTER"
     '''AWS::DocDB::DBCluster.'''
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnResourcePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnResourcePolicy",
-):
-    '''Attaches a resource-based permission policy to a secret.
-
-    A resource-based policy is optional. If a secret already has a resource policy attached, you must first remove it before attaching a new policy using this CloudFormation resource. You can remove the policy using the `console <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_resource-policies.html>`_ , `CLI <https://docs.aws.amazon.com/cli/latest/reference/secretsmanager/delete-resource-policy.html>`_ , or `API <https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_DeleteResourcePolicy.html>`_ . For more information, see `Authentication and access control for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
-
-    *Required permissions:* ``secretsmanager:PutResourcePolicy`` , ``secretsmanager:GetResourcePolicy`` . For more information, see `IAM policy actions for Secrets Manager <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssecretsmanager.html#awssecretsmanager-actions-as-permissions>`_ and `Authentication and access control in Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-resourcepolicy.html
-    :cloudformationResource: AWS::SecretsManager::ResourcePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_secretsmanager as secretsmanager
-        
-        # resource_policy: Any
-        
-        cfn_resource_policy = secretsmanager.CfnResourcePolicy(self, "MyCfnResourcePolicy",
-            resource_policy=resource_policy,
-            secret_id="secretId",
-        
-            # the properties below are optional
-            block_public_policy=False
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        resource_policy: typing.Any,
-        secret_id: builtins.str,
-        block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param resource_policy: A JSON-formatted string for an AWS resource-based policy. For example policies, see `Permissions policy examples <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html>`_ .
-        :param secret_id: The ARN or name of the secret to attach the resource-based policy. For an ARN, we recommend that you specify a complete ARN rather than a partial ARN.
-        :param block_public_policy: Specifies whether to block resource-based policies that allow broad access to the secret. By default, Secrets Manager blocks policies that allow broad access, for example those that use a wildcard for the principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourcePolicyProps(
-            resource_policy=resource_policy,
-            secret_id=secret_id,
-            block_public_policy=block_public_policy,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The Arn of the secret.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicy")
-    def resource_policy(self) -> typing.Any:
-        '''A JSON-formatted string for an AWS resource-based policy.'''
-        return typing.cast(typing.Any, jsii.get(self, "resourcePolicy"))
-
-    @resource_policy.setter
-    def resource_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="secretId")
-    def secret_id(self) -> builtins.str:
-        '''The ARN or name of the secret to attach the resource-based policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "secretId"))
-
-    @secret_id.setter
-    def secret_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="blockPublicPolicy")
-    def block_public_policy(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to block resource-based policies that allow broad access to the secret.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "blockPublicPolicy"))
-
-    @block_public_policy.setter
-    def block_public_policy(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blockPublicPolicy", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -694,623 +544,6 @@ class CfnResourcePolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnRotationSchedule(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule",
-):
-    '''Configure the rotation schedule and Lambda rotation function for a secret. For more information, see `How rotation works <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ .
-
-    For database credentials, refer to the following resources:
-
-    - Amazon RDS master user credentials: `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_
-    - Amazon Redshift admin user credentials: `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_
-
-    Choose one of the following options for the rotation function:
-
-    - Create a new rotation function using ``HostedRotationLambda`` based on a `Secrets Manager rotation function template <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ .
-    - Use an existing rotation function by specifying its ARN with ``RotationLambdaARN`` .
-
-    .. epigraph::
-
-       For database secrets defined in the same AWS CloudFormation template as the database or service:
-
-       - Use the `AWS::SecretsManager::SecretTargetAttachment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secrettargetattachment.html>`_ resource to populate the secret with connection details.
-       - Add a ``DependsOn`` attribute to the ``RotationSchedule`` resource that uses a ``SecretTargetAttachment`` . This ensures the rotation is configured after the secret is populated with connection details. > You can define only one rotation schedule per secret.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html
-    :cloudformationResource: AWS::SecretsManager::RotationSchedule
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_secretsmanager as secretsmanager
-        
-        cfn_rotation_schedule = secretsmanager.CfnRotationSchedule(self, "MyCfnRotationSchedule",
-            secret_id="secretId",
-        
-            # the properties below are optional
-            hosted_rotation_lambda=secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty(
-                rotation_type="rotationType",
-        
-                # the properties below are optional
-                exclude_characters="excludeCharacters",
-                kms_key_arn="kmsKeyArn",
-                master_secret_arn="masterSecretArn",
-                master_secret_kms_key_arn="masterSecretKmsKeyArn",
-                rotation_lambda_name="rotationLambdaName",
-                runtime="runtime",
-                superuser_secret_arn="superuserSecretArn",
-                superuser_secret_kms_key_arn="superuserSecretKmsKeyArn",
-                vpc_security_group_ids="vpcSecurityGroupIds",
-                vpc_subnet_ids="vpcSubnetIds"
-            ),
-            rotate_immediately_on_update=False,
-            rotation_lambda_arn="rotationLambdaArn",
-            rotation_rules=secretsmanager.CfnRotationSchedule.RotationRulesProperty(
-                automatically_after_days=123,
-                duration="duration",
-                schedule_expression="scheduleExpression"
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        secret_id: builtins.str,
-        hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        rotation_lambda_arn: typing.Optional[builtins.str] = None,
-        rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param secret_id: The ARN or name of the secret to rotate. This is unique for each rotation schedule definition. To reference a secret also created in this template, use the `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function with the secret's logical ID.
-        :param hosted_rotation_lambda: Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead. You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template. Transforms are macros hosted by AWS CloudFormation that help you create and manage complex infrastructure. The ``Transform: AWS::SecretsManager-2024-09-16`` transform automatically extends the CloudFormation stack to include a nested stack (of type ``AWS::CloudFormation::Stack`` ), which then creates and updates on your behalf during subsequent stack operations, the appropriate rotation Lambda function for your database or service. For general information on transforms, see the `AWS CloudFormation documentation. <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-reference.html>`_ For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ . For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
-        :param rotate_immediately_on_update: Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated. The rotation schedule is defined in ``RotationRules`` . The default for ``RotateImmediatelyOnUpdate`` is ``true`` . If you don't specify this value, Secrets Manager rotates the secret immediately. If you set ``RotateImmediatelyOnUpdate`` to ``false`` , Secrets Manager tests the rotation configuration by running the ```testSecret`` step <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ of the Lambda rotation function. This test creates an ``AWSPENDING`` version of the secret and then removes it. .. epigraph:: When changing an existing rotation schedule and setting ``RotateImmediatelyOnUpdate`` to ``false`` : - If using ``AutomaticallyAfterDays`` or a ``ScheduleExpression`` with ``rate()`` , the previously scheduled rotation might still occur. - To prevent unintended rotations, use a ``ScheduleExpression`` with ``cron()`` for granular control over rotation windows. Rotation is an asynchronous process. For more information, see `How rotation works <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ .
-        :param rotation_lambda_arn: The ARN of an existing Lambda rotation function. To specify a rotation function that is also defined in this template, use the `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function. For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ . For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ . To create a new rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ , specify ``HostedRotationLambda`` instead.
-        :param rotation_rules: A structure that defines the rotation configuration for this secret.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRotationScheduleProps(
-            secret_id=secret_id,
-            hosted_rotation_lambda=hosted_rotation_lambda,
-            rotate_immediately_on_update=rotate_immediately_on_update,
-            rotation_lambda_arn=rotation_lambda_arn,
-            rotation_rules=rotation_rules,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ARN of the secret.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="secretId")
-    def secret_id(self) -> builtins.str:
-        '''The ARN or name of the secret to rotate.
-
-        This is unique for each rotation schedule definition.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "secretId"))
-
-    @secret_id.setter
-    def secret_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="hostedRotationLambda")
-    def hosted_rotation_lambda(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
-        '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]], jsii.get(self, "hostedRotationLambda"))
-
-    @hosted_rotation_lambda.setter
-    def hosted_rotation_lambda(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedRotationLambda", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotateImmediatelyOnUpdate")
-    def rotate_immediately_on_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rotateImmediatelyOnUpdate"))
-
-    @rotate_immediately_on_update.setter
-    def rotate_immediately_on_update(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotateImmediatelyOnUpdate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotationLambdaArn")
-    def rotation_lambda_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an existing Lambda rotation function.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rotationLambdaArn"))
-
-    @rotation_lambda_arn.setter
-    def rotation_lambda_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationLambdaArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotationRules")
-    def rotation_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]]:
-        '''A structure that defines the rotation configuration for this secret.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]], jsii.get(self, "rotationRules"))
-
-    @rotation_rules.setter
-    def rotation_rules(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationRules", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "rotation_type": "rotationType",
-            "exclude_characters": "excludeCharacters",
-            "kms_key_arn": "kmsKeyArn",
-            "master_secret_arn": "masterSecretArn",
-            "master_secret_kms_key_arn": "masterSecretKmsKeyArn",
-            "rotation_lambda_name": "rotationLambdaName",
-            "runtime": "runtime",
-            "superuser_secret_arn": "superuserSecretArn",
-            "superuser_secret_kms_key_arn": "superuserSecretKmsKeyArn",
-            "vpc_security_group_ids": "vpcSecurityGroupIds",
-            "vpc_subnet_ids": "vpcSubnetIds",
-        },
-    )
-    class HostedRotationLambdaProperty:
-        def __init__(
-            self,
-            *,
-            rotation_type: builtins.str,
-            exclude_characters: typing.Optional[builtins.str] = None,
-            kms_key_arn: typing.Optional[builtins.str] = None,
-            master_secret_arn: typing.Optional[builtins.str] = None,
-            master_secret_kms_key_arn: typing.Optional[builtins.str] = None,
-            rotation_lambda_name: typing.Optional[builtins.str] = None,
-            runtime: typing.Optional[builtins.str] = None,
-            superuser_secret_arn: typing.Optional[builtins.str] = None,
-            superuser_secret_kms_key_arn: typing.Optional[builtins.str] = None,
-            vpc_security_group_ids: typing.Optional[builtins.str] = None,
-            vpc_subnet_ids: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ .
-
-            You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template.
-
-            For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
-
-            For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
-
-            :param rotation_type: The rotation template to base the rotation function on, one of the following:. - ``Db2SingleUser`` to use the template `SecretsManagerRDSDb2RotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-singleuser>`_ . - ``Db2MultiUser`` to use the template `SecretsManagerRDSDb2RotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-multiuser>`_ . - ``MySQLSingleUser`` to use the template `SecretsManagerRDSMySQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-singleuser>`_ . - ``MySQLMultiUser`` to use the template `SecretsManagerRDSMySQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-multiuser>`_ . - ``PostgreSQLSingleUser`` to use the template `SecretsManagerRDSPostgreSQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-singleuser>`_ - ``PostgreSQLMultiUser`` to use the template `SecretsManagerRDSPostgreSQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-multiuser>`_ . - ``OracleSingleUser`` to use the template `SecretsManagerRDSOracleRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-singleuser>`_ . - ``OracleMultiUser`` to use the template `SecretsManagerRDSOracleRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-multiuser>`_ . - ``MariaDBSingleUser`` to use the template `SecretsManagerRDSMariaDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-singleuser>`_ . - ``MariaDBMultiUser`` to use the template `SecretsManagerRDSMariaDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-multiuser>`_ . - ``SQLServerSingleUser`` to use the template `SecretsManagerRDSSQLServerRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-singleuser>`_ . - ``SQLServerMultiUser`` to use the template `SecretsManagerRDSSQLServerRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-multiuser>`_ . - ``RedshiftSingleUser`` to use the template `SecretsManagerRedshiftRotationSingleUsr <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-singleuser>`_ . - ``RedshiftMultiUser`` to use the template `SecretsManagerRedshiftRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-multiuser>`_ . - ``MongoDBSingleUser`` to use the template `SecretsManagerMongoDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-singleuser>`_ . - ``MongoDBMultiUser`` to use the template `SecretsManagerMongoDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-multiuser>`_ .
-            :param exclude_characters: A string of the characters that you don't want in the password.
-            :param kms_key_arn: The ARN of the KMS key that Secrets Manager uses to encrypt the secret. If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If ``aws/secretsmanager`` doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value.
-            :param master_secret_arn: The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You must create the superuser secret before you can set this property. You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ . You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
-            :param master_secret_kms_key_arn: The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
-            :param rotation_lambda_name: The name of the Lambda rotation function.
-            :param runtime: .. epigraph:: Do not set this value if you are using ``Transform: AWS::SecretsManager-2024-09-16`` . Over time, the updated rotation lambda artifacts vended by AWS may not be compatible with the code or shared object files defined in the rotation function deployment package. .. epigraph:: Only define the ``Runtime`` key if: - You are using ``Transform: AWS::SecretsManager-2020-07-23`` . - The code or shared object files defined in the rotation function deployment package are incompatible with Python 3.9. The Python Runtime version for with the rotation function. By default, CloudFormation deploys Python 3.9 binaries for the rotation function. To use a different version of Python, you must do the following two steps: - Deploy the matching version Python binaries with your rotation function. - Set the version number in this field. For example, for Python 3.7, enter *python3.7* . If you only do one of the steps, your rotation function will be incompatible with the binaries. For more information, see `Why did my Lambda rotation function fail with a "pg module not found" error <https://docs.aws.amazon.com/https://repost.aws/knowledge-center/secrets-manager-lambda-rotation>`_ .
-            :param superuser_secret_arn: The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You must create the superuser secret before you can set this property. You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ . You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
-            :param superuser_secret_kms_key_arn: The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
-            :param vpc_security_group_ids: A comma-separated list of security group IDs applied to the target database. The template applies the same security groups as on the Lambda rotation function that is created as part of this stack.
-            :param vpc_subnet_ids: A comma separated list of VPC subnet IDs of the target database network. The Lambda rotation function is in the same subnet group.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_secretsmanager as secretsmanager
-                
-                hosted_rotation_lambda_property = secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty(
-                    rotation_type="rotationType",
-                
-                    # the properties below are optional
-                    exclude_characters="excludeCharacters",
-                    kms_key_arn="kmsKeyArn",
-                    master_secret_arn="masterSecretArn",
-                    master_secret_kms_key_arn="masterSecretKmsKeyArn",
-                    rotation_lambda_name="rotationLambdaName",
-                    runtime="runtime",
-                    superuser_secret_arn="superuserSecretArn",
-                    superuser_secret_kms_key_arn="superuserSecretKmsKeyArn",
-                    vpc_security_group_ids="vpcSecurityGroupIds",
-                    vpc_subnet_ids="vpcSubnetIds"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254)
-                check_type(argname="argument rotation_type", value=rotation_type, expected_type=type_hints["rotation_type"])
-                check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
-                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-                check_type(argname="argument master_secret_arn", value=master_secret_arn, expected_type=type_hints["master_secret_arn"])
-                check_type(argname="argument master_secret_kms_key_arn", value=master_secret_kms_key_arn, expected_type=type_hints["master_secret_kms_key_arn"])
-                check_type(argname="argument rotation_lambda_name", value=rotation_lambda_name, expected_type=type_hints["rotation_lambda_name"])
-                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
-                check_type(argname="argument superuser_secret_arn", value=superuser_secret_arn, expected_type=type_hints["superuser_secret_arn"])
-                check_type(argname="argument superuser_secret_kms_key_arn", value=superuser_secret_kms_key_arn, expected_type=type_hints["superuser_secret_kms_key_arn"])
-                check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
-                check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "rotation_type": rotation_type,
-            }
-            if exclude_characters is not None:
-                self._values["exclude_characters"] = exclude_characters
-            if kms_key_arn is not None:
-                self._values["kms_key_arn"] = kms_key_arn
-            if master_secret_arn is not None:
-                self._values["master_secret_arn"] = master_secret_arn
-            if master_secret_kms_key_arn is not None:
-                self._values["master_secret_kms_key_arn"] = master_secret_kms_key_arn
-            if rotation_lambda_name is not None:
-                self._values["rotation_lambda_name"] = rotation_lambda_name
-            if runtime is not None:
-                self._values["runtime"] = runtime
-            if superuser_secret_arn is not None:
-                self._values["superuser_secret_arn"] = superuser_secret_arn
-            if superuser_secret_kms_key_arn is not None:
-                self._values["superuser_secret_kms_key_arn"] = superuser_secret_kms_key_arn
-            if vpc_security_group_ids is not None:
-                self._values["vpc_security_group_ids"] = vpc_security_group_ids
-            if vpc_subnet_ids is not None:
-                self._values["vpc_subnet_ids"] = vpc_subnet_ids
-
-        @builtins.property
-        def rotation_type(self) -> builtins.str:
-            '''The rotation template to base the rotation function on, one of the following:.
-
-            - ``Db2SingleUser`` to use the template `SecretsManagerRDSDb2RotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-singleuser>`_ .
-            - ``Db2MultiUser`` to use the template `SecretsManagerRDSDb2RotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-multiuser>`_ .
-            - ``MySQLSingleUser`` to use the template `SecretsManagerRDSMySQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-singleuser>`_ .
-            - ``MySQLMultiUser`` to use the template `SecretsManagerRDSMySQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-multiuser>`_ .
-            - ``PostgreSQLSingleUser`` to use the template `SecretsManagerRDSPostgreSQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-singleuser>`_
-            - ``PostgreSQLMultiUser`` to use the template `SecretsManagerRDSPostgreSQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-multiuser>`_ .
-            - ``OracleSingleUser`` to use the template `SecretsManagerRDSOracleRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-singleuser>`_ .
-            - ``OracleMultiUser`` to use the template `SecretsManagerRDSOracleRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-multiuser>`_ .
-            - ``MariaDBSingleUser`` to use the template `SecretsManagerRDSMariaDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-singleuser>`_ .
-            - ``MariaDBMultiUser`` to use the template `SecretsManagerRDSMariaDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-multiuser>`_ .
-            - ``SQLServerSingleUser`` to use the template `SecretsManagerRDSSQLServerRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-singleuser>`_ .
-            - ``SQLServerMultiUser`` to use the template `SecretsManagerRDSSQLServerRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-multiuser>`_ .
-            - ``RedshiftSingleUser`` to use the template `SecretsManagerRedshiftRotationSingleUsr <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-singleuser>`_ .
-            - ``RedshiftMultiUser`` to use the template `SecretsManagerRedshiftRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-multiuser>`_ .
-            - ``MongoDBSingleUser`` to use the template `SecretsManagerMongoDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-singleuser>`_ .
-            - ``MongoDBMultiUser`` to use the template `SecretsManagerMongoDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-multiuser>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-rotationtype
-            '''
-            result = self._values.get("rotation_type")
-            assert result is not None, "Required property 'rotation_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def exclude_characters(self) -> typing.Optional[builtins.str]:
-            '''A string of the characters that you don't want in the password.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-excludecharacters
-            '''
-            result = self._values.get("exclude_characters")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the KMS key that Secrets Manager uses to encrypt the secret.
-
-            If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If ``aws/secretsmanager`` doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-kmskeyarn
-            '''
-            result = self._values.get("kms_key_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def master_secret_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
-
-            You must create the superuser secret before you can set this property.
-
-            You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
-
-            You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-mastersecretarn
-            '''
-            result = self._values.get("master_secret_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def master_secret_kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
-
-            You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-mastersecretkmskeyarn
-            '''
-            result = self._values.get("master_secret_kms_key_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def rotation_lambda_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the Lambda rotation function.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-rotationlambdaname
-            '''
-            result = self._values.get("rotation_lambda_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def runtime(self) -> typing.Optional[builtins.str]:
-            '''.. epigraph::
-
-   Do not set this value if you are using ``Transform: AWS::SecretsManager-2024-09-16`` .
-
-            Over time, the updated rotation lambda artifacts vended by AWS may not be compatible with the code or shared object files defined in the rotation function deployment package.
-            .. epigraph::
-
-               Only define the ``Runtime`` key if:
-
-               - You are using ``Transform: AWS::SecretsManager-2020-07-23`` .
-               - The code or shared object files defined in the rotation function deployment package are incompatible with Python 3.9.
-
-            The Python Runtime version for with the rotation function. By default, CloudFormation deploys Python 3.9 binaries for the rotation function. To use a different version of Python, you must do the following two steps:
-
-            - Deploy the matching version Python binaries with your rotation function.
-            - Set the version number in this field. For example, for Python 3.7, enter *python3.7* .
-
-            If you only do one of the steps, your rotation function will be incompatible with the binaries. For more information, see `Why did my Lambda rotation function fail with a "pg module not found" error <https://docs.aws.amazon.com/https://repost.aws/knowledge-center/secrets-manager-lambda-rotation>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-runtime
-            '''
-            result = self._values.get("runtime")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def superuser_secret_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
-
-            You must create the superuser secret before you can set this property.
-
-            You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
-
-            You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-superusersecretarn
-            '''
-            result = self._values.get("superuser_secret_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def superuser_secret_kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
-
-            You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-superusersecretkmskeyarn
-            '''
-            result = self._values.get("superuser_secret_kms_key_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def vpc_security_group_ids(self) -> typing.Optional[builtins.str]:
-            '''A comma-separated list of security group IDs applied to the target database.
-
-            The template applies the same security groups as on the Lambda rotation function that is created as part of this stack.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-vpcsecuritygroupids
-            '''
-            result = self._values.get("vpc_security_group_ids")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def vpc_subnet_ids(self) -> typing.Optional[builtins.str]:
-            '''A comma separated list of VPC subnet IDs of the target database network.
-
-            The Lambda rotation function is in the same subnet group.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-vpcsubnetids
-            '''
-            result = self._values.get("vpc_subnet_ids")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "HostedRotationLambdaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule.RotationRulesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "automatically_after_days": "automaticallyAfterDays",
-            "duration": "duration",
-            "schedule_expression": "scheduleExpression",
-        },
-    )
-    class RotationRulesProperty:
-        def __init__(
-            self,
-            *,
-            automatically_after_days: typing.Optional[jsii.Number] = None,
-            duration: typing.Optional[builtins.str] = None,
-            schedule_expression: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The rotation schedule and window.
-
-            We recommend you use ``ScheduleExpression`` to set a cron or rate expression for the schedule and ``Duration`` to set the length of the rotation window.
-            .. epigraph::
-
-               When changing an existing rotation schedule and setting ``RotateImmediatelyOnUpdate`` to ``false`` :
-
-               - If using ``AutomaticallyAfterDays`` or a ``ScheduleExpression`` with ``rate()`` , the previously scheduled rotation might still occur.
-               - To prevent unintended rotations, use a ``ScheduleExpression`` with ``cron()`` for granular control over rotation windows.
-
-            :param automatically_after_days: The number of days between automatic scheduled rotations of the secret. You can use this value to check that your secret meets your compliance guidelines for how often secrets must be rotated. In ``DescribeSecret`` and ``ListSecrets`` , this value is calculated from the rotation schedule after every successful rotation. In ``RotateSecret`` , you can set the rotation schedule in ``RotationRules`` with ``AutomaticallyAfterDays`` or ``ScheduleExpression`` , but not both.
-            :param duration: The length of the rotation window in hours, for example ``3h`` for a three hour window. Secrets Manager rotates your secret at any time during this window. The window must not extend into the next rotation window or the next UTC day. The window starts according to the ``ScheduleExpression`` . If you don't specify a ``Duration`` , for a ``ScheduleExpression`` in hours, the window automatically closes after one hour. For a ``ScheduleExpression`` in days, the window automatically closes at the end of the UTC day. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* .
-            :param schedule_expression: A ``cron()`` or ``rate()`` expression that defines the schedule for rotating your secret. Secrets Manager rotation schedules use UTC time zone. Secrets Manager rotates your secret any time during a rotation window. Secrets Manager ``rate()`` expressions represent the interval in hours or days that you want to rotate your secret, for example ``rate(12 hours)`` or ``rate(10 days)`` . You can rotate a secret as often as every four hours. If you use a ``rate()`` expression, the rotation window starts at midnight. For a rate in hours, the default rotation window closes after one hour. For a rate in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window. You can use a ``cron()`` expression to create a rotation schedule that is more detailed than a rotation interval. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* . For a cron expression that represents a schedule in hours, the default rotation window closes after one hour. For a cron expression that represents a schedule in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_secretsmanager as secretsmanager
-                
-                rotation_rules_property = secretsmanager.CfnRotationSchedule.RotationRulesProperty(
-                    automatically_after_days=123,
-                    duration="duration",
-                    schedule_expression="scheduleExpression"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736)
-                check_type(argname="argument automatically_after_days", value=automatically_after_days, expected_type=type_hints["automatically_after_days"])
-                check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-                check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if automatically_after_days is not None:
-                self._values["automatically_after_days"] = automatically_after_days
-            if duration is not None:
-                self._values["duration"] = duration
-            if schedule_expression is not None:
-                self._values["schedule_expression"] = schedule_expression
-
-        @builtins.property
-        def automatically_after_days(self) -> typing.Optional[jsii.Number]:
-            '''The number of days between automatic scheduled rotations of the secret.
-
-            You can use this value to check that your secret meets your compliance guidelines for how often secrets must be rotated.
-
-            In ``DescribeSecret`` and ``ListSecrets`` , this value is calculated from the rotation schedule after every successful rotation. In ``RotateSecret`` , you can set the rotation schedule in ``RotationRules`` with ``AutomaticallyAfterDays`` or ``ScheduleExpression`` , but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-automaticallyafterdays
-            '''
-            result = self._values.get("automatically_after_days")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def duration(self) -> typing.Optional[builtins.str]:
-            '''The length of the rotation window in hours, for example ``3h`` for a three hour window.
-
-            Secrets Manager rotates your secret at any time during this window. The window must not extend into the next rotation window or the next UTC day. The window starts according to the ``ScheduleExpression`` . If you don't specify a ``Duration`` , for a ``ScheduleExpression`` in hours, the window automatically closes after one hour. For a ``ScheduleExpression`` in days, the window automatically closes at the end of the UTC day. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-duration
-            '''
-            result = self._values.get("duration")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def schedule_expression(self) -> typing.Optional[builtins.str]:
-            '''A ``cron()`` or ``rate()`` expression that defines the schedule for rotating your secret.
-
-            Secrets Manager rotation schedules use UTC time zone. Secrets Manager rotates your secret any time during a rotation window.
-
-            Secrets Manager ``rate()`` expressions represent the interval in hours or days that you want to rotate your secret, for example ``rate(12 hours)`` or ``rate(10 days)`` . You can rotate a secret as often as every four hours. If you use a ``rate()`` expression, the rotation window starts at midnight. For a rate in hours, the default rotation window closes after one hour. For a rate in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
-
-            You can use a ``cron()`` expression to create a rotation schedule that is more detailed than a rotation interval. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* . For a cron expression that represents a schedule in hours, the default rotation window closes after one hour. For a cron expression that represents a schedule in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-scheduleexpression
-            '''
-            result = self._values.get("schedule_expression")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RotationRulesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationScheduleProps",
     jsii_struct_bases=[],
@@ -1327,10 +560,10 @@ class CfnRotationScheduleProps:
         self,
         *,
         secret_id: builtins.str,
-        hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         rotation_lambda_arn: typing.Optional[builtins.str] = None,
-        rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRotationSchedule``.
 
@@ -1411,7 +644,7 @@ class CfnRotationScheduleProps:
     @builtins.property
     def hosted_rotation_lambda(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.HostedRotationLambdaProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
         '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead.
 
         You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template. Transforms are macros hosted by AWS CloudFormation that help you create and manage complex infrastructure. The ``Transform: AWS::SecretsManager-2024-09-16`` transform automatically extends the CloudFormation stack to include a nested stack (of type ``AWS::CloudFormation::Stack`` ), which then creates and updates on your behalf during subsequent stack operations, the appropriate rotation Lambda function for your database or service. For general information on transforms, see the `AWS CloudFormation documentation. <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-reference.html>`_
@@ -1423,7 +656,7 @@ class CfnRotationScheduleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda
         '''
         result = self._values.get("hosted_rotation_lambda")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.HostedRotationLambdaProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]], result)
 
     @builtins.property
     def rotate_immediately_on_update(
@@ -1470,13 +703,13 @@ class CfnRotationScheduleProps:
     @builtins.property
     def rotation_rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.RotationRulesProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]]:
         '''A structure that defines the rotation configuration for this secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-rotationrules
         '''
         result = self._values.get("rotation_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.RotationRulesProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1488,568 +721,6 @@ class CfnRotationScheduleProps:
         return "CfnRotationScheduleProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnSecret(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret",
-):
-    '''Creates a new secret.
-
-    A *secret* can be a password, a set of credentials such as a user name and password, an OAuth token, or other secret information that you store in an encrypted form in Secrets Manager.
-
-    For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
-
-    For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
-
-    To retrieve a secret in a CloudFormation template, use a *dynamic reference* . For more information, see `Retrieve a secret in an AWS CloudFormation resource <https://docs.aws.amazon.com/secretsmanager/latest/userguide/cfn-example_reference-secret.html>`_ .
-
-    For information about creating a secret in the console, see `Create a secret <https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_create-basic-secret.html>`_ . For information about creating a secret using the CLI or SDK, see `CreateSecret <https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_CreateSecret.html>`_ .
-
-    For information about retrieving a secret in code, see `Retrieve secrets from Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
-    :cloudformationResource: AWS::SecretsManager::Secret
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_secretsmanager as secretsmanager
-        
-        cfn_secret = secretsmanager.CfnSecret(self, "MyCfnSecret",
-            description="description",
-            generate_secret_string=secretsmanager.CfnSecret.GenerateSecretStringProperty(
-                exclude_characters="excludeCharacters",
-                exclude_lowercase=False,
-                exclude_numbers=False,
-                exclude_punctuation=False,
-                exclude_uppercase=False,
-                generate_string_key="generateStringKey",
-                include_space=False,
-                password_length=123,
-                require_each_included_type=False,
-                secret_string_template="secretStringTemplate"
-            ),
-            kms_key_id="kmsKeyId",
-            name="name",
-            replica_regions=[secretsmanager.CfnSecret.ReplicaRegionProperty(
-                region="region",
-        
-                # the properties below are optional
-                kms_key_id="kmsKeyId"
-            )],
-            secret_string="secretString",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        secret_string: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: The description of the secret.
-        :param generate_secret_string: A structure that specifies how to generate a password to encrypt and store in the secret. To include a specific string in the secret, use ``SecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created. We recommend that you specify the maximum length and include every character type that the system you are generating a password for can support.
-        :param kms_key_id: The ARN, key ID, or alias of the AWS KMS key that Secrets Manager uses to encrypt the secret value in the secret. An alias is always prefixed by ``alias/`` , for example ``alias/aws/secretsmanager`` . For more information, see `About aliases <https://docs.aws.amazon.com/kms/latest/developerguide/alias-about.html>`_ . To use a AWS KMS key in a different account, use the key ARN or the alias ARN. If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If that key doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value. If the secret is in a different AWS account from the credentials calling the API, then you can't use ``aws/secretsmanager`` to encrypt the secret, and you must create and use a customer managed AWS KMS key.
-        :param name: The name of the new secret. The secret name can contain ASCII letters, numbers, and the following characters: /_+=.@- Do not end your secret name with a hyphen followed by six characters. If you do so, you risk confusion and unexpected results when searching for a secret by partial ARN. Secrets Manager automatically adds a hyphen and six random characters after the secret name at the end of the ARN.
-        :param replica_regions: A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
-        :param secret_string: The text to encrypt and store in the secret. We recommend you use a JSON structure of key/value pairs for your secret value. To generate a random password, use ``GenerateSecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created.
-        :param tags: A list of tags to attach to the secret. Each tag is a key and value pair of strings in a JSON text string, for example: ``[{"Key":"CostCenter","Value":"12345"},{"Key":"environment","Value":"production"}]`` Secrets Manager tag key names are case sensitive. A tag with the key "ABC" is a different tag from one with key "abc". Stack-level tags, tags you apply to the CloudFormation stack, are also attached to the secret. If you check tags in permissions policies as part of your security strategy, then adding or removing a tag can change permissions. If the completion of this operation would result in you losing your permissions for this secret, then Secrets Manager blocks the operation and returns an ``Access Denied`` error. For more information, see `Control access to secrets using tags <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html#tag-secrets-abac>`_ and `Limit access to identities with tags that match secrets' tags <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html#auth-and-access_tags2>`_ . For information about how to format a JSON parameter for the various command line tool environments, see `Using JSON for Parameters <https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json>`_ . If your command-line tool or SDK requires quotation marks around the parameter, you should use single quotes to avoid confusion with the double quotes required in the JSON text. The following restrictions apply to tags: - Maximum number of tags per secret: 50 - Maximum key length: 127 Unicode characters in UTF-8 - Maximum value length: 255 Unicode characters in UTF-8 - Tag keys and values are case sensitive. - Do not use the ``aws:`` prefix in your tag names or values because AWS reserves it for AWS use. You can't edit or delete tag names or values with this prefix. Tags with this prefix do not count against your tags per secret limit. - If you use your tagging schema across multiple services and resources, other services might have restrictions on allowed characters. Generally allowed characters: letters, spaces, and numbers representable in UTF-8, plus the following special characters: + - = . _ : /
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSecretProps(
-            description=description,
-            generate_secret_string=generate_secret_string,
-            kms_key_id=kms_key_id,
-            name=name,
-            replica_regions=replica_regions,
-            secret_string=secret_string,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ARN of the secret.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the secret.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="generateSecretString")
-    def generate_secret_string(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]]:
-        '''A structure that specifies how to generate a password to encrypt and store in the secret.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]], jsii.get(self, "generateSecretString"))
-
-    @generate_secret_string.setter
-    def generate_secret_string(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "generateSecretString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyId")
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ARN, key ID, or alias of the AWS KMS key that Secrets Manager uses to encrypt the secret value in the secret.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
-
-    @kms_key_id.setter
-    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the new secret.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="replicaRegions")
-    def replica_regions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]]:
-        '''A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]], jsii.get(self, "replicaRegions"))
-
-    @replica_regions.setter
-    def replica_regions(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicaRegions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="secretString")
-    def secret_string(self) -> typing.Optional[builtins.str]:
-        '''The text to encrypt and store in the secret.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "secretString"))
-
-    @secret_string.setter
-    def secret_string(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags to attach to the secret.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret.GenerateSecretStringProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "exclude_characters": "excludeCharacters",
-            "exclude_lowercase": "excludeLowercase",
-            "exclude_numbers": "excludeNumbers",
-            "exclude_punctuation": "excludePunctuation",
-            "exclude_uppercase": "excludeUppercase",
-            "generate_string_key": "generateStringKey",
-            "include_space": "includeSpace",
-            "password_length": "passwordLength",
-            "require_each_included_type": "requireEachIncludedType",
-            "secret_string_template": "secretStringTemplate",
-        },
-    )
-    class GenerateSecretStringProperty:
-        def __init__(
-            self,
-            *,
-            exclude_characters: typing.Optional[builtins.str] = None,
-            exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            exclude_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            generate_string_key: typing.Optional[builtins.str] = None,
-            include_space: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            password_length: typing.Optional[jsii.Number] = None,
-            require_each_included_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            secret_string_template: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Generates a random password.
-
-            We recommend that you specify the maximum length and include every character type that the system you are generating a password for can support.
-
-            *Required permissions:* ``secretsmanager:GetRandomPassword`` . For more information, see `IAM policy actions for Secrets Manager <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssecretsmanager.html#awssecretsmanager-actions-as-permissions>`_ and `Authentication and access control in Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
-
-            :param exclude_characters: A string of the characters that you don't want in the password.
-            :param exclude_lowercase: Specifies whether to exclude lowercase letters from the password. If you don't include this switch, the password can contain lowercase letters.
-            :param exclude_numbers: Specifies whether to exclude numbers from the password. If you don't include this switch, the password can contain numbers.
-            :param exclude_punctuation: Specifies whether to exclude the following punctuation characters from the password: `! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ `` { | } ~`` . If you don't include this switch, the password can contain punctuation.
-            :param exclude_uppercase: Specifies whether to exclude uppercase letters from the password. If you don't include this switch, the password can contain uppercase letters.
-            :param generate_string_key: The JSON key name for the key/value pair, where the value is the generated password. This pair is added to the JSON structure specified by the ``SecretStringTemplate`` parameter. If you specify this parameter, then you must also specify ``SecretStringTemplate`` .
-            :param include_space: Specifies whether to include the space character. If you include this switch, the password can contain space characters.
-            :param password_length: The length of the password. If you don't include this parameter, the default length is 32 characters.
-            :param require_each_included_type: Specifies whether to include at least one upper and lowercase letter, one number, and one punctuation. If you don't include this switch, the password contains at least one of every character type.
-            :param secret_string_template: A template that the generated string must match. When you make a change to this property, a new secret version is created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_secretsmanager as secretsmanager
-                
-                generate_secret_string_property = secretsmanager.CfnSecret.GenerateSecretStringProperty(
-                    exclude_characters="excludeCharacters",
-                    exclude_lowercase=False,
-                    exclude_numbers=False,
-                    exclude_punctuation=False,
-                    exclude_uppercase=False,
-                    generate_string_key="generateStringKey",
-                    include_space=False,
-                    password_length=123,
-                    require_each_included_type=False,
-                    secret_string_template="secretStringTemplate"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af)
-                check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
-                check_type(argname="argument exclude_lowercase", value=exclude_lowercase, expected_type=type_hints["exclude_lowercase"])
-                check_type(argname="argument exclude_numbers", value=exclude_numbers, expected_type=type_hints["exclude_numbers"])
-                check_type(argname="argument exclude_punctuation", value=exclude_punctuation, expected_type=type_hints["exclude_punctuation"])
-                check_type(argname="argument exclude_uppercase", value=exclude_uppercase, expected_type=type_hints["exclude_uppercase"])
-                check_type(argname="argument generate_string_key", value=generate_string_key, expected_type=type_hints["generate_string_key"])
-                check_type(argname="argument include_space", value=include_space, expected_type=type_hints["include_space"])
-                check_type(argname="argument password_length", value=password_length, expected_type=type_hints["password_length"])
-                check_type(argname="argument require_each_included_type", value=require_each_included_type, expected_type=type_hints["require_each_included_type"])
-                check_type(argname="argument secret_string_template", value=secret_string_template, expected_type=type_hints["secret_string_template"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if exclude_characters is not None:
-                self._values["exclude_characters"] = exclude_characters
-            if exclude_lowercase is not None:
-                self._values["exclude_lowercase"] = exclude_lowercase
-            if exclude_numbers is not None:
-                self._values["exclude_numbers"] = exclude_numbers
-            if exclude_punctuation is not None:
-                self._values["exclude_punctuation"] = exclude_punctuation
-            if exclude_uppercase is not None:
-                self._values["exclude_uppercase"] = exclude_uppercase
-            if generate_string_key is not None:
-                self._values["generate_string_key"] = generate_string_key
-            if include_space is not None:
-                self._values["include_space"] = include_space
-            if password_length is not None:
-                self._values["password_length"] = password_length
-            if require_each_included_type is not None:
-                self._values["require_each_included_type"] = require_each_included_type
-            if secret_string_template is not None:
-                self._values["secret_string_template"] = secret_string_template
-
-        @builtins.property
-        def exclude_characters(self) -> typing.Optional[builtins.str]:
-            '''A string of the characters that you don't want in the password.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludecharacters
-            '''
-            result = self._values.get("exclude_characters")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def exclude_lowercase(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to exclude lowercase letters from the password.
-
-            If you don't include this switch, the password can contain lowercase letters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludelowercase
-            '''
-            result = self._values.get("exclude_lowercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def exclude_numbers(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to exclude numbers from the password.
-
-            If you don't include this switch, the password can contain numbers.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludenumbers
-            '''
-            result = self._values.get("exclude_numbers")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def exclude_punctuation(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to exclude the following punctuation characters from the password: `!
-
-            " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ `` { | } ~`` . If you don't include this switch, the password can contain punctuation.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludepunctuation
-            '''
-            result = self._values.get("exclude_punctuation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def exclude_uppercase(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to exclude uppercase letters from the password.
-
-            If you don't include this switch, the password can contain uppercase letters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludeuppercase
-            '''
-            result = self._values.get("exclude_uppercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def generate_string_key(self) -> typing.Optional[builtins.str]:
-            '''The JSON key name for the key/value pair, where the value is the generated password.
-
-            This pair is added to the JSON structure specified by the ``SecretStringTemplate`` parameter. If you specify this parameter, then you must also specify ``SecretStringTemplate`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-generatestringkey
-            '''
-            result = self._values.get("generate_string_key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def include_space(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to include the space character.
-
-            If you include this switch, the password can contain space characters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-includespace
-            '''
-            result = self._values.get("include_space")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def password_length(self) -> typing.Optional[jsii.Number]:
-            '''The length of the password.
-
-            If you don't include this parameter, the default length is 32 characters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-passwordlength
-            '''
-            result = self._values.get("password_length")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def require_each_included_type(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether to include at least one upper and lowercase letter, one number, and one punctuation.
-
-            If you don't include this switch, the password contains at least one of every character type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-requireeachincludedtype
-            '''
-            result = self._values.get("require_each_included_type")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def secret_string_template(self) -> typing.Optional[builtins.str]:
-            '''A template that the generated string must match.
-
-            When you make a change to this property, a new secret version is created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-secretstringtemplate
-            '''
-            result = self._values.get("secret_string_template")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GenerateSecretStringProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret.ReplicaRegionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"region": "region", "kms_key_id": "kmsKeyId"},
-    )
-    class ReplicaRegionProperty:
-        def __init__(
-            self,
-            *,
-            region: builtins.str,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
-
-            :param region: A string that represents a ``Region`` , for example "us-east-1".
-            :param kms_key_id: The ARN, key ID, or alias of the KMS key to encrypt the secret. If you don't include this field, Secrets Manager uses ``aws/secretsmanager`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_secretsmanager as secretsmanager
-                
-                replica_region_property = secretsmanager.CfnSecret.ReplicaRegionProperty(
-                    region="region",
-                
-                    # the properties below are optional
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156)
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "region": region,
-            }
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def region(self) -> builtins.str:
-            '''A string that represents a ``Region`` , for example "us-east-1".
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html#cfn-secretsmanager-secret-replicaregion-region
-            '''
-            result = self._values.get("region")
-            assert result is not None, "Required property 'region' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The ARN, key ID, or alias of the KMS key to encrypt the secret.
-
-            If you don't include this field, Secrets Manager uses ``aws/secretsmanager`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html#cfn-secretsmanager-secret-replicaregion-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReplicaRegionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -2070,10 +741,10 @@ class CfnSecretProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         secret_string: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2162,7 +833,7 @@ class CfnSecretProps:
     @builtins.property
     def generate_secret_string(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecret.GenerateSecretStringProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]]:
         '''A structure that specifies how to generate a password to encrypt and store in the secret.
 
         To include a specific string in the secret, use ``SecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created.
@@ -2172,7 +843,7 @@ class CfnSecretProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html#cfn-secretsmanager-secret-generatesecretstring
         '''
         result = self._values.get("generate_secret_string")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecret.GenerateSecretStringProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -2207,13 +878,13 @@ class CfnSecretProps:
     @builtins.property
     def replica_regions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecret.ReplicaRegionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]]:
         '''A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html#cfn-secretsmanager-secret-replicaregions
         '''
         result = self._values.get("replica_regions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecret.ReplicaRegionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]], result)
 
     @builtins.property
     def secret_string(self) -> typing.Optional[builtins.str]:
@@ -2267,150 +938,6 @@ class CfnSecretProps:
         return "CfnSecretProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnSecretTargetAttachment(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecretTargetAttachment",
-):
-    '''The ``AWS::SecretsManager::SecretTargetAttachment`` resource completes the final link between a Secrets Manager secret and the associated database by adding the database connection information to the secret JSON.
-
-    If you want to turn on automatic rotation for a database credential secret, the secret must contain the database connection information. For more information, see `JSON structure of Secrets Manager database credential secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
-
-    A single secret resource can only have one target attached to it.
-
-    When you remove a ``SecretTargetAttachment`` from a stack, Secrets Manager removes the database connection information from the secret with a ``PutSecretValue`` call.
-
-    For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
-
-    For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secrettargetattachment.html
-    :cloudformationResource: AWS::SecretsManager::SecretTargetAttachment
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_secretsmanager as secretsmanager
-        
-        cfn_secret_target_attachment = secretsmanager.CfnSecretTargetAttachment(self, "MyCfnSecretTargetAttachment",
-            secret_id="secretId",
-            target_id="targetId",
-            target_type="targetType"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        secret_id: builtins.str,
-        target_id: builtins.str,
-        target_type: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param secret_id: The ARN or name of the secret. To reference a secret also created in this template, use the see `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function with the secret's logical ID. This field is unique for each target attachment definition.
-        :param target_id: The ID of the database or cluster.
-        :param target_type: A string that defines the type of service or database associated with the secret. This value instructs Secrets Manager how to update the secret with the details of the service or database. This value must be one of the following: - AWS::RDS::DBInstance - AWS::RDS::DBCluster - AWS::Redshift::Cluster - AWS::RedshiftServerless::Namespace - AWS::DocDB::DBInstance - AWS::DocDB::DBCluster - AWS::DocDBElastic::Cluster
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSecretTargetAttachmentProps(
-            secret_id=secret_id, target_id=target_id, target_type=target_type
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="secretId")
-    def secret_id(self) -> builtins.str:
-        '''The ARN or name of the secret.'''
-        return typing.cast(builtins.str, jsii.get(self, "secretId"))
-
-    @secret_id.setter
-    def secret_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetId")
-    def target_id(self) -> builtins.str:
-        '''The ID of the database or cluster.'''
-        return typing.cast(builtins.str, jsii.get(self, "targetId"))
-
-    @target_id.setter
-    def target_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetType")
-    def target_type(self) -> builtins.str:
-        '''A string that defines the type of service or database associated with the secret.'''
-        return typing.cast(builtins.str, jsii.get(self, "targetType"))
-
-    @target_type.setter
-    def target_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2966,7 +1493,7 @@ class HostedRotation(
         self,
         secret: "ISecret",
         scope: _constructs_77d1e7e8.Construct,
-    ) -> CfnRotationSchedule.HostedRotationLambdaProperty:
+    ) -> "CfnRotationSchedule.HostedRotationLambdaProperty":
         '''Binds this hosted rotation to a secret.
 
         :param secret: -
@@ -2976,7 +1503,7 @@ class HostedRotation(
             type_hints = typing.get_type_hints(_typecheckingstub__0296aa9bdf8ce9144e34613aa1c1464127b91b8af87d320a0eb53189b026cf7f)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        return typing.cast(CfnRotationSchedule.HostedRotationLambdaProperty, jsii.invoke(self, "bind", [secret, scope]))
+        return typing.cast("CfnRotationSchedule.HostedRotationLambdaProperty", jsii.invoke(self, "bind", [secret, scope]))
 
     @builtins.property
     @jsii.member(jsii_name="connections")
@@ -3097,6 +1624,86 @@ class HostedRotationType(
     def is_multi_user(self) -> typing.Optional[builtins.bool]:
         '''Whether the rotation uses the mutli user scheme.'''
         return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "isMultiUser"))
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_secretsmanager.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.IRotationScheduleRef")
+class IRotationScheduleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a RotationSchedule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationScheduleRef")
+    def rotation_schedule_ref(self) -> "RotationScheduleReference":
+        '''(experimental) A reference to a RotationSchedule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRotationScheduleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RotationSchedule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_secretsmanager.IRotationScheduleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationScheduleRef")
+    def rotation_schedule_ref(self) -> "RotationScheduleReference":
+        '''(experimental) A reference to a RotationSchedule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RotationScheduleReference", jsii.get(self, "rotationScheduleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRotationScheduleRef).__jsii_proxy_class__ = lambda : _IRotationScheduleRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecret")
@@ -3423,6 +2030,46 @@ class _ISecretAttachmentTargetProxy:
 typing.cast(typing.Any, ISecretAttachmentTarget).__jsii_proxy_class__ = lambda : _ISecretAttachmentTargetProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecretRef")
+class ISecretRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Secret.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="secretRef")
+    def secret_ref(self) -> "SecretReference":
+        '''(experimental) A reference to a Secret resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecretRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Secret.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_secretsmanager.ISecretRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="secretRef")
+    def secret_ref(self) -> "SecretReference":
+        '''(experimental) A reference to a Secret resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecretReference", jsii.get(self, "secretRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecretRef).__jsii_proxy_class__ = lambda : _ISecretRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecretTargetAttachment")
 class ISecretTargetAttachment(ISecret, typing_extensions.Protocol):
     @builtins.property
@@ -3451,6 +2098,49 @@ class _ISecretTargetAttachmentProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISecretTargetAttachment).__jsii_proxy_class__ = lambda : _ISecretTargetAttachmentProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecretTargetAttachmentRef")
+class ISecretTargetAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecretTargetAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="secretTargetAttachmentRef")
+    def secret_target_attachment_ref(self) -> "SecretTargetAttachmentReference":
+        '''(experimental) A reference to a SecretTargetAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecretTargetAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecretTargetAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_secretsmanager.ISecretTargetAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="secretTargetAttachmentRef")
+    def secret_target_attachment_ref(self) -> "SecretTargetAttachmentReference":
+        '''(experimental) A reference to a SecretTargetAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecretTargetAttachmentReference", jsii.get(self, "secretTargetAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecretTargetAttachmentRef).__jsii_proxy_class__ = lambda : _ISecretTargetAttachmentRefProxy
 
 
 @jsii.data_type(
@@ -3639,6 +2329,55 @@ class ResourcePolicyProps:
 
     def __repr__(self) -> str:
         return "ResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_secretsmanager.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_policy_id": "resourcePolicyId"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_policy_id: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_policy_id: The Id of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            resource_policy_reference = secretsmanager.ResourcePolicyReference(
+                resource_policy_id="resourcePolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__319d7c739e68cd16ed8385dac58acc61a2bee3029b0a083cb81f8add7b132a3a)
+            check_type(argname="argument resource_policy_id", value=resource_policy_id, expected_type=type_hints["resource_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_policy_id": resource_policy_id,
+        }
+
+    @builtins.property
+    def resource_policy_id(self) -> builtins.str:
+        '''The Id of the ResourcePolicy resource.'''
+        result = self._values.get("resource_policy_id")
+        assert result is not None, "Required property 'resource_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3975,6 +2714,55 @@ class RotationScheduleProps(RotationScheduleOptions):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_secretsmanager.RotationScheduleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rotation_schedule_id": "rotationScheduleId"},
+)
+class RotationScheduleReference:
+    def __init__(self, *, rotation_schedule_id: builtins.str) -> None:
+        '''A reference to a RotationSchedule resource.
+
+        :param rotation_schedule_id: The Id of the RotationSchedule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            rotation_schedule_reference = secretsmanager.RotationScheduleReference(
+                rotation_schedule_id="rotationScheduleId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1da9fd697319bca36b4f45a92efe4ac9a521120ec98ec3e65d526106cc619662)
+            check_type(argname="argument rotation_schedule_id", value=rotation_schedule_id, expected_type=type_hints["rotation_schedule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rotation_schedule_id": rotation_schedule_id,
+        }
+
+    @builtins.property
+    def rotation_schedule_id(self) -> builtins.str:
+        '''The Id of the RotationSchedule resource.'''
+        result = self._values.get("rotation_schedule_id")
+        assert result is not None, "Required property 'rotation_schedule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RotationScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(ISecret)
 class Secret(
     _Resource_45bc6135,
@@ -4168,7 +2956,7 @@ class Secret(
     def add_replica_region(
         self,
         region: builtins.str,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
+        encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
     ) -> None:
         '''Adds a replica region for the secret.
 
@@ -4756,6 +3544,55 @@ class SecretProps:
 
     def __repr__(self) -> str:
         return "SecretProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_secretsmanager.SecretReference",
+    jsii_struct_bases=[],
+    name_mapping={"secret_id": "secretId"},
+)
+class SecretReference:
+    def __init__(self, *, secret_id: builtins.str) -> None:
+        '''A reference to a Secret resource.
+
+        :param secret_id: The Id of the Secret resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            secret_reference = secretsmanager.SecretReference(
+                secret_id="secretId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5cb068f12857eea208b9103a0fec21f63cc9ed091be72be533e4ca09fd10068)
+            check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "secret_id": secret_id,
+        }
+
+    @builtins.property
+    def secret_id(self) -> builtins.str:
+        '''The Id of the Secret resource.'''
+        result = self._values.get("secret_id")
+        assert result is not None, "Required property 'secret_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecretReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5909,6 +4746,55 @@ class SecretTargetAttachmentProps(AttachedSecretOptions):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_secretsmanager.SecretTargetAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"secret_target_attachment_id": "secretTargetAttachmentId"},
+)
+class SecretTargetAttachmentReference:
+    def __init__(self, *, secret_target_attachment_id: builtins.str) -> None:
+        '''A reference to a SecretTargetAttachment resource.
+
+        :param secret_target_attachment_id: The Id of the SecretTargetAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_secretsmanager as secretsmanager
+            
+            secret_target_attachment_reference = secretsmanager.SecretTargetAttachmentReference(
+                secret_target_attachment_id="secretTargetAttachmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc58157ebe3d5d37f0fbb3b87dea1e69d073585b653b095eb20ea793eed055ad)
+            check_type(argname="argument secret_target_attachment_id", value=secret_target_attachment_id, expected_type=type_hints["secret_target_attachment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "secret_target_attachment_id": secret_target_attachment_id,
+        }
+
+    @builtins.property
+    def secret_target_attachment_id(self) -> builtins.str:
+        '''The Id of the SecretTargetAttachment resource.'''
+        result = self._values.get("secret_target_attachment_id")
+        assert result is not None, "Required property 'secret_target_attachment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecretTargetAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_secretsmanager.SingleUserHostedRotationOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -6029,6 +4915,1503 @@ class SingleUserHostedRotationOptions:
         return "SingleUserHostedRotationOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnResourcePolicy",
+):
+    '''Attaches a resource-based permission policy to a secret.
+
+    A resource-based policy is optional. If a secret already has a resource policy attached, you must first remove it before attaching a new policy using this CloudFormation resource. You can remove the policy using the `console <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_resource-policies.html>`_ , `CLI <https://docs.aws.amazon.com/cli/latest/reference/secretsmanager/delete-resource-policy.html>`_ , or `API <https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_DeleteResourcePolicy.html>`_ . For more information, see `Authentication and access control for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
+
+    *Required permissions:* ``secretsmanager:PutResourcePolicy`` , ``secretsmanager:GetResourcePolicy`` . For more information, see `IAM policy actions for Secrets Manager <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssecretsmanager.html#awssecretsmanager-actions-as-permissions>`_ and `Authentication and access control in Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-resourcepolicy.html
+    :cloudformationResource: AWS::SecretsManager::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_secretsmanager as secretsmanager
+        
+        # resource_policy: Any
+        
+        cfn_resource_policy = secretsmanager.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            resource_policy=resource_policy,
+            secret_id="secretId",
+        
+            # the properties below are optional
+            block_public_policy=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        resource_policy: typing.Any,
+        secret_id: builtins.str,
+        block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_policy: A JSON-formatted string for an AWS resource-based policy. For example policies, see `Permissions policy examples <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html>`_ .
+        :param secret_id: The ARN or name of the secret to attach the resource-based policy. For an ARN, we recommend that you specify a complete ARN rather than a partial ARN.
+        :param block_public_policy: Specifies whether to block resource-based policies that allow broad access to the secret. By default, Secrets Manager blocks policies that allow broad access, for example those that use a wildcard for the principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            resource_policy=resource_policy,
+            secret_id=secret_id,
+            block_public_policy=block_public_policy,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The Arn of the secret.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicy")
+    def resource_policy(self) -> typing.Any:
+        '''A JSON-formatted string for an AWS resource-based policy.'''
+        return typing.cast(typing.Any, jsii.get(self, "resourcePolicy"))
+
+    @resource_policy.setter
+    def resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="secretId")
+    def secret_id(self) -> builtins.str:
+        '''The ARN or name of the secret to attach the resource-based policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "secretId"))
+
+    @secret_id.setter
+    def secret_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="blockPublicPolicy")
+    def block_public_policy(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to block resource-based policies that allow broad access to the secret.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "blockPublicPolicy"))
+
+    @block_public_policy.setter
+    def block_public_policy(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "blockPublicPolicy", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IRotationScheduleRef)
+class CfnRotationSchedule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule",
+):
+    '''Configure the rotation schedule and Lambda rotation function for a secret. For more information, see `How rotation works <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ .
+
+    For database credentials, refer to the following resources:
+
+    - Amazon RDS master user credentials: `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_
+    - Amazon Redshift admin user credentials: `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_
+
+    Choose one of the following options for the rotation function:
+
+    - Create a new rotation function using ``HostedRotationLambda`` based on a `Secrets Manager rotation function template <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ .
+    - Use an existing rotation function by specifying its ARN with ``RotationLambdaARN`` .
+
+    .. epigraph::
+
+       For database secrets defined in the same AWS CloudFormation template as the database or service:
+
+       - Use the `AWS::SecretsManager::SecretTargetAttachment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secrettargetattachment.html>`_ resource to populate the secret with connection details.
+       - Add a ``DependsOn`` attribute to the ``RotationSchedule`` resource that uses a ``SecretTargetAttachment`` . This ensures the rotation is configured after the secret is populated with connection details. > You can define only one rotation schedule per secret.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html
+    :cloudformationResource: AWS::SecretsManager::RotationSchedule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_secretsmanager as secretsmanager
+        
+        cfn_rotation_schedule = secretsmanager.CfnRotationSchedule(self, "MyCfnRotationSchedule",
+            secret_id="secretId",
+        
+            # the properties below are optional
+            hosted_rotation_lambda=secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty(
+                rotation_type="rotationType",
+        
+                # the properties below are optional
+                exclude_characters="excludeCharacters",
+                kms_key_arn="kmsKeyArn",
+                master_secret_arn="masterSecretArn",
+                master_secret_kms_key_arn="masterSecretKmsKeyArn",
+                rotation_lambda_name="rotationLambdaName",
+                runtime="runtime",
+                superuser_secret_arn="superuserSecretArn",
+                superuser_secret_kms_key_arn="superuserSecretKmsKeyArn",
+                vpc_security_group_ids="vpcSecurityGroupIds",
+                vpc_subnet_ids="vpcSubnetIds"
+            ),
+            rotate_immediately_on_update=False,
+            rotation_lambda_arn="rotationLambdaArn",
+            rotation_rules=secretsmanager.CfnRotationSchedule.RotationRulesProperty(
+                automatically_after_days=123,
+                duration="duration",
+                schedule_expression="scheduleExpression"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        secret_id: builtins.str,
+        hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        rotation_lambda_arn: typing.Optional[builtins.str] = None,
+        rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param secret_id: The ARN or name of the secret to rotate. This is unique for each rotation schedule definition. To reference a secret also created in this template, use the `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function with the secret's logical ID.
+        :param hosted_rotation_lambda: Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead. You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template. Transforms are macros hosted by AWS CloudFormation that help you create and manage complex infrastructure. The ``Transform: AWS::SecretsManager-2024-09-16`` transform automatically extends the CloudFormation stack to include a nested stack (of type ``AWS::CloudFormation::Stack`` ), which then creates and updates on your behalf during subsequent stack operations, the appropriate rotation Lambda function for your database or service. For general information on transforms, see the `AWS CloudFormation documentation. <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-reference.html>`_ For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ . For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
+        :param rotate_immediately_on_update: Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated. The rotation schedule is defined in ``RotationRules`` . The default for ``RotateImmediatelyOnUpdate`` is ``true`` . If you don't specify this value, Secrets Manager rotates the secret immediately. If you set ``RotateImmediatelyOnUpdate`` to ``false`` , Secrets Manager tests the rotation configuration by running the ```testSecret`` step <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ of the Lambda rotation function. This test creates an ``AWSPENDING`` version of the secret and then removes it. .. epigraph:: When changing an existing rotation schedule and setting ``RotateImmediatelyOnUpdate`` to ``false`` : - If using ``AutomaticallyAfterDays`` or a ``ScheduleExpression`` with ``rate()`` , the previously scheduled rotation might still occur. - To prevent unintended rotations, use a ``ScheduleExpression`` with ``cron()`` for granular control over rotation windows. Rotation is an asynchronous process. For more information, see `How rotation works <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_how.html>`_ .
+        :param rotation_lambda_arn: The ARN of an existing Lambda rotation function. To specify a rotation function that is also defined in this template, use the `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function. For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ . For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ . To create a new rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ , specify ``HostedRotationLambda`` instead.
+        :param rotation_rules: A structure that defines the rotation configuration for this secret.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRotationScheduleProps(
+            secret_id=secret_id,
+            hosted_rotation_lambda=hosted_rotation_lambda,
+            rotate_immediately_on_update=rotate_immediately_on_update,
+            rotation_lambda_arn=rotation_lambda_arn,
+            rotation_rules=rotation_rules,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ARN of the secret.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationScheduleRef")
+    def rotation_schedule_ref(self) -> RotationScheduleReference:
+        '''A reference to a RotationSchedule resource.'''
+        return typing.cast(RotationScheduleReference, jsii.get(self, "rotationScheduleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretId")
+    def secret_id(self) -> builtins.str:
+        '''The ARN or name of the secret to rotate.
+
+        This is unique for each rotation schedule definition.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "secretId"))
+
+    @secret_id.setter
+    def secret_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedRotationLambda")
+    def hosted_rotation_lambda(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
+        '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]], jsii.get(self, "hostedRotationLambda"))
+
+    @hosted_rotation_lambda.setter
+    def hosted_rotation_lambda(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.HostedRotationLambdaProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hostedRotationLambda", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotateImmediatelyOnUpdate")
+    def rotate_immediately_on_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rotateImmediatelyOnUpdate"))
+
+    @rotate_immediately_on_update.setter
+    def rotate_immediately_on_update(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotateImmediatelyOnUpdate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationLambdaArn")
+    def rotation_lambda_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an existing Lambda rotation function.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rotationLambdaArn"))
+
+    @rotation_lambda_arn.setter
+    def rotation_lambda_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotationLambdaArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotationRules")
+    def rotation_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]]:
+        '''A structure that defines the rotation configuration for this secret.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]], jsii.get(self, "rotationRules"))
+
+    @rotation_rules.setter
+    def rotation_rules(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRotationSchedule.RotationRulesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotationRules", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rotation_type": "rotationType",
+            "exclude_characters": "excludeCharacters",
+            "kms_key_arn": "kmsKeyArn",
+            "master_secret_arn": "masterSecretArn",
+            "master_secret_kms_key_arn": "masterSecretKmsKeyArn",
+            "rotation_lambda_name": "rotationLambdaName",
+            "runtime": "runtime",
+            "superuser_secret_arn": "superuserSecretArn",
+            "superuser_secret_kms_key_arn": "superuserSecretKmsKeyArn",
+            "vpc_security_group_ids": "vpcSecurityGroupIds",
+            "vpc_subnet_ids": "vpcSubnetIds",
+        },
+    )
+    class HostedRotationLambdaProperty:
+        def __init__(
+            self,
+            *,
+            rotation_type: builtins.str,
+            exclude_characters: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+            master_secret_arn: typing.Optional[builtins.str] = None,
+            master_secret_kms_key_arn: typing.Optional[builtins.str] = None,
+            rotation_lambda_name: typing.Optional[builtins.str] = None,
+            runtime: typing.Optional[builtins.str] = None,
+            superuser_secret_arn: typing.Optional[builtins.str] = None,
+            superuser_secret_kms_key_arn: typing.Optional[builtins.str] = None,
+            vpc_security_group_ids: typing.Optional[builtins.str] = None,
+            vpc_subnet_ids: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ .
+
+            You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template.
+
+            For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
+
+            For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
+
+            :param rotation_type: The rotation template to base the rotation function on, one of the following:. - ``Db2SingleUser`` to use the template `SecretsManagerRDSDb2RotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-singleuser>`_ . - ``Db2MultiUser`` to use the template `SecretsManagerRDSDb2RotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-multiuser>`_ . - ``MySQLSingleUser`` to use the template `SecretsManagerRDSMySQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-singleuser>`_ . - ``MySQLMultiUser`` to use the template `SecretsManagerRDSMySQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-multiuser>`_ . - ``PostgreSQLSingleUser`` to use the template `SecretsManagerRDSPostgreSQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-singleuser>`_ - ``PostgreSQLMultiUser`` to use the template `SecretsManagerRDSPostgreSQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-multiuser>`_ . - ``OracleSingleUser`` to use the template `SecretsManagerRDSOracleRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-singleuser>`_ . - ``OracleMultiUser`` to use the template `SecretsManagerRDSOracleRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-multiuser>`_ . - ``MariaDBSingleUser`` to use the template `SecretsManagerRDSMariaDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-singleuser>`_ . - ``MariaDBMultiUser`` to use the template `SecretsManagerRDSMariaDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-multiuser>`_ . - ``SQLServerSingleUser`` to use the template `SecretsManagerRDSSQLServerRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-singleuser>`_ . - ``SQLServerMultiUser`` to use the template `SecretsManagerRDSSQLServerRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-multiuser>`_ . - ``RedshiftSingleUser`` to use the template `SecretsManagerRedshiftRotationSingleUsr <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-singleuser>`_ . - ``RedshiftMultiUser`` to use the template `SecretsManagerRedshiftRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-multiuser>`_ . - ``MongoDBSingleUser`` to use the template `SecretsManagerMongoDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-singleuser>`_ . - ``MongoDBMultiUser`` to use the template `SecretsManagerMongoDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-multiuser>`_ .
+            :param exclude_characters: A string of the characters that you don't want in the password.
+            :param kms_key_arn: The ARN of the KMS key that Secrets Manager uses to encrypt the secret. If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If ``aws/secretsmanager`` doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value.
+            :param master_secret_arn: The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You must create the superuser secret before you can set this property. You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ . You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
+            :param master_secret_kms_key_arn: The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
+            :param rotation_lambda_name: The name of the Lambda rotation function.
+            :param runtime: .. epigraph:: Do not set this value if you are using ``Transform: AWS::SecretsManager-2024-09-16`` . Over time, the updated rotation lambda artifacts vended by AWS may not be compatible with the code or shared object files defined in the rotation function deployment package. .. epigraph:: Only define the ``Runtime`` key if: - You are using ``Transform: AWS::SecretsManager-2020-07-23`` . - The code or shared object files defined in the rotation function deployment package are incompatible with Python 3.10. The Python Runtime version for with the rotation function. By default, CloudFormation deploys Python 3.10 binaries for the rotation function. To use a different version of Python, you must do the following two steps: - Deploy the matching version Python binaries with your rotation function. - Set the version number in this field. For example, for Python 3.10, enter *python3.10* . If you only do one of the steps, your rotation function will be incompatible with the binaries. For more information, see `Why did my Lambda rotation function fail with a "pg module not found" error <https://docs.aws.amazon.com/https://repost.aws/knowledge-center/secrets-manager-lambda-rotation>`_ .
+            :param superuser_secret_arn: The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You must create the superuser secret before you can set this property. You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ . You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
+            :param superuser_secret_kms_key_arn: The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ . You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
+            :param vpc_security_group_ids: A comma-separated list of security group IDs applied to the target database. The template applies the same security groups as on the Lambda rotation function that is created as part of this stack.
+            :param vpc_subnet_ids: A comma separated list of VPC subnet IDs of the target database network. The Lambda rotation function is in the same subnet group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_secretsmanager as secretsmanager
+                
+                hosted_rotation_lambda_property = secretsmanager.CfnRotationSchedule.HostedRotationLambdaProperty(
+                    rotation_type="rotationType",
+                
+                    # the properties below are optional
+                    exclude_characters="excludeCharacters",
+                    kms_key_arn="kmsKeyArn",
+                    master_secret_arn="masterSecretArn",
+                    master_secret_kms_key_arn="masterSecretKmsKeyArn",
+                    rotation_lambda_name="rotationLambdaName",
+                    runtime="runtime",
+                    superuser_secret_arn="superuserSecretArn",
+                    superuser_secret_kms_key_arn="superuserSecretKmsKeyArn",
+                    vpc_security_group_ids="vpcSecurityGroupIds",
+                    vpc_subnet_ids="vpcSubnetIds"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254)
+                check_type(argname="argument rotation_type", value=rotation_type, expected_type=type_hints["rotation_type"])
+                check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+                check_type(argname="argument master_secret_arn", value=master_secret_arn, expected_type=type_hints["master_secret_arn"])
+                check_type(argname="argument master_secret_kms_key_arn", value=master_secret_kms_key_arn, expected_type=type_hints["master_secret_kms_key_arn"])
+                check_type(argname="argument rotation_lambda_name", value=rotation_lambda_name, expected_type=type_hints["rotation_lambda_name"])
+                check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+                check_type(argname="argument superuser_secret_arn", value=superuser_secret_arn, expected_type=type_hints["superuser_secret_arn"])
+                check_type(argname="argument superuser_secret_kms_key_arn", value=superuser_secret_kms_key_arn, expected_type=type_hints["superuser_secret_kms_key_arn"])
+                check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+                check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rotation_type": rotation_type,
+            }
+            if exclude_characters is not None:
+                self._values["exclude_characters"] = exclude_characters
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+            if master_secret_arn is not None:
+                self._values["master_secret_arn"] = master_secret_arn
+            if master_secret_kms_key_arn is not None:
+                self._values["master_secret_kms_key_arn"] = master_secret_kms_key_arn
+            if rotation_lambda_name is not None:
+                self._values["rotation_lambda_name"] = rotation_lambda_name
+            if runtime is not None:
+                self._values["runtime"] = runtime
+            if superuser_secret_arn is not None:
+                self._values["superuser_secret_arn"] = superuser_secret_arn
+            if superuser_secret_kms_key_arn is not None:
+                self._values["superuser_secret_kms_key_arn"] = superuser_secret_kms_key_arn
+            if vpc_security_group_ids is not None:
+                self._values["vpc_security_group_ids"] = vpc_security_group_ids
+            if vpc_subnet_ids is not None:
+                self._values["vpc_subnet_ids"] = vpc_subnet_ids
+
+        @builtins.property
+        def rotation_type(self) -> builtins.str:
+            '''The rotation template to base the rotation function on, one of the following:.
+
+            - ``Db2SingleUser`` to use the template `SecretsManagerRDSDb2RotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-singleuser>`_ .
+            - ``Db2MultiUser`` to use the template `SecretsManagerRDSDb2RotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-db2-multiuser>`_ .
+            - ``MySQLSingleUser`` to use the template `SecretsManagerRDSMySQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-singleuser>`_ .
+            - ``MySQLMultiUser`` to use the template `SecretsManagerRDSMySQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mysql-multiuser>`_ .
+            - ``PostgreSQLSingleUser`` to use the template `SecretsManagerRDSPostgreSQLRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-singleuser>`_
+            - ``PostgreSQLMultiUser`` to use the template `SecretsManagerRDSPostgreSQLRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-postgre-multiuser>`_ .
+            - ``OracleSingleUser`` to use the template `SecretsManagerRDSOracleRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-singleuser>`_ .
+            - ``OracleMultiUser`` to use the template `SecretsManagerRDSOracleRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-oracle-multiuser>`_ .
+            - ``MariaDBSingleUser`` to use the template `SecretsManagerRDSMariaDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-singleuser>`_ .
+            - ``MariaDBMultiUser`` to use the template `SecretsManagerRDSMariaDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mariadb-multiuser>`_ .
+            - ``SQLServerSingleUser`` to use the template `SecretsManagerRDSSQLServerRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-singleuser>`_ .
+            - ``SQLServerMultiUser`` to use the template `SecretsManagerRDSSQLServerRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-sqlserver-multiuser>`_ .
+            - ``RedshiftSingleUser`` to use the template `SecretsManagerRedshiftRotationSingleUsr <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-singleuser>`_ .
+            - ``RedshiftMultiUser`` to use the template `SecretsManagerRedshiftRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-redshift-multiuser>`_ .
+            - ``MongoDBSingleUser`` to use the template `SecretsManagerMongoDBRotationSingleUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-singleuser>`_ .
+            - ``MongoDBMultiUser`` to use the template `SecretsManagerMongoDBRotationMultiUser <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html#sar-template-mongodb-multiuser>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-rotationtype
+            '''
+            result = self._values.get("rotation_type")
+            assert result is not None, "Required property 'rotation_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def exclude_characters(self) -> typing.Optional[builtins.str]:
+            '''A string of the characters that you don't want in the password.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-excludecharacters
+            '''
+            result = self._values.get("exclude_characters")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the KMS key that Secrets Manager uses to encrypt the secret.
+
+            If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If ``aws/secretsmanager`` doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def master_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
+
+            You must create the superuser secret before you can set this property.
+
+            You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
+
+            You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-mastersecretarn
+            '''
+            result = self._values.get("master_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def master_secret_kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
+
+            You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-mastersecretkmskeyarn
+            '''
+            result = self._values.get("master_secret_kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rotation_lambda_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the Lambda rotation function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-rotationlambdaname
+            '''
+            result = self._values.get("rotation_lambda_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def runtime(self) -> typing.Optional[builtins.str]:
+            '''.. epigraph::
+
+   Do not set this value if you are using ``Transform: AWS::SecretsManager-2024-09-16`` .
+
+            Over time, the updated rotation lambda artifacts vended by AWS may not be compatible with the code or shared object files defined in the rotation function deployment package.
+            .. epigraph::
+
+               Only define the ``Runtime`` key if:
+
+               - You are using ``Transform: AWS::SecretsManager-2020-07-23`` .
+               - The code or shared object files defined in the rotation function deployment package are incompatible with Python 3.10.
+
+            The Python Runtime version for with the rotation function. By default, CloudFormation deploys Python 3.10 binaries for the rotation function. To use a different version of Python, you must do the following two steps:
+
+            - Deploy the matching version Python binaries with your rotation function.
+            - Set the version number in this field. For example, for Python 3.10, enter *python3.10* .
+
+            If you only do one of the steps, your rotation function will be incompatible with the binaries. For more information, see `Why did my Lambda rotation function fail with a "pg module not found" error <https://docs.aws.amazon.com/https://repost.aws/knowledge-center/secrets-manager-lambda-rotation>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-runtime
+            '''
+            result = self._values.get("runtime")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def superuser_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the secret that contains superuser credentials, if you use the `Alternating users rotation strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ . CloudFormation grants the execution role for the Lambda rotation function ``GetSecretValue`` permission to the secret in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
+
+            You must create the superuser secret before you can set this property.
+
+            You must also include the superuser secret ARN as a key in the JSON of the rotating secret so that the Lambda rotation function can find it. CloudFormation does not hardcode secret ARNs in the Lambda rotation function, so you can use the function to rotate multiple secrets. For more information, see `JSON structure of Secrets Manager secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
+
+            You can specify ``MasterSecretArn`` or ``SuperuserSecretArn`` but not both. They represent the same superuser secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-superusersecretarn
+            '''
+            result = self._values.get("superuser_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def superuser_secret_kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the KMS key that Secrets Manager used to encrypt the superuser secret, if you use the `alternating users strategy <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets_strategies.html#rotating-secrets-two-users>`_ and the superuser secret is encrypted with a customer managed key. You don't need to specify this property if the superuser secret is encrypted using the key ``aws/secretsmanager`` . CloudFormation grants the execution role for the Lambda rotation function ``Decrypt`` , ``DescribeKey`` , and ``GenerateDataKey`` permission to the key in this property. For more information, see `Lambda rotation function execution role permissions for Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets-required-permissions-function.html>`_ .
+
+            You can specify ``MasterSecretKmsKeyArn`` or ``SuperuserSecretKmsKeyArn`` but not both. They represent the same superuser secret KMS key .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-superusersecretkmskeyarn
+            '''
+            result = self._values.get("superuser_secret_kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vpc_security_group_ids(self) -> typing.Optional[builtins.str]:
+            '''A comma-separated list of security group IDs applied to the target database.
+
+            The template applies the same security groups as on the Lambda rotation function that is created as part of this stack.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-vpcsecuritygroupids
+            '''
+            result = self._values.get("vpc_security_group_ids")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vpc_subnet_ids(self) -> typing.Optional[builtins.str]:
+            '''A comma separated list of VPC subnet IDs of the target database network.
+
+            The Lambda rotation function is in the same subnet group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda-vpcsubnetids
+            '''
+            result = self._values.get("vpc_subnet_ids")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HostedRotationLambdaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule.RotationRulesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "automatically_after_days": "automaticallyAfterDays",
+            "duration": "duration",
+            "schedule_expression": "scheduleExpression",
+        },
+    )
+    class RotationRulesProperty:
+        def __init__(
+            self,
+            *,
+            automatically_after_days: typing.Optional[jsii.Number] = None,
+            duration: typing.Optional[builtins.str] = None,
+            schedule_expression: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The rotation schedule and window.
+
+            We recommend you use ``ScheduleExpression`` to set a cron or rate expression for the schedule and ``Duration`` to set the length of the rotation window.
+            .. epigraph::
+
+               When changing an existing rotation schedule and setting ``RotateImmediatelyOnUpdate`` to ``false`` :
+
+               - If using ``AutomaticallyAfterDays`` or a ``ScheduleExpression`` with ``rate()`` , the previously scheduled rotation might still occur.
+               - To prevent unintended rotations, use a ``ScheduleExpression`` with ``cron()`` for granular control over rotation windows.
+
+            :param automatically_after_days: The number of days between automatic scheduled rotations of the secret. You can use this value to check that your secret meets your compliance guidelines for how often secrets must be rotated. In ``DescribeSecret`` and ``ListSecrets`` , this value is calculated from the rotation schedule after every successful rotation. In ``RotateSecret`` , you can set the rotation schedule in ``RotationRules`` with ``AutomaticallyAfterDays`` or ``ScheduleExpression`` , but not both.
+            :param duration: The length of the rotation window in hours, for example ``3h`` for a three hour window. Secrets Manager rotates your secret at any time during this window. The window must not extend into the next rotation window or the next UTC day. The window starts according to the ``ScheduleExpression`` . If you don't specify a ``Duration`` , for a ``ScheduleExpression`` in hours, the window automatically closes after one hour. For a ``ScheduleExpression`` in days, the window automatically closes at the end of the UTC day. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* .
+            :param schedule_expression: A ``cron()`` or ``rate()`` expression that defines the schedule for rotating your secret. Secrets Manager rotation schedules use UTC time zone. Secrets Manager rotates your secret any time during a rotation window. Secrets Manager ``rate()`` expressions represent the interval in hours or days that you want to rotate your secret, for example ``rate(12 hours)`` or ``rate(10 days)`` . You can rotate a secret as often as every four hours. If you use a ``rate()`` expression, the rotation window starts at midnight. For a rate in hours, the default rotation window closes after one hour. For a rate in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window. You can use a ``cron()`` expression to create a rotation schedule that is more detailed than a rotation interval. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* . For a cron expression that represents a schedule in hours, the default rotation window closes after one hour. For a cron expression that represents a schedule in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_secretsmanager as secretsmanager
+                
+                rotation_rules_property = secretsmanager.CfnRotationSchedule.RotationRulesProperty(
+                    automatically_after_days=123,
+                    duration="duration",
+                    schedule_expression="scheduleExpression"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736)
+                check_type(argname="argument automatically_after_days", value=automatically_after_days, expected_type=type_hints["automatically_after_days"])
+                check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+                check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automatically_after_days is not None:
+                self._values["automatically_after_days"] = automatically_after_days
+            if duration is not None:
+                self._values["duration"] = duration
+            if schedule_expression is not None:
+                self._values["schedule_expression"] = schedule_expression
+
+        @builtins.property
+        def automatically_after_days(self) -> typing.Optional[jsii.Number]:
+            '''The number of days between automatic scheduled rotations of the secret.
+
+            You can use this value to check that your secret meets your compliance guidelines for how often secrets must be rotated.
+
+            In ``DescribeSecret`` and ``ListSecrets`` , this value is calculated from the rotation schedule after every successful rotation. In ``RotateSecret`` , you can set the rotation schedule in ``RotationRules`` with ``AutomaticallyAfterDays`` or ``ScheduleExpression`` , but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-automaticallyafterdays
+            '''
+            result = self._values.get("automatically_after_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def duration(self) -> typing.Optional[builtins.str]:
+            '''The length of the rotation window in hours, for example ``3h`` for a three hour window.
+
+            Secrets Manager rotates your secret at any time during this window. The window must not extend into the next rotation window or the next UTC day. The window starts according to the ``ScheduleExpression`` . If you don't specify a ``Duration`` , for a ``ScheduleExpression`` in hours, the window automatically closes after one hour. For a ``ScheduleExpression`` in days, the window automatically closes at the end of the UTC day. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-duration
+            '''
+            result = self._values.get("duration")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schedule_expression(self) -> typing.Optional[builtins.str]:
+            '''A ``cron()`` or ``rate()`` expression that defines the schedule for rotating your secret.
+
+            Secrets Manager rotation schedules use UTC time zone. Secrets Manager rotates your secret any time during a rotation window.
+
+            Secrets Manager ``rate()`` expressions represent the interval in hours or days that you want to rotate your secret, for example ``rate(12 hours)`` or ``rate(10 days)`` . You can rotate a secret as often as every four hours. If you use a ``rate()`` expression, the rotation window starts at midnight. For a rate in hours, the default rotation window closes after one hour. For a rate in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
+
+            You can use a ``cron()`` expression to create a rotation schedule that is more detailed than a rotation interval. For more information, including examples, see `Schedule expressions in Secrets Manager rotation <https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_schedule.html>`_ in the *Secrets Manager Users Guide* . For a cron expression that represents a schedule in hours, the default rotation window closes after one hour. For a cron expression that represents a schedule in days, the default rotation window closes at the end of the day. You can set the ``Duration`` to change the rotation window. The rotation window must not extend into the next UTC day or into the next rotation window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-rotationrules.html#cfn-secretsmanager-rotationschedule-rotationrules-scheduleexpression
+            '''
+            result = self._values.get("schedule_expression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RotationRulesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ISecretRef, _ITaggable_36806126)
+class CfnSecret(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret",
+):
+    '''Creates a new secret.
+
+    A *secret* can be a password, a set of credentials such as a user name and password, an OAuth token, or other secret information that you store in an encrypted form in Secrets Manager.
+
+    For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
+
+    For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
+
+    To retrieve a secret in a CloudFormation template, use a *dynamic reference* . For more information, see `Retrieve a secret in an AWS CloudFormation resource <https://docs.aws.amazon.com/secretsmanager/latest/userguide/cfn-example_reference-secret.html>`_ .
+
+    For information about creating a secret in the console, see `Create a secret <https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_create-basic-secret.html>`_ . For information about creating a secret using the CLI or SDK, see `CreateSecret <https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_CreateSecret.html>`_ .
+
+    For information about retrieving a secret in code, see `Retrieve secrets from Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html
+    :cloudformationResource: AWS::SecretsManager::Secret
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_secretsmanager as secretsmanager
+        
+        cfn_secret = secretsmanager.CfnSecret(self, "MyCfnSecret",
+            description="description",
+            generate_secret_string=secretsmanager.CfnSecret.GenerateSecretStringProperty(
+                exclude_characters="excludeCharacters",
+                exclude_lowercase=False,
+                exclude_numbers=False,
+                exclude_punctuation=False,
+                exclude_uppercase=False,
+                generate_string_key="generateStringKey",
+                include_space=False,
+                password_length=123,
+                require_each_included_type=False,
+                secret_string_template="secretStringTemplate"
+            ),
+            kms_key_id="kmsKeyId",
+            name="name",
+            replica_regions=[secretsmanager.CfnSecret.ReplicaRegionProperty(
+                region="region",
+        
+                # the properties below are optional
+                kms_key_id="kmsKeyId"
+            )],
+            secret_string="secretString",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        secret_string: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description of the secret.
+        :param generate_secret_string: A structure that specifies how to generate a password to encrypt and store in the secret. To include a specific string in the secret, use ``SecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created. We recommend that you specify the maximum length and include every character type that the system you are generating a password for can support.
+        :param kms_key_id: The ARN, key ID, or alias of the AWS KMS key that Secrets Manager uses to encrypt the secret value in the secret. An alias is always prefixed by ``alias/`` , for example ``alias/aws/secretsmanager`` . For more information, see `About aliases <https://docs.aws.amazon.com/kms/latest/developerguide/alias-about.html>`_ . To use a AWS KMS key in a different account, use the key ARN or the alias ARN. If you don't specify this value, then Secrets Manager uses the key ``aws/secretsmanager`` . If that key doesn't yet exist, then Secrets Manager creates it for you automatically the first time it encrypts the secret value. If the secret is in a different AWS account from the credentials calling the API, then you can't use ``aws/secretsmanager`` to encrypt the secret, and you must create and use a customer managed AWS KMS key.
+        :param name: The name of the new secret. The secret name can contain ASCII letters, numbers, and the following characters: /_+=.@- Do not end your secret name with a hyphen followed by six characters. If you do so, you risk confusion and unexpected results when searching for a secret by partial ARN. Secrets Manager automatically adds a hyphen and six random characters after the secret name at the end of the ARN.
+        :param replica_regions: A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
+        :param secret_string: The text to encrypt and store in the secret. We recommend you use a JSON structure of key/value pairs for your secret value. To generate a random password, use ``GenerateSecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created.
+        :param tags: A list of tags to attach to the secret. Each tag is a key and value pair of strings in a JSON text string, for example: ``[{"Key":"CostCenter","Value":"12345"},{"Key":"environment","Value":"production"}]`` Secrets Manager tag key names are case sensitive. A tag with the key "ABC" is a different tag from one with key "abc". Stack-level tags, tags you apply to the CloudFormation stack, are also attached to the secret. If you check tags in permissions policies as part of your security strategy, then adding or removing a tag can change permissions. If the completion of this operation would result in you losing your permissions for this secret, then Secrets Manager blocks the operation and returns an ``Access Denied`` error. For more information, see `Control access to secrets using tags <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html#tag-secrets-abac>`_ and `Limit access to identities with tags that match secrets' tags <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html#auth-and-access_tags2>`_ . For information about how to format a JSON parameter for the various command line tool environments, see `Using JSON for Parameters <https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json>`_ . If your command-line tool or SDK requires quotation marks around the parameter, you should use single quotes to avoid confusion with the double quotes required in the JSON text. The following restrictions apply to tags: - Maximum number of tags per secret: 50 - Maximum key length: 127 Unicode characters in UTF-8 - Maximum value length: 255 Unicode characters in UTF-8 - Tag keys and values are case sensitive. - Do not use the ``aws:`` prefix in your tag names or values because AWS reserves it for AWS use. You can't edit or delete tag names or values with this prefix. Tags with this prefix do not count against your tags per secret limit. - If you use your tagging schema across multiple services and resources, other services might have restrictions on allowed characters. Generally allowed characters: letters, spaces, and numbers representable in UTF-8, plus the following special characters: + - = . _ : /
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSecretProps(
+            description=description,
+            generate_secret_string=generate_secret_string,
+            kms_key_id=kms_key_id,
+            name=name,
+            replica_regions=replica_regions,
+            secret_string=secret_string,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ARN of the secret.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretRef")
+    def secret_ref(self) -> SecretReference:
+        '''A reference to a Secret resource.'''
+        return typing.cast(SecretReference, jsii.get(self, "secretRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="generateSecretString")
+    def generate_secret_string(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]]:
+        '''A structure that specifies how to generate a password to encrypt and store in the secret.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]], jsii.get(self, "generateSecretString"))
+
+    @generate_secret_string.setter
+    def generate_secret_string(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecret.GenerateSecretStringProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "generateSecretString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ARN, key ID, or alias of the AWS KMS key that Secrets Manager uses to encrypt the secret value in the secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the new secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicaRegions")
+    def replica_regions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]]:
+        '''A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]], jsii.get(self, "replicaRegions"))
+
+    @replica_regions.setter
+    def replica_regions(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecret.ReplicaRegionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicaRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="secretString")
+    def secret_string(self) -> typing.Optional[builtins.str]:
+        '''The text to encrypt and store in the secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "secretString"))
+
+    @secret_string.setter
+    def secret_string(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "secretString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags to attach to the secret.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret.GenerateSecretStringProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "exclude_characters": "excludeCharacters",
+            "exclude_lowercase": "excludeLowercase",
+            "exclude_numbers": "excludeNumbers",
+            "exclude_punctuation": "excludePunctuation",
+            "exclude_uppercase": "excludeUppercase",
+            "generate_string_key": "generateStringKey",
+            "include_space": "includeSpace",
+            "password_length": "passwordLength",
+            "require_each_included_type": "requireEachIncludedType",
+            "secret_string_template": "secretStringTemplate",
+        },
+    )
+    class GenerateSecretStringProperty:
+        def __init__(
+            self,
+            *,
+            exclude_characters: typing.Optional[builtins.str] = None,
+            exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            exclude_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            generate_string_key: typing.Optional[builtins.str] = None,
+            include_space: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            password_length: typing.Optional[jsii.Number] = None,
+            require_each_included_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            secret_string_template: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Generates a random password.
+
+            We recommend that you specify the maximum length and include every character type that the system you are generating a password for can support.
+
+            *Required permissions:* ``secretsmanager:GetRandomPassword`` . For more information, see `IAM policy actions for Secrets Manager <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssecretsmanager.html#awssecretsmanager-actions-as-permissions>`_ and `Authentication and access control in Secrets Manager <https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html>`_ .
+
+            :param exclude_characters: A string of the characters that you don't want in the password.
+            :param exclude_lowercase: Specifies whether to exclude lowercase letters from the password. If you don't include this switch, the password can contain lowercase letters.
+            :param exclude_numbers: Specifies whether to exclude numbers from the password. If you don't include this switch, the password can contain numbers.
+            :param exclude_punctuation: Specifies whether to exclude the following punctuation characters from the password: `! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ `` { | } ~`` . If you don't include this switch, the password can contain punctuation.
+            :param exclude_uppercase: Specifies whether to exclude uppercase letters from the password. If you don't include this switch, the password can contain uppercase letters.
+            :param generate_string_key: The JSON key name for the key/value pair, where the value is the generated password. This pair is added to the JSON structure specified by the ``SecretStringTemplate`` parameter. If you specify this parameter, then you must also specify ``SecretStringTemplate`` .
+            :param include_space: Specifies whether to include the space character. If you include this switch, the password can contain space characters.
+            :param password_length: The length of the password. If you don't include this parameter, the default length is 32 characters.
+            :param require_each_included_type: Specifies whether to include at least one upper and lowercase letter, one number, and one punctuation. If you don't include this switch, the password contains at least one of every character type.
+            :param secret_string_template: A template that the generated string must match. When you make a change to this property, a new secret version is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_secretsmanager as secretsmanager
+                
+                generate_secret_string_property = secretsmanager.CfnSecret.GenerateSecretStringProperty(
+                    exclude_characters="excludeCharacters",
+                    exclude_lowercase=False,
+                    exclude_numbers=False,
+                    exclude_punctuation=False,
+                    exclude_uppercase=False,
+                    generate_string_key="generateStringKey",
+                    include_space=False,
+                    password_length=123,
+                    require_each_included_type=False,
+                    secret_string_template="secretStringTemplate"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af)
+                check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
+                check_type(argname="argument exclude_lowercase", value=exclude_lowercase, expected_type=type_hints["exclude_lowercase"])
+                check_type(argname="argument exclude_numbers", value=exclude_numbers, expected_type=type_hints["exclude_numbers"])
+                check_type(argname="argument exclude_punctuation", value=exclude_punctuation, expected_type=type_hints["exclude_punctuation"])
+                check_type(argname="argument exclude_uppercase", value=exclude_uppercase, expected_type=type_hints["exclude_uppercase"])
+                check_type(argname="argument generate_string_key", value=generate_string_key, expected_type=type_hints["generate_string_key"])
+                check_type(argname="argument include_space", value=include_space, expected_type=type_hints["include_space"])
+                check_type(argname="argument password_length", value=password_length, expected_type=type_hints["password_length"])
+                check_type(argname="argument require_each_included_type", value=require_each_included_type, expected_type=type_hints["require_each_included_type"])
+                check_type(argname="argument secret_string_template", value=secret_string_template, expected_type=type_hints["secret_string_template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if exclude_characters is not None:
+                self._values["exclude_characters"] = exclude_characters
+            if exclude_lowercase is not None:
+                self._values["exclude_lowercase"] = exclude_lowercase
+            if exclude_numbers is not None:
+                self._values["exclude_numbers"] = exclude_numbers
+            if exclude_punctuation is not None:
+                self._values["exclude_punctuation"] = exclude_punctuation
+            if exclude_uppercase is not None:
+                self._values["exclude_uppercase"] = exclude_uppercase
+            if generate_string_key is not None:
+                self._values["generate_string_key"] = generate_string_key
+            if include_space is not None:
+                self._values["include_space"] = include_space
+            if password_length is not None:
+                self._values["password_length"] = password_length
+            if require_each_included_type is not None:
+                self._values["require_each_included_type"] = require_each_included_type
+            if secret_string_template is not None:
+                self._values["secret_string_template"] = secret_string_template
+
+        @builtins.property
+        def exclude_characters(self) -> typing.Optional[builtins.str]:
+            '''A string of the characters that you don't want in the password.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludecharacters
+            '''
+            result = self._values.get("exclude_characters")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def exclude_lowercase(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to exclude lowercase letters from the password.
+
+            If you don't include this switch, the password can contain lowercase letters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludelowercase
+            '''
+            result = self._values.get("exclude_lowercase")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def exclude_numbers(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to exclude numbers from the password.
+
+            If you don't include this switch, the password can contain numbers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludenumbers
+            '''
+            result = self._values.get("exclude_numbers")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def exclude_punctuation(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to exclude the following punctuation characters from the password: `!
+
+            " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ `` { | } ~`` . If you don't include this switch, the password can contain punctuation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludepunctuation
+            '''
+            result = self._values.get("exclude_punctuation")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def exclude_uppercase(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to exclude uppercase letters from the password.
+
+            If you don't include this switch, the password can contain uppercase letters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludeuppercase
+            '''
+            result = self._values.get("exclude_uppercase")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def generate_string_key(self) -> typing.Optional[builtins.str]:
+            '''The JSON key name for the key/value pair, where the value is the generated password.
+
+            This pair is added to the JSON structure specified by the ``SecretStringTemplate`` parameter. If you specify this parameter, then you must also specify ``SecretStringTemplate`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-generatestringkey
+            '''
+            result = self._values.get("generate_string_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def include_space(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to include the space character.
+
+            If you include this switch, the password can contain space characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-includespace
+            '''
+            result = self._values.get("include_space")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def password_length(self) -> typing.Optional[jsii.Number]:
+            '''The length of the password.
+
+            If you don't include this parameter, the default length is 32 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-passwordlength
+            '''
+            result = self._values.get("password_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def require_each_included_type(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether to include at least one upper and lowercase letter, one number, and one punctuation.
+
+            If you don't include this switch, the password contains at least one of every character type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-requireeachincludedtype
+            '''
+            result = self._values.get("require_each_included_type")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def secret_string_template(self) -> typing.Optional[builtins.str]:
+            '''A template that the generated string must match.
+
+            When you make a change to this property, a new secret version is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-secretstringtemplate
+            '''
+            result = self._values.get("secret_string_template")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GenerateSecretStringProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret.ReplicaRegionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"region": "region", "kms_key_id": "kmsKeyId"},
+    )
+    class ReplicaRegionProperty:
+        def __init__(
+            self,
+            *,
+            region: builtins.str,
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
+
+            :param region: A string that represents a ``Region`` , for example "us-east-1".
+            :param kms_key_id: The ARN, key ID, or alias of the KMS key to encrypt the secret. If you don't include this field, Secrets Manager uses ``aws/secretsmanager`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_secretsmanager as secretsmanager
+                
+                replica_region_property = secretsmanager.CfnSecret.ReplicaRegionProperty(
+                    region="region",
+                
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region": region,
+            }
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''A string that represents a ``Region`` , for example "us-east-1".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html#cfn-secretsmanager-secret-replicaregion-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The ARN, key ID, or alias of the KMS key to encrypt the secret.
+
+            If you don't include this field, Secrets Manager uses ``aws/secretsmanager`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-replicaregion.html#cfn-secretsmanager-secret-replicaregion-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaRegionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ISecretTargetAttachmentRef)
+class CfnSecretTargetAttachment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecretTargetAttachment",
+):
+    '''The ``AWS::SecretsManager::SecretTargetAttachment`` resource completes the final link between a Secrets Manager secret and the associated database by adding the database connection information to the secret JSON.
+
+    If you want to turn on automatic rotation for a database credential secret, the secret must contain the database connection information. For more information, see `JSON structure of Secrets Manager database credential secrets <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_secret_json_structure.html>`_ .
+
+    A single secret resource can only have one target attached to it.
+
+    When you remove a ``SecretTargetAttachment`` from a stack, Secrets Manager removes the database connection information from the secret with a ``PutSecretValue`` call.
+
+    For Amazon RDS master user credentials, see `AWS::RDS::DBCluster MasterUserSecret <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-masterusersecret.html>`_ .
+
+    For Amazon Redshift admin user credentials, see `AWS::Redshift::Cluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-cluster.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secrettargetattachment.html
+    :cloudformationResource: AWS::SecretsManager::SecretTargetAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_secretsmanager as secretsmanager
+        
+        cfn_secret_target_attachment = secretsmanager.CfnSecretTargetAttachment(self, "MyCfnSecretTargetAttachment",
+            secret_id="secretId",
+            target_id="targetId",
+            target_type="targetType"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        secret_id: builtins.str,
+        target_id: builtins.str,
+        target_type: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param secret_id: The ARN or name of the secret. To reference a secret also created in this template, use the see `Ref <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html>`_ function with the secret's logical ID. This field is unique for each target attachment definition.
+        :param target_id: The ID of the database or cluster.
+        :param target_type: A string that defines the type of service or database associated with the secret. This value instructs Secrets Manager how to update the secret with the details of the service or database. This value must be one of the following: - AWS::RDS::DBInstance - AWS::RDS::DBCluster - AWS::Redshift::Cluster - AWS::RedshiftServerless::Namespace - AWS::DocDB::DBInstance - AWS::DocDB::DBCluster - AWS::DocDBElastic::Cluster
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSecretTargetAttachmentProps(
+            secret_id=secret_id, target_id=target_id, target_type=target_type
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretTargetAttachmentRef")
+    def secret_target_attachment_ref(self) -> SecretTargetAttachmentReference:
+        '''A reference to a SecretTargetAttachment resource.'''
+        return typing.cast(SecretTargetAttachmentReference, jsii.get(self, "secretTargetAttachmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretId")
+    def secret_id(self) -> builtins.str:
+        '''The ARN or name of the secret.'''
+        return typing.cast(builtins.str, jsii.get(self, "secretId"))
+
+    @secret_id.setter
+    def secret_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetId")
+    def target_id(self) -> builtins.str:
+        '''The ID of the database or cluster.'''
+        return typing.cast(builtins.str, jsii.get(self, "targetId"))
+
+    @target_id.setter
+    def target_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetType")
+    def target_type(self) -> builtins.str:
+        '''A string that defines the type of service or database associated with the secret.'''
+        return typing.cast(builtins.str, jsii.get(self, "targetType"))
+
+    @target_type.setter
+    def target_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -6200,20 +6583,27 @@ __all__ = [
     "CfnSecretTargetAttachmentProps",
     "HostedRotation",
     "HostedRotationType",
+    "IResourcePolicyRef",
+    "IRotationScheduleRef",
     "ISecret",
     "ISecretAttachmentTarget",
+    "ISecretRef",
     "ISecretTargetAttachment",
+    "ISecretTargetAttachmentRef",
     "MultiUserHostedRotationOptions",
     "ReplicaRegion",
     "ResourcePolicy",
     "ResourcePolicyProps",
+    "ResourcePolicyReference",
     "RotationSchedule",
     "RotationScheduleOptions",
     "RotationScheduleProps",
+    "RotationScheduleReference",
     "Secret",
     "SecretAttachmentTargetProps",
     "SecretAttributes",
     "SecretProps",
+    "SecretReference",
     "SecretRotation",
     "SecretRotationApplication",
     "SecretRotationApplicationOptions",
@@ -6222,6 +6612,7 @@ __all__ = [
     "SecretStringValueBeta1",
     "SecretTargetAttachment",
     "SecretTargetAttachmentProps",
+    "SecretTargetAttachmentReference",
     "SingleUserHostedRotationOptions",
 ]
 
@@ -6234,133 +6625,11 @@ def _typecheckingstub__26051fb14253b89a9ad79ff934756849725241c73f7275a29aa71dd25
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    resource_policy: typing.Any,
-    secret_id: builtins.str,
-    block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__402bf401489ba911958d39c7ca9c4b2e953151c4170a31191e7db45ac77e29b5(
     *,
     resource_policy: typing.Any,
     secret_id: builtins.str,
     block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    secret_id: builtins.str,
-    hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    rotation_lambda_arn: typing.Optional[builtins.str] = None,
-    rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.HostedRotationLambdaProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.RotationRulesProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254(
-    *,
-    rotation_type: builtins.str,
-    exclude_characters: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    master_secret_arn: typing.Optional[builtins.str] = None,
-    master_secret_kms_key_arn: typing.Optional[builtins.str] = None,
-    rotation_lambda_name: typing.Optional[builtins.str] = None,
-    runtime: typing.Optional[builtins.str] = None,
-    superuser_secret_arn: typing.Optional[builtins.str] = None,
-    superuser_secret_kms_key_arn: typing.Optional[builtins.str] = None,
-    vpc_security_group_ids: typing.Optional[builtins.str] = None,
-    vpc_subnet_ids: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736(
-    *,
-    automatically_after_days: typing.Optional[jsii.Number] = None,
-    duration: typing.Optional[builtins.str] = None,
-    schedule_expression: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6376,99 +6645,6 @@ def _typecheckingstub__ceb941109ded6374b3623fce5a39b1744d18841728c64d4e5f2e3941d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    secret_string: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecret.GenerateSecretStringProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecret.ReplicaRegionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af(
-    *,
-    exclude_characters: typing.Optional[builtins.str] = None,
-    exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    generate_string_key: typing.Optional[builtins.str] = None,
-    include_space: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    password_length: typing.Optional[jsii.Number] = None,
-    require_each_included_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    secret_string_template: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156(
-    *,
-    region: builtins.str,
-    kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__022fe4500a72a14309ab1a3b32c45d84b045a2044531ddfa942aeb33ff07e3e0(
     *,
     description: typing.Optional[builtins.str] = None,
@@ -6478,47 +6654,6 @@ def _typecheckingstub__022fe4500a72a14309ab1a3b32c45d84b045a2044531ddfa942aeb33f
     replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     secret_string: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    secret_id: builtins.str,
-    target_id: builtins.str,
-    target_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c(
-    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6605,6 +6740,13 @@ def _typecheckingstub__8bb0c2c358f2e7cee0f337102777f2c237bc4b0ecdf9e23f36007f188
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__319d7c739e68cd16ed8385dac58acc61a2bee3029b0a083cb81f8add7b132a3a(
+    *,
+    resource_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e7be996bb7c10a7caab6bbe40f3016c01a597eb3d6518b283a1aa9ef653a1166(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6635,6 +6777,13 @@ def _typecheckingstub__3749bff52738c93b80af6215fc1cedcacfd47f4bbaff3952754198447
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
     rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
     secret: ISecret,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1da9fd697319bca36b4f45a92efe4ac9a521120ec98ec3e65d526106cc619662(
+    *,
+    rotation_schedule_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6699,7 +6848,7 @@ def _typecheckingstub__37cd8e0754be5527a0ad4fee26cf19dad664499b08ffe7c9cc666fc3d
 
 def _typecheckingstub__fe1b065328cd9fa87e194c0b7fb09715a9775d0324ba830c43b9528fc26bbeed(
     region: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6774,6 +6923,13 @@ def _typecheckingstub__07a06b9874f5819bbae11a60283c0f89d49d47a411bd8d4d98f22dece
     secret_object_value: typing.Optional[typing.Mapping[builtins.str, _SecretValue_3dd0ddae]] = None,
     secret_string_beta1: typing.Optional[SecretStringValueBeta1] = None,
     secret_string_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5cb068f12857eea208b9103a0fec21f63cc9ed091be72be533e4ca09fd10068(
+    *,
+    secret_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6938,6 +7094,13 @@ def _typecheckingstub__1823fc5244355421b669b2e86397d1ce03b7167fd9ae9095651d9429d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fc58157ebe3d5d37f0fbb3b87dea1e69d073585b653b095eb20ea793eed055ad(
+    *,
+    secret_target_attachment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bdc66defbdab3841ae397287a19489348693b83ef245c79f7f3b6ae880d7bfd1(
     *,
     exclude_characters: typing.Optional[builtins.str] = None,
@@ -6945,6 +7108,262 @@ def _typecheckingstub__bdc66defbdab3841ae397287a19489348693b83ef245c79f7f3b6ae88
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_policy: typing.Any,
+    secret_id: builtins.str,
+    block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    secret_id: builtins.str,
+    hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    rotation_lambda_arn: typing.Optional[builtins.str] = None,
+    rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.HostedRotationLambdaProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.RotationRulesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254(
+    *,
+    rotation_type: builtins.str,
+    exclude_characters: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    master_secret_arn: typing.Optional[builtins.str] = None,
+    master_secret_kms_key_arn: typing.Optional[builtins.str] = None,
+    rotation_lambda_name: typing.Optional[builtins.str] = None,
+    runtime: typing.Optional[builtins.str] = None,
+    superuser_secret_arn: typing.Optional[builtins.str] = None,
+    superuser_secret_kms_key_arn: typing.Optional[builtins.str] = None,
+    vpc_security_group_ids: typing.Optional[builtins.str] = None,
+    vpc_subnet_ids: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736(
+    *,
+    automatically_after_days: typing.Optional[jsii.Number] = None,
+    duration: typing.Optional[builtins.str] = None,
+    schedule_expression: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    secret_string: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecret.GenerateSecretStringProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecret.ReplicaRegionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af(
+    *,
+    exclude_characters: typing.Optional[builtins.str] = None,
+    exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    exclude_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    generate_string_key: typing.Optional[builtins.str] = None,
+    include_space: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    password_length: typing.Optional[jsii.Number] = None,
+    require_each_included_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    secret_string_template: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156(
+    *,
+    region: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    secret_id: builtins.str,
+    target_id: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,10 +1,8 @@
 import click
 
 from adam.commands.command import Command
-from adam.commands.command_helpers import ClusterCommandHelper
 from adam.commands.deploy.undeploy_frontend import UndeployFrontend
 from adam.commands.deploy.undeploy_pod import UndeployPod
-from .deploy_frontend import DeployFrontend
 from adam.repl_state import ReplState
 from adam.utils import lines_to_tabular, log, log2
 

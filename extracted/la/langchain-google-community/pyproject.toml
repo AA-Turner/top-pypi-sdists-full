@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-google-community"
-version = "2.0.8"
+version = "2.0.9"
 description = "An integration package connecting miscellaneous Google's products and LangChain"
 authors = []
 requires-python = ">=3.9"

@@ -70,7 +70,2605 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnDetectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "enable": "enable",
+        "data_sources": "dataSources",
+        "features": "features",
+        "finding_publishing_frequency": "findingPublishingFrequency",
+        "tags": "tags",
+    },
+)
+class CfnDetectorProps:
+    def __init__(
+        self,
+        *,
+        enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetector.CFNDataSourceConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetector.CFNFeatureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        finding_publishing_frequency: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnDetector.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDetector``.
+
+        :param enable: Specifies whether the detector is to be enabled on creation.
+        :param data_sources: Describes which data sources will be enabled for the detector.
+        :param features: A list of features that will be configured for the detector.
+        :param finding_publishing_frequency: Specifies how frequently updated findings are exported.
+        :param tags: Specifies tags added to a new detector resource. Each tag consists of a key and an optional value, both of which you define. Currently, support is available only for creating and deleting a tag. No support exists for updating the tags. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_detector_props = guardduty.CfnDetectorProps(
+                enable=False,
+            
+                # the properties below are optional
+                data_sources=guardduty.CfnDetector.CFNDataSourceConfigurationsProperty(
+                    kubernetes=guardduty.CfnDetector.CFNKubernetesConfigurationProperty(
+                        audit_logs=guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
+                            enable=False
+                        )
+                    ),
+                    malware_protection=guardduty.CfnDetector.CFNMalwareProtectionConfigurationProperty(
+                        scan_ec2_instance_with_findings=guardduty.CfnDetector.CFNScanEc2InstanceWithFindingsConfigurationProperty(
+                            ebs_volumes=False
+                        )
+                    ),
+                    s3_logs=guardduty.CfnDetector.CFNS3LogsConfigurationProperty(
+                        enable=False
+                    )
+                ),
+                features=[guardduty.CfnDetector.CFNFeatureConfigurationProperty(
+                    name="name",
+                    status="status",
+            
+                    # the properties below are optional
+                    additional_configuration=[guardduty.CfnDetector.CFNFeatureAdditionalConfigurationProperty(
+                        name="name",
+                        status="status"
+                    )]
+                )],
+                finding_publishing_frequency="findingPublishingFrequency",
+                tags=[guardduty.CfnDetector.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3914f92ec13130f6437ebb8077c96e2e1592d547cc445617fe4957f629b5cb3c)
+            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
+            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
+            check_type(argname="argument features", value=features, expected_type=type_hints["features"])
+            check_type(argname="argument finding_publishing_frequency", value=finding_publishing_frequency, expected_type=type_hints["finding_publishing_frequency"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enable": enable,
+        }
+        if data_sources is not None:
+            self._values["data_sources"] = data_sources
+        if features is not None:
+            self._values["features"] = features
+        if finding_publishing_frequency is not None:
+            self._values["finding_publishing_frequency"] = finding_publishing_frequency
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def enable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Specifies whether the detector is to be enabled on creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-enable
+        '''
+        result = self._values.get("enable")
+        assert result is not None, "Required property 'enable' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def data_sources(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDetector.CFNDataSourceConfigurationsProperty"]]:
+        '''Describes which data sources will be enabled for the detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-datasources
+        '''
+        result = self._values.get("data_sources")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDetector.CFNDataSourceConfigurationsProperty"]], result)
+
+    @builtins.property
+    def features(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.CFNFeatureConfigurationProperty"]]]]:
+        '''A list of features that will be configured for the detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-features
+        '''
+        result = self._values.get("features")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.CFNFeatureConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def finding_publishing_frequency(self) -> typing.Optional[builtins.str]:
+        '''Specifies how frequently updated findings are exported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-findingpublishingfrequency
+        '''
+        result = self._values.get("finding_publishing_frequency")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnDetector.TagItemProperty"]]:
+        '''Specifies tags added to a new detector resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        Currently, support is available only for creating and deleting a tag. No support exists for updating the tags.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnDetector.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDetectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "finding_criteria": "findingCriteria",
+        "name": "name",
+        "action": "action",
+        "description": "description",
+        "rank": "rank",
+        "tags": "tags",
+    },
+)
+class CfnFilterProps:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.FindingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        action: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        rank: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFilter``.
+
+        :param detector_id: The detector ID associated with the GuardDuty account for which you want to create a filter. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param finding_criteria: Represents the criteria to be used in the filter for querying findings.
+        :param name: The name of the filter. Valid characters include period (.), underscore (_), dash (-), and alphanumeric characters. A whitespace is considered to be an invalid character.
+        :param action: Specifies the action that is to be applied to the findings that match the filter.
+        :param description: The description of the filter. Valid characters include alphanumeric characters, and special characters such as hyphen, period, colon, underscore, parentheses ( ``{ }`` , ``[ ]`` , and ``( )`` ), forward slash, horizontal tab, vertical tab, newline, form feed, return, and whitespace.
+        :param rank: Specifies the position of the filter in the list of current filters. Also specifies the order in which this filter is applied to the findings. The minimum value for this property is 1 and the maximum is 100. By default, filters may not be created in the same order as they are ranked. To ensure that the filters are created in the expected order, you can use an optional attribute, `DependsOn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ , with the following syntax: ``"DependsOn":[ "ObjectName" ]`` .
+        :param tags: The tags to be added to a new filter resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            # criterion: Any
+            
+            cfn_filter_props = guardduty.CfnFilterProps(
+                detector_id="detectorId",
+                finding_criteria=guardduty.CfnFilter.FindingCriteriaProperty(
+                    criterion=criterion,
+                    item_type=guardduty.CfnFilter.ConditionProperty(
+                        eq=["eq"],
+                        equal_to=["equalTo"],
+                        greater_than=123,
+                        greater_than_or_equal=123,
+                        gt=123,
+                        gte=123,
+                        less_than=123,
+                        less_than_or_equal=123,
+                        lt=123,
+                        lte=123,
+                        neq=["neq"],
+                        not_equals=["notEquals"]
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                action="action",
+                description="description",
+                rank=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f44ad794e7dbae18bc70d670d096dac3d980dc5e20e5c9703013ddb79dd0e03)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument finding_criteria", value=finding_criteria, expected_type=type_hints["finding_criteria"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rank", value=rank, expected_type=type_hints["rank"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "finding_criteria": finding_criteria,
+            "name": name,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if description is not None:
+            self._values["description"] = description
+        if rank is not None:
+            self._values["rank"] = rank
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The detector ID associated with the GuardDuty account for which you want to create a filter.
+
+        To find the ``detectorId`` in the current Region, see the
+        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-detectorid
+        '''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def finding_criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnFilter.FindingCriteriaProperty"]:
+        '''Represents the criteria to be used in the filter for querying findings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-findingcriteria
+        '''
+        result = self._values.get("finding_criteria")
+        assert result is not None, "Required property 'finding_criteria' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFilter.FindingCriteriaProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the filter.
+
+        Valid characters include period (.), underscore (_), dash (-), and alphanumeric characters. A whitespace is considered to be an invalid character.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action(self) -> typing.Optional[builtins.str]:
+        '''Specifies the action that is to be applied to the findings that match the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-action
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the filter.
+
+        Valid characters include alphanumeric characters, and special characters such as hyphen, period, colon, underscore, parentheses ( ``{ }`` , ``[ ]`` , and ``( )`` ), forward slash, horizontal tab, vertical tab, newline, form feed, return, and whitespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rank(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the position of the filter in the list of current filters.
+
+        Also specifies the order in which this filter is applied to the findings. The minimum value for this property is 1 and the maximum is 100.
+
+        By default, filters may not be created in the same order as they are ranked. To ensure that the filters are created in the expected order, you can use an optional attribute, `DependsOn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ , with the following syntax: ``"DependsOn":[ "ObjectName" ]`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-rank
+        '''
+        result = self._values.get("rank")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be added to a new filter resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnIPSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnIPSetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIPSet``.
+
+        :param format: The format of the file that contains the IPSet. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the IPSet.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create an IPSet. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
+        :param name: The user-friendly name to identify the IPSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_iPSet_props = guardduty.CfnIPSetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f47aa340c89b95bf1878c9cb7463920b568c23940ad283e6f2c2bb481191ff38)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''The format of the file that contains the IPSet.
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''The URI of the file that contains the IPSet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID of the detector of the GuardDuty account for which you want to create an IPSet.
+
+        To find the ``detectorId`` in the current Region, see the
+        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name to identify the IPSet.
+
+        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be added to a new threat entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIPSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnMalwareProtectionPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "protected_resource": "protectedResource",
+        "role": "role",
+        "actions": "actions",
+        "tags": "tags",
+    },
+)
+class CfnMalwareProtectionPlanProps:
+    def __init__(
+        self,
+        *,
+        protected_resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMalwareProtectionPlan.CFNProtectedResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        role: builtins.str,
+        actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMalwareProtectionPlan.CFNActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnMalwareProtectionPlan.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMalwareProtectionPlan``.
+
+        :param protected_resource: Information about the protected resource. Presently, ``S3Bucket`` is the only supported protected resource.
+        :param role: Amazon Resource Name (ARN) of the IAM role that includes the permissions required to scan and (optionally) add tags to the associated protected resource. To find the ARN of your IAM role, go to the IAM console, and select the role name for details.
+        :param actions: Specifies the action that is to be applied to the Malware Protection plan resource.
+        :param tags: The tags to be added to the created Malware Protection plan resource. Each tag consists of a key and an optional value, both of which you need to specify.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_malware_protection_plan_props = guardduty.CfnMalwareProtectionPlanProps(
+                protected_resource=guardduty.CfnMalwareProtectionPlan.CFNProtectedResourceProperty(
+                    s3_bucket=guardduty.CfnMalwareProtectionPlan.S3BucketProperty(
+                        bucket_name="bucketName",
+                        object_prefixes=["objectPrefixes"]
+                    )
+                ),
+                role="role",
+            
+                # the properties below are optional
+                actions=guardduty.CfnMalwareProtectionPlan.CFNActionsProperty(
+                    tagging=guardduty.CfnMalwareProtectionPlan.CFNTaggingProperty(
+                        status="status"
+                    )
+                ),
+                tags=[guardduty.CfnMalwareProtectionPlan.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82e43dbe3124ce5f5e04970117a0d20d3ccdfd803e79608a9dc049755c802f5c)
+            check_type(argname="argument protected_resource", value=protected_resource, expected_type=type_hints["protected_resource"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "protected_resource": protected_resource,
+            "role": role,
+        }
+        if actions is not None:
+            self._values["actions"] = actions
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def protected_resource(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMalwareProtectionPlan.CFNProtectedResourceProperty"]:
+        '''Information about the protected resource.
+
+        Presently, ``S3Bucket`` is the only supported protected resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-protectedresource
+        '''
+        result = self._values.get("protected_resource")
+        assert result is not None, "Required property 'protected_resource' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMalwareProtectionPlan.CFNProtectedResourceProperty"], result)
+
+    @builtins.property
+    def role(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the IAM role that includes the permissions required to scan and (optionally) add tags to the associated protected resource.
+
+        To find the ARN of your IAM role, go to the IAM console, and select the role name for details.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-role
+        '''
+        result = self._values.get("role")
+        assert result is not None, "Required property 'role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMalwareProtectionPlan.CFNActionsProperty"]]:
+        '''Specifies the action that is to be applied to the Malware Protection plan resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-actions
+        '''
+        result = self._values.get("actions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMalwareProtectionPlan.CFNActionsProperty"]], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnMalwareProtectionPlan.TagItemProperty"]]:
+        '''The tags to be added to the created Malware Protection plan resource.
+
+        Each tag consists of a key and an optional value, both of which you need to specify.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnMalwareProtectionPlan.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMalwareProtectionPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnMasterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "master_id": "masterId",
+        "invitation_id": "invitationId",
+    },
+)
+class CfnMasterProps:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        master_id: builtins.str,
+        invitation_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMaster``.
+
+        :param detector_id: The unique ID of the detector of the GuardDuty member account. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param master_id: The AWS account ID of the account designated as the GuardDuty administrator account.
+        :param invitation_id: The ID of the invitation that is sent to the account designated as a member account. You can find the invitation ID by running the `ListInvitations <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListInvitations.html>`_ in the *GuardDuty API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_master_props = guardduty.CfnMasterProps(
+                detector_id="detectorId",
+                master_id="masterId",
+            
+                # the properties below are optional
+                invitation_id="invitationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e775fa833f1198c34b0f7ed2c1b1b0d25c6dfb50b70659b53e24aa8129f5a35)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument master_id", value=master_id, expected_type=type_hints["master_id"])
+            check_type(argname="argument invitation_id", value=invitation_id, expected_type=type_hints["invitation_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "master_id": master_id,
+        }
+        if invitation_id is not None:
+            self._values["invitation_id"] = invitation_id
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The unique ID of the detector of the GuardDuty member account.
+
+        To find the ``detectorId`` in the current Region, see the
+        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-detectorid
+        '''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def master_id(self) -> builtins.str:
+        '''The AWS account ID of the account designated as the GuardDuty administrator account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-masterid
+        '''
+        result = self._values.get("master_id")
+        assert result is not None, "Required property 'master_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def invitation_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the invitation that is sent to the account designated as a member account.
+
+        You can find the invitation ID by running the `ListInvitations <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListInvitations.html>`_ in the *GuardDuty API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-invitationid
+        '''
+        result = self._values.get("invitation_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMasterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnMemberProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "email": "email",
+        "detector_id": "detectorId",
+        "disable_email_notification": "disableEmailNotification",
+        "member_id": "memberId",
+        "message": "message",
+        "status": "status",
+    },
+)
+class CfnMemberProps:
+    def __init__(
+        self,
+        *,
+        email: builtins.str,
+        detector_id: typing.Optional[builtins.str] = None,
+        disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        member_id: typing.Optional[builtins.str] = None,
+        message: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMember``.
+
+        :param email: The email address associated with the member account.
+        :param detector_id: The ID of the detector associated with the GuardDuty service to add the member to.
+        :param disable_email_notification: Specifies whether or not to disable email notification for the member account that you invite.
+        :param member_id: The AWS account ID of the account to designate as a member.
+        :param message: The invitation message that you want to send to the accounts that you're inviting to GuardDuty as members.
+        :param status: You can use the ``Status`` property to update the status of the relationship between the member account and its administrator account. Valid values are ``Created`` and ``Invited`` when using an ``AWS::GuardDuty::Member`` resource. If the value for this property is not provided or set to ``Created`` , a member account is created but not invited. If the value of this property is set to ``Invited`` , a member account is created and invited.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_member_props = guardduty.CfnMemberProps(
+                email="email",
+            
+                # the properties below are optional
+                detector_id="detectorId",
+                disable_email_notification=False,
+                member_id="memberId",
+                message="message",
+                status="status"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__707033ab8b51a1c3cb64594f2a7e13ff03829ca7aed824af4d8509b6302ad443)
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument disable_email_notification", value=disable_email_notification, expected_type=type_hints["disable_email_notification"])
+            check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email": email,
+        }
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if disable_email_notification is not None:
+            self._values["disable_email_notification"] = disable_email_notification
+        if member_id is not None:
+            self._values["member_id"] = member_id
+        if message is not None:
+            self._values["message"] = message
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def email(self) -> builtins.str:
+        '''The email address associated with the member account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-email
+        '''
+        result = self._values.get("email")
+        assert result is not None, "Required property 'email' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the detector associated with the GuardDuty service to add the member to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_email_notification(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether or not to disable email notification for the member account that you invite.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-disableemailnotification
+        '''
+        result = self._values.get("disable_email_notification")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def member_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID of the account to designate as a member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-memberid
+        '''
+        result = self._values.get("member_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def message(self) -> typing.Optional[builtins.str]:
+        '''The invitation message that you want to send to the accounts that you're inviting to GuardDuty as members.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-message
+        '''
+        result = self._values.get("message")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''You can use the ``Status`` property to update the status of the relationship between the member account and its administrator account.
+
+        Valid values are ``Created`` and ``Invited`` when using an ``AWS::GuardDuty::Member`` resource. If the value for this property is not provided or set to ``Created`` , a member account is created but not invited. If the value of this property is set to ``Invited`` , a member account is created and invited.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMemberProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnPublishingDestinationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination_properties": "destinationProperties",
+        "destination_type": "destinationType",
+        "detector_id": "detectorId",
+        "tags": "tags",
+    },
+)
+class CfnPublishingDestinationProps:
+    def __init__(
+        self,
+        *,
+        destination_properties: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPublishingDestination.CFNDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
+        destination_type: builtins.str,
+        detector_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnPublishingDestination.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPublishingDestination``.
+
+        :param destination_properties: Contains the Amazon Resource Name (ARN) of the resource to publish to, such as an S3 bucket, and the ARN of the KMS key to use to encrypt published findings.
+        :param destination_type: The type of publishing destination. GuardDuty supports Amazon S3 buckets as a publishing destination.
+        :param detector_id: The ID of the GuardDuty detector where the publishing destination exists.
+        :param tags: Describes a tag.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_publishing_destination_props = guardduty.CfnPublishingDestinationProps(
+                destination_properties=guardduty.CfnPublishingDestination.CFNDestinationPropertiesProperty(
+                    destination_arn="destinationArn",
+                    kms_key_arn="kmsKeyArn"
+                ),
+                destination_type="destinationType",
+                detector_id="detectorId",
+            
+                # the properties below are optional
+                tags=[guardduty.CfnPublishingDestination.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5035cd8908ac8fcff142733ecf98576b3480f30c7c0fd250caa41a83b01ce7ff)
+            check_type(argname="argument destination_properties", value=destination_properties, expected_type=type_hints["destination_properties"])
+            check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_properties": destination_properties,
+            "destination_type": destination_type,
+            "detector_id": detector_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination_properties(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnPublishingDestination.CFNDestinationPropertiesProperty"]:
+        '''Contains the Amazon Resource Name (ARN) of the resource to publish to, such as an S3 bucket, and the ARN of the KMS key to use to encrypt published findings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-destinationproperties
+        '''
+        result = self._values.get("destination_properties")
+        assert result is not None, "Required property 'destination_properties' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPublishingDestination.CFNDestinationPropertiesProperty"], result)
+
+    @builtins.property
+    def destination_type(self) -> builtins.str:
+        '''The type of publishing destination.
+
+        GuardDuty supports Amazon S3 buckets as a publishing destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-destinationtype
+        '''
+        result = self._values.get("destination_type")
+        assert result is not None, "Required property 'destination_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The ID of the GuardDuty detector where the publishing destination exists.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-detectorid
+        '''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnPublishingDestination.TagItemProperty"]]:
+        '''Describes a tag.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnPublishingDestination.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPublishingDestinationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnThreatEntitySetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnThreatEntitySet.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThreatEntitySet``.
+
+        :param format: The format of the file that contains the threat entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the threat entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: The user-friendly name to identify the threat entity set. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_threat_entity_set_props = guardduty.CfnThreatEntitySetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[guardduty.CfnThreatEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''The format of the file that contains the threat entity set.
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''The URI of the file that contains the threat entity set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set.
+
+        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name to identify the threat entity set.
+
+        Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]]:
+        '''The tags to be added to a new threat entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThreatEntitySetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatIntelSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnThreatIntelSetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThreatIntelSet``.
+
+        :param format: The format of the file that contains the ``ThreatIntelSet`` . For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the ThreatIntelSet.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
+        :param name: The user-friendly name to identify the ThreatIntelSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_threat_intel_set_props = guardduty.CfnThreatIntelSetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a5d0bedab8c4fad4ab288ce5a467dbe6a4d07ef2947521b14162f1e7ac218a1)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''The format of the file that contains the ``ThreatIntelSet`` .
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''The URI of the file that contains the ThreatIntelSet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` .
+
+        To find the ``detectorId`` in the current Region, see the
+        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name to identify the ThreatIntelSet.
+
+        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be added to a new threat entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThreatIntelSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnTrustedEntitySetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnTrustedEntitySet.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrustedEntitySet``.
+
+        :param format: The format of the file that contains the trusted entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+        :param location: The URI of the file that contains the trusted entity set.
+        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+        :param name: A user-friendly name to identify the trusted entity set. Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
+        :param tags: The tags to be added to a new trusted entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_trusted_entity_set_props = guardduty.CfnTrustedEntitySetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[guardduty.CfnTrustedEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''The format of the file that contains the trusted entity set.
+
+        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''The URI of the file that contains the trusted entity set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
+
+        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set.
+
+        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
+
+        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name to identify the trusted entity set.
+
+        Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]]:
+        '''The tags to be added to a new trusted entity set resource.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrustedEntitySetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.DetectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_id": "detectorId"},
+)
+class DetectorReference:
+    def __init__(self, *, detector_id: builtins.str) -> None:
+        '''A reference to a Detector resource.
+
+        :param detector_id: The Id of the Detector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            detector_reference = guardduty.DetectorReference(
+                detector_id="detectorId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abc919e1dcac5cae80733bfa5481f1024e5afba7b6103594cb2c7e47542ee435)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The Id of the Detector resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DetectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.FilterReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_id": "detectorId", "filter_name": "filterName"},
+)
+class FilterReference:
+    def __init__(self, *, detector_id: builtins.str, filter_name: builtins.str) -> None:
+        '''A reference to a Filter resource.
+
+        :param detector_id: The DetectorId of the Filter resource.
+        :param filter_name: The Name of the Filter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            filter_reference = guardduty.FilterReference(
+                detector_id="detectorId",
+                filter_name="filterName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39c2c26e5a837591af10c2af9e533637b3f0d5804be7e6c798987975e24919ec)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument filter_name", value=filter_name, expected_type=type_hints["filter_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "filter_name": filter_name,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the Filter resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter_name(self) -> builtins.str:
+        '''The Name of the Filter resource.'''
+        result = self._values.get("filter_name")
+        assert result is not None, "Required property 'filter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FilterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IDetectorRef")
+class IDetectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Detector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''(experimental) A reference to a Detector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDetectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Detector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IDetectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''(experimental) A reference to a Detector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DetectorReference, jsii.get(self, "detectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDetectorRef).__jsii_proxy_class__ = lambda : _IDetectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IFilterRef")
+class IFilterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Filter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> FilterReference:
+        '''(experimental) A reference to a Filter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFilterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Filter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IFilterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> FilterReference:
+        '''(experimental) A reference to a Filter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FilterReference, jsii.get(self, "filterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFilterRef).__jsii_proxy_class__ = lambda : _IFilterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IIPSetRef")
+class IIPSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a IPSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ipSetRef")
+    def ip_set_ref(self) -> "IPSetReference":
+        '''(experimental) A reference to a IPSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIPSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IPSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IIPSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ipSetRef")
+    def ip_set_ref(self) -> "IPSetReference":
+        '''(experimental) A reference to a IPSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IPSetReference", jsii.get(self, "ipSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIPSetRef).__jsii_proxy_class__ = lambda : _IIPSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IMalwareProtectionPlanRef")
+class IMalwareProtectionPlanRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MalwareProtectionPlan.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="malwareProtectionPlanRef")
+    def malware_protection_plan_ref(self) -> "MalwareProtectionPlanReference":
+        '''(experimental) A reference to a MalwareProtectionPlan resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMalwareProtectionPlanRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MalwareProtectionPlan.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IMalwareProtectionPlanRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="malwareProtectionPlanRef")
+    def malware_protection_plan_ref(self) -> "MalwareProtectionPlanReference":
+        '''(experimental) A reference to a MalwareProtectionPlan resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MalwareProtectionPlanReference", jsii.get(self, "malwareProtectionPlanRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMalwareProtectionPlanRef).__jsii_proxy_class__ = lambda : _IMalwareProtectionPlanRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IMasterRef")
+class IMasterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Master.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="masterRef")
+    def master_ref(self) -> "MasterReference":
+        '''(experimental) A reference to a Master resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMasterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Master.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IMasterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="masterRef")
+    def master_ref(self) -> "MasterReference":
+        '''(experimental) A reference to a Master resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MasterReference", jsii.get(self, "masterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMasterRef).__jsii_proxy_class__ = lambda : _IMasterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IMemberRef")
+class IMemberRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Member.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="memberRef")
+    def member_ref(self) -> "MemberReference":
+        '''(experimental) A reference to a Member resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMemberRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Member.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IMemberRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="memberRef")
+    def member_ref(self) -> "MemberReference":
+        '''(experimental) A reference to a Member resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MemberReference", jsii.get(self, "memberRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMemberRef).__jsii_proxy_class__ = lambda : _IMemberRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.IPSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_id": "detectorId", "ip_set_id": "ipSetId"},
+)
+class IPSetReference:
+    def __init__(self, *, detector_id: builtins.str, ip_set_id: builtins.str) -> None:
+        '''A reference to a IPSet resource.
+
+        :param detector_id: The DetectorId of the IPSet resource.
+        :param ip_set_id: The Id of the IPSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            i_pSet_reference = {
+                "detector_id": "detectorId",
+                "ip_set_id": "ipSetId"
+            }
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e8ccc479ae5f6f69cd8f4a5d663b474b57182a76e643fae3dbee835f743c4fc)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument ip_set_id", value=ip_set_id, expected_type=type_hints["ip_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "ip_set_id": ip_set_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the IPSet resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ip_set_id(self) -> builtins.str:
+        '''The Id of the IPSet resource.'''
+        result = self._values.get("ip_set_id")
+        assert result is not None, "Required property 'ip_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IPSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IPublishingDestinationRef")
+class IPublishingDestinationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PublishingDestination.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="publishingDestinationRef")
+    def publishing_destination_ref(self) -> "PublishingDestinationReference":
+        '''(experimental) A reference to a PublishingDestination resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPublishingDestinationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PublishingDestination.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IPublishingDestinationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="publishingDestinationRef")
+    def publishing_destination_ref(self) -> "PublishingDestinationReference":
+        '''(experimental) A reference to a PublishingDestination resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PublishingDestinationReference", jsii.get(self, "publishingDestinationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPublishingDestinationRef).__jsii_proxy_class__ = lambda : _IPublishingDestinationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IThreatEntitySetRef")
+class IThreatEntitySetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ThreatEntitySet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="threatEntitySetRef")
+    def threat_entity_set_ref(self) -> "ThreatEntitySetReference":
+        '''(experimental) A reference to a ThreatEntitySet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThreatEntitySetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThreatEntitySet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IThreatEntitySetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="threatEntitySetRef")
+    def threat_entity_set_ref(self) -> "ThreatEntitySetReference":
+        '''(experimental) A reference to a ThreatEntitySet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThreatEntitySetReference", jsii.get(self, "threatEntitySetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThreatEntitySetRef).__jsii_proxy_class__ = lambda : _IThreatEntitySetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.IThreatIntelSetRef")
+class IThreatIntelSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ThreatIntelSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="threatIntelSetRef")
+    def threat_intel_set_ref(self) -> "ThreatIntelSetReference":
+        '''(experimental) A reference to a ThreatIntelSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThreatIntelSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThreatIntelSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.IThreatIntelSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="threatIntelSetRef")
+    def threat_intel_set_ref(self) -> "ThreatIntelSetReference":
+        '''(experimental) A reference to a ThreatIntelSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThreatIntelSetReference", jsii.get(self, "threatIntelSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThreatIntelSetRef).__jsii_proxy_class__ = lambda : _IThreatIntelSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_guardduty.ITrustedEntitySetRef")
+class ITrustedEntitySetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TrustedEntitySet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedEntitySetRef")
+    def trusted_entity_set_ref(self) -> "TrustedEntitySetReference":
+        '''(experimental) A reference to a TrustedEntitySet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrustedEntitySetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustedEntitySet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_guardduty.ITrustedEntitySetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedEntitySetRef")
+    def trusted_entity_set_ref(self) -> "TrustedEntitySetReference":
+        '''(experimental) A reference to a TrustedEntitySet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrustedEntitySetReference", jsii.get(self, "trustedEntitySetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrustedEntitySetRef).__jsii_proxy_class__ = lambda : _ITrustedEntitySetRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.MalwareProtectionPlanReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "malware_protection_plan_arn": "malwareProtectionPlanArn",
+        "malware_protection_plan_id": "malwareProtectionPlanId",
+    },
+)
+class MalwareProtectionPlanReference:
+    def __init__(
+        self,
+        *,
+        malware_protection_plan_arn: builtins.str,
+        malware_protection_plan_id: builtins.str,
+    ) -> None:
+        '''A reference to a MalwareProtectionPlan resource.
+
+        :param malware_protection_plan_arn: The ARN of the MalwareProtectionPlan resource.
+        :param malware_protection_plan_id: The MalwareProtectionPlanId of the MalwareProtectionPlan resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            malware_protection_plan_reference = guardduty.MalwareProtectionPlanReference(
+                malware_protection_plan_arn="malwareProtectionPlanArn",
+                malware_protection_plan_id="malwareProtectionPlanId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b95b052f12177a07c6709f1109d985eab4fd55bd011c77d80c1bd9e9c1de6216)
+            check_type(argname="argument malware_protection_plan_arn", value=malware_protection_plan_arn, expected_type=type_hints["malware_protection_plan_arn"])
+            check_type(argname="argument malware_protection_plan_id", value=malware_protection_plan_id, expected_type=type_hints["malware_protection_plan_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "malware_protection_plan_arn": malware_protection_plan_arn,
+            "malware_protection_plan_id": malware_protection_plan_id,
+        }
+
+    @builtins.property
+    def malware_protection_plan_arn(self) -> builtins.str:
+        '''The ARN of the MalwareProtectionPlan resource.'''
+        result = self._values.get("malware_protection_plan_arn")
+        assert result is not None, "Required property 'malware_protection_plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def malware_protection_plan_id(self) -> builtins.str:
+        '''The MalwareProtectionPlanId of the MalwareProtectionPlan resource.'''
+        result = self._values.get("malware_protection_plan_id")
+        assert result is not None, "Required property 'malware_protection_plan_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MalwareProtectionPlanReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.MasterReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_id": "detectorId", "master_id": "masterId"},
+)
+class MasterReference:
+    def __init__(self, *, detector_id: builtins.str, master_id: builtins.str) -> None:
+        '''A reference to a Master resource.
+
+        :param detector_id: The DetectorId of the Master resource.
+        :param master_id: The MasterId of the Master resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            master_reference = guardduty.MasterReference(
+                detector_id="detectorId",
+                master_id="masterId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ab1d60825c1a16b6e021da34f7e974458d82151876a10ced51b9f744297b51d)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument master_id", value=master_id, expected_type=type_hints["master_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "master_id": master_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the Master resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def master_id(self) -> builtins.str:
+        '''The MasterId of the Master resource.'''
+        result = self._values.get("master_id")
+        assert result is not None, "Required property 'master_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MasterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.MemberReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_id": "detectorId", "member_id": "memberId"},
+)
+class MemberReference:
+    def __init__(self, *, detector_id: builtins.str, member_id: builtins.str) -> None:
+        '''A reference to a Member resource.
+
+        :param detector_id: The DetectorId of the Member resource.
+        :param member_id: The MemberId of the Member resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            member_reference = guardduty.MemberReference(
+                detector_id="detectorId",
+                member_id="memberId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7fcde74091226a0b70e6a89a61aa46eb4415115bf706906470fda099b10e46c)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "member_id": member_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the Member resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def member_id(self) -> builtins.str:
+        '''The MemberId of the Member resource.'''
+        result = self._values.get("member_id")
+        assert result is not None, "Required property 'member_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MemberReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.PublishingDestinationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "publishing_destination_id": "publishingDestinationId",
+    },
+)
+class PublishingDestinationReference:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        publishing_destination_id: builtins.str,
+    ) -> None:
+        '''A reference to a PublishingDestination resource.
+
+        :param detector_id: The DetectorId of the PublishingDestination resource.
+        :param publishing_destination_id: The Id of the PublishingDestination resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            publishing_destination_reference = guardduty.PublishingDestinationReference(
+                detector_id="detectorId",
+                publishing_destination_id="publishingDestinationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fb5a5ca9dcdbe13e4b3e180f25ba0eb4608a65870b295af9fb5753c28cd9cb5)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument publishing_destination_id", value=publishing_destination_id, expected_type=type_hints["publishing_destination_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "publishing_destination_id": publishing_destination_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the PublishingDestination resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def publishing_destination_id(self) -> builtins.str:
+        '''The Id of the PublishingDestination resource.'''
+        result = self._values.get("publishing_destination_id")
+        assert result is not None, "Required property 'publishing_destination_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PublishingDestinationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.ThreatEntitySetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "threat_entity_set_id": "threatEntitySetId",
+    },
+)
+class ThreatEntitySetReference:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        threat_entity_set_id: builtins.str,
+    ) -> None:
+        '''A reference to a ThreatEntitySet resource.
+
+        :param detector_id: The DetectorId of the ThreatEntitySet resource.
+        :param threat_entity_set_id: The Id of the ThreatEntitySet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            threat_entity_set_reference = guardduty.ThreatEntitySetReference(
+                detector_id="detectorId",
+                threat_entity_set_id="threatEntitySetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79ce0e9458b1ee14ce85ec978e8b9dc86432450edc2c1710ac6bb7855a7d6579)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument threat_entity_set_id", value=threat_entity_set_id, expected_type=type_hints["threat_entity_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "threat_entity_set_id": threat_entity_set_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the ThreatEntitySet resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def threat_entity_set_id(self) -> builtins.str:
+        '''The Id of the ThreatEntitySet resource.'''
+        result = self._values.get("threat_entity_set_id")
+        assert result is not None, "Required property 'threat_entity_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThreatEntitySetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.ThreatIntelSetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "threat_intel_set_id": "threatIntelSetId",
+    },
+)
+class ThreatIntelSetReference:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        threat_intel_set_id: builtins.str,
+    ) -> None:
+        '''A reference to a ThreatIntelSet resource.
+
+        :param detector_id: The DetectorId of the ThreatIntelSet resource.
+        :param threat_intel_set_id: The Id of the ThreatIntelSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            threat_intel_set_reference = guardduty.ThreatIntelSetReference(
+                detector_id="detectorId",
+                threat_intel_set_id="threatIntelSetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37cf52da77a42c1f379ce90f2e9942b1e579765cb8091921e072d4bc8c4add96)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument threat_intel_set_id", value=threat_intel_set_id, expected_type=type_hints["threat_intel_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "threat_intel_set_id": threat_intel_set_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the ThreatIntelSet resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def threat_intel_set_id(self) -> builtins.str:
+        '''The Id of the ThreatIntelSet resource.'''
+        result = self._values.get("threat_intel_set_id")
+        assert result is not None, "Required property 'threat_intel_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThreatIntelSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.TrustedEntitySetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "trusted_entity_set_id": "trustedEntitySetId",
+    },
+)
+class TrustedEntitySetReference:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        trusted_entity_set_id: builtins.str,
+    ) -> None:
+        '''A reference to a TrustedEntitySet resource.
+
+        :param detector_id: The DetectorId of the TrustedEntitySet resource.
+        :param trusted_entity_set_id: The Id of the TrustedEntitySet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            trusted_entity_set_reference = guardduty.TrustedEntitySetReference(
+                detector_id="detectorId",
+                trusted_entity_set_id="trustedEntitySetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38b69a952b36a478dc3e87c42c270f6d79b0cb3e13275259122b4afffb441818)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument trusted_entity_set_id", value=trusted_entity_set_id, expected_type=type_hints["trusted_entity_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "trusted_entity_set_id": trusted_entity_set_id,
+        }
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The DetectorId of the TrustedEntitySet resource.'''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trusted_entity_set_id(self) -> builtins.str:
+        '''The Id of the TrustedEntitySet resource.'''
+        result = self._values.get("trusted_entity_set_id")
+        assert result is not None, "Required property 'trusted_entity_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrustedEntitySetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDetectorRef, _ITaggable_36806126)
 class CfnDetector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -206,6 +2804,12 @@ class CfnDetector(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''A reference to a Detector resource.'''
+        return typing.cast(DetectorReference, jsii.get(self, "detectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -925,168 +3529,7 @@ class CfnDetector(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnDetectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "enable": "enable",
-        "data_sources": "dataSources",
-        "features": "features",
-        "finding_publishing_frequency": "findingPublishingFrequency",
-        "tags": "tags",
-    },
-)
-class CfnDetectorProps:
-    def __init__(
-        self,
-        *,
-        enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNDataSourceConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNFeatureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        finding_publishing_frequency: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnDetector.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDetector``.
-
-        :param enable: Specifies whether the detector is to be enabled on creation.
-        :param data_sources: Describes which data sources will be enabled for the detector.
-        :param features: A list of features that will be configured for the detector.
-        :param finding_publishing_frequency: Specifies how frequently updated findings are exported.
-        :param tags: Specifies tags added to a new detector resource. Each tag consists of a key and an optional value, both of which you define. Currently, support is available only for creating and deleting a tag. No support exists for updating the tags. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_detector_props = guardduty.CfnDetectorProps(
-                enable=False,
-            
-                # the properties below are optional
-                data_sources=guardduty.CfnDetector.CFNDataSourceConfigurationsProperty(
-                    kubernetes=guardduty.CfnDetector.CFNKubernetesConfigurationProperty(
-                        audit_logs=guardduty.CfnDetector.CFNKubernetesAuditLogsConfigurationProperty(
-                            enable=False
-                        )
-                    ),
-                    malware_protection=guardduty.CfnDetector.CFNMalwareProtectionConfigurationProperty(
-                        scan_ec2_instance_with_findings=guardduty.CfnDetector.CFNScanEc2InstanceWithFindingsConfigurationProperty(
-                            ebs_volumes=False
-                        )
-                    ),
-                    s3_logs=guardduty.CfnDetector.CFNS3LogsConfigurationProperty(
-                        enable=False
-                    )
-                ),
-                features=[guardduty.CfnDetector.CFNFeatureConfigurationProperty(
-                    name="name",
-                    status="status",
-            
-                    # the properties below are optional
-                    additional_configuration=[guardduty.CfnDetector.CFNFeatureAdditionalConfigurationProperty(
-                        name="name",
-                        status="status"
-                    )]
-                )],
-                finding_publishing_frequency="findingPublishingFrequency",
-                tags=[guardduty.CfnDetector.TagItemProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3914f92ec13130f6437ebb8077c96e2e1592d547cc445617fe4957f629b5cb3c)
-            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
-            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
-            check_type(argname="argument features", value=features, expected_type=type_hints["features"])
-            check_type(argname="argument finding_publishing_frequency", value=finding_publishing_frequency, expected_type=type_hints["finding_publishing_frequency"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "enable": enable,
-        }
-        if data_sources is not None:
-            self._values["data_sources"] = data_sources
-        if features is not None:
-            self._values["features"] = features
-        if finding_publishing_frequency is not None:
-            self._values["finding_publishing_frequency"] = finding_publishing_frequency
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def enable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Specifies whether the detector is to be enabled on creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-enable
-        '''
-        result = self._values.get("enable")
-        assert result is not None, "Required property 'enable' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def data_sources(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDetector.CFNDataSourceConfigurationsProperty]]:
-        '''Describes which data sources will be enabled for the detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-datasources
-        '''
-        result = self._values.get("data_sources")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDetector.CFNDataSourceConfigurationsProperty]], result)
-
-    @builtins.property
-    def features(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.CFNFeatureConfigurationProperty]]]]:
-        '''A list of features that will be configured for the detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-features
-        '''
-        result = self._values.get("features")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.CFNFeatureConfigurationProperty]]]], result)
-
-    @builtins.property
-    def finding_publishing_frequency(self) -> typing.Optional[builtins.str]:
-        '''Specifies how frequently updated findings are exported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-findingpublishingfrequency
-        '''
-        result = self._values.get("finding_publishing_frequency")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnDetector.TagItemProperty]]:
-        '''Specifies tags added to a new detector resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        Currently, support is available only for creating and deleting a tag. No support exists for updating the tags.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html#cfn-guardduty-detector-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnDetector.TagItemProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDetectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFilterRef, _ITaggable_36806126)
 class CfnFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1212,6 +3655,12 @@ class CfnFilter(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterRef")
+    def filter_ref(self) -> FilterReference:
+        '''A reference to a Filter resource.'''
+        return typing.cast(FilterReference, jsii.get(self, "filterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1746,202 +4195,7 @@ class CfnFilter(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "detector_id": "detectorId",
-        "finding_criteria": "findingCriteria",
-        "name": "name",
-        "action": "action",
-        "description": "description",
-        "rank": "rank",
-        "tags": "tags",
-    },
-)
-class CfnFilterProps:
-    def __init__(
-        self,
-        *,
-        detector_id: builtins.str,
-        finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FindingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        action: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        rank: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFilter``.
-
-        :param detector_id: The detector ID associated with the GuardDuty account for which you want to create a filter. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param finding_criteria: Represents the criteria to be used in the filter for querying findings.
-        :param name: The name of the filter. Valid characters include period (.), underscore (_), dash (-), and alphanumeric characters. A whitespace is considered to be an invalid character.
-        :param action: Specifies the action that is to be applied to the findings that match the filter.
-        :param description: The description of the filter. Valid characters include alphanumeric characters, and special characters such as hyphen, period, colon, underscore, parentheses ( ``{ }`` , ``[ ]`` , and ``( )`` ), forward slash, horizontal tab, vertical tab, newline, form feed, return, and whitespace.
-        :param rank: Specifies the position of the filter in the list of current filters. Also specifies the order in which this filter is applied to the findings. The minimum value for this property is 1 and the maximum is 100. By default, filters may not be created in the same order as they are ranked. To ensure that the filters are created in the expected order, you can use an optional attribute, `DependsOn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ , with the following syntax: ``"DependsOn":[ "ObjectName" ]`` .
-        :param tags: The tags to be added to a new filter resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            # criterion: Any
-            
-            cfn_filter_props = guardduty.CfnFilterProps(
-                detector_id="detectorId",
-                finding_criteria=guardduty.CfnFilter.FindingCriteriaProperty(
-                    criterion=criterion,
-                    item_type=guardduty.CfnFilter.ConditionProperty(
-                        eq=["eq"],
-                        equal_to=["equalTo"],
-                        greater_than=123,
-                        greater_than_or_equal=123,
-                        gt=123,
-                        gte=123,
-                        less_than=123,
-                        less_than_or_equal=123,
-                        lt=123,
-                        lte=123,
-                        neq=["neq"],
-                        not_equals=["notEquals"]
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                action="action",
-                description="description",
-                rank=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f44ad794e7dbae18bc70d670d096dac3d980dc5e20e5c9703013ddb79dd0e03)
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument finding_criteria", value=finding_criteria, expected_type=type_hints["finding_criteria"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument rank", value=rank, expected_type=type_hints["rank"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "detector_id": detector_id,
-            "finding_criteria": finding_criteria,
-            "name": name,
-        }
-        if action is not None:
-            self._values["action"] = action
-        if description is not None:
-            self._values["description"] = description
-        if rank is not None:
-            self._values["rank"] = rank
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def detector_id(self) -> builtins.str:
-        '''The detector ID associated with the GuardDuty account for which you want to create a filter.
-
-        To find the ``detectorId`` in the current Region, see the
-        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-detectorid
-        '''
-        result = self._values.get("detector_id")
-        assert result is not None, "Required property 'detector_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def finding_criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnFilter.FindingCriteriaProperty]:
-        '''Represents the criteria to be used in the filter for querying findings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-findingcriteria
-        '''
-        result = self._values.get("finding_criteria")
-        assert result is not None, "Required property 'finding_criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnFilter.FindingCriteriaProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the filter.
-
-        Valid characters include period (.), underscore (_), dash (-), and alphanumeric characters. A whitespace is considered to be an invalid character.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action(self) -> typing.Optional[builtins.str]:
-        '''Specifies the action that is to be applied to the findings that match the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-action
-        '''
-        result = self._values.get("action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the filter.
-
-        Valid characters include alphanumeric characters, and special characters such as hyphen, period, colon, underscore, parentheses ( ``{ }`` , ``[ ]`` , and ``( )`` ), forward slash, horizontal tab, vertical tab, newline, form feed, return, and whitespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rank(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the position of the filter in the list of current filters.
-
-        Also specifies the order in which this filter is applied to the findings. The minimum value for this property is 1 and the maximum is 100.
-
-        By default, filters may not be created in the same order as they are ranked. To ensure that the filters are created in the expected order, you can use an optional attribute, `DependsOn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ , with the following syntax: ``"DependsOn":[ "ObjectName" ]`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-rank
-        '''
-        result = self._values.get("rank")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new filter resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-filter.html#cfn-guardduty-filter-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IIPSetRef, _ITaggable_36806126)
 class CfnIPSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2063,6 +4317,12 @@ class CfnIPSet(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="ipSetRef")
+    def ip_set_ref(self) -> IPSetReference:
+        '''A reference to a IPSet resource.'''
+        return typing.cast(IPSetReference, jsii.get(self, "ipSetRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -2165,184 +4425,7 @@ class CfnIPSet(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnIPSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "format": "format",
-        "location": "location",
-        "activate": "activate",
-        "detector_id": "detectorId",
-        "expected_bucket_owner": "expectedBucketOwner",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnIPSetProps:
-    def __init__(
-        self,
-        *,
-        format: builtins.str,
-        location: builtins.str,
-        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        detector_id: typing.Optional[builtins.str] = None,
-        expected_bucket_owner: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIPSet``.
-
-        :param format: The format of the file that contains the IPSet. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-        :param location: The URI of the file that contains the IPSet.
-        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
-        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create an IPSet. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: The user-friendly name to identify the IPSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_iPSet_props = guardduty.CfnIPSetProps(
-                format="format",
-                location="location",
-            
-                # the properties below are optional
-                activate=False,
-                detector_id="detectorId",
-                expected_bucket_owner="expectedBucketOwner",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f47aa340c89b95bf1878c9cb7463920b568c23940ad283e6f2c2bb481191ff38)
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "format": format,
-            "location": location,
-        }
-        if activate is not None:
-            self._values["activate"] = activate
-        if detector_id is not None:
-            self._values["detector_id"] = detector_id
-        if expected_bucket_owner is not None:
-            self._values["expected_bucket_owner"] = expected_bucket_owner
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def format(self) -> builtins.str:
-        '''The format of the file that contains the IPSet.
-
-        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-format
-        '''
-        result = self._values.get("format")
-        assert result is not None, "Required property 'format' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location(self) -> builtins.str:
-        '''The URI of the file that contains the IPSet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-location
-        '''
-        result = self._values.get("location")
-        assert result is not None, "Required property 'location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def activate(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
-
-        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-activate
-        '''
-        result = self._values.get("activate")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the detector of the GuardDuty account for which you want to create an IPSet.
-
-        To find the ``detectorId`` in the current Region, see the
-        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-detectorid
-        '''
-        result = self._values.get("detector_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
-
-        When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-expectedbucketowner
-        '''
-        result = self._values.get("expected_bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name to identify the IPSet.
-
-        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new threat entity set resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-ipset.html#cfn-guardduty-ipset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIPSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMalwareProtectionPlanRef, _ITaggableV2_4e6798f8)
 class CfnMalwareProtectionPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2500,6 +4583,12 @@ class CfnMalwareProtectionPlan(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="malwareProtectionPlanRef")
+    def malware_protection_plan_ref(self) -> MalwareProtectionPlanReference:
+        '''A reference to a MalwareProtectionPlan resource.'''
+        return typing.cast(MalwareProtectionPlanReference, jsii.get(self, "malwareProtectionPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="protectedResource")
@@ -2959,140 +5048,7 @@ class CfnMalwareProtectionPlan(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnMalwareProtectionPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "protected_resource": "protectedResource",
-        "role": "role",
-        "actions": "actions",
-        "tags": "tags",
-    },
-)
-class CfnMalwareProtectionPlanProps:
-    def __init__(
-        self,
-        *,
-        protected_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNProtectedResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-        role: builtins.str,
-        actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnMalwareProtectionPlan.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMalwareProtectionPlan``.
-
-        :param protected_resource: Information about the protected resource. Presently, ``S3Bucket`` is the only supported protected resource.
-        :param role: Amazon Resource Name (ARN) of the IAM role that includes the permissions required to scan and (optionally) add tags to the associated protected resource. To find the ARN of your IAM role, go to the IAM console, and select the role name for details.
-        :param actions: Specifies the action that is to be applied to the Malware Protection plan resource.
-        :param tags: The tags to be added to the created Malware Protection plan resource. Each tag consists of a key and an optional value, both of which you need to specify.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_malware_protection_plan_props = guardduty.CfnMalwareProtectionPlanProps(
-                protected_resource=guardduty.CfnMalwareProtectionPlan.CFNProtectedResourceProperty(
-                    s3_bucket=guardduty.CfnMalwareProtectionPlan.S3BucketProperty(
-                        bucket_name="bucketName",
-                        object_prefixes=["objectPrefixes"]
-                    )
-                ),
-                role="role",
-            
-                # the properties below are optional
-                actions=guardduty.CfnMalwareProtectionPlan.CFNActionsProperty(
-                    tagging=guardduty.CfnMalwareProtectionPlan.CFNTaggingProperty(
-                        status="status"
-                    )
-                ),
-                tags=[guardduty.CfnMalwareProtectionPlan.TagItemProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82e43dbe3124ce5f5e04970117a0d20d3ccdfd803e79608a9dc049755c802f5c)
-            check_type(argname="argument protected_resource", value=protected_resource, expected_type=type_hints["protected_resource"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "protected_resource": protected_resource,
-            "role": role,
-        }
-        if actions is not None:
-            self._values["actions"] = actions
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def protected_resource(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMalwareProtectionPlan.CFNProtectedResourceProperty]:
-        '''Information about the protected resource.
-
-        Presently, ``S3Bucket`` is the only supported protected resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-protectedresource
-        '''
-        result = self._values.get("protected_resource")
-        assert result is not None, "Required property 'protected_resource' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMalwareProtectionPlan.CFNProtectedResourceProperty], result)
-
-    @builtins.property
-    def role(self) -> builtins.str:
-        '''Amazon Resource Name (ARN) of the IAM role that includes the permissions required to scan and (optionally) add tags to the associated protected resource.
-
-        To find the ARN of your IAM role, go to the IAM console, and select the role name for details.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-role
-        '''
-        result = self._values.get("role")
-        assert result is not None, "Required property 'role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def actions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMalwareProtectionPlan.CFNActionsProperty]]:
-        '''Specifies the action that is to be applied to the Malware Protection plan resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-actions
-        '''
-        result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMalwareProtectionPlan.CFNActionsProperty]], result)
-
-    @builtins.property
-    def tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnMalwareProtectionPlan.TagItemProperty]]:
-        '''The tags to be added to the created Malware Protection plan resource.
-
-        Each tag consists of a key and an optional value, both of which you need to specify.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-malwareprotectionplan.html#cfn-guardduty-malwareprotectionplan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnMalwareProtectionPlan.TagItemProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMalwareProtectionPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMasterRef)
 class CfnMaster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3183,6 +5139,12 @@ class CfnMaster(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="masterRef")
+    def master_ref(self) -> MasterReference:
+        '''A reference to a Master resource.'''
+        return typing.cast(MasterReference, jsii.get(self, "masterRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="detectorId")
     def detector_id(self) -> builtins.str:
         '''The unique ID of the detector of the GuardDuty member account.'''
@@ -3222,105 +5184,7 @@ class CfnMaster(
         jsii.set(self, "invitationId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnMasterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "detector_id": "detectorId",
-        "master_id": "masterId",
-        "invitation_id": "invitationId",
-    },
-)
-class CfnMasterProps:
-    def __init__(
-        self,
-        *,
-        detector_id: builtins.str,
-        master_id: builtins.str,
-        invitation_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMaster``.
-
-        :param detector_id: The unique ID of the detector of the GuardDuty member account. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param master_id: The AWS account ID of the account designated as the GuardDuty administrator account.
-        :param invitation_id: The ID of the invitation that is sent to the account designated as a member account. You can find the invitation ID by running the `ListInvitations <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListInvitations.html>`_ in the *GuardDuty API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_master_props = guardduty.CfnMasterProps(
-                detector_id="detectorId",
-                master_id="masterId",
-            
-                # the properties below are optional
-                invitation_id="invitationId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e775fa833f1198c34b0f7ed2c1b1b0d25c6dfb50b70659b53e24aa8129f5a35)
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument master_id", value=master_id, expected_type=type_hints["master_id"])
-            check_type(argname="argument invitation_id", value=invitation_id, expected_type=type_hints["invitation_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "detector_id": detector_id,
-            "master_id": master_id,
-        }
-        if invitation_id is not None:
-            self._values["invitation_id"] = invitation_id
-
-    @builtins.property
-    def detector_id(self) -> builtins.str:
-        '''The unique ID of the detector of the GuardDuty member account.
-
-        To find the ``detectorId`` in the current Region, see the
-        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-detectorid
-        '''
-        result = self._values.get("detector_id")
-        assert result is not None, "Required property 'detector_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def master_id(self) -> builtins.str:
-        '''The AWS account ID of the account designated as the GuardDuty administrator account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-masterid
-        '''
-        result = self._values.get("master_id")
-        assert result is not None, "Required property 'master_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def invitation_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the invitation that is sent to the account designated as a member account.
-
-        You can find the invitation ID by running the `ListInvitations <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListInvitations.html>`_ in the *GuardDuty API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-master.html#cfn-guardduty-master-invitationid
-        '''
-        result = self._values.get("invitation_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMasterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMemberRef)
 class CfnMember(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3425,6 +5289,12 @@ class CfnMember(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="memberRef")
+    def member_ref(self) -> MemberReference:
+        '''A reference to a Member resource.'''
+        return typing.cast(MemberReference, jsii.get(self, "memberRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="email")
     def email(self) -> builtins.str:
         '''The email address associated with the member account.'''
@@ -3508,152 +5378,7 @@ class CfnMember(
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnMemberProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "email": "email",
-        "detector_id": "detectorId",
-        "disable_email_notification": "disableEmailNotification",
-        "member_id": "memberId",
-        "message": "message",
-        "status": "status",
-    },
-)
-class CfnMemberProps:
-    def __init__(
-        self,
-        *,
-        email: builtins.str,
-        detector_id: typing.Optional[builtins.str] = None,
-        disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        member_id: typing.Optional[builtins.str] = None,
-        message: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMember``.
-
-        :param email: The email address associated with the member account.
-        :param detector_id: The ID of the detector associated with the GuardDuty service to add the member to.
-        :param disable_email_notification: Specifies whether or not to disable email notification for the member account that you invite.
-        :param member_id: The AWS account ID of the account to designate as a member.
-        :param message: The invitation message that you want to send to the accounts that you're inviting to GuardDuty as members.
-        :param status: You can use the ``Status`` property to update the status of the relationship between the member account and its administrator account. Valid values are ``Created`` and ``Invited`` when using an ``AWS::GuardDuty::Member`` resource. If the value for this property is not provided or set to ``Created`` , a member account is created but not invited. If the value of this property is set to ``Invited`` , a member account is created and invited.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_member_props = guardduty.CfnMemberProps(
-                email="email",
-            
-                # the properties below are optional
-                detector_id="detectorId",
-                disable_email_notification=False,
-                member_id="memberId",
-                message="message",
-                status="status"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__707033ab8b51a1c3cb64594f2a7e13ff03829ca7aed824af4d8509b6302ad443)
-            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument disable_email_notification", value=disable_email_notification, expected_type=type_hints["disable_email_notification"])
-            check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
-            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "email": email,
-        }
-        if detector_id is not None:
-            self._values["detector_id"] = detector_id
-        if disable_email_notification is not None:
-            self._values["disable_email_notification"] = disable_email_notification
-        if member_id is not None:
-            self._values["member_id"] = member_id
-        if message is not None:
-            self._values["message"] = message
-        if status is not None:
-            self._values["status"] = status
-
-    @builtins.property
-    def email(self) -> builtins.str:
-        '''The email address associated with the member account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-email
-        '''
-        result = self._values.get("email")
-        assert result is not None, "Required property 'email' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the detector associated with the GuardDuty service to add the member to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-detectorid
-        '''
-        result = self._values.get("detector_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def disable_email_notification(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether or not to disable email notification for the member account that you invite.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-disableemailnotification
-        '''
-        result = self._values.get("disable_email_notification")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def member_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID of the account to designate as a member.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-memberid
-        '''
-        result = self._values.get("member_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def message(self) -> typing.Optional[builtins.str]:
-        '''The invitation message that you want to send to the accounts that you're inviting to GuardDuty as members.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-message
-        '''
-        result = self._values.get("message")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''You can use the ``Status`` property to update the status of the relationship between the member account and its administrator account.
-
-        Valid values are ``Created`` and ``Invited`` when using an ``AWS::GuardDuty::Member`` resource. If the value for this property is not provided or set to ``Created`` , a member account is created but not invited. If the value of this property is set to ``Invited`` , a member account is created and invited.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-member.html#cfn-guardduty-member-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMemberProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPublishingDestinationRef, _ITaggableV2_4e6798f8)
 class CfnPublishingDestination(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3789,6 +5514,12 @@ class CfnPublishingDestination(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="publishingDestinationRef")
+    def publishing_destination_ref(self) -> PublishingDestinationReference:
+        '''A reference to a PublishingDestination resource.'''
+        return typing.cast(PublishingDestinationReference, jsii.get(self, "publishingDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationProperties")
@@ -3989,128 +5720,7 @@ class CfnPublishingDestination(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnPublishingDestinationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination_properties": "destinationProperties",
-        "destination_type": "destinationType",
-        "detector_id": "detectorId",
-        "tags": "tags",
-    },
-)
-class CfnPublishingDestinationProps:
-    def __init__(
-        self,
-        *,
-        destination_properties: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublishingDestination.CFNDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
-        destination_type: builtins.str,
-        detector_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnPublishingDestination.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPublishingDestination``.
-
-        :param destination_properties: Contains the Amazon Resource Name (ARN) of the resource to publish to, such as an S3 bucket, and the ARN of the KMS key to use to encrypt published findings.
-        :param destination_type: The type of publishing destination. GuardDuty supports Amazon S3 buckets as a publishing destination.
-        :param detector_id: The ID of the GuardDuty detector where the publishing destination exists.
-        :param tags: Describes a tag.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_publishing_destination_props = guardduty.CfnPublishingDestinationProps(
-                destination_properties=guardduty.CfnPublishingDestination.CFNDestinationPropertiesProperty(
-                    destination_arn="destinationArn",
-                    kms_key_arn="kmsKeyArn"
-                ),
-                destination_type="destinationType",
-                detector_id="detectorId",
-            
-                # the properties below are optional
-                tags=[guardduty.CfnPublishingDestination.TagItemProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5035cd8908ac8fcff142733ecf98576b3480f30c7c0fd250caa41a83b01ce7ff)
-            check_type(argname="argument destination_properties", value=destination_properties, expected_type=type_hints["destination_properties"])
-            check_type(argname="argument destination_type", value=destination_type, expected_type=type_hints["destination_type"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination_properties": destination_properties,
-            "destination_type": destination_type,
-            "detector_id": detector_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destination_properties(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnPublishingDestination.CFNDestinationPropertiesProperty]:
-        '''Contains the Amazon Resource Name (ARN) of the resource to publish to, such as an S3 bucket, and the ARN of the KMS key to use to encrypt published findings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-destinationproperties
-        '''
-        result = self._values.get("destination_properties")
-        assert result is not None, "Required property 'destination_properties' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnPublishingDestination.CFNDestinationPropertiesProperty], result)
-
-    @builtins.property
-    def destination_type(self) -> builtins.str:
-        '''The type of publishing destination.
-
-        GuardDuty supports Amazon S3 buckets as a publishing destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-destinationtype
-        '''
-        result = self._values.get("destination_type")
-        assert result is not None, "Required property 'destination_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def detector_id(self) -> builtins.str:
-        '''The ID of the GuardDuty detector where the publishing destination exists.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-detectorid
-        '''
-        result = self._values.get("detector_id")
-        assert result is not None, "Required property 'detector_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnPublishingDestination.TagItemProperty]]:
-        '''Describes a tag.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-publishingdestination.html#cfn-guardduty-publishingdestination-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnPublishingDestination.TagItemProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPublishingDestinationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IThreatEntitySetRef, _ITaggableV2_4e6798f8)
 class CfnThreatEntitySet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4275,6 +5885,12 @@ class CfnThreatEntitySet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="threatEntitySetRef")
+    def threat_entity_set_ref(self) -> ThreatEntitySetReference:
+        '''A reference to a ThreatEntitySet resource.'''
+        return typing.cast(ThreatEntitySetReference, jsii.get(self, "threatEntitySetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="format")
@@ -4448,183 +6064,7 @@ class CfnThreatEntitySet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "format": "format",
-        "location": "location",
-        "activate": "activate",
-        "detector_id": "detectorId",
-        "expected_bucket_owner": "expectedBucketOwner",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnThreatEntitySetProps:
-    def __init__(
-        self,
-        *,
-        format: builtins.str,
-        location: builtins.str,
-        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        detector_id: typing.Optional[builtins.str] = None,
-        expected_bucket_owner: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThreatEntitySet``.
-
-        :param format: The format of the file that contains the threat entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-        :param location: The URI of the file that contains the threat entity set.
-        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
-        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
-        :param name: The user-friendly name to identify the threat entity set. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_threat_entity_set_props = guardduty.CfnThreatEntitySetProps(
-                format="format",
-                location="location",
-            
-                # the properties below are optional
-                activate=False,
-                detector_id="detectorId",
-                expected_bucket_owner="expectedBucketOwner",
-                name="name",
-                tags=[guardduty.CfnThreatEntitySet.TagItemProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3)
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "format": format,
-            "location": location,
-        }
-        if activate is not None:
-            self._values["activate"] = activate
-        if detector_id is not None:
-            self._values["detector_id"] = detector_id
-        if expected_bucket_owner is not None:
-            self._values["expected_bucket_owner"] = expected_bucket_owner
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def format(self) -> builtins.str:
-        '''The format of the file that contains the threat entity set.
-
-        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-format
-        '''
-        result = self._values.get("format")
-        assert result is not None, "Required property 'format' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location(self) -> builtins.str:
-        '''The URI of the file that contains the threat entity set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-location
-        '''
-        result = self._values.get("location")
-        assert result is not None, "Required property 'location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def activate(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
-
-        For GuardDuty to consider the entries in this list and generate findings based on associated activity, this list must be active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-activate
-        '''
-        result = self._values.get("activate")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique regional detector ID of the GuardDuty account for which you want to create a threat entity set.
-
-        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-detectorid
-        '''
-        result = self._values.get("detector_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
-
-        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-expectedbucketowner
-        '''
-        result = self._values.get("expected_bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name to identify the threat entity set.
-
-        Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]]:
-        '''The tags to be added to a new threat entity set resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThreatEntitySetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IThreatIntelSetRef, _ITaggable_36806126)
 class CfnThreatIntelSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4753,6 +6193,12 @@ class CfnThreatIntelSet(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="threatIntelSetRef")
+    def threat_intel_set_ref(self) -> ThreatIntelSetReference:
+        '''A reference to a ThreatIntelSet resource.'''
+        return typing.cast(ThreatIntelSetReference, jsii.get(self, "threatIntelSetRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="format")
     def format(self) -> builtins.str:
         '''The format of the file that contains the ``ThreatIntelSet`` .'''
@@ -4849,184 +6295,7 @@ class CfnThreatIntelSet(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatIntelSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "format": "format",
-        "location": "location",
-        "activate": "activate",
-        "detector_id": "detectorId",
-        "expected_bucket_owner": "expectedBucketOwner",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnThreatIntelSetProps:
-    def __init__(
-        self,
-        *,
-        format: builtins.str,
-        location: builtins.str,
-        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        detector_id: typing.Optional[builtins.str] = None,
-        expected_bucket_owner: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThreatIntelSet``.
-
-        :param format: The format of the file that contains the ``ThreatIntelSet`` . For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-        :param location: The URI of the file that contains the ThreatIntelSet.
-        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
-        :param detector_id: The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` . To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-        :param name: The user-friendly name to identify the ThreatIntelSet. The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-        :param tags: The tags to be added to a new threat entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_threat_intel_set_props = guardduty.CfnThreatIntelSetProps(
-                format="format",
-                location="location",
-            
-                # the properties below are optional
-                activate=False,
-                detector_id="detectorId",
-                expected_bucket_owner="expectedBucketOwner",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a5d0bedab8c4fad4ab288ce5a467dbe6a4d07ef2947521b14162f1e7ac218a1)
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "format": format,
-            "location": location,
-        }
-        if activate is not None:
-            self._values["activate"] = activate
-        if detector_id is not None:
-            self._values["detector_id"] = detector_id
-        if expected_bucket_owner is not None:
-            self._values["expected_bucket_owner"] = expected_bucket_owner
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def format(self) -> builtins.str:
-        '''The format of the file that contains the ``ThreatIntelSet`` .
-
-        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-format
-        '''
-        result = self._values.get("format")
-        assert result is not None, "Required property 'format' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location(self) -> builtins.str:
-        '''The URI of the file that contains the ThreatIntelSet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-location
-        '''
-        result = self._values.get("location")
-        assert result is not None, "Required property 'location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def activate(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
-
-        For GuardDuty to be able to generate findings based on an activity associated with these entries, this list must be active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-activate
-        '''
-        result = self._values.get("activate")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique ID of the detector of the GuardDuty account for which you want to create a ``threatIntelSet`` .
-
-        To find the ``detectorId`` in the current Region, see the
-        Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-detectorid
-        '''
-        result = self._values.get("detector_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
-
-        When you provide this account ID, GuardDuty will validate that the S3 bucket belongs to this account. If you don't specify an account ID owner, GuardDuty doesn't perform any validation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-expectedbucketowner
-        '''
-        result = self._values.get("expected_bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name to identify the ThreatIntelSet.
-
-        The name of your list must be unique within an AWS account and Region. Valid characters are alphanumeric, whitespace, dash (-), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be added to a new threat entity set resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatintelset.html#cfn-guardduty-threatintelset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThreatIntelSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITrustedEntitySetRef, _ITaggableV2_4e6798f8)
 class CfnTrustedEntitySet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5190,6 +6459,12 @@ class CfnTrustedEntitySet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustedEntitySetRef")
+    def trusted_entity_set_ref(self) -> TrustedEntitySetReference:
+        '''A reference to a TrustedEntitySet resource.'''
+        return typing.cast(TrustedEntitySetReference, jsii.get(self, "trustedEntitySetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="format")
@@ -5363,182 +6638,6 @@ class CfnTrustedEntitySet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "format": "format",
-        "location": "location",
-        "activate": "activate",
-        "detector_id": "detectorId",
-        "expected_bucket_owner": "expectedBucketOwner",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnTrustedEntitySetProps:
-    def __init__(
-        self,
-        *,
-        format: builtins.str,
-        location: builtins.str,
-        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        detector_id: typing.Optional[builtins.str] = None,
-        expected_bucket_owner: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTrustedEntitySet``.
-
-        :param format: The format of the file that contains the trusted entity set. For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-        :param location: The URI of the file that contains the trusted entity set.
-        :param activate: A boolean value that determines if GuardDuty can start using this list for custom threat detection. For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
-        :param detector_id: The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set. To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-        :param expected_bucket_owner: The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field. Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
-        :param name: A user-friendly name to identify the trusted entity set. Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
-        :param tags: The tags to be added to a new trusted entity set resource. Each tag consists of a key and an optional value, both of which you define. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_guardduty as guardduty
-            
-            cfn_trusted_entity_set_props = guardduty.CfnTrustedEntitySetProps(
-                format="format",
-                location="location",
-            
-                # the properties below are optional
-                activate=False,
-                detector_id="detectorId",
-                expected_bucket_owner="expectedBucketOwner",
-                name="name",
-                tags=[guardduty.CfnTrustedEntitySet.TagItemProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735)
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "format": format,
-            "location": location,
-        }
-        if activate is not None:
-            self._values["activate"] = activate
-        if detector_id is not None:
-            self._values["detector_id"] = detector_id
-        if expected_bucket_owner is not None:
-            self._values["expected_bucket_owner"] = expected_bucket_owner
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def format(self) -> builtins.str:
-        '''The format of the file that contains the trusted entity set.
-
-        For information about supported formats, see `List formats <https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html#prepare_list>`_ in the *Amazon GuardDuty User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-format
-        '''
-        result = self._values.get("format")
-        assert result is not None, "Required property 'format' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location(self) -> builtins.str:
-        '''The URI of the file that contains the trusted entity set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-location
-        '''
-        result = self._values.get("location")
-        assert result is not None, "Required property 'location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def activate(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value that determines if GuardDuty can start using this list for custom threat detection.
-
-        For GuardDuty to prevent generating findings based on an activity associated with these entries, this list must be active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-activate
-        '''
-        result = self._values.get("activate")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def detector_id(self) -> typing.Optional[builtins.str]:
-        '''The unique regional detector ID of the GuardDuty account for which you want to create a trusted entity set.
-
-        To find the ``detectorId`` in the current Region, see the Settings page in the GuardDuty console, or run the `ListDetectors <https://docs.aws.amazon.com/guardduty/latest/APIReference/API_ListDetectors.html>`_ API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-detectorid
-        '''
-        result = self._values.get("detector_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID that owns the Amazon S3 bucket specified in the *Location* field.
-
-        Whether or not you provide the account ID for this optional field, GuardDuty validates that the account ID associated with the ``DetectorId`` value owns the S3 bucket in the ``Location`` field. If GuardDuty finds that this S3 bucket doesn't belong to the specified account ID, you will get an error at the time of activating this list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-expectedbucketowner
-        '''
-        result = self._values.get("expected_bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly name to identify the trusted entity set.
-
-        Valid characters include lowercase letters, uppercase letters, numbers, dash(-), and underscore (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]]:
-        '''The tags to be added to a new trusted entity set resource.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrustedEntitySetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDetector",
     "CfnDetectorProps",
@@ -5560,9 +6659,225 @@ __all__ = [
     "CfnThreatIntelSetProps",
     "CfnTrustedEntitySet",
     "CfnTrustedEntitySetProps",
+    "DetectorReference",
+    "FilterReference",
+    "IDetectorRef",
+    "IFilterRef",
+    "IIPSetRef",
+    "IMalwareProtectionPlanRef",
+    "IMasterRef",
+    "IMemberRef",
+    "IPSetReference",
+    "IPublishingDestinationRef",
+    "IThreatEntitySetRef",
+    "IThreatIntelSetRef",
+    "ITrustedEntitySetRef",
+    "MalwareProtectionPlanReference",
+    "MasterReference",
+    "MemberReference",
+    "PublishingDestinationReference",
+    "ThreatEntitySetReference",
+    "ThreatIntelSetReference",
+    "TrustedEntitySetReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__3914f92ec13130f6437ebb8077c96e2e1592d547cc445617fe4957f629b5cb3c(
+    *,
+    enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNDataSourceConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNFeatureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    finding_publishing_frequency: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnDetector.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f44ad794e7dbae18bc70d670d096dac3d980dc5e20e5c9703013ddb79dd0e03(
+    *,
+    detector_id: builtins.str,
+    finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FindingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    action: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    rank: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f47aa340c89b95bf1878c9cb7463920b568c23940ad283e6f2c2bb481191ff38(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82e43dbe3124ce5f5e04970117a0d20d3ccdfd803e79608a9dc049755c802f5c(
+    *,
+    protected_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNProtectedResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    role: builtins.str,
+    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnMalwareProtectionPlan.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e775fa833f1198c34b0f7ed2c1b1b0d25c6dfb50b70659b53e24aa8129f5a35(
+    *,
+    detector_id: builtins.str,
+    master_id: builtins.str,
+    invitation_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__707033ab8b51a1c3cb64594f2a7e13ff03829ca7aed824af4d8509b6302ad443(
+    *,
+    email: builtins.str,
+    detector_id: typing.Optional[builtins.str] = None,
+    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    member_id: typing.Optional[builtins.str] = None,
+    message: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5035cd8908ac8fcff142733ecf98576b3480f30c7c0fd250caa41a83b01ce7ff(
+    *,
+    destination_properties: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublishingDestination.CFNDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_type: builtins.str,
+    detector_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnPublishingDestination.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a5d0bedab8c4fad4ab288ce5a467dbe6a4d07ef2947521b14162f1e7ac218a1(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abc919e1dcac5cae80733bfa5481f1024e5afba7b6103594cb2c7e47542ee435(
+    *,
+    detector_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39c2c26e5a837591af10c2af9e533637b3f0d5804be7e6c798987975e24919ec(
+    *,
+    detector_id: builtins.str,
+    filter_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e8ccc479ae5f6f69cd8f4a5d663b474b57182a76e643fae3dbee835f743c4fc(
+    *,
+    detector_id: builtins.str,
+    ip_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b95b052f12177a07c6709f1109d985eab4fd55bd011c77d80c1bd9e9c1de6216(
+    *,
+    malware_protection_plan_arn: builtins.str,
+    malware_protection_plan_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ab1d60825c1a16b6e021da34f7e974458d82151876a10ced51b9f744297b51d(
+    *,
+    detector_id: builtins.str,
+    master_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7fcde74091226a0b70e6a89a61aa46eb4415115bf706906470fda099b10e46c(
+    *,
+    detector_id: builtins.str,
+    member_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fb5a5ca9dcdbe13e4b3e180f25ba0eb4608a65870b295af9fb5753c28cd9cb5(
+    *,
+    detector_id: builtins.str,
+    publishing_destination_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79ce0e9458b1ee14ce85ec978e8b9dc86432450edc2c1710ac6bb7855a7d6579(
+    *,
+    detector_id: builtins.str,
+    threat_entity_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37cf52da77a42c1f379ce90f2e9942b1e579765cb8091921e072d4bc8c4add96(
+    *,
+    detector_id: builtins.str,
+    threat_intel_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38b69a952b36a478dc3e87c42c270f6d79b0cb3e13275259122b4afffb441818(
+    *,
+    detector_id: builtins.str,
+    trusted_entity_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d4374e73b5cd2e2814bd72eb21f29547df6146e023d23ee6d5c8c8cdb4439473(
     scope: _constructs_77d1e7e8.Construct,
@@ -5688,17 +7003,6 @@ def _typecheckingstub__3426efe6dc1168d06decb2e9b19e645c1e5e0a25fe35c90fe369bf092
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3914f92ec13130f6437ebb8077c96e2e1592d547cc445617fe4957f629b5cb3c(
-    *,
-    enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNDataSourceConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    features: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.CFNFeatureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    finding_publishing_frequency: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnDetector.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__067e85819bdb865e6337a26c378c0472fa2b9e72f47dfccf0bca609928a7aea7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5794,19 +7098,6 @@ def _typecheckingstub__4f4804a72c05070a8a25405f065b49dd3914286fabb20ae070705b9bd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6f44ad794e7dbae18bc70d670d096dac3d980dc5e20e5c9703013ddb79dd0e03(
-    *,
-    detector_id: builtins.str,
-    finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FindingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    action: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    rank: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b0c6fd2cb08b5267e6265af6fae1a30df065b4b25dc1d6d684eec9f9bb50cda0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5872,19 +7163,6 @@ def _typecheckingstub__0128f966eac1a136f141aedcb397b96308a170e31f1d45176a39160eb
 
 def _typecheckingstub__3575dce7e4be33e061dd476657db25cdd931a4eb3f742afe675edf5d4a2df5ce(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f47aa340c89b95bf1878c9cb7463920b568c23940ad283e6f2c2bb481191ff38(
-    *,
-    format: builtins.str,
-    location: builtins.str,
-    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    detector_id: typing.Optional[builtins.str] = None,
-    expected_bucket_owner: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5982,16 +7260,6 @@ def _typecheckingstub__25ebd716f82a226adc91a692f31af8c4a126ad6c6c4f7cdb2b0014323
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__82e43dbe3124ce5f5e04970117a0d20d3ccdfd803e79608a9dc049755c802f5c(
-    *,
-    protected_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNProtectedResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    role: builtins.str,
-    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMalwareProtectionPlan.CFNActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnMalwareProtectionPlan.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d5d03095d03ec71c014c1cfc8e78531e9220fec576d321a24de280815b0d72c0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6029,15 +7297,6 @@ def _typecheckingstub__4840129622d8855c7daf32d5a871adc7293a471c1fbe37d7c95417e6f
 
 def _typecheckingstub__406b3febbdc47c53592d13698f2d7656983f29af6904125a269c88c12834820a(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e775fa833f1198c34b0f7ed2c1b1b0d25c6dfb50b70659b53e24aa8129f5a35(
-    *,
-    detector_id: builtins.str,
-    master_id: builtins.str,
-    invitation_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6104,18 +7363,6 @@ def _typecheckingstub__9c6a13c5df833c1f8928aa6ad329e356681a0e7ca00f52f83fb00c4fd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__707033ab8b51a1c3cb64594f2a7e13ff03829ca7aed824af4d8509b6302ad443(
-    *,
-    email: builtins.str,
-    detector_id: typing.Optional[builtins.str] = None,
-    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    member_id: typing.Optional[builtins.str] = None,
-    message: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7582a0d304acc160bc9a98d9a732b80f3278afa4bf6e6727d1f126985b25ef2e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6176,16 +7423,6 @@ def _typecheckingstub__4d737ccf6f9a65eccf27bcb268c162c314d61cbba8f8f4104e7951b2e
     *,
     key: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5035cd8908ac8fcff142733ecf98576b3480f30c7c0fd250caa41a83b01ce7ff(
-    *,
-    destination_properties: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPublishingDestination.CFNDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
-    destination_type: builtins.str,
-    detector_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnPublishingDestination.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6267,19 +7504,6 @@ def _typecheckingstub__9bcb8d0f67c3b20709378a933f90454d6394d6f4608b78865e524eaaa
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3(
-    *,
-    format: builtins.str,
-    location: builtins.str,
-    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    detector_id: typing.Optional[builtins.str] = None,
-    expected_bucket_owner: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e60035c0bc955afb794ee89f0439deae280bfec665014cbbd161f08566de73a7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6345,19 +7569,6 @@ def _typecheckingstub__78860e52ab0e0d6681a85585054b7ed92f84696ec2b6a43bb90c60918
 
 def _typecheckingstub__213606bb8c2a17afd6b75e6224d08fd34ab33f0ef606dcd3df99402aa81754e0(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a5d0bedab8c4fad4ab288ce5a467dbe6a4d07ef2947521b14162f1e7ac218a1(
-    *,
-    format: builtins.str,
-    location: builtins.str,
-    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    detector_id: typing.Optional[builtins.str] = None,
-    expected_bucket_owner: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6435,19 +7646,6 @@ def _typecheckingstub__a1c81f11cd29394c009789b30463ba1931458f7dde6533e82b4d108b5
     *,
     key: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735(
-    *,
-    format: builtins.str,
-    location: builtins.str,
-    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    detector_id: typing.Optional[builtins.str] = None,
-    expected_bucket_owner: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

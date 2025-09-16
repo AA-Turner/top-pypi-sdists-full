@@ -68,7 +68,827 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_arn: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ApplicationArn of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            application_reference = m2.ApplicationReference(
+                application_arn="applicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b104892d0f9269444ea40bf6dfbb3825194fe0d4a08fd6e721b5182b6cabf4d5)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ApplicationArn of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engine_type": "engineType",
+        "name": "name",
+        "definition": "definition",
+        "description": "description",
+        "kms_key_id": "kmsKeyId",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        engine_type: builtins.str,
+        name: builtins.str,
+        definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param engine_type: The type of the target platform for this application.
+        :param name: The name of the application.
+        :param definition: The application definition for a particular application. You can specify either inline JSON or an Amazon S3 bucket location. For information about application definitions, see the `AWS Mainframe Modernization User Guide <https://docs.aws.amazon.com/m2/latest/userguide/applications-m2-definition.html>`_ .
+        :param description: The description of the application.
+        :param kms_key_id: The identifier of a customer managed key.
+        :param role_arn: The Amazon Resource Name (ARN) of the role associated with the application.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            cfn_application_props = m2.CfnApplicationProps(
+                engine_type="engineType",
+                name="name",
+            
+                # the properties below are optional
+                definition=m2.CfnApplication.DefinitionProperty(
+                    content="content",
+                    s3_location="s3Location"
+                ),
+                description="description",
+                kms_key_id="kmsKeyId",
+                role_arn="roleArn",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ed1db61d31dff8aa8e94733976425175ee39f97b9a27b2b69f86017aa34d4b5)
+            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "engine_type": engine_type,
+            "name": name,
+        }
+        if definition is not None:
+            self._values["definition"] = definition
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def engine_type(self) -> builtins.str:
+        '''The type of the target platform for this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-enginetype
+        '''
+        result = self._values.get("engine_type")
+        assert result is not None, "Required property 'engine_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.DefinitionProperty"]]:
+        '''The application definition for a particular application. You can specify either inline JSON or an Amazon S3 bucket location.
+
+        For information about application definitions, see the `AWS Mainframe Modernization User Guide <https://docs.aws.amazon.com/m2/latest/userguide/applications-m2-definition.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-definition
+        '''
+        result = self._values.get("definition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.DefinitionProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of a customer managed key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the role associated with the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.CfnDeploymentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "application_version": "applicationVersion",
+        "environment_id": "environmentId",
+    },
+)
+class CfnDeploymentProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        application_version: jsii.Number,
+        environment_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnDeployment``.
+
+        :param application_id: The unique identifier of the application.
+        :param application_version: The version of the application.
+        :param environment_id: The unique identifier of the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            cfn_deployment_props = m2.CfnDeploymentProps(
+                application_id="applicationId",
+                application_version=123,
+                environment_id="environmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16b89efaa330e4afca136269f782db3a8968c7c32eb7c4dfe8e64c6b937151c9)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument application_version", value=application_version, expected_type=type_hints["application_version"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "application_version": application_version,
+            "environment_id": environment_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_version(self) -> jsii.Number:
+        '''The version of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-applicationversion
+        '''
+        result = self._values.get("application_version")
+        assert result is not None, "Required property 'application_version' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def environment_id(self) -> builtins.str:
+        '''The unique identifier of the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-environmentid
+        '''
+        result = self._values.get("environment_id")
+        assert result is not None, "Required property 'environment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeploymentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.CfnEnvironmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engine_type": "engineType",
+        "instance_type": "instanceType",
+        "name": "name",
+        "description": "description",
+        "engine_version": "engineVersion",
+        "high_availability_config": "highAvailabilityConfig",
+        "kms_key_id": "kmsKeyId",
+        "network_type": "networkType",
+        "preferred_maintenance_window": "preferredMaintenanceWindow",
+        "publicly_accessible": "publiclyAccessible",
+        "security_group_ids": "securityGroupIds",
+        "storage_configurations": "storageConfigurations",
+        "subnet_ids": "subnetIds",
+        "tags": "tags",
+    },
+)
+class CfnEnvironmentProps:
+    def __init__(
+        self,
+        *,
+        engine_type: builtins.str,
+        instance_type: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        high_availability_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.HighAvailabilityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        storage_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.StorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnvironment``.
+
+        :param engine_type: The target platform for the runtime environment.
+        :param instance_type: The instance type of the runtime environment.
+        :param name: The name of the runtime environment.
+        :param description: The description of the runtime environment.
+        :param engine_version: The version of the runtime engine.
+        :param high_availability_config: Defines the details of a high availability configuration.
+        :param kms_key_id: The identifier of a customer managed key.
+        :param network_type: The network type supported by the runtime environment.
+        :param preferred_maintenance_window: Configures the maintenance window that you want for the runtime environment. The maintenance window must have the format ``ddd:hh24:mi-ddd:hh24:mi`` and must be less than 24 hours. The following two examples are valid maintenance windows: ``sun:23:45-mon:00:15`` or ``sat:01:00-sat:03:00`` . If you do not provide a value, a random system-generated value will be assigned.
+        :param publicly_accessible: Specifies whether the runtime environment is publicly accessible.
+        :param security_group_ids: The list of security groups for the VPC associated with this runtime environment.
+        :param storage_configurations: Defines the storage configuration for a runtime environment.
+        :param subnet_ids: The list of subnets associated with the VPC for this runtime environment.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            cfn_environment_props = m2.CfnEnvironmentProps(
+                engine_type="engineType",
+                instance_type="instanceType",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                engine_version="engineVersion",
+                high_availability_config=m2.CfnEnvironment.HighAvailabilityConfigProperty(
+                    desired_capacity=123
+                ),
+                kms_key_id="kmsKeyId",
+                network_type="networkType",
+                preferred_maintenance_window="preferredMaintenanceWindow",
+                publicly_accessible=False,
+                security_group_ids=["securityGroupIds"],
+                storage_configurations=[m2.CfnEnvironment.StorageConfigurationProperty(
+                    efs=m2.CfnEnvironment.EfsStorageConfigurationProperty(
+                        file_system_id="fileSystemId",
+                        mount_point="mountPoint"
+                    ),
+                    fsx=m2.CfnEnvironment.FsxStorageConfigurationProperty(
+                        file_system_id="fileSystemId",
+                        mount_point="mountPoint"
+                    )
+                )],
+                subnet_ids=["subnetIds"],
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a01760c10dc72a17faa5c350ba316c41979d4b9c411e040a52c7924e69c40e90)
+            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument high_availability_config", value=high_availability_config, expected_type=type_hints["high_availability_config"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument storage_configurations", value=storage_configurations, expected_type=type_hints["storage_configurations"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "engine_type": engine_type,
+            "instance_type": instance_type,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if high_availability_config is not None:
+            self._values["high_availability_config"] = high_availability_config
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if preferred_maintenance_window is not None:
+            self._values["preferred_maintenance_window"] = preferred_maintenance_window
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if storage_configurations is not None:
+            self._values["storage_configurations"] = storage_configurations
+        if subnet_ids is not None:
+            self._values["subnet_ids"] = subnet_ids
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def engine_type(self) -> builtins.str:
+        '''The target platform for the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-enginetype
+        '''
+        result = self._values.get("engine_type")
+        assert result is not None, "Required property 'engine_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The instance type of the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the runtime engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def high_availability_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.HighAvailabilityConfigProperty"]]:
+        '''Defines the details of a high availability configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-highavailabilityconfig
+        '''
+        result = self._values.get("high_availability_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.HighAvailabilityConfigProperty"]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of a customer managed key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type supported by the runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''Configures the maintenance window that you want for the runtime environment.
+
+        The maintenance window must have the format ``ddd:hh24:mi-ddd:hh24:mi`` and must be less than 24 hours. The following two examples are valid maintenance windows: ``sun:23:45-mon:00:15`` or ``sat:01:00-sat:03:00`` .
+
+        If you do not provide a value, a random system-generated value will be assigned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-preferredmaintenancewindow
+        '''
+        result = self._values.get("preferred_maintenance_window")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the runtime environment is publicly accessible.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of security groups for the VPC associated with this runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def storage_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.StorageConfigurationProperty"]]]]:
+        '''Defines the storage configuration for a runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-storageconfigurations
+        '''
+        result = self._values.get("storage_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.StorageConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of subnets associated with the VPC for this runtime environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.DeploymentReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_id": "applicationId"},
+)
+class DeploymentReference:
+    def __init__(self, *, application_id: builtins.str) -> None:
+        '''A reference to a Deployment resource.
+
+        :param application_id: The ApplicationId of the Deployment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            deployment_reference = m2.DeploymentReference(
+                application_id="applicationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bf8aa2b0abb12333d52b5289f3e7177b27d697047571d0f499be873e816a1cf)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Deployment resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_m2.EnvironmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"environment_arn": "environmentArn"},
+)
+class EnvironmentReference:
+    def __init__(self, *, environment_arn: builtins.str) -> None:
+        '''A reference to a Environment resource.
+
+        :param environment_arn: The EnvironmentArn of the Environment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_m2 as m2
+            
+            environment_reference = m2.EnvironmentReference(
+                environment_arn="environmentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36ecc6768b2a4467526d88e3785ab8805ee0f5985f536072d2d4dffe79cb6c78)
+            check_type(argname="argument environment_arn", value=environment_arn, expected_type=type_hints["environment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_arn": environment_arn,
+        }
+
+    @builtins.property
+    def environment_arn(self) -> builtins.str:
+        '''The EnvironmentArn of the Environment resource.'''
+        result = self._values.get("environment_arn")
+        assert result is not None, "Required property 'environment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_m2.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_m2.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_m2.IDeploymentRef")
+class IDeploymentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeploymentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_m2.IDeploymentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploymentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_m2.IEnvironmentRef")
+class IEnvironmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEnvironmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_m2.IEnvironmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvironmentRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -175,6 +995,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -382,175 +1208,7 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_m2.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engine_type": "engineType",
-        "name": "name",
-        "definition": "definition",
-        "description": "description",
-        "kms_key_id": "kmsKeyId",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        engine_type: builtins.str,
-        name: builtins.str,
-        definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param engine_type: The type of the target platform for this application.
-        :param name: The name of the application.
-        :param definition: The application definition for a particular application. You can specify either inline JSON or an Amazon S3 bucket location. For information about application definitions, see the `AWS Mainframe Modernization User Guide <https://docs.aws.amazon.com/m2/latest/userguide/applications-m2-definition.html>`_ .
-        :param description: The description of the application.
-        :param kms_key_id: The identifier of a customer managed key.
-        :param role_arn: The Amazon Resource Name (ARN) of the role associated with the application.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_m2 as m2
-            
-            cfn_application_props = m2.CfnApplicationProps(
-                engine_type="engineType",
-                name="name",
-            
-                # the properties below are optional
-                definition=m2.CfnApplication.DefinitionProperty(
-                    content="content",
-                    s3_location="s3Location"
-                ),
-                description="description",
-                kms_key_id="kmsKeyId",
-                role_arn="roleArn",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ed1db61d31dff8aa8e94733976425175ee39f97b9a27b2b69f86017aa34d4b5)
-            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "engine_type": engine_type,
-            "name": name,
-        }
-        if definition is not None:
-            self._values["definition"] = definition
-        if description is not None:
-            self._values["description"] = description
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def engine_type(self) -> builtins.str:
-        '''The type of the target platform for this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-enginetype
-        '''
-        result = self._values.get("engine_type")
-        assert result is not None, "Required property 'engine_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def definition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.DefinitionProperty]]:
-        '''The application definition for a particular application. You can specify either inline JSON or an Amazon S3 bucket location.
-
-        For information about application definitions, see the `AWS Mainframe Modernization User Guide <https://docs.aws.amazon.com/m2/latest/userguide/applications-m2-definition.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-definition
-        '''
-        result = self._values.get("definition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.DefinitionProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of a customer managed key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the role associated with the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-application.html#cfn-m2-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDeploymentRef)
 class CfnDeployment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -657,6 +1315,12 @@ class CfnDeployment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''A reference to a Deployment resource.'''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier of the application.'''
@@ -696,98 +1360,7 @@ class CfnDeployment(
         jsii.set(self, "environmentId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_m2.CfnDeploymentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "application_version": "applicationVersion",
-        "environment_id": "environmentId",
-    },
-)
-class CfnDeploymentProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        application_version: jsii.Number,
-        environment_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnDeployment``.
-
-        :param application_id: The unique identifier of the application.
-        :param application_version: The version of the application.
-        :param environment_id: The unique identifier of the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_m2 as m2
-            
-            cfn_deployment_props = m2.CfnDeploymentProps(
-                application_id="applicationId",
-                application_version=123,
-                environment_id="environmentId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16b89efaa330e4afca136269f782db3a8968c7c32eb7c4dfe8e64c6b937151c9)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument application_version", value=application_version, expected_type=type_hints["application_version"])
-            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "application_version": application_version,
-            "environment_id": environment_id,
-        }
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_version(self) -> jsii.Number:
-        '''The version of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-applicationversion
-        '''
-        result = self._values.get("application_version")
-        assert result is not None, "Required property 'application_version' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def environment_id(self) -> builtins.str:
-        '''The unique identifier of the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-deployment.html#cfn-m2-deployment-environmentid
-        '''
-        result = self._values.get("environment_id")
-        assert result is not None, "Required property 'environment_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDeploymentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEnvironmentRef, _ITaggable_36806126)
 class CfnEnvironment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -951,6 +1524,12 @@ class CfnEnvironment(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''A reference to a Environment resource.'''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1441,310 +2020,85 @@ class CfnEnvironment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_m2.CfnEnvironmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engine_type": "engineType",
-        "instance_type": "instanceType",
-        "name": "name",
-        "description": "description",
-        "engine_version": "engineVersion",
-        "high_availability_config": "highAvailabilityConfig",
-        "kms_key_id": "kmsKeyId",
-        "network_type": "networkType",
-        "preferred_maintenance_window": "preferredMaintenanceWindow",
-        "publicly_accessible": "publiclyAccessible",
-        "security_group_ids": "securityGroupIds",
-        "storage_configurations": "storageConfigurations",
-        "subnet_ids": "subnetIds",
-        "tags": "tags",
-    },
-)
-class CfnEnvironmentProps:
-    def __init__(
-        self,
-        *,
-        engine_type: builtins.str,
-        instance_type: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        high_availability_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.HighAvailabilityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        storage_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnvironment``.
-
-        :param engine_type: The target platform for the runtime environment.
-        :param instance_type: The instance type of the runtime environment.
-        :param name: The name of the runtime environment.
-        :param description: The description of the runtime environment.
-        :param engine_version: The version of the runtime engine.
-        :param high_availability_config: Defines the details of a high availability configuration.
-        :param kms_key_id: The identifier of a customer managed key.
-        :param network_type: The network type supported by the runtime environment.
-        :param preferred_maintenance_window: Configures the maintenance window that you want for the runtime environment. The maintenance window must have the format ``ddd:hh24:mi-ddd:hh24:mi`` and must be less than 24 hours. The following two examples are valid maintenance windows: ``sun:23:45-mon:00:15`` or ``sat:01:00-sat:03:00`` . If you do not provide a value, a random system-generated value will be assigned.
-        :param publicly_accessible: Specifies whether the runtime environment is publicly accessible.
-        :param security_group_ids: The list of security groups for the VPC associated with this runtime environment.
-        :param storage_configurations: Defines the storage configuration for a runtime environment.
-        :param subnet_ids: The list of subnets associated with the VPC for this runtime environment.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_m2 as m2
-            
-            cfn_environment_props = m2.CfnEnvironmentProps(
-                engine_type="engineType",
-                instance_type="instanceType",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                engine_version="engineVersion",
-                high_availability_config=m2.CfnEnvironment.HighAvailabilityConfigProperty(
-                    desired_capacity=123
-                ),
-                kms_key_id="kmsKeyId",
-                network_type="networkType",
-                preferred_maintenance_window="preferredMaintenanceWindow",
-                publicly_accessible=False,
-                security_group_ids=["securityGroupIds"],
-                storage_configurations=[m2.CfnEnvironment.StorageConfigurationProperty(
-                    efs=m2.CfnEnvironment.EfsStorageConfigurationProperty(
-                        file_system_id="fileSystemId",
-                        mount_point="mountPoint"
-                    ),
-                    fsx=m2.CfnEnvironment.FsxStorageConfigurationProperty(
-                        file_system_id="fileSystemId",
-                        mount_point="mountPoint"
-                    )
-                )],
-                subnet_ids=["subnetIds"],
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a01760c10dc72a17faa5c350ba316c41979d4b9c411e040a52c7924e69c40e90)
-            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument high_availability_config", value=high_availability_config, expected_type=type_hints["high_availability_config"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument storage_configurations", value=storage_configurations, expected_type=type_hints["storage_configurations"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "engine_type": engine_type,
-            "instance_type": instance_type,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if high_availability_config is not None:
-            self._values["high_availability_config"] = high_availability_config
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if preferred_maintenance_window is not None:
-            self._values["preferred_maintenance_window"] = preferred_maintenance_window
-        if publicly_accessible is not None:
-            self._values["publicly_accessible"] = publicly_accessible
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if storage_configurations is not None:
-            self._values["storage_configurations"] = storage_configurations
-        if subnet_ids is not None:
-            self._values["subnet_ids"] = subnet_ids
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def engine_type(self) -> builtins.str:
-        '''The target platform for the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-enginetype
-        '''
-        result = self._values.get("engine_type")
-        assert result is not None, "Required property 'engine_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The instance type of the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the runtime engine.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def high_availability_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.HighAvailabilityConfigProperty]]:
-        '''Defines the details of a high availability configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-highavailabilityconfig
-        '''
-        result = self._values.get("high_availability_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.HighAvailabilityConfigProperty]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of a customer managed key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''The network type supported by the runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''Configures the maintenance window that you want for the runtime environment.
-
-        The maintenance window must have the format ``ddd:hh24:mi-ddd:hh24:mi`` and must be less than 24 hours. The following two examples are valid maintenance windows: ``sun:23:45-mon:00:15`` or ``sat:01:00-sat:03:00`` .
-
-        If you do not provide a value, a random system-generated value will be assigned.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-preferredmaintenancewindow
-        '''
-        result = self._values.get("preferred_maintenance_window")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the runtime environment is publicly accessible.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of security groups for the VPC associated with this runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def storage_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.StorageConfigurationProperty]]]]:
-        '''Defines the storage configuration for a runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-storageconfigurations
-        '''
-        result = self._values.get("storage_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.StorageConfigurationProperty]]]], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of subnets associated with the VPC for this runtime environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-m2-environment.html#cfn-m2-environment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnvironmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnDeployment",
     "CfnDeploymentProps",
     "CfnEnvironment",
     "CfnEnvironmentProps",
+    "DeploymentReference",
+    "EnvironmentReference",
+    "IApplicationRef",
+    "IDeploymentRef",
+    "IEnvironmentRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__b104892d0f9269444ea40bf6dfbb3825194fe0d4a08fd6e721b5182b6cabf4d5(
+    *,
+    application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ed1db61d31dff8aa8e94733976425175ee39f97b9a27b2b69f86017aa34d4b5(
+    *,
+    engine_type: builtins.str,
+    name: builtins.str,
+    definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16b89efaa330e4afca136269f782db3a8968c7c32eb7c4dfe8e64c6b937151c9(
+    *,
+    application_id: builtins.str,
+    application_version: jsii.Number,
+    environment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a01760c10dc72a17faa5c350ba316c41979d4b9c411e040a52c7924e69c40e90(
+    *,
+    engine_type: builtins.str,
+    instance_type: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    high_availability_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.HighAvailabilityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    storage_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bf8aa2b0abb12333d52b5289f3e7177b27d697047571d0f499be873e816a1cf(
+    *,
+    application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36ecc6768b2a4467526d88e3785ab8805ee0f5985f536072d2d4dffe79cb6c78(
+    *,
+    environment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__4d9f18e4c35f8dd6932a89aab0c7c8325ca5f0e480e78df5838e1e64d1ba0f80(
     scope: _constructs_77d1e7e8.Construct,
@@ -1823,19 +2177,6 @@ def _typecheckingstub__e6a2c5ede257cc8f9ff5fc917afe31b9bf6e82d475e3a8dedebfee5db
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5ed1db61d31dff8aa8e94733976425175ee39f97b9a27b2b69f86017aa34d4b5(
-    *,
-    engine_type: builtins.str,
-    name: builtins.str,
-    definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8b6c65beece51e45395e3fc04099fcf28d8b6bb74185fa225b364239f69b17f2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1873,15 +2214,6 @@ def _typecheckingstub__8de1e90a824fac357559fd213977c9951178f216f6856a3d934e2db72
 
 def _typecheckingstub__6cfba6a94516651ce63b371b491e74b953b40e968f5687ab9809f19ba24e3654(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16b89efaa330e4afca136269f782db3a8968c7c32eb7c4dfe8e64c6b937151c9(
-    *,
-    application_id: builtins.str,
-    application_version: jsii.Number,
-    environment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2031,26 +2363,6 @@ def _typecheckingstub__be54682f3b71055b15a50a83ac3cb959dac840823bb036ddd8f40b086
     *,
     efs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.EfsStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     fsx: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FsxStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a01760c10dc72a17faa5c350ba316c41979d4b9c411e040a52c7924e69c40e90(
-    *,
-    engine_type: builtins.str,
-    instance_type: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    high_availability_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.HighAvailabilityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    storage_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

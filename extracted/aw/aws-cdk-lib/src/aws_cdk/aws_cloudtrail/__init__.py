@@ -257,7 +257,7 @@ from ..aws_lambda import IFunction as _IFunction_6adb0ab8
 from ..aws_logs import (
     ILogGroup as _ILogGroup_3c4fa718, RetentionDays as _RetentionDays_070f99f0
 )
-from ..aws_s3 import IBucket as _IBucket_42e086fd
+from ..aws_s3 import IBucket as _IBucket_42e086fd, IBucketRef as _IBucketRef_fb8fe266
 from ..aws_sns import ITopic as _ITopic_9eca4852
 
 
@@ -363,7 +363,2406 @@ class AddEventSelectorOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destinations": "destinations",
+        "name": "name",
+        "source": "source",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        source: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param destinations: One or more event data stores to which events arriving through a channel will be logged.
+        :param name: The name of the channel.
+        :param source: The name of the partner or external event source. You cannot change this name after you create the channel. A maximum of one channel is allowed per source. A source can be either ``Custom`` for all valid non- AWS events, or the name of a partner event source. For information about the source names for available partners, see `Additional information about integration partners <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-integration.html#cloudtrail-lake-partner-information>`_ in the CloudTrail User Guide.
+        :param tags: A list of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            cfn_channel_props = cloudtrail.CfnChannelProps(
+                destinations=[cloudtrail.CfnChannel.DestinationProperty(
+                    location="location",
+                    type="type"
+                )],
+                name="name",
+                source="source",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356)
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if destinations is not None:
+            self._values["destinations"] = destinations
+        if name is not None:
+            self._values["name"] = name
+        if source is not None:
+            self._values["source"] = source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destinations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.DestinationProperty"]]]]:
+        '''One or more event data stores to which events arriving through a channel will be logged.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-destinations
+        '''
+        result = self._values.get("destinations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.DestinationProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source(self) -> typing.Optional[builtins.str]:
+        '''The name of the partner or external event source.
+
+        You cannot change this name after you create the channel. A maximum of one channel is allowed per source.
+
+        A source can be either ``Custom`` for all valid non- AWS events, or the name of a partner event source. For information about the source names for available partners, see `Additional information about integration partners <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-integration.html#cloudtrail-lake-partner-information>`_ in the CloudTrail User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-source
+        '''
+        result = self._values.get("source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnDashboardProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "refresh_schedule": "refreshSchedule",
+        "tags": "tags",
+        "termination_protection_enabled": "terminationProtectionEnabled",
+        "widgets": "widgets",
+    },
+)
+class CfnDashboardProps:
+    def __init__(
+        self,
+        *,
+        name: typing.Optional[builtins.str] = None,
+        refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDashboard.RefreshScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDashboard.WidgetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDashboard``.
+
+        :param name: The name of the dashboard. The name must be unique to your account. To create the Highlights dashboard, the name must be ``AWSCloudTrail-Highlights`` .
+        :param refresh_schedule: The schedule for a dashboard refresh.
+        :param tags: A list of tags.
+        :param termination_protection_enabled: Specifies whether termination protection is enabled for the dashboard. If termination protection is enabled, you cannot delete the dashboard until termination protection is disabled.
+        :param widgets: An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets. You do not need to specify widgets for the Highlights dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            cfn_dashboard_props = cloudtrail.CfnDashboardProps(
+                name="name",
+                refresh_schedule=cloudtrail.CfnDashboard.RefreshScheduleProperty(
+                    frequency=cloudtrail.CfnDashboard.FrequencyProperty(
+                        unit="unit",
+                        value=123
+                    ),
+                    status="status",
+                    time_of_day="timeOfDay"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                termination_protection_enabled=False,
+                widgets=[cloudtrail.CfnDashboard.WidgetProperty(
+                    query_statement="queryStatement",
+            
+                    # the properties below are optional
+                    query_parameters=["queryParameters"],
+                    view_properties={
+                        "view_properties_key": "viewProperties"
+                    }
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument refresh_schedule", value=refresh_schedule, expected_type=type_hints["refresh_schedule"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument termination_protection_enabled", value=termination_protection_enabled, expected_type=type_hints["termination_protection_enabled"])
+            check_type(argname="argument widgets", value=widgets, expected_type=type_hints["widgets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if name is not None:
+            self._values["name"] = name
+        if refresh_schedule is not None:
+            self._values["refresh_schedule"] = refresh_schedule
+        if tags is not None:
+            self._values["tags"] = tags
+        if termination_protection_enabled is not None:
+            self._values["termination_protection_enabled"] = termination_protection_enabled
+        if widgets is not None:
+            self._values["widgets"] = widgets
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the dashboard. The name must be unique to your account.
+
+        To create the Highlights dashboard, the name must be ``AWSCloudTrail-Highlights`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def refresh_schedule(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDashboard.RefreshScheduleProperty"]]:
+        '''The schedule for a dashboard refresh.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-refreshschedule
+        '''
+        result = self._values.get("refresh_schedule")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDashboard.RefreshScheduleProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def termination_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether termination protection is enabled for the dashboard.
+
+        If termination protection is enabled, you cannot delete the dashboard until termination protection is disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-terminationprotectionenabled
+        '''
+        result = self._values.get("termination_protection_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def widgets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDashboard.WidgetProperty"]]]]:
+        '''An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets.
+
+        You do not need to specify widgets for the Highlights dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-widgets
+        '''
+        result = self._values.get("widgets")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDashboard.WidgetProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDashboardProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnEventDataStoreProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "advanced_event_selectors": "advancedEventSelectors",
+        "billing_mode": "billingMode",
+        "context_key_selectors": "contextKeySelectors",
+        "federation_enabled": "federationEnabled",
+        "federation_role_arn": "federationRoleArn",
+        "ingestion_enabled": "ingestionEnabled",
+        "insights_destination": "insightsDestination",
+        "insight_selectors": "insightSelectors",
+        "kms_key_id": "kmsKeyId",
+        "max_event_size": "maxEventSize",
+        "multi_region_enabled": "multiRegionEnabled",
+        "name": "name",
+        "organization_enabled": "organizationEnabled",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+        "termination_protection_enabled": "terminationProtectionEnabled",
+    },
+)
+class CfnEventDataStoreProps:
+    def __init__(
+        self,
+        *,
+        advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        billing_mode: typing.Optional[builtins.str] = None,
+        context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        federation_role_arn: typing.Optional[builtins.str] = None,
+        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        insights_destination: typing.Optional[builtins.str] = None,
+        insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        max_event_size: typing.Optional[builtins.str] = None,
+        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        name: typing.Optional[builtins.str] = None,
+        organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventDataStore``.
+
+        :param advanced_event_selectors: The advanced event selectors to use to select the events for the data store. You can configure up to five advanced event selectors for each event data store. For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
+        :param billing_mode: The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store. The following are the possible values: - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days. - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days. The default value is ``EXTENDABLE_RETENTION_PRICING`` . For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
+        :param context_key_selectors: The list of context key selectors that are configured for the event data store.
+        :param federation_enabled: Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
+        :param federation_role_arn: If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store. The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
+        :param ingestion_enabled: Specifies whether the event data store should start ingesting live events. The default is true.
+        :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events. For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
+        :param insight_selectors: A JSON string that contains the Insights types you want to log on an event data store. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
+        :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail. The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. .. epigraph:: Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - ``alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012`` - ``12345678-1234-1234-1234-123456789012``
+        :param max_event_size: The maximum allowed size for events to be stored in the specified event data store. If you are using context key selectors, MaxEventSize must be set to Large.
+        :param multi_region_enabled: Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
+        :param name: The name of the event data store.
+        :param organization_enabled: Specifies whether an event data store collects events logged for an organization in AWS Organizations .
+        :param retention_period: The retention period of the event data store, in days. If ``BillingMode`` is set to ``EXTENDABLE_RETENTION_PRICING`` , you can set a retention period of up to 3653 days, the equivalent of 10 years. If ``BillingMode`` is set to ``FIXED_RETENTION_PRICING`` , you can set a retention period of up to 2557 days, the equivalent of seven years. CloudTrail Lake determines whether to retain an event by checking if the ``eventTime`` of the event is within the specified retention period. For example, if you set a retention period of 90 days, CloudTrail will remove events when the ``eventTime`` is older than 90 days. .. epigraph:: If you plan to copy trail events to this event data store, we recommend that you consider both the age of the events that you want to copy as well as how long you want to keep the copied events in your event data store. For example, if you copy trail events that are 5 years old and specify a retention period of 7 years, the event data store will retain those events for two years.
+        :param tags: A list of tags.
+        :param termination_protection_enabled: Specifies whether termination protection is enabled for the event data store. If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            cfn_event_data_store_props = cloudtrail.CfnEventDataStoreProps(
+                advanced_event_selectors=[cloudtrail.CfnEventDataStore.AdvancedEventSelectorProperty(
+                    field_selectors=[cloudtrail.CfnEventDataStore.AdvancedFieldSelectorProperty(
+                        field="field",
+            
+                        # the properties below are optional
+                        ends_with=["endsWith"],
+                        equal_to=["equalTo"],
+                        not_ends_with=["notEndsWith"],
+                        not_equals=["notEquals"],
+                        not_starts_with=["notStartsWith"],
+                        starts_with=["startsWith"]
+                    )],
+            
+                    # the properties below are optional
+                    name="name"
+                )],
+                billing_mode="billingMode",
+                context_key_selectors=[cloudtrail.CfnEventDataStore.ContextKeySelectorProperty(
+                    equal_to=["equalTo"],
+                    type="type"
+                )],
+                federation_enabled=False,
+                federation_role_arn="federationRoleArn",
+                ingestion_enabled=False,
+                insights_destination="insightsDestination",
+                insight_selectors=[cloudtrail.CfnEventDataStore.InsightSelectorProperty(
+                    insight_type="insightType"
+                )],
+                kms_key_id="kmsKeyId",
+                max_event_size="maxEventSize",
+                multi_region_enabled=False,
+                name="name",
+                organization_enabled=False,
+                retention_period=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                termination_protection_enabled=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e)
+            check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
+            check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
+            check_type(argname="argument context_key_selectors", value=context_key_selectors, expected_type=type_hints["context_key_selectors"])
+            check_type(argname="argument federation_enabled", value=federation_enabled, expected_type=type_hints["federation_enabled"])
+            check_type(argname="argument federation_role_arn", value=federation_role_arn, expected_type=type_hints["federation_role_arn"])
+            check_type(argname="argument ingestion_enabled", value=ingestion_enabled, expected_type=type_hints["ingestion_enabled"])
+            check_type(argname="argument insights_destination", value=insights_destination, expected_type=type_hints["insights_destination"])
+            check_type(argname="argument insight_selectors", value=insight_selectors, expected_type=type_hints["insight_selectors"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument max_event_size", value=max_event_size, expected_type=type_hints["max_event_size"])
+            check_type(argname="argument multi_region_enabled", value=multi_region_enabled, expected_type=type_hints["multi_region_enabled"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument organization_enabled", value=organization_enabled, expected_type=type_hints["organization_enabled"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument termination_protection_enabled", value=termination_protection_enabled, expected_type=type_hints["termination_protection_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if advanced_event_selectors is not None:
+            self._values["advanced_event_selectors"] = advanced_event_selectors
+        if billing_mode is not None:
+            self._values["billing_mode"] = billing_mode
+        if context_key_selectors is not None:
+            self._values["context_key_selectors"] = context_key_selectors
+        if federation_enabled is not None:
+            self._values["federation_enabled"] = federation_enabled
+        if federation_role_arn is not None:
+            self._values["federation_role_arn"] = federation_role_arn
+        if ingestion_enabled is not None:
+            self._values["ingestion_enabled"] = ingestion_enabled
+        if insights_destination is not None:
+            self._values["insights_destination"] = insights_destination
+        if insight_selectors is not None:
+            self._values["insight_selectors"] = insight_selectors
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if max_event_size is not None:
+            self._values["max_event_size"] = max_event_size
+        if multi_region_enabled is not None:
+            self._values["multi_region_enabled"] = multi_region_enabled
+        if name is not None:
+            self._values["name"] = name
+        if organization_enabled is not None:
+            self._values["organization_enabled"] = organization_enabled
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+        if termination_protection_enabled is not None:
+            self._values["termination_protection_enabled"] = termination_protection_enabled
+
+    @builtins.property
+    def advanced_event_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.AdvancedEventSelectorProperty"]]]]:
+        '''The advanced event selectors to use to select the events for the data store.
+
+        You can configure up to five advanced event selectors for each event data store.
+
+        For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide.
+
+        For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide.
+
+        For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-advancedeventselectors
+        '''
+        result = self._values.get("advanced_event_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.AdvancedEventSelectorProperty"]]]], result)
+
+    @builtins.property
+    def billing_mode(self) -> typing.Optional[builtins.str]:
+        '''The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store.
+
+        The following are the possible values:
+
+        - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days.
+        - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days.
+
+        The default value is ``EXTENDABLE_RETENTION_PRICING`` .
+
+        For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-billingmode
+        '''
+        result = self._values.get("billing_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def context_key_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
+        '''The list of context key selectors that are configured for the event data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-contextkeyselectors
+        '''
+        result = self._values.get("context_key_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.ContextKeySelectorProperty"]]]], result)
+
+    @builtins.property
+    def federation_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-federationenabled
+        '''
+        result = self._values.get("federation_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def federation_role_arn(self) -> typing.Optional[builtins.str]:
+        '''If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store.
+
+        The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-federationrolearn
+        '''
+        result = self._values.get("federation_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ingestion_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the event data store should start ingesting live events.
+
+        The default is true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-ingestionenabled
+        '''
+        result = self._values.get("ingestion_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def insights_destination(self) -> typing.Optional[builtins.str]:
+        '''The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events.
+
+        For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-insightsdestination
+        '''
+        result = self._values.get("insights_destination")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def insight_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.InsightSelectorProperty"]]]]:
+        '''A JSON string that contains the Insights types you want to log on an event data store.
+
+        ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
+
+        The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume.
+
+        The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-insightselectors
+        '''
+        result = self._values.get("insight_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.InsightSelectorProperty"]]]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail.
+
+        The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier.
+        .. epigraph::
+
+           Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store.
+
+        CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+        Examples:
+
+        - ``alias/MyAliasName``
+        - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName``
+        - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012``
+        - ``12345678-1234-1234-1234-123456789012``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_event_size(self) -> typing.Optional[builtins.str]:
+        '''The maximum allowed size for events to be stored in the specified event data store.
+
+        If you are using context key selectors, MaxEventSize must be set to Large.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-maxeventsize
+        '''
+        result = self._values.get("max_event_size")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multi_region_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-multiregionenabled
+        '''
+        result = self._values.get("multi_region_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the event data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def organization_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether an event data store collects events logged for an organization in AWS Organizations .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-organizationenabled
+        '''
+        result = self._values.get("organization_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The retention period of the event data store, in days.
+
+        If ``BillingMode`` is set to ``EXTENDABLE_RETENTION_PRICING`` , you can set a retention period of up to 3653 days, the equivalent of 10 years. If ``BillingMode`` is set to ``FIXED_RETENTION_PRICING`` , you can set a retention period of up to 2557 days, the equivalent of seven years.
+
+        CloudTrail Lake determines whether to retain an event by checking if the ``eventTime`` of the event is within the specified retention period. For example, if you set a retention period of 90 days, CloudTrail will remove events when the ``eventTime`` is older than 90 days.
+        .. epigraph::
+
+           If you plan to copy trail events to this event data store, we recommend that you consider both the age of the events that you want to copy as well as how long you want to keep the copied events in your event data store. For example, if you copy trail events that are 5 years old and specify a retention period of 7 years, the event data store will retain those events for two years.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def termination_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether termination protection is enabled for the event data store.
+
+        If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-terminationprotectionenabled
+        '''
+        result = self._values.get("termination_protection_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventDataStoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn", "resource_policy": "resourcePolicy"},
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        resource_arn: builtins.str,
+        resource_policy: typing.Any,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy. Example event data store ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:eventdatastore/EXAMPLE-f852-4e8f-8bd1-bcf6cEXAMPLE`` Example dashboard ARN format: ``arn:aws:cloudtrail:us-east-1:123456789012:dashboard/exampleDash`` Example channel ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:channel/01234567890``
+        :param resource_policy: A JSON-formatted string for an AWS resource-based policy. For example resource-based policies, see `CloudTrail resource-based policy examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`_ in the *CloudTrail User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            # resource_policy: Any
+            
+            cfn_resource_policy_props = cloudtrail.CfnResourcePolicyProps(
+                resource_arn="resourceArn",
+                resource_policy=resource_policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+            "resource_policy": resource_policy,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy.
+
+        Example event data store ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:eventdatastore/EXAMPLE-f852-4e8f-8bd1-bcf6cEXAMPLE``
+
+        Example dashboard ARN format: ``arn:aws:cloudtrail:us-east-1:123456789012:dashboard/exampleDash``
+
+        Example channel ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:channel/01234567890``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html#cfn-cloudtrail-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_policy(self) -> typing.Any:
+        '''A JSON-formatted string for an AWS resource-based policy.
+
+        For example resource-based policies, see `CloudTrail resource-based policy examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`_ in the *CloudTrail User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html#cfn-cloudtrail-resourcepolicy-resourcepolicy
+        '''
+        result = self._values.get("resource_policy")
+        assert result is not None, "Required property 'resource_policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnTrailProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "is_logging": "isLogging",
+        "s3_bucket_name": "s3BucketName",
+        "advanced_event_selectors": "advancedEventSelectors",
+        "cloud_watch_logs_log_group_arn": "cloudWatchLogsLogGroupArn",
+        "cloud_watch_logs_role_arn": "cloudWatchLogsRoleArn",
+        "enable_log_file_validation": "enableLogFileValidation",
+        "event_selectors": "eventSelectors",
+        "include_global_service_events": "includeGlobalServiceEvents",
+        "insight_selectors": "insightSelectors",
+        "is_multi_region_trail": "isMultiRegionTrail",
+        "is_organization_trail": "isOrganizationTrail",
+        "kms_key_id": "kmsKeyId",
+        "s3_key_prefix": "s3KeyPrefix",
+        "sns_topic_name": "snsTopicName",
+        "tags": "tags",
+        "trail_name": "trailName",
+    },
+)
+class CfnTrailProps:
+    def __init__(
+        self,
+        *,
+        is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        s3_bucket_name: builtins.str,
+        advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrail.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
+        cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
+        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrail.EventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrail.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        s3_key_prefix: typing.Optional[builtins.str] = None,
+        sns_topic_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        trail_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrail``.
+
+        :param is_logging: Whether the CloudTrail trail is currently logging AWS API calls.
+        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log files. See `Amazon S3 Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ .
+        :param advanced_event_selectors: Specifies the settings for advanced event selectors. You can use advanced event selectors to log management events, data events for all resource types, and network activity events. You can add advanced event selectors, and conditions for your advanced event selectors, up to a maximum of 500 values for all conditions and selectors on a trail. You can use either ``AdvancedEventSelectors`` or ``EventSelectors`` , but not both. If you apply ``AdvancedEventSelectors`` to a trail, any existing ``EventSelectors`` are overwritten. For more information about advanced event selectors, see `Logging data events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html>`_ and `Logging network activity events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-network-events-with-cloudtrail.html>`_ in the *AWS CloudTrail User Guide* .
+        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered. You must use a log group that exists in your account. To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` . .. epigraph:: If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
+        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group. You must use a role that exists in your account. To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` . .. epigraph:: If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
+        :param enable_log_file_validation: Specifies whether log file validation is enabled. The default is false. .. epigraph:: When you disable log file integrity validation, the chain of digest files is broken after one hour. CloudTrail does not create digest files for log files that were delivered during a period in which log file integrity validation was disabled. For example, if you enable log file integrity validation at noon on January 1, disable it at noon on January 2, and re-enable it at noon on January 10, digest files will not be created for the log files delivered from noon on January 2 to noon on January 10. The same applies whenever you stop CloudTrail logging or delete a trail.
+        :param event_selectors: Use event selectors to further specify the management and data event settings for your trail. By default, trails created without specific event selectors will be configured to log all read and write management events, and no data events. When an event occurs in your account, CloudTrail evaluates the event selector for all trails. For each trail, if the event matches any event selector, the trail processes and logs the event. If the event doesn't match any event selector, the trail doesn't log the event. You can configure up to five event selectors for a trail. You cannot apply both event selectors and advanced event selectors to a trail.
+        :param include_global_service_events: Specifies whether the trail is publishing events from global services such as IAM to the log files.
+        :param insight_selectors: A JSON string that contains the Insights types you want to log on a trail. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
+        :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all Regions. The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
+        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account . The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization. .. epigraph:: Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
+        :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail. The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012 - 12345678-1234-1234-1234-123456789012
+        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery. For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
+        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery. The maximum length is 256 characters.
+        :param tags: A custom set of tags (key-value pairs) for this trail.
+        :param trail_name: Specifies the name of the trail. The name must meet the following requirements:. - Contain only ASCII letters (a-z, A-Z), numbers (0-9), periods (.), underscores (_), or dashes (-) - Start with a letter or number, and end with a letter or number - Be between 3 and 128 characters - Have no adjacent periods, underscores or dashes. Names like ``my-_namespace`` and ``my--namespace`` are not valid. - Not be in IP address format (for example, 192.168.5.4)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            cfn_trail_props = cloudtrail.CfnTrailProps(
+                is_logging=False,
+                s3_bucket_name="s3BucketName",
+            
+                # the properties below are optional
+                advanced_event_selectors=[cloudtrail.CfnTrail.AdvancedEventSelectorProperty(
+                    field_selectors=[cloudtrail.CfnTrail.AdvancedFieldSelectorProperty(
+                        field="field",
+            
+                        # the properties below are optional
+                        ends_with=["endsWith"],
+                        equal_to=["equalTo"],
+                        not_ends_with=["notEndsWith"],
+                        not_equals=["notEquals"],
+                        not_starts_with=["notStartsWith"],
+                        starts_with=["startsWith"]
+                    )],
+            
+                    # the properties below are optional
+                    name="name"
+                )],
+                cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+                cloud_watch_logs_role_arn="cloudWatchLogsRoleArn",
+                enable_log_file_validation=False,
+                event_selectors=[cloudtrail.CfnTrail.EventSelectorProperty(
+                    data_resources=[cloudtrail.CfnTrail.DataResourceProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        values=["values"]
+                    )],
+                    exclude_management_event_sources=["excludeManagementEventSources"],
+                    include_management_events=False,
+                    read_write_type="readWriteType"
+                )],
+                include_global_service_events=False,
+                insight_selectors=[cloudtrail.CfnTrail.InsightSelectorProperty(
+                    insight_type="insightType"
+                )],
+                is_multi_region_trail=False,
+                is_organization_trail=False,
+                kms_key_id="kmsKeyId",
+                s3_key_prefix="s3KeyPrefix",
+                sns_topic_name="snsTopicName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                trail_name="trailName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79)
+            check_type(argname="argument is_logging", value=is_logging, expected_type=type_hints["is_logging"])
+            check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
+            check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
+            check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
+            check_type(argname="argument cloud_watch_logs_role_arn", value=cloud_watch_logs_role_arn, expected_type=type_hints["cloud_watch_logs_role_arn"])
+            check_type(argname="argument enable_log_file_validation", value=enable_log_file_validation, expected_type=type_hints["enable_log_file_validation"])
+            check_type(argname="argument event_selectors", value=event_selectors, expected_type=type_hints["event_selectors"])
+            check_type(argname="argument include_global_service_events", value=include_global_service_events, expected_type=type_hints["include_global_service_events"])
+            check_type(argname="argument insight_selectors", value=insight_selectors, expected_type=type_hints["insight_selectors"])
+            check_type(argname="argument is_multi_region_trail", value=is_multi_region_trail, expected_type=type_hints["is_multi_region_trail"])
+            check_type(argname="argument is_organization_trail", value=is_organization_trail, expected_type=type_hints["is_organization_trail"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
+            check_type(argname="argument sns_topic_name", value=sns_topic_name, expected_type=type_hints["sns_topic_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "is_logging": is_logging,
+            "s3_bucket_name": s3_bucket_name,
+        }
+        if advanced_event_selectors is not None:
+            self._values["advanced_event_selectors"] = advanced_event_selectors
+        if cloud_watch_logs_log_group_arn is not None:
+            self._values["cloud_watch_logs_log_group_arn"] = cloud_watch_logs_log_group_arn
+        if cloud_watch_logs_role_arn is not None:
+            self._values["cloud_watch_logs_role_arn"] = cloud_watch_logs_role_arn
+        if enable_log_file_validation is not None:
+            self._values["enable_log_file_validation"] = enable_log_file_validation
+        if event_selectors is not None:
+            self._values["event_selectors"] = event_selectors
+        if include_global_service_events is not None:
+            self._values["include_global_service_events"] = include_global_service_events
+        if insight_selectors is not None:
+            self._values["insight_selectors"] = insight_selectors
+        if is_multi_region_trail is not None:
+            self._values["is_multi_region_trail"] = is_multi_region_trail
+        if is_organization_trail is not None:
+            self._values["is_organization_trail"] = is_organization_trail
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if s3_key_prefix is not None:
+            self._values["s3_key_prefix"] = s3_key_prefix
+        if sns_topic_name is not None:
+            self._values["sns_topic_name"] = sns_topic_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if trail_name is not None:
+            self._values["trail_name"] = trail_name
+
+    @builtins.property
+    def is_logging(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Whether the CloudTrail trail is currently logging AWS API calls.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-islogging
+        '''
+        result = self._values.get("is_logging")
+        assert result is not None, "Required property 'is_logging' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def s3_bucket_name(self) -> builtins.str:
+        '''Specifies the name of the Amazon S3 bucket designated for publishing log files.
+
+        See `Amazon S3 Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-s3bucketname
+        '''
+        result = self._values.get("s3_bucket_name")
+        assert result is not None, "Required property 's3_bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def advanced_event_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.AdvancedEventSelectorProperty"]]]]:
+        '''Specifies the settings for advanced event selectors.
+
+        You can use advanced event selectors to log management events, data events for all resource types, and network activity events.
+
+        You can add advanced event selectors, and conditions for your advanced event selectors, up to a maximum of 500 values for all conditions and selectors on a trail. You can use either ``AdvancedEventSelectors`` or ``EventSelectors`` , but not both. If you apply ``AdvancedEventSelectors`` to a trail, any existing ``EventSelectors`` are overwritten. For more information about advanced event selectors, see `Logging data events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html>`_ and `Logging network activity events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-network-events-with-cloudtrail.html>`_ in the *AWS CloudTrail User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-advancedeventselectors
+        '''
+        result = self._values.get("advanced_event_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.AdvancedEventSelectorProperty"]]]], result)
+
+    @builtins.property
+    def cloud_watch_logs_log_group_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered.
+
+        You must use a log group that exists in your account.
+
+        To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` .
+        .. epigraph::
+
+           If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsloggrouparn
+        '''
+        result = self._values.get("cloud_watch_logs_log_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cloud_watch_logs_role_arn(self) -> typing.Optional[builtins.str]:
+        '''Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group.
+
+        You must use a role that exists in your account.
+
+        To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` .
+        .. epigraph::
+
+           If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsrolearn
+        '''
+        result = self._values.get("cloud_watch_logs_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_log_file_validation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether log file validation is enabled. The default is false.
+
+        .. epigraph::
+
+           When you disable log file integrity validation, the chain of digest files is broken after one hour. CloudTrail does not create digest files for log files that were delivered during a period in which log file integrity validation was disabled. For example, if you enable log file integrity validation at noon on January 1, disable it at noon on January 2, and re-enable it at noon on January 10, digest files will not be created for the log files delivered from noon on January 2 to noon on January 10. The same applies whenever you stop CloudTrail logging or delete a trail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-enablelogfilevalidation
+        '''
+        result = self._values.get("enable_log_file_validation")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def event_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.EventSelectorProperty"]]]]:
+        '''Use event selectors to further specify the management and data event settings for your trail.
+
+        By default, trails created without specific event selectors will be configured to log all read and write management events, and no data events. When an event occurs in your account, CloudTrail evaluates the event selector for all trails. For each trail, if the event matches any event selector, the trail processes and logs the event. If the event doesn't match any event selector, the trail doesn't log the event.
+
+        You can configure up to five event selectors for a trail.
+
+        You cannot apply both event selectors and advanced event selectors to a trail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-eventselectors
+        '''
+        result = self._values.get("event_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.EventSelectorProperty"]]]], result)
+
+    @builtins.property
+    def include_global_service_events(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the trail is publishing events from global services such as IAM to the log files.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-includeglobalserviceevents
+        '''
+        result = self._values.get("include_global_service_events")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def insight_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.InsightSelectorProperty"]]]]:
+        '''A JSON string that contains the Insights types you want to log on a trail.
+
+        ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
+
+        The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume.
+
+        The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-insightselectors
+        '''
+        result = self._values.get("insight_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrail.InsightSelectorProperty"]]]], result)
+
+    @builtins.property
+    def is_multi_region_trail(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the trail applies only to the current Region or to all Regions.
+
+        The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-ismultiregiontrail
+        '''
+        result = self._values.get("is_multi_region_trail")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def is_organization_trail(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account .
+
+        The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization.
+        .. epigraph::
+
+           Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-isorganizationtrail
+        '''
+        result = self._values.get("is_organization_trail")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''Specifies the AWS KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail.
+
+        The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier.
+
+        CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+        Examples:
+
+        - alias/MyAliasName
+        - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName
+        - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012
+        - 12345678-1234-1234-1234-123456789012
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_key_prefix(self) -> typing.Optional[builtins.str]:
+        '''Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery.
+
+        For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-s3keyprefix
+        '''
+        result = self._values.get("s3_key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sns_topic_name(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery.
+
+        The maximum length is 256 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-snstopicname
+        '''
+        result = self._values.get("sns_topic_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A custom set of tags (key-value pairs) for this trail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def trail_name(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the trail. The name must meet the following requirements:.
+
+        - Contain only ASCII letters (a-z, A-Z), numbers (0-9), periods (.), underscores (_), or dashes (-)
+        - Start with a letter or number, and end with a letter or number
+        - Be between 3 and 128 characters
+        - Have no adjacent periods, underscores or dashes. Names like ``my-_namespace`` and ``my--namespace`` are not valid.
+        - Not be in IP address format (for example, 192.168.5.4)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-trailname
+        '''
+        result = self._values.get("trail_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrailProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_arn": "channelArn"},
+)
+class ChannelReference:
+    def __init__(self, *, channel_arn: builtins.str) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_arn: The ChannelArn of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            channel_reference = cloudtrail.ChannelReference(
+                channel_arn="channelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fb7293ed180ce1772437ad6fa608307c5f28622e511bcecbccafaf86f310bf1)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The ChannelArn of the Channel resource.'''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.DashboardReference",
+    jsii_struct_bases=[],
+    name_mapping={"dashboard_arn": "dashboardArn"},
+)
+class DashboardReference:
+    def __init__(self, *, dashboard_arn: builtins.str) -> None:
+        '''A reference to a Dashboard resource.
+
+        :param dashboard_arn: The DashboardArn of the Dashboard resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            dashboard_reference = cloudtrail.DashboardReference(
+                dashboard_arn="dashboardArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9713e8e98a818c9886a1d8e72a7231b930aa0ad516c260f7dd4a49867026685)
+            check_type(argname="argument dashboard_arn", value=dashboard_arn, expected_type=type_hints["dashboard_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dashboard_arn": dashboard_arn,
+        }
+
+    @builtins.property
+    def dashboard_arn(self) -> builtins.str:
+        '''The DashboardArn of the Dashboard resource.'''
+        result = self._values.get("dashboard_arn")
+        assert result is not None, "Required property 'dashboard_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DashboardReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.DataResourceType")
+class DataResourceType(enum.Enum):
+    '''Resource type for a data event.'''
+
+    LAMBDA_FUNCTION = "LAMBDA_FUNCTION"
+    '''Data resource type for Lambda function.'''
+    S3_OBJECT = "S3_OBJECT"
+    '''Data resource type for S3 objects.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.EventDataStoreReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_data_store_arn": "eventDataStoreArn"},
+)
+class EventDataStoreReference:
+    def __init__(self, *, event_data_store_arn: builtins.str) -> None:
+        '''A reference to a EventDataStore resource.
+
+        :param event_data_store_arn: The EventDataStoreArn of the EventDataStore resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            event_data_store_reference = cloudtrail.EventDataStoreReference(
+                event_data_store_arn="eventDataStoreArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41e614d15d976cde0f87a35d3d079d725fec59a7cede087d054f31b0d00b26e6)
+            check_type(argname="argument event_data_store_arn", value=event_data_store_arn, expected_type=type_hints["event_data_store_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_data_store_arn": event_data_store_arn,
+        }
+
+    @builtins.property
+    def event_data_store_arn(self) -> builtins.str:
+        '''The EventDataStoreArn of the EventDataStore resource.'''
+        result = self._values.get("event_data_store_arn")
+        assert result is not None, "Required property 'event_data_store_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventDataStoreReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudtrail.IChannelRef")
+class IChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudtrail.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudtrail.IDashboardRef")
+class IDashboardRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDashboardRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudtrail.IDashboardRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboardRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudtrail.IEventDataStoreRef")
+class IEventDataStoreRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EventDataStore.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventDataStoreRef")
+    def event_data_store_ref(self) -> EventDataStoreReference:
+        '''(experimental) A reference to a EventDataStore resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventDataStoreRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventDataStore.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudtrail.IEventDataStoreRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventDataStoreRef")
+    def event_data_store_ref(self) -> EventDataStoreReference:
+        '''(experimental) A reference to a EventDataStore resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventDataStoreReference, jsii.get(self, "eventDataStoreRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventDataStoreRef).__jsii_proxy_class__ = lambda : _IEventDataStoreRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudtrail.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudtrail.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudtrail.ITrailRef")
+class ITrailRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Trail.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trailRef")
+    def trail_ref(self) -> "TrailReference":
+        '''(experimental) A reference to a Trail resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrailRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Trail.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudtrail.ITrailRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trailRef")
+    def trail_ref(self) -> "TrailReference":
+        '''(experimental) A reference to a Trail resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrailReference", jsii.get(self, "trailRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrailRef).__jsii_proxy_class__ = lambda : _ITrailRefProxy
+
+
+class InsightType(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudtrail.InsightType",
+):
+    '''Util element for InsightSelector.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        cloudtrail.Trail(self, "Insights",
+            insight_types=[cloudtrail.InsightType.API_CALL_RATE, cloudtrail.InsightType.API_ERROR_RATE
+            ]
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="API_CALL_RATE")
+    def API_CALL_RATE(cls) -> "InsightType":
+        '''The type of insights to log on a trail.
+
+        (API Call Rate)
+        '''
+        return typing.cast("InsightType", jsii.sget(cls, "API_CALL_RATE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="API_ERROR_RATE")
+    def API_ERROR_RATE(cls) -> "InsightType":
+        '''The type of insights to log on a trail.
+
+        (API Error Rate)
+        '''
+        return typing.cast("InsightType", jsii.sget(cls, "API_ERROR_RATE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.ManagementEventSources")
+class ManagementEventSources(enum.Enum):
+    '''Types of management event sources that can be excluded.'''
+
+    KMS = "KMS"
+    '''AWS Key Management Service (AWS KMS) events.'''
+    RDS_DATA_API = "RDS_DATA_API"
+    '''Data API events.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.ReadWriteType")
+class ReadWriteType(enum.Enum):
+    '''Types of events that CloudTrail can log.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        trail = cloudtrail.Trail(self, "CloudTrail",
+            # ...
+            management_events=cloudtrail.ReadWriteType.READ_ONLY
+        )
+    '''
+
+    READ_ONLY = "READ_ONLY"
+    '''Read-only events include API operations that read your resources, but don't make changes.
+
+    For example, read-only events include the Amazon EC2 DescribeSecurityGroups
+    and DescribeSubnets API operations.
+    '''
+    WRITE_ONLY = "WRITE_ONLY"
+    '''Write-only events include API operations that modify (or might modify) your resources.
+
+    For example, the Amazon EC2 RunInstances and TerminateInstances API
+    operations modify your instances.
+    '''
+    ALL = "ALL"
+    '''All events.'''
+    NONE = "NONE"
+    '''No events.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            resource_policy_reference = cloudtrail.ResourcePolicyReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6fa4ee9ebde16d06e2b6f04deb76a18c078ad3afacffe11d0df80f1a4c04af9)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourcePolicy resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.S3EventSelector",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "object_prefix": "objectPrefix"},
+)
+class S3EventSelector:
+    def __init__(
+        self,
+        *,
+        bucket: _IBucketRef_fb8fe266,
+        object_prefix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Selecting an S3 bucket and an optional prefix to be logged for data events.
+
+        :param bucket: S3 bucket.
+        :param object_prefix: Data events for objects whose key matches this prefix will be logged. Default: - all objects
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            from aws_cdk import aws_s3 as s3
+            
+            # bucket_ref: s3.IBucketRef
+            
+            s3_event_selector = cloudtrail.S3EventSelector(
+                bucket=bucket_ref,
+            
+                # the properties below are optional
+                object_prefix="objectPrefix"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument object_prefix", value=object_prefix, expected_type=type_hints["object_prefix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if object_prefix is not None:
+            self._values["object_prefix"] = object_prefix
+
+    @builtins.property
+    def bucket(self) -> _IBucketRef_fb8fe266:
+        '''S3 bucket.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(_IBucketRef_fb8fe266, result)
+
+    @builtins.property
+    def object_prefix(self) -> typing.Optional[builtins.str]:
+        '''Data events for objects whose key matches this prefix will be logged.
+
+        :default: - all objects
+        '''
+        result = self._values.get("object_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "S3EventSelector(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class Trail(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudtrail.Trail",
+):
+    '''Cloud trail allows you to log events that happen in your AWS account For example:.
+
+    import { CloudTrail } from 'aws-cdk-lib/aws-cloudtrail'
+
+    const cloudTrail = new CloudTrail(this, 'MyTrail');
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_cloudtrail as cloudtrail
+        
+        
+        my_key_alias = kms.Alias.from_alias_name(self, "myKey", "alias/aws/s3")
+        trail = cloudtrail.Trail(self, "myCloudTrail",
+            send_to_cloud_watch_logs=True,
+            encryption_key=my_key_alias
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        bucket: typing.Optional[_IBucket_42e086fd] = None,
+        cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+        cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+        enable_file_validation: typing.Optional[builtins.bool] = None,
+        encryption_key: typing.Optional[_IKey_5f11635f] = None,
+        include_global_service_events: typing.Optional[builtins.bool] = None,
+        insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
+        is_multi_region_trail: typing.Optional[builtins.bool] = None,
+        is_organization_trail: typing.Optional[builtins.bool] = None,
+        management_events: typing.Optional[ReadWriteType] = None,
+        org_id: typing.Optional[builtins.str] = None,
+        s3_key_prefix: typing.Optional[builtins.str] = None,
+        send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
+        sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+        trail_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
+        :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
+        :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
+        :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
+        :param encryption_key: The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs. Default: - No encryption.
+        :param include_global_service_events: For most services, events are recorded in the region where the action occurred. For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53, events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region. Default: true
+        :param insight_types: A JSON string that contains the insight types you want to log on a trail. Default: - No Value.
+        :param is_multi_region_trail: Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account. Default: true
+        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account. If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error. If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization. If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization. Default: - false
+        :param management_events: When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails. Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group. This method sets the management configuration for this trail. Management events provide insight into management operations that are performed on resources in your AWS account. These are also known as control plane operations. Management events can also include non-API events that occur in your account. For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event. Default: ReadWriteType.ALL
+        :param org_id: The orgId. Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions. Default: - No orgId
+        :param s3_key_prefix: An Amazon S3 object key prefix that precedes the name of all log files. Default: - No prefix.
+        :param send_to_cloud_watch_logs: If CloudTrail pushes logs to CloudWatch Logs in addition to S3. Disabled for cost out of the box. Default: false
+        :param sns_topic: SNS topic that is notified when new log files are published. Default: - No notifications.
+        :param trail_name: The name of the trail. We recommend customers do not set an explicit name. Default: - AWS CloudFormation generated name.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = TrailProps(
+            bucket=bucket,
+            cloud_watch_log_group=cloud_watch_log_group,
+            cloud_watch_logs_retention=cloud_watch_logs_retention,
+            enable_file_validation=enable_file_validation,
+            encryption_key=encryption_key,
+            include_global_service_events=include_global_service_events,
+            insight_types=insight_types,
+            is_multi_region_trail=is_multi_region_trail,
+            is_organization_trail=is_organization_trail,
+            management_events=management_events,
+            org_id=org_id,
+            s3_key_prefix=s3_key_prefix,
+            send_to_cloud_watch_logs=send_to_cloud_watch_logs,
+            sns_topic=sns_topic,
+            trail_name=trail_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="onEvent")
+    @builtins.classmethod
+    def on_event(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> _Rule_334ed2b5:
+        '''Create an event rule for when an event is recorded by any Trail in the account.
+
+        Note that the event doesn't necessarily have to come from this Trail, it can
+        be captured from any one.
+
+        Be sure to filter the event further down using an event pattern.
+
+        :param scope: -
+        :param id: -
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = _OnEventOptions_8711b8b3(
+            target=target,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        return typing.cast(_Rule_334ed2b5, jsii.sinvoke(cls, "onEvent", [scope, id, options]))
+
+    @jsii.member(jsii_name="addEventSelector")
+    def add_event_selector(
+        self,
+        data_resource_type: DataResourceType,
+        data_resource_values: typing.Sequence[builtins.str],
+        *,
+        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+        include_management_events: typing.Optional[builtins.bool] = None,
+        read_write_type: typing.Optional[ReadWriteType] = None,
+    ) -> None:
+        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
+
+        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
+
+        This method adds an Event Selector for filtering events that match either S3 or Lambda function operations.
+
+        Data events: These events provide insight into the resource operations performed on or within a resource.
+        These are also known as data plane operations.
+
+        :param data_resource_type: -
+        :param data_resource_values: the list of data resource ARNs to include in logging (maximum 250 entries).
+        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
+        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
+        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2)
+            check_type(argname="argument data_resource_type", value=data_resource_type, expected_type=type_hints["data_resource_type"])
+            check_type(argname="argument data_resource_values", value=data_resource_values, expected_type=type_hints["data_resource_values"])
+        options = AddEventSelectorOptions(
+            exclude_management_event_sources=exclude_management_event_sources,
+            include_management_events=include_management_events,
+            read_write_type=read_write_type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addEventSelector", [data_resource_type, data_resource_values, options]))
+
+    @jsii.member(jsii_name="addLambdaEventSelector")
+    def add_lambda_event_selector(
+        self,
+        handlers: typing.Sequence[_IFunction_6adb0ab8],
+        *,
+        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+        include_management_events: typing.Optional[builtins.bool] = None,
+        read_write_type: typing.Optional[ReadWriteType] = None,
+    ) -> None:
+        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
+
+        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
+
+        This method adds a Lambda Data Event Selector for filtering events that match Lambda function operations.
+
+        Data events: These events provide insight into the resource operations performed on or within a resource.
+        These are also known as data plane operations.
+
+        :param handlers: the list of lambda function handlers whose data events should be logged (maximum 250 entries).
+        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
+        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
+        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0)
+            check_type(argname="argument handlers", value=handlers, expected_type=type_hints["handlers"])
+        options = AddEventSelectorOptions(
+            exclude_management_event_sources=exclude_management_event_sources,
+            include_management_events=include_management_events,
+            read_write_type=read_write_type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addLambdaEventSelector", [handlers, options]))
+
+    @jsii.member(jsii_name="addS3EventSelector")
+    def add_s3_event_selector(
+        self,
+        s3_selector: typing.Sequence[typing.Union[S3EventSelector, typing.Dict[builtins.str, typing.Any]]],
+        *,
+        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+        include_management_events: typing.Optional[builtins.bool] = None,
+        read_write_type: typing.Optional[ReadWriteType] = None,
+    ) -> None:
+        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
+
+        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
+
+        This method adds an S3 Data Event Selector for filtering events that match S3 operations.
+
+        Data events: These events provide insight into the resource operations performed on or within a resource.
+        These are also known as data plane operations.
+
+        :param s3_selector: the list of S3 bucket with optional prefix to include in logging (maximum 250 entries).
+        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
+        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
+        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2)
+            check_type(argname="argument s3_selector", value=s3_selector, expected_type=type_hints["s3_selector"])
+        options = AddEventSelectorOptions(
+            exclude_management_event_sources=exclude_management_event_sources,
+            include_management_events=include_management_events,
+            read_write_type=read_write_type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addS3EventSelector", [s3_selector, options]))
+
+    @jsii.member(jsii_name="logAllLambdaDataEvents")
+    def log_all_lambda_data_events(
+        self,
+        *,
+        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+        include_management_events: typing.Optional[builtins.bool] = None,
+        read_write_type: typing.Optional[ReadWriteType] = None,
+    ) -> None:
+        '''Log all Lambda data events for all lambda functions the account.
+
+        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
+        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
+        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html
+        '''
+        options = AddEventSelectorOptions(
+            exclude_management_event_sources=exclude_management_event_sources,
+            include_management_events=include_management_events,
+            read_write_type=read_write_type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "logAllLambdaDataEvents", [options]))
+
+    @jsii.member(jsii_name="logAllS3DataEvents")
+    def log_all_s3_data_events(
+        self,
+        *,
+        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+        include_management_events: typing.Optional[builtins.bool] = None,
+        read_write_type: typing.Optional[ReadWriteType] = None,
+    ) -> None:
+        '''Log all S3 data events for all objects for all buckets in the account.
+
+        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
+        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
+        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html
+        '''
+        options = AddEventSelectorOptions(
+            exclude_management_event_sources=exclude_management_event_sources,
+            include_management_events=include_management_events,
+            read_write_type=read_write_type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "logAllS3DataEvents", [options]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trailArn")
+    def trail_arn(self) -> builtins.str:
+        '''ARN of the CloudTrail trail i.e. arn:aws:cloudtrail:us-east-2:123456789012:trail/myCloudTrail.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "trailArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trailSnsTopicArn")
+    def trail_sns_topic_arn(self) -> builtins.str:
+        '''ARN of the Amazon SNS topic that's associated with the CloudTrail trail, i.e. arn:aws:sns:us-east-2:123456789012:mySNSTopic.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "trailSnsTopicArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logGroup")
+    def log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''The CloudWatch log group to which CloudTrail events are sent.
+
+        ``undefined`` if ``sendToCloudWatchLogs`` property is false.
+        '''
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], jsii.get(self, "logGroup"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.TrailProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket": "bucket",
+        "cloud_watch_log_group": "cloudWatchLogGroup",
+        "cloud_watch_logs_retention": "cloudWatchLogsRetention",
+        "enable_file_validation": "enableFileValidation",
+        "encryption_key": "encryptionKey",
+        "include_global_service_events": "includeGlobalServiceEvents",
+        "insight_types": "insightTypes",
+        "is_multi_region_trail": "isMultiRegionTrail",
+        "is_organization_trail": "isOrganizationTrail",
+        "management_events": "managementEvents",
+        "org_id": "orgId",
+        "s3_key_prefix": "s3KeyPrefix",
+        "send_to_cloud_watch_logs": "sendToCloudWatchLogs",
+        "sns_topic": "snsTopic",
+        "trail_name": "trailName",
+    },
+)
+class TrailProps:
+    def __init__(
+        self,
+        *,
+        bucket: typing.Optional[_IBucket_42e086fd] = None,
+        cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+        cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+        enable_file_validation: typing.Optional[builtins.bool] = None,
+        encryption_key: typing.Optional[_IKey_5f11635f] = None,
+        include_global_service_events: typing.Optional[builtins.bool] = None,
+        insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
+        is_multi_region_trail: typing.Optional[builtins.bool] = None,
+        is_organization_trail: typing.Optional[builtins.bool] = None,
+        management_events: typing.Optional[ReadWriteType] = None,
+        org_id: typing.Optional[builtins.str] = None,
+        s3_key_prefix: typing.Optional[builtins.str] = None,
+        send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
+        sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+        trail_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for an AWS CloudTrail trail.
+
+        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
+        :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
+        :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
+        :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
+        :param encryption_key: The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs. Default: - No encryption.
+        :param include_global_service_events: For most services, events are recorded in the region where the action occurred. For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53, events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region. Default: true
+        :param insight_types: A JSON string that contains the insight types you want to log on a trail. Default: - No Value.
+        :param is_multi_region_trail: Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account. Default: true
+        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account. If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error. If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization. If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization. Default: - false
+        :param management_events: When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails. Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group. This method sets the management configuration for this trail. Management events provide insight into management operations that are performed on resources in your AWS account. These are also known as control plane operations. Management events can also include non-API events that occur in your account. For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event. Default: ReadWriteType.ALL
+        :param org_id: The orgId. Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions. Default: - No orgId
+        :param s3_key_prefix: An Amazon S3 object key prefix that precedes the name of all log files. Default: - No prefix.
+        :param send_to_cloud_watch_logs: If CloudTrail pushes logs to CloudWatch Logs in addition to S3. Disabled for cost out of the box. Default: false
+        :param sns_topic: SNS topic that is notified when new log files are published. Default: - No notifications.
+        :param trail_name: The name of the trail. We recommend customers do not set an explicit name. Default: - AWS CloudFormation generated name.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            trail = cloudtrail.Trail(self, "CloudTrail",
+                # ...
+                management_events=cloudtrail.ReadWriteType.READ_ONLY
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument cloud_watch_log_group", value=cloud_watch_log_group, expected_type=type_hints["cloud_watch_log_group"])
+            check_type(argname="argument cloud_watch_logs_retention", value=cloud_watch_logs_retention, expected_type=type_hints["cloud_watch_logs_retention"])
+            check_type(argname="argument enable_file_validation", value=enable_file_validation, expected_type=type_hints["enable_file_validation"])
+            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument include_global_service_events", value=include_global_service_events, expected_type=type_hints["include_global_service_events"])
+            check_type(argname="argument insight_types", value=insight_types, expected_type=type_hints["insight_types"])
+            check_type(argname="argument is_multi_region_trail", value=is_multi_region_trail, expected_type=type_hints["is_multi_region_trail"])
+            check_type(argname="argument is_organization_trail", value=is_organization_trail, expected_type=type_hints["is_organization_trail"])
+            check_type(argname="argument management_events", value=management_events, expected_type=type_hints["management_events"])
+            check_type(argname="argument org_id", value=org_id, expected_type=type_hints["org_id"])
+            check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
+            check_type(argname="argument send_to_cloud_watch_logs", value=send_to_cloud_watch_logs, expected_type=type_hints["send_to_cloud_watch_logs"])
+            check_type(argname="argument sns_topic", value=sns_topic, expected_type=type_hints["sns_topic"])
+            check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if cloud_watch_log_group is not None:
+            self._values["cloud_watch_log_group"] = cloud_watch_log_group
+        if cloud_watch_logs_retention is not None:
+            self._values["cloud_watch_logs_retention"] = cloud_watch_logs_retention
+        if enable_file_validation is not None:
+            self._values["enable_file_validation"] = enable_file_validation
+        if encryption_key is not None:
+            self._values["encryption_key"] = encryption_key
+        if include_global_service_events is not None:
+            self._values["include_global_service_events"] = include_global_service_events
+        if insight_types is not None:
+            self._values["insight_types"] = insight_types
+        if is_multi_region_trail is not None:
+            self._values["is_multi_region_trail"] = is_multi_region_trail
+        if is_organization_trail is not None:
+            self._values["is_organization_trail"] = is_organization_trail
+        if management_events is not None:
+            self._values["management_events"] = management_events
+        if org_id is not None:
+            self._values["org_id"] = org_id
+        if s3_key_prefix is not None:
+            self._values["s3_key_prefix"] = s3_key_prefix
+        if send_to_cloud_watch_logs is not None:
+            self._values["send_to_cloud_watch_logs"] = send_to_cloud_watch_logs
+        if sns_topic is not None:
+            self._values["sns_topic"] = sns_topic
+        if trail_name is not None:
+            self._values["trail_name"] = trail_name
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[_IBucket_42e086fd]:
+        '''The Amazon S3 bucket.
+
+        :default: - if not supplied a bucket will be created with all the correct permisions
+        '''
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[_IBucket_42e086fd], result)
+
+    @builtins.property
+    def cloud_watch_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''Log Group to which CloudTrail to push logs to.
+
+        Ignored if sendToCloudWatchLogs is set to false.
+
+        :default: - a new log group is created and used.
+        '''
+        result = self._values.get("cloud_watch_log_group")
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+
+    @builtins.property
+    def cloud_watch_logs_retention(self) -> typing.Optional[_RetentionDays_070f99f0]:
+        '''How long to retain logs in CloudWatchLogs.
+
+        Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set.
+
+        :default: logs.RetentionDays.ONE_YEAR
+        '''
+        result = self._values.get("cloud_watch_logs_retention")
+        return typing.cast(typing.Optional[_RetentionDays_070f99f0], result)
+
+    @builtins.property
+    def enable_file_validation(self) -> typing.Optional[builtins.bool]:
+        '''To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation.
+
+        This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing.
+        This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection.
+        You can use the AWS CLI to validate the files in the location where CloudTrail delivered them.
+
+        :default: true
+        '''
+        result = self._values.get("enable_file_validation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs.
+
+        :default: - No encryption.
+        '''
+        result = self._values.get("encryption_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    @builtins.property
+    def include_global_service_events(self) -> typing.Optional[builtins.bool]:
+        '''For most services, events are recorded in the region where the action occurred.
+
+        For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53,
+        events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region.
+
+        :default: true
+        '''
+        result = self._values.get("include_global_service_events")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def insight_types(self) -> typing.Optional[typing.List[InsightType]]:
+        '''A JSON string that contains the insight types you want to log on a trail.
+
+        :default: - No Value.
+        '''
+        result = self._values.get("insight_types")
+        return typing.cast(typing.Optional[typing.List[InsightType]], result)
+
+    @builtins.property
+    def is_multi_region_trail(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account.
+
+        :default: true
+        '''
+        result = self._values.get("is_multi_region_trail")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def is_organization_trail(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account.
+
+        If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error.
+
+        If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization.
+        If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization.
+
+        :default: - false
+        '''
+        result = self._values.get("is_organization_trail")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def management_events(self) -> typing.Optional[ReadWriteType]:
+        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
+
+        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
+
+        This method sets the management configuration for this trail.
+
+        Management events provide insight into management operations that are performed on resources in your AWS account.
+        These are also known as control plane operations.
+        Management events can also include non-API events that occur in your account.
+        For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event.
+
+        :default: ReadWriteType.ALL
+        '''
+        result = self._values.get("management_events")
+        return typing.cast(typing.Optional[ReadWriteType], result)
+
+    @builtins.property
+    def org_id(self) -> typing.Optional[builtins.str]:
+        '''The orgId.
+
+        Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions.
+
+        :default: - No orgId
+        '''
+        result = self._values.get("org_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_key_prefix(self) -> typing.Optional[builtins.str]:
+        '''An Amazon S3 object key prefix that precedes the name of all log files.
+
+        :default: - No prefix.
+        '''
+        result = self._values.get("s3_key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def send_to_cloud_watch_logs(self) -> typing.Optional[builtins.bool]:
+        '''If CloudTrail pushes logs to CloudWatch Logs in addition to S3.
+
+        Disabled for cost out of the box.
+
+        :default: false
+        '''
+        result = self._values.get("send_to_cloud_watch_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def sns_topic(self) -> typing.Optional[_ITopic_9eca4852]:
+        '''SNS topic that is notified when new log files are published.
+
+        :default: - No notifications.
+        '''
+        result = self._values.get("sns_topic")
+        return typing.cast(typing.Optional[_ITopic_9eca4852], result)
+
+    @builtins.property
+    def trail_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the trail.
+
+        We recommend customers do not set an explicit name.
+
+        :default: - AWS CloudFormation generated name.
+        '''
+        result = self._values.get("trail_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrailProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudtrail.TrailReference",
+    jsii_struct_bases=[],
+    name_mapping={"trail_arn": "trailArn", "trail_name": "trailName"},
+)
+class TrailReference:
+    def __init__(self, *, trail_arn: builtins.str, trail_name: builtins.str) -> None:
+        '''A reference to a Trail resource.
+
+        :param trail_arn: The ARN of the Trail resource.
+        :param trail_name: The TrailName of the Trail resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudtrail as cloudtrail
+            
+            trail_reference = cloudtrail.TrailReference(
+                trail_arn="trailArn",
+                trail_name="trailName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dda4229dc8316e137c2385cc3d0c5c40957726f36ec12d80b929df34a33b2cbb)
+            check_type(argname="argument trail_arn", value=trail_arn, expected_type=type_hints["trail_arn"])
+            check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "trail_arn": trail_arn,
+            "trail_name": trail_name,
+        }
+
+    @builtins.property
+    def trail_arn(self) -> builtins.str:
+        '''The ARN of the Trail resource.'''
+        result = self._values.get("trail_arn")
+        assert result is not None, "Required property 'trail_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trail_name(self) -> builtins.str:
+        '''The TrailName of the Trail resource.'''
+        result = self._values.get("trail_name")
+        assert result is not None, "Required property 'trail_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrailReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IChannelRef, _ITaggable_36806126)
 class CfnChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -466,6 +2865,12 @@ class CfnChannel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''A reference to a Channel resource.'''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -601,125 +3006,7 @@ class CfnChannel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destinations": "destinations",
-        "name": "name",
-        "source": "source",
-        "tags": "tags",
-    },
-)
-class CfnChannelProps:
-    def __init__(
-        self,
-        *,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannel``.
-
-        :param destinations: One or more event data stores to which events arriving through a channel will be logged.
-        :param name: The name of the channel.
-        :param source: The name of the partner or external event source. You cannot change this name after you create the channel. A maximum of one channel is allowed per source. A source can be either ``Custom`` for all valid non- AWS events, or the name of a partner event source. For information about the source names for available partners, see `Additional information about integration partners <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-integration.html#cloudtrail-lake-partner-information>`_ in the CloudTrail User Guide.
-        :param tags: A list of tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            
-            cfn_channel_props = cloudtrail.CfnChannelProps(
-                destinations=[cloudtrail.CfnChannel.DestinationProperty(
-                    location="location",
-                    type="type"
-                )],
-                name="name",
-                source="source",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356)
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if destinations is not None:
-            self._values["destinations"] = destinations
-        if name is not None:
-            self._values["name"] = name
-        if source is not None:
-            self._values["source"] = source
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.DestinationProperty]]]]:
-        '''One or more event data stores to which events arriving through a channel will be logged.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-destinations
-        '''
-        result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.DestinationProperty]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source(self) -> typing.Optional[builtins.str]:
-        '''The name of the partner or external event source.
-
-        You cannot change this name after you create the channel. A maximum of one channel is allowed per source.
-
-        A source can be either ``Custom`` for all valid non- AWS events, or the name of a partner event source. For information about the source names for available partners, see `Additional information about integration partners <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-integration.html#cloudtrail-lake-partner-information>`_ in the CloudTrail User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-source
-        '''
-        result = self._values.get("source")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-channel.html#cfn-cloudtrail-channel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDashboardRef, _ITaggableV2_4e6798f8)
 class CfnDashboard(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -892,6 +3179,12 @@ class CfnDashboard(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''A reference to a Dashboard resource.'''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1261,159 +3554,7 @@ class CfnDashboard(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnDashboardProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "refresh_schedule": "refreshSchedule",
-        "tags": "tags",
-        "termination_protection_enabled": "terminationProtectionEnabled",
-        "widgets": "widgets",
-    },
-)
-class CfnDashboardProps:
-    def __init__(
-        self,
-        *,
-        name: typing.Optional[builtins.str] = None,
-        refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDashboard``.
-
-        :param name: The name of the dashboard. The name must be unique to your account. To create the Highlights dashboard, the name must be ``AWSCloudTrail-Highlights`` .
-        :param refresh_schedule: The schedule for a dashboard refresh.
-        :param tags: A list of tags.
-        :param termination_protection_enabled: Specifies whether termination protection is enabled for the dashboard. If termination protection is enabled, you cannot delete the dashboard until termination protection is disabled.
-        :param widgets: An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets. You do not need to specify widgets for the Highlights dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            
-            cfn_dashboard_props = cloudtrail.CfnDashboardProps(
-                name="name",
-                refresh_schedule=cloudtrail.CfnDashboard.RefreshScheduleProperty(
-                    frequency=cloudtrail.CfnDashboard.FrequencyProperty(
-                        unit="unit",
-                        value=123
-                    ),
-                    status="status",
-                    time_of_day="timeOfDay"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                termination_protection_enabled=False,
-                widgets=[cloudtrail.CfnDashboard.WidgetProperty(
-                    query_statement="queryStatement",
-            
-                    # the properties below are optional
-                    query_parameters=["queryParameters"],
-                    view_properties={
-                        "view_properties_key": "viewProperties"
-                    }
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument refresh_schedule", value=refresh_schedule, expected_type=type_hints["refresh_schedule"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument termination_protection_enabled", value=termination_protection_enabled, expected_type=type_hints["termination_protection_enabled"])
-            check_type(argname="argument widgets", value=widgets, expected_type=type_hints["widgets"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if name is not None:
-            self._values["name"] = name
-        if refresh_schedule is not None:
-            self._values["refresh_schedule"] = refresh_schedule
-        if tags is not None:
-            self._values["tags"] = tags
-        if termination_protection_enabled is not None:
-            self._values["termination_protection_enabled"] = termination_protection_enabled
-        if widgets is not None:
-            self._values["widgets"] = widgets
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the dashboard. The name must be unique to your account.
-
-        To create the Highlights dashboard, the name must be ``AWSCloudTrail-Highlights`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def refresh_schedule(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDashboard.RefreshScheduleProperty]]:
-        '''The schedule for a dashboard refresh.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-refreshschedule
-        '''
-        result = self._values.get("refresh_schedule")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDashboard.RefreshScheduleProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def termination_protection_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether termination protection is enabled for the dashboard.
-
-        If termination protection is enabled, you cannot delete the dashboard until termination protection is disabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-terminationprotectionenabled
-        '''
-        result = self._values.get("termination_protection_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def widgets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDashboard.WidgetProperty]]]]:
-        '''An array of widgets for a custom dashboard. A custom dashboard can have a maximum of ten widgets.
-
-        You do not need to specify widgets for the Highlights dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-dashboard.html#cfn-cloudtrail-dashboard-widgets
-        '''
-        result = self._values.get("widgets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDashboard.WidgetProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDashboardProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEventDataStoreRef, _ITaggable_36806126)
 class CfnEventDataStore(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1611,6 +3752,12 @@ class CfnEventDataStore(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventDataStoreRef")
+    def event_data_store_ref(self) -> EventDataStoreReference:
+        '''A reference to a EventDataStore resource.'''
+        return typing.cast(EventDataStoreReference, jsii.get(self, "eventDataStoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2338,398 +4485,7 @@ class CfnEventDataStore(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnEventDataStoreProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "advanced_event_selectors": "advancedEventSelectors",
-        "billing_mode": "billingMode",
-        "context_key_selectors": "contextKeySelectors",
-        "federation_enabled": "federationEnabled",
-        "federation_role_arn": "federationRoleArn",
-        "ingestion_enabled": "ingestionEnabled",
-        "insights_destination": "insightsDestination",
-        "insight_selectors": "insightSelectors",
-        "kms_key_id": "kmsKeyId",
-        "max_event_size": "maxEventSize",
-        "multi_region_enabled": "multiRegionEnabled",
-        "name": "name",
-        "organization_enabled": "organizationEnabled",
-        "retention_period": "retentionPeriod",
-        "tags": "tags",
-        "termination_protection_enabled": "terminationProtectionEnabled",
-    },
-)
-class CfnEventDataStoreProps:
-    def __init__(
-        self,
-        *,
-        advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        billing_mode: typing.Optional[builtins.str] = None,
-        context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        federation_role_arn: typing.Optional[builtins.str] = None,
-        ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        insights_destination: typing.Optional[builtins.str] = None,
-        insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        max_event_size: typing.Optional[builtins.str] = None,
-        multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        name: typing.Optional[builtins.str] = None,
-        organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventDataStore``.
-
-        :param advanced_event_selectors: The advanced event selectors to use to select the events for the data store. You can configure up to five advanced event selectors for each event data store. For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
-        :param billing_mode: The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store. The following are the possible values: - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days. - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days. The default value is ``EXTENDABLE_RETENTION_PRICING`` . For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
-        :param context_key_selectors: The list of context key selectors that are configured for the event data store.
-        :param federation_enabled: Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
-        :param federation_role_arn: If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store. The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
-        :param ingestion_enabled: Specifies whether the event data store should start ingesting live events. The default is true.
-        :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events. For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
-        :param insight_selectors: A JSON string that contains the Insights types you want to log on an event data store. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
-        :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail. The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. .. epigraph:: Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - ``alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012`` - ``12345678-1234-1234-1234-123456789012``
-        :param max_event_size: The maximum allowed size for events to be stored in the specified event data store. If you are using context key selectors, MaxEventSize must be set to Large.
-        :param multi_region_enabled: Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
-        :param name: The name of the event data store.
-        :param organization_enabled: Specifies whether an event data store collects events logged for an organization in AWS Organizations .
-        :param retention_period: The retention period of the event data store, in days. If ``BillingMode`` is set to ``EXTENDABLE_RETENTION_PRICING`` , you can set a retention period of up to 3653 days, the equivalent of 10 years. If ``BillingMode`` is set to ``FIXED_RETENTION_PRICING`` , you can set a retention period of up to 2557 days, the equivalent of seven years. CloudTrail Lake determines whether to retain an event by checking if the ``eventTime`` of the event is within the specified retention period. For example, if you set a retention period of 90 days, CloudTrail will remove events when the ``eventTime`` is older than 90 days. .. epigraph:: If you plan to copy trail events to this event data store, we recommend that you consider both the age of the events that you want to copy as well as how long you want to keep the copied events in your event data store. For example, if you copy trail events that are 5 years old and specify a retention period of 7 years, the event data store will retain those events for two years.
-        :param tags: A list of tags.
-        :param termination_protection_enabled: Specifies whether termination protection is enabled for the event data store. If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            
-            cfn_event_data_store_props = cloudtrail.CfnEventDataStoreProps(
-                advanced_event_selectors=[cloudtrail.CfnEventDataStore.AdvancedEventSelectorProperty(
-                    field_selectors=[cloudtrail.CfnEventDataStore.AdvancedFieldSelectorProperty(
-                        field="field",
-            
-                        # the properties below are optional
-                        ends_with=["endsWith"],
-                        equal_to=["equalTo"],
-                        not_ends_with=["notEndsWith"],
-                        not_equals=["notEquals"],
-                        not_starts_with=["notStartsWith"],
-                        starts_with=["startsWith"]
-                    )],
-            
-                    # the properties below are optional
-                    name="name"
-                )],
-                billing_mode="billingMode",
-                context_key_selectors=[cloudtrail.CfnEventDataStore.ContextKeySelectorProperty(
-                    equal_to=["equalTo"],
-                    type="type"
-                )],
-                federation_enabled=False,
-                federation_role_arn="federationRoleArn",
-                ingestion_enabled=False,
-                insights_destination="insightsDestination",
-                insight_selectors=[cloudtrail.CfnEventDataStore.InsightSelectorProperty(
-                    insight_type="insightType"
-                )],
-                kms_key_id="kmsKeyId",
-                max_event_size="maxEventSize",
-                multi_region_enabled=False,
-                name="name",
-                organization_enabled=False,
-                retention_period=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                termination_protection_enabled=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e)
-            check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
-            check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
-            check_type(argname="argument context_key_selectors", value=context_key_selectors, expected_type=type_hints["context_key_selectors"])
-            check_type(argname="argument federation_enabled", value=federation_enabled, expected_type=type_hints["federation_enabled"])
-            check_type(argname="argument federation_role_arn", value=federation_role_arn, expected_type=type_hints["federation_role_arn"])
-            check_type(argname="argument ingestion_enabled", value=ingestion_enabled, expected_type=type_hints["ingestion_enabled"])
-            check_type(argname="argument insights_destination", value=insights_destination, expected_type=type_hints["insights_destination"])
-            check_type(argname="argument insight_selectors", value=insight_selectors, expected_type=type_hints["insight_selectors"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument max_event_size", value=max_event_size, expected_type=type_hints["max_event_size"])
-            check_type(argname="argument multi_region_enabled", value=multi_region_enabled, expected_type=type_hints["multi_region_enabled"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument organization_enabled", value=organization_enabled, expected_type=type_hints["organization_enabled"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument termination_protection_enabled", value=termination_protection_enabled, expected_type=type_hints["termination_protection_enabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if advanced_event_selectors is not None:
-            self._values["advanced_event_selectors"] = advanced_event_selectors
-        if billing_mode is not None:
-            self._values["billing_mode"] = billing_mode
-        if context_key_selectors is not None:
-            self._values["context_key_selectors"] = context_key_selectors
-        if federation_enabled is not None:
-            self._values["federation_enabled"] = federation_enabled
-        if federation_role_arn is not None:
-            self._values["federation_role_arn"] = federation_role_arn
-        if ingestion_enabled is not None:
-            self._values["ingestion_enabled"] = ingestion_enabled
-        if insights_destination is not None:
-            self._values["insights_destination"] = insights_destination
-        if insight_selectors is not None:
-            self._values["insight_selectors"] = insight_selectors
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if max_event_size is not None:
-            self._values["max_event_size"] = max_event_size
-        if multi_region_enabled is not None:
-            self._values["multi_region_enabled"] = multi_region_enabled
-        if name is not None:
-            self._values["name"] = name
-        if organization_enabled is not None:
-            self._values["organization_enabled"] = organization_enabled
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-        if termination_protection_enabled is not None:
-            self._values["termination_protection_enabled"] = termination_protection_enabled
-
-    @builtins.property
-    def advanced_event_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.AdvancedEventSelectorProperty]]]]:
-        '''The advanced event selectors to use to select the events for the data store.
-
-        You can configure up to five advanced event selectors for each event data store.
-
-        For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide.
-
-        For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide.
-
-        For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-advancedeventselectors
-        '''
-        result = self._values.get("advanced_event_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.AdvancedEventSelectorProperty]]]], result)
-
-    @builtins.property
-    def billing_mode(self) -> typing.Optional[builtins.str]:
-        '''The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store.
-
-        The following are the possible values:
-
-        - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days.
-        - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days.
-
-        The default value is ``EXTENDABLE_RETENTION_PRICING`` .
-
-        For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-billingmode
-        '''
-        result = self._values.get("billing_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def context_key_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]]:
-        '''The list of context key selectors that are configured for the event data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-contextkeyselectors
-        '''
-        result = self._values.get("context_key_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]], result)
-
-    @builtins.property
-    def federation_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-federationenabled
-        '''
-        result = self._values.get("federation_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def federation_role_arn(self) -> typing.Optional[builtins.str]:
-        '''If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store.
-
-        The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-federationrolearn
-        '''
-        result = self._values.get("federation_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ingestion_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the event data store should start ingesting live events.
-
-        The default is true.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-ingestionenabled
-        '''
-        result = self._values.get("ingestion_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def insights_destination(self) -> typing.Optional[builtins.str]:
-        '''The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events.
-
-        For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-insightsdestination
-        '''
-        result = self._values.get("insights_destination")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def insight_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.InsightSelectorProperty]]]]:
-        '''A JSON string that contains the Insights types you want to log on an event data store.
-
-        ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
-
-        The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume.
-
-        The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-insightselectors
-        '''
-        result = self._values.get("insight_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.InsightSelectorProperty]]]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail.
-
-        The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier.
-        .. epigraph::
-
-           Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store.
-
-        CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-        Examples:
-
-        - ``alias/MyAliasName``
-        - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName``
-        - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012``
-        - ``12345678-1234-1234-1234-123456789012``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_event_size(self) -> typing.Optional[builtins.str]:
-        '''The maximum allowed size for events to be stored in the specified event data store.
-
-        If you are using context key selectors, MaxEventSize must be set to Large.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-maxeventsize
-        '''
-        result = self._values.get("max_event_size")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multi_region_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-multiregionenabled
-        '''
-        result = self._values.get("multi_region_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the event data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def organization_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether an event data store collects events logged for an organization in AWS Organizations .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-organizationenabled
-        '''
-        result = self._values.get("organization_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The retention period of the event data store, in days.
-
-        If ``BillingMode`` is set to ``EXTENDABLE_RETENTION_PRICING`` , you can set a retention period of up to 3653 days, the equivalent of 10 years. If ``BillingMode`` is set to ``FIXED_RETENTION_PRICING`` , you can set a retention period of up to 2557 days, the equivalent of seven years.
-
-        CloudTrail Lake determines whether to retain an event by checking if the ``eventTime`` of the event is within the specified retention period. For example, if you set a retention period of 90 days, CloudTrail will remove events when the ``eventTime`` is older than 90 days.
-        .. epigraph::
-
-           If you plan to copy trail events to this event data store, we recommend that you consider both the age of the events that you want to copy as well as how long you want to keep the copied events in your event data store. For example, if you copy trail events that are 5 years old and specify a retention period of 7 years, the event data store will retain those events for two years.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def termination_protection_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether termination protection is enabled for the event data store.
-
-        If termination protection is enabled, you cannot delete the event data store until termination protection is disabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-terminationprotectionenabled
-        '''
-        result = self._values.get("termination_protection_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventDataStoreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2817,6 +4573,12 @@ class CfnResourcePolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="resourceArn")
     def resource_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy.'''
@@ -2843,89 +4605,7 @@ class CfnResourcePolicy(
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"resource_arn": "resourceArn", "resource_policy": "resourcePolicy"},
-)
-class CfnResourcePolicyProps:
-    def __init__(
-        self,
-        *,
-        resource_arn: builtins.str,
-        resource_policy: typing.Any,
-    ) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param resource_arn: The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy. Example event data store ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:eventdatastore/EXAMPLE-f852-4e8f-8bd1-bcf6cEXAMPLE`` Example dashboard ARN format: ``arn:aws:cloudtrail:us-east-1:123456789012:dashboard/exampleDash`` Example channel ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:channel/01234567890``
-        :param resource_policy: A JSON-formatted string for an AWS resource-based policy. For example resource-based policies, see `CloudTrail resource-based policy examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`_ in the *CloudTrail User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            
-            # resource_policy: Any
-            
-            cfn_resource_policy_props = cloudtrail.CfnResourcePolicyProps(
-                resource_arn="resourceArn",
-                resource_policy=resource_policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-            "resource_policy": resource_policy,
-        }
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the CloudTrail event data store, dashboard, or channel attached to the resource-based policy.
-
-        Example event data store ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:eventdatastore/EXAMPLE-f852-4e8f-8bd1-bcf6cEXAMPLE``
-
-        Example dashboard ARN format: ``arn:aws:cloudtrail:us-east-1:123456789012:dashboard/exampleDash``
-
-        Example channel ARN format: ``arn:aws:cloudtrail:us-east-2:123456789012:channel/01234567890``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html#cfn-cloudtrail-resourcepolicy-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_policy(self) -> typing.Any:
-        '''A JSON-formatted string for an AWS resource-based policy.
-
-        For example resource-based policies, see `CloudTrail resource-based policy examples <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/security_iam_resource-based-policy-examples.html>`_ in the *CloudTrail User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-resourcepolicy.html#cfn-cloudtrail-resourcepolicy-resourcepolicy
-        '''
-        result = self._values.get("resource_policy")
-        assert result is not None, "Required property 'resource_policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ITrailRef, _ITaggable_36806126)
 class CfnTrail(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3120,6 +4800,12 @@ class CfnTrail(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trailRef")
+    def trail_ref(self) -> TrailReference:
+        '''A reference to a Trail resource.'''
+        return typing.cast(TrailReference, jsii.get(self, "trailRef"))
 
     @builtins.property
     @jsii.member(jsii_name="isLogging")
@@ -4043,1206 +5729,6 @@ class CfnTrail(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.CfnTrailProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "is_logging": "isLogging",
-        "s3_bucket_name": "s3BucketName",
-        "advanced_event_selectors": "advancedEventSelectors",
-        "cloud_watch_logs_log_group_arn": "cloudWatchLogsLogGroupArn",
-        "cloud_watch_logs_role_arn": "cloudWatchLogsRoleArn",
-        "enable_log_file_validation": "enableLogFileValidation",
-        "event_selectors": "eventSelectors",
-        "include_global_service_events": "includeGlobalServiceEvents",
-        "insight_selectors": "insightSelectors",
-        "is_multi_region_trail": "isMultiRegionTrail",
-        "is_organization_trail": "isOrganizationTrail",
-        "kms_key_id": "kmsKeyId",
-        "s3_key_prefix": "s3KeyPrefix",
-        "sns_topic_name": "snsTopicName",
-        "tags": "tags",
-        "trail_name": "trailName",
-    },
-)
-class CfnTrailProps:
-    def __init__(
-        self,
-        *,
-        is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        s3_bucket_name: builtins.str,
-        advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
-        cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
-        enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        s3_key_prefix: typing.Optional[builtins.str] = None,
-        sns_topic_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        trail_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTrail``.
-
-        :param is_logging: Whether the CloudTrail trail is currently logging AWS API calls.
-        :param s3_bucket_name: Specifies the name of the Amazon S3 bucket designated for publishing log files. See `Amazon S3 Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ .
-        :param advanced_event_selectors: Specifies the settings for advanced event selectors. You can use advanced event selectors to log management events, data events for all resource types, and network activity events. You can add advanced event selectors, and conditions for your advanced event selectors, up to a maximum of 500 values for all conditions and selectors on a trail. You can use either ``AdvancedEventSelectors`` or ``EventSelectors`` , but not both. If you apply ``AdvancedEventSelectors`` to a trail, any existing ``EventSelectors`` are overwritten. For more information about advanced event selectors, see `Logging data events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html>`_ and `Logging network activity events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-network-events-with-cloudtrail.html>`_ in the *AWS CloudTrail User Guide* .
-        :param cloud_watch_logs_log_group_arn: Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered. You must use a log group that exists in your account. To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` . .. epigraph:: If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
-        :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group. You must use a role that exists in your account. To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` . .. epigraph:: If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
-        :param enable_log_file_validation: Specifies whether log file validation is enabled. The default is false. .. epigraph:: When you disable log file integrity validation, the chain of digest files is broken after one hour. CloudTrail does not create digest files for log files that were delivered during a period in which log file integrity validation was disabled. For example, if you enable log file integrity validation at noon on January 1, disable it at noon on January 2, and re-enable it at noon on January 10, digest files will not be created for the log files delivered from noon on January 2 to noon on January 10. The same applies whenever you stop CloudTrail logging or delete a trail.
-        :param event_selectors: Use event selectors to further specify the management and data event settings for your trail. By default, trails created without specific event selectors will be configured to log all read and write management events, and no data events. When an event occurs in your account, CloudTrail evaluates the event selector for all trails. For each trail, if the event matches any event selector, the trail processes and logs the event. If the event doesn't match any event selector, the trail doesn't log the event. You can configure up to five event selectors for a trail. You cannot apply both event selectors and advanced event selectors to a trail.
-        :param include_global_service_events: Specifies whether the trail is publishing events from global services such as IAM to the log files.
-        :param insight_selectors: A JSON string that contains the Insights types you want to log on a trail. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
-        :param is_multi_region_trail: Specifies whether the trail applies only to the current Region or to all Regions. The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
-        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account . The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization. .. epigraph:: Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
-        :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail. The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012 - 12345678-1234-1234-1234-123456789012
-        :param s3_key_prefix: Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery. For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
-        :param sns_topic_name: Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery. The maximum length is 256 characters.
-        :param tags: A custom set of tags (key-value pairs) for this trail.
-        :param trail_name: Specifies the name of the trail. The name must meet the following requirements:. - Contain only ASCII letters (a-z, A-Z), numbers (0-9), periods (.), underscores (_), or dashes (-) - Start with a letter or number, and end with a letter or number - Be between 3 and 128 characters - Have no adjacent periods, underscores or dashes. Names like ``my-_namespace`` and ``my--namespace`` are not valid. - Not be in IP address format (for example, 192.168.5.4)
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            
-            cfn_trail_props = cloudtrail.CfnTrailProps(
-                is_logging=False,
-                s3_bucket_name="s3BucketName",
-            
-                # the properties below are optional
-                advanced_event_selectors=[cloudtrail.CfnTrail.AdvancedEventSelectorProperty(
-                    field_selectors=[cloudtrail.CfnTrail.AdvancedFieldSelectorProperty(
-                        field="field",
-            
-                        # the properties below are optional
-                        ends_with=["endsWith"],
-                        equal_to=["equalTo"],
-                        not_ends_with=["notEndsWith"],
-                        not_equals=["notEquals"],
-                        not_starts_with=["notStartsWith"],
-                        starts_with=["startsWith"]
-                    )],
-            
-                    # the properties below are optional
-                    name="name"
-                )],
-                cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
-                cloud_watch_logs_role_arn="cloudWatchLogsRoleArn",
-                enable_log_file_validation=False,
-                event_selectors=[cloudtrail.CfnTrail.EventSelectorProperty(
-                    data_resources=[cloudtrail.CfnTrail.DataResourceProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        values=["values"]
-                    )],
-                    exclude_management_event_sources=["excludeManagementEventSources"],
-                    include_management_events=False,
-                    read_write_type="readWriteType"
-                )],
-                include_global_service_events=False,
-                insight_selectors=[cloudtrail.CfnTrail.InsightSelectorProperty(
-                    insight_type="insightType"
-                )],
-                is_multi_region_trail=False,
-                is_organization_trail=False,
-                kms_key_id="kmsKeyId",
-                s3_key_prefix="s3KeyPrefix",
-                sns_topic_name="snsTopicName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                trail_name="trailName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79)
-            check_type(argname="argument is_logging", value=is_logging, expected_type=type_hints["is_logging"])
-            check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
-            check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
-            check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
-            check_type(argname="argument cloud_watch_logs_role_arn", value=cloud_watch_logs_role_arn, expected_type=type_hints["cloud_watch_logs_role_arn"])
-            check_type(argname="argument enable_log_file_validation", value=enable_log_file_validation, expected_type=type_hints["enable_log_file_validation"])
-            check_type(argname="argument event_selectors", value=event_selectors, expected_type=type_hints["event_selectors"])
-            check_type(argname="argument include_global_service_events", value=include_global_service_events, expected_type=type_hints["include_global_service_events"])
-            check_type(argname="argument insight_selectors", value=insight_selectors, expected_type=type_hints["insight_selectors"])
-            check_type(argname="argument is_multi_region_trail", value=is_multi_region_trail, expected_type=type_hints["is_multi_region_trail"])
-            check_type(argname="argument is_organization_trail", value=is_organization_trail, expected_type=type_hints["is_organization_trail"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
-            check_type(argname="argument sns_topic_name", value=sns_topic_name, expected_type=type_hints["sns_topic_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "is_logging": is_logging,
-            "s3_bucket_name": s3_bucket_name,
-        }
-        if advanced_event_selectors is not None:
-            self._values["advanced_event_selectors"] = advanced_event_selectors
-        if cloud_watch_logs_log_group_arn is not None:
-            self._values["cloud_watch_logs_log_group_arn"] = cloud_watch_logs_log_group_arn
-        if cloud_watch_logs_role_arn is not None:
-            self._values["cloud_watch_logs_role_arn"] = cloud_watch_logs_role_arn
-        if enable_log_file_validation is not None:
-            self._values["enable_log_file_validation"] = enable_log_file_validation
-        if event_selectors is not None:
-            self._values["event_selectors"] = event_selectors
-        if include_global_service_events is not None:
-            self._values["include_global_service_events"] = include_global_service_events
-        if insight_selectors is not None:
-            self._values["insight_selectors"] = insight_selectors
-        if is_multi_region_trail is not None:
-            self._values["is_multi_region_trail"] = is_multi_region_trail
-        if is_organization_trail is not None:
-            self._values["is_organization_trail"] = is_organization_trail
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if s3_key_prefix is not None:
-            self._values["s3_key_prefix"] = s3_key_prefix
-        if sns_topic_name is not None:
-            self._values["sns_topic_name"] = sns_topic_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if trail_name is not None:
-            self._values["trail_name"] = trail_name
-
-    @builtins.property
-    def is_logging(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Whether the CloudTrail trail is currently logging AWS API calls.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-islogging
-        '''
-        result = self._values.get("is_logging")
-        assert result is not None, "Required property 'is_logging' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def s3_bucket_name(self) -> builtins.str:
-        '''Specifies the name of the Amazon S3 bucket designated for publishing log files.
-
-        See `Amazon S3 Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-s3bucketname
-        '''
-        result = self._values.get("s3_bucket_name")
-        assert result is not None, "Required property 's3_bucket_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def advanced_event_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.AdvancedEventSelectorProperty]]]]:
-        '''Specifies the settings for advanced event selectors.
-
-        You can use advanced event selectors to log management events, data events for all resource types, and network activity events.
-
-        You can add advanced event selectors, and conditions for your advanced event selectors, up to a maximum of 500 values for all conditions and selectors on a trail. You can use either ``AdvancedEventSelectors`` or ``EventSelectors`` , but not both. If you apply ``AdvancedEventSelectors`` to a trail, any existing ``EventSelectors`` are overwritten. For more information about advanced event selectors, see `Logging data events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html>`_ and `Logging network activity events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-network-events-with-cloudtrail.html>`_ in the *AWS CloudTrail User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-advancedeventselectors
-        '''
-        result = self._values.get("advanced_event_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.AdvancedEventSelectorProperty]]]], result)
-
-    @builtins.property
-    def cloud_watch_logs_log_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies a log group name using an Amazon Resource Name (ARN), a unique identifier that represents the log group to which CloudTrail logs are delivered.
-
-        You must use a log group that exists in your account.
-
-        To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` .
-        .. epigraph::
-
-           If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsloggrouparn
-        '''
-        result = self._values.get("cloud_watch_logs_log_group_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cloud_watch_logs_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies the role for the CloudWatch Logs endpoint to assume to write to a user's log group.
-
-        You must use a role that exists in your account.
-
-        To enable CloudWatch Logs delivery, you must provide values for ``CloudWatchLogsLogGroupArn`` and ``CloudWatchLogsRoleArn`` .
-        .. epigraph::
-
-           If you previously enabled CloudWatch Logs delivery and want to disable CloudWatch Logs delivery, you must set the values of the ``CloudWatchLogsRoleArn`` and ``CloudWatchLogsLogGroupArn`` fields to ``""`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-cloudwatchlogsrolearn
-        '''
-        result = self._values.get("cloud_watch_logs_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_log_file_validation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether log file validation is enabled. The default is false.
-
-        .. epigraph::
-
-           When you disable log file integrity validation, the chain of digest files is broken after one hour. CloudTrail does not create digest files for log files that were delivered during a period in which log file integrity validation was disabled. For example, if you enable log file integrity validation at noon on January 1, disable it at noon on January 2, and re-enable it at noon on January 10, digest files will not be created for the log files delivered from noon on January 2 to noon on January 10. The same applies whenever you stop CloudTrail logging or delete a trail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-enablelogfilevalidation
-        '''
-        result = self._values.get("enable_log_file_validation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def event_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.EventSelectorProperty]]]]:
-        '''Use event selectors to further specify the management and data event settings for your trail.
-
-        By default, trails created without specific event selectors will be configured to log all read and write management events, and no data events. When an event occurs in your account, CloudTrail evaluates the event selector for all trails. For each trail, if the event matches any event selector, the trail processes and logs the event. If the event doesn't match any event selector, the trail doesn't log the event.
-
-        You can configure up to five event selectors for a trail.
-
-        You cannot apply both event selectors and advanced event selectors to a trail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-eventselectors
-        '''
-        result = self._values.get("event_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.EventSelectorProperty]]]], result)
-
-    @builtins.property
-    def include_global_service_events(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the trail is publishing events from global services such as IAM to the log files.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-includeglobalserviceevents
-        '''
-        result = self._values.get("include_global_service_events")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def insight_selectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.InsightSelectorProperty]]]]:
-        '''A JSON string that contains the Insights types you want to log on a trail.
-
-        ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types.
-
-        The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume.
-
-        The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-insightselectors
-        '''
-        result = self._values.get("insight_selectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrail.InsightSelectorProperty]]]], result)
-
-    @builtins.property
-    def is_multi_region_trail(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the trail applies only to the current Region or to all Regions.
-
-        The default is false. If the trail exists only in the current Region and this value is set to true, shadow trails (replications of the trail) will be created in the other Regions. If the trail exists in all Regions and this value is set to false, the trail will remain in the Region where it was created, and its shadow trails in other Regions will be deleted. As a best practice, consider using trails that log events in all Regions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-ismultiregiontrail
-        '''
-        result = self._values.get("is_multi_region_trail")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def is_organization_trail(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations , or only for the current AWS account .
-
-        The default is false, and cannot be true unless the call is made on behalf of an AWS account that is the management account for an organization in AWS Organizations . If the trail is not an organization trail and this is set to ``true`` , the trail will be created in all AWS accounts that belong to the organization. If the trail is an organization trail and this is set to ``false`` , the trail will remain in the current AWS account but be deleted from all member accounts in the organization.
-        .. epigraph::
-
-           Only the management account for the organization can convert an organization trail to a non-organization trail, or convert a non-organization trail to an organization trail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-isorganizationtrail
-        '''
-        result = self._values.get("is_organization_trail")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Specifies the AWS KMS key ID to use to encrypt the logs and digest files delivered by CloudTrail.
-
-        The value can be an alias name prefixed by "alias/", a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier.
-
-        CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-        Examples:
-
-        - alias/MyAliasName
-        - arn:aws:kms:us-east-2:123456789012:alias/MyAliasName
-        - arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012
-        - 12345678-1234-1234-1234-123456789012
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Specifies the Amazon S3 key prefix that comes after the name of the bucket you have designated for log file delivery.
-
-        For more information, see `Finding Your CloudTrail Log Files <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/get-and-view-cloudtrail-log-files.html#cloudtrail-find-log-files>`_ . The maximum length is 200 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-s3keyprefix
-        '''
-        result = self._values.get("s3_key_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sns_topic_name(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name or ARN of the Amazon SNS topic defined for notification of log file delivery.
-
-        The maximum length is 256 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-snstopicname
-        '''
-        result = self._values.get("sns_topic_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A custom set of tags (key-value pairs) for this trail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def trail_name(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the trail. The name must meet the following requirements:.
-
-        - Contain only ASCII letters (a-z, A-Z), numbers (0-9), periods (.), underscores (_), or dashes (-)
-        - Start with a letter or number, and end with a letter or number
-        - Be between 3 and 128 characters
-        - Have no adjacent periods, underscores or dashes. Names like ``my-_namespace`` and ``my--namespace`` are not valid.
-        - Not be in IP address format (for example, 192.168.5.4)
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-trail.html#cfn-cloudtrail-trail-trailname
-        '''
-        result = self._values.get("trail_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrailProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.DataResourceType")
-class DataResourceType(enum.Enum):
-    '''Resource type for a data event.'''
-
-    LAMBDA_FUNCTION = "LAMBDA_FUNCTION"
-    '''Data resource type for Lambda function.'''
-    S3_OBJECT = "S3_OBJECT"
-    '''Data resource type for S3 objects.'''
-
-
-class InsightType(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudtrail.InsightType",
-):
-    '''Util element for InsightSelector.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        cloudtrail.Trail(self, "Insights",
-            insight_types=[cloudtrail.InsightType.API_CALL_RATE, cloudtrail.InsightType.API_ERROR_RATE
-            ]
-        )
-    '''
-
-    def __init__(self, value: builtins.str) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.create(self.__class__, self, [value])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="API_CALL_RATE")
-    def API_CALL_RATE(cls) -> "InsightType":
-        '''The type of insights to log on a trail.
-
-        (API Call Rate)
-        '''
-        return typing.cast("InsightType", jsii.sget(cls, "API_CALL_RATE"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="API_ERROR_RATE")
-    def API_ERROR_RATE(cls) -> "InsightType":
-        '''The type of insights to log on a trail.
-
-        (API Error Rate)
-        '''
-        return typing.cast("InsightType", jsii.sget(cls, "API_ERROR_RATE"))
-
-    @builtins.property
-    @jsii.member(jsii_name="value")
-    def value(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "value"))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.ManagementEventSources")
-class ManagementEventSources(enum.Enum):
-    '''Types of management event sources that can be excluded.'''
-
-    KMS = "KMS"
-    '''AWS Key Management Service (AWS KMS) events.'''
-    RDS_DATA_API = "RDS_DATA_API"
-    '''Data API events.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudtrail.ReadWriteType")
-class ReadWriteType(enum.Enum):
-    '''Types of events that CloudTrail can log.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        trail = cloudtrail.Trail(self, "CloudTrail",
-            # ...
-            management_events=cloudtrail.ReadWriteType.READ_ONLY
-        )
-    '''
-
-    READ_ONLY = "READ_ONLY"
-    '''Read-only events include API operations that read your resources, but don't make changes.
-
-    For example, read-only events include the Amazon EC2 DescribeSecurityGroups
-    and DescribeSubnets API operations.
-    '''
-    WRITE_ONLY = "WRITE_ONLY"
-    '''Write-only events include API operations that modify (or might modify) your resources.
-
-    For example, the Amazon EC2 RunInstances and TerminateInstances API
-    operations modify your instances.
-    '''
-    ALL = "ALL"
-    '''All events.'''
-    NONE = "NONE"
-    '''No events.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.S3EventSelector",
-    jsii_struct_bases=[],
-    name_mapping={"bucket": "bucket", "object_prefix": "objectPrefix"},
-)
-class S3EventSelector:
-    def __init__(
-        self,
-        *,
-        bucket: _IBucket_42e086fd,
-        object_prefix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Selecting an S3 bucket and an optional prefix to be logged for data events.
-
-        :param bucket: S3 bucket.
-        :param object_prefix: Data events for objects whose key matches this prefix will be logged. Default: - all objects
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudtrail as cloudtrail
-            from aws_cdk import aws_s3 as s3
-            
-            # bucket: s3.Bucket
-            
-            s3_event_selector = cloudtrail.S3EventSelector(
-                bucket=bucket,
-            
-                # the properties below are optional
-                object_prefix="objectPrefix"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument object_prefix", value=object_prefix, expected_type=type_hints["object_prefix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-        }
-        if object_prefix is not None:
-            self._values["object_prefix"] = object_prefix
-
-    @builtins.property
-    def bucket(self) -> _IBucket_42e086fd:
-        '''S3 bucket.'''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
-
-    @builtins.property
-    def object_prefix(self) -> typing.Optional[builtins.str]:
-        '''Data events for objects whose key matches this prefix will be logged.
-
-        :default: - all objects
-        '''
-        result = self._values.get("object_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "S3EventSelector(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class Trail(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudtrail.Trail",
-):
-    '''Cloud trail allows you to log events that happen in your AWS account For example:.
-
-    import { CloudTrail } from 'aws-cdk-lib/aws-cloudtrail'
-
-    const cloudTrail = new CloudTrail(this, 'MyTrail');
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_cloudtrail as cloudtrail
-        
-        
-        my_key_alias = kms.Alias.from_alias_name(self, "myKey", "alias/aws/s3")
-        trail = cloudtrail.Trail(self, "myCloudTrail",
-            send_to_cloud_watch_logs=True,
-            encryption_key=my_key_alias
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        bucket: typing.Optional[_IBucket_42e086fd] = None,
-        cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        enable_file_validation: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
-        include_global_service_events: typing.Optional[builtins.bool] = None,
-        insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
-        is_multi_region_trail: typing.Optional[builtins.bool] = None,
-        is_organization_trail: typing.Optional[builtins.bool] = None,
-        management_events: typing.Optional[ReadWriteType] = None,
-        org_id: typing.Optional[builtins.str] = None,
-        s3_key_prefix: typing.Optional[builtins.str] = None,
-        send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-        sns_topic: typing.Optional[_ITopic_9eca4852] = None,
-        trail_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
-        :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
-        :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
-        :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
-        :param encryption_key: The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs. Default: - No encryption.
-        :param include_global_service_events: For most services, events are recorded in the region where the action occurred. For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53, events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region. Default: true
-        :param insight_types: A JSON string that contains the insight types you want to log on a trail. Default: - No Value.
-        :param is_multi_region_trail: Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account. Default: true
-        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account. If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error. If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization. If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization. Default: - false
-        :param management_events: When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails. Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group. This method sets the management configuration for this trail. Management events provide insight into management operations that are performed on resources in your AWS account. These are also known as control plane operations. Management events can also include non-API events that occur in your account. For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event. Default: ReadWriteType.ALL
-        :param org_id: The orgId. Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions. Default: - No orgId
-        :param s3_key_prefix: An Amazon S3 object key prefix that precedes the name of all log files. Default: - No prefix.
-        :param send_to_cloud_watch_logs: If CloudTrail pushes logs to CloudWatch Logs in addition to S3. Disabled for cost out of the box. Default: false
-        :param sns_topic: SNS topic that is notified when new log files are published. Default: - No notifications.
-        :param trail_name: The name of the trail. We recommend customers do not set an explicit name. Default: - AWS CloudFormation generated name.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = TrailProps(
-            bucket=bucket,
-            cloud_watch_log_group=cloud_watch_log_group,
-            cloud_watch_logs_retention=cloud_watch_logs_retention,
-            enable_file_validation=enable_file_validation,
-            encryption_key=encryption_key,
-            include_global_service_events=include_global_service_events,
-            insight_types=insight_types,
-            is_multi_region_trail=is_multi_region_trail,
-            is_organization_trail=is_organization_trail,
-            management_events=management_events,
-            org_id=org_id,
-            s3_key_prefix=s3_key_prefix,
-            send_to_cloud_watch_logs=send_to_cloud_watch_logs,
-            sns_topic=sns_topic,
-            trail_name=trail_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="onEvent")
-    @builtins.classmethod
-    def on_event(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-    ) -> _Rule_334ed2b5:
-        '''Create an event rule for when an event is recorded by any Trail in the account.
-
-        Note that the event doesn't necessarily have to come from this Trail, it can
-        be captured from any one.
-
-        Be sure to filter the event further down using an event pattern.
-
-        :param scope: -
-        :param id: -
-        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = _OnEventOptions_8711b8b3(
-            target=target,
-            cross_stack_scope=cross_stack_scope,
-            description=description,
-            event_pattern=event_pattern,
-            rule_name=rule_name,
-        )
-
-        return typing.cast(_Rule_334ed2b5, jsii.sinvoke(cls, "onEvent", [scope, id, options]))
-
-    @jsii.member(jsii_name="addEventSelector")
-    def add_event_selector(
-        self,
-        data_resource_type: DataResourceType,
-        data_resource_values: typing.Sequence[builtins.str],
-        *,
-        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-        include_management_events: typing.Optional[builtins.bool] = None,
-        read_write_type: typing.Optional[ReadWriteType] = None,
-    ) -> None:
-        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
-
-        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
-
-        This method adds an Event Selector for filtering events that match either S3 or Lambda function operations.
-
-        Data events: These events provide insight into the resource operations performed on or within a resource.
-        These are also known as data plane operations.
-
-        :param data_resource_type: -
-        :param data_resource_values: the list of data resource ARNs to include in logging (maximum 250 entries).
-        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
-        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
-        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2)
-            check_type(argname="argument data_resource_type", value=data_resource_type, expected_type=type_hints["data_resource_type"])
-            check_type(argname="argument data_resource_values", value=data_resource_values, expected_type=type_hints["data_resource_values"])
-        options = AddEventSelectorOptions(
-            exclude_management_event_sources=exclude_management_event_sources,
-            include_management_events=include_management_events,
-            read_write_type=read_write_type,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "addEventSelector", [data_resource_type, data_resource_values, options]))
-
-    @jsii.member(jsii_name="addLambdaEventSelector")
-    def add_lambda_event_selector(
-        self,
-        handlers: typing.Sequence[_IFunction_6adb0ab8],
-        *,
-        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-        include_management_events: typing.Optional[builtins.bool] = None,
-        read_write_type: typing.Optional[ReadWriteType] = None,
-    ) -> None:
-        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
-
-        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
-
-        This method adds a Lambda Data Event Selector for filtering events that match Lambda function operations.
-
-        Data events: These events provide insight into the resource operations performed on or within a resource.
-        These are also known as data plane operations.
-
-        :param handlers: the list of lambda function handlers whose data events should be logged (maximum 250 entries).
-        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
-        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
-        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0)
-            check_type(argname="argument handlers", value=handlers, expected_type=type_hints["handlers"])
-        options = AddEventSelectorOptions(
-            exclude_management_event_sources=exclude_management_event_sources,
-            include_management_events=include_management_events,
-            read_write_type=read_write_type,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "addLambdaEventSelector", [handlers, options]))
-
-    @jsii.member(jsii_name="addS3EventSelector")
-    def add_s3_event_selector(
-        self,
-        s3_selector: typing.Sequence[typing.Union[S3EventSelector, typing.Dict[builtins.str, typing.Any]]],
-        *,
-        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-        include_management_events: typing.Optional[builtins.bool] = None,
-        read_write_type: typing.Optional[ReadWriteType] = None,
-    ) -> None:
-        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
-
-        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
-
-        This method adds an S3 Data Event Selector for filtering events that match S3 operations.
-
-        Data events: These events provide insight into the resource operations performed on or within a resource.
-        These are also known as data plane operations.
-
-        :param s3_selector: the list of S3 bucket with optional prefix to include in logging (maximum 250 entries).
-        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
-        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
-        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2)
-            check_type(argname="argument s3_selector", value=s3_selector, expected_type=type_hints["s3_selector"])
-        options = AddEventSelectorOptions(
-            exclude_management_event_sources=exclude_management_event_sources,
-            include_management_events=include_management_events,
-            read_write_type=read_write_type,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "addS3EventSelector", [s3_selector, options]))
-
-    @jsii.member(jsii_name="logAllLambdaDataEvents")
-    def log_all_lambda_data_events(
-        self,
-        *,
-        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-        include_management_events: typing.Optional[builtins.bool] = None,
-        read_write_type: typing.Optional[ReadWriteType] = None,
-    ) -> None:
-        '''Log all Lambda data events for all lambda functions the account.
-
-        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
-        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
-        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
-
-        :default: false
-
-        :see: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html
-        '''
-        options = AddEventSelectorOptions(
-            exclude_management_event_sources=exclude_management_event_sources,
-            include_management_events=include_management_events,
-            read_write_type=read_write_type,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "logAllLambdaDataEvents", [options]))
-
-    @jsii.member(jsii_name="logAllS3DataEvents")
-    def log_all_s3_data_events(
-        self,
-        *,
-        exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-        include_management_events: typing.Optional[builtins.bool] = None,
-        read_write_type: typing.Optional[ReadWriteType] = None,
-    ) -> None:
-        '''Log all S3 data events for all objects for all buckets in the account.
-
-        :param exclude_management_event_sources: An optional list of service event sources from which you do not want management events to be logged on your trail. Default: []
-        :param include_management_events: Specifies whether the event selector includes management events for the trail. Default: true
-        :param read_write_type: Specifies whether to log read-only events, write-only events, or all events. Default: ReadWriteType.All
-
-        :default: false
-
-        :see: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html
-        '''
-        options = AddEventSelectorOptions(
-            exclude_management_event_sources=exclude_management_event_sources,
-            include_management_events=include_management_events,
-            read_write_type=read_write_type,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "logAllS3DataEvents", [options]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="trailArn")
-    def trail_arn(self) -> builtins.str:
-        '''ARN of the CloudTrail trail i.e. arn:aws:cloudtrail:us-east-2:123456789012:trail/myCloudTrail.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "trailArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="trailSnsTopicArn")
-    def trail_sns_topic_arn(self) -> builtins.str:
-        '''ARN of the Amazon SNS topic that's associated with the CloudTrail trail, i.e. arn:aws:sns:us-east-2:123456789012:mySNSTopic.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "trailSnsTopicArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="logGroup")
-    def log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''The CloudWatch log group to which CloudTrail events are sent.
-
-        ``undefined`` if ``sendToCloudWatchLogs`` property is false.
-        '''
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], jsii.get(self, "logGroup"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudtrail.TrailProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket": "bucket",
-        "cloud_watch_log_group": "cloudWatchLogGroup",
-        "cloud_watch_logs_retention": "cloudWatchLogsRetention",
-        "enable_file_validation": "enableFileValidation",
-        "encryption_key": "encryptionKey",
-        "include_global_service_events": "includeGlobalServiceEvents",
-        "insight_types": "insightTypes",
-        "is_multi_region_trail": "isMultiRegionTrail",
-        "is_organization_trail": "isOrganizationTrail",
-        "management_events": "managementEvents",
-        "org_id": "orgId",
-        "s3_key_prefix": "s3KeyPrefix",
-        "send_to_cloud_watch_logs": "sendToCloudWatchLogs",
-        "sns_topic": "snsTopic",
-        "trail_name": "trailName",
-    },
-)
-class TrailProps:
-    def __init__(
-        self,
-        *,
-        bucket: typing.Optional[_IBucket_42e086fd] = None,
-        cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        enable_file_validation: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
-        include_global_service_events: typing.Optional[builtins.bool] = None,
-        insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
-        is_multi_region_trail: typing.Optional[builtins.bool] = None,
-        is_organization_trail: typing.Optional[builtins.bool] = None,
-        management_events: typing.Optional[ReadWriteType] = None,
-        org_id: typing.Optional[builtins.str] = None,
-        s3_key_prefix: typing.Optional[builtins.str] = None,
-        send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-        sns_topic: typing.Optional[_ITopic_9eca4852] = None,
-        trail_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for an AWS CloudTrail trail.
-
-        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
-        :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
-        :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
-        :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
-        :param encryption_key: The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs. Default: - No encryption.
-        :param include_global_service_events: For most services, events are recorded in the region where the action occurred. For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53, events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region. Default: true
-        :param insight_types: A JSON string that contains the insight types you want to log on a trail. Default: - No Value.
-        :param is_multi_region_trail: Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account. Default: true
-        :param is_organization_trail: Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account. If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error. If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization. If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization. Default: - false
-        :param management_events: When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails. Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group. This method sets the management configuration for this trail. Management events provide insight into management operations that are performed on resources in your AWS account. These are also known as control plane operations. Management events can also include non-API events that occur in your account. For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event. Default: ReadWriteType.ALL
-        :param org_id: The orgId. Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions. Default: - No orgId
-        :param s3_key_prefix: An Amazon S3 object key prefix that precedes the name of all log files. Default: - No prefix.
-        :param send_to_cloud_watch_logs: If CloudTrail pushes logs to CloudWatch Logs in addition to S3. Disabled for cost out of the box. Default: false
-        :param sns_topic: SNS topic that is notified when new log files are published. Default: - No notifications.
-        :param trail_name: The name of the trail. We recommend customers do not set an explicit name. Default: - AWS CloudFormation generated name.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            trail = cloudtrail.Trail(self, "CloudTrail",
-                # ...
-                management_events=cloudtrail.ReadWriteType.READ_ONLY
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument cloud_watch_log_group", value=cloud_watch_log_group, expected_type=type_hints["cloud_watch_log_group"])
-            check_type(argname="argument cloud_watch_logs_retention", value=cloud_watch_logs_retention, expected_type=type_hints["cloud_watch_logs_retention"])
-            check_type(argname="argument enable_file_validation", value=enable_file_validation, expected_type=type_hints["enable_file_validation"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-            check_type(argname="argument include_global_service_events", value=include_global_service_events, expected_type=type_hints["include_global_service_events"])
-            check_type(argname="argument insight_types", value=insight_types, expected_type=type_hints["insight_types"])
-            check_type(argname="argument is_multi_region_trail", value=is_multi_region_trail, expected_type=type_hints["is_multi_region_trail"])
-            check_type(argname="argument is_organization_trail", value=is_organization_trail, expected_type=type_hints["is_organization_trail"])
-            check_type(argname="argument management_events", value=management_events, expected_type=type_hints["management_events"])
-            check_type(argname="argument org_id", value=org_id, expected_type=type_hints["org_id"])
-            check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
-            check_type(argname="argument send_to_cloud_watch_logs", value=send_to_cloud_watch_logs, expected_type=type_hints["send_to_cloud_watch_logs"])
-            check_type(argname="argument sns_topic", value=sns_topic, expected_type=type_hints["sns_topic"])
-            check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if bucket is not None:
-            self._values["bucket"] = bucket
-        if cloud_watch_log_group is not None:
-            self._values["cloud_watch_log_group"] = cloud_watch_log_group
-        if cloud_watch_logs_retention is not None:
-            self._values["cloud_watch_logs_retention"] = cloud_watch_logs_retention
-        if enable_file_validation is not None:
-            self._values["enable_file_validation"] = enable_file_validation
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
-        if include_global_service_events is not None:
-            self._values["include_global_service_events"] = include_global_service_events
-        if insight_types is not None:
-            self._values["insight_types"] = insight_types
-        if is_multi_region_trail is not None:
-            self._values["is_multi_region_trail"] = is_multi_region_trail
-        if is_organization_trail is not None:
-            self._values["is_organization_trail"] = is_organization_trail
-        if management_events is not None:
-            self._values["management_events"] = management_events
-        if org_id is not None:
-            self._values["org_id"] = org_id
-        if s3_key_prefix is not None:
-            self._values["s3_key_prefix"] = s3_key_prefix
-        if send_to_cloud_watch_logs is not None:
-            self._values["send_to_cloud_watch_logs"] = send_to_cloud_watch_logs
-        if sns_topic is not None:
-            self._values["sns_topic"] = sns_topic
-        if trail_name is not None:
-            self._values["trail_name"] = trail_name
-
-    @builtins.property
-    def bucket(self) -> typing.Optional[_IBucket_42e086fd]:
-        '''The Amazon S3 bucket.
-
-        :default: - if not supplied a bucket will be created with all the correct permisions
-        '''
-        result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_IBucket_42e086fd], result)
-
-    @builtins.property
-    def cloud_watch_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''Log Group to which CloudTrail to push logs to.
-
-        Ignored if sendToCloudWatchLogs is set to false.
-
-        :default: - a new log group is created and used.
-        '''
-        result = self._values.get("cloud_watch_log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
-
-    @builtins.property
-    def cloud_watch_logs_retention(self) -> typing.Optional[_RetentionDays_070f99f0]:
-        '''How long to retain logs in CloudWatchLogs.
-
-        Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set.
-
-        :default: logs.RetentionDays.ONE_YEAR
-        '''
-        result = self._values.get("cloud_watch_logs_retention")
-        return typing.cast(typing.Optional[_RetentionDays_070f99f0], result)
-
-    @builtins.property
-    def enable_file_validation(self) -> typing.Optional[builtins.bool]:
-        '''To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation.
-
-        This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing.
-        This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection.
-        You can use the AWS CLI to validate the files in the location where CloudTrail delivered them.
-
-        :default: true
-        '''
-        result = self._values.get("enable_file_validation")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The AWS Key Management Service (AWS KMS) key ID that you want to use to encrypt CloudTrail logs.
-
-        :default: - No encryption.
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    @builtins.property
-    def include_global_service_events(self) -> typing.Optional[builtins.bool]:
-        '''For most services, events are recorded in the region where the action occurred.
-
-        For global services such as AWS Identity and Access Management (IAM), AWS STS, Amazon CloudFront, and Route 53,
-        events are delivered to any trail that includes global services, and are logged as occurring in US East (N. Virginia) Region.
-
-        :default: true
-        '''
-        result = self._values.get("include_global_service_events")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def insight_types(self) -> typing.Optional[typing.List[InsightType]]:
-        '''A JSON string that contains the insight types you want to log on a trail.
-
-        :default: - No Value.
-        '''
-        result = self._values.get("insight_types")
-        return typing.cast(typing.Optional[typing.List[InsightType]], result)
-
-    @builtins.property
-    def is_multi_region_trail(self) -> typing.Optional[builtins.bool]:
-        '''Whether or not this trail delivers log files from multiple regions to a single S3 bucket for a single account.
-
-        :default: true
-        '''
-        result = self._values.get("is_multi_region_trail")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def is_organization_trail(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether the trail is applied to all accounts in an organization in AWS Organizations, or only for the current AWS account.
-
-        If this is set to true then the current account *must* be the management account. If it is not, then CloudFormation will throw an error.
-
-        If this is set to true and the current account is a management account for an organization in AWS Organizations, the trail will be created in all AWS accounts that belong to the organization.
-        If this is set to false, the trail will remain in the current AWS account but be deleted from all member accounts in the organization.
-
-        :default: - false
-        '''
-        result = self._values.get("is_organization_trail")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def management_events(self) -> typing.Optional[ReadWriteType]:
-        '''When an event occurs in your account, CloudTrail evaluates whether the event matches the settings for your trails.
-
-        Only events that match your trail settings are delivered to your Amazon S3 bucket and Amazon CloudWatch Logs log group.
-
-        This method sets the management configuration for this trail.
-
-        Management events provide insight into management operations that are performed on resources in your AWS account.
-        These are also known as control plane operations.
-        Management events can also include non-API events that occur in your account.
-        For example, when a user logs in to your account, CloudTrail logs the ConsoleLogin event.
-
-        :default: ReadWriteType.ALL
-        '''
-        result = self._values.get("management_events")
-        return typing.cast(typing.Optional[ReadWriteType], result)
-
-    @builtins.property
-    def org_id(self) -> typing.Optional[builtins.str]:
-        '''The orgId.
-
-        Required when ``isOrganizationTrail`` is set to true to attach the necessary permissions.
-
-        :default: - No orgId
-        '''
-        result = self._values.get("org_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''An Amazon S3 object key prefix that precedes the name of all log files.
-
-        :default: - No prefix.
-        '''
-        result = self._values.get("s3_key_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def send_to_cloud_watch_logs(self) -> typing.Optional[builtins.bool]:
-        '''If CloudTrail pushes logs to CloudWatch Logs in addition to S3.
-
-        Disabled for cost out of the box.
-
-        :default: false
-        '''
-        result = self._values.get("send_to_cloud_watch_logs")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def sns_topic(self) -> typing.Optional[_ITopic_9eca4852]:
-        '''SNS topic that is notified when new log files are published.
-
-        :default: - No notifications.
-        '''
-        result = self._values.get("sns_topic")
-        return typing.cast(typing.Optional[_ITopic_9eca4852], result)
-
-    @builtins.property
-    def trail_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the trail.
-
-        We recommend customers do not set an explicit name.
-
-        :default: - AWS CloudFormation generated name.
-        '''
-        result = self._values.get("trail_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TrailProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "AddEventSelectorOptions",
     "CfnChannel",
@@ -5255,13 +5741,23 @@ __all__ = [
     "CfnResourcePolicyProps",
     "CfnTrail",
     "CfnTrailProps",
+    "ChannelReference",
+    "DashboardReference",
     "DataResourceType",
+    "EventDataStoreReference",
+    "IChannelRef",
+    "IDashboardRef",
+    "IEventDataStoreRef",
+    "IResourcePolicyRef",
+    "ITrailRef",
     "InsightType",
     "ManagementEventSources",
     "ReadWriteType",
+    "ResourcePolicyReference",
     "S3EventSelector",
     "Trail",
     "TrailProps",
+    "TrailReference",
 ]
 
 publication.publish()
@@ -5271,6 +5767,217 @@ def _typecheckingstub__73fc595c7387ed1256397f5af21fd7ee999ae00a4ffd0d01a01810f05
     exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
     include_management_events: typing.Optional[builtins.bool] = None,
     read_write_type: typing.Optional[ReadWriteType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356(
+    *,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    source: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e(
+    *,
+    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    billing_mode: typing.Optional[builtins.str] = None,
+    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    federation_role_arn: typing.Optional[builtins.str] = None,
+    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    insights_destination: typing.Optional[builtins.str] = None,
+    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    max_event_size: typing.Optional[builtins.str] = None,
+    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    name: typing.Optional[builtins.str] = None,
+    organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08(
+    *,
+    resource_arn: builtins.str,
+    resource_policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79(
+    *,
+    is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    s3_bucket_name: builtins.str,
+    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
+    cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
+    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    s3_key_prefix: typing.Optional[builtins.str] = None,
+    sns_topic_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trail_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fb7293ed180ce1772437ad6fa608307c5f28622e511bcecbccafaf86f310bf1(
+    *,
+    channel_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9713e8e98a818c9886a1d8e72a7231b930aa0ad516c260f7dd4a49867026685(
+    *,
+    dashboard_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41e614d15d976cde0f87a35d3d079d725fec59a7cede087d054f31b0d00b26e6(
+    *,
+    event_data_store_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6fa4ee9ebde16d06e2b6f04deb76a18c078ad3afacffe11d0df80f1a4c04af9(
+    *,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea(
+    *,
+    bucket: _IBucketRef_fb8fe266,
+    object_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+    enable_file_validation: typing.Optional[builtins.bool] = None,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    include_global_service_events: typing.Optional[builtins.bool] = None,
+    insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
+    is_multi_region_trail: typing.Optional[builtins.bool] = None,
+    is_organization_trail: typing.Optional[builtins.bool] = None,
+    management_events: typing.Optional[ReadWriteType] = None,
+    org_id: typing.Optional[builtins.str] = None,
+    s3_key_prefix: typing.Optional[builtins.str] = None,
+    send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
+    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+    trail_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2(
+    data_resource_type: DataResourceType,
+    data_resource_values: typing.Sequence[builtins.str],
+    *,
+    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+    include_management_events: typing.Optional[builtins.bool] = None,
+    read_write_type: typing.Optional[ReadWriteType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0(
+    handlers: typing.Sequence[_IFunction_6adb0ab8],
+    *,
+    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+    include_management_events: typing.Optional[builtins.bool] = None,
+    read_write_type: typing.Optional[ReadWriteType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2(
+    s3_selector: typing.Sequence[typing.Union[S3EventSelector, typing.Dict[builtins.str, typing.Any]]],
+    *,
+    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
+    include_management_events: typing.Optional[builtins.bool] = None,
+    read_write_type: typing.Optional[ReadWriteType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7(
+    *,
+    bucket: typing.Optional[_IBucket_42e086fd] = None,
+    cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+    enable_file_validation: typing.Optional[builtins.bool] = None,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    include_global_service_events: typing.Optional[builtins.bool] = None,
+    insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
+    is_multi_region_trail: typing.Optional[builtins.bool] = None,
+    is_organization_trail: typing.Optional[builtins.bool] = None,
+    management_events: typing.Optional[ReadWriteType] = None,
+    org_id: typing.Optional[builtins.str] = None,
+    s3_key_prefix: typing.Optional[builtins.str] = None,
+    send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
+    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
+    trail_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dda4229dc8316e137c2385cc3d0c5c40957726f36ec12d80b929df34a33b2cbb(
+    *,
+    trail_arn: builtins.str,
+    trail_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5327,16 +6034,6 @@ def _typecheckingstub__619b701f7c6b5470537230c8a847919a410a57fbf2eab022694dc1fef
     *,
     location: builtins.str,
     type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__767e83e8a394410f21e7f497da1effaf3ef0c04f6e829362db73a8f535dd5356(
-    *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5418,17 +6115,6 @@ def _typecheckingstub__dc8abf1361e0023c8b0a4cba28dced78eff4f36aa3c868efa3feed153
     query_statement: builtins.str,
     query_parameters: typing.Optional[typing.Sequence[builtins.str]] = None,
     view_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6929f557c8f41826314d27fdba0c2269a618fd42c6e748deaa518379a830e911(
-    *,
-    name: typing.Optional[builtins.str] = None,
-    refresh_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.RefreshScheduleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    widgets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDashboard.WidgetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5601,28 +6287,6 @@ def _typecheckingstub__5dc8183d614f9c9498310cd377ff020cdc048d422b2548bbe678fc3c1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e(
-    *,
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    billing_mode: typing.Optional[builtins.str] = None,
-    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    federation_role_arn: typing.Optional[builtins.str] = None,
-    ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    insights_destination: typing.Optional[builtins.str] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    max_event_size: typing.Optional[builtins.str] = None,
-    multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    name: typing.Optional[builtins.str] = None,
-    organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    termination_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e63ea1d0937535109b462c5587b69e94988e2caeb02b49177c8a53040c569033(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5653,14 +6317,6 @@ def _typecheckingstub__c2bbc7a61c40e678ccc323afced9d77064978b41254369fee4db81549
 
 def _typecheckingstub__e81052ff397bfd1d58bc17a51da7f1ee393c63b322c1b7d43b49b11f481e0ade(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6a325337b33ae7cf48e36873295a3efad9af30e81615a436102a6dd5c10a2f08(
-    *,
-    resource_arn: builtins.str,
-    resource_policy: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5839,130 +6495,6 @@ def _typecheckingstub__b6a456b792eafca6f1c49386b9ce4f496975ac1ff51f363686c31755c
 def _typecheckingstub__c36e7d325732c46967fd652ce7b5b56b5b548efaa4c260b4d0918a84e4b31748(
     *,
     insight_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fe29eec9c2fc5386dadc73c14bab1f4c61dc9a7cd9ad26812bf169694fa1ed79(
-    *,
-    is_logging: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    s3_bucket_name: builtins.str,
-    advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
-    cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
-    enable_log_file_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.EventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_global_service_events: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrail.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_multi_region_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_organization_trail: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    s3_key_prefix: typing.Optional[builtins.str] = None,
-    sns_topic_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trail_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1cb2fd9327becb7b11bbb80f00762b693b18c3d8338685289adc8907f8b2c231(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d0df2bbec441689030ea9ec1ee0c490c06396957a77ed6d3353b714dbe525ea(
-    *,
-    bucket: _IBucket_42e086fd,
-    object_prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7b48a378f80b4a1726c79900e866bb932a0819e2b9124d6c5818259bf8c2efd3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    enable_file_validation: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    include_global_service_events: typing.Optional[builtins.bool] = None,
-    insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
-    is_multi_region_trail: typing.Optional[builtins.bool] = None,
-    is_organization_trail: typing.Optional[builtins.bool] = None,
-    management_events: typing.Optional[ReadWriteType] = None,
-    org_id: typing.Optional[builtins.str] = None,
-    s3_key_prefix: typing.Optional[builtins.str] = None,
-    send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
-    trail_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f3da7eec1f43e2097945d61dbe36980d815e286492252afbfa5b77f6f90154c3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a83bd81f5369dec88236698aaaacd2b411e71f0b26a1820dac4d9708b35eeb2(
-    data_resource_type: DataResourceType,
-    data_resource_values: typing.Sequence[builtins.str],
-    *,
-    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-    include_management_events: typing.Optional[builtins.bool] = None,
-    read_write_type: typing.Optional[ReadWriteType] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f4c1abc3131dbd715c5dbbad63c8d79ef1bb110ded697e9202e474e8c0766da0(
-    handlers: typing.Sequence[_IFunction_6adb0ab8],
-    *,
-    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-    include_management_events: typing.Optional[builtins.bool] = None,
-    read_write_type: typing.Optional[ReadWriteType] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4675fde35c881f97ed3c098123c51ad64ff5ae73a4d353d16fd977d9951fefb2(
-    s3_selector: typing.Sequence[typing.Union[S3EventSelector, typing.Dict[builtins.str, typing.Any]]],
-    *,
-    exclude_management_event_sources: typing.Optional[typing.Sequence[ManagementEventSources]] = None,
-    include_management_events: typing.Optional[builtins.bool] = None,
-    read_write_type: typing.Optional[ReadWriteType] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c5ff27b267882181cdb7a08f4ac78fe9eaffb7f3b50db3ce4f2dc9ce929af6f7(
-    *,
-    bucket: typing.Optional[_IBucket_42e086fd] = None,
-    cloud_watch_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    enable_file_validation: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    include_global_service_events: typing.Optional[builtins.bool] = None,
-    insight_types: typing.Optional[typing.Sequence[InsightType]] = None,
-    is_multi_region_trail: typing.Optional[builtins.bool] = None,
-    is_organization_trail: typing.Optional[builtins.bool] = None,
-    management_events: typing.Optional[ReadWriteType] = None,
-    org_id: typing.Optional[builtins.str] = None,
-    s3_key_prefix: typing.Optional[builtins.str] = None,
-    send_to_cloud_watch_logs: typing.Optional[builtins.bool] = None,
-    sns_topic: typing.Optional[_ITopic_9eca4852] = None,
-    trail_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

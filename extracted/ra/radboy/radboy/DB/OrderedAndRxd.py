@@ -20,6 +20,9 @@ def CountTo():
         }
     start=datetime.now()
     data=FormBuilder(data=fd)
+    if data is None:
+        print("bad parameters!")
+        return
     absolute_start=False
     useLast=False
     while True:
@@ -41,6 +44,9 @@ def CountTo():
             }
             start=datetime.now()
             data=FormBuilder(data=fd)
+            if data is None:
+                print("bad parameters!")
+                return
             absolute_start=False
         if useLast:
             print("using last setup!")

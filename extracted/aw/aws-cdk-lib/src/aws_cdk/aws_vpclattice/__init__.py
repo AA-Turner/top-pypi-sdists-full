@@ -70,198 +70,102 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnAccessLogSubscription(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnAccessLogSubscription",
-):
-    '''Enables access logs to be sent to Amazon CloudWatch, Amazon S3, and Amazon Kinesis Data Firehose.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.AccessLogSubscriptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"access_log_subscription_arn": "accessLogSubscriptionArn"},
+)
+class AccessLogSubscriptionReference:
+    def __init__(self, *, access_log_subscription_arn: builtins.str) -> None:
+        '''A reference to a AccessLogSubscription resource.
 
-    The service network owner can use the access logs to audit the services in the network. The service network owner can only see access logs from clients and services that are associated with their service network. Access log entries represent traffic originated from VPCs associated with that network. For more information, see `Access logs <https://docs.aws.amazon.com/vpc-lattice/latest/ug/monitoring-access-logs.html>`_ in the *Amazon VPC Lattice User Guide* .
+        :param access_log_subscription_arn: The Arn of the AccessLogSubscription resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-accesslogsubscription.html
-    :cloudformationResource: AWS::VpcLattice::AccessLogSubscription
-    :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=_generated
 
-    Example::
+        Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_vpclattice as vpclattice
-        
-        cfn_access_log_subscription = vpclattice.CfnAccessLogSubscription(self, "MyCfnAccessLogSubscription",
-            destination_arn="destinationArn",
-        
-            # the properties below are optional
-            resource_identifier="resourceIdentifier",
-            service_network_log_type="serviceNetworkLogType",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        destination_arn: builtins.str,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        service_network_log_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param destination_arn: The Amazon Resource Name (ARN) of the destination. The supported destination types are CloudWatch Log groups, Kinesis Data Firehose delivery streams, and Amazon S3 buckets.
-        :param resource_identifier: The ID or ARN of the service network or service.
-        :param service_network_log_type: Log type of the service network.
-        :param tags: The tags for the access log subscription.
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            access_log_subscription_reference = vpclattice.AccessLogSubscriptionReference(
+                access_log_subscription_arn="accessLogSubscriptionArn"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d1e4f257245d8e5be92083145da5c0b7311cde5a905b65c5cb20fb0c7230032)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAccessLogSubscriptionProps(
-            destination_arn=destination_arn,
-            resource_identifier=resource_identifier,
-            service_network_log_type=service_network_log_type,
-            tags=tags,
+            type_hints = typing.get_type_hints(_typecheckingstub__63363f41e13bed14f34974061d355f75416c3372470937b4b6da62918c478e00)
+            check_type(argname="argument access_log_subscription_arn", value=access_log_subscription_arn, expected_type=type_hints["access_log_subscription_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_log_subscription_arn": access_log_subscription_arn,
+        }
+
+    @builtins.property
+    def access_log_subscription_arn(self) -> builtins.str:
+        '''The Arn of the AccessLogSubscription resource.'''
+        result = self._values.get("access_log_subscription_arn")
+        assert result is not None, "Required property 'access_log_subscription_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessLogSubscriptionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
 
-        jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.AuthPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_identifier": "resourceIdentifier"},
+)
+class AuthPolicyReference:
+    def __init__(self, *, resource_identifier: builtins.str) -> None:
+        '''A reference to a AuthPolicy resource.
 
-        :param inspector: tree inspector to collect and process attributes.
+        :param resource_identifier: The ResourceIdentifier of the AuthPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            auth_policy_reference = vpclattice.AuthPolicyReference(
+                resource_identifier="resourceIdentifier"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b373a2103376ee17034d5f8a2bd66281964526c897621d59f595a7ee710dece)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f207b1387515fc7caa56e4c3c30125161e739b43f33921086c670ed7af78619e)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+            type_hints = typing.get_type_hints(_typecheckingstub__93f4473eeae766afbde696cb4e0e1ed355cc9a3f07345de3d38dc0c3602c1c36)
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_identifier": resource_identifier,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the access log subscription.
+    def resource_identifier(self) -> builtins.str:
+        '''The ResourceIdentifier of the AuthPolicy resource.'''
+        result = self._values.get("resource_identifier")
+        assert result is not None, "Required property 'resource_identifier' is missing"
+        return typing.cast(builtins.str, result)
 
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID of the access log subscription.
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceArn")
-    def attr_resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the access log subscription.
-
-        :cloudformationAttribute: ResourceArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceId")
-    def attr_resource_id(self) -> builtins.str:
-        '''The ID of the service network or service.
-
-        :cloudformationAttribute: ResourceId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrResourceId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="destinationArn")
-    def destination_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the destination.'''
-        return typing.cast(builtins.str, jsii.get(self, "destinationArn"))
-
-    @destination_arn.setter
-    def destination_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__880b45928aa837a0dba3740b58b3250033476ee4e3d14b774b01c4cd2d224862)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceIdentifier")
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service network or service.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceIdentifier"))
-
-    @resource_identifier.setter
-    def resource_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b93aeac48124e92f9f09dd3e99f9ef8ac5e9d002fe64dea86b3d7700ae862f0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceNetworkLogType")
-    def service_network_log_type(self) -> typing.Optional[builtins.str]:
-        '''Log type of the service network.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceNetworkLogType"))
-
-    @service_network_log_type.setter
-    def service_network_log_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6aefb91b2c767c1ad3bd8d1abc157b906edd3e6e2041f588e76852a2d69dfed)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceNetworkLogType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the access log subscription.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f88ce1faaa39f21f51b79668a87b932a07532be6cdddad83e4090e05f9de003e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+    def __repr__(self) -> str:
+        return "AuthPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -378,7 +282,2977 @@ class CfnAccessLogSubscriptionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnAuthPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_identifier": "resourceIdentifier"},
+)
+class CfnAuthPolicyProps:
+    def __init__(
+        self,
+        *,
+        policy: typing.Any,
+        resource_identifier: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnAuthPolicy``.
+
+        :param policy: The auth policy.
+        :param resource_identifier: The ID or ARN of the service network or service for which the policy is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            # policy: Any
+            
+            cfn_auth_policy_props = vpclattice.CfnAuthPolicyProps(
+                policy=policy,
+                resource_identifier="resourceIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d3fae469a4114f5041ab337d4b2b87c6bebd93bfab70112ebf9e83154ff99a2)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_identifier": resource_identifier,
+        }
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The auth policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html#cfn-vpclattice-authpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_identifier(self) -> builtins.str:
+        '''The ID or ARN of the service network or service for which the policy is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html#cfn-vpclattice-authpolicy-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        assert result is not None, "Required property 'resource_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAuthPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnListenerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_action": "defaultAction",
+        "protocol": "protocol",
+        "name": "name",
+        "port": "port",
+        "service_identifier": "serviceIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnListenerProps:
+    def __init__(
+        self,
+        *,
+        default_action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnListener.DefaultActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        protocol: builtins.str,
+        name: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        service_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnListener``.
+
+        :param default_action: The action for the default rule. Each listener has a default rule. The default rule is used if no other rules match.
+        :param protocol: The listener protocol.
+        :param name: The name of the listener. A listener name must be unique within a service. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+        :param port: The listener port. You can specify a value from 1 to 65535. For HTTP, the default is 80. For HTTPS, the default is 443.
+        :param service_identifier: The ID or ARN of the service.
+        :param tags: The tags for the listener.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_listener_props = vpclattice.CfnListenerProps(
+                default_action=vpclattice.CfnListener.DefaultActionProperty(
+                    fixed_response=vpclattice.CfnListener.FixedResponseProperty(
+                        status_code=123
+                    ),
+                    forward=vpclattice.CfnListener.ForwardProperty(
+                        target_groups=[vpclattice.CfnListener.WeightedTargetGroupProperty(
+                            target_group_identifier="targetGroupIdentifier",
+            
+                            # the properties below are optional
+                            weight=123
+                        )]
+                    )
+                ),
+                protocol="protocol",
+            
+                # the properties below are optional
+                name="name",
+                port=123,
+                service_identifier="serviceIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2abd654d29759383ba4227953efda14c5f7db6190ad40176eb92bfbb7ccc5693)
+            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_action": default_action,
+            "protocol": protocol,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if port is not None:
+            self._values["port"] = port
+        if service_identifier is not None:
+            self._values["service_identifier"] = service_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def default_action(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnListener.DefaultActionProperty"]:
+        '''The action for the default rule.
+
+        Each listener has a default rule. The default rule is used if no other rules match.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-defaultaction
+        '''
+        result = self._values.get("default_action")
+        assert result is not None, "Required property 'default_action' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnListener.DefaultActionProperty"], result)
+
+    @builtins.property
+    def protocol(self) -> builtins.str:
+        '''The listener protocol.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-protocol
+        '''
+        result = self._values.get("protocol")
+        assert result is not None, "Required property 'protocol' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the listener.
+
+        A listener name must be unique within a service. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
+
+        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The listener port.
+
+        You can specify a value from 1 to 65535. For HTTP, the default is 80. For HTTPS, the default is 443.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def service_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-serviceidentifier
+        '''
+        result = self._values.get("service_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the listener.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnListenerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "resource_configuration_type": "resourceConfigurationType",
+        "allow_association_to_sharable_service_network": "allowAssociationToSharableServiceNetwork",
+        "port_ranges": "portRanges",
+        "protocol_type": "protocolType",
+        "resource_configuration_auth_type": "resourceConfigurationAuthType",
+        "resource_configuration_definition": "resourceConfigurationDefinition",
+        "resource_configuration_group_id": "resourceConfigurationGroupId",
+        "resource_gateway_id": "resourceGatewayId",
+        "tags": "tags",
+    },
+)
+class CfnResourceConfigurationProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        resource_configuration_type: builtins.str,
+        allow_association_to_sharable_service_network: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+        protocol_type: typing.Optional[builtins.str] = None,
+        resource_configuration_auth_type: typing.Optional[builtins.str] = None,
+        resource_configuration_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceConfiguration.ResourceConfigurationDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_configuration_group_id: typing.Optional[builtins.str] = None,
+        resource_gateway_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceConfiguration``.
+
+        :param name: The name of the resource configuration.
+        :param resource_configuration_type: The type of resource configuration. A resource configuration can be one of the following types:. - *SINGLE* - A single resource. - *GROUP* - A group of resources. You must create a group resource configuration before you create a child resource configuration. - *CHILD* - A single resource that is part of a group resource configuration. - *ARN* - An AWS resource.
+        :param allow_association_to_sharable_service_network: Specifies whether the resource configuration can be associated with a sharable service network.
+        :param port_ranges: (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
+        :param protocol_type: (SINGLE, GROUP) The protocol accepted by the resource configuration.
+        :param resource_configuration_auth_type: The auth type for the resource configuration.
+        :param resource_configuration_definition: Identifies the resource configuration in one of the following ways:. - *Amazon Resource Name (ARN)* - Supported resource-types that are provisioned by AWS services, such as RDS databases, can be identified by their ARN. - *Domain name* - Any domain name that is publicly resolvable. - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
+        :param resource_configuration_group_id: The ID of the group resource configuration.
+        :param resource_gateway_id: The ID of the resource gateway.
+        :param tags: The tags for the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_resource_configuration_props = vpclattice.CfnResourceConfigurationProps(
+                name="name",
+                resource_configuration_type="resourceConfigurationType",
+            
+                # the properties below are optional
+                allow_association_to_sharable_service_network=False,
+                port_ranges=["portRanges"],
+                protocol_type="protocolType",
+                resource_configuration_auth_type="resourceConfigurationAuthType",
+                resource_configuration_definition=vpclattice.CfnResourceConfiguration.ResourceConfigurationDefinitionProperty(
+                    arn_resource="arnResource",
+                    dns_resource=vpclattice.CfnResourceConfiguration.DnsResourceProperty(
+                        domain_name="domainName",
+                        ip_address_type="ipAddressType"
+                    ),
+                    ip_resource="ipResource"
+                ),
+                resource_configuration_group_id="resourceConfigurationGroupId",
+                resource_gateway_id="resourceGatewayId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__797cfcb00db81ec7627009ae5f799c38c09652aee4a602480e341f9e4049b098)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resource_configuration_type", value=resource_configuration_type, expected_type=type_hints["resource_configuration_type"])
+            check_type(argname="argument allow_association_to_sharable_service_network", value=allow_association_to_sharable_service_network, expected_type=type_hints["allow_association_to_sharable_service_network"])
+            check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
+            check_type(argname="argument protocol_type", value=protocol_type, expected_type=type_hints["protocol_type"])
+            check_type(argname="argument resource_configuration_auth_type", value=resource_configuration_auth_type, expected_type=type_hints["resource_configuration_auth_type"])
+            check_type(argname="argument resource_configuration_definition", value=resource_configuration_definition, expected_type=type_hints["resource_configuration_definition"])
+            check_type(argname="argument resource_configuration_group_id", value=resource_configuration_group_id, expected_type=type_hints["resource_configuration_group_id"])
+            check_type(argname="argument resource_gateway_id", value=resource_gateway_id, expected_type=type_hints["resource_gateway_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "resource_configuration_type": resource_configuration_type,
+        }
+        if allow_association_to_sharable_service_network is not None:
+            self._values["allow_association_to_sharable_service_network"] = allow_association_to_sharable_service_network
+        if port_ranges is not None:
+            self._values["port_ranges"] = port_ranges
+        if protocol_type is not None:
+            self._values["protocol_type"] = protocol_type
+        if resource_configuration_auth_type is not None:
+            self._values["resource_configuration_auth_type"] = resource_configuration_auth_type
+        if resource_configuration_definition is not None:
+            self._values["resource_configuration_definition"] = resource_configuration_definition
+        if resource_configuration_group_id is not None:
+            self._values["resource_configuration_group_id"] = resource_configuration_group_id
+        if resource_gateway_id is not None:
+            self._values["resource_gateway_id"] = resource_gateway_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_configuration_type(self) -> builtins.str:
+        '''The type of resource configuration. A resource configuration can be one of the following types:.
+
+        - *SINGLE* - A single resource.
+        - *GROUP* - A group of resources. You must create a group resource configuration before you create a child resource configuration.
+        - *CHILD* - A single resource that is part of a group resource configuration.
+        - *ARN* - An AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationtype
+        '''
+        result = self._values.get("resource_configuration_type")
+        assert result is not None, "Required property 'resource_configuration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_association_to_sharable_service_network(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the resource configuration can be associated with a sharable service network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-allowassociationtosharableservicenetwork
+        '''
+        result = self._values.get("allow_association_to_sharable_service_network")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def port_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535).
+
+        You can separate port ranges using commas (for example: 1,2,22-30).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-portranges
+        '''
+        result = self._values.get("port_ranges")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def protocol_type(self) -> typing.Optional[builtins.str]:
+        '''(SINGLE, GROUP) The protocol accepted by the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-protocoltype
+        '''
+        result = self._values.get("protocol_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_configuration_auth_type(self) -> typing.Optional[builtins.str]:
+        '''The auth type for the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationauthtype
+        '''
+        result = self._values.get("resource_configuration_auth_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_configuration_definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceConfiguration.ResourceConfigurationDefinitionProperty"]]:
+        '''Identifies the resource configuration in one of the following ways:.
+
+        - *Amazon Resource Name (ARN)* - Supported resource-types that are provisioned by AWS services, such as RDS databases, can be identified by their ARN.
+        - *Domain name* - Any domain name that is publicly resolvable.
+        - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationdefinition
+        '''
+        result = self._values.get("resource_configuration_definition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceConfiguration.ResourceConfigurationDefinitionProperty"]], result)
+
+    @builtins.property
+    def resource_configuration_group_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the group resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationgroupid
+        '''
+        result = self._values.get("resource_configuration_group_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_gateway_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourcegatewayid
+        '''
+        result = self._values.get("resource_gateway_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceGatewayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "subnet_ids": "subnetIds",
+        "vpc_identifier": "vpcIdentifier",
+        "ip_address_type": "ipAddressType",
+        "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
+        "security_group_ids": "securityGroupIds",
+        "tags": "tags",
+    },
+)
+class CfnResourceGatewayProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        subnet_ids: typing.Sequence[builtins.str],
+        vpc_identifier: builtins.str,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceGateway``.
+
+        :param name: The name of the resource gateway.
+        :param subnet_ids: The IDs of the VPC subnets for the resource gateway.
+        :param vpc_identifier: The ID of the VPC for the resource gateway.
+        :param ip_address_type: The type of IP address used by the resource gateway.
+        :param ipv4_addresses_per_eni: The number of IPv4 addresses to allocate per ENI for the resource gateway.
+        :param security_group_ids: The IDs of the security groups applied to the resource gateway.
+        :param tags: The tags for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_resource_gateway_props = vpclattice.CfnResourceGatewayProps(
+                name="name",
+                subnet_ids=["subnetIds"],
+                vpc_identifier="vpcIdentifier",
+            
+                # the properties below are optional
+                ip_address_type="ipAddressType",
+                ipv4_addresses_per_eni=123,
+                security_group_ids=["securityGroupIds"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49bdae174)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "subnet_ids": subnet_ids,
+            "vpc_identifier": vpc_identifier,
+        }
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if ipv4_addresses_per_eni is not None:
+            self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''The IDs of the VPC subnets for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def vpc_identifier(self) -> builtins.str:
+        '''The ID of the VPC for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-vpcidentifier
+        '''
+        result = self._values.get("vpc_identifier")
+        assert result is not None, "Required property 'vpc_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''The type of IP address used by the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
+        '''The number of IPv4 addresses to allocate per ENI for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-ipv4addressespereni
+        '''
+        result = self._values.get("ipv4_addresses_per_eni")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The IDs of the security groups applied to the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the resource gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceGatewayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy: The Amazon Resource Name (ARN) of the service network or service.
+        :param resource_arn: An IAM policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            # policy: Any
+            
+            cfn_resource_policy_props = vpclattice.CfnResourcePolicyProps(
+                policy=policy,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1737436eeafbe996ee74ec168a6fb4cb8dd64c1c2bcb91c9ba68d5dc234bb69e)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The Amazon Resource Name (ARN) of the service network or service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html#cfn-vpclattice-resourcepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''An IAM policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html#cfn-vpclattice-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action": "action",
+        "match": "match",
+        "priority": "priority",
+        "listener_identifier": "listenerIdentifier",
+        "name": "name",
+        "service_identifier": "serviceIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnRuleProps:
+    def __init__(
+        self,
+        *,
+        action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.MatchProperty", typing.Dict[builtins.str, typing.Any]]],
+        priority: jsii.Number,
+        listener_identifier: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRule``.
+
+        :param action: Describes the action for a rule.
+        :param match: The rule match.
+        :param priority: The priority assigned to the rule. Each rule for a specific listener must have a unique priority. The lower the priority number the higher the priority.
+        :param listener_identifier: The ID or ARN of the listener.
+        :param name: The name of the rule. The name must be unique within the listener. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+        :param service_identifier: The ID or ARN of the service.
+        :param tags: The tags for the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_rule_props = vpclattice.CfnRuleProps(
+                action=vpclattice.CfnRule.ActionProperty(
+                    fixed_response=vpclattice.CfnRule.FixedResponseProperty(
+                        status_code=123
+                    ),
+                    forward=vpclattice.CfnRule.ForwardProperty(
+                        target_groups=[vpclattice.CfnRule.WeightedTargetGroupProperty(
+                            target_group_identifier="targetGroupIdentifier",
+            
+                            # the properties below are optional
+                            weight=123
+                        )]
+                    )
+                ),
+                match=vpclattice.CfnRule.MatchProperty(
+                    http_match=vpclattice.CfnRule.HttpMatchProperty(
+                        header_matches=[vpclattice.CfnRule.HeaderMatchProperty(
+                            match=vpclattice.CfnRule.HeaderMatchTypeProperty(
+                                contains="contains",
+                                exact="exact",
+                                prefix="prefix"
+                            ),
+                            name="name",
+            
+                            # the properties below are optional
+                            case_sensitive=False
+                        )],
+                        method="method",
+                        path_match=vpclattice.CfnRule.PathMatchProperty(
+                            match=vpclattice.CfnRule.PathMatchTypeProperty(
+                                exact="exact",
+                                prefix="prefix"
+                            ),
+            
+                            # the properties below are optional
+                            case_sensitive=False
+                        )
+                    )
+                ),
+                priority=123,
+            
+                # the properties below are optional
+                listener_identifier="listenerIdentifier",
+                name="name",
+                service_identifier="serviceIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81f380fdbb7ddd606a65742cdc6a3fac2454948798f8a3adcb8fb7c0451af6e1)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument match", value=match, expected_type=type_hints["match"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument listener_identifier", value=listener_identifier, expected_type=type_hints["listener_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action": action,
+            "match": match,
+            "priority": priority,
+        }
+        if listener_identifier is not None:
+            self._values["listener_identifier"] = listener_identifier
+        if name is not None:
+            self._values["name"] = name
+        if service_identifier is not None:
+            self._values["service_identifier"] = service_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def action(self) -> typing.Union[_IResolvable_da3f097b, "CfnRule.ActionProperty"]:
+        '''Describes the action for a rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-action
+        '''
+        result = self._values.get("action")
+        assert result is not None, "Required property 'action' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.ActionProperty"], result)
+
+    @builtins.property
+    def match(self) -> typing.Union[_IResolvable_da3f097b, "CfnRule.MatchProperty"]:
+        '''The rule match.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-match
+        '''
+        result = self._values.get("match")
+        assert result is not None, "Required property 'match' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.MatchProperty"], result)
+
+    @builtins.property
+    def priority(self) -> jsii.Number:
+        '''The priority assigned to the rule.
+
+        Each rule for a specific listener must have a unique priority. The lower the priority number the higher the priority.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-priority
+        '''
+        result = self._values.get("priority")
+        assert result is not None, "Required property 'priority' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def listener_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the listener.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-listeneridentifier
+        '''
+        result = self._values.get("listener_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the rule.
+
+        The name must be unique within the listener. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
+
+        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-serviceidentifier
+        '''
+        result = self._values.get("service_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_type": "authType",
+        "name": "name",
+        "sharing_config": "sharingConfig",
+        "tags": "tags",
+    },
+)
+class CfnServiceNetworkProps:
+    def __init__(
+        self,
+        *,
+        auth_type: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        sharing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceNetwork.SharingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServiceNetwork``.
+
+        :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
+        :param name: The name of the service network. The name must be unique to the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+        :param sharing_config: Specify if the service network should be enabled for sharing.
+        :param tags: The tags for the service network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_service_network_props = vpclattice.CfnServiceNetworkProps(
+                auth_type="authType",
+                name="name",
+                sharing_config=vpclattice.CfnServiceNetwork.SharingConfigProperty(
+                    enabled=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d53f770e586510e575c9248934a04f476ddc52636df2e0e8ad22f5800f529a9b)
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument sharing_config", value=sharing_config, expected_type=type_hints["sharing_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auth_type is not None:
+            self._values["auth_type"] = auth_type
+        if name is not None:
+            self._values["name"] = name
+        if sharing_config is not None:
+            self._values["sharing_config"] = sharing_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def auth_type(self) -> typing.Optional[builtins.str]:
+        '''The type of IAM policy.
+
+        - ``NONE`` : The resource does not use an IAM policy. This is the default.
+        - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required.
+
+        :default: - "NONE"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-authtype
+        '''
+        result = self._values.get("auth_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the service network.
+
+        The name must be unique to the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
+
+        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sharing_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServiceNetwork.SharingConfigProperty"]]:
+        '''Specify if the service network should be enabled for sharing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-sharingconfig
+        '''
+        result = self._values.get("sharing_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServiceNetwork.SharingConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the service network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceNetworkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkResourceAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_configuration_id": "resourceConfigurationId",
+        "service_network_id": "serviceNetworkId",
+        "tags": "tags",
+    },
+)
+class CfnServiceNetworkResourceAssociationProps:
+    def __init__(
+        self,
+        *,
+        resource_configuration_id: typing.Optional[builtins.str] = None,
+        service_network_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServiceNetworkResourceAssociation``.
+
+        :param resource_configuration_id: The ID of the resource configuration associated with the service network.
+        :param service_network_id: The ID of the service network associated with the resource configuration.
+        :param tags: A key-value pair to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_service_network_resource_association_props = vpclattice.CfnServiceNetworkResourceAssociationProps(
+                resource_configuration_id="resourceConfigurationId",
+                service_network_id="serviceNetworkId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8fd9f985a37c435043ce57ac34945022dddb3d1b8d09e05d4ebecfce4d884f2)
+            check_type(argname="argument resource_configuration_id", value=resource_configuration_id, expected_type=type_hints["resource_configuration_id"])
+            check_type(argname="argument service_network_id", value=service_network_id, expected_type=type_hints["service_network_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resource_configuration_id is not None:
+            self._values["resource_configuration_id"] = resource_configuration_id
+        if service_network_id is not None:
+            self._values["service_network_id"] = service_network_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def resource_configuration_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the resource configuration associated with the service network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-resourceconfigurationid
+        '''
+        result = self._values.get("resource_configuration_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_network_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the service network associated with the resource configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-servicenetworkid
+        '''
+        result = self._values.get("service_network_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key-value pair to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceNetworkResourceAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkServiceAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dns_entry": "dnsEntry",
+        "service_identifier": "serviceIdentifier",
+        "service_network_identifier": "serviceNetworkIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnServiceNetworkServiceAssociationProps:
+    def __init__(
+        self,
+        *,
+        dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceNetworkServiceAssociation.DnsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_identifier: typing.Optional[builtins.str] = None,
+        service_network_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServiceNetworkServiceAssociation``.
+
+        :param dns_entry: The DNS information of the service.
+        :param service_identifier: The ID or ARN of the service.
+        :param service_network_identifier: The ID or ARN of the service network. You must use an ARN if the resources are in different accounts.
+        :param tags: The tags for the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_service_network_service_association_props = vpclattice.CfnServiceNetworkServiceAssociationProps(
+                dns_entry=vpclattice.CfnServiceNetworkServiceAssociation.DnsEntryProperty(
+                    domain_name="domainName",
+                    hosted_zone_id="hostedZoneId"
+                ),
+                service_identifier="serviceIdentifier",
+                service_network_identifier="serviceNetworkIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afab0499c2760b1eb61696969b251958021ccc26369b2379c43988b23b75c3bb)
+            check_type(argname="argument dns_entry", value=dns_entry, expected_type=type_hints["dns_entry"])
+            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
+            check_type(argname="argument service_network_identifier", value=service_network_identifier, expected_type=type_hints["service_network_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dns_entry is not None:
+            self._values["dns_entry"] = dns_entry
+        if service_identifier is not None:
+            self._values["service_identifier"] = service_identifier
+        if service_network_identifier is not None:
+            self._values["service_network_identifier"] = service_network_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dns_entry(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServiceNetworkServiceAssociation.DnsEntryProperty"]]:
+        '''The DNS information of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-dnsentry
+        '''
+        result = self._values.get("dns_entry")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServiceNetworkServiceAssociation.DnsEntryProperty"]], result)
+
+    @builtins.property
+    def service_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-serviceidentifier
+        '''
+        result = self._values.get("service_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_network_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service network.
+
+        You must use an ARN if the resources are in different accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-servicenetworkidentifier
+        '''
+        result = self._values.get("service_network_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceNetworkServiceAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkVpcAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_group_ids": "securityGroupIds",
+        "service_network_identifier": "serviceNetworkIdentifier",
+        "tags": "tags",
+        "vpc_identifier": "vpcIdentifier",
+    },
+)
+class CfnServiceNetworkVpcAssociationProps:
+    def __init__(
+        self,
+        *,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        service_network_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_identifier: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServiceNetworkVpcAssociation``.
+
+        :param security_group_ids: The IDs of the security groups. Security groups aren't added by default. You can add a security group to apply network level controls to control which resources in a VPC are allowed to access the service network and its services. For more information, see `Control traffic to resources using security groups <https://docs.aws.amazon.com//vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
+        :param service_network_identifier: The ID or ARN of the service network. You must use an ARN if the resources are in different accounts.
+        :param tags: The tags for the association.
+        :param vpc_identifier: The ID of the VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_service_network_vpc_association_props = vpclattice.CfnServiceNetworkVpcAssociationProps(
+                security_group_ids=["securityGroupIds"],
+                service_network_identifier="serviceNetworkIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_identifier="vpcIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f41a8834cfa086c1096ce2ce95d12df58a5d84c6b647b3712e7e34e8d51ad2d)
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument service_network_identifier", value=service_network_identifier, expected_type=type_hints["service_network_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if service_network_identifier is not None:
+            self._values["service_network_identifier"] = service_network_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_identifier is not None:
+            self._values["vpc_identifier"] = vpc_identifier
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The IDs of the security groups.
+
+        Security groups aren't added by default. You can add a security group to apply network level controls to control which resources in a VPC are allowed to access the service network and its services. For more information, see `Control traffic to resources using security groups <https://docs.aws.amazon.com//vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def service_network_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service network.
+
+        You must use an ARN if the resources are in different accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-servicenetworkidentifier
+        '''
+        result = self._values.get("service_network_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID of the VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-vpcidentifier
+        '''
+        result = self._values.get("vpc_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceNetworkVpcAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_type": "authType",
+        "certificate_arn": "certificateArn",
+        "custom_domain_name": "customDomainName",
+        "dns_entry": "dnsEntry",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnServiceProps:
+    def __init__(
+        self,
+        *,
+        auth_type: typing.Optional[builtins.str] = None,
+        certificate_arn: typing.Optional[builtins.str] = None,
+        custom_domain_name: typing.Optional[builtins.str] = None,
+        dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.DnsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnService``.
+
+        :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
+        :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
+        :param custom_domain_name: The custom domain name of the service.
+        :param dns_entry: Describes the DNS information of the service. This field is read-only.
+        :param name: The name of the service. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+        :param tags: The tags for the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_service_props = vpclattice.CfnServiceProps(
+                auth_type="authType",
+                certificate_arn="certificateArn",
+                custom_domain_name="customDomainName",
+                dns_entry=vpclattice.CfnService.DnsEntryProperty(
+                    domain_name="domainName",
+                    hosted_zone_id="hostedZoneId"
+                ),
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27ecf90b6f56cf421fa3bfc899e4a66109adebb4da4149086c731ec18d7c75ab)
+            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            check_type(argname="argument custom_domain_name", value=custom_domain_name, expected_type=type_hints["custom_domain_name"])
+            check_type(argname="argument dns_entry", value=dns_entry, expected_type=type_hints["dns_entry"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auth_type is not None:
+            self._values["auth_type"] = auth_type
+        if certificate_arn is not None:
+            self._values["certificate_arn"] = certificate_arn
+        if custom_domain_name is not None:
+            self._values["custom_domain_name"] = custom_domain_name
+        if dns_entry is not None:
+            self._values["dns_entry"] = dns_entry
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def auth_type(self) -> typing.Optional[builtins.str]:
+        '''The type of IAM policy.
+
+        - ``NONE`` : The resource does not use an IAM policy. This is the default.
+        - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required.
+
+        :default: - "NONE"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-authtype
+        '''
+        result = self._values.get("auth_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-certificatearn
+        '''
+        result = self._values.get("certificate_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_domain_name(self) -> typing.Optional[builtins.str]:
+        '''The custom domain name of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-customdomainname
+        '''
+        result = self._values.get("custom_domain_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dns_entry(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DnsEntryProperty"]]:
+        '''Describes the DNS information of the service.
+
+        This field is read-only.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-dnsentry
+        '''
+        result = self._values.get("dns_entry")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DnsEntryProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the service.
+
+        The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
+
+        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnTargetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "config": "config",
+        "name": "name",
+        "tags": "tags",
+        "targets": "targets",
+    },
+)
+class CfnTargetGroupProps:
+    def __init__(
+        self,
+        *,
+        type: builtins.str,
+        config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTargetGroup.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTargetGroup``.
+
+        :param type: The type of target group.
+        :param config: The target group configuration.
+        :param name: The name of the target group. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+        :param tags: The tags for the target group.
+        :param targets: Describes a target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            cfn_target_group_props = vpclattice.CfnTargetGroupProps(
+                type="type",
+            
+                # the properties below are optional
+                config=vpclattice.CfnTargetGroup.TargetGroupConfigProperty(
+                    health_check=vpclattice.CfnTargetGroup.HealthCheckConfigProperty(
+                        enabled=False,
+                        health_check_interval_seconds=123,
+                        health_check_timeout_seconds=123,
+                        healthy_threshold_count=123,
+                        matcher=vpclattice.CfnTargetGroup.MatcherProperty(
+                            http_code="httpCode"
+                        ),
+                        path="path",
+                        port=123,
+                        protocol="protocol",
+                        protocol_version="protocolVersion",
+                        unhealthy_threshold_count=123
+                    ),
+                    ip_address_type="ipAddressType",
+                    lambda_event_structure_version="lambdaEventStructureVersion",
+                    port=123,
+                    protocol="protocol",
+                    protocol_version="protocolVersion",
+                    vpc_identifier="vpcIdentifier"
+                ),
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                targets=[vpclattice.CfnTargetGroup.TargetProperty(
+                    id="id",
+            
+                    # the properties below are optional
+                    port=123
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7726205b43353108496846bc1f02062590e018e95fc96e11e69453af71727ed0)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if config is not None:
+            self._values["config"] = config
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+        if targets is not None:
+            self._values["targets"] = targets
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of target group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupConfigProperty"]]:
+        '''The target group configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-config
+        '''
+        result = self._values.get("config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetGroupConfigProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the target group.
+
+        The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
+
+        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the target group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetProperty"]]]]:
+        '''Describes a target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-targets
+        '''
+        result = self._values.get("targets")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTargetGroup.TargetProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTargetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IAccessLogSubscriptionRef")
+class IAccessLogSubscriptionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessLogSubscription.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessLogSubscriptionRef")
+    def access_log_subscription_ref(self) -> AccessLogSubscriptionReference:
+        '''(experimental) A reference to a AccessLogSubscription resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessLogSubscriptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessLogSubscription.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IAccessLogSubscriptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessLogSubscriptionRef")
+    def access_log_subscription_ref(self) -> AccessLogSubscriptionReference:
+        '''(experimental) A reference to a AccessLogSubscription resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessLogSubscriptionReference, jsii.get(self, "accessLogSubscriptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessLogSubscriptionRef).__jsii_proxy_class__ = lambda : _IAccessLogSubscriptionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IAuthPolicyRef")
+class IAuthPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AuthPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="authPolicyRef")
+    def auth_policy_ref(self) -> AuthPolicyReference:
+        '''(experimental) A reference to a AuthPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAuthPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AuthPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IAuthPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="authPolicyRef")
+    def auth_policy_ref(self) -> AuthPolicyReference:
+        '''(experimental) A reference to a AuthPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AuthPolicyReference, jsii.get(self, "authPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAuthPolicyRef).__jsii_proxy_class__ = lambda : _IAuthPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IListenerRef")
+class IListenerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Listener.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> "ListenerReference":
+        '''(experimental) A reference to a Listener resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IListenerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Listener.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IListenerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> "ListenerReference":
+        '''(experimental) A reference to a Listener resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ListenerReference", jsii.get(self, "listenerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IListenerRef).__jsii_proxy_class__ = lambda : _IListenerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IResourceConfigurationRef")
+class IResourceConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConfigurationRef")
+    def resource_configuration_ref(self) -> "ResourceConfigurationReference":
+        '''(experimental) A reference to a ResourceConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IResourceConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConfigurationRef")
+    def resource_configuration_ref(self) -> "ResourceConfigurationReference":
+        '''(experimental) A reference to a ResourceConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceConfigurationReference", jsii.get(self, "resourceConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceConfigurationRef).__jsii_proxy_class__ = lambda : _IResourceConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IResourceGatewayRef")
+class IResourceGatewayRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceGateway.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceGatewayRef")
+    def resource_gateway_ref(self) -> "ResourceGatewayReference":
+        '''(experimental) A reference to a ResourceGateway resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceGatewayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceGateway.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IResourceGatewayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceGatewayRef")
+    def resource_gateway_ref(self) -> "ResourceGatewayReference":
+        '''(experimental) A reference to a ResourceGateway resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceGatewayReference", jsii.get(self, "resourceGatewayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceGatewayRef).__jsii_proxy_class__ = lambda : _IResourceGatewayRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IRuleRef")
+class IRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuleReference", jsii.get(self, "ruleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IServiceNetworkRef")
+class IServiceNetworkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetwork.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkRef")
+    def service_network_ref(self) -> "ServiceNetworkReference":
+        '''(experimental) A reference to a ServiceNetwork resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceNetworkRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetwork.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IServiceNetworkRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkRef")
+    def service_network_ref(self) -> "ServiceNetworkReference":
+        '''(experimental) A reference to a ServiceNetwork resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceNetworkReference", jsii.get(self, "serviceNetworkRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceNetworkRef).__jsii_proxy_class__ = lambda : _IServiceNetworkRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_vpclattice.IServiceNetworkResourceAssociationRef"
+)
+class IServiceNetworkResourceAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkResourceAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkResourceAssociationRef")
+    def service_network_resource_association_ref(
+        self,
+    ) -> "ServiceNetworkResourceAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkResourceAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceNetworkResourceAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkResourceAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IServiceNetworkResourceAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkResourceAssociationRef")
+    def service_network_resource_association_ref(
+        self,
+    ) -> "ServiceNetworkResourceAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkResourceAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceNetworkResourceAssociationReference", jsii.get(self, "serviceNetworkResourceAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceNetworkResourceAssociationRef).__jsii_proxy_class__ = lambda : _IServiceNetworkResourceAssociationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_vpclattice.IServiceNetworkServiceAssociationRef"
+)
+class IServiceNetworkServiceAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkServiceAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkServiceAssociationRef")
+    def service_network_service_association_ref(
+        self,
+    ) -> "ServiceNetworkServiceAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkServiceAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceNetworkServiceAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkServiceAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IServiceNetworkServiceAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkServiceAssociationRef")
+    def service_network_service_association_ref(
+        self,
+    ) -> "ServiceNetworkServiceAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkServiceAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceNetworkServiceAssociationReference", jsii.get(self, "serviceNetworkServiceAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceNetworkServiceAssociationRef).__jsii_proxy_class__ = lambda : _IServiceNetworkServiceAssociationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_vpclattice.IServiceNetworkVpcAssociationRef"
+)
+class IServiceNetworkVpcAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkVpcAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkVpcAssociationRef")
+    def service_network_vpc_association_ref(
+        self,
+    ) -> "ServiceNetworkVpcAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkVpcAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceNetworkVpcAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkVpcAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IServiceNetworkVpcAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkVpcAssociationRef")
+    def service_network_vpc_association_ref(
+        self,
+    ) -> "ServiceNetworkVpcAssociationReference":
+        '''(experimental) A reference to a ServiceNetworkVpcAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceNetworkVpcAssociationReference", jsii.get(self, "serviceNetworkVpcAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceNetworkVpcAssociationRef).__jsii_proxy_class__ = lambda : _IServiceNetworkVpcAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.IServiceRef")
+class IServiceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Service.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> "ServiceReference":
+        '''(experimental) A reference to a Service resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Service.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.IServiceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> "ServiceReference":
+        '''(experimental) A reference to a Service resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceReference", jsii.get(self, "serviceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_vpclattice.ITargetGroupRef")
+class ITargetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> "TargetGroupReference":
+        '''(experimental) A reference to a TargetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITargetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_vpclattice.ITargetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> "TargetGroupReference":
+        '''(experimental) A reference to a TargetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TargetGroupReference", jsii.get(self, "targetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITargetGroupRef).__jsii_proxy_class__ = lambda : _ITargetGroupRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ListenerReference",
+    jsii_struct_bases=[],
+    name_mapping={"listener_arn": "listenerArn"},
+)
+class ListenerReference:
+    def __init__(self, *, listener_arn: builtins.str) -> None:
+        '''A reference to a Listener resource.
+
+        :param listener_arn: The Arn of the Listener resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            listener_reference = vpclattice.ListenerReference(
+                listener_arn="listenerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fbf29041bff35201dfffa26c8ec384aba19239a30f3ab49123c8e561087d435)
+            check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "listener_arn": listener_arn,
+        }
+
+    @builtins.property
+    def listener_arn(self) -> builtins.str:
+        '''The Arn of the Listener resource.'''
+        result = self._values.get("listener_arn")
+        assert result is not None, "Required property 'listener_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListenerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ResourceConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_configuration_arn": "resourceConfigurationArn"},
+)
+class ResourceConfigurationReference:
+    def __init__(self, *, resource_configuration_arn: builtins.str) -> None:
+        '''A reference to a ResourceConfiguration resource.
+
+        :param resource_configuration_arn: The Arn of the ResourceConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            resource_configuration_reference = vpclattice.ResourceConfigurationReference(
+                resource_configuration_arn="resourceConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db43a53b84c328832e1f373e301446a1bb3498186415758f3ef167ee98d655e8)
+            check_type(argname="argument resource_configuration_arn", value=resource_configuration_arn, expected_type=type_hints["resource_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_configuration_arn": resource_configuration_arn,
+        }
+
+    @builtins.property
+    def resource_configuration_arn(self) -> builtins.str:
+        '''The Arn of the ResourceConfiguration resource.'''
+        result = self._values.get("resource_configuration_arn")
+        assert result is not None, "Required property 'resource_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ResourceGatewayReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_gateway_arn": "resourceGatewayArn"},
+)
+class ResourceGatewayReference:
+    def __init__(self, *, resource_gateway_arn: builtins.str) -> None:
+        '''A reference to a ResourceGateway resource.
+
+        :param resource_gateway_arn: The Arn of the ResourceGateway resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            resource_gateway_reference = vpclattice.ResourceGatewayReference(
+                resource_gateway_arn="resourceGatewayArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__329e9c2ac2f1c8c71a55d269a803bb7047e54b76bacccedbd2c1191543614136)
+            check_type(argname="argument resource_gateway_arn", value=resource_gateway_arn, expected_type=type_hints["resource_gateway_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_gateway_arn": resource_gateway_arn,
+        }
+
+    @builtins.property
+    def resource_gateway_arn(self) -> builtins.str:
+        '''The Arn of the ResourceGateway resource.'''
+        result = self._values.get("resource_gateway_arn")
+        assert result is not None, "Required property 'resource_gateway_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceGatewayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            resource_policy_reference = vpclattice.ResourcePolicyReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bec9c6ef8022afb7cd39139b81bc3a58fa44153c2d8f43b297ad673abf5c24bd)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourcePolicy resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.RuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class RuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a Rule resource.
+
+        :param rule_arn: The Arn of the Rule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            rule_reference = vpclattice.RuleReference(
+                rule_arn="ruleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07b525a19a5d0a24a97cfd644dba83e488dcebcb7a7b4e6d91266cb55e57db3b)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
+
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The Arn of the Rule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ServiceNetworkReference",
+    jsii_struct_bases=[],
+    name_mapping={"service_network_arn": "serviceNetworkArn"},
+)
+class ServiceNetworkReference:
+    def __init__(self, *, service_network_arn: builtins.str) -> None:
+        '''A reference to a ServiceNetwork resource.
+
+        :param service_network_arn: The Arn of the ServiceNetwork resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            service_network_reference = vpclattice.ServiceNetworkReference(
+                service_network_arn="serviceNetworkArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33283bf4bdb1e50df2f40312b6dc45f70e37189741e0f41c1418ef41dd001dcb)
+            check_type(argname="argument service_network_arn", value=service_network_arn, expected_type=type_hints["service_network_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_network_arn": service_network_arn,
+        }
+
+    @builtins.property
+    def service_network_arn(self) -> builtins.str:
+        '''The Arn of the ServiceNetwork resource.'''
+        result = self._values.get("service_network_arn")
+        assert result is not None, "Required property 'service_network_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceNetworkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ServiceNetworkResourceAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "service_network_resource_association_arn": "serviceNetworkResourceAssociationArn",
+    },
+)
+class ServiceNetworkResourceAssociationReference:
+    def __init__(
+        self,
+        *,
+        service_network_resource_association_arn: builtins.str,
+    ) -> None:
+        '''A reference to a ServiceNetworkResourceAssociation resource.
+
+        :param service_network_resource_association_arn: The Arn of the ServiceNetworkResourceAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            service_network_resource_association_reference = vpclattice.ServiceNetworkResourceAssociationReference(
+                service_network_resource_association_arn="serviceNetworkResourceAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fe41d96bebfdd8f63dffd3dfaa94f8bbc07663f0a3ab06f540688f3f121f360)
+            check_type(argname="argument service_network_resource_association_arn", value=service_network_resource_association_arn, expected_type=type_hints["service_network_resource_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_network_resource_association_arn": service_network_resource_association_arn,
+        }
+
+    @builtins.property
+    def service_network_resource_association_arn(self) -> builtins.str:
+        '''The Arn of the ServiceNetworkResourceAssociation resource.'''
+        result = self._values.get("service_network_resource_association_arn")
+        assert result is not None, "Required property 'service_network_resource_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceNetworkResourceAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ServiceNetworkServiceAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "service_network_service_association_arn": "serviceNetworkServiceAssociationArn",
+    },
+)
+class ServiceNetworkServiceAssociationReference:
+    def __init__(
+        self,
+        *,
+        service_network_service_association_arn: builtins.str,
+    ) -> None:
+        '''A reference to a ServiceNetworkServiceAssociation resource.
+
+        :param service_network_service_association_arn: The Arn of the ServiceNetworkServiceAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            service_network_service_association_reference = vpclattice.ServiceNetworkServiceAssociationReference(
+                service_network_service_association_arn="serviceNetworkServiceAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e74e307fadd2f0dc369c5a735daec335cf95be224594ccca375b70673dee8016)
+            check_type(argname="argument service_network_service_association_arn", value=service_network_service_association_arn, expected_type=type_hints["service_network_service_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_network_service_association_arn": service_network_service_association_arn,
+        }
+
+    @builtins.property
+    def service_network_service_association_arn(self) -> builtins.str:
+        '''The Arn of the ServiceNetworkServiceAssociation resource.'''
+        result = self._values.get("service_network_service_association_arn")
+        assert result is not None, "Required property 'service_network_service_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceNetworkServiceAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ServiceNetworkVpcAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "service_network_vpc_association_arn": "serviceNetworkVpcAssociationArn",
+    },
+)
+class ServiceNetworkVpcAssociationReference:
+    def __init__(self, *, service_network_vpc_association_arn: builtins.str) -> None:
+        '''A reference to a ServiceNetworkVpcAssociation resource.
+
+        :param service_network_vpc_association_arn: The Arn of the ServiceNetworkVpcAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            service_network_vpc_association_reference = vpclattice.ServiceNetworkVpcAssociationReference(
+                service_network_vpc_association_arn="serviceNetworkVpcAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47a0d2dc1492a782550a5f3b5200c1ec3ddc96b53a92fadd55368acb1adc57fa)
+            check_type(argname="argument service_network_vpc_association_arn", value=service_network_vpc_association_arn, expected_type=type_hints["service_network_vpc_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_network_vpc_association_arn": service_network_vpc_association_arn,
+        }
+
+    @builtins.property
+    def service_network_vpc_association_arn(self) -> builtins.str:
+        '''The Arn of the ServiceNetworkVpcAssociation resource.'''
+        result = self._values.get("service_network_vpc_association_arn")
+        assert result is not None, "Required property 'service_network_vpc_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceNetworkVpcAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.ServiceReference",
+    jsii_struct_bases=[],
+    name_mapping={"service_arn": "serviceArn"},
+)
+class ServiceReference:
+    def __init__(self, *, service_arn: builtins.str) -> None:
+        '''A reference to a Service resource.
+
+        :param service_arn: The Arn of the Service resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            service_reference = vpclattice.ServiceReference(
+                service_arn="serviceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89286098314aa73ee8f2594ccfb52ed86f3b198e1aeb22b4567fa1f386dd2310)
+            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_arn": service_arn,
+        }
+
+    @builtins.property
+    def service_arn(self) -> builtins.str:
+        '''The Arn of the Service resource.'''
+        result = self._values.get("service_arn")
+        assert result is not None, "Required property 'service_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_vpclattice.TargetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"target_group_arn": "targetGroupArn"},
+)
+class TargetGroupReference:
+    def __init__(self, *, target_group_arn: builtins.str) -> None:
+        '''A reference to a TargetGroup resource.
+
+        :param target_group_arn: The Arn of the TargetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_vpclattice as vpclattice
+            
+            target_group_reference = vpclattice.TargetGroupReference(
+                target_group_arn="targetGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f33355cd37184eb3f49330f4f1379257bbf93517e24502162788c8b8cdc39262)
+            check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "target_group_arn": target_group_arn,
+        }
+
+    @builtins.property
+    def target_group_arn(self) -> builtins.str:
+        '''The Arn of the TargetGroup resource.'''
+        result = self._values.get("target_group_arn")
+        assert result is not None, "Required property 'target_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TargetGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessLogSubscriptionRef, _ITaggable_36806126)
+class CfnAccessLogSubscription(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_vpclattice.CfnAccessLogSubscription",
+):
+    '''Enables access logs to be sent to Amazon CloudWatch, Amazon S3, and Amazon Kinesis Data Firehose.
+
+    The service network owner can use the access logs to audit the services in the network. The service network owner can only see access logs from clients and services that are associated with their service network. Access log entries represent traffic originated from VPCs associated with that network. For more information, see `Access logs <https://docs.aws.amazon.com/vpc-lattice/latest/ug/monitoring-access-logs.html>`_ in the *Amazon VPC Lattice User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-accesslogsubscription.html
+    :cloudformationResource: AWS::VpcLattice::AccessLogSubscription
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_vpclattice as vpclattice
+        
+        cfn_access_log_subscription = vpclattice.CfnAccessLogSubscription(self, "MyCfnAccessLogSubscription",
+            destination_arn="destinationArn",
+        
+            # the properties below are optional
+            resource_identifier="resourceIdentifier",
+            service_network_log_type="serviceNetworkLogType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        destination_arn: builtins.str,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        service_network_log_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param destination_arn: The Amazon Resource Name (ARN) of the destination. The supported destination types are CloudWatch Log groups, Kinesis Data Firehose delivery streams, and Amazon S3 buckets.
+        :param resource_identifier: The ID or ARN of the service network or service.
+        :param service_network_log_type: Log type of the service network.
+        :param tags: The tags for the access log subscription.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d1e4f257245d8e5be92083145da5c0b7311cde5a905b65c5cb20fb0c7230032)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccessLogSubscriptionProps(
+            destination_arn=destination_arn,
+            resource_identifier=resource_identifier,
+            service_network_log_type=service_network_log_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b373a2103376ee17034d5f8a2bd66281964526c897621d59f595a7ee710dece)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f207b1387515fc7caa56e4c3c30125161e739b43f33921086c670ed7af78619e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessLogSubscriptionRef")
+    def access_log_subscription_ref(self) -> AccessLogSubscriptionReference:
+        '''A reference to a AccessLogSubscription resource.'''
+        return typing.cast(AccessLogSubscriptionReference, jsii.get(self, "accessLogSubscriptionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the access log subscription.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the access log subscription.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the access log subscription.
+
+        :cloudformationAttribute: ResourceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceId")
+    def attr_resource_id(self) -> builtins.str:
+        '''The ID of the service network or service.
+
+        :cloudformationAttribute: ResourceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationArn")
+    def destination_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the destination.'''
+        return typing.cast(builtins.str, jsii.get(self, "destinationArn"))
+
+    @destination_arn.setter
+    def destination_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__880b45928aa837a0dba3740b58b3250033476ee4e3d14b774b01c4cd2d224862)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceIdentifier")
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID or ARN of the service network or service.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceIdentifier"))
+
+    @resource_identifier.setter
+    def resource_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b93aeac48124e92f9f09dd3e99f9ef8ac5e9d002fe64dea86b3d7700ae862f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceNetworkLogType")
+    def service_network_log_type(self) -> typing.Optional[builtins.str]:
+        '''Log type of the service network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceNetworkLogType"))
+
+    @service_network_log_type.setter
+    def service_network_log_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6aefb91b2c767c1ad3bd8d1abc157b906edd3e6e2041f588e76852a2d69dfed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceNetworkLogType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for the access log subscription.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f88ce1faaa39f21f51b79668a87b932a07532be6cdddad83e4090e05f9de003e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAuthPolicyRef)
 class CfnAuthPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -472,6 +3346,12 @@ class CfnAuthPolicy(
         return typing.cast(builtins.str, jsii.get(self, "attrState"))
 
     @builtins.property
+    @jsii.member(jsii_name="authPolicyRef")
+    def auth_policy_ref(self) -> AuthPolicyReference:
+        '''A reference to a AuthPolicy resource.'''
+        return typing.cast(AuthPolicyReference, jsii.get(self, "authPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -503,81 +3383,7 @@ class CfnAuthPolicy(
         jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnAuthPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy": "policy", "resource_identifier": "resourceIdentifier"},
-)
-class CfnAuthPolicyProps:
-    def __init__(
-        self,
-        *,
-        policy: typing.Any,
-        resource_identifier: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnAuthPolicy``.
-
-        :param policy: The auth policy.
-        :param resource_identifier: The ID or ARN of the service network or service for which the policy is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            # policy: Any
-            
-            cfn_auth_policy_props = vpclattice.CfnAuthPolicyProps(
-                policy=policy,
-                resource_identifier="resourceIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d3fae469a4114f5041ab337d4b2b87c6bebd93bfab70112ebf9e83154ff99a2)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "resource_identifier": resource_identifier,
-        }
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The auth policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html#cfn-vpclattice-authpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_identifier(self) -> builtins.str:
-        '''The ID or ARN of the service network or service for which the policy is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-authpolicy.html#cfn-vpclattice-authpolicy-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        assert result is not None, "Required property 'resource_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAuthPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IListenerRef, _ITaggable_36806126)
 class CfnListener(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -731,6 +3537,12 @@ class CfnListener(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerRef")
+    def listener_ref(self) -> ListenerReference:
+        '''A reference to a Listener resource.'''
+        return typing.cast(ListenerReference, jsii.get(self, "listenerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1110,173 +3922,7 @@ class CfnListener(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnListenerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_action": "defaultAction",
-        "protocol": "protocol",
-        "name": "name",
-        "port": "port",
-        "service_identifier": "serviceIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnListenerProps:
-    def __init__(
-        self,
-        *,
-        default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
-        protocol: builtins.str,
-        name: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        service_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnListener``.
-
-        :param default_action: The action for the default rule. Each listener has a default rule. The default rule is used if no other rules match.
-        :param protocol: The listener protocol.
-        :param name: The name of the listener. A listener name must be unique within a service. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-        :param port: The listener port. You can specify a value from 1 to 65535. For HTTP, the default is 80. For HTTPS, the default is 443.
-        :param service_identifier: The ID or ARN of the service.
-        :param tags: The tags for the listener.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_listener_props = vpclattice.CfnListenerProps(
-                default_action=vpclattice.CfnListener.DefaultActionProperty(
-                    fixed_response=vpclattice.CfnListener.FixedResponseProperty(
-                        status_code=123
-                    ),
-                    forward=vpclattice.CfnListener.ForwardProperty(
-                        target_groups=[vpclattice.CfnListener.WeightedTargetGroupProperty(
-                            target_group_identifier="targetGroupIdentifier",
-            
-                            # the properties below are optional
-                            weight=123
-                        )]
-                    )
-                ),
-                protocol="protocol",
-            
-                # the properties below are optional
-                name="name",
-                port=123,
-                service_identifier="serviceIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2abd654d29759383ba4227953efda14c5f7db6190ad40176eb92bfbb7ccc5693)
-            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_action": default_action,
-            "protocol": protocol,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if port is not None:
-            self._values["port"] = port
-        if service_identifier is not None:
-            self._values["service_identifier"] = service_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def default_action(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnListener.DefaultActionProperty]:
-        '''The action for the default rule.
-
-        Each listener has a default rule. The default rule is used if no other rules match.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-defaultaction
-        '''
-        result = self._values.get("default_action")
-        assert result is not None, "Required property 'default_action' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnListener.DefaultActionProperty], result)
-
-    @builtins.property
-    def protocol(self) -> builtins.str:
-        '''The listener protocol.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-protocol
-        '''
-        result = self._values.get("protocol")
-        assert result is not None, "Required property 'protocol' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the listener.
-
-        A listener name must be unique within a service. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
-
-        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The listener port.
-
-        You can specify a value from 1 to 65535. For HTTP, the default is 80. For HTTPS, the default is 443.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def service_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-serviceidentifier
-        '''
-        result = self._values.get("service_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the listener.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-listener.html#cfn-vpclattice-listener-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnListenerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IResourceConfigurationRef, _ITaggableV2_4e6798f8)
 class CfnResourceConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1429,6 +4075,12 @@ class CfnResourceConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceConfigurationRef")
+    def resource_configuration_ref(self) -> ResourceConfigurationReference:
+        '''A reference to a ResourceConfiguration resource.'''
+        return typing.cast(ResourceConfigurationReference, jsii.get(self, "resourceConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1753,237 +4405,7 @@ class CfnResourceConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "resource_configuration_type": "resourceConfigurationType",
-        "allow_association_to_sharable_service_network": "allowAssociationToSharableServiceNetwork",
-        "port_ranges": "portRanges",
-        "protocol_type": "protocolType",
-        "resource_configuration_auth_type": "resourceConfigurationAuthType",
-        "resource_configuration_definition": "resourceConfigurationDefinition",
-        "resource_configuration_group_id": "resourceConfigurationGroupId",
-        "resource_gateway_id": "resourceGatewayId",
-        "tags": "tags",
-    },
-)
-class CfnResourceConfigurationProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        resource_configuration_type: builtins.str,
-        allow_association_to_sharable_service_network: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
-        protocol_type: typing.Optional[builtins.str] = None,
-        resource_configuration_auth_type: typing.Optional[builtins.str] = None,
-        resource_configuration_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceConfiguration.ResourceConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_configuration_group_id: typing.Optional[builtins.str] = None,
-        resource_gateway_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceConfiguration``.
-
-        :param name: The name of the resource configuration.
-        :param resource_configuration_type: The type of resource configuration. A resource configuration can be one of the following types:. - *SINGLE* - A single resource. - *GROUP* - A group of resources. You must create a group resource configuration before you create a child resource configuration. - *CHILD* - A single resource that is part of a group resource configuration. - *ARN* - An AWS resource.
-        :param allow_association_to_sharable_service_network: Specifies whether the resource configuration can be associated with a sharable service network.
-        :param port_ranges: (SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535). You can separate port ranges using commas (for example: 1,2,22-30).
-        :param protocol_type: (SINGLE, GROUP) The protocol accepted by the resource configuration.
-        :param resource_configuration_auth_type: The auth type for the resource configuration.
-        :param resource_configuration_definition: Identifies the resource configuration in one of the following ways:. - *Amazon Resource Name (ARN)* - Supported resource-types that are provisioned by AWS services, such as RDS databases, can be identified by their ARN. - *Domain name* - Any domain name that is publicly resolvable. - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
-        :param resource_configuration_group_id: The ID of the group resource configuration.
-        :param resource_gateway_id: The ID of the resource gateway.
-        :param tags: The tags for the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_resource_configuration_props = vpclattice.CfnResourceConfigurationProps(
-                name="name",
-                resource_configuration_type="resourceConfigurationType",
-            
-                # the properties below are optional
-                allow_association_to_sharable_service_network=False,
-                port_ranges=["portRanges"],
-                protocol_type="protocolType",
-                resource_configuration_auth_type="resourceConfigurationAuthType",
-                resource_configuration_definition=vpclattice.CfnResourceConfiguration.ResourceConfigurationDefinitionProperty(
-                    arn_resource="arnResource",
-                    dns_resource=vpclattice.CfnResourceConfiguration.DnsResourceProperty(
-                        domain_name="domainName",
-                        ip_address_type="ipAddressType"
-                    ),
-                    ip_resource="ipResource"
-                ),
-                resource_configuration_group_id="resourceConfigurationGroupId",
-                resource_gateway_id="resourceGatewayId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__797cfcb00db81ec7627009ae5f799c38c09652aee4a602480e341f9e4049b098)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resource_configuration_type", value=resource_configuration_type, expected_type=type_hints["resource_configuration_type"])
-            check_type(argname="argument allow_association_to_sharable_service_network", value=allow_association_to_sharable_service_network, expected_type=type_hints["allow_association_to_sharable_service_network"])
-            check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
-            check_type(argname="argument protocol_type", value=protocol_type, expected_type=type_hints["protocol_type"])
-            check_type(argname="argument resource_configuration_auth_type", value=resource_configuration_auth_type, expected_type=type_hints["resource_configuration_auth_type"])
-            check_type(argname="argument resource_configuration_definition", value=resource_configuration_definition, expected_type=type_hints["resource_configuration_definition"])
-            check_type(argname="argument resource_configuration_group_id", value=resource_configuration_group_id, expected_type=type_hints["resource_configuration_group_id"])
-            check_type(argname="argument resource_gateway_id", value=resource_gateway_id, expected_type=type_hints["resource_gateway_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "resource_configuration_type": resource_configuration_type,
-        }
-        if allow_association_to_sharable_service_network is not None:
-            self._values["allow_association_to_sharable_service_network"] = allow_association_to_sharable_service_network
-        if port_ranges is not None:
-            self._values["port_ranges"] = port_ranges
-        if protocol_type is not None:
-            self._values["protocol_type"] = protocol_type
-        if resource_configuration_auth_type is not None:
-            self._values["resource_configuration_auth_type"] = resource_configuration_auth_type
-        if resource_configuration_definition is not None:
-            self._values["resource_configuration_definition"] = resource_configuration_definition
-        if resource_configuration_group_id is not None:
-            self._values["resource_configuration_group_id"] = resource_configuration_group_id
-        if resource_gateway_id is not None:
-            self._values["resource_gateway_id"] = resource_gateway_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_configuration_type(self) -> builtins.str:
-        '''The type of resource configuration. A resource configuration can be one of the following types:.
-
-        - *SINGLE* - A single resource.
-        - *GROUP* - A group of resources. You must create a group resource configuration before you create a child resource configuration.
-        - *CHILD* - A single resource that is part of a group resource configuration.
-        - *ARN* - An AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationtype
-        '''
-        result = self._values.get("resource_configuration_type")
-        assert result is not None, "Required property 'resource_configuration_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allow_association_to_sharable_service_network(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the resource configuration can be associated with a sharable service network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-allowassociationtosharableservicenetwork
-        '''
-        result = self._values.get("allow_association_to_sharable_service_network")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def port_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(SINGLE, GROUP, CHILD) The TCP port ranges that a consumer can use to access a resource configuration (for example: 1-65535).
-
-        You can separate port ranges using commas (for example: 1,2,22-30).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-portranges
-        '''
-        result = self._values.get("port_ranges")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def protocol_type(self) -> typing.Optional[builtins.str]:
-        '''(SINGLE, GROUP) The protocol accepted by the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-protocoltype
-        '''
-        result = self._values.get("protocol_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_configuration_auth_type(self) -> typing.Optional[builtins.str]:
-        '''The auth type for the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationauthtype
-        '''
-        result = self._values.get("resource_configuration_auth_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_configuration_definition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceConfiguration.ResourceConfigurationDefinitionProperty]]:
-        '''Identifies the resource configuration in one of the following ways:.
-
-        - *Amazon Resource Name (ARN)* - Supported resource-types that are provisioned by AWS services, such as RDS databases, can be identified by their ARN.
-        - *Domain name* - Any domain name that is publicly resolvable.
-        - *IP address* - For IPv4 and IPv6, only IP addresses in the VPC are supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationdefinition
-        '''
-        result = self._values.get("resource_configuration_definition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceConfiguration.ResourceConfigurationDefinitionProperty]], result)
-
-    @builtins.property
-    def resource_configuration_group_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the group resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourceconfigurationgroupid
-        '''
-        result = self._values.get("resource_configuration_group_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_gateway_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-resourcegatewayid
-        '''
-        result = self._values.get("resource_gateway_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceconfiguration.html#cfn-vpclattice-resourceconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IResourceGatewayRef, _ITaggableV2_4e6798f8)
 class CfnResourceGateway(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2119,6 +4541,12 @@ class CfnResourceGateway(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourceGatewayRef")
+    def resource_gateway_ref(self) -> ResourceGatewayReference:
+        '''A reference to a ResourceGateway resource.'''
+        return typing.cast(ResourceGatewayReference, jsii.get(self, "resourceGatewayRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the resource gateway.'''
@@ -2213,167 +4641,7 @@ class CfnResourceGateway(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourceGatewayProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "subnet_ids": "subnetIds",
-        "vpc_identifier": "vpcIdentifier",
-        "ip_address_type": "ipAddressType",
-        "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
-        "security_group_ids": "securityGroupIds",
-        "tags": "tags",
-    },
-)
-class CfnResourceGatewayProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        vpc_identifier: builtins.str,
-        ip_address_type: typing.Optional[builtins.str] = None,
-        ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceGateway``.
-
-        :param name: The name of the resource gateway.
-        :param subnet_ids: The IDs of the VPC subnets for the resource gateway.
-        :param vpc_identifier: The ID of the VPC for the resource gateway.
-        :param ip_address_type: The type of IP address used by the resource gateway.
-        :param ipv4_addresses_per_eni: The number of IPv4 addresses to allocate per ENI for the resource gateway.
-        :param security_group_ids: The IDs of the security groups applied to the resource gateway.
-        :param tags: The tags for the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_resource_gateway_props = vpclattice.CfnResourceGatewayProps(
-                name="name",
-                subnet_ids=["subnetIds"],
-                vpc_identifier="vpcIdentifier",
-            
-                # the properties below are optional
-                ip_address_type="ipAddressType",
-                ipv4_addresses_per_eni=123,
-                security_group_ids=["securityGroupIds"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49bdae174)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
-            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
-            check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "subnet_ids": subnet_ids,
-            "vpc_identifier": vpc_identifier,
-        }
-        if ip_address_type is not None:
-            self._values["ip_address_type"] = ip_address_type
-        if ipv4_addresses_per_eni is not None:
-            self._values["ipv4_addresses_per_eni"] = ipv4_addresses_per_eni
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''The IDs of the VPC subnets for the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def vpc_identifier(self) -> builtins.str:
-        '''The ID of the VPC for the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-vpcidentifier
-        '''
-        result = self._values.get("vpc_identifier")
-        assert result is not None, "Required property 'vpc_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''The type of IP address used by the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-ipaddresstype
-        '''
-        result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ipv4_addresses_per_eni(self) -> typing.Optional[jsii.Number]:
-        '''The number of IPv4 addresses to allocate per ENI for the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-ipv4addressespereni
-        '''
-        result = self._values.get("ipv4_addresses_per_eni")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The IDs of the security groups applied to the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the resource gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html#cfn-vpclattice-resourcegateway-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceGatewayProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2459,6 +4727,12 @@ class CfnResourcePolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="policy")
     def policy(self) -> typing.Any:
         '''The Amazon Resource Name (ARN) of the service network or service.'''
@@ -2485,76 +4759,7 @@ class CfnResourcePolicy(
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
-)
-class CfnResourcePolicyProps:
-    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param policy: The Amazon Resource Name (ARN) of the service network or service.
-        :param resource_arn: An IAM policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            # policy: Any
-            
-            cfn_resource_policy_props = vpclattice.CfnResourcePolicyProps(
-                policy=policy,
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1737436eeafbe996ee74ec168a6fb4cb8dd64c1c2bcb91c9ba68d5dc234bb69e)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The Amazon Resource Name (ARN) of the service network or service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html#cfn-vpclattice-resourcepolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''An IAM policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcepolicy.html#cfn-vpclattice-resourcepolicy-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRuleRef, _ITaggable_36806126)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2718,6 +4923,12 @@ class CfnRule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> RuleReference:
+        '''A reference to a Rule resource.'''
+        return typing.cast(RuleReference, jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3649,209 +5860,7 @@ class CfnRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action": "action",
-        "match": "match",
-        "priority": "priority",
-        "listener_identifier": "listenerIdentifier",
-        "name": "name",
-        "service_identifier": "serviceIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnRuleProps:
-    def __init__(
-        self,
-        *,
-        action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-        match: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.MatchProperty, typing.Dict[builtins.str, typing.Any]]],
-        priority: jsii.Number,
-        listener_identifier: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        service_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRule``.
-
-        :param action: Describes the action for a rule.
-        :param match: The rule match.
-        :param priority: The priority assigned to the rule. Each rule for a specific listener must have a unique priority. The lower the priority number the higher the priority.
-        :param listener_identifier: The ID or ARN of the listener.
-        :param name: The name of the rule. The name must be unique within the listener. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-        :param service_identifier: The ID or ARN of the service.
-        :param tags: The tags for the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_rule_props = vpclattice.CfnRuleProps(
-                action=vpclattice.CfnRule.ActionProperty(
-                    fixed_response=vpclattice.CfnRule.FixedResponseProperty(
-                        status_code=123
-                    ),
-                    forward=vpclattice.CfnRule.ForwardProperty(
-                        target_groups=[vpclattice.CfnRule.WeightedTargetGroupProperty(
-                            target_group_identifier="targetGroupIdentifier",
-            
-                            # the properties below are optional
-                            weight=123
-                        )]
-                    )
-                ),
-                match=vpclattice.CfnRule.MatchProperty(
-                    http_match=vpclattice.CfnRule.HttpMatchProperty(
-                        header_matches=[vpclattice.CfnRule.HeaderMatchProperty(
-                            match=vpclattice.CfnRule.HeaderMatchTypeProperty(
-                                contains="contains",
-                                exact="exact",
-                                prefix="prefix"
-                            ),
-                            name="name",
-            
-                            # the properties below are optional
-                            case_sensitive=False
-                        )],
-                        method="method",
-                        path_match=vpclattice.CfnRule.PathMatchProperty(
-                            match=vpclattice.CfnRule.PathMatchTypeProperty(
-                                exact="exact",
-                                prefix="prefix"
-                            ),
-            
-                            # the properties below are optional
-                            case_sensitive=False
-                        )
-                    )
-                ),
-                priority=123,
-            
-                # the properties below are optional
-                listener_identifier="listenerIdentifier",
-                name="name",
-                service_identifier="serviceIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81f380fdbb7ddd606a65742cdc6a3fac2454948798f8a3adcb8fb7c0451af6e1)
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument match", value=match, expected_type=type_hints["match"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument listener_identifier", value=listener_identifier, expected_type=type_hints["listener_identifier"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action": action,
-            "match": match,
-            "priority": priority,
-        }
-        if listener_identifier is not None:
-            self._values["listener_identifier"] = listener_identifier
-        if name is not None:
-            self._values["name"] = name
-        if service_identifier is not None:
-            self._values["service_identifier"] = service_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def action(self) -> typing.Union[_IResolvable_da3f097b, CfnRule.ActionProperty]:
-        '''Describes the action for a rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-action
-        '''
-        result = self._values.get("action")
-        assert result is not None, "Required property 'action' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnRule.ActionProperty], result)
-
-    @builtins.property
-    def match(self) -> typing.Union[_IResolvable_da3f097b, CfnRule.MatchProperty]:
-        '''The rule match.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-match
-        '''
-        result = self._values.get("match")
-        assert result is not None, "Required property 'match' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnRule.MatchProperty], result)
-
-    @builtins.property
-    def priority(self) -> jsii.Number:
-        '''The priority assigned to the rule.
-
-        Each rule for a specific listener must have a unique priority. The lower the priority number the higher the priority.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-priority
-        '''
-        result = self._values.get("priority")
-        assert result is not None, "Required property 'priority' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def listener_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the listener.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-listeneridentifier
-        '''
-        result = self._values.get("listener_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the rule.
-
-        The name must be unique within the listener. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
-
-        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def service_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-serviceidentifier
-        '''
-        result = self._values.get("service_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-rule.html#cfn-vpclattice-rule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServiceRef, _ITaggable_36806126)
 class CfnService(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4025,6 +6034,12 @@ class CfnService(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> ServiceReference:
+        '''A reference to a Service resource.'''
+        return typing.cast(ServiceReference, jsii.get(self, "serviceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4184,7 +6199,7 @@ class CfnService(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServiceNetworkRef, _ITaggable_36806126)
 class CfnServiceNetwork(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4319,6 +6334,12 @@ class CfnServiceNetwork(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="serviceNetworkRef")
+    def service_network_ref(self) -> ServiceNetworkReference:
+        '''A reference to a ServiceNetwork resource.'''
+        return typing.cast(ServiceNetworkReference, jsii.get(self, "serviceNetworkRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4438,129 +6459,7 @@ class CfnServiceNetwork(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auth_type": "authType",
-        "name": "name",
-        "sharing_config": "sharingConfig",
-        "tags": "tags",
-    },
-)
-class CfnServiceNetworkProps:
-    def __init__(
-        self,
-        *,
-        auth_type: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        sharing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetwork.SharingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServiceNetwork``.
-
-        :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
-        :param name: The name of the service network. The name must be unique to the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-        :param sharing_config: Specify if the service network should be enabled for sharing.
-        :param tags: The tags for the service network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_service_network_props = vpclattice.CfnServiceNetworkProps(
-                auth_type="authType",
-                name="name",
-                sharing_config=vpclattice.CfnServiceNetwork.SharingConfigProperty(
-                    enabled=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d53f770e586510e575c9248934a04f476ddc52636df2e0e8ad22f5800f529a9b)
-            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument sharing_config", value=sharing_config, expected_type=type_hints["sharing_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if auth_type is not None:
-            self._values["auth_type"] = auth_type
-        if name is not None:
-            self._values["name"] = name
-        if sharing_config is not None:
-            self._values["sharing_config"] = sharing_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def auth_type(self) -> typing.Optional[builtins.str]:
-        '''The type of IAM policy.
-
-        - ``NONE`` : The resource does not use an IAM policy. This is the default.
-        - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required.
-
-        :default: - "NONE"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-authtype
-        '''
-        result = self._values.get("auth_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the service network.
-
-        The name must be unique to the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
-
-        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sharing_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceNetwork.SharingConfigProperty]]:
-        '''Specify if the service network should be enabled for sharing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-sharingconfig
-        '''
-        result = self._values.get("sharing_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceNetwork.SharingConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the service network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetwork.html#cfn-vpclattice-servicenetwork-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceNetworkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IServiceNetworkResourceAssociationRef, _ITaggableV2_4e6798f8)
 class CfnServiceNetworkResourceAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4678,6 +6577,14 @@ class CfnServiceNetworkResourceAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="serviceNetworkResourceAssociationRef")
+    def service_network_resource_association_ref(
+        self,
+    ) -> ServiceNetworkResourceAssociationReference:
+        '''A reference to a ServiceNetworkResourceAssociation resource.'''
+        return typing.cast(ServiceNetworkResourceAssociationReference, jsii.get(self, "serviceNetworkResourceAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="resourceConfigurationId")
     def resource_configuration_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the resource configuration associated with the service network.'''
@@ -4717,100 +6624,7 @@ class CfnServiceNetworkResourceAssociation(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkResourceAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_configuration_id": "resourceConfigurationId",
-        "service_network_id": "serviceNetworkId",
-        "tags": "tags",
-    },
-)
-class CfnServiceNetworkResourceAssociationProps:
-    def __init__(
-        self,
-        *,
-        resource_configuration_id: typing.Optional[builtins.str] = None,
-        service_network_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServiceNetworkResourceAssociation``.
-
-        :param resource_configuration_id: The ID of the resource configuration associated with the service network.
-        :param service_network_id: The ID of the service network associated with the resource configuration.
-        :param tags: A key-value pair to associate with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_service_network_resource_association_props = vpclattice.CfnServiceNetworkResourceAssociationProps(
-                resource_configuration_id="resourceConfigurationId",
-                service_network_id="serviceNetworkId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8fd9f985a37c435043ce57ac34945022dddb3d1b8d09e05d4ebecfce4d884f2)
-            check_type(argname="argument resource_configuration_id", value=resource_configuration_id, expected_type=type_hints["resource_configuration_id"])
-            check_type(argname="argument service_network_id", value=service_network_id, expected_type=type_hints["service_network_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if resource_configuration_id is not None:
-            self._values["resource_configuration_id"] = resource_configuration_id
-        if service_network_id is not None:
-            self._values["service_network_id"] = service_network_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def resource_configuration_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the resource configuration associated with the service network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-resourceconfigurationid
-        '''
-        result = self._values.get("resource_configuration_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def service_network_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the service network associated with the resource configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-servicenetworkid
-        '''
-        result = self._values.get("service_network_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key-value pair to associate with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkresourceassociation.html#cfn-vpclattice-servicenetworkresourceassociation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceNetworkResourceAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServiceNetworkServiceAssociationRef, _ITaggable_36806126)
 class CfnServiceNetworkServiceAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5025,6 +6839,14 @@ class CfnServiceNetworkServiceAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="serviceNetworkServiceAssociationRef")
+    def service_network_service_association_ref(
+        self,
+    ) -> ServiceNetworkServiceAssociationReference:
+        '''A reference to a ServiceNetworkServiceAssociation resource.'''
+        return typing.cast(ServiceNetworkServiceAssociationReference, jsii.get(self, "serviceNetworkServiceAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -5158,123 +6980,7 @@ class CfnServiceNetworkServiceAssociation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkServiceAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dns_entry": "dnsEntry",
-        "service_identifier": "serviceIdentifier",
-        "service_network_identifier": "serviceNetworkIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnServiceNetworkServiceAssociationProps:
-    def __init__(
-        self,
-        *,
-        dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetworkServiceAssociation.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        service_identifier: typing.Optional[builtins.str] = None,
-        service_network_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServiceNetworkServiceAssociation``.
-
-        :param dns_entry: The DNS information of the service.
-        :param service_identifier: The ID or ARN of the service.
-        :param service_network_identifier: The ID or ARN of the service network. You must use an ARN if the resources are in different accounts.
-        :param tags: The tags for the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_service_network_service_association_props = vpclattice.CfnServiceNetworkServiceAssociationProps(
-                dns_entry=vpclattice.CfnServiceNetworkServiceAssociation.DnsEntryProperty(
-                    domain_name="domainName",
-                    hosted_zone_id="hostedZoneId"
-                ),
-                service_identifier="serviceIdentifier",
-                service_network_identifier="serviceNetworkIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afab0499c2760b1eb61696969b251958021ccc26369b2379c43988b23b75c3bb)
-            check_type(argname="argument dns_entry", value=dns_entry, expected_type=type_hints["dns_entry"])
-            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
-            check_type(argname="argument service_network_identifier", value=service_network_identifier, expected_type=type_hints["service_network_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dns_entry is not None:
-            self._values["dns_entry"] = dns_entry
-        if service_identifier is not None:
-            self._values["service_identifier"] = service_identifier
-        if service_network_identifier is not None:
-            self._values["service_network_identifier"] = service_network_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dns_entry(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceNetworkServiceAssociation.DnsEntryProperty]]:
-        '''The DNS information of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-dnsentry
-        '''
-        result = self._values.get("dns_entry")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServiceNetworkServiceAssociation.DnsEntryProperty]], result)
-
-    @builtins.property
-    def service_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-serviceidentifier
-        '''
-        result = self._values.get("service_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def service_network_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service network.
-
-        You must use an ARN if the resources are in different accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-servicenetworkidentifier
-        '''
-        result = self._values.get("service_network_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkserviceassociation.html#cfn-vpclattice-servicenetworkserviceassociation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceNetworkServiceAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServiceNetworkVpcAssociationRef, _ITaggable_36806126)
 class CfnServiceNetworkVpcAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5450,6 +7156,14 @@ class CfnServiceNetworkVpcAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="serviceNetworkVpcAssociationRef")
+    def service_network_vpc_association_ref(
+        self,
+    ) -> ServiceNetworkVpcAssociationReference:
+        '''A reference to a ServiceNetworkVpcAssociation resource.'''
+        return typing.cast(ServiceNetworkVpcAssociationReference, jsii.get(self, "serviceNetworkVpcAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -5511,277 +7225,7 @@ class CfnServiceNetworkVpcAssociation(
         jsii.set(self, "vpcIdentifier", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceNetworkVpcAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "security_group_ids": "securityGroupIds",
-        "service_network_identifier": "serviceNetworkIdentifier",
-        "tags": "tags",
-        "vpc_identifier": "vpcIdentifier",
-    },
-)
-class CfnServiceNetworkVpcAssociationProps:
-    def __init__(
-        self,
-        *,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        service_network_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_identifier: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServiceNetworkVpcAssociation``.
-
-        :param security_group_ids: The IDs of the security groups. Security groups aren't added by default. You can add a security group to apply network level controls to control which resources in a VPC are allowed to access the service network and its services. For more information, see `Control traffic to resources using security groups <https://docs.aws.amazon.com//vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
-        :param service_network_identifier: The ID or ARN of the service network. You must use an ARN if the resources are in different accounts.
-        :param tags: The tags for the association.
-        :param vpc_identifier: The ID of the VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_service_network_vpc_association_props = vpclattice.CfnServiceNetworkVpcAssociationProps(
-                security_group_ids=["securityGroupIds"],
-                service_network_identifier="serviceNetworkIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_identifier="vpcIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f41a8834cfa086c1096ce2ce95d12df58a5d84c6b647b3712e7e34e8d51ad2d)
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument service_network_identifier", value=service_network_identifier, expected_type=type_hints["service_network_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if service_network_identifier is not None:
-            self._values["service_network_identifier"] = service_network_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_identifier is not None:
-            self._values["vpc_identifier"] = vpc_identifier
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The IDs of the security groups.
-
-        Security groups aren't added by default. You can add a security group to apply network level controls to control which resources in a VPC are allowed to access the service network and its services. For more information, see `Control traffic to resources using security groups <https://docs.aws.amazon.com//vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def service_network_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID or ARN of the service network.
-
-        You must use an ARN if the resources are in different accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-servicenetworkidentifier
-        '''
-        result = self._values.get("service_network_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ID of the VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-servicenetworkvpcassociation.html#cfn-vpclattice-servicenetworkvpcassociation-vpcidentifier
-        '''
-        result = self._values.get("vpc_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceNetworkVpcAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnServiceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auth_type": "authType",
-        "certificate_arn": "certificateArn",
-        "custom_domain_name": "customDomainName",
-        "dns_entry": "dnsEntry",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnServiceProps:
-    def __init__(
-        self,
-        *,
-        auth_type: typing.Optional[builtins.str] = None,
-        certificate_arn: typing.Optional[builtins.str] = None,
-        custom_domain_name: typing.Optional[builtins.str] = None,
-        dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnService``.
-
-        :param auth_type: The type of IAM policy. - ``NONE`` : The resource does not use an IAM policy. This is the default. - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required. Default: - "NONE"
-        :param certificate_arn: The Amazon Resource Name (ARN) of the certificate.
-        :param custom_domain_name: The custom domain name of the service.
-        :param dns_entry: Describes the DNS information of the service. This field is read-only.
-        :param name: The name of the service. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-        :param tags: The tags for the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_service_props = vpclattice.CfnServiceProps(
-                auth_type="authType",
-                certificate_arn="certificateArn",
-                custom_domain_name="customDomainName",
-                dns_entry=vpclattice.CfnService.DnsEntryProperty(
-                    domain_name="domainName",
-                    hosted_zone_id="hostedZoneId"
-                ),
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27ecf90b6f56cf421fa3bfc899e4a66109adebb4da4149086c731ec18d7c75ab)
-            check_type(argname="argument auth_type", value=auth_type, expected_type=type_hints["auth_type"])
-            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
-            check_type(argname="argument custom_domain_name", value=custom_domain_name, expected_type=type_hints["custom_domain_name"])
-            check_type(argname="argument dns_entry", value=dns_entry, expected_type=type_hints["dns_entry"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if auth_type is not None:
-            self._values["auth_type"] = auth_type
-        if certificate_arn is not None:
-            self._values["certificate_arn"] = certificate_arn
-        if custom_domain_name is not None:
-            self._values["custom_domain_name"] = custom_domain_name
-        if dns_entry is not None:
-            self._values["dns_entry"] = dns_entry
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def auth_type(self) -> typing.Optional[builtins.str]:
-        '''The type of IAM policy.
-
-        - ``NONE`` : The resource does not use an IAM policy. This is the default.
-        - ``AWS_IAM`` : The resource uses an IAM policy. When this type is used, auth is enabled and an auth policy is required.
-
-        :default: - "NONE"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-authtype
-        '''
-        result = self._values.get("auth_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-certificatearn
-        '''
-        result = self._values.get("certificate_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_domain_name(self) -> typing.Optional[builtins.str]:
-        '''The custom domain name of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-customdomainname
-        '''
-        result = self._values.get("custom_domain_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dns_entry(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.DnsEntryProperty]]:
-        '''Describes the DNS information of the service.
-
-        This field is read-only.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-dnsentry
-        '''
-        result = self._values.get("dns_entry")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.DnsEntryProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the service.
-
-        The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
-
-        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-service.html#cfn-vpclattice-service-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ITargetGroupRef, _ITaggable_36806126)
 class CfnTargetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5960,6 +7404,12 @@ class CfnTargetGroup(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="targetGroupRef")
+    def target_group_ref(self) -> TargetGroupReference:
+        '''A reference to a TargetGroup resource.'''
+        return typing.cast(TargetGroupReference, jsii.get(self, "targetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -6579,169 +8029,9 @@ class CfnTargetGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_vpclattice.CfnTargetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "type": "type",
-        "config": "config",
-        "name": "name",
-        "tags": "tags",
-        "targets": "targets",
-    },
-)
-class CfnTargetGroupProps:
-    def __init__(
-        self,
-        *,
-        type: builtins.str,
-        config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTargetGroup``.
-
-        :param type: The type of target group.
-        :param config: The target group configuration.
-        :param name: The name of the target group. The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen. If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-        :param tags: The tags for the target group.
-        :param targets: Describes a target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_vpclattice as vpclattice
-            
-            cfn_target_group_props = vpclattice.CfnTargetGroupProps(
-                type="type",
-            
-                # the properties below are optional
-                config=vpclattice.CfnTargetGroup.TargetGroupConfigProperty(
-                    health_check=vpclattice.CfnTargetGroup.HealthCheckConfigProperty(
-                        enabled=False,
-                        health_check_interval_seconds=123,
-                        health_check_timeout_seconds=123,
-                        healthy_threshold_count=123,
-                        matcher=vpclattice.CfnTargetGroup.MatcherProperty(
-                            http_code="httpCode"
-                        ),
-                        path="path",
-                        port=123,
-                        protocol="protocol",
-                        protocol_version="protocolVersion",
-                        unhealthy_threshold_count=123
-                    ),
-                    ip_address_type="ipAddressType",
-                    lambda_event_structure_version="lambdaEventStructureVersion",
-                    port=123,
-                    protocol="protocol",
-                    protocol_version="protocolVersion",
-                    vpc_identifier="vpcIdentifier"
-                ),
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                targets=[vpclattice.CfnTargetGroup.TargetProperty(
-                    id="id",
-            
-                    # the properties below are optional
-                    port=123
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7726205b43353108496846bc1f02062590e018e95fc96e11e69453af71727ed0)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-        if config is not None:
-            self._values["config"] = config
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-        if targets is not None:
-            self._values["targets"] = targets
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of target group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupConfigProperty]]:
-        '''The target group configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-config
-        '''
-        result = self._values.get("config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetGroupConfigProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the target group.
-
-        The name must be unique within the account. The valid characters are a-z, 0-9, and hyphens (-). You can't use a hyphen as the first or last character, or immediately after another hyphen.
-
-        If you don't specify a name, CloudFormation generates one. However, if you specify a name, and later want to replace the resource, you must specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for the target group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetProperty]]]]:
-        '''Describes a target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-targetgroup.html#cfn-vpclattice-targetgroup-targets
-        '''
-        result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTargetGroup.TargetProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTargetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessLogSubscriptionReference",
+    "AuthPolicyReference",
     "CfnAccessLogSubscription",
     "CfnAccessLogSubscriptionProps",
     "CfnAuthPolicy",
@@ -6768,9 +8058,266 @@ __all__ = [
     "CfnServiceProps",
     "CfnTargetGroup",
     "CfnTargetGroupProps",
+    "IAccessLogSubscriptionRef",
+    "IAuthPolicyRef",
+    "IListenerRef",
+    "IResourceConfigurationRef",
+    "IResourceGatewayRef",
+    "IResourcePolicyRef",
+    "IRuleRef",
+    "IServiceNetworkRef",
+    "IServiceNetworkResourceAssociationRef",
+    "IServiceNetworkServiceAssociationRef",
+    "IServiceNetworkVpcAssociationRef",
+    "IServiceRef",
+    "ITargetGroupRef",
+    "ListenerReference",
+    "ResourceConfigurationReference",
+    "ResourceGatewayReference",
+    "ResourcePolicyReference",
+    "RuleReference",
+    "ServiceNetworkReference",
+    "ServiceNetworkResourceAssociationReference",
+    "ServiceNetworkServiceAssociationReference",
+    "ServiceNetworkVpcAssociationReference",
+    "ServiceReference",
+    "TargetGroupReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__63363f41e13bed14f34974061d355f75416c3372470937b4b6da62918c478e00(
+    *,
+    access_log_subscription_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93f4473eeae766afbde696cb4e0e1ed355cc9a3f07345de3d38dc0c3602c1c36(
+    *,
+    resource_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7551e4dc1730a5c7bf48ba5c2eccbe95ed6914a39663f70c2dc1846465e8eb40(
+    *,
+    destination_arn: builtins.str,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    service_network_log_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d3fae469a4114f5041ab337d4b2b87c6bebd93bfab70112ebf9e83154ff99a2(
+    *,
+    policy: typing.Any,
+    resource_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2abd654d29759383ba4227953efda14c5f7db6190ad40176eb92bfbb7ccc5693(
+    *,
+    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    protocol: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    service_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__797cfcb00db81ec7627009ae5f799c38c09652aee4a602480e341f9e4049b098(
+    *,
+    name: builtins.str,
+    resource_configuration_type: builtins.str,
+    allow_association_to_sharable_service_network: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
+    protocol_type: typing.Optional[builtins.str] = None,
+    resource_configuration_auth_type: typing.Optional[builtins.str] = None,
+    resource_configuration_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceConfiguration.ResourceConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_configuration_group_id: typing.Optional[builtins.str] = None,
+    resource_gateway_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49bdae174(
+    *,
+    name: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_identifier: builtins.str,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1737436eeafbe996ee74ec168a6fb4cb8dd64c1c2bcb91c9ba68d5dc234bb69e(
+    *,
+    policy: typing.Any,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81f380fdbb7ddd606a65742cdc6a3fac2454948798f8a3adcb8fb7c0451af6e1(
+    *,
+    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    match: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.MatchProperty, typing.Dict[builtins.str, typing.Any]]],
+    priority: jsii.Number,
+    listener_identifier: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d53f770e586510e575c9248934a04f476ddc52636df2e0e8ad22f5800f529a9b(
+    *,
+    auth_type: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    sharing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetwork.SharingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8fd9f985a37c435043ce57ac34945022dddb3d1b8d09e05d4ebecfce4d884f2(
+    *,
+    resource_configuration_id: typing.Optional[builtins.str] = None,
+    service_network_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afab0499c2760b1eb61696969b251958021ccc26369b2379c43988b23b75c3bb(
+    *,
+    dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetworkServiceAssociation.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_identifier: typing.Optional[builtins.str] = None,
+    service_network_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f41a8834cfa086c1096ce2ce95d12df58a5d84c6b647b3712e7e34e8d51ad2d(
+    *,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    service_network_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27ecf90b6f56cf421fa3bfc899e4a66109adebb4da4149086c731ec18d7c75ab(
+    *,
+    auth_type: typing.Optional[builtins.str] = None,
+    certificate_arn: typing.Optional[builtins.str] = None,
+    custom_domain_name: typing.Optional[builtins.str] = None,
+    dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7726205b43353108496846bc1f02062590e018e95fc96e11e69453af71727ed0(
+    *,
+    type: builtins.str,
+    config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fbf29041bff35201dfffa26c8ec384aba19239a30f3ab49123c8e561087d435(
+    *,
+    listener_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db43a53b84c328832e1f373e301446a1bb3498186415758f3ef167ee98d655e8(
+    *,
+    resource_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__329e9c2ac2f1c8c71a55d269a803bb7047e54b76bacccedbd2c1191543614136(
+    *,
+    resource_gateway_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bec9c6ef8022afb7cd39139b81bc3a58fa44153c2d8f43b297ad673abf5c24bd(
+    *,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07b525a19a5d0a24a97cfd644dba83e488dcebcb7a7b4e6d91266cb55e57db3b(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33283bf4bdb1e50df2f40312b6dc45f70e37189741e0f41c1418ef41dd001dcb(
+    *,
+    service_network_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fe41d96bebfdd8f63dffd3dfaa94f8bbc07663f0a3ab06f540688f3f121f360(
+    *,
+    service_network_resource_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e74e307fadd2f0dc369c5a735daec335cf95be224594ccca375b70673dee8016(
+    *,
+    service_network_service_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47a0d2dc1492a782550a5f3b5200c1ec3ddc96b53a92fadd55368acb1adc57fa(
+    *,
+    service_network_vpc_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89286098314aa73ee8f2594ccfb52ed86f3b198e1aeb22b4567fa1f386dd2310(
+    *,
+    service_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f33355cd37184eb3f49330f4f1379257bbf93517e24502162788c8b8cdc39262(
+    *,
+    target_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5d1e4f257245d8e5be92083145da5c0b7311cde5a905b65c5cb20fb0c7230032(
     scope: _constructs_77d1e7e8.Construct,
@@ -6820,16 +8367,6 @@ def _typecheckingstub__f88ce1faaa39f21f51b79668a87b932a07532be6cdddad83e4090e05f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7551e4dc1730a5c7bf48ba5c2eccbe95ed6914a39663f70c2dc1846465e8eb40(
-    *,
-    destination_arn: builtins.str,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    service_network_log_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__abc7f80c1c8d027e6648f29dec237037cc235db1d8d50ebf4422488fb91b8baf(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6860,14 +8397,6 @@ def _typecheckingstub__17ec53a4ae132f699e3368133cd6066a7924febd9eaadf1625f077db6
 
 def _typecheckingstub__b2514bd99a036fd72228bf57ad953594909d7d395566fdbeb7ff5aff3293879f(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d3fae469a4114f5041ab337d4b2b87c6bebd93bfab70112ebf9e83154ff99a2(
-    *,
-    policy: typing.Any,
-    resource_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6960,18 +8489,6 @@ def _typecheckingstub__9c09b0cb0878b1a32d785c3518fc1c21913c2ec5370c786f57403db8c
     *,
     target_group_identifier: builtins.str,
     weight: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2abd654d29759383ba4227953efda14c5f7db6190ad40176eb92bfbb7ccc5693(
-    *,
-    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnListener.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    protocol: builtins.str,
-    name: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    service_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7083,22 +8600,6 @@ def _typecheckingstub__9121263d95571010bd6dc19e1c8287b50bf9733de5f1bdf0bc8a14a7f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__797cfcb00db81ec7627009ae5f799c38c09652aee4a602480e341f9e4049b098(
-    *,
-    name: builtins.str,
-    resource_configuration_type: builtins.str,
-    allow_association_to_sharable_service_network: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
-    protocol_type: typing.Optional[builtins.str] = None,
-    resource_configuration_auth_type: typing.Optional[builtins.str] = None,
-    resource_configuration_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceConfiguration.ResourceConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_configuration_group_id: typing.Optional[builtins.str] = None,
-    resource_gateway_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c33d35acb93670756de87bb99dc9b48c5bdce217c8b7068ec8d831a66a1b9be2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7168,19 +8669,6 @@ def _typecheckingstub__bf6ddd6a110cbcda973426d8df8b1e68b145ff32b0292ba9db84cd36b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ed2c643634b9016a56acc1cdf5c3044eaa6f62d982922519a82cdbd49bdae174(
-    *,
-    name: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    vpc_identifier: builtins.str,
-    ip_address_type: typing.Optional[builtins.str] = None,
-    ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4cc9008c3f7ccae7d54d444c5b5dcc1b03b4db009ad23c4a5ed74863b84b8360(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7211,14 +8699,6 @@ def _typecheckingstub__2222735d3aa86622d6c42b8990fc3cacd9a757664d0c3b751cabcab6a
 
 def _typecheckingstub__9ed10d5f1b65a1ffbcbbe61eb60ea82b7e503a39f49b95b7c028aaabc889b94c(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1737436eeafbe996ee74ec168a6fb4cb8dd64c1c2bcb91c9ba68d5dc234bb69e(
-    *,
-    policy: typing.Any,
-    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7372,19 +8852,6 @@ def _typecheckingstub__0b7392120a2424ba71a102eca12ce26fd517effbedb27cafee4856b6b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__81f380fdbb7ddd606a65742cdc6a3fac2454948798f8a3adcb8fb7c0451af6e1(
-    *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    match: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.MatchProperty, typing.Dict[builtins.str, typing.Any]]],
-    priority: jsii.Number,
-    listener_identifier: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    service_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__33a5a5cd8abc7f43b01f33e191d5a271b64487609134b2e87132fdd4f957285a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7510,16 +8977,6 @@ def _typecheckingstub__d90d2c86056b7572da75a2cae1efffd49b95d74362b0b98e1f139911f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d53f770e586510e575c9248934a04f476ddc52636df2e0e8ad22f5800f529a9b(
-    *,
-    auth_type: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    sharing_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetwork.SharingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ffab6e55fc82b7928229e0716dca828baee57de24513094d512751e4ffbc88b7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7557,15 +9014,6 @@ def _typecheckingstub__143b386c842e4ce5ad50135fce07ec6875d798dde39410e593b93b9f4
 
 def _typecheckingstub__a7b2caf1b457306227662fd5f3d77c20c3a7709749640ee23bd13b6a28d4b4c6(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8fd9f985a37c435043ce57ac34945022dddb3d1b8d09e05d4ebecfce4d884f2(
-    *,
-    resource_configuration_id: typing.Optional[builtins.str] = None,
-    service_network_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7626,16 +9074,6 @@ def _typecheckingstub__90a651984f70593b4ef5f3ba0f9c2d977e66d24a280608544e6813cf2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__afab0499c2760b1eb61696969b251958021ccc26369b2379c43988b23b75c3bb(
-    *,
-    dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceNetworkServiceAssociation.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_identifier: typing.Optional[builtins.str] = None,
-    service_network_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__51a5a54250d817f615a37a7e170370627b854e32b301763e487856be43f74b85(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7680,28 +9118,6 @@ def _typecheckingstub__50bc759b63592b5a79a57951c96725b2b895bdf89f2c8cf8ac09f44f0
 
 def _typecheckingstub__e9b391eb61efda0eb74e9ad1d922235fdde79a86c6fda50bb367d2a7e6535645(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4f41a8834cfa086c1096ce2ce95d12df58a5d84c6b647b3712e7e34e8d51ad2d(
-    *,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    service_network_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_identifier: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__27ecf90b6f56cf421fa3bfc899e4a66109adebb4da4149086c731ec18d7c75ab(
-    *,
-    auth_type: typing.Optional[builtins.str] = None,
-    certificate_arn: typing.Optional[builtins.str] = None,
-    custom_domain_name: typing.Optional[builtins.str] = None,
-    dns_entry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DnsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7801,17 +9217,6 @@ def _typecheckingstub__2d56100b501da89da21de19c41e69ce3c600f9f6f41dbc6fa3266fed8
     *,
     id: builtins.str,
     port: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7726205b43353108496846bc1f02062590e018e95fc96e11e69453af71727ed0(
-    *,
-    type: builtins.str,
-    config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTargetGroup.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

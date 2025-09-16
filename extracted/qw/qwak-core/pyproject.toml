@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qwak-core"
-version = "0.4.354"
+version = "0.4.357"
 description = "Qwak Core contains the necessary objects and communication tools for using the Qwak Platform"
 authors = ["Qwak <info@qwak.com>"]
 readme = "README.md"
@@ -35,7 +35,7 @@ license = "Apache-2.0"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 python-json-logger = ">=2.0.2"
-grpcio = ">=1.57.0"
+grpcio = ">=1.71.2"
 protobuf = ">=4.25.8,<5"
 dependency-injector = ">=4.0"
 requests = "*"

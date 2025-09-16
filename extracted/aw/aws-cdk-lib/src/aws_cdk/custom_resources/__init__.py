@@ -1021,7 +1021,7 @@ from ..aws_iam import (
     IRole as _IRole_235f5d8e,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_lambda import (
     ApplicationLogLevel as _ApplicationLogLevel_cd92660a,
     IFunction as _IFunction_6adb0ab8,
@@ -2478,7 +2478,7 @@ class Provider(
         is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
         log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
         log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        provider_function_env_encryption: typing.Optional[_IKey_5f11635f] = None,
+        provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
         provider_function_name: typing.Optional[builtins.str] = None,
         query_interval: typing.Optional[_Duration_4839e8c3] = None,
         role: typing.Optional[_IRole_235f5d8e] = None,
@@ -2595,7 +2595,7 @@ class ProviderProps:
         is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
         log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
         log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-        provider_function_env_encryption: typing.Optional[_IKey_5f11635f] = None,
+        provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
         provider_function_name: typing.Optional[builtins.str] = None,
         query_interval: typing.Optional[_Duration_4839e8c3] = None,
         role: typing.Optional[_IRole_235f5d8e] = None,
@@ -2824,13 +2824,13 @@ class ProviderProps:
         return typing.cast(typing.Optional[_RetentionDays_070f99f0], result)
 
     @builtins.property
-    def provider_function_env_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def provider_function_env_encryption(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''AWS KMS key used to encrypt provider lambda's environment variables.
 
         :default: - AWS Lambda creates and uses an AWS managed customer master key (CMK)
         '''
         result = self._values.get("provider_function_env_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     @builtins.property
     def provider_function_name(self) -> typing.Optional[builtins.str]:
@@ -3476,7 +3476,7 @@ def _typecheckingstub__29415d7bf7977fcf110b77ce69cec309dcf0404601944735020770ddf
     is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
     log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    provider_function_env_encryption: typing.Optional[_IKey_5f11635f] = None,
+    provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
     provider_function_name: typing.Optional[builtins.str] = None,
     query_interval: typing.Optional[_Duration_4839e8c3] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
@@ -3499,7 +3499,7 @@ def _typecheckingstub__32b03803ee02437d8d83814282c700ede5633030e4d9f7ebdaf3b9d07
     is_complete_handler: typing.Optional[_IFunction_6adb0ab8] = None,
     log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
     log_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    provider_function_env_encryption: typing.Optional[_IKey_5f11635f] = None,
+    provider_function_env_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
     provider_function_name: typing.Optional[builtins.str] = None,
     query_interval: typing.Optional[_Duration_4839e8c3] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,

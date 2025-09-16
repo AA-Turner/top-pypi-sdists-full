@@ -9,6 +9,7 @@ from legit_api_client.api.collaborators_api import CollaboratorsApi
 from legit_api_client.api.compliance_api import ComplianceApi
 from legit_api_client.api.container_images_api import ContainerImagesApi
 from legit_api_client.api.custom_fields_api import CustomFieldsApi
+from legit_api_client.api.dependencies_v2_api import DependenciesV2Api
 from legit_api_client.api.integrations_api import IntegrationsApi
 from legit_api_client.api.issues_api import IssuesApi
 from legit_api_client.api.issues_v2_api import IssuesV2Api

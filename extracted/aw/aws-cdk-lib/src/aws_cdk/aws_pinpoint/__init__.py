@@ -68,171 +68,472 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnADMChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnADMChannel",
-):
-    '''A *channel* is a type of platform that you can deliver messages to.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.ADMChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"adm_channel_id": "admChannelId"},
+)
+class ADMChannelReference:
+    def __init__(self, *, adm_channel_id: builtins.str) -> None:
+        '''A reference to a ADMChannel resource.
 
-    You can use the ADM channel to send push notifications through the Amazon Device Messaging (ADM) service to apps that run on Amazon devices, such as Kindle Fire tablets. Before you can use Amazon Pinpoint to send messages to Amazon devices, you have to enable the ADM channel for an Amazon Pinpoint application.
+        :param adm_channel_id: The Id of the ADMChannel resource.
 
-    The ADMChannel resource represents the status and authentication settings for the ADM channel for an application.
+        :exampleMetadata: fixture=_generated
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-admchannel.html
-    :cloudformationResource: AWS::Pinpoint::ADMChannel
-    :exampleMetadata: fixture=_generated
+        Example::
 
-    Example::
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            a_dMChannel_reference = pinpoint.ADMChannelReference(
+                adm_channel_id="admChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4dd16fc2f1dfb11df67061c0eaca74cd0c286fc4821c53da52dea07d188de44)
+            check_type(argname="argument adm_channel_id", value=adm_channel_id, expected_type=type_hints["adm_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "adm_channel_id": adm_channel_id,
+        }
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_pinpoint as pinpoint
-        
-        cfn_aDMChannel = pinpoint.CfnADMChannel(self, "MyCfnADMChannel",
-            application_id="applicationId",
-            client_id="clientId",
-            client_secret="clientSecret",
-        
-            # the properties below are optional
-            enabled=False
+    @builtins.property
+    def adm_channel_id(self) -> builtins.str:
+        '''The Id of the ADMChannel resource.'''
+        result = self._values.get("adm_channel_id")
+        assert result is not None, "Required property 'adm_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ADMChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-    '''
 
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.APNSChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"apns_channel_id": "apnsChannelId"},
+)
+class APNSChannelReference:
+    def __init__(self, *, apns_channel_id: builtins.str) -> None:
+        '''A reference to a APNSChannel resource.
+
+        :param apns_channel_id: The Id of the APNSChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            a_pNSChannel_reference = pinpoint.APNSChannelReference(
+                apns_channel_id="apnsChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ce367d9112eab5f797ba187466d7d85dc17cfdc35e4685384e240bfc96a409d)
+            check_type(argname="argument apns_channel_id", value=apns_channel_id, expected_type=type_hints["apns_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "apns_channel_id": apns_channel_id,
+        }
+
+    @builtins.property
+    def apns_channel_id(self) -> builtins.str:
+        '''The Id of the APNSChannel resource.'''
+        result = self._values.get("apns_channel_id")
+        assert result is not None, "Required property 'apns_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APNSChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.APNSSandboxChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"apns_sandbox_channel_id": "apnsSandboxChannelId"},
+)
+class APNSSandboxChannelReference:
+    def __init__(self, *, apns_sandbox_channel_id: builtins.str) -> None:
+        '''A reference to a APNSSandboxChannel resource.
+
+        :param apns_sandbox_channel_id: The Id of the APNSSandboxChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            a_pNSSandbox_channel_reference = pinpoint.APNSSandboxChannelReference(
+                apns_sandbox_channel_id="apnsSandboxChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76c0d98cd51851ab477aaf63cc593ee478cdae600e04d1e782466e9bc31b1140)
+            check_type(argname="argument apns_sandbox_channel_id", value=apns_sandbox_channel_id, expected_type=type_hints["apns_sandbox_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "apns_sandbox_channel_id": apns_sandbox_channel_id,
+        }
+
+    @builtins.property
+    def apns_sandbox_channel_id(self) -> builtins.str:
+        '''The Id of the APNSSandboxChannel resource.'''
+        result = self._values.get("apns_sandbox_channel_id")
+        assert result is not None, "Required property 'apns_sandbox_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APNSSandboxChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.APNSVoipChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"apns_voip_channel_id": "apnsVoipChannelId"},
+)
+class APNSVoipChannelReference:
+    def __init__(self, *, apns_voip_channel_id: builtins.str) -> None:
+        '''A reference to a APNSVoipChannel resource.
+
+        :param apns_voip_channel_id: The Id of the APNSVoipChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            a_pNSVoip_channel_reference = pinpoint.APNSVoipChannelReference(
+                apns_voip_channel_id="apnsVoipChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b82e9e0a562f2531be61df3d68761e068d9916f085b4d1746a8aff6c77fd1254)
+            check_type(argname="argument apns_voip_channel_id", value=apns_voip_channel_id, expected_type=type_hints["apns_voip_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "apns_voip_channel_id": apns_voip_channel_id,
+        }
+
+    @builtins.property
+    def apns_voip_channel_id(self) -> builtins.str:
+        '''The Id of the APNSVoipChannel resource.'''
+        result = self._values.get("apns_voip_channel_id")
+        assert result is not None, "Required property 'apns_voip_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APNSVoipChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.APNSVoipSandboxChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"apns_voip_sandbox_channel_id": "apnsVoipSandboxChannelId"},
+)
+class APNSVoipSandboxChannelReference:
+    def __init__(self, *, apns_voip_sandbox_channel_id: builtins.str) -> None:
+        '''A reference to a APNSVoipSandboxChannel resource.
+
+        :param apns_voip_sandbox_channel_id: The Id of the APNSVoipSandboxChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            a_pNSVoip_sandbox_channel_reference = pinpoint.APNSVoipSandboxChannelReference(
+                apns_voip_sandbox_channel_id="apnsVoipSandboxChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__076de6663a3407da1363f5084bd486548e0a529aef4747124a53f726e5a09c2e)
+            check_type(argname="argument apns_voip_sandbox_channel_id", value=apns_voip_sandbox_channel_id, expected_type=type_hints["apns_voip_sandbox_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "apns_voip_sandbox_channel_id": apns_voip_sandbox_channel_id,
+        }
+
+    @builtins.property
+    def apns_voip_sandbox_channel_id(self) -> builtins.str:
+        '''The Id of the APNSVoipSandboxChannel resource.'''
+        result = self._values.get("apns_voip_sandbox_channel_id")
+        assert result is not None, "Required property 'apns_voip_sandbox_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APNSVoipSandboxChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.AppReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_arn": "appArn", "app_id": "appId"},
+)
+class AppReference:
+    def __init__(self, *, app_arn: builtins.str, app_id: builtins.str) -> None:
+        '''A reference to a App resource.
+
+        :param app_arn: The ARN of the App resource.
+        :param app_id: The Id of the App resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            app_reference = pinpoint.AppReference(
+                app_arn="appArn",
+                app_id="appId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__577b5fc031e2b79fbc0e529ab28f6d996ef1bc6dd0ab21d52f86036ccc6338fd)
+            check_type(argname="argument app_arn", value=app_arn, expected_type=type_hints["app_arn"])
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_arn": app_arn,
+            "app_id": app_id,
+        }
+
+    @builtins.property
+    def app_arn(self) -> builtins.str:
+        '''The ARN of the App resource.'''
+        result = self._values.get("app_arn")
+        assert result is not None, "Required property 'app_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_id(self) -> builtins.str:
+        '''The Id of the App resource.'''
+        result = self._values.get("app_id")
+        assert result is not None, "Required property 'app_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.ApplicationSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_settings_id": "applicationSettingsId"},
+)
+class ApplicationSettingsReference:
+    def __init__(self, *, application_settings_id: builtins.str) -> None:
+        '''A reference to a ApplicationSettings resource.
+
+        :param application_settings_id: The Id of the ApplicationSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            application_settings_reference = pinpoint.ApplicationSettingsReference(
+                application_settings_id="applicationSettingsId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50b1d1b6133cebfc65a8785b23eac5cd2b64d27e6b9792faaea61ede1fd1f005)
+            check_type(argname="argument application_settings_id", value=application_settings_id, expected_type=type_hints["application_settings_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_settings_id": application_settings_id,
+        }
+
+    @builtins.property
+    def application_settings_id(self) -> builtins.str:
+        '''The Id of the ApplicationSettings resource.'''
+        result = self._values.get("application_settings_id")
+        assert result is not None, "Required property 'application_settings_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.BaiduChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"baidu_channel_id": "baiduChannelId"},
+)
+class BaiduChannelReference:
+    def __init__(self, *, baidu_channel_id: builtins.str) -> None:
+        '''A reference to a BaiduChannel resource.
+
+        :param baidu_channel_id: The Id of the BaiduChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            baidu_channel_reference = pinpoint.BaiduChannelReference(
+                baidu_channel_id="baiduChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c76300b2a67be9b6842cdac6c19fb01c7219b8e25ed5fa80c0133707df9d10ca)
+            check_type(argname="argument baidu_channel_id", value=baidu_channel_id, expected_type=type_hints["baidu_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "baidu_channel_id": baidu_channel_id,
+        }
+
+    @builtins.property
+    def baidu_channel_id(self) -> builtins.str:
+        '''The Id of the BaiduChannel resource.'''
+        result = self._values.get("baidu_channel_id")
+        assert result is not None, "Required property 'baidu_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BaiduChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CampaignReference",
+    jsii_struct_bases=[],
+    name_mapping={"campaign_arn": "campaignArn", "campaign_id": "campaignId"},
+)
+class CampaignReference:
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
         *,
-        application_id: builtins.str,
-        client_id: builtins.str,
-        client_secret: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        campaign_arn: builtins.str,
+        campaign_id: builtins.str,
     ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the ADM channel applies to.
-        :param client_id: The Client ID that you received from Amazon to send messages by using ADM.
-        :param client_secret: The Client Secret that you received from Amazon to send messages by using ADM.
-        :param enabled: Specifies whether to enable the ADM channel for the application.
+        '''A reference to a Campaign resource.
+
+        :param campaign_arn: The ARN of the Campaign resource.
+        :param campaign_id: The CampaignId of the Campaign resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            campaign_reference = pinpoint.CampaignReference(
+                campaign_arn="campaignArn",
+                campaign_id="campaignId"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaf704e00bb5859cb830fbb4d1e376040266671aa90e04a47641d8d055085dae)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnADMChannelProps(
-            application_id=application_id,
-            client_id=client_id,
-            client_secret=client_secret,
-            enabled=enabled,
+            type_hints = typing.get_type_hints(_typecheckingstub__05e4ffc9e50d03c8d02080d869f27731c738ddc66bdb1910c26b0b23717f5bc4)
+            check_type(argname="argument campaign_arn", value=campaign_arn, expected_type=type_hints["campaign_arn"])
+            check_type(argname="argument campaign_id", value=campaign_id, expected_type=type_hints["campaign_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "campaign_arn": campaign_arn,
+            "campaign_id": campaign_id,
+        }
+
+    @builtins.property
+    def campaign_arn(self) -> builtins.str:
+        '''The ARN of the Campaign resource.'''
+        result = self._values.get("campaign_arn")
+        assert result is not None, "Required property 'campaign_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def campaign_id(self) -> builtins.str:
+        '''The CampaignId of the Campaign resource.'''
+        result = self._values.get("campaign_id")
+        assert result is not None, "Required property 'campaign_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CampaignReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6370d32f16b93db7c704589cdcc432969bf4bb7eecdf1c1ecce61abeb6703b1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d7f38c58309e10d9e9c3e9cdd18ecdf0206a62dafe257a225fce81498a09d52)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''(Deprecated) An identifier for the ADM channel.
-
-        This property is retained only for backward compatibility.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the ADM channel applies to.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__516a9ba4b7757af253ff004793a1979569edace2e0341aecf95d98ab8878fb7f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clientId")
-    def client_id(self) -> builtins.str:
-        '''The Client ID that you received from Amazon to send messages by using ADM.'''
-        return typing.cast(builtins.str, jsii.get(self, "clientId"))
-
-    @client_id.setter
-    def client_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ca2b0ebc55a347f1c856351a7ea66aa33f15336b7c29ebd44c657ad1e32c50f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="clientSecret")
-    def client_secret(self) -> builtins.str:
-        '''The Client Secret that you received from Amazon to send messages by using ADM.'''
-        return typing.cast(builtins.str, jsii.get(self, "clientSecret"))
-
-    @client_secret.setter
-    def client_secret(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f43ceab49423ae46becea7c2f42867ef5034b7107d6f0e0def0f82103c810cba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientSecret", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the ADM channel for the application.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29f9495da313043ed76a0fcbe057cba0bc82dd16c11f653c0c4ce29add3f3d6a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -344,261 +645,6 @@ class CfnADMChannelProps:
         return "CfnADMChannelProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnAPNSChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSChannel",
-):
-    '''A *channel* is a type of platform that you can deliver messages to.
-
-    You can use the APNs channel to send push notification messages to the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send notifications to APNs, you have to enable the APNs channel for an Amazon Pinpoint application.
-
-    The APNSChannel resource represents the status and authentication settings for the APNs channel for an application.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnschannel.html
-    :cloudformationResource: AWS::Pinpoint::APNSChannel
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_pinpoint as pinpoint
-        
-        cfn_aPNSChannel = pinpoint.CfnAPNSChannel(self, "MyCfnAPNSChannel",
-            application_id="applicationId",
-        
-            # the properties below are optional
-            bundle_id="bundleId",
-            certificate="certificate",
-            default_authentication_method="defaultAuthenticationMethod",
-            enabled=False,
-            private_key="privateKey",
-            team_id="teamId",
-            token_key="tokenKey",
-            token_key_id="tokenKeyId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        bundle_id: typing.Optional[builtins.str] = None,
-        certificate: typing.Optional[builtins.str] = None,
-        default_authentication_method: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        team_id: typing.Optional[builtins.str] = None,
-        token_key: typing.Optional[builtins.str] = None,
-        token_key_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs channel applies to.
-        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
-        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
-        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
-        :param enabled: Specifies whether to enable the APNs channel for the application.
-        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
-        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
-        :param token_key: The authentication key to use for APNs tokens.
-        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2c6d01d6ac4514b60aaeb636fa32c4f2935eb954acb47fe1f335948796c5b38)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAPNSChannelProps(
-            application_id=application_id,
-            bundle_id=bundle_id,
-            certificate=certificate,
-            default_authentication_method=default_authentication_method,
-            enabled=enabled,
-            private_key=private_key,
-            team_id=team_id,
-            token_key=token_key,
-            token_key_id=token_key_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27ef2edffbfaec89f01e614ae0d36665094bca9d2873273de72ca37709500647)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dd87eeeb0b6f658fbf73ac4ee0a5ce23911fd99d4342fd6e60ca8b210fdb972)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''(Deprecated) An identifier for the APNs channel.
-
-        This property is retained only for backward compatibility.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the APNs channel applies to.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ec692a61d1b998fa192954294bd412c7117bc611c68ba50855c6b11be36d360)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="bundleId")
-    def bundle_id(self) -> typing.Optional[builtins.str]:
-        '''The bundle identifier that's assigned to your iOS app.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
-
-    @bundle_id.setter
-    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fdc4ba23303245bc510c4bc0780d997ced5645298a9309ce4a0b668e50b681f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificate")
-    def certificate(self) -> typing.Optional[builtins.str]:
-        '''The APNs client certificate that you received from Apple.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
-
-    @certificate.setter
-    def certificate(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b2b358bd8e58ccda4eaae0530a3da766174cc23bb14dcbe422279e23ffc7c5d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultAuthenticationMethod")
-    def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
-
-    @default_authentication_method.setter
-    def default_authentication_method(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3201f885e965d3cbc3fd27f17ec2f46000a5ba9bfe7044238c7ddcab8c78d33a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the APNs channel for the application.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ed3ad95420b6948df7339f9eb6816bcaed443dfcee74ef7485882c3fc6c9be2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKey")
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
-
-    @private_key.setter
-    def private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32129c9e89fe5fb120406d63eb937f83ada047a3a02266a6a4b77dd025f761d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="teamId")
-    def team_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier that's assigned to your Apple Developer Account team.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
-
-    @team_id.setter
-    def team_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__126052989c39a52610fc6e54340c3dfe4273d45aa56b9ee0096604832a8af83f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKey")
-    def token_key(self) -> typing.Optional[builtins.str]:
-        '''The authentication key to use for APNs tokens.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
-
-    @token_key.setter
-    def token_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c68905895fc14733013b7072172056341167e4e6fbde6cccac5d4da6a970a70)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKeyId")
-    def token_key_id(self) -> typing.Optional[builtins.str]:
-        '''The key identifier that's assigned to your APNs signing key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
-
-    @token_key_id.setter
-    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e111ff96fa2864617af9bc1196e6a5c0f42a455a826bc67955c67c9e02a60ff0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -802,261 +848,6 @@ class CfnAPNSChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAPNSSandboxChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSSandboxChannel",
-):
-    '''A *channel* is a type of platform that you can deliver messages to.
-
-    You can use the APNs sandbox channel to send push notification messages to the sandbox environment of the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send notifications to the APNs sandbox environment, you have to enable the APNs sandbox channel for an Amazon Pinpoint application.
-
-    The APNSSandboxChannel resource represents the status and authentication settings of the APNs sandbox channel for an application.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnssandboxchannel.html
-    :cloudformationResource: AWS::Pinpoint::APNSSandboxChannel
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_pinpoint as pinpoint
-        
-        cfn_aPNSSandbox_channel = pinpoint.CfnAPNSSandboxChannel(self, "MyCfnAPNSSandboxChannel",
-            application_id="applicationId",
-        
-            # the properties below are optional
-            bundle_id="bundleId",
-            certificate="certificate",
-            default_authentication_method="defaultAuthenticationMethod",
-            enabled=False,
-            private_key="privateKey",
-            team_id="teamId",
-            token_key="tokenKey",
-            token_key_id="tokenKeyId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        bundle_id: typing.Optional[builtins.str] = None,
-        certificate: typing.Optional[builtins.str] = None,
-        default_authentication_method: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        team_id: typing.Optional[builtins.str] = None,
-        token_key: typing.Optional[builtins.str] = None,
-        token_key_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs sandbox channel applies to.
-        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
-        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
-        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
-        :param enabled: Specifies whether to enable the APNs Sandbox channel for the Amazon Pinpoint application.
-        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
-        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
-        :param token_key: The authentication key to use for APNs tokens.
-        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2cdf1bd0828fb196281b0c6e09fb772d25d46b1f609996c702cd33ded3923dc)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAPNSSandboxChannelProps(
-            application_id=application_id,
-            bundle_id=bundle_id,
-            certificate=certificate,
-            default_authentication_method=default_authentication_method,
-            enabled=enabled,
-            private_key=private_key,
-            team_id=team_id,
-            token_key=token_key,
-            token_key_id=token_key_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9afd220964f59a3aa7c276349cbfbe0194a39fc3cc38e67756b3372dc695d32)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63e4d9ee78998839059ebfdb4c7eec999776002f59a110424dcbdbbf354898ec)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''(Deprecated) An identifier for the APNs sandbox channel.
-
-        This property is retained only for backward compatibility.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the APNs sandbox channel applies to.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e3a391d32b5c7c832ea76d26b3ce0f36d370d03206b1ef42defc87b6ecd1656)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="bundleId")
-    def bundle_id(self) -> typing.Optional[builtins.str]:
-        '''The bundle identifier that's assigned to your iOS app.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
-
-    @bundle_id.setter
-    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c13e391d9c40b56efef97e70420259e3f16f091119a589e3cb14cde7fbcffb5b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificate")
-    def certificate(self) -> typing.Optional[builtins.str]:
-        '''The APNs client certificate that you received from Apple.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
-
-    @certificate.setter
-    def certificate(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d929856dc7781e860f17aa023d8a01e0cb7f1ec7cb93f928f78a77e4c76991a3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultAuthenticationMethod")
-    def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
-
-    @default_authentication_method.setter
-    def default_authentication_method(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72936dce4a9d9b3355d20141e15f0e706016979a3653c66d8027d3c7b0ee03d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the APNs Sandbox channel for the Amazon Pinpoint application.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4666c0e59b9ee82106f0a8a6fe42b502df677f3d4e454cc2c1d8a8c3dc1e8d9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKey")
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
-
-    @private_key.setter
-    def private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__348e545ce1c804626ae2b2b83b8cccbc3635d89315ef72cfc11baf2cad881c10)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="teamId")
-    def team_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier that's assigned to your Apple Developer Account team.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
-
-    @team_id.setter
-    def team_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b8fd4f8d072de699b28339406a81391b189fddec1b0bbd68f9faec4d296b070)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKey")
-    def token_key(self) -> typing.Optional[builtins.str]:
-        '''The authentication key to use for APNs tokens.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
-
-    @token_key.setter
-    def token_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__622ff057d2fa4cb1f10160e466a9f238a6f82b2da34b6a446ac4789934351392)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKeyId")
-    def token_key_id(self) -> typing.Optional[builtins.str]:
-        '''The key identifier that's assigned to your APNs signing key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
-
-    @token_key_id.setter
-    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a1c83d822fd7f724c76e48f4fadc86e26cedf4936d86d6a2d5600e9949b8e2c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSSandboxChannelProps",
     jsii_struct_bases=[],
@@ -1256,261 +1047,6 @@ class CfnAPNSSandboxChannelProps:
         return "CfnAPNSSandboxChannelProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnAPNSVoipChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSVoipChannel",
-):
-    '''A *channel* is a type of platform that you can deliver messages to.
-
-    You can use the APNs VoIP channel to send VoIP notification messages to the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send VoIP notifications to APNs, you have to enable the APNs VoIP channel for an Amazon Pinpoint application.
-
-    The APNSVoipChannel resource represents the status and authentication settings of the APNs VoIP channel for an application.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnsvoipchannel.html
-    :cloudformationResource: AWS::Pinpoint::APNSVoipChannel
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_pinpoint as pinpoint
-        
-        cfn_aPNSVoip_channel = pinpoint.CfnAPNSVoipChannel(self, "MyCfnAPNSVoipChannel",
-            application_id="applicationId",
-        
-            # the properties below are optional
-            bundle_id="bundleId",
-            certificate="certificate",
-            default_authentication_method="defaultAuthenticationMethod",
-            enabled=False,
-            private_key="privateKey",
-            team_id="teamId",
-            token_key="tokenKey",
-            token_key_id="tokenKeyId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        bundle_id: typing.Optional[builtins.str] = None,
-        certificate: typing.Optional[builtins.str] = None,
-        default_authentication_method: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        team_id: typing.Optional[builtins.str] = None,
-        token_key: typing.Optional[builtins.str] = None,
-        token_key_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs VoIP channel applies to.
-        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
-        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
-        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
-        :param enabled: Specifies whether to enable the APNs VoIP channel for the Amazon Pinpoint application.
-        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
-        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
-        :param token_key: The authentication key to use for APNs tokens.
-        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__354fbb51dc05a5c7b142870475ffebba049d56e406e383a83bcdf9e1205f7e3a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAPNSVoipChannelProps(
-            application_id=application_id,
-            bundle_id=bundle_id,
-            certificate=certificate,
-            default_authentication_method=default_authentication_method,
-            enabled=enabled,
-            private_key=private_key,
-            team_id=team_id,
-            token_key=token_key,
-            token_key_id=token_key_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c295e4c7ef221f73636feb125bd7e1fe6267e5dbbe723147da0cdae19845d8e)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04703119f79d8184e97b28f75a030ff15aca233258d881aa000b618281a64d0d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''(Deprecated) An identifier for the APNs VoIP channel.
-
-        This property is retained only for backward compatibility.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the APNs VoIP channel applies to.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d8cf83888d2c3bcb29e553a924bf2bb2b5423243bfd76ff45039cec94c4203f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="bundleId")
-    def bundle_id(self) -> typing.Optional[builtins.str]:
-        '''The bundle identifier that's assigned to your iOS app.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
-
-    @bundle_id.setter
-    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11ef79ce48a4708565800ada7142b5f84f70dba36f6631fea19ceabe5dae7c09)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificate")
-    def certificate(self) -> typing.Optional[builtins.str]:
-        '''The APNs client certificate that you received from Apple.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
-
-    @certificate.setter
-    def certificate(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d72c80d8e62631c30f10c530f1e875432ad32c73b6aeba9bb7bb054e1c4fa878)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultAuthenticationMethod")
-    def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
-
-    @default_authentication_method.setter
-    def default_authentication_method(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15c7e303ad6e775381a9141f9cfef12089fa928c85c8a8b45394b4a0670e83e4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the APNs VoIP channel for the Amazon Pinpoint application.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e29971c6564c0a97fcd5481816c5791d2527814f70f07c3dc75b5bdd5f178679)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKey")
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
-
-    @private_key.setter
-    def private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52ffc29c2e58a29c36ceeb81a921d67080e931e597c389630a2a8b8bb4605bf7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="teamId")
-    def team_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier that's assigned to your Apple Developer Account team.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
-
-    @team_id.setter
-    def team_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5795637c70bd87670d111ed19a94136ea8689882020ecd1f2b3a9ca1dc588adc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKey")
-    def token_key(self) -> typing.Optional[builtins.str]:
-        '''The authentication key to use for APNs tokens.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
-
-    @token_key.setter
-    def token_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a763a314ff762c118e43a2503d59c9db34d817fcbe98b899a2695c1da28a6cc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKeyId")
-    def token_key_id(self) -> typing.Optional[builtins.str]:
-        '''The key identifier that's assigned to your APNs signing key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
-
-    @token_key_id.setter
-    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46127dd7405f371138f3f8925f703cbdf74dc4d1920b57b2c4046a9f4c8678c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1714,261 +1250,6 @@ class CfnAPNSVoipChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAPNSVoipSandboxChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSVoipSandboxChannel",
-):
-    '''A *channel* is a type of platform that you can deliver messages to.
-
-    You can use the APNs VoIP sandbox channel to send VoIP notification messages to the sandbox environment of the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send VoIP notifications to the APNs sandbox environment, you have to enable the APNs VoIP sandbox channel for an Amazon Pinpoint application.
-
-    The APNSVoipSandboxChannel resource represents the status and authentication settings of the APNs VoIP sandbox channel for an application.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnsvoipsandboxchannel.html
-    :cloudformationResource: AWS::Pinpoint::APNSVoipSandboxChannel
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_pinpoint as pinpoint
-        
-        cfn_aPNSVoip_sandbox_channel = pinpoint.CfnAPNSVoipSandboxChannel(self, "MyCfnAPNSVoipSandboxChannel",
-            application_id="applicationId",
-        
-            # the properties below are optional
-            bundle_id="bundleId",
-            certificate="certificate",
-            default_authentication_method="defaultAuthenticationMethod",
-            enabled=False,
-            private_key="privateKey",
-            team_id="teamId",
-            token_key="tokenKey",
-            token_key_id="tokenKeyId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        bundle_id: typing.Optional[builtins.str] = None,
-        certificate: typing.Optional[builtins.str] = None,
-        default_authentication_method: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        team_id: typing.Optional[builtins.str] = None,
-        token_key: typing.Optional[builtins.str] = None,
-        token_key_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The unique identifier for the application that the APNs VoIP sandbox channel applies to.
-        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
-        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with the APNs sandbox environment by using an APNs certificate.
-        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
-        :param enabled: Specifies whether the APNs VoIP sandbox channel is enabled for the application.
-        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with the APNs sandbox environment.
-        :param team_id: The identifier that's assigned to your Apple developer account team. This identifier is used for APNs tokens.
-        :param token_key: The authentication key to use for APNs tokens.
-        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with the APNs sandbox environment by using APNs tokens.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda00a8216a1537d1791cebffe3e648359ad880fd824bfd90472a552cf2f17a1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAPNSVoipSandboxChannelProps(
-            application_id=application_id,
-            bundle_id=bundle_id,
-            certificate=certificate,
-            default_authentication_method=default_authentication_method,
-            enabled=enabled,
-            private_key=private_key,
-            team_id=team_id,
-            token_key=token_key,
-            token_key_id=token_key_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b73a7955f3c2112f01b23293d78c4a55e7bf14ae478719955fa7bbf05e013cba)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22adf58a327644519c6703d2838a632c1d54b15bced0304f64e2c1f588f54bcf)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''(Deprecated) An identifier for the APNs VoIP sandbox channel.
-
-        This property is retained only for backward compatibility.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the application that the APNs VoIP sandbox channel applies to.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__350373fee7f7d95897dd93a64ed1fba8e5c7633cc24c346e6eae6f6f8022ca85)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="bundleId")
-    def bundle_id(self) -> typing.Optional[builtins.str]:
-        '''The bundle identifier that's assigned to your iOS app.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
-
-    @bundle_id.setter
-    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adacd8b3feedf89d701eb54dc830cd89599763f610af1ab0ddae724bd2b9ab9e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificate")
-    def certificate(self) -> typing.Optional[builtins.str]:
-        '''The APNs client certificate that you received from Apple.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
-
-    @certificate.setter
-    def certificate(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__186164a38f8208bb7b7f4347d8ffc572fd4d74da65ed43f189482ccb05e0b9e8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultAuthenticationMethod")
-    def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
-
-    @default_authentication_method.setter
-    def default_authentication_method(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f546750c5bd78ff62a69bbe58c6bd21bab499a931542106097f2be0e61b0738)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the APNs VoIP sandbox channel is enabled for the application.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aac5c1ce5cc72d2472a9881976d507f68a31b18a54d9853cc07d5e5f47c1f566)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKey")
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with the APNs sandbox environment.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
-
-    @private_key.setter
-    def private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1c7912f617707f8a3bf055962376421068d396c4548da62240dea44b4d840a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="teamId")
-    def team_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier that's assigned to your Apple developer account team.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
-
-    @team_id.setter
-    def team_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b56d6aec3a3108d8b2afad8a6b2db8101173ab0c6faa42c50e79e0ad96fb3a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKey")
-    def token_key(self) -> typing.Optional[builtins.str]:
-        '''The authentication key to use for APNs tokens.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
-
-    @token_key.setter
-    def token_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f79c9d0b861c37cd183ab0b80d916731b90ace98ab3e741d2de7cddce91497c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tokenKeyId")
-    def token_key_id(self) -> typing.Optional[builtins.str]:
-        '''The key identifier that's assigned to your APNs signing key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
-
-    @token_key_id.setter
-    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd15602c1b7a8a7fe5ed82c46d42d3b30e6bc52c8618e996139c2d1c461696f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSVoipSandboxChannelProps",
     jsii_struct_bases=[],
@@ -2170,7 +1451,5274 @@ class CfnAPNSVoipSandboxChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAppProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "tags": "tags"},
+)
+class CfnAppProps:
+    def __init__(self, *, name: builtins.str, tags: typing.Any = None) -> None:
+        '''Properties for defining a ``CfnApp``.
+
+        :param name: The display name of the application.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # tags: Any
+            
+            cfn_app_props = pinpoint.CfnAppProps(
+                name="name",
+            
+                # the properties below are optional
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5ece6d9985e2c12212269fba01e0f60516e87697766368b6a5343813fba618c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The display name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html#cfn-pinpoint-app-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html#cfn-pinpoint-app-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnApplicationSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "campaign_hook": "campaignHook",
+        "cloud_watch_metrics_enabled": "cloudWatchMetricsEnabled",
+        "limits": "limits",
+        "quiet_time": "quietTime",
+    },
+)
+class CfnApplicationSettingsProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationSettings.CampaignHookProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationSettings.LimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        quiet_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationSettings.QuietTimeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationSettings``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application.
+        :param campaign_hook: The settings for the Lambda function to use by default as a code hook for campaigns in the application. To override these settings for a specific campaign, use the Campaign resource to define custom Lambda function settings for the campaign.
+        :param cloud_watch_metrics_enabled: 
+        :param limits: The default sending limits for campaigns in the application. To override these limits for a specific campaign, use the Campaign resource to define custom limits for the campaign.
+        :param quiet_time: The default quiet time for campaigns in the application. Quiet time is a specific time range when campaigns don't send messages to endpoints, if all the following conditions are met: - The ``EndpointDemographic.Timezone`` property of the endpoint is set to a valid value. - The current time in the endpoint's time zone is later than or equal to the time specified by the ``QuietTime.Start`` property for the application (or a campaign that has custom quiet time settings). - The current time in the endpoint's time zone is earlier than or equal to the time specified by the ``QuietTime.End`` property for the application (or a campaign that has custom quiet time settings). If any of the preceding conditions isn't met, the endpoint will receive messages from a campaign, even if quiet time is enabled. To override the default quiet time settings for a specific campaign, use the Campaign resource to define a custom quiet time for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_application_settings_props = pinpoint.CfnApplicationSettingsProps(
+                application_id="applicationId",
+            
+                # the properties below are optional
+                campaign_hook=pinpoint.CfnApplicationSettings.CampaignHookProperty(
+                    lambda_function_name="lambdaFunctionName",
+                    mode="mode",
+                    web_url="webUrl"
+                ),
+                cloud_watch_metrics_enabled=False,
+                limits=pinpoint.CfnApplicationSettings.LimitsProperty(
+                    daily=123,
+                    maximum_duration=123,
+                    messages_per_second=123,
+                    total=123
+                ),
+                quiet_time=pinpoint.CfnApplicationSettings.QuietTimeProperty(
+                    end="end",
+                    start="start"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__848467a4d3edb707abe4565a3db11fcd50755d6c664897537827d7e2003fb02d)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument campaign_hook", value=campaign_hook, expected_type=type_hints["campaign_hook"])
+            check_type(argname="argument cloud_watch_metrics_enabled", value=cloud_watch_metrics_enabled, expected_type=type_hints["cloud_watch_metrics_enabled"])
+            check_type(argname="argument limits", value=limits, expected_type=type_hints["limits"])
+            check_type(argname="argument quiet_time", value=quiet_time, expected_type=type_hints["quiet_time"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+        if campaign_hook is not None:
+            self._values["campaign_hook"] = campaign_hook
+        if cloud_watch_metrics_enabled is not None:
+            self._values["cloud_watch_metrics_enabled"] = cloud_watch_metrics_enabled
+        if limits is not None:
+            self._values["limits"] = limits
+        if quiet_time is not None:
+            self._values["quiet_time"] = quiet_time
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def campaign_hook(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.CampaignHookProperty"]]:
+        '''The settings for the Lambda function to use by default as a code hook for campaigns in the application.
+
+        To override these settings for a specific campaign, use the Campaign resource to define custom Lambda function settings for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-campaignhook
+        '''
+        result = self._values.get("campaign_hook")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.CampaignHookProperty"]], result)
+
+    @builtins.property
+    def cloud_watch_metrics_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-cloudwatchmetricsenabled
+        '''
+        result = self._values.get("cloud_watch_metrics_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def limits(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.LimitsProperty"]]:
+        '''The default sending limits for campaigns in the application.
+
+        To override these limits for a specific campaign, use the Campaign resource to define custom limits for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-limits
+        '''
+        result = self._values.get("limits")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.LimitsProperty"]], result)
+
+    @builtins.property
+    def quiet_time(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.QuietTimeProperty"]]:
+        '''The default quiet time for campaigns in the application.
+
+        Quiet time is a specific time range when campaigns don't send messages to endpoints, if all the following conditions are met:
+
+        - The ``EndpointDemographic.Timezone`` property of the endpoint is set to a valid value.
+        - The current time in the endpoint's time zone is later than or equal to the time specified by the ``QuietTime.Start`` property for the application (or a campaign that has custom quiet time settings).
+        - The current time in the endpoint's time zone is earlier than or equal to the time specified by the ``QuietTime.End`` property for the application (or a campaign that has custom quiet time settings).
+
+        If any of the preceding conditions isn't met, the endpoint will receive messages from a campaign, even if quiet time is enabled.
+
+        To override the default quiet time settings for a specific campaign, use the Campaign resource to define a custom quiet time for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-quiettime
+        '''
+        result = self._values.get("quiet_time")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationSettings.QuietTimeProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnBaiduChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "api_key": "apiKey",
+        "application_id": "applicationId",
+        "secret_key": "secretKey",
+        "enabled": "enabled",
+    },
+)
+class CfnBaiduChannelProps:
+    def __init__(
+        self,
+        *,
+        api_key: builtins.str,
+        application_id: builtins.str,
+        secret_key: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBaiduChannel``.
+
+        :param api_key: The API key that you received from the Baidu Cloud Push service to communicate with the service.
+        :param application_id: The unique identifier for the Amazon Pinpoint application that you're configuring the Baidu channel for.
+        :param secret_key: The secret key that you received from the Baidu Cloud Push service to communicate with the service.
+        :param enabled: Specifies whether to enable the Baidu channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_baidu_channel_props = pinpoint.CfnBaiduChannelProps(
+                api_key="apiKey",
+                application_id="applicationId",
+                secret_key="secretKey",
+            
+                # the properties below are optional
+                enabled=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea99679b99d64e9a67176579da7115a89002eb9da18df44b574208277637df1c)
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_key": api_key,
+            "application_id": application_id,
+            "secret_key": secret_key,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def api_key(self) -> builtins.str:
+        '''The API key that you received from the Baidu Cloud Push service to communicate with the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-apikey
+        '''
+        result = self._values.get("api_key")
+        assert result is not None, "Required property 'api_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that you're configuring the Baidu channel for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def secret_key(self) -> builtins.str:
+        '''The secret key that you received from the Baidu Cloud Push service to communicate with the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-secretkey
+        '''
+        result = self._values.get("secret_key")
+        assert result is not None, "Required property 'secret_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the Baidu channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBaiduChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnCampaignProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "name": "name",
+        "schedule": "schedule",
+        "segment_id": "segmentId",
+        "additional_treatments": "additionalTreatments",
+        "campaign_hook": "campaignHook",
+        "custom_delivery_configuration": "customDeliveryConfiguration",
+        "description": "description",
+        "holdout_percent": "holdoutPercent",
+        "is_paused": "isPaused",
+        "limits": "limits",
+        "message_configuration": "messageConfiguration",
+        "priority": "priority",
+        "segment_version": "segmentVersion",
+        "tags": "tags",
+        "template_configuration": "templateConfiguration",
+        "treatment_description": "treatmentDescription",
+        "treatment_name": "treatmentName",
+    },
+)
+class CfnCampaignProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        name: builtins.str,
+        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        segment_id: builtins.str,
+        additional_treatments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.WriteTreatmentResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.CampaignHookProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.CustomDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        holdout_percent: typing.Optional[jsii.Number] = None,
+        is_paused: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.LimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        message_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.MessageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        segment_version: typing.Optional[jsii.Number] = None,
+        tags: typing.Any = None,
+        template_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCampaign.TemplateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        treatment_description: typing.Optional[builtins.str] = None,
+        treatment_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCampaign``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the campaign is associated with.
+        :param name: The name of the campaign.
+        :param schedule: The schedule settings for the treatment.
+        :param segment_id: The unique identifier for the segment to associate with the campaign.
+        :param additional_treatments: An array of requests that defines additional treatments for the campaign, in addition to the default treatment for the campaign.
+        :param campaign_hook: Specifies the Lambda function to use as a code hook for a campaign.
+        :param custom_delivery_configuration: The delivery configuration settings for sending the treatment through a custom channel. This object is required if the ``MessageConfiguration`` object for the treatment specifies a ``CustomMessage`` object.
+        :param description: A custom description of the campaign.
+        :param holdout_percent: The allocated percentage of users (segment members) who shouldn't receive messages from the campaign.
+        :param is_paused: Specifies whether to pause the campaign. A paused campaign doesn't run unless you resume it by changing this value to ``false`` . If you restart a campaign, the campaign restarts from the beginning and not at the point you paused it. If a campaign is running it will complete and then pause. Pause only pauses or skips the next run for a recurring future scheduled campaign. A campaign scheduled for immediate can't be paused.
+        :param limits: The messaging limits for the campaign.
+        :param message_configuration: The message configuration settings for the treatment.
+        :param priority: An integer between 1 and 5, inclusive, that represents the priority of the in-app message campaign, where 1 is the highest priority and 5 is the lowest. If there are multiple messages scheduled to be displayed at the same time, the priority determines the order in which those messages are displayed.
+        :param segment_version: The version of the segment to associate with the campaign.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param template_configuration: The message template to use for the treatment.
+        :param treatment_description: A custom description of the treatment.
+        :param treatment_name: A custom name for the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # attributes: Any
+            # custom_config: Any
+            # metrics: Any
+            # tags: Any
+            
+            cfn_campaign_props = pinpoint.CfnCampaignProps(
+                application_id="applicationId",
+                name="name",
+                schedule=pinpoint.CfnCampaign.ScheduleProperty(
+                    end_time="endTime",
+                    event_filter=pinpoint.CfnCampaign.CampaignEventFilterProperty(
+                        dimensions=pinpoint.CfnCampaign.EventDimensionsProperty(
+                            attributes=attributes,
+                            event_type=pinpoint.CfnCampaign.SetDimensionProperty(
+                                dimension_type="dimensionType",
+                                values=["values"]
+                            ),
+                            metrics=metrics
+                        ),
+                        filter_type="filterType"
+                    ),
+                    frequency="frequency",
+                    is_local_time=False,
+                    quiet_time=pinpoint.CfnCampaign.QuietTimeProperty(
+                        end="end",
+                        start="start"
+                    ),
+                    start_time="startTime",
+                    time_zone="timeZone"
+                ),
+                segment_id="segmentId",
+            
+                # the properties below are optional
+                additional_treatments=[pinpoint.CfnCampaign.WriteTreatmentResourceProperty(
+                    custom_delivery_configuration=pinpoint.CfnCampaign.CustomDeliveryConfigurationProperty(
+                        delivery_uri="deliveryUri",
+                        endpoint_types=["endpointTypes"]
+                    ),
+                    message_configuration=pinpoint.CfnCampaign.MessageConfigurationProperty(
+                        adm_message=pinpoint.CfnCampaign.MessageProperty(
+                            action="action",
+                            body="body",
+                            image_icon_url="imageIconUrl",
+                            image_small_icon_url="imageSmallIconUrl",
+                            image_url="imageUrl",
+                            json_body="jsonBody",
+                            media_url="mediaUrl",
+                            raw_content="rawContent",
+                            silent_push=False,
+                            time_to_live=123,
+                            title="title",
+                            url="url"
+                        ),
+                        apns_message=pinpoint.CfnCampaign.MessageProperty(
+                            action="action",
+                            body="body",
+                            image_icon_url="imageIconUrl",
+                            image_small_icon_url="imageSmallIconUrl",
+                            image_url="imageUrl",
+                            json_body="jsonBody",
+                            media_url="mediaUrl",
+                            raw_content="rawContent",
+                            silent_push=False,
+                            time_to_live=123,
+                            title="title",
+                            url="url"
+                        ),
+                        baidu_message=pinpoint.CfnCampaign.MessageProperty(
+                            action="action",
+                            body="body",
+                            image_icon_url="imageIconUrl",
+                            image_small_icon_url="imageSmallIconUrl",
+                            image_url="imageUrl",
+                            json_body="jsonBody",
+                            media_url="mediaUrl",
+                            raw_content="rawContent",
+                            silent_push=False,
+                            time_to_live=123,
+                            title="title",
+                            url="url"
+                        ),
+                        custom_message=pinpoint.CfnCampaign.CampaignCustomMessageProperty(
+                            data="data"
+                        ),
+                        default_message=pinpoint.CfnCampaign.MessageProperty(
+                            action="action",
+                            body="body",
+                            image_icon_url="imageIconUrl",
+                            image_small_icon_url="imageSmallIconUrl",
+                            image_url="imageUrl",
+                            json_body="jsonBody",
+                            media_url="mediaUrl",
+                            raw_content="rawContent",
+                            silent_push=False,
+                            time_to_live=123,
+                            title="title",
+                            url="url"
+                        ),
+                        email_message=pinpoint.CfnCampaign.CampaignEmailMessageProperty(
+                            body="body",
+                            from_address="fromAddress",
+                            html_body="htmlBody",
+                            title="title"
+                        ),
+                        gcm_message=pinpoint.CfnCampaign.MessageProperty(
+                            action="action",
+                            body="body",
+                            image_icon_url="imageIconUrl",
+                            image_small_icon_url="imageSmallIconUrl",
+                            image_url="imageUrl",
+                            json_body="jsonBody",
+                            media_url="mediaUrl",
+                            raw_content="rawContent",
+                            silent_push=False,
+                            time_to_live=123,
+                            title="title",
+                            url="url"
+                        ),
+                        in_app_message=pinpoint.CfnCampaign.CampaignInAppMessageProperty(
+                            content=[pinpoint.CfnCampaign.InAppMessageContentProperty(
+                                background_color="backgroundColor",
+                                body_config=pinpoint.CfnCampaign.InAppMessageBodyConfigProperty(
+                                    alignment="alignment",
+                                    body="body",
+                                    text_color="textColor"
+                                ),
+                                header_config=pinpoint.CfnCampaign.InAppMessageHeaderConfigProperty(
+                                    alignment="alignment",
+                                    header="header",
+                                    text_color="textColor"
+                                ),
+                                image_url="imageUrl",
+                                primary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
+                                    android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    ),
+                                    default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
+                                        background_color="backgroundColor",
+                                        border_radius=123,
+                                        button_action="buttonAction",
+                                        link="link",
+                                        text="text",
+                                        text_color="textColor"
+                                    ),
+                                    ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    ),
+                                    web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    )
+                                ),
+                                secondary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
+                                    android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    ),
+                                    default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
+                                        background_color="backgroundColor",
+                                        border_radius=123,
+                                        button_action="buttonAction",
+                                        link="link",
+                                        text="text",
+                                        text_color="textColor"
+                                    ),
+                                    ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    ),
+                                    web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                        button_action="buttonAction",
+                                        link="link"
+                                    )
+                                )
+                            )],
+                            custom_config=custom_config,
+                            layout="layout"
+                        ),
+                        sms_message=pinpoint.CfnCampaign.CampaignSmsMessageProperty(
+                            body="body",
+                            entity_id="entityId",
+                            message_type="messageType",
+                            origination_number="originationNumber",
+                            sender_id="senderId",
+                            template_id="templateId"
+                        )
+                    ),
+                    schedule=pinpoint.CfnCampaign.ScheduleProperty(
+                        end_time="endTime",
+                        event_filter=pinpoint.CfnCampaign.CampaignEventFilterProperty(
+                            dimensions=pinpoint.CfnCampaign.EventDimensionsProperty(
+                                attributes=attributes,
+                                event_type=pinpoint.CfnCampaign.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                metrics=metrics
+                            ),
+                            filter_type="filterType"
+                        ),
+                        frequency="frequency",
+                        is_local_time=False,
+                        quiet_time=pinpoint.CfnCampaign.QuietTimeProperty(
+                            end="end",
+                            start="start"
+                        ),
+                        start_time="startTime",
+                        time_zone="timeZone"
+                    ),
+                    size_percent=123,
+                    template_configuration=pinpoint.CfnCampaign.TemplateConfigurationProperty(
+                        email_template=pinpoint.CfnCampaign.TemplateProperty(
+                            name="name",
+                            version="version"
+                        ),
+                        push_template=pinpoint.CfnCampaign.TemplateProperty(
+                            name="name",
+                            version="version"
+                        ),
+                        sms_template=pinpoint.CfnCampaign.TemplateProperty(
+                            name="name",
+                            version="version"
+                        ),
+                        voice_template=pinpoint.CfnCampaign.TemplateProperty(
+                            name="name",
+                            version="version"
+                        )
+                    ),
+                    treatment_description="treatmentDescription",
+                    treatment_name="treatmentName"
+                )],
+                campaign_hook=pinpoint.CfnCampaign.CampaignHookProperty(
+                    lambda_function_name="lambdaFunctionName",
+                    mode="mode",
+                    web_url="webUrl"
+                ),
+                custom_delivery_configuration=pinpoint.CfnCampaign.CustomDeliveryConfigurationProperty(
+                    delivery_uri="deliveryUri",
+                    endpoint_types=["endpointTypes"]
+                ),
+                description="description",
+                holdout_percent=123,
+                is_paused=False,
+                limits=pinpoint.CfnCampaign.LimitsProperty(
+                    daily=123,
+                    maximum_duration=123,
+                    messages_per_second=123,
+                    session=123,
+                    total=123
+                ),
+                message_configuration=pinpoint.CfnCampaign.MessageConfigurationProperty(
+                    adm_message=pinpoint.CfnCampaign.MessageProperty(
+                        action="action",
+                        body="body",
+                        image_icon_url="imageIconUrl",
+                        image_small_icon_url="imageSmallIconUrl",
+                        image_url="imageUrl",
+                        json_body="jsonBody",
+                        media_url="mediaUrl",
+                        raw_content="rawContent",
+                        silent_push=False,
+                        time_to_live=123,
+                        title="title",
+                        url="url"
+                    ),
+                    apns_message=pinpoint.CfnCampaign.MessageProperty(
+                        action="action",
+                        body="body",
+                        image_icon_url="imageIconUrl",
+                        image_small_icon_url="imageSmallIconUrl",
+                        image_url="imageUrl",
+                        json_body="jsonBody",
+                        media_url="mediaUrl",
+                        raw_content="rawContent",
+                        silent_push=False,
+                        time_to_live=123,
+                        title="title",
+                        url="url"
+                    ),
+                    baidu_message=pinpoint.CfnCampaign.MessageProperty(
+                        action="action",
+                        body="body",
+                        image_icon_url="imageIconUrl",
+                        image_small_icon_url="imageSmallIconUrl",
+                        image_url="imageUrl",
+                        json_body="jsonBody",
+                        media_url="mediaUrl",
+                        raw_content="rawContent",
+                        silent_push=False,
+                        time_to_live=123,
+                        title="title",
+                        url="url"
+                    ),
+                    custom_message=pinpoint.CfnCampaign.CampaignCustomMessageProperty(
+                        data="data"
+                    ),
+                    default_message=pinpoint.CfnCampaign.MessageProperty(
+                        action="action",
+                        body="body",
+                        image_icon_url="imageIconUrl",
+                        image_small_icon_url="imageSmallIconUrl",
+                        image_url="imageUrl",
+                        json_body="jsonBody",
+                        media_url="mediaUrl",
+                        raw_content="rawContent",
+                        silent_push=False,
+                        time_to_live=123,
+                        title="title",
+                        url="url"
+                    ),
+                    email_message=pinpoint.CfnCampaign.CampaignEmailMessageProperty(
+                        body="body",
+                        from_address="fromAddress",
+                        html_body="htmlBody",
+                        title="title"
+                    ),
+                    gcm_message=pinpoint.CfnCampaign.MessageProperty(
+                        action="action",
+                        body="body",
+                        image_icon_url="imageIconUrl",
+                        image_small_icon_url="imageSmallIconUrl",
+                        image_url="imageUrl",
+                        json_body="jsonBody",
+                        media_url="mediaUrl",
+                        raw_content="rawContent",
+                        silent_push=False,
+                        time_to_live=123,
+                        title="title",
+                        url="url"
+                    ),
+                    in_app_message=pinpoint.CfnCampaign.CampaignInAppMessageProperty(
+                        content=[pinpoint.CfnCampaign.InAppMessageContentProperty(
+                            background_color="backgroundColor",
+                            body_config=pinpoint.CfnCampaign.InAppMessageBodyConfigProperty(
+                                alignment="alignment",
+                                body="body",
+                                text_color="textColor"
+                            ),
+                            header_config=pinpoint.CfnCampaign.InAppMessageHeaderConfigProperty(
+                                alignment="alignment",
+                                header="header",
+                                text_color="textColor"
+                            ),
+                            image_url="imageUrl",
+                            primary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
+                                android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                ),
+                                default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
+                                    background_color="backgroundColor",
+                                    border_radius=123,
+                                    button_action="buttonAction",
+                                    link="link",
+                                    text="text",
+                                    text_color="textColor"
+                                ),
+                                ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                ),
+                                web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                )
+                            ),
+                            secondary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
+                                android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                ),
+                                default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
+                                    background_color="backgroundColor",
+                                    border_radius=123,
+                                    button_action="buttonAction",
+                                    link="link",
+                                    text="text",
+                                    text_color="textColor"
+                                ),
+                                ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                ),
+                                web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
+                                    button_action="buttonAction",
+                                    link="link"
+                                )
+                            )
+                        )],
+                        custom_config=custom_config,
+                        layout="layout"
+                    ),
+                    sms_message=pinpoint.CfnCampaign.CampaignSmsMessageProperty(
+                        body="body",
+                        entity_id="entityId",
+                        message_type="messageType",
+                        origination_number="originationNumber",
+                        sender_id="senderId",
+                        template_id="templateId"
+                    )
+                ),
+                priority=123,
+                segment_version=123,
+                tags=tags,
+                template_configuration=pinpoint.CfnCampaign.TemplateConfigurationProperty(
+                    email_template=pinpoint.CfnCampaign.TemplateProperty(
+                        name="name",
+                        version="version"
+                    ),
+                    push_template=pinpoint.CfnCampaign.TemplateProperty(
+                        name="name",
+                        version="version"
+                    ),
+                    sms_template=pinpoint.CfnCampaign.TemplateProperty(
+                        name="name",
+                        version="version"
+                    ),
+                    voice_template=pinpoint.CfnCampaign.TemplateProperty(
+                        name="name",
+                        version="version"
+                    )
+                ),
+                treatment_description="treatmentDescription",
+                treatment_name="treatmentName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8089eb09489d44c4a64192dbd9c8fe4f0ae8d17684ba1c3d9763b2d2393e97f)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument segment_id", value=segment_id, expected_type=type_hints["segment_id"])
+            check_type(argname="argument additional_treatments", value=additional_treatments, expected_type=type_hints["additional_treatments"])
+            check_type(argname="argument campaign_hook", value=campaign_hook, expected_type=type_hints["campaign_hook"])
+            check_type(argname="argument custom_delivery_configuration", value=custom_delivery_configuration, expected_type=type_hints["custom_delivery_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument holdout_percent", value=holdout_percent, expected_type=type_hints["holdout_percent"])
+            check_type(argname="argument is_paused", value=is_paused, expected_type=type_hints["is_paused"])
+            check_type(argname="argument limits", value=limits, expected_type=type_hints["limits"])
+            check_type(argname="argument message_configuration", value=message_configuration, expected_type=type_hints["message_configuration"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument segment_version", value=segment_version, expected_type=type_hints["segment_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_configuration", value=template_configuration, expected_type=type_hints["template_configuration"])
+            check_type(argname="argument treatment_description", value=treatment_description, expected_type=type_hints["treatment_description"])
+            check_type(argname="argument treatment_name", value=treatment_name, expected_type=type_hints["treatment_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "name": name,
+            "schedule": schedule,
+            "segment_id": segment_id,
+        }
+        if additional_treatments is not None:
+            self._values["additional_treatments"] = additional_treatments
+        if campaign_hook is not None:
+            self._values["campaign_hook"] = campaign_hook
+        if custom_delivery_configuration is not None:
+            self._values["custom_delivery_configuration"] = custom_delivery_configuration
+        if description is not None:
+            self._values["description"] = description
+        if holdout_percent is not None:
+            self._values["holdout_percent"] = holdout_percent
+        if is_paused is not None:
+            self._values["is_paused"] = is_paused
+        if limits is not None:
+            self._values["limits"] = limits
+        if message_configuration is not None:
+            self._values["message_configuration"] = message_configuration
+        if priority is not None:
+            self._values["priority"] = priority
+        if segment_version is not None:
+            self._values["segment_version"] = segment_version
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_configuration is not None:
+            self._values["template_configuration"] = template_configuration
+        if treatment_description is not None:
+            self._values["treatment_description"] = treatment_description
+        if treatment_name is not None:
+            self._values["treatment_name"] = treatment_name
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the campaign is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCampaign.ScheduleProperty"]:
+        '''The schedule settings for the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-schedule
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCampaign.ScheduleProperty"], result)
+
+    @builtins.property
+    def segment_id(self) -> builtins.str:
+        '''The unique identifier for the segment to associate with the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-segmentid
+        '''
+        result = self._values.get("segment_id")
+        assert result is not None, "Required property 'segment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_treatments(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.WriteTreatmentResourceProperty"]]]]:
+        '''An array of requests that defines additional treatments for the campaign, in addition to the default treatment for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-additionaltreatments
+        '''
+        result = self._values.get("additional_treatments")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCampaign.WriteTreatmentResourceProperty"]]]], result)
+
+    @builtins.property
+    def campaign_hook(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.CampaignHookProperty"]]:
+        '''Specifies the Lambda function to use as a code hook for a campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-campaignhook
+        '''
+        result = self._values.get("campaign_hook")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.CampaignHookProperty"]], result)
+
+    @builtins.property
+    def custom_delivery_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.CustomDeliveryConfigurationProperty"]]:
+        '''The delivery configuration settings for sending the treatment through a custom channel.
+
+        This object is required if the ``MessageConfiguration`` object for the treatment specifies a ``CustomMessage`` object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-customdeliveryconfiguration
+        '''
+        result = self._values.get("custom_delivery_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.CustomDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def holdout_percent(self) -> typing.Optional[jsii.Number]:
+        '''The allocated percentage of users (segment members) who shouldn't receive messages from the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-holdoutpercent
+        '''
+        result = self._values.get("holdout_percent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def is_paused(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to pause the campaign.
+
+        A paused campaign doesn't run unless you resume it by changing this value to ``false`` . If you restart a campaign, the campaign restarts from the beginning and not at the point you paused it. If a campaign is running it will complete and then pause. Pause only pauses or skips the next run for a recurring future scheduled campaign. A campaign scheduled for immediate can't be paused.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-ispaused
+        '''
+        result = self._values.get("is_paused")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def limits(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.LimitsProperty"]]:
+        '''The messaging limits for the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-limits
+        '''
+        result = self._values.get("limits")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.LimitsProperty"]], result)
+
+    @builtins.property
+    def message_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.MessageConfigurationProperty"]]:
+        '''The message configuration settings for the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-messageconfiguration
+        '''
+        result = self._values.get("message_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.MessageConfigurationProperty"]], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''An integer between 1 and 5, inclusive, that represents the priority of the in-app message campaign, where 1 is the highest priority and 5 is the lowest.
+
+        If there are multiple messages scheduled to be displayed at the same time, the priority determines the order in which those messages are displayed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def segment_version(self) -> typing.Optional[jsii.Number]:
+        '''The version of the segment to associate with the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-segmentversion
+        '''
+        result = self._values.get("segment_version")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def template_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TemplateConfigurationProperty"]]:
+        '''The message template to use for the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-templateconfiguration
+        '''
+        result = self._values.get("template_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCampaign.TemplateConfigurationProperty"]], result)
+
+    @builtins.property
+    def treatment_description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-treatmentdescription
+        '''
+        result = self._values.get("treatment_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def treatment_name(self) -> typing.Optional[builtins.str]:
+        '''A custom name for the treatment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-treatmentname
+        '''
+        result = self._values.get("treatment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCampaignProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEmailChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "from_address": "fromAddress",
+        "identity": "identity",
+        "configuration_set": "configurationSet",
+        "enabled": "enabled",
+        "orchestration_sending_role_arn": "orchestrationSendingRoleArn",
+        "role_arn": "roleArn",
+    },
+)
+class CfnEmailChannelProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        from_address: builtins.str,
+        identity: builtins.str,
+        configuration_set: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        orchestration_sending_role_arn: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEmailChannel``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that you're specifying the email channel for.
+        :param from_address: The verified email address that you want to send email from when you send email through the channel.
+        :param identity: The Amazon Resource Name (ARN) of the identity, verified with Amazon Simple Email Service (Amazon SES), that you want to use when you send email through the channel.
+        :param configuration_set: The `Amazon SES configuration set <https://docs.aws.amazon.com/ses/latest/APIReference/API_ConfigurationSet.html>`_ that you want to apply to messages that you send through the channel.
+        :param enabled: Specifies whether to enable the email channel for the application.
+        :param orchestration_sending_role_arn: The ARN of an IAM role for Amazon Pinpoint to use to send email from your campaigns or journeys through Amazon SES .
+        :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that you want Amazon Pinpoint to use when it submits email-related event data for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_email_channel_props = pinpoint.CfnEmailChannelProps(
+                application_id="applicationId",
+                from_address="fromAddress",
+                identity="identity",
+            
+                # the properties below are optional
+                configuration_set="configurationSet",
+                enabled=False,
+                orchestration_sending_role_arn="orchestrationSendingRoleArn",
+                role_arn="roleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d31b287f2c5e7cfc3790c0eca9541325a73a2157dce8dbc1d3b7d9fa702d77ff)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument from_address", value=from_address, expected_type=type_hints["from_address"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument orchestration_sending_role_arn", value=orchestration_sending_role_arn, expected_type=type_hints["orchestration_sending_role_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "from_address": from_address,
+            "identity": identity,
+        }
+        if configuration_set is not None:
+            self._values["configuration_set"] = configuration_set
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if orchestration_sending_role_arn is not None:
+            self._values["orchestration_sending_role_arn"] = orchestration_sending_role_arn
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that you're specifying the email channel for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def from_address(self) -> builtins.str:
+        '''The verified email address that you want to send email from when you send email through the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-fromaddress
+        '''
+        result = self._values.get("from_address")
+        assert result is not None, "Required property 'from_address' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the identity, verified with Amazon Simple Email Service (Amazon SES), that you want to use when you send email through the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-identity
+        '''
+        result = self._values.get("identity")
+        assert result is not None, "Required property 'identity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_set(self) -> typing.Optional[builtins.str]:
+        '''The `Amazon SES configuration set <https://docs.aws.amazon.com/ses/latest/APIReference/API_ConfigurationSet.html>`_ that you want to apply to messages that you send through the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-configurationset
+        '''
+        result = self._values.get("configuration_set")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the email channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def orchestration_sending_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM role for Amazon Pinpoint to use to send email from your campaigns or journeys through Amazon SES .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-orchestrationsendingrolearn
+        '''
+        result = self._values.get("orchestration_sending_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the AWS Identity and Access Management (IAM) role that you want Amazon Pinpoint to use when it submits email-related event data for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEmailChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEmailTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subject": "subject",
+        "template_name": "templateName",
+        "default_substitutions": "defaultSubstitutions",
+        "html_part": "htmlPart",
+        "tags": "tags",
+        "template_description": "templateDescription",
+        "text_part": "textPart",
+    },
+)
+class CfnEmailTemplateProps:
+    def __init__(
+        self,
+        *,
+        subject: builtins.str,
+        template_name: builtins.str,
+        default_substitutions: typing.Optional[builtins.str] = None,
+        html_part: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+        template_description: typing.Optional[builtins.str] = None,
+        text_part: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEmailTemplate``.
+
+        :param subject: The subject line, or title, to use in email messages that are based on the message template.
+        :param template_name: The name of the message template.
+        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+        :param html_part: The message body, in HTML format, to use in email messages that are based on the message template. We recommend using HTML format for email clients that render HTML content. You can include links, formatted text, and more in an HTML message.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param template_description: A custom description of the message template.
+        :param text_part: The message body, in plain text format, to use in email messages that are based on the message template. We recommend using plain text format for email clients that don't render HTML content and clients that are connected to high-latency networks, such as mobile devices.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # tags: Any
+            
+            cfn_email_template_props = pinpoint.CfnEmailTemplateProps(
+                subject="subject",
+                template_name="templateName",
+            
+                # the properties below are optional
+                default_substitutions="defaultSubstitutions",
+                html_part="htmlPart",
+                tags=tags,
+                template_description="templateDescription",
+                text_part="textPart"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82e765dee130dbbde67e866633bee4ee835d943cf8392dcd6605e0dde4e3821c)
+            check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
+            check_type(argname="argument html_part", value=html_part, expected_type=type_hints["html_part"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
+            check_type(argname="argument text_part", value=text_part, expected_type=type_hints["text_part"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subject": subject,
+            "template_name": template_name,
+        }
+        if default_substitutions is not None:
+            self._values["default_substitutions"] = default_substitutions
+        if html_part is not None:
+            self._values["html_part"] = html_part
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_description is not None:
+            self._values["template_description"] = template_description
+        if text_part is not None:
+            self._values["text_part"] = text_part
+
+    @builtins.property
+    def subject(self) -> builtins.str:
+        '''The subject line, or title, to use in email messages that are based on the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-subject
+        '''
+        result = self._values.get("subject")
+        assert result is not None, "Required property 'subject' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The name of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_substitutions(self) -> typing.Optional[builtins.str]:
+        '''A JSON object that specifies the default values to use for message variables in the message template.
+
+        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-defaultsubstitutions
+        '''
+        result = self._values.get("default_substitutions")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def html_part(self) -> typing.Optional[builtins.str]:
+        '''The message body, in HTML format, to use in email messages that are based on the message template.
+
+        We recommend using HTML format for email clients that render HTML content. You can include links, formatted text, and more in an HTML message.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-htmlpart
+        '''
+        result = self._values.get("html_part")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def template_description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-templatedescription
+        '''
+        result = self._values.get("template_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def text_part(self) -> typing.Optional[builtins.str]:
+        '''The message body, in plain text format, to use in email messages that are based on the message template.
+
+        We recommend using plain text format for email clients that don't render HTML content and clients that are connected to high-latency networks, such as mobile devices.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-textpart
+        '''
+        result = self._values.get("text_part")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEmailTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEventStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "destination_stream_arn": "destinationStreamArn",
+        "role_arn": "roleArn",
+    },
+)
+class CfnEventStreamProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        destination_stream_arn: builtins.str,
+        role_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnEventStream``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that you want to export data from.
+        :param destination_stream_arn: The Amazon Resource Name (ARN) of the Amazon Kinesis Data Stream or Amazon Data Firehose delivery stream that you want to publish event data to. For a Kinesis Data Stream, the ARN format is: ``arn:aws:kinesis: region : account-id :stream/ stream_name`` For a Firehose delivery stream, the ARN format is: ``arn:aws:firehose: region : account-id :deliverystream/ stream_name``
+        :param role_arn: The AWS Identity and Access Management (IAM) role that authorizes Amazon Pinpoint to publish event data to the stream in your AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_event_stream_props = pinpoint.CfnEventStreamProps(
+                application_id="applicationId",
+                destination_stream_arn="destinationStreamArn",
+                role_arn="roleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ef26e6e94ef7fa3322d0acc6e2ff1ff55f9317bf3c2fad1529941a4ab3b906e)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument destination_stream_arn", value=destination_stream_arn, expected_type=type_hints["destination_stream_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "destination_stream_arn": destination_stream_arn,
+            "role_arn": role_arn,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that you want to export data from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def destination_stream_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon Kinesis Data Stream or Amazon Data Firehose delivery stream that you want to publish event data to.
+
+        For a Kinesis Data Stream, the ARN format is: ``arn:aws:kinesis: region : account-id :stream/ stream_name``
+
+        For a Firehose delivery stream, the ARN format is: ``arn:aws:firehose: region : account-id :deliverystream/ stream_name``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-destinationstreamarn
+        '''
+        result = self._values.get("destination_stream_arn")
+        assert result is not None, "Required property 'destination_stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The AWS Identity and Access Management (IAM) role that authorizes Amazon Pinpoint to publish event data to the stream in your AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnGCMChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "api_key": "apiKey",
+        "default_authentication_method": "defaultAuthenticationMethod",
+        "enabled": "enabled",
+        "service_json": "serviceJson",
+    },
+)
+class CfnGCMChannelProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        api_key: typing.Optional[builtins.str] = None,
+        default_authentication_method: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        service_json: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGCMChannel``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the GCM channel applies to.
+        :param api_key: The Web API key, also called the *server key* , that you received from Google to communicate with Google services.
+        :param default_authentication_method: The default authentication method used for GCM. Values are either "TOKEN" or "KEY". Defaults to "KEY".
+        :param enabled: Specifies whether to enable the GCM channel for the Amazon Pinpoint application.
+        :param service_json: The contents of the JSON file provided by Google during registration in order to generate an access token for authentication. For more information see `Migrate from legacy FCM APIs to HTTP v1 <https://docs.aws.amazon.com/https://firebase.google.com/docs/cloud-messaging/migrate-v1>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_gCMChannel_props = pinpoint.CfnGCMChannelProps(
+                application_id="applicationId",
+            
+                # the properties below are optional
+                api_key="apiKey",
+                default_authentication_method="defaultAuthenticationMethod",
+                enabled=False,
+                service_json="serviceJson"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e274fb934af0ad701780242707b5b8268879db22917a3c6b496e2649c2c225eb)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument default_authentication_method", value=default_authentication_method, expected_type=type_hints["default_authentication_method"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument service_json", value=service_json, expected_type=type_hints["service_json"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+        if api_key is not None:
+            self._values["api_key"] = api_key
+        if default_authentication_method is not None:
+            self._values["default_authentication_method"] = default_authentication_method
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if service_json is not None:
+            self._values["service_json"] = service_json
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the GCM channel applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_key(self) -> typing.Optional[builtins.str]:
+        '''The Web API key, also called the *server key* , that you received from Google to communicate with Google services.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-apikey
+        '''
+        result = self._values.get("api_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_authentication_method(self) -> typing.Optional[builtins.str]:
+        '''The default authentication method used for GCM.
+
+        Values are either "TOKEN" or "KEY". Defaults to "KEY".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-defaultauthenticationmethod
+        '''
+        result = self._values.get("default_authentication_method")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the GCM channel for the Amazon Pinpoint application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def service_json(self) -> typing.Optional[builtins.str]:
+        '''The contents of the JSON file provided by Google during registration in order to generate an access token for authentication.
+
+        For more information see `Migrate from legacy FCM APIs to HTTP v1 <https://docs.aws.amazon.com/https://firebase.google.com/docs/cloud-messaging/migrate-v1>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-servicejson
+        '''
+        result = self._values.get("service_json")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGCMChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnInAppTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "template_name": "templateName",
+        "content": "content",
+        "custom_config": "customConfig",
+        "layout": "layout",
+        "tags": "tags",
+        "template_description": "templateDescription",
+    },
+)
+class CfnInAppTemplateProps:
+    def __init__(
+        self,
+        *,
+        template_name: builtins.str,
+        content: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInAppTemplate.InAppMessageContentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_config: typing.Any = None,
+        layout: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+        template_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInAppTemplate``.
+
+        :param template_name: The name of the in-app message template.
+        :param content: An object that contains information about the content of an in-app message, including its title and body text, text colors, background colors, images, buttons, and behaviors.
+        :param custom_config: Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.
+        :param layout: A string that determines the appearance of the in-app message. You can specify one of the following:. - ``BOTTOM_BANNER`` – a message that appears as a banner at the bottom of the page. - ``TOP_BANNER`` – a message that appears as a banner at the top of the page. - ``OVERLAYS`` – a message that covers entire screen. - ``MOBILE_FEED`` – a message that appears in a window in front of the page. - ``MIDDLE_BANNER`` – a message that appears as a banner in the middle of the page. - ``CAROUSEL`` – a scrollable layout of up to five unique messages.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param template_description: An optional description of the in-app template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # custom_config: Any
+            # tags: Any
+            
+            cfn_in_app_template_props = pinpoint.CfnInAppTemplateProps(
+                template_name="templateName",
+            
+                # the properties below are optional
+                content=[pinpoint.CfnInAppTemplate.InAppMessageContentProperty(
+                    background_color="backgroundColor",
+                    body_config=pinpoint.CfnInAppTemplate.BodyConfigProperty(
+                        alignment="alignment",
+                        body="body",
+                        text_color="textColor"
+                    ),
+                    header_config=pinpoint.CfnInAppTemplate.HeaderConfigProperty(
+                        alignment="alignment",
+                        header="header",
+                        text_color="textColor"
+                    ),
+                    image_url="imageUrl",
+                    primary_btn=pinpoint.CfnInAppTemplate.ButtonConfigProperty(
+                        android=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        ),
+                        default_config=pinpoint.CfnInAppTemplate.DefaultButtonConfigurationProperty(
+                            background_color="backgroundColor",
+                            border_radius=123,
+                            button_action="buttonAction",
+                            link="link",
+                            text="text",
+                            text_color="textColor"
+                        ),
+                        ios=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        ),
+                        web=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        )
+                    ),
+                    secondary_btn=pinpoint.CfnInAppTemplate.ButtonConfigProperty(
+                        android=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        ),
+                        default_config=pinpoint.CfnInAppTemplate.DefaultButtonConfigurationProperty(
+                            background_color="backgroundColor",
+                            border_radius=123,
+                            button_action="buttonAction",
+                            link="link",
+                            text="text",
+                            text_color="textColor"
+                        ),
+                        ios=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        ),
+                        web=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
+                            button_action="buttonAction",
+                            link="link"
+                        )
+                    )
+                )],
+                custom_config=custom_config,
+                layout="layout",
+                tags=tags,
+                template_description="templateDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e454773fb34afe57455c1ba518ee98492a81389b5fa127cd17273718dc8bcd1d)
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument custom_config", value=custom_config, expected_type=type_hints["custom_config"])
+            check_type(argname="argument layout", value=layout, expected_type=type_hints["layout"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_name": template_name,
+        }
+        if content is not None:
+            self._values["content"] = content
+        if custom_config is not None:
+            self._values["custom_config"] = custom_config
+        if layout is not None:
+            self._values["layout"] = layout
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_description is not None:
+            self._values["template_description"] = template_description
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The name of the in-app message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInAppTemplate.InAppMessageContentProperty"]]]]:
+        '''An object that contains information about the content of an in-app message, including its title and body text, text colors, background colors, images, buttons, and behaviors.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-content
+        '''
+        result = self._values.get("content")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInAppTemplate.InAppMessageContentProperty"]]]], result)
+
+    @builtins.property
+    def custom_config(self) -> typing.Any:
+        '''Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-customconfig
+        '''
+        result = self._values.get("custom_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def layout(self) -> typing.Optional[builtins.str]:
+        '''A string that determines the appearance of the in-app message. You can specify one of the following:.
+
+        - ``BOTTOM_BANNER`` – a message that appears as a banner at the bottom of the page.
+        - ``TOP_BANNER`` – a message that appears as a banner at the top of the page.
+        - ``OVERLAYS`` – a message that covers entire screen.
+        - ``MOBILE_FEED`` – a message that appears in a window in front of the page.
+        - ``MIDDLE_BANNER`` – a message that appears as a banner in the middle of the page.
+        - ``CAROUSEL`` – a scrollable layout of up to five unique messages.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-layout
+        '''
+        result = self._values.get("layout")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def template_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the in-app template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-templatedescription
+        '''
+        result = self._values.get("template_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInAppTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnPushTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "template_name": "templateName",
+        "adm": "adm",
+        "apns": "apns",
+        "baidu": "baidu",
+        "default": "default",
+        "default_substitutions": "defaultSubstitutions",
+        "gcm": "gcm",
+        "tags": "tags",
+        "template_description": "templateDescription",
+    },
+)
+class CfnPushTemplateProps:
+    def __init__(
+        self,
+        *,
+        template_name: builtins.str,
+        adm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPushTemplate.AndroidPushNotificationTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        apns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPushTemplate.APNSPushNotificationTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        baidu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPushTemplate.AndroidPushNotificationTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPushTemplate.DefaultPushNotificationTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_substitutions: typing.Optional[builtins.str] = None,
+        gcm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPushTemplate.AndroidPushNotificationTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+        template_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPushTemplate``.
+
+        :param template_name: The name of the message template to use for the message. If specified, this value must match the name of an existing message template.
+        :param adm: The message template to use for the ADM (Amazon Device Messaging) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
+        :param apns: The message template to use for the APNs (Apple Push Notification service) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
+        :param baidu: The message template to use for the Baidu (Baidu Cloud Push) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
+        :param default: The default message template to use for push notification channels.
+        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+        :param gcm: The message template to use for the GCM channel, which is used to send notifications through the Firebase Cloud Messaging (FCM), formerly Google Cloud Messaging (GCM), service. This message template overrides the default template for push notification channels ( ``Default`` ).
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param template_description: A custom description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # tags: Any
+            
+            cfn_push_template_props = pinpoint.CfnPushTemplateProps(
+                template_name="templateName",
+            
+                # the properties below are optional
+                adm=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
+                    action="action",
+                    body="body",
+                    image_icon_url="imageIconUrl",
+                    image_url="imageUrl",
+                    small_image_icon_url="smallImageIconUrl",
+                    sound="sound",
+                    title="title",
+                    url="url"
+                ),
+                apns=pinpoint.CfnPushTemplate.APNSPushNotificationTemplateProperty(
+                    action="action",
+                    body="body",
+                    media_url="mediaUrl",
+                    sound="sound",
+                    title="title",
+                    url="url"
+                ),
+                baidu=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
+                    action="action",
+                    body="body",
+                    image_icon_url="imageIconUrl",
+                    image_url="imageUrl",
+                    small_image_icon_url="smallImageIconUrl",
+                    sound="sound",
+                    title="title",
+                    url="url"
+                ),
+                default=pinpoint.CfnPushTemplate.DefaultPushNotificationTemplateProperty(
+                    action="action",
+                    body="body",
+                    sound="sound",
+                    title="title",
+                    url="url"
+                ),
+                default_substitutions="defaultSubstitutions",
+                gcm=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
+                    action="action",
+                    body="body",
+                    image_icon_url="imageIconUrl",
+                    image_url="imageUrl",
+                    small_image_icon_url="smallImageIconUrl",
+                    sound="sound",
+                    title="title",
+                    url="url"
+                ),
+                tags=tags,
+                template_description="templateDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd3a4d65d82add35f6d1294904a394ae2b9d9f09c6f0f78d8e25def5b4fa1b13)
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument adm", value=adm, expected_type=type_hints["adm"])
+            check_type(argname="argument apns", value=apns, expected_type=type_hints["apns"])
+            check_type(argname="argument baidu", value=baidu, expected_type=type_hints["baidu"])
+            check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
+            check_type(argname="argument gcm", value=gcm, expected_type=type_hints["gcm"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_name": template_name,
+        }
+        if adm is not None:
+            self._values["adm"] = adm
+        if apns is not None:
+            self._values["apns"] = apns
+        if baidu is not None:
+            self._values["baidu"] = baidu
+        if default is not None:
+            self._values["default"] = default
+        if default_substitutions is not None:
+            self._values["default_substitutions"] = default_substitutions
+        if gcm is not None:
+            self._values["gcm"] = gcm
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_description is not None:
+            self._values["template_description"] = template_description
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The name of the message template to use for the message.
+
+        If specified, this value must match the name of an existing message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def adm(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]]:
+        '''The message template to use for the ADM (Amazon Device Messaging) channel.
+
+        This message template overrides the default template for push notification channels ( ``Default`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-adm
+        '''
+        result = self._values.get("adm")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]], result)
+
+    @builtins.property
+    def apns(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.APNSPushNotificationTemplateProperty"]]:
+        '''The message template to use for the APNs (Apple Push Notification service) channel.
+
+        This message template overrides the default template for push notification channels ( ``Default`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-apns
+        '''
+        result = self._values.get("apns")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.APNSPushNotificationTemplateProperty"]], result)
+
+    @builtins.property
+    def baidu(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]]:
+        '''The message template to use for the Baidu (Baidu Cloud Push) channel.
+
+        This message template overrides the default template for push notification channels ( ``Default`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-baidu
+        '''
+        result = self._values.get("baidu")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]], result)
+
+    @builtins.property
+    def default(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.DefaultPushNotificationTemplateProperty"]]:
+        '''The default message template to use for push notification channels.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-default
+        '''
+        result = self._values.get("default")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.DefaultPushNotificationTemplateProperty"]], result)
+
+    @builtins.property
+    def default_substitutions(self) -> typing.Optional[builtins.str]:
+        '''A JSON object that specifies the default values to use for message variables in the message template.
+
+        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-defaultsubstitutions
+        '''
+        result = self._values.get("default_substitutions")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def gcm(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]]:
+        '''The message template to use for the GCM channel, which is used to send notifications through the Firebase Cloud Messaging (FCM), formerly Google Cloud Messaging (GCM), service.
+
+        This message template overrides the default template for push notification channels ( ``Default`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-gcm
+        '''
+        result = self._values.get("gcm")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPushTemplate.AndroidPushNotificationTemplateProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def template_description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-templatedescription
+        '''
+        result = self._values.get("template_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPushTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSMSChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "enabled": "enabled",
+        "sender_id": "senderId",
+        "short_code": "shortCode",
+    },
+)
+class CfnSMSChannelProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        sender_id: typing.Optional[builtins.str] = None,
+        short_code: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSMSChannel``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the SMS channel applies to.
+        :param enabled: Specifies whether to enable the SMS channel for the application.
+        :param sender_id: The identity that you want to display on recipients' devices when they receive messages from the SMS channel. .. epigraph:: SenderIDs are only supported in certain countries and regions. For more information, see `Supported Countries and Regions <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-countries.html>`_ in the *Amazon Pinpoint User Guide* .
+        :param short_code: The registered short code that you want to use when you send messages through the SMS channel. .. epigraph:: For information about obtaining a dedicated short code for sending SMS messages, see `Requesting Dedicated Short Codes for SMS Messaging with Amazon Pinpoint <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-awssupport-short-code.html>`_ in the *Amazon Pinpoint User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_sMSChannel_props = pinpoint.CfnSMSChannelProps(
+                application_id="applicationId",
+            
+                # the properties below are optional
+                enabled=False,
+                sender_id="senderId",
+                short_code="shortCode"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d552897f1d5758cdf867f5379dff6344a4a7cebdd47142cd2fc361f08aca12a)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument sender_id", value=sender_id, expected_type=type_hints["sender_id"])
+            check_type(argname="argument short_code", value=short_code, expected_type=type_hints["short_code"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if sender_id is not None:
+            self._values["sender_id"] = sender_id
+        if short_code is not None:
+            self._values["short_code"] = short_code
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the SMS channel applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the SMS channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def sender_id(self) -> typing.Optional[builtins.str]:
+        '''The identity that you want to display on recipients' devices when they receive messages from the SMS channel.
+
+        .. epigraph::
+
+           SenderIDs are only supported in certain countries and regions. For more information, see `Supported Countries and Regions <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-countries.html>`_ in the *Amazon Pinpoint User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-senderid
+        '''
+        result = self._values.get("sender_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def short_code(self) -> typing.Optional[builtins.str]:
+        '''The registered short code that you want to use when you send messages through the SMS channel.
+
+        .. epigraph::
+
+           For information about obtaining a dedicated short code for sending SMS messages, see `Requesting Dedicated Short Codes for SMS Messaging with Amazon Pinpoint <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-awssupport-short-code.html>`_ in the *Amazon Pinpoint User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-shortcode
+        '''
+        result = self._values.get("short_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSMSChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSegmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "name": "name",
+        "dimensions": "dimensions",
+        "segment_groups": "segmentGroups",
+        "tags": "tags",
+    },
+)
+class CfnSegmentProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        name: builtins.str,
+        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegment.SegmentDimensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegment.SegmentGroupsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSegment``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the segment is associated with.
+        :param name: The name of the segment. .. epigraph:: A segment must have a name otherwise it will not appear in the Amazon Pinpoint console.
+        :param dimensions: An array that defines the dimensions for the segment.
+        :param segment_groups: The segment group to use and the dimensions to apply to the group's base segments in order to build the segment. A segment group can consist of zero or more base segments. Your request can include only one segment group.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # attributes: Any
+            # metrics: Any
+            # tags: Any
+            # user_attributes: Any
+            
+            cfn_segment_props = pinpoint.CfnSegmentProps(
+                application_id="applicationId",
+                name="name",
+            
+                # the properties below are optional
+                dimensions=pinpoint.CfnSegment.SegmentDimensionsProperty(
+                    attributes=attributes,
+                    behavior=pinpoint.CfnSegment.BehaviorProperty(
+                        recency=pinpoint.CfnSegment.RecencyProperty(
+                            duration="duration",
+                            recency_type="recencyType"
+                        )
+                    ),
+                    demographic=pinpoint.CfnSegment.DemographicProperty(
+                        app_version=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        channel=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        device_type=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        make=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        model=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        platform=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        )
+                    ),
+                    location=pinpoint.CfnSegment.LocationProperty(
+                        country=pinpoint.CfnSegment.SetDimensionProperty(
+                            dimension_type="dimensionType",
+                            values=["values"]
+                        ),
+                        gps_point=pinpoint.CfnSegment.GPSPointProperty(
+                            coordinates=pinpoint.CfnSegment.CoordinatesProperty(
+                                latitude=123,
+                                longitude=123
+                            ),
+                            range_in_kilometers=123
+                        )
+                    ),
+                    metrics=metrics,
+                    user_attributes=user_attributes
+                ),
+                segment_groups=pinpoint.CfnSegment.SegmentGroupsProperty(
+                    groups=[pinpoint.CfnSegment.GroupsProperty(
+                        dimensions=[pinpoint.CfnSegment.SegmentDimensionsProperty(
+                            attributes=attributes,
+                            behavior=pinpoint.CfnSegment.BehaviorProperty(
+                                recency=pinpoint.CfnSegment.RecencyProperty(
+                                    duration="duration",
+                                    recency_type="recencyType"
+                                )
+                            ),
+                            demographic=pinpoint.CfnSegment.DemographicProperty(
+                                app_version=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                channel=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                device_type=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                make=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                model=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                platform=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                )
+                            ),
+                            location=pinpoint.CfnSegment.LocationProperty(
+                                country=pinpoint.CfnSegment.SetDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                gps_point=pinpoint.CfnSegment.GPSPointProperty(
+                                    coordinates=pinpoint.CfnSegment.CoordinatesProperty(
+                                        latitude=123,
+                                        longitude=123
+                                    ),
+                                    range_in_kilometers=123
+                                )
+                            ),
+                            metrics=metrics,
+                            user_attributes=user_attributes
+                        )],
+                        source_segments=[pinpoint.CfnSegment.SourceSegmentsProperty(
+                            id="id",
+            
+                            # the properties below are optional
+                            version=123
+                        )],
+                        source_type="sourceType",
+                        type="type"
+                    )],
+                    include="include"
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25f43b43d50881dc0b12d0713cceab9df4a33654c37f0f4032f99c402541ca95)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+            check_type(argname="argument segment_groups", value=segment_groups, expected_type=type_hints["segment_groups"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "name": name,
+        }
+        if dimensions is not None:
+            self._values["dimensions"] = dimensions
+        if segment_groups is not None:
+            self._values["segment_groups"] = segment_groups
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the segment is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the segment.
+
+        .. epigraph::
+
+           A segment must have a name otherwise it will not appear in the Amazon Pinpoint console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dimensions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegment.SegmentDimensionsProperty"]]:
+        '''An array that defines the dimensions for the segment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-dimensions
+        '''
+        result = self._values.get("dimensions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegment.SegmentDimensionsProperty"]], result)
+
+    @builtins.property
+    def segment_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegment.SegmentGroupsProperty"]]:
+        '''The segment group to use and the dimensions to apply to the group's base segments in order to build the segment.
+
+        A segment group can consist of zero or more base segments. Your request can include only one segment group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-segmentgroups
+        '''
+        result = self._values.get("segment_groups")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegment.SegmentGroupsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSegmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSmsTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "body": "body",
+        "template_name": "templateName",
+        "default_substitutions": "defaultSubstitutions",
+        "tags": "tags",
+        "template_description": "templateDescription",
+    },
+)
+class CfnSmsTemplateProps:
+    def __init__(
+        self,
+        *,
+        body: builtins.str,
+        template_name: builtins.str,
+        default_substitutions: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+        template_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSmsTemplate``.
+
+        :param body: The message body to use in text messages that are based on the message template.
+        :param template_name: The name of the message template to use for the message. If specified, this value must match the name of an existing message template.
+        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param template_description: A custom description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            # tags: Any
+            
+            cfn_sms_template_props = pinpoint.CfnSmsTemplateProps(
+                body="body",
+                template_name="templateName",
+            
+                # the properties below are optional
+                default_substitutions="defaultSubstitutions",
+                tags=tags,
+                template_description="templateDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__423db93371632488090f99bb5f94b3d74c4b49c176f644adb2f9a9b89eb1ec23)
+            check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "body": body,
+            "template_name": template_name,
+        }
+        if default_substitutions is not None:
+            self._values["default_substitutions"] = default_substitutions
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_description is not None:
+            self._values["template_description"] = template_description
+
+    @builtins.property
+    def body(self) -> builtins.str:
+        '''The message body to use in text messages that are based on the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-body
+        '''
+        result = self._values.get("body")
+        assert result is not None, "Required property 'body' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The name of the message template to use for the message.
+
+        If specified, this value must match the name of an existing message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_substitutions(self) -> typing.Optional[builtins.str]:
+        '''A JSON object that specifies the default values to use for message variables in the message template.
+
+        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-defaultsubstitutions
+        '''
+        result = self._values.get("default_substitutions")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def template_description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-templatedescription
+        '''
+        result = self._values.get("template_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSmsTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnVoiceChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={"application_id": "applicationId", "enabled": "enabled"},
+)
+class CfnVoiceChannelProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVoiceChannel``.
+
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the voice channel applies to.
+        :param enabled: Specifies whether to enable the voice channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            cfn_voice_channel_props = pinpoint.CfnVoiceChannelProps(
+                application_id="applicationId",
+            
+                # the properties below are optional
+                enabled=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf39a3de9821d1b054616d0b2e269d51093b75f3abc30724908da5749e0280bf)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the voice channel applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html#cfn-pinpoint-voicechannel-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the voice channel for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html#cfn-pinpoint-voicechannel-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVoiceChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.EmailChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"email_channel_id": "emailChannelId"},
+)
+class EmailChannelReference:
+    def __init__(self, *, email_channel_id: builtins.str) -> None:
+        '''A reference to a EmailChannel resource.
+
+        :param email_channel_id: The Id of the EmailChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            email_channel_reference = pinpoint.EmailChannelReference(
+                email_channel_id="emailChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2eb2e3b2cf7a52870166b986f0f95f13888eb27db9c7ef9fe6de06b19f97c834)
+            check_type(argname="argument email_channel_id", value=email_channel_id, expected_type=type_hints["email_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_channel_id": email_channel_id,
+        }
+
+    @builtins.property
+    def email_channel_id(self) -> builtins.str:
+        '''The Id of the EmailChannel resource.'''
+        result = self._values.get("email_channel_id")
+        assert result is not None, "Required property 'email_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.EmailTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "email_template_arn": "emailTemplateArn",
+        "email_template_id": "emailTemplateId",
+    },
+)
+class EmailTemplateReference:
+    def __init__(
+        self,
+        *,
+        email_template_arn: builtins.str,
+        email_template_id: builtins.str,
+    ) -> None:
+        '''A reference to a EmailTemplate resource.
+
+        :param email_template_arn: The ARN of the EmailTemplate resource.
+        :param email_template_id: The Id of the EmailTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            email_template_reference = pinpoint.EmailTemplateReference(
+                email_template_arn="emailTemplateArn",
+                email_template_id="emailTemplateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc24d76162d39dfdcdcb7c8a0720b05b8bd908708c1444c1595a9ae250e51f38)
+            check_type(argname="argument email_template_arn", value=email_template_arn, expected_type=type_hints["email_template_arn"])
+            check_type(argname="argument email_template_id", value=email_template_id, expected_type=type_hints["email_template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_template_arn": email_template_arn,
+            "email_template_id": email_template_id,
+        }
+
+    @builtins.property
+    def email_template_arn(self) -> builtins.str:
+        '''The ARN of the EmailTemplate resource.'''
+        result = self._values.get("email_template_arn")
+        assert result is not None, "Required property 'email_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def email_template_id(self) -> builtins.str:
+        '''The Id of the EmailTemplate resource.'''
+        result = self._values.get("email_template_id")
+        assert result is not None, "Required property 'email_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.EventStreamReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_stream_id": "eventStreamId"},
+)
+class EventStreamReference:
+    def __init__(self, *, event_stream_id: builtins.str) -> None:
+        '''A reference to a EventStream resource.
+
+        :param event_stream_id: The Id of the EventStream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            event_stream_reference = pinpoint.EventStreamReference(
+                event_stream_id="eventStreamId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9309c2eb61a052a8b5935ff5627b837cb1090a1c24b742b40fdd159d46f19d9d)
+            check_type(argname="argument event_stream_id", value=event_stream_id, expected_type=type_hints["event_stream_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_stream_id": event_stream_id,
+        }
+
+    @builtins.property
+    def event_stream_id(self) -> builtins.str:
+        '''The Id of the EventStream resource.'''
+        result = self._values.get("event_stream_id")
+        assert result is not None, "Required property 'event_stream_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventStreamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.GCMChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"gcm_channel_id": "gcmChannelId"},
+)
+class GCMChannelReference:
+    def __init__(self, *, gcm_channel_id: builtins.str) -> None:
+        '''A reference to a GCMChannel resource.
+
+        :param gcm_channel_id: The Id of the GCMChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            g_cMChannel_reference = pinpoint.GCMChannelReference(
+                gcm_channel_id="gcmChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38de6d774557cf89beb321ee32d5e92fba1d60e28c748272b3f54449eb64bdfd)
+            check_type(argname="argument gcm_channel_id", value=gcm_channel_id, expected_type=type_hints["gcm_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gcm_channel_id": gcm_channel_id,
+        }
+
+    @builtins.property
+    def gcm_channel_id(self) -> builtins.str:
+        '''The Id of the GCMChannel resource.'''
+        result = self._values.get("gcm_channel_id")
+        assert result is not None, "Required property 'gcm_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GCMChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IADMChannelRef")
+class IADMChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ADMChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="admChannelRef")
+    def adm_channel_ref(self) -> ADMChannelReference:
+        '''(experimental) A reference to a ADMChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IADMChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ADMChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IADMChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="admChannelRef")
+    def adm_channel_ref(self) -> ADMChannelReference:
+        '''(experimental) A reference to a ADMChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ADMChannelReference, jsii.get(self, "admChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IADMChannelRef).__jsii_proxy_class__ = lambda : _IADMChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IAPNSChannelRef")
+class IAPNSChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a APNSChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsChannelRef")
+    def apns_channel_ref(self) -> APNSChannelReference:
+        '''(experimental) A reference to a APNSChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAPNSChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IAPNSChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsChannelRef")
+    def apns_channel_ref(self) -> APNSChannelReference:
+        '''(experimental) A reference to a APNSChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(APNSChannelReference, jsii.get(self, "apnsChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAPNSChannelRef).__jsii_proxy_class__ = lambda : _IAPNSChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IAPNSSandboxChannelRef")
+class IAPNSSandboxChannelRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSSandboxChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsSandboxChannelRef")
+    def apns_sandbox_channel_ref(self) -> APNSSandboxChannelReference:
+        '''(experimental) A reference to a APNSSandboxChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAPNSSandboxChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSSandboxChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IAPNSSandboxChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsSandboxChannelRef")
+    def apns_sandbox_channel_ref(self) -> APNSSandboxChannelReference:
+        '''(experimental) A reference to a APNSSandboxChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(APNSSandboxChannelReference, jsii.get(self, "apnsSandboxChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAPNSSandboxChannelRef).__jsii_proxy_class__ = lambda : _IAPNSSandboxChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IAPNSVoipChannelRef")
+class IAPNSVoipChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a APNSVoipChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipChannelRef")
+    def apns_voip_channel_ref(self) -> APNSVoipChannelReference:
+        '''(experimental) A reference to a APNSVoipChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAPNSVoipChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSVoipChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IAPNSVoipChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipChannelRef")
+    def apns_voip_channel_ref(self) -> APNSVoipChannelReference:
+        '''(experimental) A reference to a APNSVoipChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(APNSVoipChannelReference, jsii.get(self, "apnsVoipChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAPNSVoipChannelRef).__jsii_proxy_class__ = lambda : _IAPNSVoipChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IAPNSVoipSandboxChannelRef")
+class IAPNSVoipSandboxChannelRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSVoipSandboxChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipSandboxChannelRef")
+    def apns_voip_sandbox_channel_ref(self) -> APNSVoipSandboxChannelReference:
+        '''(experimental) A reference to a APNSVoipSandboxChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAPNSVoipSandboxChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a APNSVoipSandboxChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IAPNSVoipSandboxChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipSandboxChannelRef")
+    def apns_voip_sandbox_channel_ref(self) -> APNSVoipSandboxChannelReference:
+        '''(experimental) A reference to a APNSVoipSandboxChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(APNSVoipSandboxChannelReference, jsii.get(self, "apnsVoipSandboxChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAPNSVoipSandboxChannelRef).__jsii_proxy_class__ = lambda : _IAPNSVoipSandboxChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IAppRef")
+class IAppRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IAppRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IApplicationSettingsRef")
+class IApplicationSettingsRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationSettingsRef")
+    def application_settings_ref(self) -> ApplicationSettingsReference:
+        '''(experimental) A reference to a ApplicationSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IApplicationSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationSettingsRef")
+    def application_settings_ref(self) -> ApplicationSettingsReference:
+        '''(experimental) A reference to a ApplicationSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationSettingsReference, jsii.get(self, "applicationSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationSettingsRef).__jsii_proxy_class__ = lambda : _IApplicationSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IBaiduChannelRef")
+class IBaiduChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BaiduChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="baiduChannelRef")
+    def baidu_channel_ref(self) -> BaiduChannelReference:
+        '''(experimental) A reference to a BaiduChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBaiduChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BaiduChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IBaiduChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="baiduChannelRef")
+    def baidu_channel_ref(self) -> BaiduChannelReference:
+        '''(experimental) A reference to a BaiduChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BaiduChannelReference, jsii.get(self, "baiduChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBaiduChannelRef).__jsii_proxy_class__ = lambda : _IBaiduChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.ICampaignRef")
+class ICampaignRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Campaign.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> CampaignReference:
+        '''(experimental) A reference to a Campaign resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICampaignRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Campaign.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.ICampaignRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> CampaignReference:
+        '''(experimental) A reference to a Campaign resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CampaignReference, jsii.get(self, "campaignRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICampaignRef).__jsii_proxy_class__ = lambda : _ICampaignRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IEmailChannelRef")
+class IEmailChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EmailChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailChannelRef")
+    def email_channel_ref(self) -> EmailChannelReference:
+        '''(experimental) A reference to a EmailChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEmailChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IEmailChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailChannelRef")
+    def email_channel_ref(self) -> EmailChannelReference:
+        '''(experimental) A reference to a EmailChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EmailChannelReference, jsii.get(self, "emailChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailChannelRef).__jsii_proxy_class__ = lambda : _IEmailChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IEmailTemplateRef")
+class IEmailTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EmailTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailTemplateRef")
+    def email_template_ref(self) -> EmailTemplateReference:
+        '''(experimental) A reference to a EmailTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEmailTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IEmailTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailTemplateRef")
+    def email_template_ref(self) -> EmailTemplateReference:
+        '''(experimental) A reference to a EmailTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EmailTemplateReference, jsii.get(self, "emailTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailTemplateRef).__jsii_proxy_class__ = lambda : _IEmailTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IEventStreamRef")
+class IEventStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EventStream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventStreamRef")
+    def event_stream_ref(self) -> EventStreamReference:
+        '''(experimental) A reference to a EventStream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventStream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IEventStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventStreamRef")
+    def event_stream_ref(self) -> EventStreamReference:
+        '''(experimental) A reference to a EventStream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventStreamReference, jsii.get(self, "eventStreamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventStreamRef).__jsii_proxy_class__ = lambda : _IEventStreamRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IGCMChannelRef")
+class IGCMChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GCMChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gcmChannelRef")
+    def gcm_channel_ref(self) -> GCMChannelReference:
+        '''(experimental) A reference to a GCMChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGCMChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GCMChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IGCMChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gcmChannelRef")
+    def gcm_channel_ref(self) -> GCMChannelReference:
+        '''(experimental) A reference to a GCMChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GCMChannelReference, jsii.get(self, "gcmChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGCMChannelRef).__jsii_proxy_class__ = lambda : _IGCMChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IInAppTemplateRef")
+class IInAppTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a InAppTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="inAppTemplateRef")
+    def in_app_template_ref(self) -> "InAppTemplateReference":
+        '''(experimental) A reference to a InAppTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInAppTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InAppTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IInAppTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="inAppTemplateRef")
+    def in_app_template_ref(self) -> "InAppTemplateReference":
+        '''(experimental) A reference to a InAppTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InAppTemplateReference", jsii.get(self, "inAppTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInAppTemplateRef).__jsii_proxy_class__ = lambda : _IInAppTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IPushTemplateRef")
+class IPushTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PushTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pushTemplateRef")
+    def push_template_ref(self) -> "PushTemplateReference":
+        '''(experimental) A reference to a PushTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPushTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PushTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IPushTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pushTemplateRef")
+    def push_template_ref(self) -> "PushTemplateReference":
+        '''(experimental) A reference to a PushTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PushTemplateReference", jsii.get(self, "pushTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPushTemplateRef).__jsii_proxy_class__ = lambda : _IPushTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.ISMSChannelRef")
+class ISMSChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SMSChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="smsChannelRef")
+    def sms_channel_ref(self) -> "SMSChannelReference":
+        '''(experimental) A reference to a SMSChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISMSChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SMSChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.ISMSChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="smsChannelRef")
+    def sms_channel_ref(self) -> "SMSChannelReference":
+        '''(experimental) A reference to a SMSChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SMSChannelReference", jsii.get(self, "smsChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISMSChannelRef).__jsii_proxy_class__ = lambda : _ISMSChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.ISegmentRef")
+class ISegmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Segment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> "SegmentReference":
+        '''(experimental) A reference to a Segment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISegmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Segment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.ISegmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> "SegmentReference":
+        '''(experimental) A reference to a Segment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SegmentReference", jsii.get(self, "segmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISegmentRef).__jsii_proxy_class__ = lambda : _ISegmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.ISmsTemplateRef")
+class ISmsTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SmsTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="smsTemplateRef")
+    def sms_template_ref(self) -> "SmsTemplateReference":
+        '''(experimental) A reference to a SmsTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISmsTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SmsTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.ISmsTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="smsTemplateRef")
+    def sms_template_ref(self) -> "SmsTemplateReference":
+        '''(experimental) A reference to a SmsTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SmsTemplateReference", jsii.get(self, "smsTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISmsTemplateRef).__jsii_proxy_class__ = lambda : _ISmsTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pinpoint.IVoiceChannelRef")
+class IVoiceChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a VoiceChannel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="voiceChannelRef")
+    def voice_channel_ref(self) -> "VoiceChannelReference":
+        '''(experimental) A reference to a VoiceChannel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVoiceChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VoiceChannel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pinpoint.IVoiceChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="voiceChannelRef")
+    def voice_channel_ref(self) -> "VoiceChannelReference":
+        '''(experimental) A reference to a VoiceChannel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VoiceChannelReference", jsii.get(self, "voiceChannelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVoiceChannelRef).__jsii_proxy_class__ = lambda : _IVoiceChannelRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.InAppTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "in_app_template_arn": "inAppTemplateArn",
+        "template_name": "templateName",
+    },
+)
+class InAppTemplateReference:
+    def __init__(
+        self,
+        *,
+        in_app_template_arn: builtins.str,
+        template_name: builtins.str,
+    ) -> None:
+        '''A reference to a InAppTemplate resource.
+
+        :param in_app_template_arn: The ARN of the InAppTemplate resource.
+        :param template_name: The TemplateName of the InAppTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            in_app_template_reference = pinpoint.InAppTemplateReference(
+                in_app_template_arn="inAppTemplateArn",
+                template_name="templateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9fbabee37c964c773c7016b17b74c0fe2d9e57eef4aaa785e1c56e1ec0624ed)
+            check_type(argname="argument in_app_template_arn", value=in_app_template_arn, expected_type=type_hints["in_app_template_arn"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "in_app_template_arn": in_app_template_arn,
+            "template_name": template_name,
+        }
+
+    @builtins.property
+    def in_app_template_arn(self) -> builtins.str:
+        '''The ARN of the InAppTemplate resource.'''
+        result = self._values.get("in_app_template_arn")
+        assert result is not None, "Required property 'in_app_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The TemplateName of the InAppTemplate resource.'''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InAppTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.PushTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "push_template_arn": "pushTemplateArn",
+        "push_template_id": "pushTemplateId",
+    },
+)
+class PushTemplateReference:
+    def __init__(
+        self,
+        *,
+        push_template_arn: builtins.str,
+        push_template_id: builtins.str,
+    ) -> None:
+        '''A reference to a PushTemplate resource.
+
+        :param push_template_arn: The ARN of the PushTemplate resource.
+        :param push_template_id: The Id of the PushTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            push_template_reference = pinpoint.PushTemplateReference(
+                push_template_arn="pushTemplateArn",
+                push_template_id="pushTemplateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07c2d4f77bfa2a345eaaf78cda4b9aecff6ec9081424649cc97bfbbb9c450318)
+            check_type(argname="argument push_template_arn", value=push_template_arn, expected_type=type_hints["push_template_arn"])
+            check_type(argname="argument push_template_id", value=push_template_id, expected_type=type_hints["push_template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "push_template_arn": push_template_arn,
+            "push_template_id": push_template_id,
+        }
+
+    @builtins.property
+    def push_template_arn(self) -> builtins.str:
+        '''The ARN of the PushTemplate resource.'''
+        result = self._values.get("push_template_arn")
+        assert result is not None, "Required property 'push_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def push_template_id(self) -> builtins.str:
+        '''The Id of the PushTemplate resource.'''
+        result = self._values.get("push_template_id")
+        assert result is not None, "Required property 'push_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PushTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.SMSChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"sms_channel_id": "smsChannelId"},
+)
+class SMSChannelReference:
+    def __init__(self, *, sms_channel_id: builtins.str) -> None:
+        '''A reference to a SMSChannel resource.
+
+        :param sms_channel_id: The Id of the SMSChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            s_mSChannel_reference = pinpoint.SMSChannelReference(
+                sms_channel_id="smsChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c07e13a8a26c53ded02cc35ef1d4e4b19455f60d7fa05a49e50c3a301353b0c)
+            check_type(argname="argument sms_channel_id", value=sms_channel_id, expected_type=type_hints["sms_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sms_channel_id": sms_channel_id,
+        }
+
+    @builtins.property
+    def sms_channel_id(self) -> builtins.str:
+        '''The Id of the SMSChannel resource.'''
+        result = self._values.get("sms_channel_id")
+        assert result is not None, "Required property 'sms_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SMSChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.SegmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"segment_arn": "segmentArn", "segment_id": "segmentId"},
+)
+class SegmentReference:
+    def __init__(self, *, segment_arn: builtins.str, segment_id: builtins.str) -> None:
+        '''A reference to a Segment resource.
+
+        :param segment_arn: The ARN of the Segment resource.
+        :param segment_id: The SegmentId of the Segment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            segment_reference = pinpoint.SegmentReference(
+                segment_arn="segmentArn",
+                segment_id="segmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6f52659d0b2592941151147c7440b2f62d38b43c6dd654e3d672ea3bc75c8f1)
+            check_type(argname="argument segment_arn", value=segment_arn, expected_type=type_hints["segment_arn"])
+            check_type(argname="argument segment_id", value=segment_id, expected_type=type_hints["segment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "segment_arn": segment_arn,
+            "segment_id": segment_id,
+        }
+
+    @builtins.property
+    def segment_arn(self) -> builtins.str:
+        '''The ARN of the Segment resource.'''
+        result = self._values.get("segment_arn")
+        assert result is not None, "Required property 'segment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def segment_id(self) -> builtins.str:
+        '''The SegmentId of the Segment resource.'''
+        result = self._values.get("segment_id")
+        assert result is not None, "Required property 'segment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SegmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.SmsTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "sms_template_arn": "smsTemplateArn",
+        "sms_template_id": "smsTemplateId",
+    },
+)
+class SmsTemplateReference:
+    def __init__(
+        self,
+        *,
+        sms_template_arn: builtins.str,
+        sms_template_id: builtins.str,
+    ) -> None:
+        '''A reference to a SmsTemplate resource.
+
+        :param sms_template_arn: The ARN of the SmsTemplate resource.
+        :param sms_template_id: The Id of the SmsTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            sms_template_reference = pinpoint.SmsTemplateReference(
+                sms_template_arn="smsTemplateArn",
+                sms_template_id="smsTemplateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d79bd58a9e31047f48965c1fe065dae6f8ce1d0bf14b9e2c731a4cc941e35db)
+            check_type(argname="argument sms_template_arn", value=sms_template_arn, expected_type=type_hints["sms_template_arn"])
+            check_type(argname="argument sms_template_id", value=sms_template_id, expected_type=type_hints["sms_template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sms_template_arn": sms_template_arn,
+            "sms_template_id": sms_template_id,
+        }
+
+    @builtins.property
+    def sms_template_arn(self) -> builtins.str:
+        '''The ARN of the SmsTemplate resource.'''
+        result = self._values.get("sms_template_arn")
+        assert result is not None, "Required property 'sms_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sms_template_id(self) -> builtins.str:
+        '''The Id of the SmsTemplate resource.'''
+        result = self._values.get("sms_template_id")
+        assert result is not None, "Required property 'sms_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SmsTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pinpoint.VoiceChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"voice_channel_id": "voiceChannelId"},
+)
+class VoiceChannelReference:
+    def __init__(self, *, voice_channel_id: builtins.str) -> None:
+        '''A reference to a VoiceChannel resource.
+
+        :param voice_channel_id: The Id of the VoiceChannel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pinpoint as pinpoint
+            
+            voice_channel_reference = pinpoint.VoiceChannelReference(
+                voice_channel_id="voiceChannelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91779c828dc50ce74553d077a5704de08571466fec3779686035f231e59aaeba)
+            check_type(argname="argument voice_channel_id", value=voice_channel_id, expected_type=type_hints["voice_channel_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "voice_channel_id": voice_channel_id,
+        }
+
+    @builtins.property
+    def voice_channel_id(self) -> builtins.str:
+        '''The Id of the VoiceChannel resource.'''
+        result = self._values.get("voice_channel_id")
+        assert result is not None, "Required property 'voice_channel_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VoiceChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IADMChannelRef)
+class CfnADMChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnADMChannel",
+):
+    '''A *channel* is a type of platform that you can deliver messages to.
+
+    You can use the ADM channel to send push notifications through the Amazon Device Messaging (ADM) service to apps that run on Amazon devices, such as Kindle Fire tablets. Before you can use Amazon Pinpoint to send messages to Amazon devices, you have to enable the ADM channel for an Amazon Pinpoint application.
+
+    The ADMChannel resource represents the status and authentication settings for the ADM channel for an application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-admchannel.html
+    :cloudformationResource: AWS::Pinpoint::ADMChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_pinpoint as pinpoint
+        
+        cfn_aDMChannel = pinpoint.CfnADMChannel(self, "MyCfnADMChannel",
+            application_id="applicationId",
+            client_id="clientId",
+            client_secret="clientSecret",
+        
+            # the properties below are optional
+            enabled=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        client_id: builtins.str,
+        client_secret: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the ADM channel applies to.
+        :param client_id: The Client ID that you received from Amazon to send messages by using ADM.
+        :param client_secret: The Client Secret that you received from Amazon to send messages by using ADM.
+        :param enabled: Specifies whether to enable the ADM channel for the application.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aaf704e00bb5859cb830fbb4d1e376040266671aa90e04a47641d8d055085dae)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnADMChannelProps(
+            application_id=application_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            enabled=enabled,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6370d32f16b93db7c704589cdcc432969bf4bb7eecdf1c1ecce61abeb6703b1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d7f38c58309e10d9e9c3e9cdd18ecdf0206a62dafe257a225fce81498a09d52)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="admChannelRef")
+    def adm_channel_ref(self) -> ADMChannelReference:
+        '''A reference to a ADMChannel resource.'''
+        return typing.cast(ADMChannelReference, jsii.get(self, "admChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''(Deprecated) An identifier for the ADM channel.
+
+        This property is retained only for backward compatibility.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the ADM channel applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__516a9ba4b7757af253ff004793a1979569edace2e0341aecf95d98ab8878fb7f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clientId")
+    def client_id(self) -> builtins.str:
+        '''The Client ID that you received from Amazon to send messages by using ADM.'''
+        return typing.cast(builtins.str, jsii.get(self, "clientId"))
+
+    @client_id.setter
+    def client_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ca2b0ebc55a347f1c856351a7ea66aa33f15336b7c29ebd44c657ad1e32c50f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clientSecret")
+    def client_secret(self) -> builtins.str:
+        '''The Client Secret that you received from Amazon to send messages by using ADM.'''
+        return typing.cast(builtins.str, jsii.get(self, "clientSecret"))
+
+    @client_secret.setter
+    def client_secret(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f43ceab49423ae46becea7c2f42867ef5034b7107d6f0e0def0f82103c810cba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clientSecret", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the ADM channel for the application.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29f9495da313043ed76a0fcbe057cba0bc82dd16c11f653c0c4ce29add3f3d6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAPNSChannelRef)
+class CfnAPNSChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSChannel",
+):
+    '''A *channel* is a type of platform that you can deliver messages to.
+
+    You can use the APNs channel to send push notification messages to the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send notifications to APNs, you have to enable the APNs channel for an Amazon Pinpoint application.
+
+    The APNSChannel resource represents the status and authentication settings for the APNs channel for an application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnschannel.html
+    :cloudformationResource: AWS::Pinpoint::APNSChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_pinpoint as pinpoint
+        
+        cfn_aPNSChannel = pinpoint.CfnAPNSChannel(self, "MyCfnAPNSChannel",
+            application_id="applicationId",
+        
+            # the properties below are optional
+            bundle_id="bundleId",
+            certificate="certificate",
+            default_authentication_method="defaultAuthenticationMethod",
+            enabled=False,
+            private_key="privateKey",
+            team_id="teamId",
+            token_key="tokenKey",
+            token_key_id="tokenKeyId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        bundle_id: typing.Optional[builtins.str] = None,
+        certificate: typing.Optional[builtins.str] = None,
+        default_authentication_method: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        team_id: typing.Optional[builtins.str] = None,
+        token_key: typing.Optional[builtins.str] = None,
+        token_key_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs channel applies to.
+        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
+        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
+        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
+        :param enabled: Specifies whether to enable the APNs channel for the application.
+        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
+        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
+        :param token_key: The authentication key to use for APNs tokens.
+        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2c6d01d6ac4514b60aaeb636fa32c4f2935eb954acb47fe1f335948796c5b38)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAPNSChannelProps(
+            application_id=application_id,
+            bundle_id=bundle_id,
+            certificate=certificate,
+            default_authentication_method=default_authentication_method,
+            enabled=enabled,
+            private_key=private_key,
+            team_id=team_id,
+            token_key=token_key,
+            token_key_id=token_key_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27ef2edffbfaec89f01e614ae0d36665094bca9d2873273de72ca37709500647)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1dd87eeeb0b6f658fbf73ac4ee0a5ce23911fd99d4342fd6e60ca8b210fdb972)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsChannelRef")
+    def apns_channel_ref(self) -> APNSChannelReference:
+        '''A reference to a APNSChannel resource.'''
+        return typing.cast(APNSChannelReference, jsii.get(self, "apnsChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''(Deprecated) An identifier for the APNs channel.
+
+        This property is retained only for backward compatibility.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the APNs channel applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ec692a61d1b998fa192954294bd412c7117bc611c68ba50855c6b11be36d360)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bundleId")
+    def bundle_id(self) -> typing.Optional[builtins.str]:
+        '''The bundle identifier that's assigned to your iOS app.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
+
+    @bundle_id.setter
+    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fdc4ba23303245bc510c4bc0780d997ced5645298a9309ce4a0b668e50b681f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The APNs client certificate that you received from Apple.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b2b358bd8e58ccda4eaae0530a3da766174cc23bb14dcbe422279e23ffc7c5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthenticationMethod")
+    def default_authentication_method(self) -> typing.Optional[builtins.str]:
+        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
+
+    @default_authentication_method.setter
+    def default_authentication_method(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3201f885e965d3cbc3fd27f17ec2f46000a5ba9bfe7044238c7ddcab8c78d33a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the APNs channel for the application.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ed3ad95420b6948df7339f9eb6816bcaed443dfcee74ef7485882c3fc6c9be2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKey")
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
+
+    @private_key.setter
+    def private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e32129c9e89fe5fb120406d63eb937f83ada047a3a02266a6a4b77dd025f761d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="teamId")
+    def team_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier that's assigned to your Apple Developer Account team.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
+
+    @team_id.setter
+    def team_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__126052989c39a52610fc6e54340c3dfe4273d45aa56b9ee0096604832a8af83f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKey")
+    def token_key(self) -> typing.Optional[builtins.str]:
+        '''The authentication key to use for APNs tokens.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
+
+    @token_key.setter
+    def token_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c68905895fc14733013b7072172056341167e4e6fbde6cccac5d4da6a970a70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKeyId")
+    def token_key_id(self) -> typing.Optional[builtins.str]:
+        '''The key identifier that's assigned to your APNs signing key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
+
+    @token_key_id.setter
+    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e111ff96fa2864617af9bc1196e6a5c0f42a455a826bc67955c67c9e02a60ff0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAPNSSandboxChannelRef)
+class CfnAPNSSandboxChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSSandboxChannel",
+):
+    '''A *channel* is a type of platform that you can deliver messages to.
+
+    You can use the APNs sandbox channel to send push notification messages to the sandbox environment of the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send notifications to the APNs sandbox environment, you have to enable the APNs sandbox channel for an Amazon Pinpoint application.
+
+    The APNSSandboxChannel resource represents the status and authentication settings of the APNs sandbox channel for an application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnssandboxchannel.html
+    :cloudformationResource: AWS::Pinpoint::APNSSandboxChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_pinpoint as pinpoint
+        
+        cfn_aPNSSandbox_channel = pinpoint.CfnAPNSSandboxChannel(self, "MyCfnAPNSSandboxChannel",
+            application_id="applicationId",
+        
+            # the properties below are optional
+            bundle_id="bundleId",
+            certificate="certificate",
+            default_authentication_method="defaultAuthenticationMethod",
+            enabled=False,
+            private_key="privateKey",
+            team_id="teamId",
+            token_key="tokenKey",
+            token_key_id="tokenKeyId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        bundle_id: typing.Optional[builtins.str] = None,
+        certificate: typing.Optional[builtins.str] = None,
+        default_authentication_method: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        team_id: typing.Optional[builtins.str] = None,
+        token_key: typing.Optional[builtins.str] = None,
+        token_key_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs sandbox channel applies to.
+        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
+        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
+        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
+        :param enabled: Specifies whether to enable the APNs Sandbox channel for the Amazon Pinpoint application.
+        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
+        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
+        :param token_key: The authentication key to use for APNs tokens.
+        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2cdf1bd0828fb196281b0c6e09fb772d25d46b1f609996c702cd33ded3923dc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAPNSSandboxChannelProps(
+            application_id=application_id,
+            bundle_id=bundle_id,
+            certificate=certificate,
+            default_authentication_method=default_authentication_method,
+            enabled=enabled,
+            private_key=private_key,
+            team_id=team_id,
+            token_key=token_key,
+            token_key_id=token_key_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9afd220964f59a3aa7c276349cbfbe0194a39fc3cc38e67756b3372dc695d32)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63e4d9ee78998839059ebfdb4c7eec999776002f59a110424dcbdbbf354898ec)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsSandboxChannelRef")
+    def apns_sandbox_channel_ref(self) -> APNSSandboxChannelReference:
+        '''A reference to a APNSSandboxChannel resource.'''
+        return typing.cast(APNSSandboxChannelReference, jsii.get(self, "apnsSandboxChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''(Deprecated) An identifier for the APNs sandbox channel.
+
+        This property is retained only for backward compatibility.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the APNs sandbox channel applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e3a391d32b5c7c832ea76d26b3ce0f36d370d03206b1ef42defc87b6ecd1656)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bundleId")
+    def bundle_id(self) -> typing.Optional[builtins.str]:
+        '''The bundle identifier that's assigned to your iOS app.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
+
+    @bundle_id.setter
+    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c13e391d9c40b56efef97e70420259e3f16f091119a589e3cb14cde7fbcffb5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The APNs client certificate that you received from Apple.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d929856dc7781e860f17aa023d8a01e0cb7f1ec7cb93f928f78a77e4c76991a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthenticationMethod")
+    def default_authentication_method(self) -> typing.Optional[builtins.str]:
+        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
+
+    @default_authentication_method.setter
+    def default_authentication_method(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72936dce4a9d9b3355d20141e15f0e706016979a3653c66d8027d3c7b0ee03d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the APNs Sandbox channel for the Amazon Pinpoint application.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4666c0e59b9ee82106f0a8a6fe42b502df677f3d4e454cc2c1d8a8c3dc1e8d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKey")
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
+
+    @private_key.setter
+    def private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__348e545ce1c804626ae2b2b83b8cccbc3635d89315ef72cfc11baf2cad881c10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="teamId")
+    def team_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier that's assigned to your Apple Developer Account team.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
+
+    @team_id.setter
+    def team_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b8fd4f8d072de699b28339406a81391b189fddec1b0bbd68f9faec4d296b070)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKey")
+    def token_key(self) -> typing.Optional[builtins.str]:
+        '''The authentication key to use for APNs tokens.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
+
+    @token_key.setter
+    def token_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__622ff057d2fa4cb1f10160e466a9f238a6f82b2da34b6a446ac4789934351392)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKeyId")
+    def token_key_id(self) -> typing.Optional[builtins.str]:
+        '''The key identifier that's assigned to your APNs signing key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
+
+    @token_key_id.setter
+    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a1c83d822fd7f724c76e48f4fadc86e26cedf4936d86d6a2d5600e9949b8e2c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAPNSVoipChannelRef)
+class CfnAPNSVoipChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSVoipChannel",
+):
+    '''A *channel* is a type of platform that you can deliver messages to.
+
+    You can use the APNs VoIP channel to send VoIP notification messages to the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send VoIP notifications to APNs, you have to enable the APNs VoIP channel for an Amazon Pinpoint application.
+
+    The APNSVoipChannel resource represents the status and authentication settings of the APNs VoIP channel for an application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnsvoipchannel.html
+    :cloudformationResource: AWS::Pinpoint::APNSVoipChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_pinpoint as pinpoint
+        
+        cfn_aPNSVoip_channel = pinpoint.CfnAPNSVoipChannel(self, "MyCfnAPNSVoipChannel",
+            application_id="applicationId",
+        
+            # the properties below are optional
+            bundle_id="bundleId",
+            certificate="certificate",
+            default_authentication_method="defaultAuthenticationMethod",
+            enabled=False,
+            private_key="privateKey",
+            team_id="teamId",
+            token_key="tokenKey",
+            token_key_id="tokenKeyId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        bundle_id: typing.Optional[builtins.str] = None,
+        certificate: typing.Optional[builtins.str] = None,
+        default_authentication_method: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        team_id: typing.Optional[builtins.str] = None,
+        token_key: typing.Optional[builtins.str] = None,
+        token_key_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The unique identifier for the Amazon Pinpoint application that the APNs VoIP channel applies to.
+        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
+        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with APNs by using an APNs certificate.
+        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
+        :param enabled: Specifies whether to enable the APNs VoIP channel for the Amazon Pinpoint application.
+        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.
+        :param team_id: The identifier that's assigned to your Apple Developer Account team. This identifier is used for APNs tokens.
+        :param token_key: The authentication key to use for APNs tokens.
+        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with APNs by using APNs tokens.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__354fbb51dc05a5c7b142870475ffebba049d56e406e383a83bcdf9e1205f7e3a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAPNSVoipChannelProps(
+            application_id=application_id,
+            bundle_id=bundle_id,
+            certificate=certificate,
+            default_authentication_method=default_authentication_method,
+            enabled=enabled,
+            private_key=private_key,
+            team_id=team_id,
+            token_key=token_key,
+            token_key_id=token_key_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c295e4c7ef221f73636feb125bd7e1fe6267e5dbbe723147da0cdae19845d8e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04703119f79d8184e97b28f75a030ff15aca233258d881aa000b618281a64d0d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipChannelRef")
+    def apns_voip_channel_ref(self) -> APNSVoipChannelReference:
+        '''A reference to a APNSVoipChannel resource.'''
+        return typing.cast(APNSVoipChannelReference, jsii.get(self, "apnsVoipChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''(Deprecated) An identifier for the APNs VoIP channel.
+
+        This property is retained only for backward compatibility.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the Amazon Pinpoint application that the APNs VoIP channel applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d8cf83888d2c3bcb29e553a924bf2bb2b5423243bfd76ff45039cec94c4203f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bundleId")
+    def bundle_id(self) -> typing.Optional[builtins.str]:
+        '''The bundle identifier that's assigned to your iOS app.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
+
+    @bundle_id.setter
+    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11ef79ce48a4708565800ada7142b5f84f70dba36f6631fea19ceabe5dae7c09)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The APNs client certificate that you received from Apple.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d72c80d8e62631c30f10c530f1e875432ad32c73b6aeba9bb7bb054e1c4fa878)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthenticationMethod")
+    def default_authentication_method(self) -> typing.Optional[builtins.str]:
+        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
+
+    @default_authentication_method.setter
+    def default_authentication_method(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15c7e303ad6e775381a9141f9cfef12089fa928c85c8a8b45394b4a0670e83e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to enable the APNs VoIP channel for the Amazon Pinpoint application.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e29971c6564c0a97fcd5481816c5791d2527814f70f07c3dc75b5bdd5f178679)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKey")
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
+
+    @private_key.setter
+    def private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52ffc29c2e58a29c36ceeb81a921d67080e931e597c389630a2a8b8bb4605bf7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="teamId")
+    def team_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier that's assigned to your Apple Developer Account team.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
+
+    @team_id.setter
+    def team_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5795637c70bd87670d111ed19a94136ea8689882020ecd1f2b3a9ca1dc588adc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKey")
+    def token_key(self) -> typing.Optional[builtins.str]:
+        '''The authentication key to use for APNs tokens.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
+
+    @token_key.setter
+    def token_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a763a314ff762c118e43a2503d59c9db34d817fcbe98b899a2695c1da28a6cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKeyId")
+    def token_key_id(self) -> typing.Optional[builtins.str]:
+        '''The key identifier that's assigned to your APNs signing key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
+
+    @token_key_id.setter
+    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46127dd7405f371138f3f8925f703cbdf74dc4d1920b57b2c4046a9f4c8678c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAPNSVoipSandboxChannelRef)
+class CfnAPNSVoipSandboxChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAPNSVoipSandboxChannel",
+):
+    '''A *channel* is a type of platform that you can deliver messages to.
+
+    You can use the APNs VoIP sandbox channel to send VoIP notification messages to the sandbox environment of the Apple Push Notification service (APNs). Before you can use Amazon Pinpoint to send VoIP notifications to the APNs sandbox environment, you have to enable the APNs VoIP sandbox channel for an Amazon Pinpoint application.
+
+    The APNSVoipSandboxChannel resource represents the status and authentication settings of the APNs VoIP sandbox channel for an application.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-apnsvoipsandboxchannel.html
+    :cloudformationResource: AWS::Pinpoint::APNSVoipSandboxChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_pinpoint as pinpoint
+        
+        cfn_aPNSVoip_sandbox_channel = pinpoint.CfnAPNSVoipSandboxChannel(self, "MyCfnAPNSVoipSandboxChannel",
+            application_id="applicationId",
+        
+            # the properties below are optional
+            bundle_id="bundleId",
+            certificate="certificate",
+            default_authentication_method="defaultAuthenticationMethod",
+            enabled=False,
+            private_key="privateKey",
+            team_id="teamId",
+            token_key="tokenKey",
+            token_key_id="tokenKeyId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        bundle_id: typing.Optional[builtins.str] = None,
+        certificate: typing.Optional[builtins.str] = None,
+        default_authentication_method: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        team_id: typing.Optional[builtins.str] = None,
+        token_key: typing.Optional[builtins.str] = None,
+        token_key_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The unique identifier for the application that the APNs VoIP sandbox channel applies to.
+        :param bundle_id: The bundle identifier that's assigned to your iOS app. This identifier is used for APNs tokens.
+        :param certificate: The APNs client certificate that you received from Apple. Specify this value if you want Amazon Pinpoint to communicate with the APNs sandbox environment by using an APNs certificate.
+        :param default_authentication_method: The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs. Valid options are ``key`` or ``certificate`` .
+        :param enabled: Specifies whether the APNs VoIP sandbox channel is enabled for the application.
+        :param private_key: The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with the APNs sandbox environment.
+        :param team_id: The identifier that's assigned to your Apple developer account team. This identifier is used for APNs tokens.
+        :param token_key: The authentication key to use for APNs tokens.
+        :param token_key_id: The key identifier that's assigned to your APNs signing key. Specify this value if you want Amazon Pinpoint to communicate with the APNs sandbox environment by using APNs tokens.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cda00a8216a1537d1791cebffe3e648359ad880fd824bfd90472a552cf2f17a1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAPNSVoipSandboxChannelProps(
+            application_id=application_id,
+            bundle_id=bundle_id,
+            certificate=certificate,
+            default_authentication_method=default_authentication_method,
+            enabled=enabled,
+            private_key=private_key,
+            team_id=team_id,
+            token_key=token_key,
+            token_key_id=token_key_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b73a7955f3c2112f01b23293d78c4a55e7bf14ae478719955fa7bbf05e013cba)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22adf58a327644519c6703d2838a632c1d54b15bced0304f64e2c1f588f54bcf)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apnsVoipSandboxChannelRef")
+    def apns_voip_sandbox_channel_ref(self) -> APNSVoipSandboxChannelReference:
+        '''A reference to a APNSVoipSandboxChannel resource.'''
+        return typing.cast(APNSVoipSandboxChannelReference, jsii.get(self, "apnsVoipSandboxChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''(Deprecated) An identifier for the APNs VoIP sandbox channel.
+
+        This property is retained only for backward compatibility.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The unique identifier for the application that the APNs VoIP sandbox channel applies to.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__350373fee7f7d95897dd93a64ed1fba8e5c7633cc24c346e6eae6f6f8022ca85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bundleId")
+    def bundle_id(self) -> typing.Optional[builtins.str]:
+        '''The bundle identifier that's assigned to your iOS app.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bundleId"))
+
+    @bundle_id.setter
+    def bundle_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adacd8b3feedf89d701eb54dc830cd89599763f610af1ab0ddae724bd2b9ab9e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bundleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificate")
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The APNs client certificate that you received from Apple.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificate"))
+
+    @certificate.setter
+    def certificate(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__186164a38f8208bb7b7f4347d8ffc572fd4d74da65ed43f189482ccb05e0b9e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthenticationMethod")
+    def default_authentication_method(self) -> typing.Optional[builtins.str]:
+        '''The default authentication method that you want Amazon Pinpoint to use when authenticating with APNs.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthenticationMethod"))
+
+    @default_authentication_method.setter
+    def default_authentication_method(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f546750c5bd78ff62a69bbe58c6bd21bab499a931542106097f2be0e61b0738)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultAuthenticationMethod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the APNs VoIP sandbox channel is enabled for the application.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aac5c1ce5cc72d2472a9881976d507f68a31b18a54d9853cc07d5e5f47c1f566)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKey")
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The private key for the APNs client certificate that you want Amazon Pinpoint to use to communicate with the APNs sandbox environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
+
+    @private_key.setter
+    def private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1c7912f617707f8a3bf055962376421068d396c4548da62240dea44b4d840a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="teamId")
+    def team_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier that's assigned to your Apple developer account team.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "teamId"))
+
+    @team_id.setter
+    def team_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95b56d6aec3a3108d8b2afad8a6b2db8101173ab0c6faa42c50e79e0ad96fb3a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKey")
+    def token_key(self) -> typing.Optional[builtins.str]:
+        '''The authentication key to use for APNs tokens.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKey"))
+
+    @token_key.setter
+    def token_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f79c9d0b861c37cd183ab0b80d916731b90ace98ab3e741d2de7cddce91497c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenKeyId")
+    def token_key_id(self) -> typing.Optional[builtins.str]:
+        '''The key identifier that's assigned to your APNs signing key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tokenKeyId"))
+
+    @token_key_id.setter
+    def token_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd15602c1b7a8a7fe5ed82c46d42d3b30e6bc52c8618e996139c2d1c461696f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tokenKeyId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAppRef, _ITaggable_36806126)
 class CfnApp(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2260,6 +6808,12 @@ class CfnApp(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''A reference to a App resource.'''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the application.
@@ -2317,80 +6871,7 @@ class CfnApp(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnAppProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "tags": "tags"},
-)
-class CfnAppProps:
-    def __init__(self, *, name: builtins.str, tags: typing.Any = None) -> None:
-        '''Properties for defining a ``CfnApp``.
-
-        :param name: The display name of the application.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # tags: Any
-            
-            cfn_app_props = pinpoint.CfnAppProps(
-                name="name",
-            
-                # the properties below are optional
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ece6d9985e2c12212269fba01e0f60516e87697766368b6a5343813fba618c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The display name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html#cfn-pinpoint-app-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-app.html#cfn-pinpoint-app-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationSettingsRef)
 class CfnApplicationSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2496,6 +6977,12 @@ class CfnApplicationSettings(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationSettingsRef")
+    def application_settings_ref(self) -> ApplicationSettingsReference:
+        '''A reference to a ApplicationSettings resource.'''
+        return typing.cast(ApplicationSettingsReference, jsii.get(self, "applicationSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -2870,165 +7357,7 @@ class CfnApplicationSettings(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnApplicationSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "campaign_hook": "campaignHook",
-        "cloud_watch_metrics_enabled": "cloudWatchMetricsEnabled",
-        "limits": "limits",
-        "quiet_time": "quietTime",
-    },
-)
-class CfnApplicationSettingsProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        quiet_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.QuietTimeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationSettings``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application.
-        :param campaign_hook: The settings for the Lambda function to use by default as a code hook for campaigns in the application. To override these settings for a specific campaign, use the Campaign resource to define custom Lambda function settings for the campaign.
-        :param cloud_watch_metrics_enabled: 
-        :param limits: The default sending limits for campaigns in the application. To override these limits for a specific campaign, use the Campaign resource to define custom limits for the campaign.
-        :param quiet_time: The default quiet time for campaigns in the application. Quiet time is a specific time range when campaigns don't send messages to endpoints, if all the following conditions are met: - The ``EndpointDemographic.Timezone`` property of the endpoint is set to a valid value. - The current time in the endpoint's time zone is later than or equal to the time specified by the ``QuietTime.Start`` property for the application (or a campaign that has custom quiet time settings). - The current time in the endpoint's time zone is earlier than or equal to the time specified by the ``QuietTime.End`` property for the application (or a campaign that has custom quiet time settings). If any of the preceding conditions isn't met, the endpoint will receive messages from a campaign, even if quiet time is enabled. To override the default quiet time settings for a specific campaign, use the Campaign resource to define a custom quiet time for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_application_settings_props = pinpoint.CfnApplicationSettingsProps(
-                application_id="applicationId",
-            
-                # the properties below are optional
-                campaign_hook=pinpoint.CfnApplicationSettings.CampaignHookProperty(
-                    lambda_function_name="lambdaFunctionName",
-                    mode="mode",
-                    web_url="webUrl"
-                ),
-                cloud_watch_metrics_enabled=False,
-                limits=pinpoint.CfnApplicationSettings.LimitsProperty(
-                    daily=123,
-                    maximum_duration=123,
-                    messages_per_second=123,
-                    total=123
-                ),
-                quiet_time=pinpoint.CfnApplicationSettings.QuietTimeProperty(
-                    end="end",
-                    start="start"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__848467a4d3edb707abe4565a3db11fcd50755d6c664897537827d7e2003fb02d)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument campaign_hook", value=campaign_hook, expected_type=type_hints["campaign_hook"])
-            check_type(argname="argument cloud_watch_metrics_enabled", value=cloud_watch_metrics_enabled, expected_type=type_hints["cloud_watch_metrics_enabled"])
-            check_type(argname="argument limits", value=limits, expected_type=type_hints["limits"])
-            check_type(argname="argument quiet_time", value=quiet_time, expected_type=type_hints["quiet_time"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-        }
-        if campaign_hook is not None:
-            self._values["campaign_hook"] = campaign_hook
-        if cloud_watch_metrics_enabled is not None:
-            self._values["cloud_watch_metrics_enabled"] = cloud_watch_metrics_enabled
-        if limits is not None:
-            self._values["limits"] = limits
-        if quiet_time is not None:
-            self._values["quiet_time"] = quiet_time
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def campaign_hook(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.CampaignHookProperty]]:
-        '''The settings for the Lambda function to use by default as a code hook for campaigns in the application.
-
-        To override these settings for a specific campaign, use the Campaign resource to define custom Lambda function settings for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-campaignhook
-        '''
-        result = self._values.get("campaign_hook")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.CampaignHookProperty]], result)
-
-    @builtins.property
-    def cloud_watch_metrics_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-cloudwatchmetricsenabled
-        '''
-        result = self._values.get("cloud_watch_metrics_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def limits(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.LimitsProperty]]:
-        '''The default sending limits for campaigns in the application.
-
-        To override these limits for a specific campaign, use the Campaign resource to define custom limits for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-limits
-        '''
-        result = self._values.get("limits")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.LimitsProperty]], result)
-
-    @builtins.property
-    def quiet_time(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.QuietTimeProperty]]:
-        '''The default quiet time for campaigns in the application.
-
-        Quiet time is a specific time range when campaigns don't send messages to endpoints, if all the following conditions are met:
-
-        - The ``EndpointDemographic.Timezone`` property of the endpoint is set to a valid value.
-        - The current time in the endpoint's time zone is later than or equal to the time specified by the ``QuietTime.Start`` property for the application (or a campaign that has custom quiet time settings).
-        - The current time in the endpoint's time zone is earlier than or equal to the time specified by the ``QuietTime.End`` property for the application (or a campaign that has custom quiet time settings).
-
-        If any of the preceding conditions isn't met, the endpoint will receive messages from a campaign, even if quiet time is enabled.
-
-        To override the default quiet time settings for a specific campaign, use the Campaign resource to define a custom quiet time for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-applicationsettings.html#cfn-pinpoint-applicationsettings-quiettime
-        '''
-        result = self._values.get("quiet_time")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationSettings.QuietTimeProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBaiduChannelRef)
 class CfnBaiduChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3133,6 +7462,12 @@ class CfnBaiduChannel(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="baiduChannelRef")
+    def baidu_channel_ref(self) -> BaiduChannelReference:
+        '''A reference to a BaiduChannel resource.'''
+        return typing.cast(BaiduChannelReference, jsii.get(self, "baiduChannelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -3195,118 +7530,7 @@ class CfnBaiduChannel(
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnBaiduChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "api_key": "apiKey",
-        "application_id": "applicationId",
-        "secret_key": "secretKey",
-        "enabled": "enabled",
-    },
-)
-class CfnBaiduChannelProps:
-    def __init__(
-        self,
-        *,
-        api_key: builtins.str,
-        application_id: builtins.str,
-        secret_key: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBaiduChannel``.
-
-        :param api_key: The API key that you received from the Baidu Cloud Push service to communicate with the service.
-        :param application_id: The unique identifier for the Amazon Pinpoint application that you're configuring the Baidu channel for.
-        :param secret_key: The secret key that you received from the Baidu Cloud Push service to communicate with the service.
-        :param enabled: Specifies whether to enable the Baidu channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_baidu_channel_props = pinpoint.CfnBaiduChannelProps(
-                api_key="apiKey",
-                application_id="applicationId",
-                secret_key="secretKey",
-            
-                # the properties below are optional
-                enabled=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea99679b99d64e9a67176579da7115a89002eb9da18df44b574208277637df1c)
-            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api_key": api_key,
-            "application_id": application_id,
-            "secret_key": secret_key,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-
-    @builtins.property
-    def api_key(self) -> builtins.str:
-        '''The API key that you received from the Baidu Cloud Push service to communicate with the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-apikey
-        '''
-        result = self._values.get("api_key")
-        assert result is not None, "Required property 'api_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that you're configuring the Baidu channel for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def secret_key(self) -> builtins.str:
-        '''The secret key that you received from the Baidu Cloud Push service to communicate with the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-secretkey
-        '''
-        result = self._values.get("secret_key")
-        assert result is not None, "Required property 'secret_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the Baidu channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-baiduchannel.html#cfn-pinpoint-baiduchannel-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBaiduChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ICampaignRef, _ITaggable_36806126)
 class CfnCampaign(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3875,6 +8099,12 @@ class CfnCampaign(
         :cloudformationAttribute: CampaignId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCampaignId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> CampaignReference:
+        '''A reference to a Campaign resource.'''
+        return typing.cast(CampaignReference, jsii.get(self, "campaignRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7479,769 +11709,7 @@ class CfnCampaign(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnCampaignProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "name": "name",
-        "schedule": "schedule",
-        "segment_id": "segmentId",
-        "additional_treatments": "additionalTreatments",
-        "campaign_hook": "campaignHook",
-        "custom_delivery_configuration": "customDeliveryConfiguration",
-        "description": "description",
-        "holdout_percent": "holdoutPercent",
-        "is_paused": "isPaused",
-        "limits": "limits",
-        "message_configuration": "messageConfiguration",
-        "priority": "priority",
-        "segment_version": "segmentVersion",
-        "tags": "tags",
-        "template_configuration": "templateConfiguration",
-        "treatment_description": "treatmentDescription",
-        "treatment_name": "treatmentName",
-    },
-)
-class CfnCampaignProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        name: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-        segment_id: builtins.str,
-        additional_treatments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WriteTreatmentResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CustomDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        holdout_percent: typing.Optional[jsii.Number] = None,
-        is_paused: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        message_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.MessageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        priority: typing.Optional[jsii.Number] = None,
-        segment_version: typing.Optional[jsii.Number] = None,
-        tags: typing.Any = None,
-        template_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        treatment_description: typing.Optional[builtins.str] = None,
-        treatment_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCampaign``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the campaign is associated with.
-        :param name: The name of the campaign.
-        :param schedule: The schedule settings for the treatment.
-        :param segment_id: The unique identifier for the segment to associate with the campaign.
-        :param additional_treatments: An array of requests that defines additional treatments for the campaign, in addition to the default treatment for the campaign.
-        :param campaign_hook: Specifies the Lambda function to use as a code hook for a campaign.
-        :param custom_delivery_configuration: The delivery configuration settings for sending the treatment through a custom channel. This object is required if the ``MessageConfiguration`` object for the treatment specifies a ``CustomMessage`` object.
-        :param description: A custom description of the campaign.
-        :param holdout_percent: The allocated percentage of users (segment members) who shouldn't receive messages from the campaign.
-        :param is_paused: Specifies whether to pause the campaign. A paused campaign doesn't run unless you resume it by changing this value to ``false`` . If you restart a campaign, the campaign restarts from the beginning and not at the point you paused it. If a campaign is running it will complete and then pause. Pause only pauses or skips the next run for a recurring future scheduled campaign. A campaign scheduled for immediate can't be paused.
-        :param limits: The messaging limits for the campaign.
-        :param message_configuration: The message configuration settings for the treatment.
-        :param priority: An integer between 1 and 5, inclusive, that represents the priority of the in-app message campaign, where 1 is the highest priority and 5 is the lowest. If there are multiple messages scheduled to be displayed at the same time, the priority determines the order in which those messages are displayed.
-        :param segment_version: The version of the segment to associate with the campaign.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param template_configuration: The message template to use for the treatment.
-        :param treatment_description: A custom description of the treatment.
-        :param treatment_name: A custom name for the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # attributes: Any
-            # custom_config: Any
-            # metrics: Any
-            # tags: Any
-            
-            cfn_campaign_props = pinpoint.CfnCampaignProps(
-                application_id="applicationId",
-                name="name",
-                schedule=pinpoint.CfnCampaign.ScheduleProperty(
-                    end_time="endTime",
-                    event_filter=pinpoint.CfnCampaign.CampaignEventFilterProperty(
-                        dimensions=pinpoint.CfnCampaign.EventDimensionsProperty(
-                            attributes=attributes,
-                            event_type=pinpoint.CfnCampaign.SetDimensionProperty(
-                                dimension_type="dimensionType",
-                                values=["values"]
-                            ),
-                            metrics=metrics
-                        ),
-                        filter_type="filterType"
-                    ),
-                    frequency="frequency",
-                    is_local_time=False,
-                    quiet_time=pinpoint.CfnCampaign.QuietTimeProperty(
-                        end="end",
-                        start="start"
-                    ),
-                    start_time="startTime",
-                    time_zone="timeZone"
-                ),
-                segment_id="segmentId",
-            
-                # the properties below are optional
-                additional_treatments=[pinpoint.CfnCampaign.WriteTreatmentResourceProperty(
-                    custom_delivery_configuration=pinpoint.CfnCampaign.CustomDeliveryConfigurationProperty(
-                        delivery_uri="deliveryUri",
-                        endpoint_types=["endpointTypes"]
-                    ),
-                    message_configuration=pinpoint.CfnCampaign.MessageConfigurationProperty(
-                        adm_message=pinpoint.CfnCampaign.MessageProperty(
-                            action="action",
-                            body="body",
-                            image_icon_url="imageIconUrl",
-                            image_small_icon_url="imageSmallIconUrl",
-                            image_url="imageUrl",
-                            json_body="jsonBody",
-                            media_url="mediaUrl",
-                            raw_content="rawContent",
-                            silent_push=False,
-                            time_to_live=123,
-                            title="title",
-                            url="url"
-                        ),
-                        apns_message=pinpoint.CfnCampaign.MessageProperty(
-                            action="action",
-                            body="body",
-                            image_icon_url="imageIconUrl",
-                            image_small_icon_url="imageSmallIconUrl",
-                            image_url="imageUrl",
-                            json_body="jsonBody",
-                            media_url="mediaUrl",
-                            raw_content="rawContent",
-                            silent_push=False,
-                            time_to_live=123,
-                            title="title",
-                            url="url"
-                        ),
-                        baidu_message=pinpoint.CfnCampaign.MessageProperty(
-                            action="action",
-                            body="body",
-                            image_icon_url="imageIconUrl",
-                            image_small_icon_url="imageSmallIconUrl",
-                            image_url="imageUrl",
-                            json_body="jsonBody",
-                            media_url="mediaUrl",
-                            raw_content="rawContent",
-                            silent_push=False,
-                            time_to_live=123,
-                            title="title",
-                            url="url"
-                        ),
-                        custom_message=pinpoint.CfnCampaign.CampaignCustomMessageProperty(
-                            data="data"
-                        ),
-                        default_message=pinpoint.CfnCampaign.MessageProperty(
-                            action="action",
-                            body="body",
-                            image_icon_url="imageIconUrl",
-                            image_small_icon_url="imageSmallIconUrl",
-                            image_url="imageUrl",
-                            json_body="jsonBody",
-                            media_url="mediaUrl",
-                            raw_content="rawContent",
-                            silent_push=False,
-                            time_to_live=123,
-                            title="title",
-                            url="url"
-                        ),
-                        email_message=pinpoint.CfnCampaign.CampaignEmailMessageProperty(
-                            body="body",
-                            from_address="fromAddress",
-                            html_body="htmlBody",
-                            title="title"
-                        ),
-                        gcm_message=pinpoint.CfnCampaign.MessageProperty(
-                            action="action",
-                            body="body",
-                            image_icon_url="imageIconUrl",
-                            image_small_icon_url="imageSmallIconUrl",
-                            image_url="imageUrl",
-                            json_body="jsonBody",
-                            media_url="mediaUrl",
-                            raw_content="rawContent",
-                            silent_push=False,
-                            time_to_live=123,
-                            title="title",
-                            url="url"
-                        ),
-                        in_app_message=pinpoint.CfnCampaign.CampaignInAppMessageProperty(
-                            content=[pinpoint.CfnCampaign.InAppMessageContentProperty(
-                                background_color="backgroundColor",
-                                body_config=pinpoint.CfnCampaign.InAppMessageBodyConfigProperty(
-                                    alignment="alignment",
-                                    body="body",
-                                    text_color="textColor"
-                                ),
-                                header_config=pinpoint.CfnCampaign.InAppMessageHeaderConfigProperty(
-                                    alignment="alignment",
-                                    header="header",
-                                    text_color="textColor"
-                                ),
-                                image_url="imageUrl",
-                                primary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
-                                    android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    ),
-                                    default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
-                                        background_color="backgroundColor",
-                                        border_radius=123,
-                                        button_action="buttonAction",
-                                        link="link",
-                                        text="text",
-                                        text_color="textColor"
-                                    ),
-                                    ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    ),
-                                    web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    )
-                                ),
-                                secondary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
-                                    android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    ),
-                                    default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
-                                        background_color="backgroundColor",
-                                        border_radius=123,
-                                        button_action="buttonAction",
-                                        link="link",
-                                        text="text",
-                                        text_color="textColor"
-                                    ),
-                                    ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    ),
-                                    web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                        button_action="buttonAction",
-                                        link="link"
-                                    )
-                                )
-                            )],
-                            custom_config=custom_config,
-                            layout="layout"
-                        ),
-                        sms_message=pinpoint.CfnCampaign.CampaignSmsMessageProperty(
-                            body="body",
-                            entity_id="entityId",
-                            message_type="messageType",
-                            origination_number="originationNumber",
-                            sender_id="senderId",
-                            template_id="templateId"
-                        )
-                    ),
-                    schedule=pinpoint.CfnCampaign.ScheduleProperty(
-                        end_time="endTime",
-                        event_filter=pinpoint.CfnCampaign.CampaignEventFilterProperty(
-                            dimensions=pinpoint.CfnCampaign.EventDimensionsProperty(
-                                attributes=attributes,
-                                event_type=pinpoint.CfnCampaign.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                metrics=metrics
-                            ),
-                            filter_type="filterType"
-                        ),
-                        frequency="frequency",
-                        is_local_time=False,
-                        quiet_time=pinpoint.CfnCampaign.QuietTimeProperty(
-                            end="end",
-                            start="start"
-                        ),
-                        start_time="startTime",
-                        time_zone="timeZone"
-                    ),
-                    size_percent=123,
-                    template_configuration=pinpoint.CfnCampaign.TemplateConfigurationProperty(
-                        email_template=pinpoint.CfnCampaign.TemplateProperty(
-                            name="name",
-                            version="version"
-                        ),
-                        push_template=pinpoint.CfnCampaign.TemplateProperty(
-                            name="name",
-                            version="version"
-                        ),
-                        sms_template=pinpoint.CfnCampaign.TemplateProperty(
-                            name="name",
-                            version="version"
-                        ),
-                        voice_template=pinpoint.CfnCampaign.TemplateProperty(
-                            name="name",
-                            version="version"
-                        )
-                    ),
-                    treatment_description="treatmentDescription",
-                    treatment_name="treatmentName"
-                )],
-                campaign_hook=pinpoint.CfnCampaign.CampaignHookProperty(
-                    lambda_function_name="lambdaFunctionName",
-                    mode="mode",
-                    web_url="webUrl"
-                ),
-                custom_delivery_configuration=pinpoint.CfnCampaign.CustomDeliveryConfigurationProperty(
-                    delivery_uri="deliveryUri",
-                    endpoint_types=["endpointTypes"]
-                ),
-                description="description",
-                holdout_percent=123,
-                is_paused=False,
-                limits=pinpoint.CfnCampaign.LimitsProperty(
-                    daily=123,
-                    maximum_duration=123,
-                    messages_per_second=123,
-                    session=123,
-                    total=123
-                ),
-                message_configuration=pinpoint.CfnCampaign.MessageConfigurationProperty(
-                    adm_message=pinpoint.CfnCampaign.MessageProperty(
-                        action="action",
-                        body="body",
-                        image_icon_url="imageIconUrl",
-                        image_small_icon_url="imageSmallIconUrl",
-                        image_url="imageUrl",
-                        json_body="jsonBody",
-                        media_url="mediaUrl",
-                        raw_content="rawContent",
-                        silent_push=False,
-                        time_to_live=123,
-                        title="title",
-                        url="url"
-                    ),
-                    apns_message=pinpoint.CfnCampaign.MessageProperty(
-                        action="action",
-                        body="body",
-                        image_icon_url="imageIconUrl",
-                        image_small_icon_url="imageSmallIconUrl",
-                        image_url="imageUrl",
-                        json_body="jsonBody",
-                        media_url="mediaUrl",
-                        raw_content="rawContent",
-                        silent_push=False,
-                        time_to_live=123,
-                        title="title",
-                        url="url"
-                    ),
-                    baidu_message=pinpoint.CfnCampaign.MessageProperty(
-                        action="action",
-                        body="body",
-                        image_icon_url="imageIconUrl",
-                        image_small_icon_url="imageSmallIconUrl",
-                        image_url="imageUrl",
-                        json_body="jsonBody",
-                        media_url="mediaUrl",
-                        raw_content="rawContent",
-                        silent_push=False,
-                        time_to_live=123,
-                        title="title",
-                        url="url"
-                    ),
-                    custom_message=pinpoint.CfnCampaign.CampaignCustomMessageProperty(
-                        data="data"
-                    ),
-                    default_message=pinpoint.CfnCampaign.MessageProperty(
-                        action="action",
-                        body="body",
-                        image_icon_url="imageIconUrl",
-                        image_small_icon_url="imageSmallIconUrl",
-                        image_url="imageUrl",
-                        json_body="jsonBody",
-                        media_url="mediaUrl",
-                        raw_content="rawContent",
-                        silent_push=False,
-                        time_to_live=123,
-                        title="title",
-                        url="url"
-                    ),
-                    email_message=pinpoint.CfnCampaign.CampaignEmailMessageProperty(
-                        body="body",
-                        from_address="fromAddress",
-                        html_body="htmlBody",
-                        title="title"
-                    ),
-                    gcm_message=pinpoint.CfnCampaign.MessageProperty(
-                        action="action",
-                        body="body",
-                        image_icon_url="imageIconUrl",
-                        image_small_icon_url="imageSmallIconUrl",
-                        image_url="imageUrl",
-                        json_body="jsonBody",
-                        media_url="mediaUrl",
-                        raw_content="rawContent",
-                        silent_push=False,
-                        time_to_live=123,
-                        title="title",
-                        url="url"
-                    ),
-                    in_app_message=pinpoint.CfnCampaign.CampaignInAppMessageProperty(
-                        content=[pinpoint.CfnCampaign.InAppMessageContentProperty(
-                            background_color="backgroundColor",
-                            body_config=pinpoint.CfnCampaign.InAppMessageBodyConfigProperty(
-                                alignment="alignment",
-                                body="body",
-                                text_color="textColor"
-                            ),
-                            header_config=pinpoint.CfnCampaign.InAppMessageHeaderConfigProperty(
-                                alignment="alignment",
-                                header="header",
-                                text_color="textColor"
-                            ),
-                            image_url="imageUrl",
-                            primary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
-                                android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                ),
-                                default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
-                                    background_color="backgroundColor",
-                                    border_radius=123,
-                                    button_action="buttonAction",
-                                    link="link",
-                                    text="text",
-                                    text_color="textColor"
-                                ),
-                                ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                ),
-                                web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                )
-                            ),
-                            secondary_btn=pinpoint.CfnCampaign.InAppMessageButtonProperty(
-                                android=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                ),
-                                default_config=pinpoint.CfnCampaign.DefaultButtonConfigurationProperty(
-                                    background_color="backgroundColor",
-                                    border_radius=123,
-                                    button_action="buttonAction",
-                                    link="link",
-                                    text="text",
-                                    text_color="textColor"
-                                ),
-                                ios=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                ),
-                                web=pinpoint.CfnCampaign.OverrideButtonConfigurationProperty(
-                                    button_action="buttonAction",
-                                    link="link"
-                                )
-                            )
-                        )],
-                        custom_config=custom_config,
-                        layout="layout"
-                    ),
-                    sms_message=pinpoint.CfnCampaign.CampaignSmsMessageProperty(
-                        body="body",
-                        entity_id="entityId",
-                        message_type="messageType",
-                        origination_number="originationNumber",
-                        sender_id="senderId",
-                        template_id="templateId"
-                    )
-                ),
-                priority=123,
-                segment_version=123,
-                tags=tags,
-                template_configuration=pinpoint.CfnCampaign.TemplateConfigurationProperty(
-                    email_template=pinpoint.CfnCampaign.TemplateProperty(
-                        name="name",
-                        version="version"
-                    ),
-                    push_template=pinpoint.CfnCampaign.TemplateProperty(
-                        name="name",
-                        version="version"
-                    ),
-                    sms_template=pinpoint.CfnCampaign.TemplateProperty(
-                        name="name",
-                        version="version"
-                    ),
-                    voice_template=pinpoint.CfnCampaign.TemplateProperty(
-                        name="name",
-                        version="version"
-                    )
-                ),
-                treatment_description="treatmentDescription",
-                treatment_name="treatmentName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8089eb09489d44c4a64192dbd9c8fe4f0ae8d17684ba1c3d9763b2d2393e97f)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument segment_id", value=segment_id, expected_type=type_hints["segment_id"])
-            check_type(argname="argument additional_treatments", value=additional_treatments, expected_type=type_hints["additional_treatments"])
-            check_type(argname="argument campaign_hook", value=campaign_hook, expected_type=type_hints["campaign_hook"])
-            check_type(argname="argument custom_delivery_configuration", value=custom_delivery_configuration, expected_type=type_hints["custom_delivery_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument holdout_percent", value=holdout_percent, expected_type=type_hints["holdout_percent"])
-            check_type(argname="argument is_paused", value=is_paused, expected_type=type_hints["is_paused"])
-            check_type(argname="argument limits", value=limits, expected_type=type_hints["limits"])
-            check_type(argname="argument message_configuration", value=message_configuration, expected_type=type_hints["message_configuration"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument segment_version", value=segment_version, expected_type=type_hints["segment_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_configuration", value=template_configuration, expected_type=type_hints["template_configuration"])
-            check_type(argname="argument treatment_description", value=treatment_description, expected_type=type_hints["treatment_description"])
-            check_type(argname="argument treatment_name", value=treatment_name, expected_type=type_hints["treatment_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "name": name,
-            "schedule": schedule,
-            "segment_id": segment_id,
-        }
-        if additional_treatments is not None:
-            self._values["additional_treatments"] = additional_treatments
-        if campaign_hook is not None:
-            self._values["campaign_hook"] = campaign_hook
-        if custom_delivery_configuration is not None:
-            self._values["custom_delivery_configuration"] = custom_delivery_configuration
-        if description is not None:
-            self._values["description"] = description
-        if holdout_percent is not None:
-            self._values["holdout_percent"] = holdout_percent
-        if is_paused is not None:
-            self._values["is_paused"] = is_paused
-        if limits is not None:
-            self._values["limits"] = limits
-        if message_configuration is not None:
-            self._values["message_configuration"] = message_configuration
-        if priority is not None:
-            self._values["priority"] = priority
-        if segment_version is not None:
-            self._values["segment_version"] = segment_version
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_configuration is not None:
-            self._values["template_configuration"] = template_configuration
-        if treatment_description is not None:
-            self._values["treatment_description"] = treatment_description
-        if treatment_name is not None:
-            self._values["treatment_name"] = treatment_name
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the campaign is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCampaign.ScheduleProperty]:
-        '''The schedule settings for the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-schedule
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCampaign.ScheduleProperty], result)
-
-    @builtins.property
-    def segment_id(self) -> builtins.str:
-        '''The unique identifier for the segment to associate with the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-segmentid
-        '''
-        result = self._values.get("segment_id")
-        assert result is not None, "Required property 'segment_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def additional_treatments(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.WriteTreatmentResourceProperty]]]]:
-        '''An array of requests that defines additional treatments for the campaign, in addition to the default treatment for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-additionaltreatments
-        '''
-        result = self._values.get("additional_treatments")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.WriteTreatmentResourceProperty]]]], result)
-
-    @builtins.property
-    def campaign_hook(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CampaignHookProperty]]:
-        '''Specifies the Lambda function to use as a code hook for a campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-campaignhook
-        '''
-        result = self._values.get("campaign_hook")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CampaignHookProperty]], result)
-
-    @builtins.property
-    def custom_delivery_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CustomDeliveryConfigurationProperty]]:
-        '''The delivery configuration settings for sending the treatment through a custom channel.
-
-        This object is required if the ``MessageConfiguration`` object for the treatment specifies a ``CustomMessage`` object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-customdeliveryconfiguration
-        '''
-        result = self._values.get("custom_delivery_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.CustomDeliveryConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def holdout_percent(self) -> typing.Optional[jsii.Number]:
-        '''The allocated percentage of users (segment members) who shouldn't receive messages from the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-holdoutpercent
-        '''
-        result = self._values.get("holdout_percent")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def is_paused(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to pause the campaign.
-
-        A paused campaign doesn't run unless you resume it by changing this value to ``false`` . If you restart a campaign, the campaign restarts from the beginning and not at the point you paused it. If a campaign is running it will complete and then pause. Pause only pauses or skips the next run for a recurring future scheduled campaign. A campaign scheduled for immediate can't be paused.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-ispaused
-        '''
-        result = self._values.get("is_paused")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def limits(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.LimitsProperty]]:
-        '''The messaging limits for the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-limits
-        '''
-        result = self._values.get("limits")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.LimitsProperty]], result)
-
-    @builtins.property
-    def message_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.MessageConfigurationProperty]]:
-        '''The message configuration settings for the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-messageconfiguration
-        '''
-        result = self._values.get("message_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.MessageConfigurationProperty]], result)
-
-    @builtins.property
-    def priority(self) -> typing.Optional[jsii.Number]:
-        '''An integer between 1 and 5, inclusive, that represents the priority of the in-app message campaign, where 1 is the highest priority and 5 is the lowest.
-
-        If there are multiple messages scheduled to be displayed at the same time, the priority determines the order in which those messages are displayed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-priority
-        '''
-        result = self._values.get("priority")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def segment_version(self) -> typing.Optional[jsii.Number]:
-        '''The version of the segment to associate with the campaign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-segmentversion
-        '''
-        result = self._values.get("segment_version")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def template_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.TemplateConfigurationProperty]]:
-        '''The message template to use for the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-templateconfiguration
-        '''
-        result = self._values.get("template_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCampaign.TemplateConfigurationProperty]], result)
-
-    @builtins.property
-    def treatment_description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-treatmentdescription
-        '''
-        result = self._values.get("treatment_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def treatment_name(self) -> typing.Optional[builtins.str]:
-        '''A custom name for the treatment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-campaign.html#cfn-pinpoint-campaign-treatmentname
-        '''
-        result = self._values.get("treatment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCampaignProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEmailChannelRef)
 class CfnEmailChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8363,6 +11831,12 @@ class CfnEmailChannel(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="emailChannelRef")
+    def email_channel_ref(self) -> EmailChannelReference:
+        '''A reference to a EmailChannel resource.'''
+        return typing.cast(EmailChannelReference, jsii.get(self, "emailChannelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier for the Amazon Pinpoint application that you're specifying the email channel for.'''
@@ -8462,166 +11936,7 @@ class CfnEmailChannel(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEmailChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "from_address": "fromAddress",
-        "identity": "identity",
-        "configuration_set": "configurationSet",
-        "enabled": "enabled",
-        "orchestration_sending_role_arn": "orchestrationSendingRoleArn",
-        "role_arn": "roleArn",
-    },
-)
-class CfnEmailChannelProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        from_address: builtins.str,
-        identity: builtins.str,
-        configuration_set: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        orchestration_sending_role_arn: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEmailChannel``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that you're specifying the email channel for.
-        :param from_address: The verified email address that you want to send email from when you send email through the channel.
-        :param identity: The Amazon Resource Name (ARN) of the identity, verified with Amazon Simple Email Service (Amazon SES), that you want to use when you send email through the channel.
-        :param configuration_set: The `Amazon SES configuration set <https://docs.aws.amazon.com/ses/latest/APIReference/API_ConfigurationSet.html>`_ that you want to apply to messages that you send through the channel.
-        :param enabled: Specifies whether to enable the email channel for the application.
-        :param orchestration_sending_role_arn: The ARN of an IAM role for Amazon Pinpoint to use to send email from your campaigns or journeys through Amazon SES .
-        :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that you want Amazon Pinpoint to use when it submits email-related event data for the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_email_channel_props = pinpoint.CfnEmailChannelProps(
-                application_id="applicationId",
-                from_address="fromAddress",
-                identity="identity",
-            
-                # the properties below are optional
-                configuration_set="configurationSet",
-                enabled=False,
-                orchestration_sending_role_arn="orchestrationSendingRoleArn",
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31b287f2c5e7cfc3790c0eca9541325a73a2157dce8dbc1d3b7d9fa702d77ff)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument from_address", value=from_address, expected_type=type_hints["from_address"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument orchestration_sending_role_arn", value=orchestration_sending_role_arn, expected_type=type_hints["orchestration_sending_role_arn"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "from_address": from_address,
-            "identity": identity,
-        }
-        if configuration_set is not None:
-            self._values["configuration_set"] = configuration_set
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if orchestration_sending_role_arn is not None:
-            self._values["orchestration_sending_role_arn"] = orchestration_sending_role_arn
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that you're specifying the email channel for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def from_address(self) -> builtins.str:
-        '''The verified email address that you want to send email from when you send email through the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-fromaddress
-        '''
-        result = self._values.get("from_address")
-        assert result is not None, "Required property 'from_address' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identity(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the identity, verified with Amazon Simple Email Service (Amazon SES), that you want to use when you send email through the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-identity
-        '''
-        result = self._values.get("identity")
-        assert result is not None, "Required property 'identity' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration_set(self) -> typing.Optional[builtins.str]:
-        '''The `Amazon SES configuration set <https://docs.aws.amazon.com/ses/latest/APIReference/API_ConfigurationSet.html>`_ that you want to apply to messages that you send through the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-configurationset
-        '''
-        result = self._values.get("configuration_set")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the email channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def orchestration_sending_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an IAM role for Amazon Pinpoint to use to send email from your campaigns or journeys through Amazon SES .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-orchestrationsendingrolearn
-        '''
-        result = self._values.get("orchestration_sending_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the AWS Identity and Access Management (IAM) role that you want Amazon Pinpoint to use when it submits email-related event data for the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailchannel.html#cfn-pinpoint-emailchannel-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEmailChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEmailTemplateRef, _ITaggable_36806126)
 class CfnEmailTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8749,6 +12064,12 @@ class CfnEmailTemplate(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="emailTemplateRef")
+    def email_template_ref(self) -> EmailTemplateReference:
+        '''A reference to a EmailTemplate resource.'''
+        return typing.cast(EmailTemplateReference, jsii.get(self, "emailTemplateRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -8846,174 +12167,7 @@ class CfnEmailTemplate(
         jsii.set(self, "textPart", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEmailTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subject": "subject",
-        "template_name": "templateName",
-        "default_substitutions": "defaultSubstitutions",
-        "html_part": "htmlPart",
-        "tags": "tags",
-        "template_description": "templateDescription",
-        "text_part": "textPart",
-    },
-)
-class CfnEmailTemplateProps:
-    def __init__(
-        self,
-        *,
-        subject: builtins.str,
-        template_name: builtins.str,
-        default_substitutions: typing.Optional[builtins.str] = None,
-        html_part: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-        template_description: typing.Optional[builtins.str] = None,
-        text_part: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEmailTemplate``.
-
-        :param subject: The subject line, or title, to use in email messages that are based on the message template.
-        :param template_name: The name of the message template.
-        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-        :param html_part: The message body, in HTML format, to use in email messages that are based on the message template. We recommend using HTML format for email clients that render HTML content. You can include links, formatted text, and more in an HTML message.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param template_description: A custom description of the message template.
-        :param text_part: The message body, in plain text format, to use in email messages that are based on the message template. We recommend using plain text format for email clients that don't render HTML content and clients that are connected to high-latency networks, such as mobile devices.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # tags: Any
-            
-            cfn_email_template_props = pinpoint.CfnEmailTemplateProps(
-                subject="subject",
-                template_name="templateName",
-            
-                # the properties below are optional
-                default_substitutions="defaultSubstitutions",
-                html_part="htmlPart",
-                tags=tags,
-                template_description="templateDescription",
-                text_part="textPart"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82e765dee130dbbde67e866633bee4ee835d943cf8392dcd6605e0dde4e3821c)
-            check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
-            check_type(argname="argument html_part", value=html_part, expected_type=type_hints["html_part"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
-            check_type(argname="argument text_part", value=text_part, expected_type=type_hints["text_part"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subject": subject,
-            "template_name": template_name,
-        }
-        if default_substitutions is not None:
-            self._values["default_substitutions"] = default_substitutions
-        if html_part is not None:
-            self._values["html_part"] = html_part
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_description is not None:
-            self._values["template_description"] = template_description
-        if text_part is not None:
-            self._values["text_part"] = text_part
-
-    @builtins.property
-    def subject(self) -> builtins.str:
-        '''The subject line, or title, to use in email messages that are based on the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-subject
-        '''
-        result = self._values.get("subject")
-        assert result is not None, "Required property 'subject' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template_name(self) -> builtins.str:
-        '''The name of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-templatename
-        '''
-        result = self._values.get("template_name")
-        assert result is not None, "Required property 'template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_substitutions(self) -> typing.Optional[builtins.str]:
-        '''A JSON object that specifies the default values to use for message variables in the message template.
-
-        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-defaultsubstitutions
-        '''
-        result = self._values.get("default_substitutions")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def html_part(self) -> typing.Optional[builtins.str]:
-        '''The message body, in HTML format, to use in email messages that are based on the message template.
-
-        We recommend using HTML format for email clients that render HTML content. You can include links, formatted text, and more in an HTML message.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-htmlpart
-        '''
-        result = self._values.get("html_part")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def template_description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-templatedescription
-        '''
-        result = self._values.get("template_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def text_part(self) -> typing.Optional[builtins.str]:
-        '''The message body, in plain text format, to use in email messages that are based on the message template.
-
-        We recommend using plain text format for email clients that don't render HTML content and clients that are connected to high-latency networks, such as mobile devices.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-emailtemplate.html#cfn-pinpoint-emailtemplate-textpart
-        '''
-        result = self._values.get("text_part")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEmailTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEventStreamRef)
 class CfnEventStream(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9110,6 +12264,12 @@ class CfnEventStream(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="eventStreamRef")
+    def event_stream_ref(self) -> EventStreamReference:
+        '''A reference to a EventStream resource.'''
+        return typing.cast(EventStreamReference, jsii.get(self, "eventStreamRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier for the Amazon Pinpoint application that you want to export data from.'''
@@ -9149,102 +12309,7 @@ class CfnEventStream(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnEventStreamProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "destination_stream_arn": "destinationStreamArn",
-        "role_arn": "roleArn",
-    },
-)
-class CfnEventStreamProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        destination_stream_arn: builtins.str,
-        role_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnEventStream``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that you want to export data from.
-        :param destination_stream_arn: The Amazon Resource Name (ARN) of the Amazon Kinesis Data Stream or Amazon Data Firehose delivery stream that you want to publish event data to. For a Kinesis Data Stream, the ARN format is: ``arn:aws:kinesis: region : account-id :stream/ stream_name`` For a Firehose delivery stream, the ARN format is: ``arn:aws:firehose: region : account-id :deliverystream/ stream_name``
-        :param role_arn: The AWS Identity and Access Management (IAM) role that authorizes Amazon Pinpoint to publish event data to the stream in your AWS account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_event_stream_props = pinpoint.CfnEventStreamProps(
-                application_id="applicationId",
-                destination_stream_arn="destinationStreamArn",
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ef26e6e94ef7fa3322d0acc6e2ff1ff55f9317bf3c2fad1529941a4ab3b906e)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument destination_stream_arn", value=destination_stream_arn, expected_type=type_hints["destination_stream_arn"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "destination_stream_arn": destination_stream_arn,
-            "role_arn": role_arn,
-        }
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that you want to export data from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def destination_stream_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Kinesis Data Stream or Amazon Data Firehose delivery stream that you want to publish event data to.
-
-        For a Kinesis Data Stream, the ARN format is: ``arn:aws:kinesis: region : account-id :stream/ stream_name``
-
-        For a Firehose delivery stream, the ARN format is: ``arn:aws:firehose: region : account-id :deliverystream/ stream_name``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-destinationstreamarn
-        '''
-        result = self._values.get("destination_stream_arn")
-        assert result is not None, "Required property 'destination_stream_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The AWS Identity and Access Management (IAM) role that authorizes Amazon Pinpoint to publish event data to the stream in your AWS account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-eventstream.html#cfn-pinpoint-eventstream-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventStreamProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IGCMChannelRef)
 class CfnGCMChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9358,6 +12423,12 @@ class CfnGCMChannel(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="gcmChannelRef")
+    def gcm_channel_ref(self) -> GCMChannelReference:
+        '''A reference to a GCMChannel resource.'''
+        return typing.cast(GCMChannelReference, jsii.get(self, "gcmChannelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier for the Amazon Pinpoint application that the GCM channel applies to.'''
@@ -9431,138 +12502,7 @@ class CfnGCMChannel(
         jsii.set(self, "serviceJson", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnGCMChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "api_key": "apiKey",
-        "default_authentication_method": "defaultAuthenticationMethod",
-        "enabled": "enabled",
-        "service_json": "serviceJson",
-    },
-)
-class CfnGCMChannelProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        api_key: typing.Optional[builtins.str] = None,
-        default_authentication_method: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        service_json: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGCMChannel``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the GCM channel applies to.
-        :param api_key: The Web API key, also called the *server key* , that you received from Google to communicate with Google services.
-        :param default_authentication_method: The default authentication method used for GCM. Values are either "TOKEN" or "KEY". Defaults to "KEY".
-        :param enabled: Specifies whether to enable the GCM channel for the Amazon Pinpoint application.
-        :param service_json: The contents of the JSON file provided by Google during registration in order to generate an access token for authentication. For more information see `Migrate from legacy FCM APIs to HTTP v1 <https://docs.aws.amazon.com/https://firebase.google.com/docs/cloud-messaging/migrate-v1>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_gCMChannel_props = pinpoint.CfnGCMChannelProps(
-                application_id="applicationId",
-            
-                # the properties below are optional
-                api_key="apiKey",
-                default_authentication_method="defaultAuthenticationMethod",
-                enabled=False,
-                service_json="serviceJson"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e274fb934af0ad701780242707b5b8268879db22917a3c6b496e2649c2c225eb)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
-            check_type(argname="argument default_authentication_method", value=default_authentication_method, expected_type=type_hints["default_authentication_method"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument service_json", value=service_json, expected_type=type_hints["service_json"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-        }
-        if api_key is not None:
-            self._values["api_key"] = api_key
-        if default_authentication_method is not None:
-            self._values["default_authentication_method"] = default_authentication_method
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if service_json is not None:
-            self._values["service_json"] = service_json
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the GCM channel applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def api_key(self) -> typing.Optional[builtins.str]:
-        '''The Web API key, also called the *server key* , that you received from Google to communicate with Google services.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-apikey
-        '''
-        result = self._values.get("api_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_authentication_method(self) -> typing.Optional[builtins.str]:
-        '''The default authentication method used for GCM.
-
-        Values are either "TOKEN" or "KEY". Defaults to "KEY".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-defaultauthenticationmethod
-        '''
-        result = self._values.get("default_authentication_method")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the GCM channel for the Amazon Pinpoint application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def service_json(self) -> typing.Optional[builtins.str]:
-        '''The contents of the JSON file provided by Google during registration in order to generate an access token for authentication.
-
-        For more information see `Migrate from legacy FCM APIs to HTTP v1 <https://docs.aws.amazon.com/https://firebase.google.com/docs/cloud-messaging/migrate-v1>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-gcmchannel.html#cfn-pinpoint-gcmchannel-servicejson
-        '''
-        result = self._values.get("service_json")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGCMChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IInAppTemplateRef, _ITaggable_36806126)
 class CfnInAppTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9734,6 +12674,12 @@ class CfnInAppTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inAppTemplateRef")
+    def in_app_template_ref(self) -> InAppTemplateReference:
+        '''A reference to a InAppTemplate resource.'''
+        return typing.cast(InAppTemplateReference, jsii.get(self, "inAppTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10563,219 +13509,7 @@ class CfnInAppTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnInAppTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "template_name": "templateName",
-        "content": "content",
-        "custom_config": "customConfig",
-        "layout": "layout",
-        "tags": "tags",
-        "template_description": "templateDescription",
-    },
-)
-class CfnInAppTemplateProps:
-    def __init__(
-        self,
-        *,
-        template_name: builtins.str,
-        content: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInAppTemplate.InAppMessageContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_config: typing.Any = None,
-        layout: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-        template_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInAppTemplate``.
-
-        :param template_name: The name of the in-app message template.
-        :param content: An object that contains information about the content of an in-app message, including its title and body text, text colors, background colors, images, buttons, and behaviors.
-        :param custom_config: Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.
-        :param layout: A string that determines the appearance of the in-app message. You can specify one of the following:. - ``BOTTOM_BANNER`` – a message that appears as a banner at the bottom of the page. - ``TOP_BANNER`` – a message that appears as a banner at the top of the page. - ``OVERLAYS`` – a message that covers entire screen. - ``MOBILE_FEED`` – a message that appears in a window in front of the page. - ``MIDDLE_BANNER`` – a message that appears as a banner in the middle of the page. - ``CAROUSEL`` – a scrollable layout of up to five unique messages.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param template_description: An optional description of the in-app template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # custom_config: Any
-            # tags: Any
-            
-            cfn_in_app_template_props = pinpoint.CfnInAppTemplateProps(
-                template_name="templateName",
-            
-                # the properties below are optional
-                content=[pinpoint.CfnInAppTemplate.InAppMessageContentProperty(
-                    background_color="backgroundColor",
-                    body_config=pinpoint.CfnInAppTemplate.BodyConfigProperty(
-                        alignment="alignment",
-                        body="body",
-                        text_color="textColor"
-                    ),
-                    header_config=pinpoint.CfnInAppTemplate.HeaderConfigProperty(
-                        alignment="alignment",
-                        header="header",
-                        text_color="textColor"
-                    ),
-                    image_url="imageUrl",
-                    primary_btn=pinpoint.CfnInAppTemplate.ButtonConfigProperty(
-                        android=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        ),
-                        default_config=pinpoint.CfnInAppTemplate.DefaultButtonConfigurationProperty(
-                            background_color="backgroundColor",
-                            border_radius=123,
-                            button_action="buttonAction",
-                            link="link",
-                            text="text",
-                            text_color="textColor"
-                        ),
-                        ios=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        ),
-                        web=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        )
-                    ),
-                    secondary_btn=pinpoint.CfnInAppTemplate.ButtonConfigProperty(
-                        android=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        ),
-                        default_config=pinpoint.CfnInAppTemplate.DefaultButtonConfigurationProperty(
-                            background_color="backgroundColor",
-                            border_radius=123,
-                            button_action="buttonAction",
-                            link="link",
-                            text="text",
-                            text_color="textColor"
-                        ),
-                        ios=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        ),
-                        web=pinpoint.CfnInAppTemplate.OverrideButtonConfigurationProperty(
-                            button_action="buttonAction",
-                            link="link"
-                        )
-                    )
-                )],
-                custom_config=custom_config,
-                layout="layout",
-                tags=tags,
-                template_description="templateDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e454773fb34afe57455c1ba518ee98492a81389b5fa127cd17273718dc8bcd1d)
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument custom_config", value=custom_config, expected_type=type_hints["custom_config"])
-            check_type(argname="argument layout", value=layout, expected_type=type_hints["layout"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "template_name": template_name,
-        }
-        if content is not None:
-            self._values["content"] = content
-        if custom_config is not None:
-            self._values["custom_config"] = custom_config
-        if layout is not None:
-            self._values["layout"] = layout
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_description is not None:
-            self._values["template_description"] = template_description
-
-    @builtins.property
-    def template_name(self) -> builtins.str:
-        '''The name of the in-app message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-templatename
-        '''
-        result = self._values.get("template_name")
-        assert result is not None, "Required property 'template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def content(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInAppTemplate.InAppMessageContentProperty]]]]:
-        '''An object that contains information about the content of an in-app message, including its title and body text, text colors, background colors, images, buttons, and behaviors.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-content
-        '''
-        result = self._values.get("content")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInAppTemplate.InAppMessageContentProperty]]]], result)
-
-    @builtins.property
-    def custom_config(self) -> typing.Any:
-        '''Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-customconfig
-        '''
-        result = self._values.get("custom_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def layout(self) -> typing.Optional[builtins.str]:
-        '''A string that determines the appearance of the in-app message. You can specify one of the following:.
-
-        - ``BOTTOM_BANNER`` – a message that appears as a banner at the bottom of the page.
-        - ``TOP_BANNER`` – a message that appears as a banner at the top of the page.
-        - ``OVERLAYS`` – a message that covers entire screen.
-        - ``MOBILE_FEED`` – a message that appears in a window in front of the page.
-        - ``MIDDLE_BANNER`` – a message that appears as a banner in the middle of the page.
-        - ``CAROUSEL`` – a scrollable layout of up to five unique messages.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-layout
-        '''
-        result = self._values.get("layout")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def template_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the in-app template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-inapptemplate.html#cfn-pinpoint-inapptemplate-templatedescription
-        '''
-        result = self._values.get("template_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInAppTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPushTemplateRef, _ITaggable_36806126)
 class CfnPushTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10949,6 +13683,12 @@ class CfnPushTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pushTemplateRef")
+    def push_template_ref(self) -> PushTemplateReference:
+        '''A reference to a PushTemplate resource.'''
+        return typing.cast(PushTemplateReference, jsii.get(self, "pushTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -11558,262 +14298,7 @@ class CfnPushTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnPushTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "template_name": "templateName",
-        "adm": "adm",
-        "apns": "apns",
-        "baidu": "baidu",
-        "default": "default",
-        "default_substitutions": "defaultSubstitutions",
-        "gcm": "gcm",
-        "tags": "tags",
-        "template_description": "templateDescription",
-    },
-)
-class CfnPushTemplateProps:
-    def __init__(
-        self,
-        *,
-        template_name: builtins.str,
-        adm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        apns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.APNSPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        baidu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        default: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.DefaultPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        default_substitutions: typing.Optional[builtins.str] = None,
-        gcm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-        template_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPushTemplate``.
-
-        :param template_name: The name of the message template to use for the message. If specified, this value must match the name of an existing message template.
-        :param adm: The message template to use for the ADM (Amazon Device Messaging) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
-        :param apns: The message template to use for the APNs (Apple Push Notification service) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
-        :param baidu: The message template to use for the Baidu (Baidu Cloud Push) channel. This message template overrides the default template for push notification channels ( ``Default`` ).
-        :param default: The default message template to use for push notification channels.
-        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-        :param gcm: The message template to use for the GCM channel, which is used to send notifications through the Firebase Cloud Messaging (FCM), formerly Google Cloud Messaging (GCM), service. This message template overrides the default template for push notification channels ( ``Default`` ).
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param template_description: A custom description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # tags: Any
-            
-            cfn_push_template_props = pinpoint.CfnPushTemplateProps(
-                template_name="templateName",
-            
-                # the properties below are optional
-                adm=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
-                    action="action",
-                    body="body",
-                    image_icon_url="imageIconUrl",
-                    image_url="imageUrl",
-                    small_image_icon_url="smallImageIconUrl",
-                    sound="sound",
-                    title="title",
-                    url="url"
-                ),
-                apns=pinpoint.CfnPushTemplate.APNSPushNotificationTemplateProperty(
-                    action="action",
-                    body="body",
-                    media_url="mediaUrl",
-                    sound="sound",
-                    title="title",
-                    url="url"
-                ),
-                baidu=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
-                    action="action",
-                    body="body",
-                    image_icon_url="imageIconUrl",
-                    image_url="imageUrl",
-                    small_image_icon_url="smallImageIconUrl",
-                    sound="sound",
-                    title="title",
-                    url="url"
-                ),
-                default=pinpoint.CfnPushTemplate.DefaultPushNotificationTemplateProperty(
-                    action="action",
-                    body="body",
-                    sound="sound",
-                    title="title",
-                    url="url"
-                ),
-                default_substitutions="defaultSubstitutions",
-                gcm=pinpoint.CfnPushTemplate.AndroidPushNotificationTemplateProperty(
-                    action="action",
-                    body="body",
-                    image_icon_url="imageIconUrl",
-                    image_url="imageUrl",
-                    small_image_icon_url="smallImageIconUrl",
-                    sound="sound",
-                    title="title",
-                    url="url"
-                ),
-                tags=tags,
-                template_description="templateDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd3a4d65d82add35f6d1294904a394ae2b9d9f09c6f0f78d8e25def5b4fa1b13)
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument adm", value=adm, expected_type=type_hints["adm"])
-            check_type(argname="argument apns", value=apns, expected_type=type_hints["apns"])
-            check_type(argname="argument baidu", value=baidu, expected_type=type_hints["baidu"])
-            check_type(argname="argument default", value=default, expected_type=type_hints["default"])
-            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
-            check_type(argname="argument gcm", value=gcm, expected_type=type_hints["gcm"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "template_name": template_name,
-        }
-        if adm is not None:
-            self._values["adm"] = adm
-        if apns is not None:
-            self._values["apns"] = apns
-        if baidu is not None:
-            self._values["baidu"] = baidu
-        if default is not None:
-            self._values["default"] = default
-        if default_substitutions is not None:
-            self._values["default_substitutions"] = default_substitutions
-        if gcm is not None:
-            self._values["gcm"] = gcm
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_description is not None:
-            self._values["template_description"] = template_description
-
-    @builtins.property
-    def template_name(self) -> builtins.str:
-        '''The name of the message template to use for the message.
-
-        If specified, this value must match the name of an existing message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-templatename
-        '''
-        result = self._values.get("template_name")
-        assert result is not None, "Required property 'template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def adm(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]]:
-        '''The message template to use for the ADM (Amazon Device Messaging) channel.
-
-        This message template overrides the default template for push notification channels ( ``Default`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-adm
-        '''
-        result = self._values.get("adm")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]], result)
-
-    @builtins.property
-    def apns(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.APNSPushNotificationTemplateProperty]]:
-        '''The message template to use for the APNs (Apple Push Notification service) channel.
-
-        This message template overrides the default template for push notification channels ( ``Default`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-apns
-        '''
-        result = self._values.get("apns")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.APNSPushNotificationTemplateProperty]], result)
-
-    @builtins.property
-    def baidu(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]]:
-        '''The message template to use for the Baidu (Baidu Cloud Push) channel.
-
-        This message template overrides the default template for push notification channels ( ``Default`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-baidu
-        '''
-        result = self._values.get("baidu")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]], result)
-
-    @builtins.property
-    def default(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.DefaultPushNotificationTemplateProperty]]:
-        '''The default message template to use for push notification channels.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-default
-        '''
-        result = self._values.get("default")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.DefaultPushNotificationTemplateProperty]], result)
-
-    @builtins.property
-    def default_substitutions(self) -> typing.Optional[builtins.str]:
-        '''A JSON object that specifies the default values to use for message variables in the message template.
-
-        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-defaultsubstitutions
-        '''
-        result = self._values.get("default_substitutions")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def gcm(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]]:
-        '''The message template to use for the GCM channel, which is used to send notifications through the Firebase Cloud Messaging (FCM), formerly Google Cloud Messaging (GCM), service.
-
-        This message template overrides the default template for push notification channels ( ``Default`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-gcm
-        '''
-        result = self._values.get("gcm")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def template_description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-pushtemplate.html#cfn-pinpoint-pushtemplate-templatedescription
-        '''
-        result = self._values.get("template_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPushTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISMSChannelRef)
 class CfnSMSChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11923,6 +14408,12 @@ class CfnSMSChannel(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="smsChannelRef")
+    def sms_channel_ref(self) -> SMSChannelReference:
+        '''A reference to a SMSChannel resource.'''
+        return typing.cast(SMSChannelReference, jsii.get(self, "smsChannelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier for the Amazon Pinpoint application that the SMS channel applies to.'''
@@ -11980,126 +14471,7 @@ class CfnSMSChannel(
         jsii.set(self, "shortCode", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSMSChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "enabled": "enabled",
-        "sender_id": "senderId",
-        "short_code": "shortCode",
-    },
-)
-class CfnSMSChannelProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        sender_id: typing.Optional[builtins.str] = None,
-        short_code: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSMSChannel``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the SMS channel applies to.
-        :param enabled: Specifies whether to enable the SMS channel for the application.
-        :param sender_id: The identity that you want to display on recipients' devices when they receive messages from the SMS channel. .. epigraph:: SenderIDs are only supported in certain countries and regions. For more information, see `Supported Countries and Regions <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-countries.html>`_ in the *Amazon Pinpoint User Guide* .
-        :param short_code: The registered short code that you want to use when you send messages through the SMS channel. .. epigraph:: For information about obtaining a dedicated short code for sending SMS messages, see `Requesting Dedicated Short Codes for SMS Messaging with Amazon Pinpoint <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-awssupport-short-code.html>`_ in the *Amazon Pinpoint User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_sMSChannel_props = pinpoint.CfnSMSChannelProps(
-                application_id="applicationId",
-            
-                # the properties below are optional
-                enabled=False,
-                sender_id="senderId",
-                short_code="shortCode"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d552897f1d5758cdf867f5379dff6344a4a7cebdd47142cd2fc361f08aca12a)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument sender_id", value=sender_id, expected_type=type_hints["sender_id"])
-            check_type(argname="argument short_code", value=short_code, expected_type=type_hints["short_code"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if sender_id is not None:
-            self._values["sender_id"] = sender_id
-        if short_code is not None:
-            self._values["short_code"] = short_code
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the SMS channel applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the SMS channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def sender_id(self) -> typing.Optional[builtins.str]:
-        '''The identity that you want to display on recipients' devices when they receive messages from the SMS channel.
-
-        .. epigraph::
-
-           SenderIDs are only supported in certain countries and regions. For more information, see `Supported Countries and Regions <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-countries.html>`_ in the *Amazon Pinpoint User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-senderid
-        '''
-        result = self._values.get("sender_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def short_code(self) -> typing.Optional[builtins.str]:
-        '''The registered short code that you want to use when you send messages through the SMS channel.
-
-        .. epigraph::
-
-           For information about obtaining a dedicated short code for sending SMS messages, see `Requesting Dedicated Short Codes for SMS Messaging with Amazon Pinpoint <https://docs.aws.amazon.com/pinpoint/latest/userguide/channels-sms-awssupport-short-code.html>`_ in the *Amazon Pinpoint User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smschannel.html#cfn-pinpoint-smschannel-shortcode
-        '''
-        result = self._values.get("short_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSMSChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISegmentRef, _ITaggable_36806126)
 class CfnSegment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12330,6 +14702,12 @@ class CfnSegment(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> SegmentReference:
+        '''A reference to a Segment resource.'''
+        return typing.cast(SegmentReference, jsii.get(self, "segmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -13664,260 +16042,7 @@ class CfnSegment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSegmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "name": "name",
-        "dimensions": "dimensions",
-        "segment_groups": "segmentGroups",
-        "tags": "tags",
-    },
-)
-class CfnSegmentProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        name: builtins.str,
-        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentDimensionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSegment``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the segment is associated with.
-        :param name: The name of the segment. .. epigraph:: A segment must have a name otherwise it will not appear in the Amazon Pinpoint console.
-        :param dimensions: An array that defines the dimensions for the segment.
-        :param segment_groups: The segment group to use and the dimensions to apply to the group's base segments in order to build the segment. A segment group can consist of zero or more base segments. Your request can include only one segment group.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # attributes: Any
-            # metrics: Any
-            # tags: Any
-            # user_attributes: Any
-            
-            cfn_segment_props = pinpoint.CfnSegmentProps(
-                application_id="applicationId",
-                name="name",
-            
-                # the properties below are optional
-                dimensions=pinpoint.CfnSegment.SegmentDimensionsProperty(
-                    attributes=attributes,
-                    behavior=pinpoint.CfnSegment.BehaviorProperty(
-                        recency=pinpoint.CfnSegment.RecencyProperty(
-                            duration="duration",
-                            recency_type="recencyType"
-                        )
-                    ),
-                    demographic=pinpoint.CfnSegment.DemographicProperty(
-                        app_version=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        channel=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        device_type=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        make=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        model=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        platform=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        )
-                    ),
-                    location=pinpoint.CfnSegment.LocationProperty(
-                        country=pinpoint.CfnSegment.SetDimensionProperty(
-                            dimension_type="dimensionType",
-                            values=["values"]
-                        ),
-                        gps_point=pinpoint.CfnSegment.GPSPointProperty(
-                            coordinates=pinpoint.CfnSegment.CoordinatesProperty(
-                                latitude=123,
-                                longitude=123
-                            ),
-                            range_in_kilometers=123
-                        )
-                    ),
-                    metrics=metrics,
-                    user_attributes=user_attributes
-                ),
-                segment_groups=pinpoint.CfnSegment.SegmentGroupsProperty(
-                    groups=[pinpoint.CfnSegment.GroupsProperty(
-                        dimensions=[pinpoint.CfnSegment.SegmentDimensionsProperty(
-                            attributes=attributes,
-                            behavior=pinpoint.CfnSegment.BehaviorProperty(
-                                recency=pinpoint.CfnSegment.RecencyProperty(
-                                    duration="duration",
-                                    recency_type="recencyType"
-                                )
-                            ),
-                            demographic=pinpoint.CfnSegment.DemographicProperty(
-                                app_version=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                channel=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                device_type=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                make=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                model=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                platform=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                )
-                            ),
-                            location=pinpoint.CfnSegment.LocationProperty(
-                                country=pinpoint.CfnSegment.SetDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                gps_point=pinpoint.CfnSegment.GPSPointProperty(
-                                    coordinates=pinpoint.CfnSegment.CoordinatesProperty(
-                                        latitude=123,
-                                        longitude=123
-                                    ),
-                                    range_in_kilometers=123
-                                )
-                            ),
-                            metrics=metrics,
-                            user_attributes=user_attributes
-                        )],
-                        source_segments=[pinpoint.CfnSegment.SourceSegmentsProperty(
-                            id="id",
-            
-                            # the properties below are optional
-                            version=123
-                        )],
-                        source_type="sourceType",
-                        type="type"
-                    )],
-                    include="include"
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25f43b43d50881dc0b12d0713cceab9df4a33654c37f0f4032f99c402541ca95)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
-            check_type(argname="argument segment_groups", value=segment_groups, expected_type=type_hints["segment_groups"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "name": name,
-        }
-        if dimensions is not None:
-            self._values["dimensions"] = dimensions
-        if segment_groups is not None:
-            self._values["segment_groups"] = segment_groups
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the segment is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the segment.
-
-        .. epigraph::
-
-           A segment must have a name otherwise it will not appear in the Amazon Pinpoint console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dimensions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentDimensionsProperty]]:
-        '''An array that defines the dimensions for the segment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-dimensions
-        '''
-        result = self._values.get("dimensions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentDimensionsProperty]], result)
-
-    @builtins.property
-    def segment_groups(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentGroupsProperty]]:
-        '''The segment group to use and the dimensions to apply to the group's base segments in order to build the segment.
-
-        A segment group can consist of zero or more base segments. Your request can include only one segment group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-segmentgroups
-        '''
-        result = self._values.get("segment_groups")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentGroupsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-segment.html#cfn-pinpoint-segment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSegmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISmsTemplateRef, _ITaggable_36806126)
 class CfnSmsTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14037,6 +16162,12 @@ class CfnSmsTemplate(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="smsTemplateRef")
+    def sms_template_ref(self) -> SmsTemplateReference:
+        '''A reference to a SmsTemplate resource.'''
+        return typing.cast(SmsTemplateReference, jsii.get(self, "smsTemplateRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -14108,140 +16239,7 @@ class CfnSmsTemplate(
         jsii.set(self, "templateDescription", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnSmsTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "body": "body",
-        "template_name": "templateName",
-        "default_substitutions": "defaultSubstitutions",
-        "tags": "tags",
-        "template_description": "templateDescription",
-    },
-)
-class CfnSmsTemplateProps:
-    def __init__(
-        self,
-        *,
-        body: builtins.str,
-        template_name: builtins.str,
-        default_substitutions: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-        template_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSmsTemplate``.
-
-        :param body: The message body to use in text messages that are based on the message template.
-        :param template_name: The name of the message template to use for the message. If specified, this value must match the name of an existing message template.
-        :param default_substitutions: A JSON object that specifies the default values to use for message variables in the message template. This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param template_description: A custom description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            # tags: Any
-            
-            cfn_sms_template_props = pinpoint.CfnSmsTemplateProps(
-                body="body",
-                template_name="templateName",
-            
-                # the properties below are optional
-                default_substitutions="defaultSubstitutions",
-                tags=tags,
-                template_description="templateDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__423db93371632488090f99bb5f94b3d74c4b49c176f644adb2f9a9b89eb1ec23)
-            check_type(argname="argument body", value=body, expected_type=type_hints["body"])
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument default_substitutions", value=default_substitutions, expected_type=type_hints["default_substitutions"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_description", value=template_description, expected_type=type_hints["template_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "body": body,
-            "template_name": template_name,
-        }
-        if default_substitutions is not None:
-            self._values["default_substitutions"] = default_substitutions
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_description is not None:
-            self._values["template_description"] = template_description
-
-    @builtins.property
-    def body(self) -> builtins.str:
-        '''The message body to use in text messages that are based on the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-body
-        '''
-        result = self._values.get("body")
-        assert result is not None, "Required property 'body' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template_name(self) -> builtins.str:
-        '''The name of the message template to use for the message.
-
-        If specified, this value must match the name of an existing message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-templatename
-        '''
-        result = self._values.get("template_name")
-        assert result is not None, "Required property 'template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_substitutions(self) -> typing.Optional[builtins.str]:
-        '''A JSON object that specifies the default values to use for message variables in the message template.
-
-        This object is a set of key-value pairs. Each key defines a message variable in the template. The corresponding value defines the default value for that variable. When you create a message that's based on the template, you can override these defaults with message-specific and address-specific variables and values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-defaultsubstitutions
-        '''
-        result = self._values.get("default_substitutions")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def template_description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-smstemplate.html#cfn-pinpoint-smstemplate-templatedescription
-        '''
-        result = self._values.get("template_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSmsTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IVoiceChannelRef)
 class CfnVoiceChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14340,6 +16338,12 @@ class CfnVoiceChannel(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="voiceChannelRef")
+    def voice_channel_ref(self) -> VoiceChannelReference:
+        '''A reference to a VoiceChannel resource.'''
+        return typing.cast(VoiceChannelReference, jsii.get(self, "voiceChannelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="applicationId")
     def application_id(self) -> builtins.str:
         '''The unique identifier for the Amazon Pinpoint application that the voice channel applies to.'''
@@ -14371,83 +16375,16 @@ class CfnVoiceChannel(
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pinpoint.CfnVoiceChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={"application_id": "applicationId", "enabled": "enabled"},
-)
-class CfnVoiceChannelProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVoiceChannel``.
-
-        :param application_id: The unique identifier for the Amazon Pinpoint application that the voice channel applies to.
-        :param enabled: Specifies whether to enable the voice channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pinpoint as pinpoint
-            
-            cfn_voice_channel_props = pinpoint.CfnVoiceChannelProps(
-                application_id="applicationId",
-            
-                # the properties below are optional
-                enabled=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf39a3de9821d1b054616d0b2e269d51093b75f3abc30724908da5749e0280bf)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier for the Amazon Pinpoint application that the voice channel applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html#cfn-pinpoint-voicechannel-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to enable the voice channel for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pinpoint-voicechannel.html#cfn-pinpoint-voicechannel-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVoiceChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ADMChannelReference",
+    "APNSChannelReference",
+    "APNSSandboxChannelReference",
+    "APNSVoipChannelReference",
+    "APNSVoipSandboxChannelReference",
+    "AppReference",
+    "ApplicationSettingsReference",
+    "BaiduChannelReference",
+    "CampaignReference",
     "CfnADMChannel",
     "CfnADMChannelProps",
     "CfnAPNSChannel",
@@ -14486,9 +16423,414 @@ __all__ = [
     "CfnSmsTemplateProps",
     "CfnVoiceChannel",
     "CfnVoiceChannelProps",
+    "EmailChannelReference",
+    "EmailTemplateReference",
+    "EventStreamReference",
+    "GCMChannelReference",
+    "IADMChannelRef",
+    "IAPNSChannelRef",
+    "IAPNSSandboxChannelRef",
+    "IAPNSVoipChannelRef",
+    "IAPNSVoipSandboxChannelRef",
+    "IAppRef",
+    "IApplicationSettingsRef",
+    "IBaiduChannelRef",
+    "ICampaignRef",
+    "IEmailChannelRef",
+    "IEmailTemplateRef",
+    "IEventStreamRef",
+    "IGCMChannelRef",
+    "IInAppTemplateRef",
+    "IPushTemplateRef",
+    "ISMSChannelRef",
+    "ISegmentRef",
+    "ISmsTemplateRef",
+    "IVoiceChannelRef",
+    "InAppTemplateReference",
+    "PushTemplateReference",
+    "SMSChannelReference",
+    "SegmentReference",
+    "SmsTemplateReference",
+    "VoiceChannelReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c4dd16fc2f1dfb11df67061c0eaca74cd0c286fc4821c53da52dea07d188de44(
+    *,
+    adm_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ce367d9112eab5f797ba187466d7d85dc17cfdc35e4685384e240bfc96a409d(
+    *,
+    apns_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76c0d98cd51851ab477aaf63cc593ee478cdae600e04d1e782466e9bc31b1140(
+    *,
+    apns_sandbox_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b82e9e0a562f2531be61df3d68761e068d9916f085b4d1746a8aff6c77fd1254(
+    *,
+    apns_voip_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__076de6663a3407da1363f5084bd486548e0a529aef4747124a53f726e5a09c2e(
+    *,
+    apns_voip_sandbox_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__577b5fc031e2b79fbc0e529ab28f6d996ef1bc6dd0ab21d52f86036ccc6338fd(
+    *,
+    app_arn: builtins.str,
+    app_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50b1d1b6133cebfc65a8785b23eac5cd2b64d27e6b9792faaea61ede1fd1f005(
+    *,
+    application_settings_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c76300b2a67be9b6842cdac6c19fb01c7219b8e25ed5fa80c0133707df9d10ca(
+    *,
+    baidu_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05e4ffc9e50d03c8d02080d869f27731c738ddc66bdb1910c26b0b23717f5bc4(
+    *,
+    campaign_arn: builtins.str,
+    campaign_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3ae5a29f3b4adfec5b1c827ee1bea8d33d99e697476ac7b7f9b8fea86b0bfc8(
+    *,
+    application_id: builtins.str,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68cad147d39b410bb9ad20221185a1521986df7fc3b2870715568b76969e443f(
+    *,
+    application_id: builtins.str,
+    bundle_id: typing.Optional[builtins.str] = None,
+    certificate: typing.Optional[builtins.str] = None,
+    default_authentication_method: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    team_id: typing.Optional[builtins.str] = None,
+    token_key: typing.Optional[builtins.str] = None,
+    token_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3609ffaa3fba04e4ff88045f06f94408c36907fca82875dc1aab7ae3cba1f30a(
+    *,
+    application_id: builtins.str,
+    bundle_id: typing.Optional[builtins.str] = None,
+    certificate: typing.Optional[builtins.str] = None,
+    default_authentication_method: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    team_id: typing.Optional[builtins.str] = None,
+    token_key: typing.Optional[builtins.str] = None,
+    token_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2515eaa7a5b0f17c9115c41e25d7466476c5fc2356786c269e03db415b0b6a0(
+    *,
+    application_id: builtins.str,
+    bundle_id: typing.Optional[builtins.str] = None,
+    certificate: typing.Optional[builtins.str] = None,
+    default_authentication_method: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    team_id: typing.Optional[builtins.str] = None,
+    token_key: typing.Optional[builtins.str] = None,
+    token_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c73c61658383943c9f8d75c0d3353564c42bbc4ebb21db0dbb12fd8e993b5ea4(
+    *,
+    application_id: builtins.str,
+    bundle_id: typing.Optional[builtins.str] = None,
+    certificate: typing.Optional[builtins.str] = None,
+    default_authentication_method: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    team_id: typing.Optional[builtins.str] = None,
+    token_key: typing.Optional[builtins.str] = None,
+    token_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5ece6d9985e2c12212269fba01e0f60516e87697766368b6a5343813fba618c(
+    *,
+    name: builtins.str,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__848467a4d3edb707abe4565a3db11fcd50755d6c664897537827d7e2003fb02d(
+    *,
+    application_id: builtins.str,
+    campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    quiet_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.QuietTimeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea99679b99d64e9a67176579da7115a89002eb9da18df44b574208277637df1c(
+    *,
+    api_key: builtins.str,
+    application_id: builtins.str,
+    secret_key: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8089eb09489d44c4a64192dbd9c8fe4f0ae8d17684ba1c3d9763b2d2393e97f(
+    *,
+    application_id: builtins.str,
+    name: builtins.str,
+    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    segment_id: builtins.str,
+    additional_treatments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WriteTreatmentResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CustomDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    holdout_percent: typing.Optional[jsii.Number] = None,
+    is_paused: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    message_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.MessageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    segment_version: typing.Optional[jsii.Number] = None,
+    tags: typing.Any = None,
+    template_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    treatment_description: typing.Optional[builtins.str] = None,
+    treatment_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d31b287f2c5e7cfc3790c0eca9541325a73a2157dce8dbc1d3b7d9fa702d77ff(
+    *,
+    application_id: builtins.str,
+    from_address: builtins.str,
+    identity: builtins.str,
+    configuration_set: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    orchestration_sending_role_arn: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82e765dee130dbbde67e866633bee4ee835d943cf8392dcd6605e0dde4e3821c(
+    *,
+    subject: builtins.str,
+    template_name: builtins.str,
+    default_substitutions: typing.Optional[builtins.str] = None,
+    html_part: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+    template_description: typing.Optional[builtins.str] = None,
+    text_part: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ef26e6e94ef7fa3322d0acc6e2ff1ff55f9317bf3c2fad1529941a4ab3b906e(
+    *,
+    application_id: builtins.str,
+    destination_stream_arn: builtins.str,
+    role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e274fb934af0ad701780242707b5b8268879db22917a3c6b496e2649c2c225eb(
+    *,
+    application_id: builtins.str,
+    api_key: typing.Optional[builtins.str] = None,
+    default_authentication_method: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    service_json: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e454773fb34afe57455c1ba518ee98492a81389b5fa127cd17273718dc8bcd1d(
+    *,
+    template_name: builtins.str,
+    content: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInAppTemplate.InAppMessageContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_config: typing.Any = None,
+    layout: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+    template_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd3a4d65d82add35f6d1294904a394ae2b9d9f09c6f0f78d8e25def5b4fa1b13(
+    *,
+    template_name: builtins.str,
+    adm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    apns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.APNSPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    baidu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.DefaultPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_substitutions: typing.Optional[builtins.str] = None,
+    gcm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+    template_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d552897f1d5758cdf867f5379dff6344a4a7cebdd47142cd2fc361f08aca12a(
+    *,
+    application_id: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    sender_id: typing.Optional[builtins.str] = None,
+    short_code: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25f43b43d50881dc0b12d0713cceab9df4a33654c37f0f4032f99c402541ca95(
+    *,
+    application_id: builtins.str,
+    name: builtins.str,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentDimensionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__423db93371632488090f99bb5f94b3d74c4b49c176f644adb2f9a9b89eb1ec23(
+    *,
+    body: builtins.str,
+    template_name: builtins.str,
+    default_substitutions: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+    template_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf39a3de9821d1b054616d0b2e269d51093b75f3abc30724908da5749e0280bf(
+    *,
+    application_id: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2eb2e3b2cf7a52870166b986f0f95f13888eb27db9c7ef9fe6de06b19f97c834(
+    *,
+    email_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc24d76162d39dfdcdcb7c8a0720b05b8bd908708c1444c1595a9ae250e51f38(
+    *,
+    email_template_arn: builtins.str,
+    email_template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9309c2eb61a052a8b5935ff5627b837cb1090a1c24b742b40fdd159d46f19d9d(
+    *,
+    event_stream_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38de6d774557cf89beb321ee32d5e92fba1d60e28c748272b3f54449eb64bdfd(
+    *,
+    gcm_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9fbabee37c964c773c7016b17b74c0fe2d9e57eef4aaa785e1c56e1ec0624ed(
+    *,
+    in_app_template_arn: builtins.str,
+    template_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07c2d4f77bfa2a345eaaf78cda4b9aecff6ec9081424649cc97bfbbb9c450318(
+    *,
+    push_template_arn: builtins.str,
+    push_template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c07e13a8a26c53ded02cc35ef1d4e4b19455f60d7fa05a49e50c3a301353b0c(
+    *,
+    sms_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6f52659d0b2592941151147c7440b2f62d38b43c6dd654e3d672ea3bc75c8f1(
+    *,
+    segment_arn: builtins.str,
+    segment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d79bd58a9e31047f48965c1fe065dae6f8ce1d0bf14b9e2c731a4cc941e35db(
+    *,
+    sms_template_arn: builtins.str,
+    sms_template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91779c828dc50ce74553d077a5704de08571466fec3779686035f231e59aaeba(
+    *,
+    voice_channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__aaf704e00bb5859cb830fbb4d1e376040266671aa90e04a47641d8d055085dae(
     scope: _constructs_77d1e7e8.Construct,
@@ -14534,16 +16876,6 @@ def _typecheckingstub__f43ceab49423ae46becea7c2f42867ef5034b7107d6f0e0def0f82103
 
 def _typecheckingstub__29f9495da313043ed76a0fcbe057cba0bc82dd16c11f653c0c4ce29add3f3d6a(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3ae5a29f3b4adfec5b1c827ee1bea8d33d99e697476ac7b7f9b8fea86b0bfc8(
-    *,
-    application_id: builtins.str,
-    client_id: builtins.str,
-    client_secret: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14631,21 +16963,6 @@ def _typecheckingstub__e111ff96fa2864617af9bc1196e6a5c0f42a455a826bc67955c67c9e0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__68cad147d39b410bb9ad20221185a1521986df7fc3b2870715568b76969e443f(
-    *,
-    application_id: builtins.str,
-    bundle_id: typing.Optional[builtins.str] = None,
-    certificate: typing.Optional[builtins.str] = None,
-    default_authentication_method: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    team_id: typing.Optional[builtins.str] = None,
-    token_key: typing.Optional[builtins.str] = None,
-    token_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b2cdf1bd0828fb196281b0c6e09fb772d25d46b1f609996c702cd33ded3923dc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14725,21 +17042,6 @@ def _typecheckingstub__622ff057d2fa4cb1f10160e466a9f238a6f82b2da34b6a446ac478993
 
 def _typecheckingstub__2a1c83d822fd7f724c76e48f4fadc86e26cedf4936d86d6a2d5600e9949b8e2c(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3609ffaa3fba04e4ff88045f06f94408c36907fca82875dc1aab7ae3cba1f30a(
-    *,
-    application_id: builtins.str,
-    bundle_id: typing.Optional[builtins.str] = None,
-    certificate: typing.Optional[builtins.str] = None,
-    default_authentication_method: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    team_id: typing.Optional[builtins.str] = None,
-    token_key: typing.Optional[builtins.str] = None,
-    token_key_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14827,21 +17129,6 @@ def _typecheckingstub__46127dd7405f371138f3f8925f703cbdf74dc4d1920b57b2c4046a9f4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f2515eaa7a5b0f17c9115c41e25d7466476c5fc2356786c269e03db415b0b6a0(
-    *,
-    application_id: builtins.str,
-    bundle_id: typing.Optional[builtins.str] = None,
-    certificate: typing.Optional[builtins.str] = None,
-    default_authentication_method: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    team_id: typing.Optional[builtins.str] = None,
-    token_key: typing.Optional[builtins.str] = None,
-    token_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__cda00a8216a1537d1791cebffe3e648359ad880fd824bfd90472a552cf2f17a1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14925,21 +17212,6 @@ def _typecheckingstub__cd15602c1b7a8a7fe5ed82c46d42d3b30e6bc52c8618e996139c2d1c4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c73c61658383943c9f8d75c0d3353564c42bbc4ebb21db0dbb12fd8e993b5ea4(
-    *,
-    application_id: builtins.str,
-    bundle_id: typing.Optional[builtins.str] = None,
-    certificate: typing.Optional[builtins.str] = None,
-    default_authentication_method: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    team_id: typing.Optional[builtins.str] = None,
-    token_key: typing.Optional[builtins.str] = None,
-    token_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6b0f8bd367843c451288aaaaf44baa44f09abffc0daba385520088889fd81e23(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14970,14 +17242,6 @@ def _typecheckingstub__6cda5c7fde34ff297b3dd15ab1185cf7a20ee1de5b1dbc01014c4cdbc
 
 def _typecheckingstub__9e084f2f5a25d396c8ccb2664d39e210e8baca99dd9f5b729df463e35b2565c3(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d5ece6d9985e2c12212269fba01e0f60516e87697766368b6a5343813fba618c(
-    *,
-    name: builtins.str,
-    tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15064,17 +17328,6 @@ def _typecheckingstub__b8f1c3eef4ae7697239fc1a13ba90492d492b7d5021e1b6b4bbdda316
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__848467a4d3edb707abe4565a3db11fcd50755d6c664897537827d7e2003fb02d(
-    *,
-    application_id: builtins.str,
-    campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    quiet_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationSettings.QuietTimeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__87a51d70a760e3a97ac0ecff0ea42b251dacb1982201c515754052b0924b8e68(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -15119,16 +17372,6 @@ def _typecheckingstub__985764c1478c22f92314f563a4e1501861497b260954b0683c149c92a
 
 def _typecheckingstub__322e2fecb20c91419f0797aeaab2607597e674c854ce690ae78042ae1dd3e42f(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea99679b99d64e9a67176579da7115a89002eb9da18df44b574208277637df1c(
-    *,
-    api_key: builtins.str,
-    application_id: builtins.str,
-    secret_key: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15531,30 +17774,6 @@ def _typecheckingstub__b64050a2eeb087f58f88d6a71e465dce41ef9c2d308dac9e92c90fd2f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a8089eb09489d44c4a64192dbd9c8fe4f0ae8d17684ba1c3d9763b2d2393e97f(
-    *,
-    application_id: builtins.str,
-    name: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    segment_id: builtins.str,
-    additional_treatments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.WriteTreatmentResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    campaign_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CampaignHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.CustomDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    holdout_percent: typing.Optional[jsii.Number] = None,
-    is_paused: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.LimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    message_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.MessageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    priority: typing.Optional[jsii.Number] = None,
-    segment_version: typing.Optional[jsii.Number] = None,
-    tags: typing.Any = None,
-    template_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCampaign.TemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    treatment_description: typing.Optional[builtins.str] = None,
-    treatment_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7abae51eb3b1f161941e50db5fbebe5cf3c749c2e815f973039ad61896339f89(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -15620,19 +17839,6 @@ def _typecheckingstub__aa8fbe3722fc02e373ab1dd1fbe9afea479c8117a0f4ca1a070a3963c
 
 def _typecheckingstub__b91d75ea3a5bc3900bbc4b0958bbc0263a57362f325b830004dddc72b23dfe1b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d31b287f2c5e7cfc3790c0eca9541325a73a2157dce8dbc1d3b7d9fa702d77ff(
-    *,
-    application_id: builtins.str,
-    from_address: builtins.str,
-    identity: builtins.str,
-    configuration_set: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    orchestration_sending_role_arn: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15706,19 +17912,6 @@ def _typecheckingstub__1ff0c2083d81dbecc8b9bdfa839def0127c389629ac4dce169887c0ca
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__82e765dee130dbbde67e866633bee4ee835d943cf8392dcd6605e0dde4e3821c(
-    *,
-    subject: builtins.str,
-    template_name: builtins.str,
-    default_substitutions: typing.Optional[builtins.str] = None,
-    html_part: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-    template_description: typing.Optional[builtins.str] = None,
-    text_part: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7494978a71be7ff003e54391145803489ba95ef1f0579d626731310f2491ba6d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -15756,15 +17949,6 @@ def _typecheckingstub__523733f36a90ab4e5bdf0e39f89059f03b9879e928c1155d176f7a0df
 
 def _typecheckingstub__6a3815f734b46370b2c5a51cd95e50e77cbb9061f0c2d09fbe8c169d14033420(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ef26e6e94ef7fa3322d0acc6e2ff1ff55f9317bf3c2fad1529941a4ab3b906e(
-    *,
-    application_id: builtins.str,
-    destination_stream_arn: builtins.str,
-    role_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15820,17 +18004,6 @@ def _typecheckingstub__934c050e152924d121e2ce630b51de8fe2580d8d1dda58e4e88cd58ff
 
 def _typecheckingstub__48ddd214c4cbe74254a362fcf38ced8236bbb3e680928c1abc7bf6ab22ab4fa1(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e274fb934af0ad701780242707b5b8268879db22917a3c6b496e2649c2c225eb(
-    *,
-    application_id: builtins.str,
-    api_key: typing.Optional[builtins.str] = None,
-    default_authentication_method: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    service_json: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15957,18 +18130,6 @@ def _typecheckingstub__2a29b7f724524fecb2d0850fe702875c3a15f609e99011276708d4c70
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e454773fb34afe57455c1ba518ee98492a81389b5fa127cd17273718dc8bcd1d(
-    *,
-    template_name: builtins.str,
-    content: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInAppTemplate.InAppMessageContentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_config: typing.Any = None,
-    layout: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-    template_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0c19924c3c4d187e6a4e597c337133470b5e94ec01287814b990418d143d50c8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16089,21 +18250,6 @@ def _typecheckingstub__f1a9fa0c7c3f0969aca855183fe31bb20a3232f7f68fca405d8416de8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fd3a4d65d82add35f6d1294904a394ae2b9d9f09c6f0f78d8e25def5b4fa1b13(
-    *,
-    template_name: builtins.str,
-    adm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    apns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.APNSPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    baidu: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.DefaultPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default_substitutions: typing.Optional[builtins.str] = None,
-    gcm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPushTemplate.AndroidPushNotificationTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-    template_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9b9e0e4cae717e114a852dc3bc4437c0b746385acea12e532445a77a378c9144(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16148,16 +18294,6 @@ def _typecheckingstub__e23b829beec325729e74969ea029e8d36727faa2fed854351448b8dc2
 
 def _typecheckingstub__581a443ec8905d7aa8644d9335605a1cb33151dcb443f96ded6410d3769aa4be(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d552897f1d5758cdf867f5379dff6344a4a7cebdd47142cd2fc361f08aca12a(
-    *,
-    application_id: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    sender_id: typing.Optional[builtins.str] = None,
-    short_code: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16322,17 +18458,6 @@ def _typecheckingstub__388da4420307c3fdf7dde8a1d10d0e8cc8d6c962e3fadadd9fae09d96
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__25f43b43d50881dc0b12d0713cceab9df4a33654c37f0f4032f99c402541ca95(
-    *,
-    application_id: builtins.str,
-    name: builtins.str,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentDimensionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegment.SegmentGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1536fb6b841b2ae28085a22bbac5257230add94dcddd63c390ad3d6941c1bdbc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16388,17 +18513,6 @@ def _typecheckingstub__bbd3fa157e9a3304bccf83ba2950a06e1182c1194aca31c385f891495
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__423db93371632488090f99bb5f94b3d74c4b49c176f644adb2f9a9b89eb1ec23(
-    *,
-    body: builtins.str,
-    template_name: builtins.str,
-    default_substitutions: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-    template_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9eefa81940d32d619367bdcf45d70859abb04ed0a3acb03e963889c077b6a175(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16429,14 +18543,6 @@ def _typecheckingstub__d66b91fe903bebc80d5aa290f53e57858be37231f0b2b67a3792364ac
 
 def _typecheckingstub__55f9072e4ea10db6545a901f75a87f0db23d51ed4c12907c8203b488bc5d23b8(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf39a3de9821d1b054616d0b2e269d51093b75f3abc30724908da5749e0280bf(
-    *,
-    application_id: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

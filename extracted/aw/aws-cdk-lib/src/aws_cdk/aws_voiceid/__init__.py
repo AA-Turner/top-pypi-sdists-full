@@ -69,7 +69,212 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_voiceid.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        server_side_encryption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param name: The name for the domain.
+        :param server_side_encryption_configuration: The server-side encryption configuration containing the KMS key identifier you want Voice ID to use to encrypt your data.
+        :param description: The description of the domain.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_voiceid as voiceid
+            
+            cfn_domain_props = voiceid.CfnDomainProps(
+                name="name",
+                server_side_encryption_configuration=voiceid.CfnDomain.ServerSideEncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4875d96b859328deb6aa23821c9bcfec7236d9bde249b1648a571d740a1f532)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "server_side_encryption_configuration": server_side_encryption_configuration,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_side_encryption_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDomain.ServerSideEncryptionConfigurationProperty"]:
+        '''The server-side encryption configuration containing the KMS key identifier you want Voice ID to use to encrypt your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-serversideencryptionconfiguration
+        '''
+        result = self._values.get("server_side_encryption_configuration")
+        assert result is not None, "Required property 'server_side_encryption_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDomain.ServerSideEncryptionConfigurationProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_voiceid.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_id": "domainId"},
+)
+class DomainReference:
+    def __init__(self, *, domain_id: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_id: The DomainId of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_voiceid as voiceid
+            
+            domain_reference = voiceid.DomainReference(
+                domain_id="domainId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29b8c5ff2faa7a453d6fbb50c6c10a76daa7bc2b168d2238107ede1fa479b5dd)
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_id": domain_id,
+        }
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The DomainId of the Domain resource.'''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_voiceid.IDomainRef")
+class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_voiceid.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDomainRef, _ITaggable_36806126)
 class CfnDomain(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -182,6 +387,12 @@ class CfnDomain(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''A reference to a Domain resource.'''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -307,128 +518,31 @@ class CfnDomain(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_voiceid.CfnDomainProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnDomainProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        server_side_encryption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDomain``.
-
-        :param name: The name for the domain.
-        :param server_side_encryption_configuration: The server-side encryption configuration containing the KMS key identifier you want Voice ID to use to encrypt your data.
-        :param description: The description of the domain.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_voiceid as voiceid
-            
-            cfn_domain_props = voiceid.CfnDomainProps(
-                name="name",
-                server_side_encryption_configuration=voiceid.CfnDomain.ServerSideEncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4875d96b859328deb6aa23821c9bcfec7236d9bde249b1648a571d740a1f532)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "server_side_encryption_configuration": server_side_encryption_configuration,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_side_encryption_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDomain.ServerSideEncryptionConfigurationProperty]:
-        '''The server-side encryption configuration containing the KMS key identifier you want Voice ID to use to encrypt your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-serversideencryptionconfiguration
-        '''
-        result = self._values.get("server_side_encryption_configuration")
-        assert result is not None, "Required property 'server_side_encryption_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDomain.ServerSideEncryptionConfigurationProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-voiceid-domain.html#cfn-voiceid-domain-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDomain",
     "CfnDomainProps",
+    "DomainReference",
+    "IDomainRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c4875d96b859328deb6aa23821c9bcfec7236d9bde249b1648a571d740a1f532(
+    *,
+    name: builtins.str,
+    server_side_encryption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29b8c5ff2faa7a453d6fbb50c6c10a76daa7bc2b168d2238107ede1fa479b5dd(
+    *,
+    domain_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f669b499116dab0ae384f6bbe13bc890778f766ea4106733abad202530d7bf73(
     scope: _constructs_77d1e7e8.Construct,
@@ -481,16 +595,6 @@ def _typecheckingstub__527be53c27d83ed7810dae54c2f9db5a44833fe34116e6ea40c8378e8
 def _typecheckingstub__026258552a46cefb8caa670ab5034652c3e2c257df5858a178b076195083f5eb(
     *,
     kms_key_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4875d96b859328deb6aa23821c9bcfec7236d9bde249b1648a571d740a1f532(
-    *,
-    name: builtins.str,
-    server_side_encryption_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

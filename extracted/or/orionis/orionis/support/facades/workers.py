@@ -1,22 +1,22 @@
 from orionis.container.facades.facade import Facade
-from orionis.services.system.contracts.workers import IWorkers
 
 class Workers(Facade):
 
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Get the registered name of the component in the service container.
+        Returns the binding key used to resolve the workers service implementation from the service container.
 
-        This method provides the binding key that the service container uses to
-        resolve the workers service implementation. It serves as the bridge between
-        the facade and the underlying service registration.
+        This method specifies the unique identifier (binding key) that the service container uses to locate
+        and provide the appropriate implementation of the workers service. It acts as the connection point
+        between the facade and the underlying service registration in the container.
 
         Returns
         -------
         str
-            The service container binding key 'x-orionis.services.system.contracts.workers.IWorkers'
-            that identifies the workers service implementation.
+            The string 'x-orionis.services.system.contracts.workers.IWorkers', which is the binding key
+            identifying the workers service implementation in the service container.
         """
 
-        return f"x-{IWorkers.__module__}.{IWorkers.__name__}"
+        # Return the binding key for the workers service in the service container
+        return "x-orionis.services.system.contracts.workers.IWorkers"

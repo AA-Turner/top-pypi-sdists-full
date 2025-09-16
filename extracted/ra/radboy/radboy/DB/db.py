@@ -53,7 +53,7 @@ from radboy.DB.rad_types import *
 from dataclasses import dataclass
 import dataclasses as DC
 import contextlib as CTXLB
-getcontext().prec=4
+#getcontext().prec=4
 
 #libraries for additional calculations
 import scipy as SCIPY

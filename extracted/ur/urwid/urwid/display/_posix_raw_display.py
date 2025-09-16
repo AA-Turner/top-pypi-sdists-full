@@ -154,7 +154,7 @@ class Screen(_raw_display_base.Screen):
         if not os.environ.get("TERM", "").lower().startswith("linux"):
             return
 
-        m = Popen(  # noqa: S603  # pylint: disable=consider-using-with
+        m = Popen(  # pylint: disable=consider-using-with
             ["/usr/bin/mev", "-e", "158"],
             stdin=PIPE,
             stdout=PIPE,
@@ -175,7 +175,7 @@ class Screen(_raw_display_base.Screen):
         """
         Initialize the screen and input mode.
 
-        alternate_buffer -- use alternate screen buffer
+        alternate_buffer -- use an alternate screen buffer
         """
         if alternate_buffer:
             self.write(escape.SWITCH_TO_ALTERNATE_BUFFER)
@@ -403,8 +403,8 @@ class Screen(_raw_display_base.Screen):
         y, x = super().get_cols_rows()
         with contextlib.suppress(OSError):  # Term size could not be determined
             if hasattr(self._term_output_file, "fileno"):
-                buf = fcntl.ioctl(self._term_output_file.fileno(), termios.TIOCGWINSZ, b" " * 4)
-                y, x = struct.unpack("hh", buf)
+                buf = fcntl.ioctl(self._term_output_file.fileno(), termios.TIOCGWINSZ, b" " * 8)
+                y, x, _, _ = struct.unpack("hhhh", buf)
 
         # Provide some lightweight fallbacks in case the TIOCWINSZ doesn't
         # give sane answers

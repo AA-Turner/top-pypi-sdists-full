@@ -53,7 +53,8 @@ class DisableBit(enum.IntFlag):
     FRICTIONLOSS: joint and tendon frictionloss constraints
     LIMIT:        joint and tendon limit constraints
     CONTACT:      contact constraints
-    PASSIVE:      passive forces
+    SPRING:       passive spring forces
+    DAMPER:       passive damper forces
     GRAVITY:      gravitational forces
     CLAMPCTRL:    clamp control to specified range
     WARMSTART:    warmstart constraint solver
@@ -67,7 +68,8 @@ class DisableBit(enum.IntFlag):
   FRICTIONLOSS = mujoco.mjtDisableBit.mjDSBL_FRICTIONLOSS
   LIMIT = mujoco.mjtDisableBit.mjDSBL_LIMIT
   CONTACT = mujoco.mjtDisableBit.mjDSBL_CONTACT
-  PASSIVE = mujoco.mjtDisableBit.mjDSBL_PASSIVE
+  SPRING = mujoco.mjtDisableBit.mjDSBL_SPRING
+  DAMPER = mujoco.mjtDisableBit.mjDSBL_DAMPER
   GRAVITY = mujoco.mjtDisableBit.mjDSBL_GRAVITY
   CLAMPCTRL = mujoco.mjtDisableBit.mjDSBL_CLAMPCTRL
   WARMSTART = mujoco.mjtDisableBit.mjDSBL_WARMSTART
@@ -568,6 +570,7 @@ class ModelC(PyTreeNode):
   flex_internal: jax.Array
   flex_selfcollide: jax.Array
   flex_activelayers: jax.Array
+  flex_passive: jax.Array
   flex_dim: jax.Array
   flex_vertadr: jax.Array
   flex_vertnum: jax.Array
@@ -599,6 +602,19 @@ class ModelC(PyTreeNode):
   sensor_plugin: jax.Array
   plugin: jax.Array
   plugin_stateadr: jax.Array
+  B_rownnz: jax.Array  # pylint:disable=invalid-name
+  B_rowadr: jax.Array  # pylint:disable=invalid-name
+  B_colind: jax.Array  # pylint:disable=invalid-name
+  M_rownnz: jax.Array  # pylint:disable=invalid-name
+  M_rowadr: jax.Array  # pylint:disable=invalid-name
+  M_colind: jax.Array  # pylint:disable=invalid-name
+  mapM2M: jax.Array  # pylint:disable=invalid-name
+  D_rownnz: jax.Array  # pylint:disable=invalid-name
+  D_rowadr: jax.Array  # pylint:disable=invalid-name
+  D_diag: jax.Array  # pylint:disable=invalid-name
+  D_colind: jax.Array  # pylint:disable=invalid-name
+  mapM2D: jax.Array  # pylint:disable=invalid-name
+  mapD2M: jax.Array  # pylint:disable=invalid-name
 
 
 class ModelJAX(PyTreeNode):
@@ -998,7 +1014,6 @@ class DataC(PyTreeNode):
   ten_J_rowadr: jax.Array  # pylint:disable=invalid-name
   ten_J_colind: jax.Array  # pylint:disable=invalid-name
   ten_J: jax.Array  # pylint:disable=invalid-name
-  ten_length: jax.Array
   wrap_obj: jax.Array
   wrap_xpos: jax.Array
   actuator_length: jax.Array
@@ -1021,19 +1036,6 @@ class DataC(PyTreeNode):
   plugin_data: jax.Array
   qH: jax.Array  # pylint:disable=invalid-name
   qHDiagInv: jax.Array  # pylint:disable=invalid-name
-  B_rownnz: jax.Array  # pylint:disable=invalid-name
-  B_rowadr: jax.Array  # pylint:disable=invalid-name
-  B_colind: jax.Array  # pylint:disable=invalid-name
-  M_rownnz: jax.Array  # pylint:disable=invalid-name
-  M_rowadr: jax.Array  # pylint:disable=invalid-name
-  M_colind: jax.Array  # pylint:disable=invalid-name
-  mapM2M: jax.Array  # pylint:disable=invalid-name
-  D_rownnz: jax.Array  # pylint:disable=invalid-name
-  D_rowadr: jax.Array  # pylint:disable=invalid-name
-  D_diag: jax.Array  # pylint:disable=invalid-name
-  D_colind: jax.Array  # pylint:disable=invalid-name
-  mapM2D: jax.Array  # pylint:disable=invalid-name
-  mapD2M: jax.Array  # pylint:disable=invalid-name
   qDeriv: jax.Array  # pylint:disable=invalid-name
   qLU: jax.Array  # pylint:disable=invalid-name
   qfrc_spring: jax.Array
@@ -1070,7 +1072,6 @@ class DataJAX(PyTreeNode):
   ten_wrapadr: jax.Array
   ten_wrapnum: jax.Array
   ten_J: jax.Array  # pylint:disable=invalid-name
-  ten_length: jax.Array
   wrap_obj: jax.Array
   wrap_xpos: jax.Array
   actuator_length: jax.Array
@@ -1133,6 +1134,7 @@ class Data(PyTreeNode):
   ximat: jax.Array
   xanchor: jax.Array
   xaxis: jax.Array
+  ten_length: jax.Array
   geom_xpos: jax.Array
   geom_xmat: jax.Array
   site_xpos: jax.Array

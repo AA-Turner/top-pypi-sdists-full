@@ -68,7 +68,3502 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnConnectorDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnectorDefinition.ConnectorDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnectorDefinition``.
+
+        :param name: The name of the connector definition.
+        :param initial_version: The connector definition version to include when the connector definition is created. A connector definition version contains a list of ```connector`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-connectordefinition-connector.html>`_ property types. .. epigraph:: To associate a connector definition version after the connector definition is created, create an ```AWS::Greengrass::ConnectorDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html>`_ resource and specify the ID of this connector definition.
+        :param tags: Application-specific metadata to attach to the connector definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # parameters: Any
+            # tags: Any
+            
+            cfn_connector_definition_props = greengrass.CfnConnectorDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnConnectorDefinition.ConnectorDefinitionVersionProperty(
+                    connectors=[greengrass.CfnConnectorDefinition.ConnectorProperty(
+                        connector_arn="connectorArn",
+                        id="id",
+            
+                        # the properties below are optional
+                        parameters=parameters
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the connector definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]]:
+        '''The connector definition version to include when the connector definition is created.
+
+        A connector definition version contains a list of ```connector`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-connectordefinition-connector.html>`_ property types.
+        .. epigraph::
+
+           To associate a connector definition version after the connector definition is created, create an ```AWS::Greengrass::ConnectorDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html>`_ resource and specify the ID of this connector definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnectorDefinition.ConnectorDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the connector definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_definition_id": "connectorDefinitionId",
+        "connectors": "connectors",
+    },
+)
+class CfnConnectorDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        connector_definition_id: builtins.str,
+        connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnectorDefinitionVersion.ConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnConnectorDefinitionVersion``.
+
+        :param connector_definition_id: The ID of the connector definition associated with this version. This value is a GUID.
+        :param connectors: The connectors in this version. Only one instance of a given connector can be added to the connector definition version at a time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # parameters: Any
+            
+            cfn_connector_definition_version_props = greengrass.CfnConnectorDefinitionVersionProps(
+                connector_definition_id="connectorDefinitionId",
+                connectors=[greengrass.CfnConnectorDefinitionVersion.ConnectorProperty(
+                    connector_arn="connectorArn",
+                    id="id",
+            
+                    # the properties below are optional
+                    parameters=parameters
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3)
+            check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
+            check_type(argname="argument connectors", value=connectors, expected_type=type_hints["connectors"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_definition_id": connector_definition_id,
+            "connectors": connectors,
+        }
+
+    @builtins.property
+    def connector_definition_id(self) -> builtins.str:
+        '''The ID of the connector definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html#cfn-greengrass-connectordefinitionversion-connectordefinitionid
+        '''
+        result = self._values.get("connector_definition_id")
+        assert result is not None, "Required property 'connector_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connectors(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConnectorDefinitionVersion.ConnectorProperty"]]]:
+        '''The connectors in this version.
+
+        Only one instance of a given connector can be added to the connector definition version at a time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html#cfn-greengrass-connectordefinitionversion-connectors
+        '''
+        result = self._values.get("connectors")
+        assert result is not None, "Required property 'connectors' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConnectorDefinitionVersion.ConnectorProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnCoreDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCoreDefinition.CoreDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCoreDefinition``.
+
+        :param name: The name of the core definition.
+        :param initial_version: The core definition version to include when the core definition is created. Currently, a core definition version can contain only one ```core`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ . .. epigraph:: To associate a core definition version after the core definition is created, create an ```AWS::Greengrass::CoreDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html>`_ resource and specify the ID of this core definition.
+        :param tags: Application-specific metadata to attach to the core definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_core_definition_props = greengrass.CfnCoreDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnCoreDefinition.CoreDefinitionVersionProperty(
+                    cores=[greengrass.CfnCoreDefinition.CoreProperty(
+                        certificate_arn="certificateArn",
+                        id="id",
+                        thing_arn="thingArn",
+            
+                        # the properties below are optional
+                        sync_shadow=False
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the core definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCoreDefinition.CoreDefinitionVersionProperty"]]:
+        '''The core definition version to include when the core definition is created.
+
+        Currently, a core definition version can contain only one ```core`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ .
+        .. epigraph::
+
+           To associate a core definition version after the core definition is created, create an ```AWS::Greengrass::CoreDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html>`_ resource and specify the ID of this core definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCoreDefinition.CoreDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the core definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCoreDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"core_definition_id": "coreDefinitionId", "cores": "cores"},
+)
+class CfnCoreDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        core_definition_id: builtins.str,
+        cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCoreDefinitionVersion.CoreProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnCoreDefinitionVersion``.
+
+        :param core_definition_id: The ID of the core definition associated with this version. This value is a GUID.
+        :param cores: The Greengrass core in this version. Currently, the ``Cores`` property for a core definition version can contain only one core.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_core_definition_version_props = greengrass.CfnCoreDefinitionVersionProps(
+                core_definition_id="coreDefinitionId",
+                cores=[greengrass.CfnCoreDefinitionVersion.CoreProperty(
+                    certificate_arn="certificateArn",
+                    id="id",
+                    thing_arn="thingArn",
+            
+                    # the properties below are optional
+                    sync_shadow=False
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f)
+            check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
+            check_type(argname="argument cores", value=cores, expected_type=type_hints["cores"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "core_definition_id": core_definition_id,
+            "cores": cores,
+        }
+
+    @builtins.property
+    def core_definition_id(self) -> builtins.str:
+        '''The ID of the core definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html#cfn-greengrass-coredefinitionversion-coredefinitionid
+        '''
+        result = self._values.get("core_definition_id")
+        assert result is not None, "Required property 'core_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cores(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCoreDefinitionVersion.CoreProperty"]]]:
+        '''The Greengrass core in this version.
+
+        Currently, the ``Cores`` property for a core definition version can contain only one core.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html#cfn-greengrass-coredefinitionversion-cores
+        '''
+        result = self._values.get("cores")
+        assert result is not None, "Required property 'cores' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCoreDefinitionVersion.CoreProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCoreDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnDeviceDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeviceDefinition.DeviceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDeviceDefinition``.
+
+        :param name: The name of the device definition.
+        :param initial_version: The device definition version to include when the device definition is created. A device definition version contains a list of ```device`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ property types. .. epigraph:: To associate a device definition version after the device definition is created, create an ```AWS::Greengrass::DeviceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html>`_ resource and specify the ID of this device definition.
+        :param tags: Application-specific metadata to attach to the device definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_device_definition_props = greengrass.CfnDeviceDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnDeviceDefinition.DeviceDefinitionVersionProperty(
+                    devices=[greengrass.CfnDeviceDefinition.DeviceProperty(
+                        certificate_arn="certificateArn",
+                        id="id",
+                        thing_arn="thingArn",
+            
+                        # the properties below are optional
+                        sync_shadow=False
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the device definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]]:
+        '''The device definition version to include when the device definition is created.
+
+        A device definition version contains a list of ```device`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ property types.
+        .. epigraph::
+
+           To associate a device definition version after the device definition is created, create an ```AWS::Greengrass::DeviceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html>`_ resource and specify the ID of this device definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeviceDefinition.DeviceDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the device definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeviceDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"device_definition_id": "deviceDefinitionId", "devices": "devices"},
+)
+class CfnDeviceDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        device_definition_id: builtins.str,
+        devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeviceDefinitionVersion.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnDeviceDefinitionVersion``.
+
+        :param device_definition_id: The ID of the device definition associated with this version. This value is a GUID.
+        :param devices: The devices in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_device_definition_version_props = greengrass.CfnDeviceDefinitionVersionProps(
+                device_definition_id="deviceDefinitionId",
+                devices=[greengrass.CfnDeviceDefinitionVersion.DeviceProperty(
+                    certificate_arn="certificateArn",
+                    id="id",
+                    thing_arn="thingArn",
+            
+                    # the properties below are optional
+                    sync_shadow=False
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09)
+            check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
+            check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "device_definition_id": device_definition_id,
+            "devices": devices,
+        }
+
+    @builtins.property
+    def device_definition_id(self) -> builtins.str:
+        '''The ID of the device definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html#cfn-greengrass-devicedefinitionversion-devicedefinitionid
+        '''
+        result = self._values.get("device_definition_id")
+        assert result is not None, "Required property 'device_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def devices(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeviceDefinitionVersion.DeviceProperty"]]]:
+        '''The devices in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html#cfn-greengrass-devicedefinitionversion-devices
+        '''
+        result = self._values.get("devices")
+        assert result is not None, "Required property 'devices' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeviceDefinitionVersion.DeviceProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeviceDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnFunctionDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunctionDefinition.FunctionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFunctionDefinition``.
+
+        :param name: The name of the function definition.
+        :param initial_version: The function definition version to include when the function definition is created. A function definition version contains a list of ```function`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-function.html>`_ property types. .. epigraph:: To associate a function definition version after the function definition is created, create an ```AWS::Greengrass::FunctionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html>`_ resource and specify the ID of this function definition.
+        :param tags: Application-specific metadata to attach to the function definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            # variables: Any
+            
+            cfn_function_definition_props = greengrass.CfnFunctionDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnFunctionDefinition.FunctionDefinitionVersionProperty(
+                    functions=[greengrass.CfnFunctionDefinition.FunctionProperty(
+                        function_arn="functionArn",
+                        function_configuration=greengrass.CfnFunctionDefinition.FunctionConfigurationProperty(
+                            encoding_type="encodingType",
+                            environment=greengrass.CfnFunctionDefinition.EnvironmentProperty(
+                                access_sysfs=False,
+                                execution=greengrass.CfnFunctionDefinition.ExecutionProperty(
+                                    isolation_mode="isolationMode",
+                                    run_as=greengrass.CfnFunctionDefinition.RunAsProperty(
+                                        gid=123,
+                                        uid=123
+                                    )
+                                ),
+                                resource_access_policies=[greengrass.CfnFunctionDefinition.ResourceAccessPolicyProperty(
+                                    resource_id="resourceId",
+            
+                                    # the properties below are optional
+                                    permission="permission"
+                                )],
+                                variables=variables
+                            ),
+                            exec_args="execArgs",
+                            executable="executable",
+                            memory_size=123,
+                            pinned=False,
+                            timeout=123
+                        ),
+                        id="id"
+                    )],
+            
+                    # the properties below are optional
+                    default_config=greengrass.CfnFunctionDefinition.DefaultConfigProperty(
+                        execution=greengrass.CfnFunctionDefinition.ExecutionProperty(
+                            isolation_mode="isolationMode",
+                            run_as=greengrass.CfnFunctionDefinition.RunAsProperty(
+                                gid=123,
+                                uid=123
+                            )
+                        )
+                    )
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the function definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]]:
+        '''The function definition version to include when the function definition is created.
+
+        A function definition version contains a list of ```function`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-function.html>`_ property types.
+        .. epigraph::
+
+           To associate a function definition version after the function definition is created, create an ```AWS::Greengrass::FunctionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html>`_ resource and specify the ID of this function definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinition.FunctionDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the function definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFunctionDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "function_definition_id": "functionDefinitionId",
+        "functions": "functions",
+        "default_config": "defaultConfig",
+    },
+)
+class CfnFunctionDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        function_definition_id: builtins.str,
+        functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunctionDefinitionVersion.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunctionDefinitionVersion.DefaultConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFunctionDefinitionVersion``.
+
+        :param function_definition_id: The ID of the function definition associated with this version. This value is a GUID.
+        :param functions: The functions in this version.
+        :param default_config: The default configuration that applies to all Lambda functions in the group. Individual Lambda functions can override these settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # variables: Any
+            
+            cfn_function_definition_version_props = greengrass.CfnFunctionDefinitionVersionProps(
+                function_definition_id="functionDefinitionId",
+                functions=[greengrass.CfnFunctionDefinitionVersion.FunctionProperty(
+                    function_arn="functionArn",
+                    function_configuration=greengrass.CfnFunctionDefinitionVersion.FunctionConfigurationProperty(
+                        encoding_type="encodingType",
+                        environment=greengrass.CfnFunctionDefinitionVersion.EnvironmentProperty(
+                            access_sysfs=False,
+                            execution=greengrass.CfnFunctionDefinitionVersion.ExecutionProperty(
+                                isolation_mode="isolationMode",
+                                run_as=greengrass.CfnFunctionDefinitionVersion.RunAsProperty(
+                                    gid=123,
+                                    uid=123
+                                )
+                            ),
+                            resource_access_policies=[greengrass.CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty(
+                                resource_id="resourceId",
+            
+                                # the properties below are optional
+                                permission="permission"
+                            )],
+                            variables=variables
+                        ),
+                        exec_args="execArgs",
+                        executable="executable",
+                        memory_size=123,
+                        pinned=False,
+                        timeout=123
+                    ),
+                    id="id"
+                )],
+            
+                # the properties below are optional
+                default_config=greengrass.CfnFunctionDefinitionVersion.DefaultConfigProperty(
+                    execution=greengrass.CfnFunctionDefinitionVersion.ExecutionProperty(
+                        isolation_mode="isolationMode",
+                        run_as=greengrass.CfnFunctionDefinitionVersion.RunAsProperty(
+                            gid=123,
+                            uid=123
+                        )
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356)
+            check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
+            check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
+            check_type(argname="argument default_config", value=default_config, expected_type=type_hints["default_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_definition_id": function_definition_id,
+            "functions": functions,
+        }
+        if default_config is not None:
+            self._values["default_config"] = default_config
+
+    @builtins.property
+    def function_definition_id(self) -> builtins.str:
+        '''The ID of the function definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-functiondefinitionid
+        '''
+        result = self._values.get("function_definition_id")
+        assert result is not None, "Required property 'function_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def functions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinitionVersion.FunctionProperty"]]]:
+        '''The functions in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-functions
+        '''
+        result = self._values.get("functions")
+        assert result is not None, "Required property 'functions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinitionVersion.FunctionProperty"]]], result)
+
+    @builtins.property
+    def default_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinitionVersion.DefaultConfigProperty"]]:
+        '''The default configuration that applies to all Lambda functions in the group.
+
+        Individual Lambda functions can override these settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-defaultconfig
+        '''
+        result = self._values.get("default_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunctionDefinitionVersion.DefaultConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFunctionDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "initial_version": "initialVersion",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.GroupVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGroup``.
+
+        :param name: The name of the group.
+        :param initial_version: The group version to include when the group is created. A group version references the Amazon Resource Name (ARN) of a core definition version, device definition version, subscription definition version, and other version types. The group version must reference a core definition version that contains one core. Other version types are optionally included, depending on your business need. .. epigraph:: To associate a group version after the group is created, create an ```AWS::Greengrass::GroupVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html>`_ resource and specify the ID of this group.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role attached to the group. This role contains the permissions that Lambda functions and connectors use to interact with other AWS services.
+        :param tags: Application-specific metadata to attach to the group. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_group_props = greengrass.CfnGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnGroup.GroupVersionProperty(
+                    connector_definition_version_arn="connectorDefinitionVersionArn",
+                    core_definition_version_arn="coreDefinitionVersionArn",
+                    device_definition_version_arn="deviceDefinitionVersionArn",
+                    function_definition_version_arn="functionDefinitionVersionArn",
+                    logger_definition_version_arn="loggerDefinitionVersionArn",
+                    resource_definition_version_arn="resourceDefinitionVersionArn",
+                    subscription_definition_version_arn="subscriptionDefinitionVersionArn"
+                ),
+                role_arn="roleArn",
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.GroupVersionProperty"]]:
+        '''The group version to include when the group is created.
+
+        A group version references the Amazon Resource Name (ARN) of a core definition version, device definition version, subscription definition version, and other version types. The group version must reference a core definition version that contains one core. Other version types are optionally included, depending on your business need.
+        .. epigraph::
+
+           To associate a group version after the group is created, create an ```AWS::Greengrass::GroupVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html>`_ resource and specify the ID of this group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.GroupVersionProperty"]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role attached to the group.
+
+        This role contains the permissions that Lambda functions and connectors use to interact with other AWS services.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the group.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnGroupVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group_id": "groupId",
+        "connector_definition_version_arn": "connectorDefinitionVersionArn",
+        "core_definition_version_arn": "coreDefinitionVersionArn",
+        "device_definition_version_arn": "deviceDefinitionVersionArn",
+        "function_definition_version_arn": "functionDefinitionVersionArn",
+        "logger_definition_version_arn": "loggerDefinitionVersionArn",
+        "resource_definition_version_arn": "resourceDefinitionVersionArn",
+        "subscription_definition_version_arn": "subscriptionDefinitionVersionArn",
+    },
+)
+class CfnGroupVersionProps:
+    def __init__(
+        self,
+        *,
+        group_id: builtins.str,
+        connector_definition_version_arn: typing.Optional[builtins.str] = None,
+        core_definition_version_arn: typing.Optional[builtins.str] = None,
+        device_definition_version_arn: typing.Optional[builtins.str] = None,
+        function_definition_version_arn: typing.Optional[builtins.str] = None,
+        logger_definition_version_arn: typing.Optional[builtins.str] = None,
+        resource_definition_version_arn: typing.Optional[builtins.str] = None,
+        subscription_definition_version_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGroupVersion``.
+
+        :param group_id: The ID of the group associated with this version. This value is a GUID.
+        :param connector_definition_version_arn: The Amazon Resource Name (ARN) of the connector definition version that contains the connectors you want to deploy with the group version.
+        :param core_definition_version_arn: The ARN of the core definition version that contains the core you want to deploy with the group version. Currently, the core definition version can contain only one core.
+        :param device_definition_version_arn: The ARN of the device definition version that contains the devices you want to deploy with the group version.
+        :param function_definition_version_arn: The ARN of the function definition version that contains the functions you want to deploy with the group version.
+        :param logger_definition_version_arn: The ARN of the logger definition version that contains the loggers you want to deploy with the group version.
+        :param resource_definition_version_arn: The ARN of the resource definition version that contains the resources you want to deploy with the group version.
+        :param subscription_definition_version_arn: The ARN of the subscription definition version that contains the subscriptions you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_group_version_props = greengrass.CfnGroupVersionProps(
+                group_id="groupId",
+            
+                # the properties below are optional
+                connector_definition_version_arn="connectorDefinitionVersionArn",
+                core_definition_version_arn="coreDefinitionVersionArn",
+                device_definition_version_arn="deviceDefinitionVersionArn",
+                function_definition_version_arn="functionDefinitionVersionArn",
+                logger_definition_version_arn="loggerDefinitionVersionArn",
+                resource_definition_version_arn="resourceDefinitionVersionArn",
+                subscription_definition_version_arn="subscriptionDefinitionVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48)
+            check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+            check_type(argname="argument connector_definition_version_arn", value=connector_definition_version_arn, expected_type=type_hints["connector_definition_version_arn"])
+            check_type(argname="argument core_definition_version_arn", value=core_definition_version_arn, expected_type=type_hints["core_definition_version_arn"])
+            check_type(argname="argument device_definition_version_arn", value=device_definition_version_arn, expected_type=type_hints["device_definition_version_arn"])
+            check_type(argname="argument function_definition_version_arn", value=function_definition_version_arn, expected_type=type_hints["function_definition_version_arn"])
+            check_type(argname="argument logger_definition_version_arn", value=logger_definition_version_arn, expected_type=type_hints["logger_definition_version_arn"])
+            check_type(argname="argument resource_definition_version_arn", value=resource_definition_version_arn, expected_type=type_hints["resource_definition_version_arn"])
+            check_type(argname="argument subscription_definition_version_arn", value=subscription_definition_version_arn, expected_type=type_hints["subscription_definition_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_id": group_id,
+        }
+        if connector_definition_version_arn is not None:
+            self._values["connector_definition_version_arn"] = connector_definition_version_arn
+        if core_definition_version_arn is not None:
+            self._values["core_definition_version_arn"] = core_definition_version_arn
+        if device_definition_version_arn is not None:
+            self._values["device_definition_version_arn"] = device_definition_version_arn
+        if function_definition_version_arn is not None:
+            self._values["function_definition_version_arn"] = function_definition_version_arn
+        if logger_definition_version_arn is not None:
+            self._values["logger_definition_version_arn"] = logger_definition_version_arn
+        if resource_definition_version_arn is not None:
+            self._values["resource_definition_version_arn"] = resource_definition_version_arn
+        if subscription_definition_version_arn is not None:
+            self._values["subscription_definition_version_arn"] = subscription_definition_version_arn
+
+    @builtins.property
+    def group_id(self) -> builtins.str:
+        '''The ID of the group associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-groupid
+        '''
+        result = self._values.get("group_id")
+        assert result is not None, "Required property 'group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the connector definition version that contains the connectors you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-connectordefinitionversionarn
+        '''
+        result = self._values.get("connector_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def core_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the core definition version that contains the core you want to deploy with the group version.
+
+        Currently, the core definition version can contain only one core.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-coredefinitionversionarn
+        '''
+        result = self._values.get("core_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def device_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the device definition version that contains the devices you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-devicedefinitionversionarn
+        '''
+        result = self._values.get("device_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def function_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the function definition version that contains the functions you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-functiondefinitionversionarn
+        '''
+        result = self._values.get("function_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logger_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the logger definition version that contains the loggers you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-loggerdefinitionversionarn
+        '''
+        result = self._values.get("logger_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the resource definition version that contains the resources you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-resourcedefinitionversionarn
+        '''
+        result = self._values.get("resource_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subscription_definition_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the subscription definition version that contains the subscriptions you want to deploy with the group version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-subscriptiondefinitionversionarn
+        '''
+        result = self._values.get("subscription_definition_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGroupVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnLoggerDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggerDefinition.LoggerDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLoggerDefinition``.
+
+        :param name: The name of the logger definition.
+        :param initial_version: The logger definition version to include when the logger definition is created. A logger definition version contains a list of ```logger`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ property types. .. epigraph:: To associate a logger definition version after the logger definition is created, create an ```AWS::Greengrass::LoggerDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html>`_ resource and specify the ID of this logger definition.
+        :param tags: Application-specific metadata to attach to the logger definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_logger_definition_props = greengrass.CfnLoggerDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnLoggerDefinition.LoggerDefinitionVersionProperty(
+                    loggers=[greengrass.CfnLoggerDefinition.LoggerProperty(
+                        component="component",
+                        id="id",
+                        level="level",
+                        type="type",
+            
+                        # the properties below are optional
+                        space=123
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the logger definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]]:
+        '''The logger definition version to include when the logger definition is created.
+
+        A logger definition version contains a list of ```logger`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ property types.
+        .. epigraph::
+
+           To associate a logger definition version after the logger definition is created, create an ```AWS::Greengrass::LoggerDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html>`_ resource and specify the ID of this logger definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggerDefinition.LoggerDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the logger definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLoggerDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"logger_definition_id": "loggerDefinitionId", "loggers": "loggers"},
+)
+class CfnLoggerDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        logger_definition_id: builtins.str,
+        loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggerDefinitionVersion.LoggerProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnLoggerDefinitionVersion``.
+
+        :param logger_definition_id: The ID of the logger definition associated with this version. This value is a GUID.
+        :param loggers: The loggers in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_logger_definition_version_props = greengrass.CfnLoggerDefinitionVersionProps(
+                logger_definition_id="loggerDefinitionId",
+                loggers=[greengrass.CfnLoggerDefinitionVersion.LoggerProperty(
+                    component="component",
+                    id="id",
+                    level="level",
+                    type="type",
+            
+                    # the properties below are optional
+                    space=123
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7)
+            check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
+            check_type(argname="argument loggers", value=loggers, expected_type=type_hints["loggers"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logger_definition_id": logger_definition_id,
+            "loggers": loggers,
+        }
+
+    @builtins.property
+    def logger_definition_id(self) -> builtins.str:
+        '''The ID of the logger definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html#cfn-greengrass-loggerdefinitionversion-loggerdefinitionid
+        '''
+        result = self._values.get("logger_definition_id")
+        assert result is not None, "Required property 'logger_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def loggers(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggerDefinitionVersion.LoggerProperty"]]]:
+        '''The loggers in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html#cfn-greengrass-loggerdefinitionversion-loggers
+        '''
+        result = self._values.get("loggers")
+        assert result is not None, "Required property 'loggers' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggerDefinitionVersion.LoggerProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLoggerDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnResourceDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDefinition.ResourceDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceDefinition``.
+
+        :param name: The name of the resource definition.
+        :param initial_version: The resource definition version to include when the resource definition is created. A resource definition version contains a list of ```resource instance`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourceinstance.html>`_ property types. .. epigraph:: To associate a resource definition version after the resource definition is created, create an ```AWS::Greengrass::ResourceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html>`_ resource and specify the ID of this resource definition.
+        :param tags: Application-specific metadata to attach to the resource definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_resource_definition_props = greengrass.CfnResourceDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnResourceDefinition.ResourceDefinitionVersionProperty(
+                    resources=[greengrass.CfnResourceDefinition.ResourceInstanceProperty(
+                        id="id",
+                        name="name",
+                        resource_data_container=greengrass.CfnResourceDefinition.ResourceDataContainerProperty(
+                            local_device_resource_data=greengrass.CfnResourceDefinition.LocalDeviceResourceDataProperty(
+                                source_path="sourcePath",
+            
+                                # the properties below are optional
+                                group_owner_setting=greengrass.CfnResourceDefinition.GroupOwnerSettingProperty(
+                                    auto_add_group_owner=False,
+            
+                                    # the properties below are optional
+                                    group_owner="groupOwner"
+                                )
+                            ),
+                            local_volume_resource_data=greengrass.CfnResourceDefinition.LocalVolumeResourceDataProperty(
+                                destination_path="destinationPath",
+                                source_path="sourcePath",
+            
+                                # the properties below are optional
+                                group_owner_setting=greengrass.CfnResourceDefinition.GroupOwnerSettingProperty(
+                                    auto_add_group_owner=False,
+            
+                                    # the properties below are optional
+                                    group_owner="groupOwner"
+                                )
+                            ),
+                            s3_machine_learning_model_resource_data=greengrass.CfnResourceDefinition.S3MachineLearningModelResourceDataProperty(
+                                destination_path="destinationPath",
+                                s3_uri="s3Uri",
+            
+                                # the properties below are optional
+                                owner_setting=greengrass.CfnResourceDefinition.ResourceDownloadOwnerSettingProperty(
+                                    group_owner="groupOwner",
+                                    group_permission="groupPermission"
+                                )
+                            ),
+                            sage_maker_machine_learning_model_resource_data=greengrass.CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty(
+                                destination_path="destinationPath",
+                                sage_maker_job_arn="sageMakerJobArn",
+            
+                                # the properties below are optional
+                                owner_setting=greengrass.CfnResourceDefinition.ResourceDownloadOwnerSettingProperty(
+                                    group_owner="groupOwner",
+                                    group_permission="groupPermission"
+                                )
+                            ),
+                            secrets_manager_secret_resource_data=greengrass.CfnResourceDefinition.SecretsManagerSecretResourceDataProperty(
+                                arn="arn",
+            
+                                # the properties below are optional
+                                additional_staging_labels_to_download=["additionalStagingLabelsToDownload"]
+                            )
+                        )
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the resource definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDefinition.ResourceDefinitionVersionProperty"]]:
+        '''The resource definition version to include when the resource definition is created.
+
+        A resource definition version contains a list of ```resource instance`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourceinstance.html>`_ property types.
+        .. epigraph::
+
+           To associate a resource definition version after the resource definition is created, create an ```AWS::Greengrass::ResourceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html>`_ resource and specify the ID of this resource definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDefinition.ResourceDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the resource definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_definition_id": "resourceDefinitionId",
+        "resources": "resources",
+    },
+)
+class CfnResourceDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        resource_definition_id: builtins.str,
+        resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDefinitionVersion.ResourceInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnResourceDefinitionVersion``.
+
+        :param resource_definition_id: The ID of the resource definition associated with this version. This value is a GUID.
+        :param resources: The resources in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_resource_definition_version_props = greengrass.CfnResourceDefinitionVersionProps(
+                resource_definition_id="resourceDefinitionId",
+                resources=[greengrass.CfnResourceDefinitionVersion.ResourceInstanceProperty(
+                    id="id",
+                    name="name",
+                    resource_data_container=greengrass.CfnResourceDefinitionVersion.ResourceDataContainerProperty(
+                        local_device_resource_data=greengrass.CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty(
+                            source_path="sourcePath",
+            
+                            # the properties below are optional
+                            group_owner_setting=greengrass.CfnResourceDefinitionVersion.GroupOwnerSettingProperty(
+                                auto_add_group_owner=False,
+            
+                                # the properties below are optional
+                                group_owner="groupOwner"
+                            )
+                        ),
+                        local_volume_resource_data=greengrass.CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty(
+                            destination_path="destinationPath",
+                            source_path="sourcePath",
+            
+                            # the properties below are optional
+                            group_owner_setting=greengrass.CfnResourceDefinitionVersion.GroupOwnerSettingProperty(
+                                auto_add_group_owner=False,
+            
+                                # the properties below are optional
+                                group_owner="groupOwner"
+                            )
+                        ),
+                        s3_machine_learning_model_resource_data=greengrass.CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty(
+                            destination_path="destinationPath",
+                            s3_uri="s3Uri",
+            
+                            # the properties below are optional
+                            owner_setting=greengrass.CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty(
+                                group_owner="groupOwner",
+                                group_permission="groupPermission"
+                            )
+                        ),
+                        sage_maker_machine_learning_model_resource_data=greengrass.CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty(
+                            destination_path="destinationPath",
+                            sage_maker_job_arn="sageMakerJobArn",
+            
+                            # the properties below are optional
+                            owner_setting=greengrass.CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty(
+                                group_owner="groupOwner",
+                                group_permission="groupPermission"
+                            )
+                        ),
+                        secrets_manager_secret_resource_data=greengrass.CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty(
+                            arn="arn",
+            
+                            # the properties below are optional
+                            additional_staging_labels_to_download=["additionalStagingLabelsToDownload"]
+                        )
+                    )
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427)
+            check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
+            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_definition_id": resource_definition_id,
+            "resources": resources,
+        }
+
+    @builtins.property
+    def resource_definition_id(self) -> builtins.str:
+        '''The ID of the resource definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html#cfn-greengrass-resourcedefinitionversion-resourcedefinitionid
+        '''
+        result = self._values.get("resource_definition_id")
+        assert result is not None, "Required property 'resource_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resources(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]]:
+        '''The resources in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html#cfn-greengrass-resourcedefinitionversion-resources
+        '''
+        result = self._values.get("resources")
+        assert result is not None, "Required property 'resources' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResourceDefinitionVersion.ResourceInstanceProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
+)
+class CfnSubscriptionDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSubscriptionDefinition``.
+
+        :param name: The name of the subscription definition.
+        :param initial_version: The subscription definition version to include when the subscription definition is created. A subscription definition version contains a list of ```subscription`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ property types. .. epigraph:: To associate a subscription definition version after the subscription definition is created, create an ```AWS::Greengrass::SubscriptionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html>`_ resource and specify the ID of this subscription definition.
+        :param tags: Application-specific metadata to attach to the subscription definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            # tags: Any
+            
+            cfn_subscription_definition_props = greengrass.CfnSubscriptionDefinitionProps(
+                name="name",
+            
+                # the properties below are optional
+                initial_version=greengrass.CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty(
+                    subscriptions=[greengrass.CfnSubscriptionDefinition.SubscriptionProperty(
+                        id="id",
+                        source="source",
+                        subject="subject",
+                        target="target"
+                    )]
+                ),
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if initial_version is not None:
+            self._values["initial_version"] = initial_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the subscription definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def initial_version(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]]:
+        '''The subscription definition version to include when the subscription definition is created.
+
+        A subscription definition version contains a list of ```subscription`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ property types.
+        .. epigraph::
+
+           To associate a subscription definition version after the subscription definition is created, create an ```AWS::Greengrass::SubscriptionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html>`_ resource and specify the ID of this subscription definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-initialversion
+        '''
+        result = self._values.get("initial_version")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''Application-specific metadata to attach to the subscription definition.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubscriptionDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subscription_definition_id": "subscriptionDefinitionId",
+        "subscriptions": "subscriptions",
+    },
+)
+class CfnSubscriptionDefinitionVersionProps:
+    def __init__(
+        self,
+        *,
+        subscription_definition_id: builtins.str,
+        subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSubscriptionDefinitionVersion.SubscriptionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnSubscriptionDefinitionVersion``.
+
+        :param subscription_definition_id: The ID of the subscription definition associated with this version. This value is a GUID.
+        :param subscriptions: The subscriptions in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            cfn_subscription_definition_version_props = greengrass.CfnSubscriptionDefinitionVersionProps(
+                subscription_definition_id="subscriptionDefinitionId",
+                subscriptions=[greengrass.CfnSubscriptionDefinitionVersion.SubscriptionProperty(
+                    id="id",
+                    source="source",
+                    subject="subject",
+                    target="target"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8)
+            check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
+            check_type(argname="argument subscriptions", value=subscriptions, expected_type=type_hints["subscriptions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscription_definition_id": subscription_definition_id,
+            "subscriptions": subscriptions,
+        }
+
+    @builtins.property
+    def subscription_definition_id(self) -> builtins.str:
+        '''The ID of the subscription definition associated with this version.
+
+        This value is a GUID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinitionversion-subscriptiondefinitionid
+        '''
+        result = self._values.get("subscription_definition_id")
+        assert result is not None, "Required property 'subscription_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subscriptions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]]:
+        '''The subscriptions in this version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinitionversion-subscriptions
+        '''
+        result = self._values.get("subscriptions")
+        assert result is not None, "Required property 'subscriptions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSubscriptionDefinitionVersion.SubscriptionProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubscriptionDefinitionVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.ConnectorDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_definition_arn": "connectorDefinitionArn",
+        "connector_definition_id": "connectorDefinitionId",
+    },
+)
+class ConnectorDefinitionReference:
+    def __init__(
+        self,
+        *,
+        connector_definition_arn: builtins.str,
+        connector_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a ConnectorDefinition resource.
+
+        :param connector_definition_arn: The ARN of the ConnectorDefinition resource.
+        :param connector_definition_id: The Id of the ConnectorDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            connector_definition_reference = greengrass.ConnectorDefinitionReference(
+                connector_definition_arn="connectorDefinitionArn",
+                connector_definition_id="connectorDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b86cfc8177b95058d70f4d7e20a22d5d5790d05361892963ef436775f679311)
+            check_type(argname="argument connector_definition_arn", value=connector_definition_arn, expected_type=type_hints["connector_definition_arn"])
+            check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_definition_arn": connector_definition_arn,
+            "connector_definition_id": connector_definition_id,
+        }
+
+    @builtins.property
+    def connector_definition_arn(self) -> builtins.str:
+        '''The ARN of the ConnectorDefinition resource.'''
+        result = self._values.get("connector_definition_arn")
+        assert result is not None, "Required property 'connector_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_definition_id(self) -> builtins.str:
+        '''The Id of the ConnectorDefinition resource.'''
+        result = self._values.get("connector_definition_id")
+        assert result is not None, "Required property 'connector_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.ConnectorDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"connector_definition_version_id": "connectorDefinitionVersionId"},
+)
+class ConnectorDefinitionVersionReference:
+    def __init__(self, *, connector_definition_version_id: builtins.str) -> None:
+        '''A reference to a ConnectorDefinitionVersion resource.
+
+        :param connector_definition_version_id: The Id of the ConnectorDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            connector_definition_version_reference = greengrass.ConnectorDefinitionVersionReference(
+                connector_definition_version_id="connectorDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94a03d448e966561ea70abc0796569132c71c4a76afa90b6ada4feef96e96815)
+            check_type(argname="argument connector_definition_version_id", value=connector_definition_version_id, expected_type=type_hints["connector_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_definition_version_id": connector_definition_version_id,
+        }
+
+    @builtins.property
+    def connector_definition_version_id(self) -> builtins.str:
+        '''The Id of the ConnectorDefinitionVersion resource.'''
+        result = self._values.get("connector_definition_version_id")
+        assert result is not None, "Required property 'connector_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CoreDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "core_definition_arn": "coreDefinitionArn",
+        "core_definition_id": "coreDefinitionId",
+    },
+)
+class CoreDefinitionReference:
+    def __init__(
+        self,
+        *,
+        core_definition_arn: builtins.str,
+        core_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a CoreDefinition resource.
+
+        :param core_definition_arn: The ARN of the CoreDefinition resource.
+        :param core_definition_id: The Id of the CoreDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            core_definition_reference = greengrass.CoreDefinitionReference(
+                core_definition_arn="coreDefinitionArn",
+                core_definition_id="coreDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f72a2dd0bf1c39f462bef1d790fe4bc435c9f4502081071a3a37fde267880f7)
+            check_type(argname="argument core_definition_arn", value=core_definition_arn, expected_type=type_hints["core_definition_arn"])
+            check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "core_definition_arn": core_definition_arn,
+            "core_definition_id": core_definition_id,
+        }
+
+    @builtins.property
+    def core_definition_arn(self) -> builtins.str:
+        '''The ARN of the CoreDefinition resource.'''
+        result = self._values.get("core_definition_arn")
+        assert result is not None, "Required property 'core_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def core_definition_id(self) -> builtins.str:
+        '''The Id of the CoreDefinition resource.'''
+        result = self._values.get("core_definition_id")
+        assert result is not None, "Required property 'core_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CoreDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.CoreDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"core_definition_version_id": "coreDefinitionVersionId"},
+)
+class CoreDefinitionVersionReference:
+    def __init__(self, *, core_definition_version_id: builtins.str) -> None:
+        '''A reference to a CoreDefinitionVersion resource.
+
+        :param core_definition_version_id: The Id of the CoreDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            core_definition_version_reference = greengrass.CoreDefinitionVersionReference(
+                core_definition_version_id="coreDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20ee091130f4eacdd5730ef06e7345ee53366f2472f59d51d5ef475416045e39)
+            check_type(argname="argument core_definition_version_id", value=core_definition_version_id, expected_type=type_hints["core_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "core_definition_version_id": core_definition_version_id,
+        }
+
+    @builtins.property
+    def core_definition_version_id(self) -> builtins.str:
+        '''The Id of the CoreDefinitionVersion resource.'''
+        result = self._values.get("core_definition_version_id")
+        assert result is not None, "Required property 'core_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CoreDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.DeviceDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "device_definition_arn": "deviceDefinitionArn",
+        "device_definition_id": "deviceDefinitionId",
+    },
+)
+class DeviceDefinitionReference:
+    def __init__(
+        self,
+        *,
+        device_definition_arn: builtins.str,
+        device_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a DeviceDefinition resource.
+
+        :param device_definition_arn: The ARN of the DeviceDefinition resource.
+        :param device_definition_id: The Id of the DeviceDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            device_definition_reference = greengrass.DeviceDefinitionReference(
+                device_definition_arn="deviceDefinitionArn",
+                device_definition_id="deviceDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b33fddd5cdf60b926d06e33798d0ebad88a894f1b10ce340afde375ce4a9fc2e)
+            check_type(argname="argument device_definition_arn", value=device_definition_arn, expected_type=type_hints["device_definition_arn"])
+            check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "device_definition_arn": device_definition_arn,
+            "device_definition_id": device_definition_id,
+        }
+
+    @builtins.property
+    def device_definition_arn(self) -> builtins.str:
+        '''The ARN of the DeviceDefinition resource.'''
+        result = self._values.get("device_definition_arn")
+        assert result is not None, "Required property 'device_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def device_definition_id(self) -> builtins.str:
+        '''The Id of the DeviceDefinition resource.'''
+        result = self._values.get("device_definition_id")
+        assert result is not None, "Required property 'device_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeviceDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.DeviceDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"device_definition_version_id": "deviceDefinitionVersionId"},
+)
+class DeviceDefinitionVersionReference:
+    def __init__(self, *, device_definition_version_id: builtins.str) -> None:
+        '''A reference to a DeviceDefinitionVersion resource.
+
+        :param device_definition_version_id: The Id of the DeviceDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            device_definition_version_reference = greengrass.DeviceDefinitionVersionReference(
+                device_definition_version_id="deviceDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5f79fc7d21fb6e30b578c6e9d4ce373a05ebcc9ce7c1221767b2c473af3ce2b)
+            check_type(argname="argument device_definition_version_id", value=device_definition_version_id, expected_type=type_hints["device_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "device_definition_version_id": device_definition_version_id,
+        }
+
+    @builtins.property
+    def device_definition_version_id(self) -> builtins.str:
+        '''The Id of the DeviceDefinitionVersion resource.'''
+        result = self._values.get("device_definition_version_id")
+        assert result is not None, "Required property 'device_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeviceDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.FunctionDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "function_definition_arn": "functionDefinitionArn",
+        "function_definition_id": "functionDefinitionId",
+    },
+)
+class FunctionDefinitionReference:
+    def __init__(
+        self,
+        *,
+        function_definition_arn: builtins.str,
+        function_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a FunctionDefinition resource.
+
+        :param function_definition_arn: The ARN of the FunctionDefinition resource.
+        :param function_definition_id: The Id of the FunctionDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            function_definition_reference = greengrass.FunctionDefinitionReference(
+                function_definition_arn="functionDefinitionArn",
+                function_definition_id="functionDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a6f138c490bb467995b34e0dba28d58084f321eaab3cdfd0a0ebb36e699f1d8)
+            check_type(argname="argument function_definition_arn", value=function_definition_arn, expected_type=type_hints["function_definition_arn"])
+            check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_definition_arn": function_definition_arn,
+            "function_definition_id": function_definition_id,
+        }
+
+    @builtins.property
+    def function_definition_arn(self) -> builtins.str:
+        '''The ARN of the FunctionDefinition resource.'''
+        result = self._values.get("function_definition_arn")
+        assert result is not None, "Required property 'function_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_definition_id(self) -> builtins.str:
+        '''The Id of the FunctionDefinition resource.'''
+        result = self._values.get("function_definition_id")
+        assert result is not None, "Required property 'function_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.FunctionDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"function_definition_version_id": "functionDefinitionVersionId"},
+)
+class FunctionDefinitionVersionReference:
+    def __init__(self, *, function_definition_version_id: builtins.str) -> None:
+        '''A reference to a FunctionDefinitionVersion resource.
+
+        :param function_definition_version_id: The Id of the FunctionDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            function_definition_version_reference = greengrass.FunctionDefinitionVersionReference(
+                function_definition_version_id="functionDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff50b43528be6e503c102c6683ad0b26b7c4a995296871f566c8264a7c9dee33)
+            check_type(argname="argument function_definition_version_id", value=function_definition_version_id, expected_type=type_hints["function_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_definition_version_id": function_definition_version_id,
+        }
+
+    @builtins.property
+    def function_definition_version_id(self) -> builtins.str:
+        '''The Id of the FunctionDefinitionVersion resource.'''
+        result = self._values.get("function_definition_version_id")
+        assert result is not None, "Required property 'function_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.GroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_arn": "groupArn", "group_id": "groupId"},
+)
+class GroupReference:
+    def __init__(self, *, group_arn: builtins.str, group_id: builtins.str) -> None:
+        '''A reference to a Group resource.
+
+        :param group_arn: The ARN of the Group resource.
+        :param group_id: The Id of the Group resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            group_reference = greengrass.GroupReference(
+                group_arn="groupArn",
+                group_id="groupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__601569c39ab439a61091a4c0a195d9cf8a8cdaf35716a4497abe7eb5df7b4120)
+            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
+            check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_arn": group_arn,
+            "group_id": group_id,
+        }
+
+    @builtins.property
+    def group_arn(self) -> builtins.str:
+        '''The ARN of the Group resource.'''
+        result = self._values.get("group_arn")
+        assert result is not None, "Required property 'group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def group_id(self) -> builtins.str:
+        '''The Id of the Group resource.'''
+        result = self._values.get("group_id")
+        assert result is not None, "Required property 'group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.GroupVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_version_id": "groupVersionId"},
+)
+class GroupVersionReference:
+    def __init__(self, *, group_version_id: builtins.str) -> None:
+        '''A reference to a GroupVersion resource.
+
+        :param group_version_id: The Id of the GroupVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            group_version_reference = greengrass.GroupVersionReference(
+                group_version_id="groupVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1128c821490a7d6ca45afdc17bcf7f232d0a418cb0deca6846ee20b7a7ab2cb0)
+            check_type(argname="argument group_version_id", value=group_version_id, expected_type=type_hints["group_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_version_id": group_version_id,
+        }
+
+    @builtins.property
+    def group_version_id(self) -> builtins.str:
+        '''The Id of the GroupVersion resource.'''
+        result = self._values.get("group_version_id")
+        assert result is not None, "Required property 'group_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IConnectorDefinitionRef")
+class IConnectorDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionRef")
+    def connector_definition_ref(self) -> ConnectorDefinitionReference:
+        '''(experimental) A reference to a ConnectorDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IConnectorDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionRef")
+    def connector_definition_ref(self) -> ConnectorDefinitionReference:
+        '''(experimental) A reference to a ConnectorDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorDefinitionReference, jsii.get(self, "connectorDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorDefinitionRef).__jsii_proxy_class__ = lambda : _IConnectorDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IConnectorDefinitionVersionRef")
+class IConnectorDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionVersionRef")
+    def connector_definition_version_ref(self) -> ConnectorDefinitionVersionReference:
+        '''(experimental) A reference to a ConnectorDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IConnectorDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionVersionRef")
+    def connector_definition_version_ref(self) -> ConnectorDefinitionVersionReference:
+        '''(experimental) A reference to a ConnectorDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorDefinitionVersionReference, jsii.get(self, "connectorDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorDefinitionVersionRef).__jsii_proxy_class__ = lambda : _IConnectorDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.ICoreDefinitionRef")
+class ICoreDefinitionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CoreDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionRef")
+    def core_definition_ref(self) -> CoreDefinitionReference:
+        '''(experimental) A reference to a CoreDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICoreDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CoreDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ICoreDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionRef")
+    def core_definition_ref(self) -> CoreDefinitionReference:
+        '''(experimental) A reference to a CoreDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CoreDefinitionReference, jsii.get(self, "coreDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICoreDefinitionRef).__jsii_proxy_class__ = lambda : _ICoreDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.ICoreDefinitionVersionRef")
+class ICoreDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CoreDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionVersionRef")
+    def core_definition_version_ref(self) -> CoreDefinitionVersionReference:
+        '''(experimental) A reference to a CoreDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICoreDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CoreDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ICoreDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionVersionRef")
+    def core_definition_version_ref(self) -> CoreDefinitionVersionReference:
+        '''(experimental) A reference to a CoreDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CoreDefinitionVersionReference, jsii.get(self, "coreDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICoreDefinitionVersionRef).__jsii_proxy_class__ = lambda : _ICoreDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IDeviceDefinitionRef")
+class IDeviceDefinitionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DeviceDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionRef")
+    def device_definition_ref(self) -> DeviceDefinitionReference:
+        '''(experimental) A reference to a DeviceDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeviceDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DeviceDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IDeviceDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionRef")
+    def device_definition_ref(self) -> DeviceDefinitionReference:
+        '''(experimental) A reference to a DeviceDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeviceDefinitionReference, jsii.get(self, "deviceDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeviceDefinitionRef).__jsii_proxy_class__ = lambda : _IDeviceDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IDeviceDefinitionVersionRef")
+class IDeviceDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DeviceDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionVersionRef")
+    def device_definition_version_ref(self) -> DeviceDefinitionVersionReference:
+        '''(experimental) A reference to a DeviceDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeviceDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DeviceDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IDeviceDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionVersionRef")
+    def device_definition_version_ref(self) -> DeviceDefinitionVersionReference:
+        '''(experimental) A reference to a DeviceDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeviceDefinitionVersionReference, jsii.get(self, "deviceDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeviceDefinitionVersionRef).__jsii_proxy_class__ = lambda : _IDeviceDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IFunctionDefinitionRef")
+class IFunctionDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FunctionDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionRef")
+    def function_definition_ref(self) -> FunctionDefinitionReference:
+        '''(experimental) A reference to a FunctionDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFunctionDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FunctionDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IFunctionDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionRef")
+    def function_definition_ref(self) -> FunctionDefinitionReference:
+        '''(experimental) A reference to a FunctionDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FunctionDefinitionReference, jsii.get(self, "functionDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFunctionDefinitionRef).__jsii_proxy_class__ = lambda : _IFunctionDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IFunctionDefinitionVersionRef")
+class IFunctionDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FunctionDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionVersionRef")
+    def function_definition_version_ref(self) -> FunctionDefinitionVersionReference:
+        '''(experimental) A reference to a FunctionDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFunctionDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FunctionDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IFunctionDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionVersionRef")
+    def function_definition_version_ref(self) -> FunctionDefinitionVersionReference:
+        '''(experimental) A reference to a FunctionDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FunctionDefinitionVersionReference, jsii.get(self, "functionDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFunctionDefinitionVersionRef).__jsii_proxy_class__ = lambda : _IFunctionDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IGroupRef")
+class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IGroupVersionRef")
+class IGroupVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GroupVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupVersionRef")
+    def group_version_ref(self) -> GroupVersionReference:
+        '''(experimental) A reference to a GroupVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GroupVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IGroupVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupVersionRef")
+    def group_version_ref(self) -> GroupVersionReference:
+        '''(experimental) A reference to a GroupVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GroupVersionReference, jsii.get(self, "groupVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupVersionRef).__jsii_proxy_class__ = lambda : _IGroupVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.ILoggerDefinitionRef")
+class ILoggerDefinitionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LoggerDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionRef")
+    def logger_definition_ref(self) -> "LoggerDefinitionReference":
+        '''(experimental) A reference to a LoggerDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILoggerDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoggerDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ILoggerDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionRef")
+    def logger_definition_ref(self) -> "LoggerDefinitionReference":
+        '''(experimental) A reference to a LoggerDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LoggerDefinitionReference", jsii.get(self, "loggerDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILoggerDefinitionRef).__jsii_proxy_class__ = lambda : _ILoggerDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.ILoggerDefinitionVersionRef")
+class ILoggerDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoggerDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionVersionRef")
+    def logger_definition_version_ref(self) -> "LoggerDefinitionVersionReference":
+        '''(experimental) A reference to a LoggerDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILoggerDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoggerDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ILoggerDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionVersionRef")
+    def logger_definition_version_ref(self) -> "LoggerDefinitionVersionReference":
+        '''(experimental) A reference to a LoggerDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LoggerDefinitionVersionReference", jsii.get(self, "loggerDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILoggerDefinitionVersionRef).__jsii_proxy_class__ = lambda : _ILoggerDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IResourceDefinitionRef")
+class IResourceDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionRef")
+    def resource_definition_ref(self) -> "ResourceDefinitionReference":
+        '''(experimental) A reference to a ResourceDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IResourceDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionRef")
+    def resource_definition_ref(self) -> "ResourceDefinitionReference":
+        '''(experimental) A reference to a ResourceDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceDefinitionReference", jsii.get(self, "resourceDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceDefinitionRef).__jsii_proxy_class__ = lambda : _IResourceDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.IResourceDefinitionVersionRef")
+class IResourceDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionVersionRef")
+    def resource_definition_version_ref(self) -> "ResourceDefinitionVersionReference":
+        '''(experimental) A reference to a ResourceDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.IResourceDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionVersionRef")
+    def resource_definition_version_ref(self) -> "ResourceDefinitionVersionReference":
+        '''(experimental) A reference to a ResourceDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceDefinitionVersionReference", jsii.get(self, "resourceDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceDefinitionVersionRef).__jsii_proxy_class__ = lambda : _IResourceDefinitionVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrass.ISubscriptionDefinitionRef")
+class ISubscriptionDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionRef")
+    def subscription_definition_ref(self) -> "SubscriptionDefinitionReference":
+        '''(experimental) A reference to a SubscriptionDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubscriptionDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ISubscriptionDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionRef")
+    def subscription_definition_ref(self) -> "SubscriptionDefinitionReference":
+        '''(experimental) A reference to a SubscriptionDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubscriptionDefinitionReference", jsii.get(self, "subscriptionDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubscriptionDefinitionRef).__jsii_proxy_class__ = lambda : _ISubscriptionDefinitionRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_greengrass.ISubscriptionDefinitionVersionRef"
+)
+class ISubscriptionDefinitionVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionVersionRef")
+    def subscription_definition_version_ref(
+        self,
+    ) -> "SubscriptionDefinitionVersionReference":
+        '''(experimental) A reference to a SubscriptionDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubscriptionDefinitionVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriptionDefinitionVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrass.ISubscriptionDefinitionVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionVersionRef")
+    def subscription_definition_version_ref(
+        self,
+    ) -> "SubscriptionDefinitionVersionReference":
+        '''(experimental) A reference to a SubscriptionDefinitionVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubscriptionDefinitionVersionReference", jsii.get(self, "subscriptionDefinitionVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubscriptionDefinitionVersionRef).__jsii_proxy_class__ = lambda : _ISubscriptionDefinitionVersionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.LoggerDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "logger_definition_arn": "loggerDefinitionArn",
+        "logger_definition_id": "loggerDefinitionId",
+    },
+)
+class LoggerDefinitionReference:
+    def __init__(
+        self,
+        *,
+        logger_definition_arn: builtins.str,
+        logger_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a LoggerDefinition resource.
+
+        :param logger_definition_arn: The ARN of the LoggerDefinition resource.
+        :param logger_definition_id: The Id of the LoggerDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            logger_definition_reference = greengrass.LoggerDefinitionReference(
+                logger_definition_arn="loggerDefinitionArn",
+                logger_definition_id="loggerDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf6d310e2addd667c60c8a83afeadfb86344b09085074c0f46ea9f554c152d57)
+            check_type(argname="argument logger_definition_arn", value=logger_definition_arn, expected_type=type_hints["logger_definition_arn"])
+            check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logger_definition_arn": logger_definition_arn,
+            "logger_definition_id": logger_definition_id,
+        }
+
+    @builtins.property
+    def logger_definition_arn(self) -> builtins.str:
+        '''The ARN of the LoggerDefinition resource.'''
+        result = self._values.get("logger_definition_arn")
+        assert result is not None, "Required property 'logger_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def logger_definition_id(self) -> builtins.str:
+        '''The Id of the LoggerDefinition resource.'''
+        result = self._values.get("logger_definition_id")
+        assert result is not None, "Required property 'logger_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggerDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.LoggerDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"logger_definition_version_id": "loggerDefinitionVersionId"},
+)
+class LoggerDefinitionVersionReference:
+    def __init__(self, *, logger_definition_version_id: builtins.str) -> None:
+        '''A reference to a LoggerDefinitionVersion resource.
+
+        :param logger_definition_version_id: The Id of the LoggerDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            logger_definition_version_reference = greengrass.LoggerDefinitionVersionReference(
+                logger_definition_version_id="loggerDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dde905cecfdb6449823b1c9beda1015ee0d362f24c1ee70e6673a878543d8665)
+            check_type(argname="argument logger_definition_version_id", value=logger_definition_version_id, expected_type=type_hints["logger_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logger_definition_version_id": logger_definition_version_id,
+        }
+
+    @builtins.property
+    def logger_definition_version_id(self) -> builtins.str:
+        '''The Id of the LoggerDefinitionVersion resource.'''
+        result = self._values.get("logger_definition_version_id")
+        assert result is not None, "Required property 'logger_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggerDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.ResourceDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_definition_arn": "resourceDefinitionArn",
+        "resource_definition_id": "resourceDefinitionId",
+    },
+)
+class ResourceDefinitionReference:
+    def __init__(
+        self,
+        *,
+        resource_definition_arn: builtins.str,
+        resource_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a ResourceDefinition resource.
+
+        :param resource_definition_arn: The ARN of the ResourceDefinition resource.
+        :param resource_definition_id: The Id of the ResourceDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            resource_definition_reference = greengrass.ResourceDefinitionReference(
+                resource_definition_arn="resourceDefinitionArn",
+                resource_definition_id="resourceDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0148b187bd5523eacaac76908162d32a4c7f3c0d297cdff57767741a7aa38c4a)
+            check_type(argname="argument resource_definition_arn", value=resource_definition_arn, expected_type=type_hints["resource_definition_arn"])
+            check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_definition_arn": resource_definition_arn,
+            "resource_definition_id": resource_definition_id,
+        }
+
+    @builtins.property
+    def resource_definition_arn(self) -> builtins.str:
+        '''The ARN of the ResourceDefinition resource.'''
+        result = self._values.get("resource_definition_arn")
+        assert result is not None, "Required property 'resource_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_definition_id(self) -> builtins.str:
+        '''The Id of the ResourceDefinition resource.'''
+        result = self._values.get("resource_definition_id")
+        assert result is not None, "Required property 'resource_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.ResourceDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_definition_version_id": "resourceDefinitionVersionId"},
+)
+class ResourceDefinitionVersionReference:
+    def __init__(self, *, resource_definition_version_id: builtins.str) -> None:
+        '''A reference to a ResourceDefinitionVersion resource.
+
+        :param resource_definition_version_id: The Id of the ResourceDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            resource_definition_version_reference = greengrass.ResourceDefinitionVersionReference(
+                resource_definition_version_id="resourceDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__563b8501928b05b30fb7ab4745c3fd7fe99323a61c881005169551307febcf9a)
+            check_type(argname="argument resource_definition_version_id", value=resource_definition_version_id, expected_type=type_hints["resource_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_definition_version_id": resource_definition_version_id,
+        }
+
+    @builtins.property
+    def resource_definition_version_id(self) -> builtins.str:
+        '''The Id of the ResourceDefinitionVersion resource.'''
+        result = self._values.get("resource_definition_version_id")
+        assert result is not None, "Required property 'resource_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.SubscriptionDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subscription_definition_arn": "subscriptionDefinitionArn",
+        "subscription_definition_id": "subscriptionDefinitionId",
+    },
+)
+class SubscriptionDefinitionReference:
+    def __init__(
+        self,
+        *,
+        subscription_definition_arn: builtins.str,
+        subscription_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a SubscriptionDefinition resource.
+
+        :param subscription_definition_arn: The ARN of the SubscriptionDefinition resource.
+        :param subscription_definition_id: The Id of the SubscriptionDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            subscription_definition_reference = greengrass.SubscriptionDefinitionReference(
+                subscription_definition_arn="subscriptionDefinitionArn",
+                subscription_definition_id="subscriptionDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cce5727e4b2ab9a9cb2dc4fee5eef887b28eaa72ac068eaf5af4c66be79e1f82)
+            check_type(argname="argument subscription_definition_arn", value=subscription_definition_arn, expected_type=type_hints["subscription_definition_arn"])
+            check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscription_definition_arn": subscription_definition_arn,
+            "subscription_definition_id": subscription_definition_id,
+        }
+
+    @builtins.property
+    def subscription_definition_arn(self) -> builtins.str:
+        '''The ARN of the SubscriptionDefinition resource.'''
+        result = self._values.get("subscription_definition_arn")
+        assert result is not None, "Required property 'subscription_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subscription_definition_id(self) -> builtins.str:
+        '''The Id of the SubscriptionDefinition resource.'''
+        result = self._values.get("subscription_definition_id")
+        assert result is not None, "Required property 'subscription_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubscriptionDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrass.SubscriptionDefinitionVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subscription_definition_version_id": "subscriptionDefinitionVersionId",
+    },
+)
+class SubscriptionDefinitionVersionReference:
+    def __init__(self, *, subscription_definition_version_id: builtins.str) -> None:
+        '''A reference to a SubscriptionDefinitionVersion resource.
+
+        :param subscription_definition_version_id: The Id of the SubscriptionDefinitionVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrass as greengrass
+            
+            subscription_definition_version_reference = greengrass.SubscriptionDefinitionVersionReference(
+                subscription_definition_version_id="subscriptionDefinitionVersionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43ad4fd3c0300df913b08a17f59899f05ddd737c8ec26c23f868425dc5c34bdc)
+            check_type(argname="argument subscription_definition_version_id", value=subscription_definition_version_id, expected_type=type_hints["subscription_definition_version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscription_definition_version_id": subscription_definition_version_id,
+        }
+
+    @builtins.property
+    def subscription_definition_version_id(self) -> builtins.str:
+        '''The Id of the SubscriptionDefinitionVersion resource.'''
+        result = self._values.get("subscription_definition_version_id")
+        assert result is not None, "Required property 'subscription_definition_version_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubscriptionDefinitionVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IConnectorDefinitionRef, _ITaggable_36806126)
 class CfnConnectorDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -211,6 +3706,12 @@ class CfnConnectorDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionRef")
+    def connector_definition_ref(self) -> ConnectorDefinitionReference:
+        '''A reference to a ConnectorDefinition resource.'''
+        return typing.cast(ConnectorDefinitionReference, jsii.get(self, "connectorDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -441,121 +3942,7 @@ class CfnConnectorDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnConnectorDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnectorDefinition``.
-
-        :param name: The name of the connector definition.
-        :param initial_version: The connector definition version to include when the connector definition is created. A connector definition version contains a list of ```connector`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-connectordefinition-connector.html>`_ property types. .. epigraph:: To associate a connector definition version after the connector definition is created, create an ```AWS::Greengrass::ConnectorDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html>`_ resource and specify the ID of this connector definition.
-        :param tags: Application-specific metadata to attach to the connector definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # parameters: Any
-            # tags: Any
-            
-            cfn_connector_definition_props = greengrass.CfnConnectorDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnConnectorDefinition.ConnectorDefinitionVersionProperty(
-                    connectors=[greengrass.CfnConnectorDefinition.ConnectorProperty(
-                        connector_arn="connectorArn",
-                        id="id",
-            
-                        # the properties below are optional
-                        parameters=parameters
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the connector definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]]:
-        '''The connector definition version to include when the connector definition is created.
-
-        A connector definition version contains a list of ```connector`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-connectordefinition-connector.html>`_ property types.
-        .. epigraph::
-
-           To associate a connector definition version after the connector definition is created, create an ```AWS::Greengrass::ConnectorDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html>`_ resource and specify the ID of this connector definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the connector definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinition.html#cfn-greengrass-connectordefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IConnectorDefinitionVersionRef)
 class CfnConnectorDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -660,6 +4047,12 @@ class CfnConnectorDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorDefinitionVersionRef")
+    def connector_definition_version_ref(self) -> ConnectorDefinitionVersionReference:
+        '''A reference to a ConnectorDefinitionVersion resource.'''
+        return typing.cast(ConnectorDefinitionVersionReference, jsii.get(self, "connectorDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectorDefinitionId")
@@ -797,96 +4190,7 @@ class CfnConnectorDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connector_definition_id": "connectorDefinitionId",
-        "connectors": "connectors",
-    },
-)
-class CfnConnectorDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        connector_definition_id: builtins.str,
-        connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnConnectorDefinitionVersion``.
-
-        :param connector_definition_id: The ID of the connector definition associated with this version. This value is a GUID.
-        :param connectors: The connectors in this version. Only one instance of a given connector can be added to the connector definition version at a time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # parameters: Any
-            
-            cfn_connector_definition_version_props = greengrass.CfnConnectorDefinitionVersionProps(
-                connector_definition_id="connectorDefinitionId",
-                connectors=[greengrass.CfnConnectorDefinitionVersion.ConnectorProperty(
-                    connector_arn="connectorArn",
-                    id="id",
-            
-                    # the properties below are optional
-                    parameters=parameters
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3)
-            check_type(argname="argument connector_definition_id", value=connector_definition_id, expected_type=type_hints["connector_definition_id"])
-            check_type(argname="argument connectors", value=connectors, expected_type=type_hints["connectors"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connector_definition_id": connector_definition_id,
-            "connectors": connectors,
-        }
-
-    @builtins.property
-    def connector_definition_id(self) -> builtins.str:
-        '''The ID of the connector definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html#cfn-greengrass-connectordefinitionversion-connectordefinitionid
-        '''
-        result = self._values.get("connector_definition_id")
-        assert result is not None, "Required property 'connector_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connectors(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinitionVersion.ConnectorProperty]]]:
-        '''The connectors in this version.
-
-        Only one instance of a given connector can be added to the connector definition version at a time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-connectordefinitionversion.html#cfn-greengrass-connectordefinitionversion-connectors
-        '''
-        result = self._values.get("connectors")
-        assert result is not None, "Required property 'connectors' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinitionVersion.ConnectorProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ICoreDefinitionRef, _ITaggable_36806126)
 class CfnCoreDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1029,6 +4333,12 @@ class CfnCoreDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionRef")
+    def core_definition_ref(self) -> CoreDefinitionReference:
+        '''A reference to a CoreDefinition resource.'''
+        return typing.cast(CoreDefinitionReference, jsii.get(self, "coreDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1274,121 +4584,7 @@ class CfnCoreDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnCoreDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCoreDefinition``.
-
-        :param name: The name of the core definition.
-        :param initial_version: The core definition version to include when the core definition is created. Currently, a core definition version can contain only one ```core`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ . .. epigraph:: To associate a core definition version after the core definition is created, create an ```AWS::Greengrass::CoreDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html>`_ resource and specify the ID of this core definition.
-        :param tags: Application-specific metadata to attach to the core definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_core_definition_props = greengrass.CfnCoreDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnCoreDefinition.CoreDefinitionVersionProperty(
-                    cores=[greengrass.CfnCoreDefinition.CoreProperty(
-                        certificate_arn="certificateArn",
-                        id="id",
-                        thing_arn="thingArn",
-            
-                        # the properties below are optional
-                        sync_shadow=False
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the core definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCoreDefinition.CoreDefinitionVersionProperty]]:
-        '''The core definition version to include when the core definition is created.
-
-        Currently, a core definition version can contain only one ```core`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-coredefinition-core.html>`_ .
-        .. epigraph::
-
-           To associate a core definition version after the core definition is created, create an ```AWS::Greengrass::CoreDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html>`_ resource and specify the ID of this core definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCoreDefinition.CoreDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the core definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinition.html#cfn-greengrass-coredefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCoreDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ICoreDefinitionVersionRef)
 class CfnCoreDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1492,6 +4688,12 @@ class CfnCoreDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="coreDefinitionVersionRef")
+    def core_definition_version_ref(self) -> CoreDefinitionVersionReference:
+        '''A reference to a CoreDefinitionVersion resource.'''
+        return typing.cast(CoreDefinitionVersionReference, jsii.get(self, "coreDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="coreDefinitionId")
@@ -1645,92 +4847,7 @@ class CfnCoreDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={"core_definition_id": "coreDefinitionId", "cores": "cores"},
-)
-class CfnCoreDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        core_definition_id: builtins.str,
-        cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnCoreDefinitionVersion``.
-
-        :param core_definition_id: The ID of the core definition associated with this version. This value is a GUID.
-        :param cores: The Greengrass core in this version. Currently, the ``Cores`` property for a core definition version can contain only one core.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_core_definition_version_props = greengrass.CfnCoreDefinitionVersionProps(
-                core_definition_id="coreDefinitionId",
-                cores=[greengrass.CfnCoreDefinitionVersion.CoreProperty(
-                    certificate_arn="certificateArn",
-                    id="id",
-                    thing_arn="thingArn",
-            
-                    # the properties below are optional
-                    sync_shadow=False
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f)
-            check_type(argname="argument core_definition_id", value=core_definition_id, expected_type=type_hints["core_definition_id"])
-            check_type(argname="argument cores", value=cores, expected_type=type_hints["cores"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "core_definition_id": core_definition_id,
-            "cores": cores,
-        }
-
-    @builtins.property
-    def core_definition_id(self) -> builtins.str:
-        '''The ID of the core definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html#cfn-greengrass-coredefinitionversion-coredefinitionid
-        '''
-        result = self._values.get("core_definition_id")
-        assert result is not None, "Required property 'core_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cores(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCoreDefinitionVersion.CoreProperty]]]:
-        '''The Greengrass core in this version.
-
-        Currently, the ``Cores`` property for a core definition version can contain only one core.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-coredefinitionversion.html#cfn-greengrass-coredefinitionversion-cores
-        '''
-        result = self._values.get("cores")
-        assert result is not None, "Required property 'cores' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCoreDefinitionVersion.CoreProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCoreDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDeviceDefinitionRef, _ITaggable_36806126)
 class CfnDeviceDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1873,6 +4990,12 @@ class CfnDeviceDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionRef")
+    def device_definition_ref(self) -> DeviceDefinitionReference:
+        '''A reference to a DeviceDefinition resource.'''
+        return typing.cast(DeviceDefinitionReference, jsii.get(self, "deviceDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2114,121 +5237,7 @@ class CfnDeviceDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnDeviceDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDeviceDefinition``.
-
-        :param name: The name of the device definition.
-        :param initial_version: The device definition version to include when the device definition is created. A device definition version contains a list of ```device`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ property types. .. epigraph:: To associate a device definition version after the device definition is created, create an ```AWS::Greengrass::DeviceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html>`_ resource and specify the ID of this device definition.
-        :param tags: Application-specific metadata to attach to the device definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_device_definition_props = greengrass.CfnDeviceDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnDeviceDefinition.DeviceDefinitionVersionProperty(
-                    devices=[greengrass.CfnDeviceDefinition.DeviceProperty(
-                        certificate_arn="certificateArn",
-                        id="id",
-                        thing_arn="thingArn",
-            
-                        # the properties below are optional
-                        sync_shadow=False
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the device definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinition.DeviceDefinitionVersionProperty]]:
-        '''The device definition version to include when the device definition is created.
-
-        A device definition version contains a list of ```device`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-devicedefinition-device.html>`_ property types.
-        .. epigraph::
-
-           To associate a device definition version after the device definition is created, create an ```AWS::Greengrass::DeviceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html>`_ resource and specify the ID of this device definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinition.DeviceDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the device definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinition.html#cfn-greengrass-devicedefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDeviceDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDeviceDefinitionVersionRef)
 class CfnDeviceDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2332,6 +5341,12 @@ class CfnDeviceDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deviceDefinitionVersionRef")
+    def device_definition_version_ref(self) -> DeviceDefinitionVersionReference:
+        '''A reference to a DeviceDefinitionVersion resource.'''
+        return typing.cast(DeviceDefinitionVersionReference, jsii.get(self, "deviceDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deviceDefinitionId")
@@ -2483,90 +5498,7 @@ class CfnDeviceDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={"device_definition_id": "deviceDefinitionId", "devices": "devices"},
-)
-class CfnDeviceDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        device_definition_id: builtins.str,
-        devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnDeviceDefinitionVersion``.
-
-        :param device_definition_id: The ID of the device definition associated with this version. This value is a GUID.
-        :param devices: The devices in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_device_definition_version_props = greengrass.CfnDeviceDefinitionVersionProps(
-                device_definition_id="deviceDefinitionId",
-                devices=[greengrass.CfnDeviceDefinitionVersion.DeviceProperty(
-                    certificate_arn="certificateArn",
-                    id="id",
-                    thing_arn="thingArn",
-            
-                    # the properties below are optional
-                    sync_shadow=False
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09)
-            check_type(argname="argument device_definition_id", value=device_definition_id, expected_type=type_hints["device_definition_id"])
-            check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "device_definition_id": device_definition_id,
-            "devices": devices,
-        }
-
-    @builtins.property
-    def device_definition_id(self) -> builtins.str:
-        '''The ID of the device definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html#cfn-greengrass-devicedefinitionversion-devicedefinitionid
-        '''
-        result = self._values.get("device_definition_id")
-        assert result is not None, "Required property 'device_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def devices(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinitionVersion.DeviceProperty]]]:
-        '''The devices in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-devicedefinitionversion.html#cfn-greengrass-devicedefinitionversion-devices
-        '''
-        result = self._values.get("devices")
-        assert result is not None, "Required property 'devices' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinitionVersion.DeviceProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDeviceDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFunctionDefinitionRef, _ITaggable_36806126)
 class CfnFunctionDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2742,6 +5674,12 @@ class CfnFunctionDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionRef")
+    def function_definition_ref(self) -> FunctionDefinitionReference:
+        '''A reference to a FunctionDefinition resource.'''
+        return typing.cast(FunctionDefinitionReference, jsii.get(self, "functionDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3693,154 +6631,7 @@ class CfnFunctionDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnFunctionDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFunctionDefinition``.
-
-        :param name: The name of the function definition.
-        :param initial_version: The function definition version to include when the function definition is created. A function definition version contains a list of ```function`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-function.html>`_ property types. .. epigraph:: To associate a function definition version after the function definition is created, create an ```AWS::Greengrass::FunctionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html>`_ resource and specify the ID of this function definition.
-        :param tags: Application-specific metadata to attach to the function definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            # variables: Any
-            
-            cfn_function_definition_props = greengrass.CfnFunctionDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnFunctionDefinition.FunctionDefinitionVersionProperty(
-                    functions=[greengrass.CfnFunctionDefinition.FunctionProperty(
-                        function_arn="functionArn",
-                        function_configuration=greengrass.CfnFunctionDefinition.FunctionConfigurationProperty(
-                            encoding_type="encodingType",
-                            environment=greengrass.CfnFunctionDefinition.EnvironmentProperty(
-                                access_sysfs=False,
-                                execution=greengrass.CfnFunctionDefinition.ExecutionProperty(
-                                    isolation_mode="isolationMode",
-                                    run_as=greengrass.CfnFunctionDefinition.RunAsProperty(
-                                        gid=123,
-                                        uid=123
-                                    )
-                                ),
-                                resource_access_policies=[greengrass.CfnFunctionDefinition.ResourceAccessPolicyProperty(
-                                    resource_id="resourceId",
-            
-                                    # the properties below are optional
-                                    permission="permission"
-                                )],
-                                variables=variables
-                            ),
-                            exec_args="execArgs",
-                            executable="executable",
-                            memory_size=123,
-                            pinned=False,
-                            timeout=123
-                        ),
-                        id="id"
-                    )],
-            
-                    # the properties below are optional
-                    default_config=greengrass.CfnFunctionDefinition.DefaultConfigProperty(
-                        execution=greengrass.CfnFunctionDefinition.ExecutionProperty(
-                            isolation_mode="isolationMode",
-                            run_as=greengrass.CfnFunctionDefinition.RunAsProperty(
-                                gid=123,
-                                uid=123
-                            )
-                        )
-                    )
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the function definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinition.FunctionDefinitionVersionProperty]]:
-        '''The function definition version to include when the function definition is created.
-
-        A function definition version contains a list of ```function`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-functiondefinition-function.html>`_ property types.
-        .. epigraph::
-
-           To associate a function definition version after the function definition is created, create an ```AWS::Greengrass::FunctionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html>`_ resource and specify the ID of this function definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinition.FunctionDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the function definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinition.html#cfn-greengrass-functiondefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFunctionDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFunctionDefinitionVersionRef)
 class CfnFunctionDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3982,6 +6773,12 @@ class CfnFunctionDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionDefinitionVersionRef")
+    def function_definition_version_ref(self) -> FunctionDefinitionVersionReference:
+        '''A reference to a FunctionDefinitionVersion resource.'''
+        return typing.cast(FunctionDefinitionVersionReference, jsii.get(self, "functionDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="functionDefinitionId")
@@ -4809,146 +7606,7 @@ class CfnFunctionDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "function_definition_id": "functionDefinitionId",
-        "functions": "functions",
-        "default_config": "defaultConfig",
-    },
-)
-class CfnFunctionDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        function_definition_id: builtins.str,
-        functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFunctionDefinitionVersion``.
-
-        :param function_definition_id: The ID of the function definition associated with this version. This value is a GUID.
-        :param functions: The functions in this version.
-        :param default_config: The default configuration that applies to all Lambda functions in the group. Individual Lambda functions can override these settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # variables: Any
-            
-            cfn_function_definition_version_props = greengrass.CfnFunctionDefinitionVersionProps(
-                function_definition_id="functionDefinitionId",
-                functions=[greengrass.CfnFunctionDefinitionVersion.FunctionProperty(
-                    function_arn="functionArn",
-                    function_configuration=greengrass.CfnFunctionDefinitionVersion.FunctionConfigurationProperty(
-                        encoding_type="encodingType",
-                        environment=greengrass.CfnFunctionDefinitionVersion.EnvironmentProperty(
-                            access_sysfs=False,
-                            execution=greengrass.CfnFunctionDefinitionVersion.ExecutionProperty(
-                                isolation_mode="isolationMode",
-                                run_as=greengrass.CfnFunctionDefinitionVersion.RunAsProperty(
-                                    gid=123,
-                                    uid=123
-                                )
-                            ),
-                            resource_access_policies=[greengrass.CfnFunctionDefinitionVersion.ResourceAccessPolicyProperty(
-                                resource_id="resourceId",
-            
-                                # the properties below are optional
-                                permission="permission"
-                            )],
-                            variables=variables
-                        ),
-                        exec_args="execArgs",
-                        executable="executable",
-                        memory_size=123,
-                        pinned=False,
-                        timeout=123
-                    ),
-                    id="id"
-                )],
-            
-                # the properties below are optional
-                default_config=greengrass.CfnFunctionDefinitionVersion.DefaultConfigProperty(
-                    execution=greengrass.CfnFunctionDefinitionVersion.ExecutionProperty(
-                        isolation_mode="isolationMode",
-                        run_as=greengrass.CfnFunctionDefinitionVersion.RunAsProperty(
-                            gid=123,
-                            uid=123
-                        )
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356)
-            check_type(argname="argument function_definition_id", value=function_definition_id, expected_type=type_hints["function_definition_id"])
-            check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
-            check_type(argname="argument default_config", value=default_config, expected_type=type_hints["default_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "function_definition_id": function_definition_id,
-            "functions": functions,
-        }
-        if default_config is not None:
-            self._values["default_config"] = default_config
-
-    @builtins.property
-    def function_definition_id(self) -> builtins.str:
-        '''The ID of the function definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-functiondefinitionid
-        '''
-        result = self._values.get("function_definition_id")
-        assert result is not None, "Required property 'function_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def functions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.FunctionProperty]]]:
-        '''The functions in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-functions
-        '''
-        result = self._values.get("functions")
-        assert result is not None, "Required property 'functions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.FunctionProperty]]], result)
-
-    @builtins.property
-    def default_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.DefaultConfigProperty]]:
-        '''The default configuration that applies to all Lambda functions in the group.
-
-        Individual Lambda functions can override these settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-functiondefinitionversion.html#cfn-greengrass-functiondefinitionversion-defaultconfig
-        '''
-        result = self._values.get("default_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinitionVersion.DefaultConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFunctionDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IGroupRef, _ITaggable_36806126)
 class CfnGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5122,6 +7780,12 @@ class CfnGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''A reference to a Group resource.'''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5346,142 +8010,7 @@ class CfnGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "initial_version": "initialVersion",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGroup``.
-
-        :param name: The name of the group.
-        :param initial_version: The group version to include when the group is created. A group version references the Amazon Resource Name (ARN) of a core definition version, device definition version, subscription definition version, and other version types. The group version must reference a core definition version that contains one core. Other version types are optionally included, depending on your business need. .. epigraph:: To associate a group version after the group is created, create an ```AWS::Greengrass::GroupVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html>`_ resource and specify the ID of this group.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role attached to the group. This role contains the permissions that Lambda functions and connectors use to interact with other AWS services.
-        :param tags: Application-specific metadata to attach to the group. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_group_props = greengrass.CfnGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnGroup.GroupVersionProperty(
-                    connector_definition_version_arn="connectorDefinitionVersionArn",
-                    core_definition_version_arn="coreDefinitionVersionArn",
-                    device_definition_version_arn="deviceDefinitionVersionArn",
-                    function_definition_version_arn="functionDefinitionVersionArn",
-                    logger_definition_version_arn="loggerDefinitionVersionArn",
-                    resource_definition_version_arn="resourceDefinitionVersionArn",
-                    subscription_definition_version_arn="subscriptionDefinitionVersionArn"
-                ),
-                role_arn="roleArn",
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.GroupVersionProperty]]:
-        '''The group version to include when the group is created.
-
-        A group version references the Amazon Resource Name (ARN) of a core definition version, device definition version, subscription definition version, and other version types. The group version must reference a core definition version that contains one core. Other version types are optionally included, depending on your business need.
-        .. epigraph::
-
-           To associate a group version after the group is created, create an ```AWS::Greengrass::GroupVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html>`_ resource and specify the ID of this group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.GroupVersionProperty]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role attached to the group.
-
-        This role contains the permissions that Lambda functions and connectors use to interact with other AWS services.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the group.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-group.html#cfn-greengrass-group-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IGroupVersionRef)
 class CfnGroupVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5603,6 +8132,12 @@ class CfnGroupVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupVersionRef")
+    def group_version_ref(self) -> GroupVersionReference:
+        '''A reference to a GroupVersion resource.'''
+        return typing.cast(GroupVersionReference, jsii.get(self, "groupVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupId")
@@ -5727,184 +8262,7 @@ class CfnGroupVersion(
         jsii.set(self, "subscriptionDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnGroupVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "group_id": "groupId",
-        "connector_definition_version_arn": "connectorDefinitionVersionArn",
-        "core_definition_version_arn": "coreDefinitionVersionArn",
-        "device_definition_version_arn": "deviceDefinitionVersionArn",
-        "function_definition_version_arn": "functionDefinitionVersionArn",
-        "logger_definition_version_arn": "loggerDefinitionVersionArn",
-        "resource_definition_version_arn": "resourceDefinitionVersionArn",
-        "subscription_definition_version_arn": "subscriptionDefinitionVersionArn",
-    },
-)
-class CfnGroupVersionProps:
-    def __init__(
-        self,
-        *,
-        group_id: builtins.str,
-        connector_definition_version_arn: typing.Optional[builtins.str] = None,
-        core_definition_version_arn: typing.Optional[builtins.str] = None,
-        device_definition_version_arn: typing.Optional[builtins.str] = None,
-        function_definition_version_arn: typing.Optional[builtins.str] = None,
-        logger_definition_version_arn: typing.Optional[builtins.str] = None,
-        resource_definition_version_arn: typing.Optional[builtins.str] = None,
-        subscription_definition_version_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGroupVersion``.
-
-        :param group_id: The ID of the group associated with this version. This value is a GUID.
-        :param connector_definition_version_arn: The Amazon Resource Name (ARN) of the connector definition version that contains the connectors you want to deploy with the group version.
-        :param core_definition_version_arn: The ARN of the core definition version that contains the core you want to deploy with the group version. Currently, the core definition version can contain only one core.
-        :param device_definition_version_arn: The ARN of the device definition version that contains the devices you want to deploy with the group version.
-        :param function_definition_version_arn: The ARN of the function definition version that contains the functions you want to deploy with the group version.
-        :param logger_definition_version_arn: The ARN of the logger definition version that contains the loggers you want to deploy with the group version.
-        :param resource_definition_version_arn: The ARN of the resource definition version that contains the resources you want to deploy with the group version.
-        :param subscription_definition_version_arn: The ARN of the subscription definition version that contains the subscriptions you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_group_version_props = greengrass.CfnGroupVersionProps(
-                group_id="groupId",
-            
-                # the properties below are optional
-                connector_definition_version_arn="connectorDefinitionVersionArn",
-                core_definition_version_arn="coreDefinitionVersionArn",
-                device_definition_version_arn="deviceDefinitionVersionArn",
-                function_definition_version_arn="functionDefinitionVersionArn",
-                logger_definition_version_arn="loggerDefinitionVersionArn",
-                resource_definition_version_arn="resourceDefinitionVersionArn",
-                subscription_definition_version_arn="subscriptionDefinitionVersionArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48)
-            check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
-            check_type(argname="argument connector_definition_version_arn", value=connector_definition_version_arn, expected_type=type_hints["connector_definition_version_arn"])
-            check_type(argname="argument core_definition_version_arn", value=core_definition_version_arn, expected_type=type_hints["core_definition_version_arn"])
-            check_type(argname="argument device_definition_version_arn", value=device_definition_version_arn, expected_type=type_hints["device_definition_version_arn"])
-            check_type(argname="argument function_definition_version_arn", value=function_definition_version_arn, expected_type=type_hints["function_definition_version_arn"])
-            check_type(argname="argument logger_definition_version_arn", value=logger_definition_version_arn, expected_type=type_hints["logger_definition_version_arn"])
-            check_type(argname="argument resource_definition_version_arn", value=resource_definition_version_arn, expected_type=type_hints["resource_definition_version_arn"])
-            check_type(argname="argument subscription_definition_version_arn", value=subscription_definition_version_arn, expected_type=type_hints["subscription_definition_version_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group_id": group_id,
-        }
-        if connector_definition_version_arn is not None:
-            self._values["connector_definition_version_arn"] = connector_definition_version_arn
-        if core_definition_version_arn is not None:
-            self._values["core_definition_version_arn"] = core_definition_version_arn
-        if device_definition_version_arn is not None:
-            self._values["device_definition_version_arn"] = device_definition_version_arn
-        if function_definition_version_arn is not None:
-            self._values["function_definition_version_arn"] = function_definition_version_arn
-        if logger_definition_version_arn is not None:
-            self._values["logger_definition_version_arn"] = logger_definition_version_arn
-        if resource_definition_version_arn is not None:
-            self._values["resource_definition_version_arn"] = resource_definition_version_arn
-        if subscription_definition_version_arn is not None:
-            self._values["subscription_definition_version_arn"] = subscription_definition_version_arn
-
-    @builtins.property
-    def group_id(self) -> builtins.str:
-        '''The ID of the group associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-groupid
-        '''
-        result = self._values.get("group_id")
-        assert result is not None, "Required property 'group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connector_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the connector definition version that contains the connectors you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-connectordefinitionversionarn
-        '''
-        result = self._values.get("connector_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def core_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the core definition version that contains the core you want to deploy with the group version.
-
-        Currently, the core definition version can contain only one core.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-coredefinitionversionarn
-        '''
-        result = self._values.get("core_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def device_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the device definition version that contains the devices you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-devicedefinitionversionarn
-        '''
-        result = self._values.get("device_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def function_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the function definition version that contains the functions you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-functiondefinitionversionarn
-        '''
-        result = self._values.get("function_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logger_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the logger definition version that contains the loggers you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-loggerdefinitionversionarn
-        '''
-        result = self._values.get("logger_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the resource definition version that contains the resources you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-resourcedefinitionversionarn
-        '''
-        result = self._values.get("resource_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subscription_definition_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the subscription definition version that contains the subscriptions you want to deploy with the group version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-groupversion.html#cfn-greengrass-groupversion-subscriptiondefinitionversionarn
-        '''
-        result = self._values.get("subscription_definition_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGroupVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ILoggerDefinitionRef, _ITaggable_36806126)
 class CfnLoggerDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6048,6 +8406,12 @@ class CfnLoggerDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionRef")
+    def logger_definition_ref(self) -> LoggerDefinitionReference:
+        '''A reference to a LoggerDefinition resource.'''
+        return typing.cast(LoggerDefinitionReference, jsii.get(self, "loggerDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6310,122 +8674,7 @@ class CfnLoggerDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnLoggerDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLoggerDefinition``.
-
-        :param name: The name of the logger definition.
-        :param initial_version: The logger definition version to include when the logger definition is created. A logger definition version contains a list of ```logger`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ property types. .. epigraph:: To associate a logger definition version after the logger definition is created, create an ```AWS::Greengrass::LoggerDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html>`_ resource and specify the ID of this logger definition.
-        :param tags: Application-specific metadata to attach to the logger definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_logger_definition_props = greengrass.CfnLoggerDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnLoggerDefinition.LoggerDefinitionVersionProperty(
-                    loggers=[greengrass.CfnLoggerDefinition.LoggerProperty(
-                        component="component",
-                        id="id",
-                        level="level",
-                        type="type",
-            
-                        # the properties below are optional
-                        space=123
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the logger definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinition.LoggerDefinitionVersionProperty]]:
-        '''The logger definition version to include when the logger definition is created.
-
-        A logger definition version contains a list of ```logger`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-loggerdefinition-logger.html>`_ property types.
-        .. epigraph::
-
-           To associate a logger definition version after the logger definition is created, create an ```AWS::Greengrass::LoggerDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html>`_ resource and specify the ID of this logger definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinition.LoggerDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the logger definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinition.html#cfn-greengrass-loggerdefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLoggerDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ILoggerDefinitionVersionRef)
 class CfnLoggerDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6530,6 +8779,12 @@ class CfnLoggerDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="loggerDefinitionVersionRef")
+    def logger_definition_version_ref(self) -> LoggerDefinitionVersionReference:
+        '''A reference to a LoggerDefinitionVersion resource.'''
+        return typing.cast(LoggerDefinitionVersionReference, jsii.get(self, "loggerDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="loggerDefinitionId")
@@ -6701,91 +8956,7 @@ class CfnLoggerDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={"logger_definition_id": "loggerDefinitionId", "loggers": "loggers"},
-)
-class CfnLoggerDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        logger_definition_id: builtins.str,
-        loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnLoggerDefinitionVersion``.
-
-        :param logger_definition_id: The ID of the logger definition associated with this version. This value is a GUID.
-        :param loggers: The loggers in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_logger_definition_version_props = greengrass.CfnLoggerDefinitionVersionProps(
-                logger_definition_id="loggerDefinitionId",
-                loggers=[greengrass.CfnLoggerDefinitionVersion.LoggerProperty(
-                    component="component",
-                    id="id",
-                    level="level",
-                    type="type",
-            
-                    # the properties below are optional
-                    space=123
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7)
-            check_type(argname="argument logger_definition_id", value=logger_definition_id, expected_type=type_hints["logger_definition_id"])
-            check_type(argname="argument loggers", value=loggers, expected_type=type_hints["loggers"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "logger_definition_id": logger_definition_id,
-            "loggers": loggers,
-        }
-
-    @builtins.property
-    def logger_definition_id(self) -> builtins.str:
-        '''The ID of the logger definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html#cfn-greengrass-loggerdefinitionversion-loggerdefinitionid
-        '''
-        result = self._values.get("logger_definition_id")
-        assert result is not None, "Required property 'logger_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def loggers(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinitionVersion.LoggerProperty]]]:
-        '''The loggers in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-loggerdefinitionversion.html#cfn-greengrass-loggerdefinitionversion-loggers
-        '''
-        result = self._values.get("loggers")
-        assert result is not None, "Required property 'loggers' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinitionVersion.LoggerProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLoggerDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IResourceDefinitionRef, _ITaggable_36806126)
 class CfnResourceDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6975,6 +9146,12 @@ class CfnResourceDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionRef")
+    def resource_definition_ref(self) -> ResourceDefinitionReference:
+        '''A reference to a ResourceDefinition resource.'''
+        return typing.cast(ResourceDefinitionReference, jsii.get(self, "resourceDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8136,168 +10313,7 @@ class CfnResourceDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnResourceDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceDefinition``.
-
-        :param name: The name of the resource definition.
-        :param initial_version: The resource definition version to include when the resource definition is created. A resource definition version contains a list of ```resource instance`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourceinstance.html>`_ property types. .. epigraph:: To associate a resource definition version after the resource definition is created, create an ```AWS::Greengrass::ResourceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html>`_ resource and specify the ID of this resource definition.
-        :param tags: Application-specific metadata to attach to the resource definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_resource_definition_props = greengrass.CfnResourceDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnResourceDefinition.ResourceDefinitionVersionProperty(
-                    resources=[greengrass.CfnResourceDefinition.ResourceInstanceProperty(
-                        id="id",
-                        name="name",
-                        resource_data_container=greengrass.CfnResourceDefinition.ResourceDataContainerProperty(
-                            local_device_resource_data=greengrass.CfnResourceDefinition.LocalDeviceResourceDataProperty(
-                                source_path="sourcePath",
-            
-                                # the properties below are optional
-                                group_owner_setting=greengrass.CfnResourceDefinition.GroupOwnerSettingProperty(
-                                    auto_add_group_owner=False,
-            
-                                    # the properties below are optional
-                                    group_owner="groupOwner"
-                                )
-                            ),
-                            local_volume_resource_data=greengrass.CfnResourceDefinition.LocalVolumeResourceDataProperty(
-                                destination_path="destinationPath",
-                                source_path="sourcePath",
-            
-                                # the properties below are optional
-                                group_owner_setting=greengrass.CfnResourceDefinition.GroupOwnerSettingProperty(
-                                    auto_add_group_owner=False,
-            
-                                    # the properties below are optional
-                                    group_owner="groupOwner"
-                                )
-                            ),
-                            s3_machine_learning_model_resource_data=greengrass.CfnResourceDefinition.S3MachineLearningModelResourceDataProperty(
-                                destination_path="destinationPath",
-                                s3_uri="s3Uri",
-            
-                                # the properties below are optional
-                                owner_setting=greengrass.CfnResourceDefinition.ResourceDownloadOwnerSettingProperty(
-                                    group_owner="groupOwner",
-                                    group_permission="groupPermission"
-                                )
-                            ),
-                            sage_maker_machine_learning_model_resource_data=greengrass.CfnResourceDefinition.SageMakerMachineLearningModelResourceDataProperty(
-                                destination_path="destinationPath",
-                                sage_maker_job_arn="sageMakerJobArn",
-            
-                                # the properties below are optional
-                                owner_setting=greengrass.CfnResourceDefinition.ResourceDownloadOwnerSettingProperty(
-                                    group_owner="groupOwner",
-                                    group_permission="groupPermission"
-                                )
-                            ),
-                            secrets_manager_secret_resource_data=greengrass.CfnResourceDefinition.SecretsManagerSecretResourceDataProperty(
-                                arn="arn",
-            
-                                # the properties below are optional
-                                additional_staging_labels_to_download=["additionalStagingLabelsToDownload"]
-                            )
-                        )
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the resource definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceDefinition.ResourceDefinitionVersionProperty]]:
-        '''The resource definition version to include when the resource definition is created.
-
-        A resource definition version contains a list of ```resource instance`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-resourcedefinition-resourceinstance.html>`_ property types.
-        .. epigraph::
-
-           To associate a resource definition version after the resource definition is created, create an ```AWS::Greengrass::ResourceDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html>`_ resource and specify the ID of this resource definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceDefinition.ResourceDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the resource definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinition.html#cfn-greengrass-resourcedefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourceDefinitionVersionRef)
 class CfnResourceDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8448,6 +10464,12 @@ class CfnResourceDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefinitionVersionRef")
+    def resource_definition_version_ref(self) -> ResourceDefinitionVersionReference:
+        '''A reference to a ResourceDefinitionVersion resource.'''
+        return typing.cast(ResourceDefinitionVersionReference, jsii.get(self, "resourceDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceDefinitionId")
@@ -9472,140 +11494,7 @@ class CfnResourceDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_definition_id": "resourceDefinitionId",
-        "resources": "resources",
-    },
-)
-class CfnResourceDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        resource_definition_id: builtins.str,
-        resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnResourceDefinitionVersion``.
-
-        :param resource_definition_id: The ID of the resource definition associated with this version. This value is a GUID.
-        :param resources: The resources in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_resource_definition_version_props = greengrass.CfnResourceDefinitionVersionProps(
-                resource_definition_id="resourceDefinitionId",
-                resources=[greengrass.CfnResourceDefinitionVersion.ResourceInstanceProperty(
-                    id="id",
-                    name="name",
-                    resource_data_container=greengrass.CfnResourceDefinitionVersion.ResourceDataContainerProperty(
-                        local_device_resource_data=greengrass.CfnResourceDefinitionVersion.LocalDeviceResourceDataProperty(
-                            source_path="sourcePath",
-            
-                            # the properties below are optional
-                            group_owner_setting=greengrass.CfnResourceDefinitionVersion.GroupOwnerSettingProperty(
-                                auto_add_group_owner=False,
-            
-                                # the properties below are optional
-                                group_owner="groupOwner"
-                            )
-                        ),
-                        local_volume_resource_data=greengrass.CfnResourceDefinitionVersion.LocalVolumeResourceDataProperty(
-                            destination_path="destinationPath",
-                            source_path="sourcePath",
-            
-                            # the properties below are optional
-                            group_owner_setting=greengrass.CfnResourceDefinitionVersion.GroupOwnerSettingProperty(
-                                auto_add_group_owner=False,
-            
-                                # the properties below are optional
-                                group_owner="groupOwner"
-                            )
-                        ),
-                        s3_machine_learning_model_resource_data=greengrass.CfnResourceDefinitionVersion.S3MachineLearningModelResourceDataProperty(
-                            destination_path="destinationPath",
-                            s3_uri="s3Uri",
-            
-                            # the properties below are optional
-                            owner_setting=greengrass.CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty(
-                                group_owner="groupOwner",
-                                group_permission="groupPermission"
-                            )
-                        ),
-                        sage_maker_machine_learning_model_resource_data=greengrass.CfnResourceDefinitionVersion.SageMakerMachineLearningModelResourceDataProperty(
-                            destination_path="destinationPath",
-                            sage_maker_job_arn="sageMakerJobArn",
-            
-                            # the properties below are optional
-                            owner_setting=greengrass.CfnResourceDefinitionVersion.ResourceDownloadOwnerSettingProperty(
-                                group_owner="groupOwner",
-                                group_permission="groupPermission"
-                            )
-                        ),
-                        secrets_manager_secret_resource_data=greengrass.CfnResourceDefinitionVersion.SecretsManagerSecretResourceDataProperty(
-                            arn="arn",
-            
-                            # the properties below are optional
-                            additional_staging_labels_to_download=["additionalStagingLabelsToDownload"]
-                        )
-                    )
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427)
-            check_type(argname="argument resource_definition_id", value=resource_definition_id, expected_type=type_hints["resource_definition_id"])
-            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_definition_id": resource_definition_id,
-            "resources": resources,
-        }
-
-    @builtins.property
-    def resource_definition_id(self) -> builtins.str:
-        '''The ID of the resource definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html#cfn-greengrass-resourcedefinitionversion-resourcedefinitionid
-        '''
-        result = self._values.get("resource_definition_id")
-        assert result is not None, "Required property 'resource_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resources(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResourceDefinitionVersion.ResourceInstanceProperty]]]:
-        '''The resources in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-resourcedefinitionversion.html#cfn-greengrass-resourcedefinitionversion-resources
-        '''
-        result = self._values.get("resources")
-        assert result is not None, "Required property 'resources' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResourceDefinitionVersion.ResourceInstanceProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISubscriptionDefinitionRef, _ITaggable_36806126)
 class CfnSubscriptionDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9746,6 +11635,12 @@ class CfnSubscriptionDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionRef")
+    def subscription_definition_ref(self) -> SubscriptionDefinitionReference:
+        '''A reference to a SubscriptionDefinition resource.'''
+        return typing.cast(SubscriptionDefinitionReference, jsii.get(self, "subscriptionDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9983,119 +11878,7 @@ class CfnSubscriptionDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "initial_version": "initialVersion", "tags": "tags"},
-)
-class CfnSubscriptionDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSubscriptionDefinition``.
-
-        :param name: The name of the subscription definition.
-        :param initial_version: The subscription definition version to include when the subscription definition is created. A subscription definition version contains a list of ```subscription`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ property types. .. epigraph:: To associate a subscription definition version after the subscription definition is created, create an ```AWS::Greengrass::SubscriptionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html>`_ resource and specify the ID of this subscription definition.
-        :param tags: Application-specific metadata to attach to the subscription definition. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            # tags: Any
-            
-            cfn_subscription_definition_props = greengrass.CfnSubscriptionDefinitionProps(
-                name="name",
-            
-                # the properties below are optional
-                initial_version=greengrass.CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty(
-                    subscriptions=[greengrass.CfnSubscriptionDefinition.SubscriptionProperty(
-                        id="id",
-                        source="source",
-                        subject="subject",
-                        target="target"
-                    )]
-                ),
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument initial_version", value=initial_version, expected_type=type_hints["initial_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if initial_version is not None:
-            self._values["initial_version"] = initial_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the subscription definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def initial_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]]:
-        '''The subscription definition version to include when the subscription definition is created.
-
-        A subscription definition version contains a list of ```subscription`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrass-subscriptiondefinition-subscription.html>`_ property types.
-        .. epigraph::
-
-           To associate a subscription definition version after the subscription definition is created, create an ```AWS::Greengrass::SubscriptionDefinitionVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html>`_ resource and specify the ID of this subscription definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-initialversion
-        '''
-        result = self._values.get("initial_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''Application-specific metadata to attach to the subscription definition.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tagging Your AWS IoT Greengrass Resources <https://docs.aws.amazon.com/greengrass/v1/developerguide/tagging.html>`_ in the *Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinition.html#cfn-greengrass-subscriptiondefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubscriptionDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISubscriptionDefinitionVersionRef)
 class CfnSubscriptionDefinitionVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10198,6 +11981,14 @@ class CfnSubscriptionDefinitionVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionDefinitionVersionRef")
+    def subscription_definition_version_ref(
+        self,
+    ) -> SubscriptionDefinitionVersionReference:
+        '''A reference to a SubscriptionDefinitionVersion resource.'''
+        return typing.cast(SubscriptionDefinitionVersionReference, jsii.get(self, "subscriptionDefinitionVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionDefinitionId")
@@ -10347,90 +12138,6 @@ class CfnSubscriptionDefinitionVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subscription_definition_id": "subscriptionDefinitionId",
-        "subscriptions": "subscriptions",
-    },
-)
-class CfnSubscriptionDefinitionVersionProps:
-    def __init__(
-        self,
-        *,
-        subscription_definition_id: builtins.str,
-        subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnSubscriptionDefinitionVersion``.
-
-        :param subscription_definition_id: The ID of the subscription definition associated with this version. This value is a GUID.
-        :param subscriptions: The subscriptions in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrass as greengrass
-            
-            cfn_subscription_definition_version_props = greengrass.CfnSubscriptionDefinitionVersionProps(
-                subscription_definition_id="subscriptionDefinitionId",
-                subscriptions=[greengrass.CfnSubscriptionDefinitionVersion.SubscriptionProperty(
-                    id="id",
-                    source="source",
-                    subject="subject",
-                    target="target"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8)
-            check_type(argname="argument subscription_definition_id", value=subscription_definition_id, expected_type=type_hints["subscription_definition_id"])
-            check_type(argname="argument subscriptions", value=subscriptions, expected_type=type_hints["subscriptions"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subscription_definition_id": subscription_definition_id,
-            "subscriptions": subscriptions,
-        }
-
-    @builtins.property
-    def subscription_definition_id(self) -> builtins.str:
-        '''The ID of the subscription definition associated with this version.
-
-        This value is a GUID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinitionversion-subscriptiondefinitionid
-        '''
-        result = self._values.get("subscription_definition_id")
-        assert result is not None, "Required property 'subscription_definition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subscriptions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinitionVersion.SubscriptionProperty]]]:
-        '''The subscriptions in this version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrass-subscriptiondefinitionversion.html#cfn-greengrass-subscriptiondefinitionversion-subscriptions
-        '''
-        result = self._values.get("subscriptions")
-        assert result is not None, "Required property 'subscriptions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinitionVersion.SubscriptionProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubscriptionDefinitionVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConnectorDefinition",
     "CfnConnectorDefinitionProps",
@@ -10464,9 +12171,305 @@ __all__ = [
     "CfnSubscriptionDefinitionProps",
     "CfnSubscriptionDefinitionVersion",
     "CfnSubscriptionDefinitionVersionProps",
+    "ConnectorDefinitionReference",
+    "ConnectorDefinitionVersionReference",
+    "CoreDefinitionReference",
+    "CoreDefinitionVersionReference",
+    "DeviceDefinitionReference",
+    "DeviceDefinitionVersionReference",
+    "FunctionDefinitionReference",
+    "FunctionDefinitionVersionReference",
+    "GroupReference",
+    "GroupVersionReference",
+    "IConnectorDefinitionRef",
+    "IConnectorDefinitionVersionRef",
+    "ICoreDefinitionRef",
+    "ICoreDefinitionVersionRef",
+    "IDeviceDefinitionRef",
+    "IDeviceDefinitionVersionRef",
+    "IFunctionDefinitionRef",
+    "IFunctionDefinitionVersionRef",
+    "IGroupRef",
+    "IGroupVersionRef",
+    "ILoggerDefinitionRef",
+    "ILoggerDefinitionVersionRef",
+    "IResourceDefinitionRef",
+    "IResourceDefinitionVersionRef",
+    "ISubscriptionDefinitionRef",
+    "ISubscriptionDefinitionVersionRef",
+    "LoggerDefinitionReference",
+    "LoggerDefinitionVersionReference",
+    "ResourceDefinitionReference",
+    "ResourceDefinitionVersionReference",
+    "SubscriptionDefinitionReference",
+    "SubscriptionDefinitionVersionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3(
+    *,
+    connector_definition_id: builtins.str,
+    connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f(
+    *,
+    core_definition_id: builtins.str,
+    cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09(
+    *,
+    device_definition_id: builtins.str,
+    devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356(
+    *,
+    function_definition_id: builtins.str,
+    functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48(
+    *,
+    group_id: builtins.str,
+    connector_definition_version_arn: typing.Optional[builtins.str] = None,
+    core_definition_version_arn: typing.Optional[builtins.str] = None,
+    device_definition_version_arn: typing.Optional[builtins.str] = None,
+    function_definition_version_arn: typing.Optional[builtins.str] = None,
+    logger_definition_version_arn: typing.Optional[builtins.str] = None,
+    resource_definition_version_arn: typing.Optional[builtins.str] = None,
+    subscription_definition_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7(
+    *,
+    logger_definition_id: builtins.str,
+    loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427(
+    *,
+    resource_definition_id: builtins.str,
+    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98(
+    *,
+    name: builtins.str,
+    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8(
+    *,
+    subscription_definition_id: builtins.str,
+    subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b86cfc8177b95058d70f4d7e20a22d5d5790d05361892963ef436775f679311(
+    *,
+    connector_definition_arn: builtins.str,
+    connector_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94a03d448e966561ea70abc0796569132c71c4a76afa90b6ada4feef96e96815(
+    *,
+    connector_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f72a2dd0bf1c39f462bef1d790fe4bc435c9f4502081071a3a37fde267880f7(
+    *,
+    core_definition_arn: builtins.str,
+    core_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20ee091130f4eacdd5730ef06e7345ee53366f2472f59d51d5ef475416045e39(
+    *,
+    core_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b33fddd5cdf60b926d06e33798d0ebad88a894f1b10ce340afde375ce4a9fc2e(
+    *,
+    device_definition_arn: builtins.str,
+    device_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5f79fc7d21fb6e30b578c6e9d4ce373a05ebcc9ce7c1221767b2c473af3ce2b(
+    *,
+    device_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a6f138c490bb467995b34e0dba28d58084f321eaab3cdfd0a0ebb36e699f1d8(
+    *,
+    function_definition_arn: builtins.str,
+    function_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff50b43528be6e503c102c6683ad0b26b7c4a995296871f566c8264a7c9dee33(
+    *,
+    function_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__601569c39ab439a61091a4c0a195d9cf8a8cdaf35716a4497abe7eb5df7b4120(
+    *,
+    group_arn: builtins.str,
+    group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1128c821490a7d6ca45afdc17bcf7f232d0a418cb0deca6846ee20b7a7ab2cb0(
+    *,
+    group_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf6d310e2addd667c60c8a83afeadfb86344b09085074c0f46ea9f554c152d57(
+    *,
+    logger_definition_arn: builtins.str,
+    logger_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dde905cecfdb6449823b1c9beda1015ee0d362f24c1ee70e6673a878543d8665(
+    *,
+    logger_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0148b187bd5523eacaac76908162d32a4c7f3c0d297cdff57767741a7aa38c4a(
+    *,
+    resource_definition_arn: builtins.str,
+    resource_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__563b8501928b05b30fb7ab4745c3fd7fe99323a61c881005169551307febcf9a(
+    *,
+    resource_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cce5727e4b2ab9a9cb2dc4fee5eef887b28eaa72ac068eaf5af4c66be79e1f82(
+    *,
+    subscription_definition_arn: builtins.str,
+    subscription_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43ad4fd3c0300df913b08a17f59899f05ddd737c8ec26c23f868425dc5c34bdc(
+    *,
+    subscription_definition_version_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__481b9a854466614791f45d6769989966b8f812de4d4fa3e31d53b297fc3cf25a(
     scope: _constructs_77d1e7e8.Construct,
@@ -10525,15 +12528,6 @@ def _typecheckingstub__9296d577ecfbbed3bc2c2debdad72ad7c40138384002b64be6231a4a6
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c11896c87152b58a2cacd3ad90176b83e130f066bfcc0c1caf54e71e272e5c6c(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinition.ConnectorDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__97b0440a60203f7d65611b69dca729e027a591c6aa92f00dc0aebb40960143af(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10573,14 +12567,6 @@ def _typecheckingstub__d59c31c39abe32b4f18b9663d07cf39015d1cce8e87ebaa475937de0f
     connector_arn: builtins.str,
     id: builtins.str,
     parameters: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08c795265270b52b4f10228be7f4015f471c0c0039915e2b229a19aea56195a3(
-    *,
-    connector_definition_id: builtins.str,
-    connectors: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorDefinitionVersion.ConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10643,15 +12629,6 @@ def _typecheckingstub__16d7e03cdaed925e2b5ec8c65e84a5b6cf10c5209e1d1de097ab201c4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__56d8127b3c34b3abe01c8efbf62b499796f709f95bf91348e64a7ab4a0d7ac3c(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinition.CoreDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__98b8071f110db36c2b93c49d75516709035bb93997aae3c35adc25c4ab4d53c3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10692,14 +12669,6 @@ def _typecheckingstub__07e3ed0ad844b4ecbd124f2fc0f6fcb8c8ca64bd7f1b2ebe17ecf825b
     id: builtins.str,
     thing_arn: builtins.str,
     sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b5ee60cab94ef477682167b25261f01a298b6e5e0bece31e1df9370f3a2f790f(
-    *,
-    core_definition_id: builtins.str,
-    cores: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCoreDefinitionVersion.CoreProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10762,15 +12731,6 @@ def _typecheckingstub__812e639d6663b05c08a6e0a7e6aea0c4d9cb91c3144a1113dcbf3d793
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7175e6a25a231dd04ec7fc7a8ba5222ad239e84c2555359e9e1779ee7dab007c(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinition.DeviceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__64493ebfeeb96fc14eb8e8054338af97e554d939f196f64d5d512c73ace31a93(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10811,14 +12771,6 @@ def _typecheckingstub__253b05ead7f7258dbe7d542a3d84a1dcb9e7461853810ffd646f2efad
     id: builtins.str,
     thing_arn: builtins.str,
     sync_shadow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ba582d02e3f46be1f7ffc866489e7b5768fda19646ac5cb6fb39be0cc3b7e09(
-    *,
-    device_definition_id: builtins.str,
-    devices: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeviceDefinitionVersion.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10935,15 +12887,6 @@ def _typecheckingstub__044b15bdedd91446b78ce0f57b82c3734bcbedd95c01454cdca47d61e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a3e62d17dcf2bc0d49a9e8075057460e72eae2dd41694fd8988f7dfbd7bb507a(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinition.FunctionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__74049a58818d8fb74724e45f074f2d356fba374467a1926758e3e761c205d756(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11048,15 +12991,6 @@ def _typecheckingstub__5ebc14c39db2ef6662e5e8568947f430b45c6b165cfdcb6f5bd1a30fc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d7e693fe342b550c60e306daaf34fb60a94c43637b204bde675069e2c09f0356(
-    *,
-    function_definition_id: builtins.str,
-    functions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    default_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunctionDefinitionVersion.DefaultConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__726a7d2c4960c5df3ad6e991be61efa251e71f218d0d72f1df21a3c5903ebe7f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11114,16 +13048,6 @@ def _typecheckingstub__23017f69761595410cb920f0188f7bac8a8a1c92bdabee3f081b74455
     logger_definition_version_arn: typing.Optional[builtins.str] = None,
     resource_definition_version_arn: typing.Optional[builtins.str] = None,
     subscription_definition_version_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__296d900be2eff5ceb398f72dfd0a58896e12fd04dd28f102a076e92f456cb9a4(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.GroupVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11204,20 +13128,6 @@ def _typecheckingstub__401c05e2b55805214eb63cf50bc055afc162c24db366d22d1d8583f41
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3002e50fbbeb611ff50e6124b7f721785d0d1114fac032b39ef5434324657b48(
-    *,
-    group_id: builtins.str,
-    connector_definition_version_arn: typing.Optional[builtins.str] = None,
-    core_definition_version_arn: typing.Optional[builtins.str] = None,
-    device_definition_version_arn: typing.Optional[builtins.str] = None,
-    function_definition_version_arn: typing.Optional[builtins.str] = None,
-    logger_definition_version_arn: typing.Optional[builtins.str] = None,
-    resource_definition_version_arn: typing.Optional[builtins.str] = None,
-    subscription_definition_version_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d3141ac6c65d7407c94dc3062e91bf204de61524d95c83b87b6aab3da0639d32(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11277,15 +13187,6 @@ def _typecheckingstub__ef56df2cb15dd1d03dc55bf6372cddbfc94e06fb51a6d1a1422c713d3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__170725663bf1c1d04ae4208595550913d0157b3edd62f4ff14920f4acbfe3707(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinition.LoggerDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fb45ce0812f07c5afc2310bc7a288eff7e5cdc4a5609d10f2a19f5b87faf7fe5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11327,14 +13228,6 @@ def _typecheckingstub__17bd21c4fd76afa67a356eb02e70cf8770d286a8abba3a95fc65604a3
     level: builtins.str,
     type: builtins.str,
     space: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a55ca993c275a44b98675ba3424e4e63162b645c01b9f63544a74a467b4060a7(
-    *,
-    logger_definition_id: builtins.str,
-    loggers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggerDefinitionVersion.LoggerProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11466,15 +13359,6 @@ def _typecheckingstub__7665349bcf6d8c447b8247f984eb20a41ebfec207c55b6f809ba23f39
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__64d19c7aa996849ae5308a845fea1be8a360b83d3ec8158f6a19c48fe68f5009(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinition.ResourceDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__89e106c323b7cfeaacd807745287aed9743502c2e5353d29679ad3381a494b6a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11588,14 +13472,6 @@ def _typecheckingstub__42b5f8b52b565c9d97f0c8313cdb4b5f55c17c63cd32aa5bdc087f665
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__92f249a2f06545b4d2c57aa9e2ac98fd23d4647ebf0ab39624e1bc81c067b427(
-    *,
-    resource_definition_id: builtins.str,
-    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDefinitionVersion.ResourceInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b231a8b03315437dd52b155f4e7c1d32a92f2a3b0e6f37ae1bfae2e72938fb22(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11654,15 +13530,6 @@ def _typecheckingstub__8b7552743b0092a7b8371fc4c1a1476bd190cbed44e48e0e59b996d83
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0ca5b663a9b0488d2381e662e60281bd0082829ce52f3a587e6f8294d7745d98(
-    *,
-    name: builtins.str,
-    initial_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__196d53b9c9e2e632eb88d7a7f73e15b80a4e83c869df484747f40505cd07b62a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11703,14 +13570,6 @@ def _typecheckingstub__2d3123a4ba54f33ea17e4d551e1741ceae6c3e217ae977d2d28f5c60c
     source: builtins.str,
     subject: builtins.str,
     target: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__13d59bb5054d104f51e689b37a46da9774e6b1e1bc38b16496ca8bf4a7ce90c8(
-    *,
-    subscription_definition_id: builtins.str,
-    subscriptions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriptionDefinitionVersion.SubscriptionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass

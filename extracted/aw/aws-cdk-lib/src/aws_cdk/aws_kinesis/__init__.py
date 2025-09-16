@@ -363,127 +363,6 @@ from ..aws_iam import (
 from ..aws_kms import IKey as _IKey_5f11635f
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnResourcePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kinesis.CfnResourcePolicy",
-):
-    '''Attaches a resource-based policy to a data stream or registered consumer.
-
-    If you are using an identity other than the root user of the AWS account that owns the resource, the calling identity must have the ``PutResourcePolicy`` permissions on the specified Kinesis Data Streams resource and belong to the owner's account in order to use this operation. If you don't have ``PutResourcePolicy`` permissions, Amazon Kinesis Data Streams returns a ``403 Access Denied error`` . If you receive a ``ResourceNotFoundException`` , check to see if you passed a valid stream or consumer resource.
-
-    Request patterns can be one of the following:
-
-    - Data stream pattern: ``arn:aws.*:kinesis:.*:\\d{12}:.*stream/\\S+``
-    - Consumer pattern: ``^(arn):aws.*:kinesis:.*:\\d{12}:.*stream\\/[a-zA-Z0-9_.-]+\\/consumer\\/[a-zA-Z0-9_.-]+:[0-9]+``
-
-    For more information, see `Controlling Access to Amazon Kinesis Data Streams Resources Using IAM <https://docs.aws.amazon.com/streams/latest/dev/controlling-access.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-resourcepolicy.html
-    :cloudformationResource: AWS::Kinesis::ResourcePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kinesis as kinesis
-        
-        # resource_policy: Any
-        
-        cfn_resource_policy = kinesis.CfnResourcePolicy(self, "MyCfnResourcePolicy",
-            resource_arn="resourceArn",
-            resource_policy=resource_policy
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        resource_arn: builtins.str,
-        resource_policy: typing.Any,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param resource_arn: This is the name for the resource policy.
-        :param resource_policy: This is the description for the resource policy.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourcePolicyProps(
-            resource_arn=resource_arn, resource_policy=resource_policy
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceArn")
-    def resource_arn(self) -> builtins.str:
-        '''This is the name for the resource policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
-
-    @resource_arn.setter
-    def resource_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicy")
-    def resource_policy(self) -> typing.Any:
-        '''This is the description for the resource policy.'''
-        return typing.cast(typing.Any, jsii.get(self, "resourcePolicy"))
-
-    @resource_policy.setter
-    def resource_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_kinesis.CfnResourcePolicyProps",
     jsii_struct_bases=[],
@@ -556,579 +435,6 @@ class CfnResourcePolicyProps:
         return "CfnResourcePolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnStream(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kinesis.CfnStream",
-):
-    '''Creates a Kinesis stream that captures and transports data records that are emitted from data sources.
-
-    For information about creating streams, see `CreateStream <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_CreateStream.html>`_ in the Amazon Kinesis API Reference.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html
-    :cloudformationResource: AWS::Kinesis::Stream
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kinesis as kinesis
-        
-        cfn_stream = kinesis.CfnStream(self, "MyCfnStream",
-            desired_shard_level_metrics=["desiredShardLevelMetrics"],
-            name="name",
-            retention_period_hours=123,
-            shard_count=123,
-            stream_encryption=kinesis.CfnStream.StreamEncryptionProperty(
-                encryption_type="encryptionType",
-                key_id="keyId"
-            ),
-            stream_mode_details=kinesis.CfnStream.StreamModeDetailsProperty(
-                stream_mode="streamMode"
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
-        name: typing.Optional[builtins.str] = None,
-        retention_period_hours: typing.Optional[jsii.Number] = None,
-        shard_count: typing.Optional[jsii.Number] = None,
-        stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param desired_shard_level_metrics: A list of shard-level metrics in properties to enable enhanced monitoring mode.
-        :param name: The name of the Kinesis stream. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the stream name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param retention_period_hours: The number of hours for the data records that are stored in shards to remain accessible. The default value is 24. For more information about the stream retention period, see `Changing the Data Retention Period <https://docs.aws.amazon.com/streams/latest/dev/kinesis-extended-retention.html>`_ in the Amazon Kinesis Developer Guide.
-        :param shard_count: The number of shards that the stream uses. For greater provisioned throughput, increase the number of shards.
-        :param stream_encryption: When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream. Removing this property from your stack template and updating your stack disables encryption.
-        :param stream_mode_details: Specifies the capacity mode to which you want to set your data stream. Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
-        :param tags: An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream. For information about constraints for this property, see `Tag Restrictions <https://docs.aws.amazon.com/streams/latest/dev/tagging.html#tagging-restrictions>`_ in the *Amazon Kinesis Developer Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStreamProps(
-            desired_shard_level_metrics=desired_shard_level_metrics,
-            name=name,
-            retention_period_hours=retention_period_hours,
-            shard_count=shard_count,
-            stream_encryption=stream_encryption,
-            stream_mode_details=stream_mode_details,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) of the Kinesis stream, such as ``arn:aws:kinesis:us-east-2:123456789012:stream/mystream`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="desiredShardLevelMetrics")
-    def desired_shard_level_metrics(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of shard-level metrics in properties to enable enhanced monitoring mode.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "desiredShardLevelMetrics"))
-
-    @desired_shard_level_metrics.setter
-    def desired_shard_level_metrics(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "desiredShardLevelMetrics", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Kinesis stream.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="retentionPeriodHours")
-    def retention_period_hours(self) -> typing.Optional[jsii.Number]:
-        '''The number of hours for the data records that are stored in shards to remain accessible.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionPeriodHours"))
-
-    @retention_period_hours.setter
-    def retention_period_hours(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionPeriodHours", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="shardCount")
-    def shard_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of shards that the stream uses.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "shardCount"))
-
-    @shard_count.setter
-    def shard_count(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shardCount", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="streamEncryption")
-    def stream_encryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]]:
-        '''When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]], jsii.get(self, "streamEncryption"))
-
-    @stream_encryption.setter
-    def stream_encryption(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamEncryption", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="streamModeDetails")
-    def stream_mode_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]]:
-        '''Specifies the capacity mode to which you want to set your data stream.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]], jsii.get(self, "streamModeDetails"))
-
-    @stream_mode_details.setter
-    def stream_mode_details(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamModeDetails", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_kinesis.CfnStream.StreamEncryptionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"encryption_type": "encryptionType", "key_id": "keyId"},
-    )
-    class StreamEncryptionProperty:
-        def __init__(
-            self,
-            *,
-            encryption_type: builtins.str,
-            key_id: builtins.str,
-        ) -> None:
-            '''Enables or updates server-side encryption using an AWS KMS key for a specified stream.
-
-            .. epigraph::
-
-               When invoking this API, you must use either the ``StreamARN`` or the ``StreamName`` parameter, or both. It is recommended that you use the ``StreamARN`` input parameter when you invoke this API.
-
-            Starting encryption is an asynchronous operation. Upon receiving the request, Kinesis Data Streams returns immediately and sets the status of the stream to ``UPDATING`` . After the update is complete, Kinesis Data Streams sets the status of the stream back to ``ACTIVE`` . Updating or applying encryption normally takes a few seconds to complete, but it can take minutes. You can continue to read and write data to your stream while its status is ``UPDATING`` . Once the status of the stream is ``ACTIVE`` , encryption begins for records written to the stream.
-
-            API Limits: You can successfully apply a new AWS KMS key for server-side encryption 25 times in a rolling 24-hour period.
-
-            Note: It can take up to 5 seconds after the stream is in an ``ACTIVE`` status before all records written to the stream are encrypted. After you enable encryption, you can verify that encryption is applied by inspecting the API response from ``PutRecord`` or ``PutRecords`` .
-
-            :param encryption_type: The encryption type to use. The only valid value is ``KMS`` .
-            :param key_id: The GUID for the customer-managed AWS KMS key to use for encryption. This value can be a globally unique identifier, a fully specified Amazon Resource Name (ARN) to either an alias or a key, or an alias name prefixed by "alias/".You can also use a master key owned by Kinesis Data Streams by specifying the alias ``aws/kinesis`` . - Key ARN example: ``arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012`` - Alias ARN example: ``arn:aws:kms:us-east-1:123456789012:alias/MyAliasName`` - Globally unique key ID example: ``12345678-1234-1234-1234-123456789012`` - Alias name example: ``alias/MyAliasName`` - Master key owned by Kinesis Data Streams: ``alias/aws/kinesis``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_kinesis as kinesis
-                
-                stream_encryption_property = kinesis.CfnStream.StreamEncryptionProperty(
-                    encryption_type="encryptionType",
-                    key_id="keyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f)
-                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
-                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "encryption_type": encryption_type,
-                "key_id": key_id,
-            }
-
-        @builtins.property
-        def encryption_type(self) -> builtins.str:
-            '''The encryption type to use.
-
-            The only valid value is ``KMS`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html#cfn-kinesis-stream-streamencryption-encryptiontype
-            '''
-            result = self._values.get("encryption_type")
-            assert result is not None, "Required property 'encryption_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_id(self) -> builtins.str:
-            '''The GUID for the customer-managed AWS KMS key to use for encryption.
-
-            This value can be a globally unique identifier, a fully specified Amazon Resource Name (ARN) to either an alias or a key, or an alias name prefixed by "alias/".You can also use a master key owned by Kinesis Data Streams by specifying the alias ``aws/kinesis`` .
-
-            - Key ARN example: ``arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012``
-            - Alias ARN example: ``arn:aws:kms:us-east-1:123456789012:alias/MyAliasName``
-            - Globally unique key ID example: ``12345678-1234-1234-1234-123456789012``
-            - Alias name example: ``alias/MyAliasName``
-            - Master key owned by Kinesis Data Streams: ``alias/aws/kinesis``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html#cfn-kinesis-stream-streamencryption-keyid
-            '''
-            result = self._values.get("key_id")
-            assert result is not None, "Required property 'key_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StreamEncryptionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_kinesis.CfnStream.StreamModeDetailsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"stream_mode": "streamMode"},
-    )
-    class StreamModeDetailsProperty:
-        def __init__(self, *, stream_mode: builtins.str) -> None:
-            '''Specifies the capacity mode to which you want to set your data stream.
-
-            Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
-
-            :param stream_mode: Specifies the capacity mode to which you want to set your data stream. Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streammodedetails.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_kinesis as kinesis
-                
-                stream_mode_details_property = kinesis.CfnStream.StreamModeDetailsProperty(
-                    stream_mode="streamMode"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa)
-                check_type(argname="argument stream_mode", value=stream_mode, expected_type=type_hints["stream_mode"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "stream_mode": stream_mode,
-            }
-
-        @builtins.property
-        def stream_mode(self) -> builtins.str:
-            '''Specifies the capacity mode to which you want to set your data stream.
-
-            Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streammodedetails.html#cfn-kinesis-stream-streammodedetails-streammode
-            '''
-            result = self._values.get("stream_mode")
-            assert result is not None, "Required property 'stream_mode' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StreamModeDetailsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnStreamConsumer(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kinesis.CfnStreamConsumer",
-):
-    '''Use the AWS CloudFormation ``AWS::Kinesis::StreamConsumer`` resource to register a consumer with a Kinesis data stream.
-
-    The consumer you register can then call `SubscribeToShard <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html>`_ to receive data from the stream using enhanced fan-out, at a rate of up to 2 MiB per second for every shard you subscribe to. This rate is unaffected by the total number of consumers that read from the same stream.
-
-    You can register up to 20 consumers per stream. However, you can request a limit increase using the `Kinesis Data Streams limits form <https://docs.aws.amazon.com/support/v1?#/>`_ . A given consumer can only be registered with one stream at a time.
-
-    For more information, see `Using Consumers with Enhanced Fan-Out <https://docs.aws.amazon.com/streams/latest/dev/introduction-to-enhanced-consumers.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-streamconsumer.html
-    :cloudformationResource: AWS::Kinesis::StreamConsumer
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kinesis as kinesis
-        
-        cfn_stream_consumer = kinesis.CfnStreamConsumer(self, "MyCfnStreamConsumer",
-            consumer_name="consumerName",
-            stream_arn="streamArn",
-        
-            # the properties below are optional
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        consumer_name: builtins.str,
-        stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param consumer_name: The name of the consumer is something you choose when you register the consumer.
-        :param stream_arn: The ARN of the stream with which you registered the consumer.
-        :param tags: An array of tags to be added to a specified Kinesis resource. A tag consists of a required key and an optional value. You can specify up to 50 tag key-value pairs.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStreamConsumerProps(
-            consumer_name=consumer_name, stream_arn=stream_arn, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrConsumerArn")
-    def attr_consumer_arn(self) -> builtins.str:
-        '''When you register a consumer, Kinesis Data Streams generates an ARN for it.
-
-        You need this ARN to be able to call `SubscribeToShard <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html>`_ .
-
-        If you delete a consumer and then create a new one with the same name, it won't have the same ARN. That's because consumer ARNs contain the creation timestamp. This is important to keep in mind if you have IAM policies that reference consumer ARNs.
-
-        :cloudformationAttribute: ConsumerARN
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrConsumerArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrConsumerCreationTimestamp")
-    def attr_consumer_creation_timestamp(self) -> builtins.str:
-        '''The time at which the consumer was created.
-
-        :cloudformationAttribute: ConsumerCreationTimestamp
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrConsumerCreationTimestamp"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrConsumerName")
-    def attr_consumer_name(self) -> builtins.str:
-        '''The name you gave the consumer when you registered it.
-
-        :cloudformationAttribute: ConsumerName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrConsumerName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrConsumerStatus")
-    def attr_consumer_status(self) -> builtins.str:
-        '''A consumer can't read data while in the ``CREATING`` or ``DELETING`` states.
-
-        :cloudformationAttribute: ConsumerStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrConsumerStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamArn")
-    def attr_stream_arn(self) -> builtins.str:
-        '''The ARN of the data stream with which the consumer is registered.
-
-        :cloudformationAttribute: StreamARN
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="consumerName")
-    def consumer_name(self) -> builtins.str:
-        '''The name of the consumer is something you choose when you register the consumer.'''
-        return typing.cast(builtins.str, jsii.get(self, "consumerName"))
-
-    @consumer_name.setter
-    def consumer_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "consumerName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="streamArn")
-    def stream_arn(self) -> builtins.str:
-        '''The ARN of the stream with which you registered the consumer.'''
-        return typing.cast(builtins.str, jsii.get(self, "streamArn"))
-
-    @stream_arn.setter
-    def stream_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of tags to be added to a specified Kinesis resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1250,8 +556,8 @@ class CfnStreamProps:
         name: typing.Optional[builtins.str] = None,
         retention_period_hours: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
-        stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStream``.
@@ -1363,7 +669,7 @@ class CfnStreamProps:
     @builtins.property
     def stream_encryption(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamEncryptionProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]]:
         '''When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream.
 
         Removing this property from your stack template and updating your stack disables encryption.
@@ -1371,12 +677,12 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-streamencryption
         '''
         result = self._values.get("stream_encryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamEncryptionProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]], result)
 
     @builtins.property
     def stream_mode_details(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamModeDetailsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]]:
         '''Specifies the capacity mode to which you want to set your data stream.
 
         Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
@@ -1384,7 +690,7 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-streammodedetails
         '''
         result = self._values.get("stream_mode_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamModeDetailsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -1407,6 +713,46 @@ class CfnStreamProps:
         return "CfnStreamProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesis.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IStream")
@@ -3592,6 +2938,86 @@ class _IStreamConsumerProxy(
 typing.cast(typing.Any, IStreamConsumer).__jsii_proxy_class__ = lambda : _IStreamConsumerProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IStreamConsumerRef")
+class IStreamConsumerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StreamConsumer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamConsumerRef")
+    def stream_consumer_ref(self) -> "StreamConsumerReference":
+        '''(experimental) A reference to a StreamConsumer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamConsumerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StreamConsumer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesis.IStreamConsumerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamConsumerRef")
+    def stream_consumer_ref(self) -> "StreamConsumerReference":
+        '''(experimental) A reference to a StreamConsumer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamConsumerReference", jsii.get(self, "streamConsumerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamConsumerRef).__jsii_proxy_class__ = lambda : _IStreamConsumerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IStreamRef")
+class IStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesis.IStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamReference", jsii.get(self, "streamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamRef).__jsii_proxy_class__ = lambda : _IStreamRefProxy
+
+
 class ResourcePolicy(
     _Resource_45bc6135,
     metaclass=jsii.JSIIMeta,
@@ -3795,6 +3221,55 @@ class ResourcePolicyProps:
 
     def __repr__(self) -> str:
         return "ResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesis.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesis as kinesis
+            
+            resource_policy_reference = kinesis.ResourcePolicyReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc943cc7d6e7de4c4433ba298b212c2a54f9651eeb3390b836aaec65315c6afb)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourcePolicy resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5451,6 +4926,55 @@ class StreamConsumerProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesis.StreamConsumerReference",
+    jsii_struct_bases=[],
+    name_mapping={"consumer_arn": "consumerArn"},
+)
+class StreamConsumerReference:
+    def __init__(self, *, consumer_arn: builtins.str) -> None:
+        '''A reference to a StreamConsumer resource.
+
+        :param consumer_arn: The ConsumerARN of the StreamConsumer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesis as kinesis
+            
+            stream_consumer_reference = kinesis.StreamConsumerReference(
+                consumer_arn="consumerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6309d67485d9b6ea0b59ee95826bd414adc0e7928ad1d16f86af2559eaa27e7c)
+            check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "consumer_arn": consumer_arn,
+        }
+
+    @builtins.property
+    def consumer_arn(self) -> builtins.str:
+        '''The ConsumerARN of the StreamConsumer resource.'''
+        result = self._values.get("consumer_arn")
+        assert result is not None, "Required property 'consumer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamConsumerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_kinesis.StreamEncryption")
 class StreamEncryption(enum.Enum):
     '''What kind of server-side encryption to apply to this stream.
@@ -5662,6 +5186,778 @@ class StreamProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesis.StreamReference",
+    jsii_struct_bases=[],
+    name_mapping={"stream_arn": "streamArn", "stream_name": "streamName"},
+)
+class StreamReference:
+    def __init__(self, *, stream_arn: builtins.str, stream_name: builtins.str) -> None:
+        '''A reference to a Stream resource.
+
+        :param stream_arn: The ARN of the Stream resource.
+        :param stream_name: The Name of the Stream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesis as kinesis
+            
+            stream_reference = kinesis.StreamReference(
+                stream_arn="streamArn",
+                stream_name="streamName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42c657f0b4361ee558bd762cb1caae49317a2716df0d3802126e3985b4b0b747)
+            check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+            check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stream_arn": stream_arn,
+            "stream_name": stream_name,
+        }
+
+    @builtins.property
+    def stream_arn(self) -> builtins.str:
+        '''The ARN of the Stream resource.'''
+        result = self._values.get("stream_arn")
+        assert result is not None, "Required property 'stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_name(self) -> builtins.str:
+        '''The Name of the Stream resource.'''
+        result = self._values.get("stream_name")
+        assert result is not None, "Required property 'stream_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesis.CfnResourcePolicy",
+):
+    '''Attaches a resource-based policy to a data stream or registered consumer.
+
+    If you are using an identity other than the root user of the AWS account that owns the resource, the calling identity must have the ``PutResourcePolicy`` permissions on the specified Kinesis Data Streams resource and belong to the owner's account in order to use this operation. If you don't have ``PutResourcePolicy`` permissions, Amazon Kinesis Data Streams returns a ``403 Access Denied error`` . If you receive a ``ResourceNotFoundException`` , check to see if you passed a valid stream or consumer resource.
+
+    Request patterns can be one of the following:
+
+    - Data stream pattern: ``arn:aws.*:kinesis:.*:\\d{12}:.*stream/\\S+``
+    - Consumer pattern: ``^(arn):aws.*:kinesis:.*:\\d{12}:.*stream\\/[a-zA-Z0-9_.-]+\\/consumer\\/[a-zA-Z0-9_.-]+:[0-9]+``
+
+    For more information, see `Controlling Access to Amazon Kinesis Data Streams Resources Using IAM <https://docs.aws.amazon.com/streams/latest/dev/controlling-access.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-resourcepolicy.html
+    :cloudformationResource: AWS::Kinesis::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesis as kinesis
+        
+        # resource_policy: Any
+        
+        cfn_resource_policy = kinesis.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            resource_arn="resourceArn",
+            resource_policy=resource_policy
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        resource_arn: builtins.str,
+        resource_policy: typing.Any,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_arn: This is the name for the resource policy.
+        :param resource_policy: This is the description for the resource policy.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            resource_arn=resource_arn, resource_policy=resource_policy
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''This is the name for the resource policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicy")
+    def resource_policy(self) -> typing.Any:
+        '''This is the description for the resource policy.'''
+        return typing.cast(typing.Any, jsii.get(self, "resourcePolicy"))
+
+    @resource_policy.setter
+    def resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IStreamRef, _ITaggable_36806126)
+class CfnStream(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesis.CfnStream",
+):
+    '''Creates a Kinesis stream that captures and transports data records that are emitted from data sources.
+
+    For information about creating streams, see `CreateStream <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_CreateStream.html>`_ in the Amazon Kinesis API Reference.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html
+    :cloudformationResource: AWS::Kinesis::Stream
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesis as kinesis
+        
+        cfn_stream = kinesis.CfnStream(self, "MyCfnStream",
+            desired_shard_level_metrics=["desiredShardLevelMetrics"],
+            name="name",
+            retention_period_hours=123,
+            shard_count=123,
+            stream_encryption=kinesis.CfnStream.StreamEncryptionProperty(
+                encryption_type="encryptionType",
+                key_id="keyId"
+            ),
+            stream_mode_details=kinesis.CfnStream.StreamModeDetailsProperty(
+                stream_mode="streamMode"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
+        name: typing.Optional[builtins.str] = None,
+        retention_period_hours: typing.Optional[jsii.Number] = None,
+        shard_count: typing.Optional[jsii.Number] = None,
+        stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param desired_shard_level_metrics: A list of shard-level metrics in properties to enable enhanced monitoring mode.
+        :param name: The name of the Kinesis stream. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the stream name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param retention_period_hours: The number of hours for the data records that are stored in shards to remain accessible. The default value is 24. For more information about the stream retention period, see `Changing the Data Retention Period <https://docs.aws.amazon.com/streams/latest/dev/kinesis-extended-retention.html>`_ in the Amazon Kinesis Developer Guide.
+        :param shard_count: The number of shards that the stream uses. For greater provisioned throughput, increase the number of shards.
+        :param stream_encryption: When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream. Removing this property from your stack template and updating your stack disables encryption.
+        :param stream_mode_details: Specifies the capacity mode to which you want to set your data stream. Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
+        :param tags: An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream. For information about constraints for this property, see `Tag Restrictions <https://docs.aws.amazon.com/streams/latest/dev/tagging.html#tagging-restrictions>`_ in the *Amazon Kinesis Developer Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStreamProps(
+            desired_shard_level_metrics=desired_shard_level_metrics,
+            name=name,
+            retention_period_hours=retention_period_hours,
+            shard_count=shard_count,
+            stream_encryption=stream_encryption,
+            stream_mode_details=stream_mode_details,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the Kinesis stream, such as ``arn:aws:kinesis:us-east-2:123456789012:stream/mystream`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> StreamReference:
+        '''A reference to a Stream resource.'''
+        return typing.cast(StreamReference, jsii.get(self, "streamRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="desiredShardLevelMetrics")
+    def desired_shard_level_metrics(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of shard-level metrics in properties to enable enhanced monitoring mode.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "desiredShardLevelMetrics"))
+
+    @desired_shard_level_metrics.setter
+    def desired_shard_level_metrics(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "desiredShardLevelMetrics", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Kinesis stream.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionPeriodHours")
+    def retention_period_hours(self) -> typing.Optional[jsii.Number]:
+        '''The number of hours for the data records that are stored in shards to remain accessible.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionPeriodHours"))
+
+    @retention_period_hours.setter
+    def retention_period_hours(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retentionPeriodHours", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="shardCount")
+    def shard_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of shards that the stream uses.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "shardCount"))
+
+    @shard_count.setter
+    def shard_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "shardCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamEncryption")
+    def stream_encryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]]:
+        '''When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]], jsii.get(self, "streamEncryption"))
+
+    @stream_encryption.setter
+    def stream_encryption(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamEncryptionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamEncryption", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamModeDetails")
+    def stream_mode_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]]:
+        '''Specifies the capacity mode to which you want to set your data stream.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]], jsii.get(self, "streamModeDetails"))
+
+    @stream_mode_details.setter
+    def stream_mode_details(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStream.StreamModeDetailsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamModeDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnStream.StreamEncryptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_type": "encryptionType", "key_id": "keyId"},
+    )
+    class StreamEncryptionProperty:
+        def __init__(
+            self,
+            *,
+            encryption_type: builtins.str,
+            key_id: builtins.str,
+        ) -> None:
+            '''Enables or updates server-side encryption using an AWS KMS key for a specified stream.
+
+            .. epigraph::
+
+               When invoking this API, you must use either the ``StreamARN`` or the ``StreamName`` parameter, or both. It is recommended that you use the ``StreamARN`` input parameter when you invoke this API.
+
+            Starting encryption is an asynchronous operation. Upon receiving the request, Kinesis Data Streams returns immediately and sets the status of the stream to ``UPDATING`` . After the update is complete, Kinesis Data Streams sets the status of the stream back to ``ACTIVE`` . Updating or applying encryption normally takes a few seconds to complete, but it can take minutes. You can continue to read and write data to your stream while its status is ``UPDATING`` . Once the status of the stream is ``ACTIVE`` , encryption begins for records written to the stream.
+
+            API Limits: You can successfully apply a new AWS KMS key for server-side encryption 25 times in a rolling 24-hour period.
+
+            Note: It can take up to 5 seconds after the stream is in an ``ACTIVE`` status before all records written to the stream are encrypted. After you enable encryption, you can verify that encryption is applied by inspecting the API response from ``PutRecord`` or ``PutRecords`` .
+
+            :param encryption_type: The encryption type to use. The only valid value is ``KMS`` .
+            :param key_id: The GUID for the customer-managed AWS KMS key to use for encryption. This value can be a globally unique identifier, a fully specified Amazon Resource Name (ARN) to either an alias or a key, or an alias name prefixed by "alias/".You can also use a master key owned by Kinesis Data Streams by specifying the alias ``aws/kinesis`` . - Key ARN example: ``arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012`` - Alias ARN example: ``arn:aws:kms:us-east-1:123456789012:alias/MyAliasName`` - Globally unique key ID example: ``12345678-1234-1234-1234-123456789012`` - Alias name example: ``alias/MyAliasName`` - Master key owned by Kinesis Data Streams: ``alias/aws/kinesis``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                stream_encryption_property = kinesis.CfnStream.StreamEncryptionProperty(
+                    encryption_type="encryptionType",
+                    key_id="keyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f)
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_type": encryption_type,
+                "key_id": key_id,
+            }
+
+        @builtins.property
+        def encryption_type(self) -> builtins.str:
+            '''The encryption type to use.
+
+            The only valid value is ``KMS`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html#cfn-kinesis-stream-streamencryption-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            assert result is not None, "Required property 'encryption_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_id(self) -> builtins.str:
+            '''The GUID for the customer-managed AWS KMS key to use for encryption.
+
+            This value can be a globally unique identifier, a fully specified Amazon Resource Name (ARN) to either an alias or a key, or an alias name prefixed by "alias/".You can also use a master key owned by Kinesis Data Streams by specifying the alias ``aws/kinesis`` .
+
+            - Key ARN example: ``arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012``
+            - Alias ARN example: ``arn:aws:kms:us-east-1:123456789012:alias/MyAliasName``
+            - Globally unique key ID example: ``12345678-1234-1234-1234-123456789012``
+            - Alias name example: ``alias/MyAliasName``
+            - Master key owned by Kinesis Data Streams: ``alias/aws/kinesis``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streamencryption.html#cfn-kinesis-stream-streamencryption-keyid
+            '''
+            result = self._values.get("key_id")
+            assert result is not None, "Required property 'key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamEncryptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesis.CfnStream.StreamModeDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"stream_mode": "streamMode"},
+    )
+    class StreamModeDetailsProperty:
+        def __init__(self, *, stream_mode: builtins.str) -> None:
+            '''Specifies the capacity mode to which you want to set your data stream.
+
+            Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
+
+            :param stream_mode: Specifies the capacity mode to which you want to set your data stream. Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streammodedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesis as kinesis
+                
+                stream_mode_details_property = kinesis.CfnStream.StreamModeDetailsProperty(
+                    stream_mode="streamMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa)
+                check_type(argname="argument stream_mode", value=stream_mode, expected_type=type_hints["stream_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stream_mode": stream_mode,
+            }
+
+        @builtins.property
+        def stream_mode(self) -> builtins.str:
+            '''Specifies the capacity mode to which you want to set your data stream.
+
+            Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesis-stream-streammodedetails.html#cfn-kinesis-stream-streammodedetails-streammode
+            '''
+            result = self._values.get("stream_mode")
+            assert result is not None, "Required property 'stream_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamModeDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IStreamConsumerRef, _ITaggableV2_4e6798f8)
+class CfnStreamConsumer(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesis.CfnStreamConsumer",
+):
+    '''Use the AWS CloudFormation ``AWS::Kinesis::StreamConsumer`` resource to register a consumer with a Kinesis data stream.
+
+    The consumer you register can then call `SubscribeToShard <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html>`_ to receive data from the stream using enhanced fan-out, at a rate of up to 2 MiB per second for every shard you subscribe to. This rate is unaffected by the total number of consumers that read from the same stream.
+
+    You can register up to 20 consumers per stream. However, you can request a limit increase using the `Kinesis Data Streams limits form <https://docs.aws.amazon.com/support/v1?#/>`_ . A given consumer can only be registered with one stream at a time.
+
+    For more information, see `Using Consumers with Enhanced Fan-Out <https://docs.aws.amazon.com/streams/latest/dev/introduction-to-enhanced-consumers.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-streamconsumer.html
+    :cloudformationResource: AWS::Kinesis::StreamConsumer
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesis as kinesis
+        
+        cfn_stream_consumer = kinesis.CfnStreamConsumer(self, "MyCfnStreamConsumer",
+            consumer_name="consumerName",
+            stream_arn="streamArn",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        consumer_name: builtins.str,
+        stream_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param consumer_name: The name of the consumer is something you choose when you register the consumer.
+        :param stream_arn: The ARN of the stream with which you registered the consumer.
+        :param tags: An array of tags to be added to a specified Kinesis resource. A tag consists of a required key and an optional value. You can specify up to 50 tag key-value pairs.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStreamConsumerProps(
+            consumer_name=consumer_name, stream_arn=stream_arn, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConsumerArn")
+    def attr_consumer_arn(self) -> builtins.str:
+        '''When you register a consumer, Kinesis Data Streams generates an ARN for it.
+
+        You need this ARN to be able to call `SubscribeToShard <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_SubscribeToShard.html>`_ .
+
+        If you delete a consumer and then create a new one with the same name, it won't have the same ARN. That's because consumer ARNs contain the creation timestamp. This is important to keep in mind if you have IAM policies that reference consumer ARNs.
+
+        :cloudformationAttribute: ConsumerARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConsumerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConsumerCreationTimestamp")
+    def attr_consumer_creation_timestamp(self) -> builtins.str:
+        '''The time at which the consumer was created.
+
+        :cloudformationAttribute: ConsumerCreationTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConsumerCreationTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConsumerName")
+    def attr_consumer_name(self) -> builtins.str:
+        '''The name you gave the consumer when you registered it.
+
+        :cloudformationAttribute: ConsumerName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConsumerName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConsumerStatus")
+    def attr_consumer_status(self) -> builtins.str:
+        '''A consumer can't read data while in the ``CREATING`` or ``DELETING`` states.
+
+        :cloudformationAttribute: ConsumerStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConsumerStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamArn")
+    def attr_stream_arn(self) -> builtins.str:
+        '''The ARN of the data stream with which the consumer is registered.
+
+        :cloudformationAttribute: StreamARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamConsumerRef")
+    def stream_consumer_ref(self) -> StreamConsumerReference:
+        '''A reference to a StreamConsumer resource.'''
+        return typing.cast(StreamConsumerReference, jsii.get(self, "streamConsumerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="consumerName")
+    def consumer_name(self) -> builtins.str:
+        '''The name of the consumer is something you choose when you register the consumer.'''
+        return typing.cast(builtins.str, jsii.get(self, "consumerName"))
+
+    @consumer_name.setter
+    def consumer_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "consumerName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamArn")
+    def stream_arn(self) -> builtins.str:
+        '''The ARN of the stream with which you registered the consumer.'''
+        return typing.cast(builtins.str, jsii.get(self, "streamArn"))
+
+    @stream_arn.setter
+    def stream_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags to be added to a specified Kinesis resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
@@ -5669,185 +5965,32 @@ __all__ = [
     "CfnStreamConsumer",
     "CfnStreamConsumerProps",
     "CfnStreamProps",
+    "IResourcePolicyRef",
     "IStream",
     "IStreamConsumer",
+    "IStreamConsumerRef",
+    "IStreamRef",
     "ResourcePolicy",
     "ResourcePolicyProps",
+    "ResourcePolicyReference",
     "Stream",
     "StreamAttributes",
     "StreamConsumer",
     "StreamConsumerAttributes",
     "StreamConsumerProps",
+    "StreamConsumerReference",
     "StreamEncryption",
     "StreamMode",
     "StreamProps",
+    "StreamReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    resource_arn: builtins.str,
-    resource_policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__dc9d3035df5ffd3d2e91ef2e5c2b108309a10ae013584b2ef5c2d3bdde4567bc(
     *,
     resource_arn: builtins.str,
     resource_policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
-    name: typing.Optional[builtins.str] = None,
-    retention_period_hours: typing.Optional[jsii.Number] = None,
-    shard_count: typing.Optional[jsii.Number] = None,
-    stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamEncryptionProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamModeDetailsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f(
-    *,
-    encryption_type: builtins.str,
-    key_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa(
-    *,
-    stream_mode: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    consumer_name: builtins.str,
-    stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5959,6 +6102,13 @@ def _typecheckingstub__b4f61add9bc5e3d367f841a39ff9a752c7eed270f05849d0b5f9dc5e5
     policy_document: typing.Optional[_PolicyDocument_3ac34393] = None,
     stream: typing.Optional[IStream] = None,
     stream_consumer: typing.Optional[IStreamConsumer] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc943cc7d6e7de4c4433ba298b212c2a54f9651eeb3390b836aaec65315c6afb(
+    *,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6115,6 +6265,13 @@ def _typecheckingstub__9f73c02253aa03618517236d4d9c34ae8992a4074435af984a475dc83
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6309d67485d9b6ea0b59ee95826bd414adc0e7928ad1d16f86af2559eaa27e7c(
+    *,
+    consumer_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__88629f78086711b76f550ae13e14f2db1429deb350aa5b10b7073d5852dadfcc(
     *,
     encryption: typing.Optional[StreamEncryption] = None,
@@ -6124,6 +6281,173 @@ def _typecheckingstub__88629f78086711b76f550ae13e14f2db1429deb350aa5b10b7073d585
     shard_count: typing.Optional[jsii.Number] = None,
     stream_mode: typing.Optional[StreamMode] = None,
     stream_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42c657f0b4361ee558bd762cb1caae49317a2716df0d3802126e3985b4b0b747(
+    *,
+    stream_arn: builtins.str,
+    stream_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_arn: builtins.str,
+    resource_policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    desired_shard_level_metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
+    name: typing.Optional[builtins.str] = None,
+    retention_period_hours: typing.Optional[jsii.Number] = None,
+    shard_count: typing.Optional[jsii.Number] = None,
+    stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamEncryptionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamModeDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f(
+    *,
+    encryption_type: builtins.str,
+    key_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa(
+    *,
+    stream_mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    consumer_name: builtins.str,
+    stream_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass

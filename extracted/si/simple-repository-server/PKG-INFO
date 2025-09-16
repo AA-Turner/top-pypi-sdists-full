@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple-repository-server
-Version: 0.8.1
+Version: 0.8.2
 Summary: A tool for running a PEP-503 simple Python package repository, including features such as dist metadata (PEP-658) and JSON API (PEP-691)
 Author: Phil Elson, Ivan Sinkarenko, Francesco Iannaccone, Wouter Koorn
 Project-URL: Homepage, https://github.com/simple-repository/simple-repository-server
@@ -16,7 +16,7 @@ Requires-Dist: httpx
 Requires-Dist: fastapi>=0.100.0
 Requires-Dist: packaging
 Requires-Dist: uvicorn[standard]
-Requires-Dist: simple-repository>=0.6.0
+Requires-Dist: simple-repository>=0.10.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest_asyncio; extra == "test"

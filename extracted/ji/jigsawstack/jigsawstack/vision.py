@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Union, cast, Optional, overload
-from typing_extensions import NotRequired, TypedDict, Literal
-from .request import Request, RequestConfig
-from .async_request import AsyncRequest, AsyncRequestConfig
+from typing import Any, Dict, List, Optional, Union, cast, overload
+
+from typing_extensions import Literal, NotRequired, TypedDict
+
 from ._config import ClientConfig
-from .helpers import build_path
 from ._types import BaseResponse
+from .async_request import AsyncRequest, AsyncRequestConfig
+from .request import Request, RequestConfig
 
 
 class Point(TypedDict):
@@ -158,10 +159,10 @@ class OCRResponse(BaseResponse):
     tags: List[str]
     has_text: bool
     sections: List[object]
-    total_pages: Optional[int]  # Only available for PDFs
-    page_ranges: Optional[
+    total_pages: Optional[int]
+    page_range: Optional[
         List[int]
-    ]  # Only available if page_ranges is set in the request parameters.
+    ]  # Only available if page_range is set in the request parameters.
 
 
 class Vision(ClientConfig):
@@ -170,14 +171,14 @@ class Vision(ClientConfig):
     def __init__(
         self,
         api_key: str,
-        api_url: str,
-        disable_request_logging: Union[bool, None] = False,
+        base_url: str,
+        headers: Union[Dict[str, str], None] = None,
     ):
-        super().__init__(api_key, api_url, disable_request_logging)
+        super().__init__(api_key, base_url, headers)
         self.config = RequestConfig(
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
-            disable_request_logging=disable_request_logging,
+            headers=headers,
         )
 
     @overload
@@ -190,6 +191,8 @@ class Vision(ClientConfig):
         blob: Union[VOCRParams, bytes],
         options: VOCRParams = None,
     ) -> OCRResponse:
+        path = "/vocr"
+        options = options or {}
         if isinstance(
             blob, dict
         ):  # If params is provided as a dict, we assume it's the first argument
@@ -201,25 +204,18 @@ class Vision(ClientConfig):
             ).perform_with_content()
             return resp
 
-        options = options or {}
-        path = build_path(base_path="/vocr", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = Request(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp
 
     @overload
-    def object_detection(
-        self, params: ObjectDetectionParams
-    ) -> ObjectDetectionResponse: ...
+    def object_detection(self, params: ObjectDetectionParams) -> ObjectDetectionResponse: ...
     @overload
     def object_detection(
         self, blob: bytes, options: ObjectDetectionParams = None
@@ -230,26 +226,22 @@ class Vision(ClientConfig):
         blob: Union[ObjectDetectionParams, bytes],
         options: ObjectDetectionParams = None,
     ) -> ObjectDetectionResponse:
+        path = "/object_detection"
+        options = options or {}
         if isinstance(blob, dict):
             resp = Request(
                 config=self.config,
-                path="/object_detection",
+                path=path,
                 params=cast(Dict[Any, Any], blob),
                 verb="post",
             ).perform_with_content()
             return resp
-
-        options = options or {}
-        path = build_path(base_path="/object_detection", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = Request(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp
@@ -261,14 +253,14 @@ class AsyncVision(ClientConfig):
     def __init__(
         self,
         api_key: str,
-        api_url: str,
-        disable_request_logging: Union[bool, None] = False,
+        base_url: str,
+        headers: Union[Dict[str, str], None] = None,
     ):
-        super().__init__(api_key, api_url, disable_request_logging)
+        super().__init__(api_key, base_url, headers)
         self.config = AsyncRequestConfig(
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
-            disable_request_logging=disable_request_logging,
+            headers=headers,
         )
 
     @overload
@@ -281,34 +273,29 @@ class AsyncVision(ClientConfig):
         blob: Union[VOCRParams, bytes],
         options: VOCRParams = None,
     ) -> OCRResponse:
+        path = "/vocr"
+        options = options or {}
         if isinstance(blob, dict):
             resp = await AsyncRequest(
                 config=self.config,
-                path="/vocr",
+                path=path,
                 params=cast(Dict[Any, Any], blob),
                 verb="post",
             ).perform_with_content()
             return resp
 
-        options = options or {}
-        path = build_path(base_path="/vocr", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = await AsyncRequest(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp
 
     @overload
-    async def object_detection(
-        self, params: ObjectDetectionParams
-    ) -> ObjectDetectionResponse: ...
+    async def object_detection(self, params: ObjectDetectionParams) -> ObjectDetectionResponse: ...
     @overload
     async def object_detection(
         self, blob: bytes, options: ObjectDetectionParams = None
@@ -319,28 +306,25 @@ class AsyncVision(ClientConfig):
         blob: Union[ObjectDetectionParams, bytes],
         options: ObjectDetectionParams = None,
     ) -> ObjectDetectionResponse:
+        path = "/object_detection"
+        options = options or {}
         if isinstance(
             blob, dict
         ):  # If params is provided as a dict, we assume it's the first argument
             resp = await AsyncRequest(
                 config=self.config,
-                path="/object_detection",
+                path=path,
                 params=cast(Dict[Any, Any], blob),
                 verb="post",
             ).perform_with_content()
             return resp
 
-        options = options or {}
-        path = build_path(base_path="/object_detection", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = await AsyncRequest(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp

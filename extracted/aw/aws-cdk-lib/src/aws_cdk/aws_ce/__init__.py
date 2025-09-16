@@ -68,7 +68,741 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.AnomalyMonitorReference",
+    jsii_struct_bases=[],
+    name_mapping={"monitor_arn": "monitorArn"},
+)
+class AnomalyMonitorReference:
+    def __init__(self, *, monitor_arn: builtins.str) -> None:
+        '''A reference to a AnomalyMonitor resource.
+
+        :param monitor_arn: The MonitorArn of the AnomalyMonitor resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            anomaly_monitor_reference = ce.AnomalyMonitorReference(
+                monitor_arn="monitorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25c8b242fc91b645179aca719e62ad3f7ec70eebd011fbbf9bf5051776d6ccf9)
+            check_type(argname="argument monitor_arn", value=monitor_arn, expected_type=type_hints["monitor_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "monitor_arn": monitor_arn,
+        }
+
+    @builtins.property
+    def monitor_arn(self) -> builtins.str:
+        '''The MonitorArn of the AnomalyMonitor resource.'''
+        result = self._values.get("monitor_arn")
+        assert result is not None, "Required property 'monitor_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AnomalyMonitorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.AnomalySubscriptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"subscription_arn": "subscriptionArn"},
+)
+class AnomalySubscriptionReference:
+    def __init__(self, *, subscription_arn: builtins.str) -> None:
+        '''A reference to a AnomalySubscription resource.
+
+        :param subscription_arn: The SubscriptionArn of the AnomalySubscription resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            anomaly_subscription_reference = ce.AnomalySubscriptionReference(
+                subscription_arn="subscriptionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e977fb39cbbe387f9599fbf2e1c507b810ceae3ea66a7cf5a8db62d10fcc08a3)
+            check_type(argname="argument subscription_arn", value=subscription_arn, expected_type=type_hints["subscription_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscription_arn": subscription_arn,
+        }
+
+    @builtins.property
+    def subscription_arn(self) -> builtins.str:
+        '''The SubscriptionArn of the AnomalySubscription resource.'''
+        result = self._values.get("subscription_arn")
+        assert result is not None, "Required property 'subscription_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AnomalySubscriptionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.CfnAnomalyMonitorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "monitor_name": "monitorName",
+        "monitor_type": "monitorType",
+        "monitor_dimension": "monitorDimension",
+        "monitor_specification": "monitorSpecification",
+        "resource_tags": "resourceTags",
+    },
+)
+class CfnAnomalyMonitorProps:
+    def __init__(
+        self,
+        *,
+        monitor_name: builtins.str,
+        monitor_type: builtins.str,
+        monitor_dimension: typing.Optional[builtins.str] = None,
+        monitor_specification: typing.Optional[builtins.str] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalyMonitor.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAnomalyMonitor``.
+
+        :param monitor_name: The name of the monitor.
+        :param monitor_type: The possible type values.
+        :param monitor_dimension: The dimensions to evaluate.
+        :param monitor_specification: The array of ``MonitorSpecification`` in JSON array format. For instance, you can use ``MonitorSpecification`` to specify a tag, Cost Category, or linked account for your custom anomaly monitor. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#aws-resource-ce-anomalymonitor--examples>`_ section of this page.
+        :param resource_tags: Tags to assign to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            cfn_anomaly_monitor_props = ce.CfnAnomalyMonitorProps(
+                monitor_name="monitorName",
+                monitor_type="monitorType",
+            
+                # the properties below are optional
+                monitor_dimension="monitorDimension",
+                monitor_specification="monitorSpecification",
+                resource_tags=[ce.CfnAnomalyMonitor.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85)
+            check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
+            check_type(argname="argument monitor_type", value=monitor_type, expected_type=type_hints["monitor_type"])
+            check_type(argname="argument monitor_dimension", value=monitor_dimension, expected_type=type_hints["monitor_dimension"])
+            check_type(argname="argument monitor_specification", value=monitor_specification, expected_type=type_hints["monitor_specification"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "monitor_name": monitor_name,
+            "monitor_type": monitor_type,
+        }
+        if monitor_dimension is not None:
+            self._values["monitor_dimension"] = monitor_dimension
+        if monitor_specification is not None:
+            self._values["monitor_specification"] = monitor_specification
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+
+    @builtins.property
+    def monitor_name(self) -> builtins.str:
+        '''The name of the monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitorname
+        '''
+        result = self._values.get("monitor_name")
+        assert result is not None, "Required property 'monitor_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def monitor_type(self) -> builtins.str:
+        '''The possible type values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitortype
+        '''
+        result = self._values.get("monitor_type")
+        assert result is not None, "Required property 'monitor_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def monitor_dimension(self) -> typing.Optional[builtins.str]:
+        '''The dimensions to evaluate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitordimension
+        '''
+        result = self._values.get("monitor_dimension")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def monitor_specification(self) -> typing.Optional[builtins.str]:
+        '''The array of ``MonitorSpecification`` in JSON array format.
+
+        For instance, you can use ``MonitorSpecification`` to specify a tag, Cost Category, or linked account for your custom anomaly monitor. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#aws-resource-ce-anomalymonitor--examples>`_ section of this page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitorspecification
+        '''
+        result = self._values.get("monitor_specification")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]]:
+        '''Tags to assign to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.List["CfnAnomalyMonitor.ResourceTagProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAnomalyMonitorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.CfnAnomalySubscriptionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "frequency": "frequency",
+        "monitor_arn_list": "monitorArnList",
+        "subscribers": "subscribers",
+        "subscription_name": "subscriptionName",
+        "resource_tags": "resourceTags",
+        "threshold": "threshold",
+        "threshold_expression": "thresholdExpression",
+    },
+)
+class CfnAnomalySubscriptionProps:
+    def __init__(
+        self,
+        *,
+        frequency: builtins.str,
+        monitor_arn_list: typing.Sequence[builtins.str],
+        subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalySubscription.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscription_name: builtins.str,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnAnomalySubscription.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        threshold: typing.Optional[jsii.Number] = None,
+        threshold_expression: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAnomalySubscription``.
+
+        :param frequency: The frequency that anomaly notifications are sent. Notifications are sent either over email (for DAILY and WEEKLY frequencies) or SNS (for IMMEDIATE frequency). For more information, see `Creating an Amazon SNS topic for anomaly notifications <https://docs.aws.amazon.com/cost-management/latest/userguide/ad-SNS.html>`_ .
+        :param monitor_arn_list: A list of cost anomaly monitors.
+        :param subscribers: A list of subscribers to notify.
+        :param subscription_name: The name for the subscription.
+        :param resource_tags: Tags to assign to subscription.
+        :param threshold: (deprecated). An absolute dollar value that must be exceeded by the anomaly's total impact (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details) for an anomaly notification to be generated. This field has been deprecated. To specify a threshold, use ThresholdExpression. Continued use of Threshold will be treated as shorthand syntax for a ThresholdExpression. One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
+        :param threshold_expression: An `Expression <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Expression.html>`_ object in JSON string format used to specify the anomalies that you want to generate alerts for. This supports dimensions and nested expressions. The supported dimensions are ``ANOMALY_TOTAL_IMPACT_ABSOLUTE`` and ``ANOMALY_TOTAL_IMPACT_PERCENTAGE`` , corresponding to an anomaly’s TotalImpact and TotalImpactPercentage, respectively (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details). The supported nested expression types are ``AND`` and ``OR`` . The match option ``GREATER_THAN_OR_EQUAL`` is required. Values must be numbers between 0 and 10,000,000,000 in string format. One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#aws-resource-ce-anomalysubscription--examples>`_ section of this page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            cfn_anomaly_subscription_props = ce.CfnAnomalySubscriptionProps(
+                frequency="frequency",
+                monitor_arn_list=["monitorArnList"],
+                subscribers=[ce.CfnAnomalySubscription.SubscriberProperty(
+                    address="address",
+                    type="type",
+            
+                    # the properties below are optional
+                    status="status"
+                )],
+                subscription_name="subscriptionName",
+            
+                # the properties below are optional
+                resource_tags=[ce.CfnAnomalySubscription.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )],
+                threshold=123,
+                threshold_expression="thresholdExpression"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c)
+            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
+            check_type(argname="argument monitor_arn_list", value=monitor_arn_list, expected_type=type_hints["monitor_arn_list"])
+            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+            check_type(argname="argument threshold_expression", value=threshold_expression, expected_type=type_hints["threshold_expression"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "frequency": frequency,
+            "monitor_arn_list": monitor_arn_list,
+            "subscribers": subscribers,
+            "subscription_name": subscription_name,
+        }
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+        if threshold is not None:
+            self._values["threshold"] = threshold
+        if threshold_expression is not None:
+            self._values["threshold_expression"] = threshold_expression
+
+    @builtins.property
+    def frequency(self) -> builtins.str:
+        '''The frequency that anomaly notifications are sent.
+
+        Notifications are sent either over email (for DAILY and WEEKLY frequencies) or SNS (for IMMEDIATE frequency). For more information, see `Creating an Amazon SNS topic for anomaly notifications <https://docs.aws.amazon.com/cost-management/latest/userguide/ad-SNS.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-frequency
+        '''
+        result = self._values.get("frequency")
+        assert result is not None, "Required property 'frequency' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def monitor_arn_list(self) -> typing.List[builtins.str]:
+        '''A list of cost anomaly monitors.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-monitorarnlist
+        '''
+        result = self._values.get("monitor_arn_list")
+        assert result is not None, "Required property 'monitor_arn_list' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def subscribers(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalySubscription.SubscriberProperty"]]]:
+        '''A list of subscribers to notify.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-subscribers
+        '''
+        result = self._values.get("subscribers")
+        assert result is not None, "Required property 'subscribers' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalySubscription.SubscriberProperty"]]], result)
+
+    @builtins.property
+    def subscription_name(self) -> builtins.str:
+        '''The name for the subscription.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-subscriptionname
+        '''
+        result = self._values.get("subscription_name")
+        assert result is not None, "Required property 'subscription_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]]:
+        '''Tags to assign to subscription.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.List["CfnAnomalySubscription.ResourceTagProperty"]], result)
+
+    @builtins.property
+    def threshold(self) -> typing.Optional[jsii.Number]:
+        '''(deprecated).
+
+        An absolute dollar value that must be exceeded by the anomaly's total impact (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details) for an anomaly notification to be generated.
+
+        This field has been deprecated. To specify a threshold, use ThresholdExpression. Continued use of Threshold will be treated as shorthand syntax for a ThresholdExpression.
+
+        One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-threshold
+        '''
+        result = self._values.get("threshold")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def threshold_expression(self) -> typing.Optional[builtins.str]:
+        '''An `Expression <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Expression.html>`_ object in JSON string format used to specify the anomalies that you want to generate alerts for. This supports dimensions and nested expressions. The supported dimensions are ``ANOMALY_TOTAL_IMPACT_ABSOLUTE`` and ``ANOMALY_TOTAL_IMPACT_PERCENTAGE`` , corresponding to an anomaly’s TotalImpact and TotalImpactPercentage, respectively (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details). The supported nested expression types are ``AND`` and ``OR`` . The match option ``GREATER_THAN_OR_EQUAL`` is required. Values must be numbers between 0 and 10,000,000,000 in string format.
+
+        One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
+
+        For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#aws-resource-ce-anomalysubscription--examples>`_ section of this page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-thresholdexpression
+        '''
+        result = self._values.get("threshold_expression")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAnomalySubscriptionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.CfnCostCategoryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "rules": "rules",
+        "rule_version": "ruleVersion",
+        "default_value": "defaultValue",
+        "split_charge_rules": "splitChargeRules",
+        "tags": "tags",
+    },
+)
+class CfnCostCategoryProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        rules: builtins.str,
+        rule_version: builtins.str,
+        default_value: typing.Optional[builtins.str] = None,
+        split_charge_rules: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnCostCategory.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCostCategory``.
+
+        :param name: The unique name of the Cost Category.
+        :param rules: The array of CostCategoryRule in JSON array format. .. epigraph:: Rules are processed in order. If there are multiple rules that match the line item, then the first rule to match is used to determine that Cost Category value.
+        :param rule_version: The rule schema version in this particular Cost Category.
+        :param default_value: The default value for the cost category.
+        :param split_charge_rules: The split charge rules that are used to allocate your charges between your Cost Category values.
+        :param tags: Tags to assign to the cost category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            cfn_cost_category_props = ce.CfnCostCategoryProps(
+                name="name",
+                rules="rules",
+                rule_version="ruleVersion",
+            
+                # the properties below are optional
+                default_value="defaultValue",
+                split_charge_rules="splitChargeRules",
+                tags=[ce.CfnCostCategory.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument rule_version", value=rule_version, expected_type=type_hints["rule_version"])
+            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+            check_type(argname="argument split_charge_rules", value=split_charge_rules, expected_type=type_hints["split_charge_rules"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "rules": rules,
+            "rule_version": rule_version,
+        }
+        if default_value is not None:
+            self._values["default_value"] = default_value
+        if split_charge_rules is not None:
+            self._values["split_charge_rules"] = split_charge_rules
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique name of the Cost Category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rules(self) -> builtins.str:
+        '''The array of CostCategoryRule in JSON array format.
+
+        .. epigraph::
+
+           Rules are processed in order. If there are multiple rules that match the line item, then the first rule to match is used to determine that Cost Category value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_version(self) -> builtins.str:
+        '''The rule schema version in this particular Cost Category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-ruleversion
+        '''
+        result = self._values.get("rule_version")
+        assert result is not None, "Required property 'rule_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_value(self) -> typing.Optional[builtins.str]:
+        '''The default value for the cost category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-defaultvalue
+        '''
+        result = self._values.get("default_value")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def split_charge_rules(self) -> typing.Optional[builtins.str]:
+        '''The split charge rules that are used to allocate your charges between your Cost Category values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-splitchargerules
+        '''
+        result = self._values.get("split_charge_rules")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnCostCategory.ResourceTagProperty"]]:
+        '''Tags to assign to the cost category.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnCostCategory.ResourceTagProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCostCategoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ce.CostCategoryReference",
+    jsii_struct_bases=[],
+    name_mapping={"cost_category_arn": "costCategoryArn"},
+)
+class CostCategoryReference:
+    def __init__(self, *, cost_category_arn: builtins.str) -> None:
+        '''A reference to a CostCategory resource.
+
+        :param cost_category_arn: The Arn of the CostCategory resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ce as ce
+            
+            cost_category_reference = ce.CostCategoryReference(
+                cost_category_arn="costCategoryArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbb424106d10231a2f726ecf8bed55a60d93efdca7978ae159bfa3d827dd8c7b)
+            check_type(argname="argument cost_category_arn", value=cost_category_arn, expected_type=type_hints["cost_category_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cost_category_arn": cost_category_arn,
+        }
+
+    @builtins.property
+    def cost_category_arn(self) -> builtins.str:
+        '''The Arn of the CostCategory resource.'''
+        result = self._values.get("cost_category_arn")
+        assert result is not None, "Required property 'cost_category_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CostCategoryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ce.IAnomalyMonitorRef")
+class IAnomalyMonitorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyMonitor.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyMonitorRef")
+    def anomaly_monitor_ref(self) -> AnomalyMonitorReference:
+        '''(experimental) A reference to a AnomalyMonitor resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAnomalyMonitorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyMonitor.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ce.IAnomalyMonitorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyMonitorRef")
+    def anomaly_monitor_ref(self) -> AnomalyMonitorReference:
+        '''(experimental) A reference to a AnomalyMonitor resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AnomalyMonitorReference, jsii.get(self, "anomalyMonitorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAnomalyMonitorRef).__jsii_proxy_class__ = lambda : _IAnomalyMonitorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ce.IAnomalySubscriptionRef")
+class IAnomalySubscriptionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalySubscription.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalySubscriptionRef")
+    def anomaly_subscription_ref(self) -> AnomalySubscriptionReference:
+        '''(experimental) A reference to a AnomalySubscription resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAnomalySubscriptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalySubscription.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ce.IAnomalySubscriptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalySubscriptionRef")
+    def anomaly_subscription_ref(self) -> AnomalySubscriptionReference:
+        '''(experimental) A reference to a AnomalySubscription resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AnomalySubscriptionReference, jsii.get(self, "anomalySubscriptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAnomalySubscriptionRef).__jsii_proxy_class__ = lambda : _IAnomalySubscriptionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ce.ICostCategoryRef")
+class ICostCategoryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CostCategory.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="costCategoryRef")
+    def cost_category_ref(self) -> CostCategoryReference:
+        '''(experimental) A reference to a CostCategory resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICostCategoryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CostCategory.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ce.ICostCategoryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="costCategoryRef")
+    def cost_category_ref(self) -> CostCategoryReference:
+        '''(experimental) A reference to a CostCategory resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CostCategoryReference, jsii.get(self, "costCategoryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICostCategoryRef).__jsii_proxy_class__ = lambda : _ICostCategoryRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAnomalyMonitorRef, _ITaggableV2_4e6798f8)
 class CfnAnomalyMonitor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -165,6 +899,12 @@ class CfnAnomalyMonitor(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyMonitorRef")
+    def anomaly_monitor_ref(self) -> AnomalyMonitorReference:
+        '''A reference to a AnomalyMonitor resource.'''
+        return typing.cast(AnomalyMonitorReference, jsii.get(self, "anomalyMonitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreationDate")
@@ -363,139 +1103,7 @@ class CfnAnomalyMonitor(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ce.CfnAnomalyMonitorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "monitor_name": "monitorName",
-        "monitor_type": "monitorType",
-        "monitor_dimension": "monitorDimension",
-        "monitor_specification": "monitorSpecification",
-        "resource_tags": "resourceTags",
-    },
-)
-class CfnAnomalyMonitorProps:
-    def __init__(
-        self,
-        *,
-        monitor_name: builtins.str,
-        monitor_type: builtins.str,
-        monitor_dimension: typing.Optional[builtins.str] = None,
-        monitor_specification: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAnomalyMonitor``.
-
-        :param monitor_name: The name of the monitor.
-        :param monitor_type: The possible type values.
-        :param monitor_dimension: The dimensions to evaluate.
-        :param monitor_specification: The array of ``MonitorSpecification`` in JSON array format. For instance, you can use ``MonitorSpecification`` to specify a tag, Cost Category, or linked account for your custom anomaly monitor. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#aws-resource-ce-anomalymonitor--examples>`_ section of this page.
-        :param resource_tags: Tags to assign to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ce as ce
-            
-            cfn_anomaly_monitor_props = ce.CfnAnomalyMonitorProps(
-                monitor_name="monitorName",
-                monitor_type="monitorType",
-            
-                # the properties below are optional
-                monitor_dimension="monitorDimension",
-                monitor_specification="monitorSpecification",
-                resource_tags=[ce.CfnAnomalyMonitor.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85)
-            check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
-            check_type(argname="argument monitor_type", value=monitor_type, expected_type=type_hints["monitor_type"])
-            check_type(argname="argument monitor_dimension", value=monitor_dimension, expected_type=type_hints["monitor_dimension"])
-            check_type(argname="argument monitor_specification", value=monitor_specification, expected_type=type_hints["monitor_specification"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "monitor_name": monitor_name,
-            "monitor_type": monitor_type,
-        }
-        if monitor_dimension is not None:
-            self._values["monitor_dimension"] = monitor_dimension
-        if monitor_specification is not None:
-            self._values["monitor_specification"] = monitor_specification
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-
-    @builtins.property
-    def monitor_name(self) -> builtins.str:
-        '''The name of the monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitorname
-        '''
-        result = self._values.get("monitor_name")
-        assert result is not None, "Required property 'monitor_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def monitor_type(self) -> builtins.str:
-        '''The possible type values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitortype
-        '''
-        result = self._values.get("monitor_type")
-        assert result is not None, "Required property 'monitor_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def monitor_dimension(self) -> typing.Optional[builtins.str]:
-        '''The dimensions to evaluate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitordimension
-        '''
-        result = self._values.get("monitor_dimension")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def monitor_specification(self) -> typing.Optional[builtins.str]:
-        '''The array of ``MonitorSpecification`` in JSON array format.
-
-        For instance, you can use ``MonitorSpecification`` to specify a tag, Cost Category, or linked account for your custom anomaly monitor. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#aws-resource-ce-anomalymonitor--examples>`_ section of this page.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-monitorspecification
-        '''
-        result = self._values.get("monitor_specification")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnAnomalyMonitor.ResourceTagProperty]]:
-        '''Tags to assign to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalymonitor.html#cfn-ce-anomalymonitor-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.List[CfnAnomalyMonitor.ResourceTagProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAnomalyMonitorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAnomalySubscriptionRef, _ITaggableV2_4e6798f8)
 class CfnAnomalySubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -610,6 +1218,12 @@ class CfnAnomalySubscription(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalySubscriptionRef")
+    def anomaly_subscription_ref(self) -> AnomalySubscriptionReference:
+        '''A reference to a AnomalySubscription resource.'''
+        return typing.cast(AnomalySubscriptionReference, jsii.get(self, "anomalySubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccountId")
@@ -900,189 +1514,7 @@ class CfnAnomalySubscription(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ce.CfnAnomalySubscriptionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "frequency": "frequency",
-        "monitor_arn_list": "monitorArnList",
-        "subscribers": "subscribers",
-        "subscription_name": "subscriptionName",
-        "resource_tags": "resourceTags",
-        "threshold": "threshold",
-        "threshold_expression": "thresholdExpression",
-    },
-)
-class CfnAnomalySubscriptionProps:
-    def __init__(
-        self,
-        *,
-        frequency: builtins.str,
-        monitor_arn_list: typing.Sequence[builtins.str],
-        subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        subscription_name: builtins.str,
-        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        threshold: typing.Optional[jsii.Number] = None,
-        threshold_expression: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAnomalySubscription``.
-
-        :param frequency: The frequency that anomaly notifications are sent. Notifications are sent either over email (for DAILY and WEEKLY frequencies) or SNS (for IMMEDIATE frequency). For more information, see `Creating an Amazon SNS topic for anomaly notifications <https://docs.aws.amazon.com/cost-management/latest/userguide/ad-SNS.html>`_ .
-        :param monitor_arn_list: A list of cost anomaly monitors.
-        :param subscribers: A list of subscribers to notify.
-        :param subscription_name: The name for the subscription.
-        :param resource_tags: Tags to assign to subscription.
-        :param threshold: (deprecated). An absolute dollar value that must be exceeded by the anomaly's total impact (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details) for an anomaly notification to be generated. This field has been deprecated. To specify a threshold, use ThresholdExpression. Continued use of Threshold will be treated as shorthand syntax for a ThresholdExpression. One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
-        :param threshold_expression: An `Expression <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Expression.html>`_ object in JSON string format used to specify the anomalies that you want to generate alerts for. This supports dimensions and nested expressions. The supported dimensions are ``ANOMALY_TOTAL_IMPACT_ABSOLUTE`` and ``ANOMALY_TOTAL_IMPACT_PERCENTAGE`` , corresponding to an anomaly’s TotalImpact and TotalImpactPercentage, respectively (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details). The supported nested expression types are ``AND`` and ``OR`` . The match option ``GREATER_THAN_OR_EQUAL`` is required. Values must be numbers between 0 and 10,000,000,000 in string format. One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both. For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#aws-resource-ce-anomalysubscription--examples>`_ section of this page.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ce as ce
-            
-            cfn_anomaly_subscription_props = ce.CfnAnomalySubscriptionProps(
-                frequency="frequency",
-                monitor_arn_list=["monitorArnList"],
-                subscribers=[ce.CfnAnomalySubscription.SubscriberProperty(
-                    address="address",
-                    type="type",
-            
-                    # the properties below are optional
-                    status="status"
-                )],
-                subscription_name="subscriptionName",
-            
-                # the properties below are optional
-                resource_tags=[ce.CfnAnomalySubscription.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )],
-                threshold=123,
-                threshold_expression="thresholdExpression"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c)
-            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
-            check_type(argname="argument monitor_arn_list", value=monitor_arn_list, expected_type=type_hints["monitor_arn_list"])
-            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
-            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
-            check_type(argname="argument threshold_expression", value=threshold_expression, expected_type=type_hints["threshold_expression"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "frequency": frequency,
-            "monitor_arn_list": monitor_arn_list,
-            "subscribers": subscribers,
-            "subscription_name": subscription_name,
-        }
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-        if threshold is not None:
-            self._values["threshold"] = threshold
-        if threshold_expression is not None:
-            self._values["threshold_expression"] = threshold_expression
-
-    @builtins.property
-    def frequency(self) -> builtins.str:
-        '''The frequency that anomaly notifications are sent.
-
-        Notifications are sent either over email (for DAILY and WEEKLY frequencies) or SNS (for IMMEDIATE frequency). For more information, see `Creating an Amazon SNS topic for anomaly notifications <https://docs.aws.amazon.com/cost-management/latest/userguide/ad-SNS.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-frequency
-        '''
-        result = self._values.get("frequency")
-        assert result is not None, "Required property 'frequency' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def monitor_arn_list(self) -> typing.List[builtins.str]:
-        '''A list of cost anomaly monitors.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-monitorarnlist
-        '''
-        result = self._values.get("monitor_arn_list")
-        assert result is not None, "Required property 'monitor_arn_list' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def subscribers(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.SubscriberProperty]]]:
-        '''A list of subscribers to notify.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-subscribers
-        '''
-        result = self._values.get("subscribers")
-        assert result is not None, "Required property 'subscribers' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalySubscription.SubscriberProperty]]], result)
-
-    @builtins.property
-    def subscription_name(self) -> builtins.str:
-        '''The name for the subscription.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-subscriptionname
-        '''
-        result = self._values.get("subscription_name")
-        assert result is not None, "Required property 'subscription_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnAnomalySubscription.ResourceTagProperty]]:
-        '''Tags to assign to subscription.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.List[CfnAnomalySubscription.ResourceTagProperty]], result)
-
-    @builtins.property
-    def threshold(self) -> typing.Optional[jsii.Number]:
-        '''(deprecated).
-
-        An absolute dollar value that must be exceeded by the anomaly's total impact (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details) for an anomaly notification to be generated.
-
-        This field has been deprecated. To specify a threshold, use ThresholdExpression. Continued use of Threshold will be treated as shorthand syntax for a ThresholdExpression.
-
-        One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-threshold
-        '''
-        result = self._values.get("threshold")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def threshold_expression(self) -> typing.Optional[builtins.str]:
-        '''An `Expression <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Expression.html>`_ object in JSON string format used to specify the anomalies that you want to generate alerts for. This supports dimensions and nested expressions. The supported dimensions are ``ANOMALY_TOTAL_IMPACT_ABSOLUTE`` and ``ANOMALY_TOTAL_IMPACT_PERCENTAGE`` , corresponding to an anomaly’s TotalImpact and TotalImpactPercentage, respectively (see `Impact <https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_Impact.html>`_ for more details). The supported nested expression types are ``AND`` and ``OR`` . The match option ``GREATER_THAN_OR_EQUAL`` is required. Values must be numbers between 0 and 10,000,000,000 in string format.
-
-        One of Threshold or ThresholdExpression is required for ``AWS::CE::AnomalySubscription`` . You cannot specify both.
-
-        For further information, see the `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#aws-resource-ce-anomalysubscription--examples>`_ section of this page.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-anomalysubscription.html#cfn-ce-anomalysubscription-thresholdexpression
-        '''
-        result = self._values.get("threshold_expression")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAnomalySubscriptionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ICostCategoryRef, _ITaggableV2_4e6798f8)
 class CfnCostCategory(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1212,6 +1644,12 @@ class CfnCostCategory(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="costCategoryRef")
+    def cost_category_ref(self) -> CostCategoryReference:
+        '''A reference to a CostCategory resource.'''
+        return typing.cast(CostCategoryReference, jsii.get(self, "costCategoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1367,164 +1805,79 @@ class CfnCostCategory(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ce.CfnCostCategoryProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "rules": "rules",
-        "rule_version": "ruleVersion",
-        "default_value": "defaultValue",
-        "split_charge_rules": "splitChargeRules",
-        "tags": "tags",
-    },
-)
-class CfnCostCategoryProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        rules: builtins.str,
-        rule_version: builtins.str,
-        default_value: typing.Optional[builtins.str] = None,
-        split_charge_rules: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnCostCategory.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCostCategory``.
-
-        :param name: The unique name of the Cost Category.
-        :param rules: The array of CostCategoryRule in JSON array format. .. epigraph:: Rules are processed in order. If there are multiple rules that match the line item, then the first rule to match is used to determine that Cost Category value.
-        :param rule_version: The rule schema version in this particular Cost Category.
-        :param default_value: The default value for the cost category.
-        :param split_charge_rules: The split charge rules that are used to allocate your charges between your Cost Category values.
-        :param tags: Tags to assign to the cost category.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ce as ce
-            
-            cfn_cost_category_props = ce.CfnCostCategoryProps(
-                name="name",
-                rules="rules",
-                rule_version="ruleVersion",
-            
-                # the properties below are optional
-                default_value="defaultValue",
-                split_charge_rules="splitChargeRules",
-                tags=[ce.CfnCostCategory.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument rule_version", value=rule_version, expected_type=type_hints["rule_version"])
-            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-            check_type(argname="argument split_charge_rules", value=split_charge_rules, expected_type=type_hints["split_charge_rules"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "rules": rules,
-            "rule_version": rule_version,
-        }
-        if default_value is not None:
-            self._values["default_value"] = default_value
-        if split_charge_rules is not None:
-            self._values["split_charge_rules"] = split_charge_rules
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique name of the Cost Category.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rules(self) -> builtins.str:
-        '''The array of CostCategoryRule in JSON array format.
-
-        .. epigraph::
-
-           Rules are processed in order. If there are multiple rules that match the line item, then the first rule to match is used to determine that Cost Category value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-rules
-        '''
-        result = self._values.get("rules")
-        assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_version(self) -> builtins.str:
-        '''The rule schema version in this particular Cost Category.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-ruleversion
-        '''
-        result = self._values.get("rule_version")
-        assert result is not None, "Required property 'rule_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_value(self) -> typing.Optional[builtins.str]:
-        '''The default value for the cost category.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-defaultvalue
-        '''
-        result = self._values.get("default_value")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def split_charge_rules(self) -> typing.Optional[builtins.str]:
-        '''The split charge rules that are used to allocate your charges between your Cost Category values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-splitchargerules
-        '''
-        result = self._values.get("split_charge_rules")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnCostCategory.ResourceTagProperty]]:
-        '''Tags to assign to the cost category.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ce-costcategory.html#cfn-ce-costcategory-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnCostCategory.ResourceTagProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCostCategoryProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AnomalyMonitorReference",
+    "AnomalySubscriptionReference",
     "CfnAnomalyMonitor",
     "CfnAnomalyMonitorProps",
     "CfnAnomalySubscription",
     "CfnAnomalySubscriptionProps",
     "CfnCostCategory",
     "CfnCostCategoryProps",
+    "CostCategoryReference",
+    "IAnomalyMonitorRef",
+    "IAnomalySubscriptionRef",
+    "ICostCategoryRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__25c8b242fc91b645179aca719e62ad3f7ec70eebd011fbbf9bf5051776d6ccf9(
+    *,
+    monitor_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e977fb39cbbe387f9599fbf2e1c507b810ceae3ea66a7cf5a8db62d10fcc08a3(
+    *,
+    subscription_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85(
+    *,
+    monitor_name: builtins.str,
+    monitor_type: builtins.str,
+    monitor_dimension: typing.Optional[builtins.str] = None,
+    monitor_specification: typing.Optional[builtins.str] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c(
+    *,
+    frequency: builtins.str,
+    monitor_arn_list: typing.Sequence[builtins.str],
+    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscription_name: builtins.str,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    threshold: typing.Optional[jsii.Number] = None,
+    threshold_expression: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3(
+    *,
+    name: builtins.str,
+    rules: builtins.str,
+    rule_version: builtins.str,
+    default_value: typing.Optional[builtins.str] = None,
+    split_charge_rules: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnCostCategory.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbb424106d10231a2f726ecf8bed55a60d93efdca7978ae159bfa3d827dd8c7b(
+    *,
+    cost_category_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1da201141928cd17a5dfa2d08e87045b296530c05640d211ef71adaee76034d3(
     scope: _constructs_77d1e7e8.Construct,
@@ -1585,17 +1938,6 @@ def _typecheckingstub__cc18b973c71e81e255e27dad2836a92430d74f82a098cca99c00f6f09
     *,
     key: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cecf9328096cac203771c26042b74dd2c0cac83d731fd388244ec9f88a93ad85(
-    *,
-    monitor_name: builtins.str,
-    monitor_type: builtins.str,
-    monitor_dimension: typing.Optional[builtins.str] = None,
-    monitor_specification: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalyMonitor.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1686,19 +2028,6 @@ def _typecheckingstub__94192f14eef4d01fe40ae59ec5600ceee6ddb3486c0056d9f68639a55
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ecbba42bf6256357cc87f360e68887f3b891e586d17671e12b6514517d7b303c(
-    *,
-    frequency: builtins.str,
-    monitor_arn_list: typing.Sequence[builtins.str],
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalySubscription.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    subscription_name: builtins.str,
-    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnAnomalySubscription.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    threshold: typing.Optional[jsii.Number] = None,
-    threshold_expression: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0d86a2b59e53c629c2de8bd291387500a9799712ca28f9459ef98f5dd619ad1a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1765,18 +2094,6 @@ def _typecheckingstub__8ebb0ce3955d4416c7a704b1a825b845e02eef926e8c0da3592ea7cce
     *,
     key: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__22fe6bbc471c7d1efb8863c64af07f8dbb0f94f407bc64ec8606d11422837dd3(
-    *,
-    name: builtins.str,
-    rules: builtins.str,
-    rule_version: builtins.str,
-    default_value: typing.Optional[builtins.str] = None,
-    split_charge_rules: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnCostCategory.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

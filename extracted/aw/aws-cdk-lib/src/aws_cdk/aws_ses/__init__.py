@@ -804,7 +804,7638 @@ class ByoDkimOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetEventDestinationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_set_name": "configurationSetName",
+        "event_destination": "eventDestination",
+    },
+)
+class CfnConfigurationSetEventDestinationProps:
+    def __init__(
+        self,
+        *,
+        configuration_set_name: builtins.str,
+        event_destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSetEventDestination.EventDestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationSetEventDestination``.
+
+        :param configuration_set_name: The name of the configuration set that contains the event destination.
+        :param event_destination: An object that defines the event destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_configuration_set_event_destination_props = ses.CfnConfigurationSetEventDestinationProps(
+                configuration_set_name="configurationSetName",
+                event_destination=ses.CfnConfigurationSetEventDestination.EventDestinationProperty(
+                    matching_event_types=["matchingEventTypes"],
+            
+                    # the properties below are optional
+                    cloud_watch_destination=ses.CfnConfigurationSetEventDestination.CloudWatchDestinationProperty(
+                        dimension_configurations=[ses.CfnConfigurationSetEventDestination.DimensionConfigurationProperty(
+                            default_dimension_value="defaultDimensionValue",
+                            dimension_name="dimensionName",
+                            dimension_value_source="dimensionValueSource"
+                        )]
+                    ),
+                    enabled=False,
+                    event_bridge_destination=ses.CfnConfigurationSetEventDestination.EventBridgeDestinationProperty(
+                        event_bus_arn="eventBusArn"
+                    ),
+                    kinesis_firehose_destination=ses.CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty(
+                        delivery_stream_arn="deliveryStreamArn",
+                        iam_role_arn="iamRoleArn"
+                    ),
+                    name="name",
+                    sns_destination=ses.CfnConfigurationSetEventDestination.SnsDestinationProperty(
+                        topic_arn="topicArn"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2)
+            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
+            check_type(argname="argument event_destination", value=event_destination, expected_type=type_hints["event_destination"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_set_name": configuration_set_name,
+            "event_destination": event_destination,
+        }
+
+    @builtins.property
+    def configuration_set_name(self) -> builtins.str:
+        '''The name of the configuration set that contains the event destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-configurationsetname
+        '''
+        result = self._values.get("configuration_set_name")
+        assert result is not None, "Required property 'configuration_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_destination(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConfigurationSetEventDestination.EventDestinationProperty"]:
+        '''An object that defines the event destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-eventdestination
+        '''
+        result = self._values.get("event_destination")
+        assert result is not None, "Required property 'event_destination' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConfigurationSetEventDestination.EventDestinationProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationSetEventDestinationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "delivery_options": "deliveryOptions",
+        "name": "name",
+        "reputation_options": "reputationOptions",
+        "sending_options": "sendingOptions",
+        "suppression_options": "suppressionOptions",
+        "tags": "tags",
+        "tracking_options": "trackingOptions",
+        "vdm_options": "vdmOptions",
+    },
+)
+class CfnConfigurationSetProps:
+    def __init__(
+        self,
+        *,
+        delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationSet``.
+
+        :param delivery_options: Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
+        :param name: The name of the configuration set. The name must meet the following requirements:. - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). - Contain 64 characters or fewer.
+        :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
+        :param sending_options: An object that defines whether or not Amazon SES can send email that you send using the configuration set.
+        :param suppression_options: An object that contains information about the suppression list preferences for your account.
+        :param tags: An array of objects that define the tags (keys and values) that are associated with the configuration set.
+        :param tracking_options: An object that defines the open and click tracking options for emails that you send using the configuration set.
+        :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_configuration_set_props = ses.CfnConfigurationSetProps(
+                delivery_options=ses.CfnConfigurationSet.DeliveryOptionsProperty(
+                    max_delivery_seconds=123,
+                    sending_pool_name="sendingPoolName",
+                    tls_policy="tlsPolicy"
+                ),
+                name="name",
+                reputation_options=ses.CfnConfigurationSet.ReputationOptionsProperty(
+                    reputation_metrics_enabled=False
+                ),
+                sending_options=ses.CfnConfigurationSet.SendingOptionsProperty(
+                    sending_enabled=False
+                ),
+                suppression_options=ses.CfnConfigurationSet.SuppressionOptionsProperty(
+                    suppressed_reasons=["suppressedReasons"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tracking_options=ses.CfnConfigurationSet.TrackingOptionsProperty(
+                    custom_redirect_domain="customRedirectDomain",
+                    https_policy="httpsPolicy"
+                ),
+                vdm_options=ses.CfnConfigurationSet.VdmOptionsProperty(
+                    dashboard_options=ses.CfnConfigurationSet.DashboardOptionsProperty(
+                        engagement_metrics="engagementMetrics"
+                    ),
+                    guardian_options=ses.CfnConfigurationSet.GuardianOptionsProperty(
+                        optimized_shared_delivery="optimizedSharedDelivery"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa)
+            check_type(argname="argument delivery_options", value=delivery_options, expected_type=type_hints["delivery_options"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument reputation_options", value=reputation_options, expected_type=type_hints["reputation_options"])
+            check_type(argname="argument sending_options", value=sending_options, expected_type=type_hints["sending_options"])
+            check_type(argname="argument suppression_options", value=suppression_options, expected_type=type_hints["suppression_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tracking_options", value=tracking_options, expected_type=type_hints["tracking_options"])
+            check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if delivery_options is not None:
+            self._values["delivery_options"] = delivery_options
+        if name is not None:
+            self._values["name"] = name
+        if reputation_options is not None:
+            self._values["reputation_options"] = reputation_options
+        if sending_options is not None:
+            self._values["sending_options"] = sending_options
+        if suppression_options is not None:
+            self._values["suppression_options"] = suppression_options
+        if tags is not None:
+            self._values["tags"] = tags
+        if tracking_options is not None:
+            self._values["tracking_options"] = tracking_options
+        if vdm_options is not None:
+            self._values["vdm_options"] = vdm_options
+
+    @builtins.property
+    def delivery_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.DeliveryOptionsProperty"]]:
+        '''Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-deliveryoptions
+        '''
+        result = self._values.get("delivery_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.DeliveryOptionsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the configuration set. The name must meet the following requirements:.
+
+        - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-).
+        - Contain 64 characters or fewer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def reputation_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.ReputationOptionsProperty"]]:
+        '''An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-reputationoptions
+        '''
+        result = self._values.get("reputation_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.ReputationOptionsProperty"]], result)
+
+    @builtins.property
+    def sending_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.SendingOptionsProperty"]]:
+        '''An object that defines whether or not Amazon SES can send email that you send using the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-sendingoptions
+        '''
+        result = self._values.get("sending_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.SendingOptionsProperty"]], result)
+
+    @builtins.property
+    def suppression_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.SuppressionOptionsProperty"]]:
+        '''An object that contains information about the suppression list preferences for your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-suppressionoptions
+        '''
+        result = self._values.get("suppression_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.SuppressionOptionsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) that are associated with the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def tracking_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.TrackingOptionsProperty"]]:
+        '''An object that defines the open and click tracking options for emails that you send using the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-trackingoptions
+        '''
+        result = self._values.get("tracking_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.TrackingOptionsProperty"]], result)
+
+    @builtins.property
+    def vdm_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.VdmOptionsProperty"]]:
+        '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-vdmoptions
+        '''
+        result = self._values.get("vdm_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationSet.VdmOptionsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnContactListProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "contact_list_name": "contactListName",
+        "description": "description",
+        "tags": "tags",
+        "topics": "topics",
+    },
+)
+class CfnContactListProps:
+    def __init__(
+        self,
+        *,
+        contact_list_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContactList.TopicProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContactList``.
+
+        :param contact_list_name: The name of the contact list.
+        :param description: A description of what the contact list is about.
+        :param tags: The tags associated with a contact list.
+        :param topics: An interest group, theme, or label within a list. A contact list can have multiple topics.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_contact_list_props = ses.CfnContactListProps(
+                contact_list_name="contactListName",
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                topics=[ses.CfnContactList.TopicProperty(
+                    default_subscription_status="defaultSubscriptionStatus",
+                    display_name="displayName",
+                    topic_name="topicName",
+            
+                    # the properties below are optional
+                    description="description"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0)
+            check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument topics", value=topics, expected_type=type_hints["topics"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if contact_list_name is not None:
+            self._values["contact_list_name"] = contact_list_name
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if topics is not None:
+            self._values["topics"] = topics
+
+    @builtins.property
+    def contact_list_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the contact list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-contactlistname
+        '''
+        result = self._values.get("contact_list_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of what the contact list is about.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with a contact list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def topics(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContactList.TopicProperty"]]]]:
+        '''An interest group, theme, or label within a list.
+
+        A contact list can have multiple topics.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-topics
+        '''
+        result = self._values.get("topics")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContactList.TopicProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContactListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnDedicatedIpPoolProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "pool_name": "poolName",
+        "scaling_mode": "scalingMode",
+        "tags": "tags",
+    },
+)
+class CfnDedicatedIpPoolProps:
+    def __init__(
+        self,
+        *,
+        pool_name: typing.Optional[builtins.str] = None,
+        scaling_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDedicatedIpPool``.
+
+        :param pool_name: The name of the dedicated IP pool that the IP address is associated with.
+        :param scaling_mode: The type of scaling mode. The following options are available: - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool. - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES . The ``STANDARD`` option is selected by default if no value is specified. .. epigraph:: Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
+        :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_dedicated_ip_pool_props = ses.CfnDedicatedIpPoolProps(
+                pool_name="poolName",
+                scaling_mode="scalingMode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56)
+            check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
+            check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if pool_name is not None:
+            self._values["pool_name"] = pool_name
+        if scaling_mode is not None:
+            self._values["scaling_mode"] = scaling_mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def pool_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the dedicated IP pool that the IP address is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-poolname
+        '''
+        result = self._values.get("pool_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scaling_mode(self) -> typing.Optional[builtins.str]:
+        '''The type of scaling mode.
+
+        The following options are available:
+
+        - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool.
+        - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES .
+
+        The ``STANDARD`` option is selected by default if no value is specified.
+        .. epigraph::
+
+           Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-scalingmode
+        '''
+        result = self._values.get("scaling_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An object that defines the tags (keys and values) that you want to associate with the pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDedicatedIpPoolProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "email_identity": "emailIdentity",
+        "configuration_set_attributes": "configurationSetAttributes",
+        "dkim_attributes": "dkimAttributes",
+        "dkim_signing_attributes": "dkimSigningAttributes",
+        "feedback_attributes": "feedbackAttributes",
+        "mail_from_attributes": "mailFromAttributes",
+        "tags": "tags",
+    },
+)
+class CfnEmailIdentityProps:
+    def __init__(
+        self,
+        *,
+        email_identity: builtins.str,
+        configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.ConfigurationSetAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.DkimAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEmailIdentity``.
+
+        :param email_identity: The email address or domain to verify.
+        :param configuration_set_attributes: Used to associate a configuration set with an email identity.
+        :param dkim_attributes: An object that contains information about the DKIM attributes for the identity.
+        :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ . You can only specify this object if the email identity is a domain, as opposed to an address.
+        :param feedback_attributes: Used to enable or disable feedback forwarding for an identity.
+        :param mail_from_attributes: Used to enable or disable the custom Mail-From domain configuration for an email identity.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_email_identity_props = ses.CfnEmailIdentityProps(
+                email_identity="emailIdentity",
+            
+                # the properties below are optional
+                configuration_set_attributes=ses.CfnEmailIdentity.ConfigurationSetAttributesProperty(
+                    configuration_set_name="configurationSetName"
+                ),
+                dkim_attributes=ses.CfnEmailIdentity.DkimAttributesProperty(
+                    signing_enabled=False
+                ),
+                dkim_signing_attributes=ses.CfnEmailIdentity.DkimSigningAttributesProperty(
+                    domain_signing_private_key="domainSigningPrivateKey",
+                    domain_signing_selector="domainSigningSelector",
+                    next_signing_key_length="nextSigningKeyLength"
+                ),
+                feedback_attributes=ses.CfnEmailIdentity.FeedbackAttributesProperty(
+                    email_forwarding_enabled=False
+                ),
+                mail_from_attributes=ses.CfnEmailIdentity.MailFromAttributesProperty(
+                    behavior_on_mx_failure="behaviorOnMxFailure",
+                    mail_from_domain="mailFromDomain"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54)
+            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
+            check_type(argname="argument configuration_set_attributes", value=configuration_set_attributes, expected_type=type_hints["configuration_set_attributes"])
+            check_type(argname="argument dkim_attributes", value=dkim_attributes, expected_type=type_hints["dkim_attributes"])
+            check_type(argname="argument dkim_signing_attributes", value=dkim_signing_attributes, expected_type=type_hints["dkim_signing_attributes"])
+            check_type(argname="argument feedback_attributes", value=feedback_attributes, expected_type=type_hints["feedback_attributes"])
+            check_type(argname="argument mail_from_attributes", value=mail_from_attributes, expected_type=type_hints["mail_from_attributes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_identity": email_identity,
+        }
+        if configuration_set_attributes is not None:
+            self._values["configuration_set_attributes"] = configuration_set_attributes
+        if dkim_attributes is not None:
+            self._values["dkim_attributes"] = dkim_attributes
+        if dkim_signing_attributes is not None:
+            self._values["dkim_signing_attributes"] = dkim_signing_attributes
+        if feedback_attributes is not None:
+            self._values["feedback_attributes"] = feedback_attributes
+        if mail_from_attributes is not None:
+            self._values["mail_from_attributes"] = mail_from_attributes
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def email_identity(self) -> builtins.str:
+        '''The email address or domain to verify.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-emailidentity
+        '''
+        result = self._values.get("email_identity")
+        assert result is not None, "Required property 'email_identity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_set_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.ConfigurationSetAttributesProperty"]]:
+        '''Used to associate a configuration set with an email identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-configurationsetattributes
+        '''
+        result = self._values.get("configuration_set_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.ConfigurationSetAttributesProperty"]], result)
+
+    @builtins.property
+    def dkim_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.DkimAttributesProperty"]]:
+        '''An object that contains information about the DKIM attributes for the identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimattributes
+        '''
+        result = self._values.get("dkim_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.DkimAttributesProperty"]], result)
+
+    @builtins.property
+    def dkim_signing_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.DkimSigningAttributesProperty"]]:
+        '''If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ .
+
+        You can only specify this object if the email identity is a domain, as opposed to an address.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimsigningattributes
+        '''
+        result = self._values.get("dkim_signing_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.DkimSigningAttributesProperty"]], result)
+
+    @builtins.property
+    def feedback_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.FeedbackAttributesProperty"]]:
+        '''Used to enable or disable feedback forwarding for an identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-feedbackattributes
+        '''
+        result = self._values.get("feedback_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.FeedbackAttributesProperty"]], result)
+
+    @builtins.property
+    def mail_from_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.MailFromAttributesProperty"]]:
+        '''Used to enable or disable the custom Mail-From domain configuration for an email identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-mailfromattributes
+        '''
+        result = self._values.get("mail_from_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEmailIdentity.MailFromAttributesProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) to associate with the email identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEmailIdentityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={"addon_subscription_id": "addonSubscriptionId", "tags": "tags"},
+)
+class CfnMailManagerAddonInstanceProps:
+    def __init__(
+        self,
+        *,
+        addon_subscription_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerAddonInstance``.
+
+        :param addon_subscription_id: The subscription ID for the instance.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_addon_instance_props = ses.CfnMailManagerAddonInstanceProps(
+                addon_subscription_id="addonSubscriptionId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3)
+            check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "addon_subscription_id": addon_subscription_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def addon_subscription_id(self) -> builtins.str:
+        '''The subscription ID for the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html#cfn-ses-mailmanageraddoninstance-addonsubscriptionid
+        '''
+        result = self._values.get("addon_subscription_id")
+        assert result is not None, "Required property 'addon_subscription_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html#cfn-ses-mailmanageraddoninstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerAddonInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonSubscriptionProps",
+    jsii_struct_bases=[],
+    name_mapping={"addon_name": "addonName", "tags": "tags"},
+)
+class CfnMailManagerAddonSubscriptionProps:
+    def __init__(
+        self,
+        *,
+        addon_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerAddonSubscription``.
+
+        :param addon_name: The name of the Add On to subscribe to. You can only have one subscription for each Add On name. Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE | VADE_ADVANCED_EMAIL_SECURITY``
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_addon_subscription_props = ses.CfnMailManagerAddonSubscriptionProps(
+                addon_name="addonName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd)
+            check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "addon_name": addon_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def addon_name(self) -> builtins.str:
+        '''The name of the Add On to subscribe to.
+
+        You can only have one subscription for each Add On name.
+
+        Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE | VADE_ADVANCED_EMAIL_SECURITY``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html#cfn-ses-mailmanageraddonsubscription-addonname
+        '''
+        result = self._values.get("addon_name")
+        assert result is not None, "Required property 'addon_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html#cfn-ses-mailmanageraddonsubscription-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerAddonSubscriptionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddressListProps",
+    jsii_struct_bases=[],
+    name_mapping={"address_list_name": "addressListName", "tags": "tags"},
+)
+class CfnMailManagerAddressListProps:
+    def __init__(
+        self,
+        *,
+        address_list_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerAddressList``.
+
+        :param address_list_name: A user-friendly name for the address list.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_address_list_props = ses.CfnMailManagerAddressListProps(
+                address_list_name="addressListName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9)
+            check_type(argname="argument address_list_name", value=address_list_name, expected_type=type_hints["address_list_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if address_list_name is not None:
+            self._values["address_list_name"] = address_list_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def address_list_name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name for the address list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html#cfn-ses-mailmanageraddresslist-addresslistname
+        '''
+        result = self._values.get("address_list_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html#cfn-ses-mailmanageraddresslist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerAddressListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerArchiveProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "archive_name": "archiveName",
+        "kms_key_arn": "kmsKeyArn",
+        "retention": "retention",
+        "tags": "tags",
+    },
+)
+class CfnMailManagerArchiveProps:
+    def __init__(
+        self,
+        *,
+        archive_name: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerArchive.ArchiveRetentionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerArchive``.
+
+        :param archive_name: A unique name for the new archive.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key for encrypting emails in the archive.
+        :param retention: The period for retaining emails in the archive before automatic deletion.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_archive_props = ses.CfnMailManagerArchiveProps(
+                archive_name="archiveName",
+                kms_key_arn="kmsKeyArn",
+                retention=ses.CfnMailManagerArchive.ArchiveRetentionProperty(
+                    retention_period="retentionPeriod"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c)
+            check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if archive_name is not None:
+            self._values["archive_name"] = archive_name
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if retention is not None:
+            self._values["retention"] = retention
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def archive_name(self) -> typing.Optional[builtins.str]:
+        '''A unique name for the new archive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-archivename
+        '''
+        result = self._values.get("archive_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the KMS key for encrypting emails in the archive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def retention(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerArchive.ArchiveRetentionProperty"]]:
+        '''The period for retaining emails in the archive before automatic deletion.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-retention
+        '''
+        result = self._values.get("retention")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerArchive.ArchiveRetentionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerArchiveProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "rule_set_id": "ruleSetId",
+        "traffic_policy_id": "trafficPolicyId",
+        "type": "type",
+        "ingress_point_configuration": "ingressPointConfiguration",
+        "ingress_point_name": "ingressPointName",
+        "network_configuration": "networkConfiguration",
+        "status_to_update": "statusToUpdate",
+        "tags": "tags",
+    },
+)
+class CfnMailManagerIngressPointProps:
+    def __init__(
+        self,
+        *,
+        rule_set_id: builtins.str,
+        traffic_policy_id: builtins.str,
+        type: builtins.str,
+        ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerIngressPoint.IngressPointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_point_name: typing.Optional[builtins.str] = None,
+        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerIngressPoint.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status_to_update: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerIngressPoint``.
+
+        :param rule_set_id: The identifier of an existing rule set that you attach to an ingress endpoint resource.
+        :param traffic_policy_id: The identifier of an existing traffic policy that you attach to an ingress endpoint resource.
+        :param type: The type of the ingress endpoint to create.
+        :param ingress_point_configuration: The configuration of the ingress endpoint resource.
+        :param ingress_point_name: A user friendly name for an ingress endpoint resource.
+        :param network_configuration: The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
+        :param status_to_update: The update status of an ingress endpoint.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_ingress_point_props = ses.CfnMailManagerIngressPointProps(
+                rule_set_id="ruleSetId",
+                traffic_policy_id="trafficPolicyId",
+                type="type",
+            
+                # the properties below are optional
+                ingress_point_configuration=ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty(
+                    secret_arn="secretArn",
+                    smtp_password="smtpPassword"
+                ),
+                ingress_point_name="ingressPointName",
+                network_configuration=ses.CfnMailManagerIngressPoint.NetworkConfigurationProperty(
+                    private_network_configuration=ses.CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty(
+                        vpc_endpoint_id="vpcEndpointId"
+                    ),
+                    public_network_configuration=ses.CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty(
+                        ip_type="ipType"
+                    )
+                ),
+                status_to_update="statusToUpdate",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1)
+            check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
+            check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument ingress_point_configuration", value=ingress_point_configuration, expected_type=type_hints["ingress_point_configuration"])
+            check_type(argname="argument ingress_point_name", value=ingress_point_name, expected_type=type_hints["ingress_point_name"])
+            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+            check_type(argname="argument status_to_update", value=status_to_update, expected_type=type_hints["status_to_update"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_set_id": rule_set_id,
+            "traffic_policy_id": traffic_policy_id,
+            "type": type,
+        }
+        if ingress_point_configuration is not None:
+            self._values["ingress_point_configuration"] = ingress_point_configuration
+        if ingress_point_name is not None:
+            self._values["ingress_point_name"] = ingress_point_name
+        if network_configuration is not None:
+            self._values["network_configuration"] = network_configuration
+        if status_to_update is not None:
+            self._values["status_to_update"] = status_to_update
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def rule_set_id(self) -> builtins.str:
+        '''The identifier of an existing rule set that you attach to an ingress endpoint resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-rulesetid
+        '''
+        result = self._values.get("rule_set_id")
+        assert result is not None, "Required property 'rule_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def traffic_policy_id(self) -> builtins.str:
+        '''The identifier of an existing traffic policy that you attach to an ingress endpoint resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-trafficpolicyid
+        '''
+        result = self._values.get("traffic_policy_id")
+        assert result is not None, "Required property 'traffic_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of the ingress endpoint to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ingress_point_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]]:
+        '''The configuration of the ingress endpoint resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-ingresspointconfiguration
+        '''
+        result = self._values.get("ingress_point_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerIngressPoint.IngressPointConfigurationProperty"]], result)
+
+    @builtins.property
+    def ingress_point_name(self) -> typing.Optional[builtins.str]:
+        '''A user friendly name for an ingress endpoint resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-ingresspointname
+        '''
+        result = self._values.get("ingress_point_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]]:
+        '''The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-networkconfiguration
+        '''
+        result = self._values.get("network_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerIngressPoint.NetworkConfigurationProperty"]], result)
+
+    @builtins.property
+    def status_to_update(self) -> typing.Optional[builtins.str]:
+        '''The update status of an ingress endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-statustoupdate
+        '''
+        result = self._values.get("status_to_update")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerIngressPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRelayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authentication": "authentication",
+        "server_name": "serverName",
+        "server_port": "serverPort",
+        "relay_name": "relayName",
+        "tags": "tags",
+    },
+)
+class CfnMailManagerRelayProps:
+    def __init__(
+        self,
+        *,
+        authentication: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerRelay.RelayAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        server_name: builtins.str,
+        server_port: jsii.Number,
+        relay_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerRelay``.
+
+        :param authentication: Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.
+        :param server_name: The destination relay server address.
+        :param server_port: The destination relay server port.
+        :param relay_name: The unique relay name.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            # no_authentication: Any
+            
+            cfn_mail_manager_relay_props = ses.CfnMailManagerRelayProps(
+                authentication=ses.CfnMailManagerRelay.RelayAuthenticationProperty(
+                    no_authentication=no_authentication,
+                    secret_arn="secretArn"
+                ),
+                server_name="serverName",
+                server_port=123,
+            
+                # the properties below are optional
+                relay_name="relayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971)
+            check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
+            check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
+            check_type(argname="argument server_port", value=server_port, expected_type=type_hints["server_port"])
+            check_type(argname="argument relay_name", value=relay_name, expected_type=type_hints["relay_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authentication": authentication,
+            "server_name": server_name,
+            "server_port": server_port,
+        }
+        if relay_name is not None:
+            self._values["relay_name"] = relay_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def authentication(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMailManagerRelay.RelayAuthenticationProperty"]:
+        '''Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-authentication
+        '''
+        result = self._values.get("authentication")
+        assert result is not None, "Required property 'authentication' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMailManagerRelay.RelayAuthenticationProperty"], result)
+
+    @builtins.property
+    def server_name(self) -> builtins.str:
+        '''The destination relay server address.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-servername
+        '''
+        result = self._values.get("server_name")
+        assert result is not None, "Required property 'server_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_port(self) -> jsii.Number:
+        '''The destination relay server port.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-serverport
+        '''
+        result = self._values.get("server_port")
+        assert result is not None, "Required property 'server_port' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def relay_name(self) -> typing.Optional[builtins.str]:
+        '''The unique relay name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-relayname
+        '''
+        result = self._values.get("relay_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerRelayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"rules": "rules", "rule_set_name": "ruleSetName", "tags": "tags"},
+)
+class CfnMailManagerRuleSetProps:
+    def __init__(
+        self,
+        *,
+        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerRuleSet.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rule_set_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerRuleSet``.
+
+        :param rules: Conditional rules that are evaluated for determining actions on email.
+        :param rule_set_name: A user-friendly name for the rule set.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            # drop: Any
+            
+            cfn_mail_manager_rule_set_props = ses.CfnMailManagerRuleSetProps(
+                rules=[ses.CfnMailManagerRuleSet.RuleProperty(
+                    actions=[ses.CfnMailManagerRuleSet.RuleActionProperty(
+                        add_header=ses.CfnMailManagerRuleSet.AddHeaderActionProperty(
+                            header_name="headerName",
+                            header_value="headerValue"
+                        ),
+                        archive=ses.CfnMailManagerRuleSet.ArchiveActionProperty(
+                            target_archive="targetArchive",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy"
+                        ),
+                        deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
+                            mailbox_arn="mailboxArn",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy"
+                        ),
+                        deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
+                            application_id="applicationId",
+                            index_id="indexId",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy"
+                        ),
+                        drop=drop,
+                        publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
+                            role_arn="roleArn",
+                            topic_arn="topicArn",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            encoding="encoding",
+                            payload_type="payloadType"
+                        ),
+                        relay=ses.CfnMailManagerRuleSet.RelayActionProperty(
+                            relay="relay",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            mail_from="mailFrom"
+                        ),
+                        replace_recipient=ses.CfnMailManagerRuleSet.ReplaceRecipientActionProperty(
+                            replace_with=["replaceWith"]
+                        ),
+                        send=ses.CfnMailManagerRuleSet.SendActionProperty(
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy"
+                        ),
+                        write_to_s3=ses.CfnMailManagerRuleSet.S3ActionProperty(
+                            role_arn="roleArn",
+                            s3_bucket="s3Bucket",
+            
+                            # the properties below are optional
+                            action_failure_policy="actionFailurePolicy",
+                            s3_prefix="s3Prefix",
+                            s3_sse_kms_key_id="s3SseKmsKeyId"
+                        )
+                    )],
+            
+                    # the properties below are optional
+                    conditions=[ses.CfnMailManagerRuleSet.RuleConditionProperty(
+                        boolean_expression=ses.CfnMailManagerRuleSet.RuleBooleanExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute",
+                                is_in_address_list=ses.CfnMailManagerRuleSet.RuleIsInAddressListProperty(
+                                    address_lists=["addressLists"],
+                                    attribute="attribute"
+                                )
+                            ),
+                            operator="operator"
+                        ),
+                        dmarc_expression=ses.CfnMailManagerRuleSet.RuleDmarcExpressionProperty(
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        ip_expression=ses.CfnMailManagerRuleSet.RuleIpExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleIpToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        number_expression=ses.CfnMailManagerRuleSet.RuleNumberExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleNumberToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            value=123
+                        ),
+                        string_expression=ses.CfnMailManagerRuleSet.RuleStringExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleStringToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute",
+                                mime_header_attribute="mimeHeaderAttribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        verdict_expression=ses.CfnMailManagerRuleSet.RuleVerdictExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        )
+                    )],
+                    name="name",
+                    unless=[ses.CfnMailManagerRuleSet.RuleConditionProperty(
+                        boolean_expression=ses.CfnMailManagerRuleSet.RuleBooleanExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute",
+                                is_in_address_list=ses.CfnMailManagerRuleSet.RuleIsInAddressListProperty(
+                                    address_lists=["addressLists"],
+                                    attribute="attribute"
+                                )
+                            ),
+                            operator="operator"
+                        ),
+                        dmarc_expression=ses.CfnMailManagerRuleSet.RuleDmarcExpressionProperty(
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        ip_expression=ses.CfnMailManagerRuleSet.RuleIpExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleIpToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        number_expression=ses.CfnMailManagerRuleSet.RuleNumberExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleNumberToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            value=123
+                        ),
+                        string_expression=ses.CfnMailManagerRuleSet.RuleStringExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleStringToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute",
+                                mime_header_attribute="mimeHeaderAttribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        verdict_expression=ses.CfnMailManagerRuleSet.RuleVerdictExpressionProperty(
+                            evaluate=ses.CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty(
+                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        )
+                    )]
+                )],
+            
+                # the properties below are optional
+                rule_set_name="ruleSetName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf)
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rules": rules,
+        }
+        if rule_set_name is not None:
+            self._values["rule_set_name"] = rule_set_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMailManagerRuleSet.RuleProperty"]]]:
+        '''Conditional rules that are evaluated for determining actions on email.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMailManagerRuleSet.RuleProperty"]]], result)
+
+    @builtins.property
+    def rule_set_name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name for the rule set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-rulesetname
+        '''
+        result = self._values.get("rule_set_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerRuleSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerTrafficPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_action": "defaultAction",
+        "policy_statements": "policyStatements",
+        "max_message_size_bytes": "maxMessageSizeBytes",
+        "tags": "tags",
+        "traffic_policy_name": "trafficPolicyName",
+    },
+)
+class CfnMailManagerTrafficPolicyProps:
+    def __init__(
+        self,
+        *,
+        default_action: builtins.str,
+        policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMailManagerTrafficPolicy.PolicyStatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        max_message_size_bytes: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        traffic_policy_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMailManagerTrafficPolicy``.
+
+        :param default_action: Default action instructs the traﬃc policy to either Allow or Deny (block) messages that fall outside of (or not addressed by) the conditions of your policy statements.
+        :param policy_statements: Conditional statements for filtering email traffic.
+        :param max_message_size_bytes: The maximum message size in bytes of email which is allowed in by this traffic policy—anything larger will be blocked.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+        :param traffic_policy_name: The name of the policy. The policy name cannot exceed 64 characters and can only include alphanumeric characters, dashes, and underscores.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_mail_manager_traffic_policy_props = ses.CfnMailManagerTrafficPolicyProps(
+                default_action="defaultAction",
+                policy_statements=[ses.CfnMailManagerTrafficPolicy.PolicyStatementProperty(
+                    action="action",
+                    conditions=[ses.CfnMailManagerTrafficPolicy.PolicyConditionProperty(
+                        boolean_expression=ses.CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty(
+                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty(
+                                analysis=ses.CfnMailManagerTrafficPolicy.IngressAnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                is_in_address_list=ses.CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty(
+                                    address_lists=["addressLists"],
+                                    attribute="attribute"
+                                )
+                            ),
+                            operator="operator"
+                        ),
+                        ip_expression=ses.CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty(
+                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        ipv6_expression=ses.CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty(
+                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        string_expression=ses.CfnMailManagerTrafficPolicy.IngressStringExpressionProperty(
+                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty(
+                                analysis=ses.CfnMailManagerTrafficPolicy.IngressAnalysisProperty(
+                                    analyzer="analyzer",
+                                    result_field="resultField"
+                                ),
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            values=["values"]
+                        ),
+                        tls_expression=ses.CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty(
+                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty(
+                                attribute="attribute"
+                            ),
+                            operator="operator",
+                            value="value"
+                        )
+                    )]
+                )],
+            
+                # the properties below are optional
+                max_message_size_bytes=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                traffic_policy_name="trafficPolicyName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef)
+            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
+            check_type(argname="argument policy_statements", value=policy_statements, expected_type=type_hints["policy_statements"])
+            check_type(argname="argument max_message_size_bytes", value=max_message_size_bytes, expected_type=type_hints["max_message_size_bytes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument traffic_policy_name", value=traffic_policy_name, expected_type=type_hints["traffic_policy_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_action": default_action,
+            "policy_statements": policy_statements,
+        }
+        if max_message_size_bytes is not None:
+            self._values["max_message_size_bytes"] = max_message_size_bytes
+        if tags is not None:
+            self._values["tags"] = tags
+        if traffic_policy_name is not None:
+            self._values["traffic_policy_name"] = traffic_policy_name
+
+    @builtins.property
+    def default_action(self) -> builtins.str:
+        '''Default action instructs the traﬃc policy to either Allow or Deny (block) messages that fall outside of (or not addressed by) the conditions of your policy statements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-defaultaction
+        '''
+        result = self._values.get("default_action")
+        assert result is not None, "Required property 'default_action' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_statements(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]]:
+        '''Conditional statements for filtering email traffic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-policystatements
+        '''
+        result = self._values.get("policy_statements")
+        assert result is not None, "Required property 'policy_statements' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.PolicyStatementProperty"]]], result)
+
+    @builtins.property
+    def max_message_size_bytes(self) -> typing.Optional[jsii.Number]:
+        '''The maximum message size in bytes of email which is allowed in by this traffic policy—anything larger will be blocked.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-maxmessagesizebytes
+        '''
+        result = self._values.get("max_message_size_bytes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def traffic_policy_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the policy.
+
+        The policy name cannot exceed 64 characters and can only include alphanumeric characters, dashes, and underscores.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-trafficpolicyname
+        '''
+        result = self._values.get("traffic_policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMailManagerTrafficPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={"filter": "filter"},
+)
+class CfnReceiptFilterProps:
+    def __init__(
+        self,
+        *,
+        filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnReceiptFilter.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnReceiptFilter``.
+
+        :param filter: A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptfilter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_receipt_filter_props = ses.CfnReceiptFilterProps(
+                filter=ses.CfnReceiptFilter.FilterProperty(
+                    ip_filter=ses.CfnReceiptFilter.IpFilterProperty(
+                        cidr="cidr",
+                        policy="policy"
+                    ),
+            
+                    # the properties below are optional
+                    name="name"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f)
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filter": filter,
+        }
+
+    @builtins.property
+    def filter(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnReceiptFilter.FilterProperty"]:
+        '''A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptfilter.html#cfn-ses-receiptfilter-filter
+        '''
+        result = self._values.get("filter")
+        assert result is not None, "Required property 'filter' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnReceiptFilter.FilterProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReceiptFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={"rule": "rule", "rule_set_name": "ruleSetName", "after": "after"},
+)
+class CfnReceiptRuleProps:
+    def __init__(
+        self,
+        *,
+        rule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnReceiptRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule_set_name: builtins.str,
+        after: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReceiptRule``.
+
+        :param rule: A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.
+        :param rule_set_name: The name of the rule set where the receipt rule is added.
+        :param after: The name of an existing rule after which the new rule is placed. If this parameter is null, the new rule is inserted at the beginning of the rule list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_receipt_rule_props = ses.CfnReceiptRuleProps(
+                rule=ses.CfnReceiptRule.RuleProperty(
+                    actions=[ses.CfnReceiptRule.ActionProperty(
+                        add_header_action=ses.CfnReceiptRule.AddHeaderActionProperty(
+                            header_name="headerName",
+                            header_value="headerValue"
+                        ),
+                        bounce_action=ses.CfnReceiptRule.BounceActionProperty(
+                            message="message",
+                            sender="sender",
+                            smtp_reply_code="smtpReplyCode",
+            
+                            # the properties below are optional
+                            status_code="statusCode",
+                            topic_arn="topicArn"
+                        ),
+                        connect_action=ses.CfnReceiptRule.ConnectActionProperty(
+                            iam_role_arn="iamRoleArn",
+                            instance_arn="instanceArn"
+                        ),
+                        lambda_action=ses.CfnReceiptRule.LambdaActionProperty(
+                            function_arn="functionArn",
+            
+                            # the properties below are optional
+                            invocation_type="invocationType",
+                            topic_arn="topicArn"
+                        ),
+                        s3_action=ses.CfnReceiptRule.S3ActionProperty(
+                            bucket_name="bucketName",
+            
+                            # the properties below are optional
+                            iam_role_arn="iamRoleArn",
+                            kms_key_arn="kmsKeyArn",
+                            object_key_prefix="objectKeyPrefix",
+                            topic_arn="topicArn"
+                        ),
+                        sns_action=ses.CfnReceiptRule.SNSActionProperty(
+                            encoding="encoding",
+                            topic_arn="topicArn"
+                        ),
+                        stop_action=ses.CfnReceiptRule.StopActionProperty(
+                            scope="scope",
+            
+                            # the properties below are optional
+                            topic_arn="topicArn"
+                        ),
+                        workmail_action=ses.CfnReceiptRule.WorkmailActionProperty(
+                            organization_arn="organizationArn",
+            
+                            # the properties below are optional
+                            topic_arn="topicArn"
+                        )
+                    )],
+                    enabled=False,
+                    name="name",
+                    recipients=["recipients"],
+                    scan_enabled=False,
+                    tls_policy="tlsPolicy"
+                ),
+                rule_set_name="ruleSetName",
+            
+                # the properties below are optional
+                after="after"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
+            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule": rule,
+            "rule_set_name": rule_set_name,
+        }
+        if after is not None:
+            self._values["after"] = after
+
+    @builtins.property
+    def rule(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnReceiptRule.RuleProperty"]:
+        '''A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-rule
+        '''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnReceiptRule.RuleProperty"], result)
+
+    @builtins.property
+    def rule_set_name(self) -> builtins.str:
+        '''The name of the rule set where the receipt rule is added.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-rulesetname
+        '''
+        result = self._values.get("rule_set_name")
+        assert result is not None, "Required property 'rule_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def after(self) -> typing.Optional[builtins.str]:
+        '''The name of an existing rule after which the new rule is placed.
+
+        If this parameter is null, the new rule is inserted at the beginning of the rule list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-after
+        '''
+        result = self._values.get("after")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReceiptRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRuleSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"rule_set_name": "ruleSetName"},
+)
+class CfnReceiptRuleSetProps:
+    def __init__(self, *, rule_set_name: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnReceiptRuleSet``.
+
+        :param rule_set_name: The name of the receipt rule set to make active. Setting this value to null disables all email receiving.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_receipt_rule_set_props = ses.CfnReceiptRuleSetProps(
+                rule_set_name="ruleSetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636)
+            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rule_set_name is not None:
+            self._values["rule_set_name"] = rule_set_name
+
+    @builtins.property
+    def rule_set_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the receipt rule set to make active.
+
+        Setting this value to null disables all email receiving.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html#cfn-ses-receiptruleset-rulesetname
+        '''
+        result = self._values.get("rule_set_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReceiptRuleSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={"template": "template"},
+)
+class CfnTemplateProps:
+    def __init__(
+        self,
+        *,
+        template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTemplate``.
+
+        :param template: The content of the email, composed of a subject line and either an HTML part or a text-only part.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_template_props = ses.CfnTemplateProps(
+                template=ses.CfnTemplate.TemplateProperty(
+                    subject_part="subjectPart",
+            
+                    # the properties below are optional
+                    html_part="htmlPart",
+                    template_name="templateName",
+                    text_part="textPart"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317)
+            check_type(argname="argument template", value=template, expected_type=type_hints["template"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if template is not None:
+            self._values["template"] = template
+
+    @builtins.property
+    def template(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTemplate.TemplateProperty"]]:
+        '''The content of the email, composed of a subject line and either an HTML part or a text-only part.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html#cfn-ses-template-template
+        '''
+        result = self._values.get("template")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTemplate.TemplateProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnVdmAttributesProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dashboard_attributes": "dashboardAttributes",
+        "guardian_attributes": "guardianAttributes",
+    },
+)
+class CfnVdmAttributesProps:
+    def __init__(
+        self,
+        *,
+        dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVdmAttributes.DashboardAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVdmAttributes.GuardianAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVdmAttributes``.
+
+        :param dashboard_attributes: Specifies additional settings for your VDM configuration as applicable to the Dashboard.
+        :param guardian_attributes: Specifies additional settings for your VDM configuration as applicable to the Guardian.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_vdm_attributes_props = ses.CfnVdmAttributesProps(
+                dashboard_attributes=ses.CfnVdmAttributes.DashboardAttributesProperty(
+                    engagement_metrics="engagementMetrics"
+                ),
+                guardian_attributes=ses.CfnVdmAttributes.GuardianAttributesProperty(
+                    optimized_shared_delivery="optimizedSharedDelivery"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825)
+            check_type(argname="argument dashboard_attributes", value=dashboard_attributes, expected_type=type_hints["dashboard_attributes"])
+            check_type(argname="argument guardian_attributes", value=guardian_attributes, expected_type=type_hints["guardian_attributes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dashboard_attributes is not None:
+            self._values["dashboard_attributes"] = dashboard_attributes
+        if guardian_attributes is not None:
+            self._values["guardian_attributes"] = guardian_attributes
+
+    @builtins.property
+    def dashboard_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVdmAttributes.DashboardAttributesProperty"]]:
+        '''Specifies additional settings for your VDM configuration as applicable to the Dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-dashboardattributes
+        '''
+        result = self._values.get("dashboard_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVdmAttributes.DashboardAttributesProperty"]], result)
+
+    @builtins.property
+    def guardian_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVdmAttributes.GuardianAttributesProperty"]]:
+        '''Specifies additional settings for your VDM configuration as applicable to the Guardian.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-guardianattributes
+        '''
+        result = self._values.get("guardian_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnVdmAttributes.GuardianAttributesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVdmAttributesProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CloudWatchDimension",
+    jsii_struct_bases=[],
+    name_mapping={"default_value": "defaultValue", "name": "name", "source": "source"},
+)
+class CloudWatchDimension:
+    def __init__(
+        self,
+        *,
+        default_value: builtins.str,
+        name: builtins.str,
+        source: "CloudWatchDimensionSource",
+    ) -> None:
+        '''A CloudWatch dimension upon which to categorize your emails.
+
+        :param default_value: The default value of the dimension that is published to Amazon CloudWatch if you do not provide the value of the dimension when you send an email.
+        :param name: The name of an Amazon CloudWatch dimension associated with an email sending metric.
+        :param source: The place where Amazon SES finds the value of a dimension to publish to Amazon CloudWatch.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cloud_watch_dimension = ses.CloudWatchDimension(
+                default_value="defaultValue",
+                name="name",
+                source=ses.CloudWatchDimensionSource.EMAIL_HEADER
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a)
+            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_value": default_value,
+            "name": name,
+            "source": source,
+        }
+
+    @builtins.property
+    def default_value(self) -> builtins.str:
+        '''The default value of the dimension that is published to Amazon CloudWatch if you do not provide the value of the dimension when you send an email.'''
+        result = self._values.get("default_value")
+        assert result is not None, "Required property 'default_value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of an Amazon CloudWatch dimension associated with an email sending metric.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(self) -> "CloudWatchDimensionSource":
+        '''The place where Amazon SES finds the value of a dimension to publish to Amazon CloudWatch.'''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast("CloudWatchDimensionSource", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudWatchDimension(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.CloudWatchDimensionSource")
+class CloudWatchDimensionSource(enum.Enum):
+    '''Source for CloudWatch dimension.'''
+
+    EMAIL_HEADER = "EMAIL_HEADER"
+    '''Amazon SES retrieves the dimension name and value from a header in the email.
+
+    Note: You can't use any of the following email headers as the Dimension Name:
+    ``Received``, ``To``, ``From``, ``DKIM-Signature``, ``CC``, ``message-id``, or ``Return-Path``.
+    '''
+    LINK_TAG = "LINK_TAG"
+    '''Amazon SES retrieves the dimension name and value from a tag that you specified in a link.
+
+    :see: https://docs.aws.amazon.com/ses/latest/dg/faqs-metrics.html#sending-metric-faqs-clicks-q5
+    '''
+    MESSAGE_TAG = "MESSAGE_TAG"
+    '''Amazon SES retrieves the dimension name and value from a tag that you specify by using the ``X-SES-MESSAGE-TAGS`` header or the Tags API parameter.
+
+    You can also use the Message Tag value source to create dimensions based on Amazon SES auto-tags.
+    To use an auto-tag, type the complete name of the auto-tag as the Dimension Name. For example,
+    to create a dimension based on the configuration set auto-tag, use ``ses:configuration-set`` for the
+    Dimension Name, and the name of the configuration set for the Default Value.
+
+    :see: https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html#event-publishing-how-works
+    '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination": "destination",
+        "configuration_set_event_destination_name": "configurationSetEventDestinationName",
+        "enabled": "enabled",
+        "events": "events",
+    },
+)
+class ConfigurationSetEventDestinationOptions:
+    def __init__(
+        self,
+        *,
+        destination: "EventDestination",
+        configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        events: typing.Optional[typing.Sequence["EmailSendingEvent"]] = None,
+    ) -> None:
+        '''Options for a configuration set event destination.
+
+        :param destination: The event destination.
+        :param configuration_set_event_destination_name: A name for the configuration set event destination. Default: - a CloudFormation generated name
+        :param enabled: Whether Amazon SES publishes events to this destination. Default: true
+        :param events: The type of email sending events to publish to the event destination. Default: - send all event types
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_events as events
+            
+            # my_configuration_set: ses.ConfigurationSet
+            
+            
+            bus = events.EventBus.from_event_bus_name(self, "EventBus", "default")
+            
+            my_configuration_set.add_event_destination("ToEventBus",
+                destination=ses.EventDestination.event_bus(bus)
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+        }
+        if configuration_set_event_destination_name is not None:
+            self._values["configuration_set_event_destination_name"] = configuration_set_event_destination_name
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if events is not None:
+            self._values["events"] = events
+
+    @builtins.property
+    def destination(self) -> "EventDestination":
+        '''The event destination.'''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("EventDestination", result)
+
+    @builtins.property
+    def configuration_set_event_destination_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the configuration set event destination.
+
+        :default: - a CloudFormation generated name
+        '''
+        result = self._values.get("configuration_set_event_destination_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether Amazon SES publishes events to this destination.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def events(self) -> typing.Optional[typing.List["EmailSendingEvent"]]:
+        '''The type of email sending events to publish to the event destination.
+
+        :default: - send all event types
+        '''
+        result = self._values.get("events")
+        return typing.cast(typing.Optional[typing.List["EmailSendingEvent"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetEventDestinationOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationProps",
+    jsii_struct_bases=[ConfigurationSetEventDestinationOptions],
+    name_mapping={
+        "destination": "destination",
+        "configuration_set_event_destination_name": "configurationSetEventDestinationName",
+        "enabled": "enabled",
+        "events": "events",
+        "configuration_set": "configurationSet",
+    },
+)
+class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOptions):
+    def __init__(
+        self,
+        *,
+        destination: "EventDestination",
+        configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        events: typing.Optional[typing.Sequence["EmailSendingEvent"]] = None,
+        configuration_set: "IConfigurationSet",
+    ) -> None:
+        '''Properties for a configuration set event destination.
+
+        :param destination: The event destination.
+        :param configuration_set_event_destination_name: A name for the configuration set event destination. Default: - a CloudFormation generated name
+        :param enabled: Whether Amazon SES publishes events to this destination. Default: true
+        :param events: The type of email sending events to publish to the event destination. Default: - send all event types
+        :param configuration_set: The configuration set that contains the event destination.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            # configuration_set: ses.ConfigurationSet
+            # event_destination: ses.EventDestination
+            
+            configuration_set_event_destination_props = ses.ConfigurationSetEventDestinationProps(
+                configuration_set=configuration_set,
+                destination=event_destination,
+            
+                # the properties below are optional
+                configuration_set_event_destination_name="configurationSetEventDestinationName",
+                enabled=False,
+                events=[ses.EmailSendingEvent.SEND]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+            "configuration_set": configuration_set,
+        }
+        if configuration_set_event_destination_name is not None:
+            self._values["configuration_set_event_destination_name"] = configuration_set_event_destination_name
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if events is not None:
+            self._values["events"] = events
+
+    @builtins.property
+    def destination(self) -> "EventDestination":
+        '''The event destination.'''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("EventDestination", result)
+
+    @builtins.property
+    def configuration_set_event_destination_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the configuration set event destination.
+
+        :default: - a CloudFormation generated name
+        '''
+        result = self._values.get("configuration_set_event_destination_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether Amazon SES publishes events to this destination.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def events(self) -> typing.Optional[typing.List["EmailSendingEvent"]]:
+        '''The type of email sending events to publish to the event destination.
+
+        :default: - send all event types
+        '''
+        result = self._values.get("events")
+        return typing.cast(typing.Optional[typing.List["EmailSendingEvent"]], result)
+
+    @builtins.property
+    def configuration_set(self) -> "IConfigurationSet":
+        '''The configuration set that contains the event destination.'''
+        result = self._values.get("configuration_set")
+        assert result is not None, "Required property 'configuration_set' is missing"
+        return typing.cast("IConfigurationSet", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetEventDestinationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_set_event_destination_id": "configurationSetEventDestinationId",
+    },
+)
+class ConfigurationSetEventDestinationReference:
+    def __init__(self, *, configuration_set_event_destination_id: builtins.str) -> None:
+        '''A reference to a ConfigurationSetEventDestination resource.
+
+        :param configuration_set_event_destination_id: The Id of the ConfigurationSetEventDestination resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            configuration_set_event_destination_reference = ses.ConfigurationSetEventDestinationReference(
+                configuration_set_event_destination_id="configurationSetEventDestinationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43e1802e47e3092941de120649ffbd566b805cf1cf6043fa634e18988fe3ce52)
+            check_type(argname="argument configuration_set_event_destination_id", value=configuration_set_event_destination_id, expected_type=type_hints["configuration_set_event_destination_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_set_event_destination_id": configuration_set_event_destination_id,
+        }
+
+    @builtins.property
+    def configuration_set_event_destination_id(self) -> builtins.str:
+        '''The Id of the ConfigurationSetEventDestination resource.'''
+        result = self._values.get("configuration_set_event_destination_id")
+        assert result is not None, "Required property 'configuration_set_event_destination_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetEventDestinationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_set_name": "configurationSetName",
+        "custom_tracking_https_policy": "customTrackingHttpsPolicy",
+        "custom_tracking_redirect_domain": "customTrackingRedirectDomain",
+        "dedicated_ip_pool": "dedicatedIpPool",
+        "disable_suppression_list": "disableSuppressionList",
+        "max_delivery_duration": "maxDeliveryDuration",
+        "reputation_metrics": "reputationMetrics",
+        "sending_enabled": "sendingEnabled",
+        "suppression_reasons": "suppressionReasons",
+        "tls_policy": "tlsPolicy",
+        "vdm_options": "vdmOptions",
+    },
+)
+class ConfigurationSetProps:
+    def __init__(
+        self,
+        *,
+        configuration_set_name: typing.Optional[builtins.str] = None,
+        custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
+        custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
+        dedicated_ip_pool: typing.Optional["IDedicatedIpPool"] = None,
+        disable_suppression_list: typing.Optional[builtins.bool] = None,
+        max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
+        reputation_metrics: typing.Optional[builtins.bool] = None,
+        sending_enabled: typing.Optional[builtins.bool] = None,
+        suppression_reasons: typing.Optional["SuppressionReasons"] = None,
+        tls_policy: typing.Optional["ConfigurationSetTlsPolicy"] = None,
+        vdm_options: typing.Optional[typing.Union["VdmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Properties for a configuration set.
+
+        :param configuration_set_name: A name for the configuration set. Default: - a CloudFormation generated name
+        :param custom_tracking_https_policy: The https policy to use for tracking open and click events. Default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
+        :param custom_tracking_redirect_domain: The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain. Default: - use the default awstrack.me domain
+        :param dedicated_ip_pool: The dedicated IP pool to associate with the configuration set. Default: - do not use a dedicated IP pool
+        :param disable_suppression_list: If true, account-level suppression list is disabled; email sent with this configuration set will not use any suppression settings at all Default: false
+        :param max_delivery_duration: The maximum amount of time that Amazon SES API v2 will attempt delivery of email. This value must be greater than or equal to 5 minutes and less than or equal to 14 hours. Default: undefined - SES defaults to 14 hours
+        :param reputation_metrics: Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch. Default: true
+        :param sending_enabled: Whether email sending is enabled. Default: true
+        :param suppression_reasons: The reasons for which recipient email addresses should be automatically added to your account's suppression list. Default: - use account level settings
+        :param tls_policy: Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS). Default: ConfigurationSetTlsPolicy.OPTIONAL
+        :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set. Default: - VDM options not configured at the configuration set level. In this case, use account level settings. (To set the account level settings using CDK, use the ``VdmAttributes`` Construct.)
+
+        :exampleMetadata: infused
+
+        Example::
+
+            ses.ConfigurationSet(self, "ConfigurationSet",
+                custom_tracking_redirect_domain="track.cdk.dev",
+                custom_tracking_https_policy=ses.HttpsPolicy.REQUIRE
+            )
+        '''
+        if isinstance(vdm_options, dict):
+            vdm_options = VdmOptions(**vdm_options)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d)
+            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
+            check_type(argname="argument custom_tracking_https_policy", value=custom_tracking_https_policy, expected_type=type_hints["custom_tracking_https_policy"])
+            check_type(argname="argument custom_tracking_redirect_domain", value=custom_tracking_redirect_domain, expected_type=type_hints["custom_tracking_redirect_domain"])
+            check_type(argname="argument dedicated_ip_pool", value=dedicated_ip_pool, expected_type=type_hints["dedicated_ip_pool"])
+            check_type(argname="argument disable_suppression_list", value=disable_suppression_list, expected_type=type_hints["disable_suppression_list"])
+            check_type(argname="argument max_delivery_duration", value=max_delivery_duration, expected_type=type_hints["max_delivery_duration"])
+            check_type(argname="argument reputation_metrics", value=reputation_metrics, expected_type=type_hints["reputation_metrics"])
+            check_type(argname="argument sending_enabled", value=sending_enabled, expected_type=type_hints["sending_enabled"])
+            check_type(argname="argument suppression_reasons", value=suppression_reasons, expected_type=type_hints["suppression_reasons"])
+            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
+            check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if configuration_set_name is not None:
+            self._values["configuration_set_name"] = configuration_set_name
+        if custom_tracking_https_policy is not None:
+            self._values["custom_tracking_https_policy"] = custom_tracking_https_policy
+        if custom_tracking_redirect_domain is not None:
+            self._values["custom_tracking_redirect_domain"] = custom_tracking_redirect_domain
+        if dedicated_ip_pool is not None:
+            self._values["dedicated_ip_pool"] = dedicated_ip_pool
+        if disable_suppression_list is not None:
+            self._values["disable_suppression_list"] = disable_suppression_list
+        if max_delivery_duration is not None:
+            self._values["max_delivery_duration"] = max_delivery_duration
+        if reputation_metrics is not None:
+            self._values["reputation_metrics"] = reputation_metrics
+        if sending_enabled is not None:
+            self._values["sending_enabled"] = sending_enabled
+        if suppression_reasons is not None:
+            self._values["suppression_reasons"] = suppression_reasons
+        if tls_policy is not None:
+            self._values["tls_policy"] = tls_policy
+        if vdm_options is not None:
+            self._values["vdm_options"] = vdm_options
+
+    @builtins.property
+    def configuration_set_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the configuration set.
+
+        :default: - a CloudFormation generated name
+        '''
+        result = self._values.get("configuration_set_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_tracking_https_policy(self) -> typing.Optional["HttpsPolicy"]:
+        '''The https policy to use for tracking open and click events.
+
+        :default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
+        '''
+        result = self._values.get("custom_tracking_https_policy")
+        return typing.cast(typing.Optional["HttpsPolicy"], result)
+
+    @builtins.property
+    def custom_tracking_redirect_domain(self) -> typing.Optional[builtins.str]:
+        '''The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain.
+
+        :default: - use the default awstrack.me domain
+        '''
+        result = self._values.get("custom_tracking_redirect_domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dedicated_ip_pool(self) -> typing.Optional["IDedicatedIpPool"]:
+        '''The dedicated IP pool to associate with the configuration set.
+
+        :default: - do not use a dedicated IP pool
+        '''
+        result = self._values.get("dedicated_ip_pool")
+        return typing.cast(typing.Optional["IDedicatedIpPool"], result)
+
+    @builtins.property
+    def disable_suppression_list(self) -> typing.Optional[builtins.bool]:
+        '''If true, account-level suppression list is disabled;
+
+        email sent with this configuration set
+        will not use any suppression settings at all
+
+        :default: false
+        '''
+        result = self._values.get("disable_suppression_list")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def max_delivery_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The maximum amount of time that Amazon SES API v2 will attempt delivery of email.
+
+        This value must be greater than or equal to 5 minutes and less than or equal to 14 hours.
+
+        :default: undefined - SES defaults to 14 hours
+        '''
+        result = self._values.get("max_delivery_duration")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def reputation_metrics(self) -> typing.Optional[builtins.bool]:
+        '''Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch.
+
+        :default: true
+        '''
+        result = self._values.get("reputation_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def sending_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether email sending is enabled.
+
+        :default: true
+        '''
+        result = self._values.get("sending_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def suppression_reasons(self) -> typing.Optional["SuppressionReasons"]:
+        '''The reasons for which recipient email addresses should be automatically added to your account's suppression list.
+
+        :default: - use account level settings
+        '''
+        result = self._values.get("suppression_reasons")
+        return typing.cast(typing.Optional["SuppressionReasons"], result)
+
+    @builtins.property
+    def tls_policy(self) -> typing.Optional["ConfigurationSetTlsPolicy"]:
+        '''Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS).
+
+        :default: ConfigurationSetTlsPolicy.OPTIONAL
+        '''
+        result = self._values.get("tls_policy")
+        return typing.cast(typing.Optional["ConfigurationSetTlsPolicy"], result)
+
+    @builtins.property
+    def vdm_options(self) -> typing.Optional["VdmOptions"]:
+        '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
+
+        :default: - VDM options not configured at the configuration set level. In this case, use account level settings. (To set the account level settings using CDK, use the ``VdmAttributes`` Construct.)
+        '''
+        result = self._values.get("vdm_options")
+        return typing.cast(typing.Optional["VdmOptions"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"configuration_set_name": "configurationSetName"},
+)
+class ConfigurationSetReference:
+    def __init__(self, *, configuration_set_name: builtins.str) -> None:
+        '''A reference to a ConfigurationSet resource.
+
+        :param configuration_set_name: The Name of the ConfigurationSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            configuration_set_reference = ses.ConfigurationSetReference(
+                configuration_set_name="configurationSetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0432723a40f659e0c9a755895613856e9ce60ef794d5d8d33f6804a2b862fcbd)
+            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_set_name": configuration_set_name,
+        }
+
+    @builtins.property
+    def configuration_set_name(self) -> builtins.str:
+        '''The Name of the ConfigurationSet resource.'''
+        result = self._values.get("configuration_set_name")
+        assert result is not None, "Required property 'configuration_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetTlsPolicy")
+class ConfigurationSetTlsPolicy(enum.Enum):
+    '''TLS policy for a configuration set.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk import Duration
+        
+        # my_pool: ses.IDedicatedIpPool
+        
+        
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            tls_policy=ses.ConfigurationSetTlsPolicy.REQUIRE,
+            dedicated_ip_pool=my_pool,
+            # Specify maximum delivery time
+            # This configuration can be useful in such cases as time-sensitive emails (like those containing a one-time-password),
+            # transactional emails, and email that you want to ensure isn't delivered during non-business hours.
+            max_delivery_duration=Duration.minutes(10)
+        )
+    '''
+
+    REQUIRE = "REQUIRE"
+    '''Messages are only delivered if a TLS connection can be established.'''
+    OPTIONAL = "OPTIONAL"
+    '''Messages can be delivered in plain text if a TLS connection can't be established.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ContactListReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_list_name": "contactListName"},
+)
+class ContactListReference:
+    def __init__(self, *, contact_list_name: builtins.str) -> None:
+        '''A reference to a ContactList resource.
+
+        :param contact_list_name: The ContactListName of the ContactList resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            contact_list_reference = ses.ContactListReference(
+                contact_list_name="contactListName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed5a273bf7130b018ecd7582491f2c9414e3ac902ce8475acddf7283220f7f64)
+            check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_list_name": contact_list_name,
+        }
+
+    @builtins.property
+    def contact_list_name(self) -> builtins.str:
+        '''The ContactListName of the ContactList resource.'''
+        result = self._values.get("contact_list_name")
+        assert result is not None, "Required property 'contact_list_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactListReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.DedicatedIpPoolProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dedicated_ip_pool_name": "dedicatedIpPoolName",
+        "scaling_mode": "scalingMode",
+    },
+)
+class DedicatedIpPoolProps:
+    def __init__(
+        self,
+        *,
+        dedicated_ip_pool_name: typing.Optional[builtins.str] = None,
+        scaling_mode: typing.Optional["ScalingMode"] = None,
+    ) -> None:
+        '''Properties for a dedicated IP pool.
+
+        :param dedicated_ip_pool_name: A name for the dedicated IP pool. The name must adhere to specific constraints: it can only include lowercase letters (a-z), numbers (0-9), underscores (_), and hyphens (-), and must not exceed 64 characters in length. Default: - a CloudFormation generated name
+        :param scaling_mode: The type of scailing mode to use for this IP pool. Updating ScalingMode doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED``. However, updating ScalingMode from ``MANAGED`` to ``STANDARD`` is not supported. Default: ScalingMode.STANDARD
+
+        :exampleMetadata: infused
+
+        Example::
+
+            ses.DedicatedIpPool(self, "Pool",
+                dedicated_ip_pool_name="mypool",
+                scaling_mode=ses.ScalingMode.STANDARD
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0)
+            check_type(argname="argument dedicated_ip_pool_name", value=dedicated_ip_pool_name, expected_type=type_hints["dedicated_ip_pool_name"])
+            check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dedicated_ip_pool_name is not None:
+            self._values["dedicated_ip_pool_name"] = dedicated_ip_pool_name
+        if scaling_mode is not None:
+            self._values["scaling_mode"] = scaling_mode
+
+    @builtins.property
+    def dedicated_ip_pool_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the dedicated IP pool.
+
+        The name must adhere to specific constraints: it can only include
+        lowercase letters (a-z), numbers (0-9), underscores (_), and hyphens (-),
+        and must not exceed 64 characters in length.
+
+        :default: - a CloudFormation generated name
+        '''
+        result = self._values.get("dedicated_ip_pool_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scaling_mode(self) -> typing.Optional["ScalingMode"]:
+        '''The type of scailing mode to use for this IP pool.
+
+        Updating ScalingMode doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED``.
+        However, updating ScalingMode from ``MANAGED`` to ``STANDARD`` is not supported.
+
+        :default: ScalingMode.STANDARD
+        '''
+        result = self._values.get("scaling_mode")
+        return typing.cast(typing.Optional["ScalingMode"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DedicatedIpPoolProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.DedicatedIpPoolReference",
+    jsii_struct_bases=[],
+    name_mapping={"pool_name": "poolName"},
+)
+class DedicatedIpPoolReference:
+    def __init__(self, *, pool_name: builtins.str) -> None:
+        '''A reference to a DedicatedIpPool resource.
+
+        :param pool_name: The PoolName of the DedicatedIpPool resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            dedicated_ip_pool_reference = ses.DedicatedIpPoolReference(
+                pool_name="poolName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cffb1b60b083e8f5fa9dbcafb86f1a4ccf3e52ed88d1058a7620f649026e044)
+            check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pool_name": pool_name,
+        }
+
+    @builtins.property
+    def pool_name(self) -> builtins.str:
+        '''The PoolName of the DedicatedIpPool resource.'''
+        result = self._values.get("pool_name")
+        assert result is not None, "Required property 'pool_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DedicatedIpPoolReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DkimIdentity(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_ses.DkimIdentity",
+):
+    '''The identity to use for DKIM.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_hosted_zone: route53.IPublicHostedZone
+        
+        
+        ses.EmailIdentity(self, "Identity",
+            identity=ses.Identity.public_hosted_zone(my_hosted_zone),
+            dkim_identity=ses.DkimIdentity.byo_dkim(
+                private_key=SecretValue.secrets_manager("dkim-private-key"),
+                public_key="...base64-encoded-public-key...",
+                selector="selector"
+            )
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="byoDkim")
+    @builtins.classmethod
+    def byo_dkim(
+        cls,
+        *,
+        private_key: _SecretValue_3dd0ddae,
+        selector: builtins.str,
+        public_key: typing.Optional[builtins.str] = None,
+    ) -> "DkimIdentity":
+        '''Bring Your Own DKIM.
+
+        :param private_key: The private key that's used to generate a DKIM signature.
+        :param selector: A string that's used to identify a public key in the DNS configuration for a domain.
+        :param public_key: The public key. If specified, a TXT record with the public key is created. Default: - the validation TXT record with the public key is not created
+
+        :see: https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-bring-your-own.html
+        '''
+        options = ByoDkimOptions(
+            private_key=private_key, selector=selector, public_key=public_key
+        )
+
+        return typing.cast("DkimIdentity", jsii.sinvoke(cls, "byoDkim", [options]))
+
+    @jsii.member(jsii_name="easyDkim")
+    @builtins.classmethod
+    def easy_dkim(
+        cls,
+        signing_key_length: typing.Optional["EasyDkimSigningKeyLength"] = None,
+    ) -> "DkimIdentity":
+        '''Easy DKIM.
+
+        :param signing_key_length: The length of the signing key. This can be changed at most once per day.
+
+        :see: https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc)
+            check_type(argname="argument signing_key_length", value=signing_key_length, expected_type=type_hints["signing_key_length"])
+        return typing.cast("DkimIdentity", jsii.sinvoke(cls, "easyDkim", [signing_key_length]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(
+        self,
+        email_identity: "EmailIdentity",
+        hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
+    ) -> typing.Optional["DkimIdentityConfig"]:
+        '''Binds this DKIM identity to the email identity.
+
+        :param email_identity: -
+        :param hosted_zone: -
+        '''
+        ...
+
+
+class _DkimIdentityProxy(DkimIdentity):
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        email_identity: "EmailIdentity",
+        hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
+    ) -> typing.Optional["DkimIdentityConfig"]:
+        '''Binds this DKIM identity to the email identity.
+
+        :param email_identity: -
+        :param hosted_zone: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db)
+            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
+            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
+        return typing.cast(typing.Optional["DkimIdentityConfig"], jsii.invoke(self, "bind", [email_identity, hosted_zone]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, DkimIdentity).__jsii_proxy_class__ = lambda : _DkimIdentityProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.DkimIdentityConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_signing_private_key": "domainSigningPrivateKey",
+        "domain_signing_selector": "domainSigningSelector",
+        "next_signing_key_length": "nextSigningKeyLength",
+    },
+)
+class DkimIdentityConfig:
+    def __init__(
+        self,
+        *,
+        domain_signing_private_key: typing.Optional[builtins.str] = None,
+        domain_signing_selector: typing.Optional[builtins.str] = None,
+        next_signing_key_length: typing.Optional["EasyDkimSigningKeyLength"] = None,
+    ) -> None:
+        '''Configuration for DKIM identity.
+
+        :param domain_signing_private_key: A private key that's used to generate a DKIM signature. Default: - use Easy DKIM
+        :param domain_signing_selector: A string that's used to identify a public key in the DNS configuration for a domain. Default: - use Easy DKIM
+        :param next_signing_key_length: The key length of the future DKIM key pair to be generated. This can be changed at most once per day. Default: EasyDkimSigningKeyLength.RSA_2048_BIT
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            dkim_identity_config = ses.DkimIdentityConfig(
+                domain_signing_private_key="domainSigningPrivateKey",
+                domain_signing_selector="domainSigningSelector",
+                next_signing_key_length=ses.EasyDkimSigningKeyLength.RSA_1024_BIT
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb)
+            check_type(argname="argument domain_signing_private_key", value=domain_signing_private_key, expected_type=type_hints["domain_signing_private_key"])
+            check_type(argname="argument domain_signing_selector", value=domain_signing_selector, expected_type=type_hints["domain_signing_selector"])
+            check_type(argname="argument next_signing_key_length", value=next_signing_key_length, expected_type=type_hints["next_signing_key_length"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if domain_signing_private_key is not None:
+            self._values["domain_signing_private_key"] = domain_signing_private_key
+        if domain_signing_selector is not None:
+            self._values["domain_signing_selector"] = domain_signing_selector
+        if next_signing_key_length is not None:
+            self._values["next_signing_key_length"] = next_signing_key_length
+
+    @builtins.property
+    def domain_signing_private_key(self) -> typing.Optional[builtins.str]:
+        '''A private key that's used to generate a DKIM signature.
+
+        :default: - use Easy DKIM
+        '''
+        result = self._values.get("domain_signing_private_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_signing_selector(self) -> typing.Optional[builtins.str]:
+        '''A string that's used to identify a public key in the DNS configuration for a domain.
+
+        :default: - use Easy DKIM
+        '''
+        result = self._values.get("domain_signing_selector")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def next_signing_key_length(self) -> typing.Optional["EasyDkimSigningKeyLength"]:
+        '''The key length of the future DKIM key pair to be generated.
+
+        This can be changed
+        at most once per day.
+
+        :default: EasyDkimSigningKeyLength.RSA_2048_BIT
+        '''
+        result = self._values.get("next_signing_key_length")
+        return typing.cast(typing.Optional["EasyDkimSigningKeyLength"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DkimIdentityConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.DkimRecord",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value": "value"},
+)
+class DkimRecord:
+    def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+        '''A DKIM record.
+
+        :param name: The name of the record.
+        :param value: The value of the record.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            dkim_record = ses.DkimRecord(
+                name="name",
+                value="value"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value": value,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the record.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''The value of the record.'''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DkimRecord(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DropSpamReceiptRule(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.DropSpamReceiptRule",
+):
+    '''A rule added at the top of the rule set to drop spam/virus.
+
+    :see: https://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-action-lambda-example-functions.html
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ses as ses
+        
+        # receipt_rule: ses.ReceiptRule
+        # receipt_rule_action: ses.IReceiptRuleAction
+        # receipt_rule_set: ses.ReceiptRuleSet
+        
+        drop_spam_receipt_rule = ses.DropSpamReceiptRule(self, "MyDropSpamReceiptRule",
+            rule_set=receipt_rule_set,
+        
+            # the properties below are optional
+            actions=[receipt_rule_action],
+            after=receipt_rule,
+            enabled=False,
+            receipt_rule_name="receiptRuleName",
+            recipients=["recipients"],
+            scan_enabled=False,
+            tls_policy=ses.TlsPolicy.OPTIONAL
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        rule_set: "IReceiptRuleSet",
+        actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
+        after: typing.Optional["IReceiptRule"] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param rule_set: The name of the rule set that the receipt rule will be added to.
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = DropSpamReceiptRuleProps(
+            rule_set=rule_set,
+            actions=actions,
+            after=after,
+            enabled=enabled,
+            receipt_rule_name=receipt_rule_name,
+            recipients=recipients,
+            scan_enabled=scan_enabled,
+            tls_policy=tls_policy,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rule")
+    def rule(self) -> "ReceiptRule":
+        return typing.cast("ReceiptRule", jsii.get(self, "rule"))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.EasyDkimSigningKeyLength")
+class EasyDkimSigningKeyLength(enum.Enum):
+    '''The signing key length for Easy DKIM.'''
+
+    RSA_1024_BIT = "RSA_1024_BIT"
+    '''RSA 1024-bit.'''
+    RSA_2048_BIT = "RSA_2048_BIT"
+    '''RSA 2048-bit.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.EmailIdentityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity": "identity",
+        "configuration_set": "configurationSet",
+        "dkim_identity": "dkimIdentity",
+        "dkim_signing": "dkimSigning",
+        "feedback_forwarding": "feedbackForwarding",
+        "mail_from_behavior_on_mx_failure": "mailFromBehaviorOnMxFailure",
+        "mail_from_domain": "mailFromDomain",
+    },
+)
+class EmailIdentityProps:
+    def __init__(
+        self,
+        *,
+        identity: "Identity",
+        configuration_set: typing.Optional["IConfigurationSet"] = None,
+        dkim_identity: typing.Optional[DkimIdentity] = None,
+        dkim_signing: typing.Optional[builtins.bool] = None,
+        feedback_forwarding: typing.Optional[builtins.bool] = None,
+        mail_from_behavior_on_mx_failure: typing.Optional["MailFromBehaviorOnMxFailure"] = None,
+        mail_from_domain: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for an email identity.
+
+        :param identity: The email address or domain to verify.
+        :param configuration_set: The configuration set to associate with the email identity. Default: - do not use a specific configuration set
+        :param dkim_identity: The type of DKIM identity to use. Default: - Easy DKIM with a key length of 2048-bit
+        :param dkim_signing: Whether the messages that are sent from the identity are signed using DKIM. Default: true
+        :param feedback_forwarding: Whether to receive email notifications when bounce or complaint events occur. These notifications are sent to the address that you specified in the ``Return-Path`` header of the original email. You're required to have a method of tracking bounces and complaints. If you haven't set up another mechanism for receiving bounce or complaint notifications (for example, by setting up an event destination), you receive an email notification when these events occur (even if this setting is disabled). Default: true
+        :param mail_from_behavior_on_mx_failure: The action to take if the required MX record for the MAIL FROM domain isn't found when you send an email. Default: MailFromBehaviorOnMxFailure.USE_DEFAULT_VALUE
+        :param mail_from_domain: The custom MAIL FROM domain that you want the verified identity to use. The MAIL FROM domain must meet the following criteria: - It has to be a subdomain of the verified identity - It can't be used to receive email - It can't be used in a "From" address if the MAIL FROM domain is a destination for feedback forwarding emails Default: - use amazonses.com
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_iam as iam
+            # user: iam.User
+            
+            
+            identity = ses.EmailIdentity(self, "Identity",
+                identity=ses.Identity.domain("cdk.dev")
+            )
+            
+            identity.grant_send_email(user)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
+            check_type(argname="argument dkim_identity", value=dkim_identity, expected_type=type_hints["dkim_identity"])
+            check_type(argname="argument dkim_signing", value=dkim_signing, expected_type=type_hints["dkim_signing"])
+            check_type(argname="argument feedback_forwarding", value=feedback_forwarding, expected_type=type_hints["feedback_forwarding"])
+            check_type(argname="argument mail_from_behavior_on_mx_failure", value=mail_from_behavior_on_mx_failure, expected_type=type_hints["mail_from_behavior_on_mx_failure"])
+            check_type(argname="argument mail_from_domain", value=mail_from_domain, expected_type=type_hints["mail_from_domain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity": identity,
+        }
+        if configuration_set is not None:
+            self._values["configuration_set"] = configuration_set
+        if dkim_identity is not None:
+            self._values["dkim_identity"] = dkim_identity
+        if dkim_signing is not None:
+            self._values["dkim_signing"] = dkim_signing
+        if feedback_forwarding is not None:
+            self._values["feedback_forwarding"] = feedback_forwarding
+        if mail_from_behavior_on_mx_failure is not None:
+            self._values["mail_from_behavior_on_mx_failure"] = mail_from_behavior_on_mx_failure
+        if mail_from_domain is not None:
+            self._values["mail_from_domain"] = mail_from_domain
+
+    @builtins.property
+    def identity(self) -> "Identity":
+        '''The email address or domain to verify.'''
+        result = self._values.get("identity")
+        assert result is not None, "Required property 'identity' is missing"
+        return typing.cast("Identity", result)
+
+    @builtins.property
+    def configuration_set(self) -> typing.Optional["IConfigurationSet"]:
+        '''The configuration set to associate with the email identity.
+
+        :default: - do not use a specific configuration set
+        '''
+        result = self._values.get("configuration_set")
+        return typing.cast(typing.Optional["IConfigurationSet"], result)
+
+    @builtins.property
+    def dkim_identity(self) -> typing.Optional[DkimIdentity]:
+        '''The type of DKIM identity to use.
+
+        :default: - Easy DKIM with a key length of 2048-bit
+        '''
+        result = self._values.get("dkim_identity")
+        return typing.cast(typing.Optional[DkimIdentity], result)
+
+    @builtins.property
+    def dkim_signing(self) -> typing.Optional[builtins.bool]:
+        '''Whether the messages that are sent from the identity are signed using DKIM.
+
+        :default: true
+        '''
+        result = self._values.get("dkim_signing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def feedback_forwarding(self) -> typing.Optional[builtins.bool]:
+        '''Whether to receive email notifications when bounce or complaint events occur.
+
+        These notifications are sent to the address that you specified in the ``Return-Path``
+        header of the original email.
+
+        You're required to have a method of tracking bounces and complaints. If you haven't set
+        up another mechanism for receiving bounce or complaint notifications (for example, by
+        setting up an event destination), you receive an email notification when these events
+        occur (even if this setting is disabled).
+
+        :default: true
+        '''
+        result = self._values.get("feedback_forwarding")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def mail_from_behavior_on_mx_failure(
+        self,
+    ) -> typing.Optional["MailFromBehaviorOnMxFailure"]:
+        '''The action to take if the required MX record for the MAIL FROM domain isn't found when you send an email.
+
+        :default: MailFromBehaviorOnMxFailure.USE_DEFAULT_VALUE
+        '''
+        result = self._values.get("mail_from_behavior_on_mx_failure")
+        return typing.cast(typing.Optional["MailFromBehaviorOnMxFailure"], result)
+
+    @builtins.property
+    def mail_from_domain(self) -> typing.Optional[builtins.str]:
+        '''The custom MAIL FROM domain that you want the verified identity to use.
+
+        The MAIL FROM domain
+        must meet the following criteria:
+
+        - It has to be a subdomain of the verified identity
+        - It can't be used to receive email
+        - It can't be used in a "From" address if the MAIL FROM domain is a destination for feedback
+          forwarding emails
+
+        :default: - use amazonses.com
+        '''
+        result = self._values.get("mail_from_domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailIdentityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.EmailIdentityReference",
+    jsii_struct_bases=[],
+    name_mapping={"email_identity": "emailIdentity"},
+)
+class EmailIdentityReference:
+    def __init__(self, *, email_identity: builtins.str) -> None:
+        '''A reference to a EmailIdentity resource.
+
+        :param email_identity: The EmailIdentity of the EmailIdentity resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            email_identity_reference = ses.EmailIdentityReference(
+                email_identity="emailIdentity"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5507f1a574b4485f2b462f26427262c5729d7b81756b96a8a865a52b3769811)
+            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_identity": email_identity,
+        }
+
+    @builtins.property
+    def email_identity(self) -> builtins.str:
+        '''The EmailIdentity of the EmailIdentity resource.'''
+        result = self._values.get("email_identity")
+        assert result is not None, "Required property 'email_identity' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailIdentityReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.EmailSendingEvent")
+class EmailSendingEvent(enum.Enum):
+    '''Email sending event.'''
+
+    SEND = "SEND"
+    '''The send request was successful and SES will attempt to deliver the message to the recipient's mail server.
+
+    (If account-level or global suppression is
+    being used, SES will still count it as a send, but delivery is suppressed.)
+    '''
+    REJECT = "REJECT"
+    '''SES accepted the email, but determined that it contained a virus and didn’t attempt to deliver it to the recipient’s mail server.'''
+    BOUNCE = "BOUNCE"
+    '''(Hard bounce) The recipient's mail server permanently rejected the email.
+
+    (Soft bounces are only included when SES fails to deliver the email after
+    retrying for a period of time.)
+    '''
+    COMPLAINT = "COMPLAINT"
+    '''The email was successfully delivered to the recipient’s mail server, but the recipient marked it as spam.'''
+    DELIVERY = "DELIVERY"
+    '''SES successfully delivered the email to the recipient's mail server.'''
+    OPEN = "OPEN"
+    '''The recipient received the message and opened it in their email client.'''
+    CLICK = "CLICK"
+    '''The recipient clicked one or more links in the email.'''
+    RENDERING_FAILURE = "RENDERING_FAILURE"
+    '''The email wasn't sent because of a template rendering issue.
+
+    This event type
+    can occur when template data is missing, or when there is a mismatch between
+    template parameters and data. (This event type only occurs when you send email
+    using the ``SendTemplatedEmail`` or ``SendBulkTemplatedEmail`` API operations.)
+    '''
+    DELIVERY_DELAY = "DELIVERY_DELAY"
+    '''The email couldn't be delivered to the recipient’s mail server because a temporary issue occurred.
+
+    Delivery delays can occur, for example, when the recipient's inbox
+    is full, or when the receiving email server experiences a transient issue.
+    '''
+    SUBSCRIPTION = "SUBSCRIPTION"
+    '''The email was successfully delivered, but the recipient updated their subscription preferences by clicking on an unsubscribe link as part of your subscription management.'''
+
+
+class EventDestination(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_ses.EventDestination",
+):
+    '''An event destination.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_events as events
+        
+        # my_configuration_set: ses.ConfigurationSet
+        
+        
+        bus = events.EventBus.from_event_bus_name(self, "EventBus", "default")
+        
+        my_configuration_set.add_event_destination("ToEventBus",
+            destination=ses.EventDestination.event_bus(bus)
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="cloudWatchDimensions")
+    @builtins.classmethod
+    def cloud_watch_dimensions(
+        cls,
+        dimensions: typing.Sequence[typing.Union[CloudWatchDimension, typing.Dict[builtins.str, typing.Any]]],
+    ) -> "EventDestination":
+        '''Use CloudWatch dimensions as event destination.
+
+        :param dimensions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92)
+            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+        return typing.cast("EventDestination", jsii.sinvoke(cls, "cloudWatchDimensions", [dimensions]))
+
+    @jsii.member(jsii_name="eventBus")
+    @builtins.classmethod
+    def event_bus(cls, event_bus: _IEventBus_88d13111) -> "EventDestination":
+        '''Use Event Bus as event destination.
+
+        :param event_bus: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567)
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+        return typing.cast("EventDestination", jsii.sinvoke(cls, "eventBus", [event_bus]))
+
+    @jsii.member(jsii_name="firehoseDeliveryStream")
+    @builtins.classmethod
+    def firehose_delivery_stream(
+        cls,
+        *,
+        delivery_stream: _IDeliveryStream_8f118861,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> "EventDestination":
+        '''Use Firehose Delivery Stream as event destination.
+
+        :param delivery_stream: The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.
+        :param role: The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream. Default: - Create IAM Role for Amazon Data Firehose Delivery stream
+        '''
+        stream = FirehoseDeliveryStreamDestination(
+            delivery_stream=delivery_stream, role=role
+        )
+
+        return typing.cast("EventDestination", jsii.sinvoke(cls, "firehoseDeliveryStream", [stream]))
+
+    @jsii.member(jsii_name="snsTopic")
+    @builtins.classmethod
+    def sns_topic(cls, topic: _ITopic_9eca4852) -> "EventDestination":
+        '''Use a SNS topic as event destination.
+
+        :param topic: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c)
+            check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
+        return typing.cast("EventDestination", jsii.sinvoke(cls, "snsTopic", [topic]))
+
+    @builtins.property
+    @jsii.member(jsii_name="bus")
+    @abc.abstractmethod
+    def bus(self) -> typing.Optional[_IEventBus_88d13111]:
+        '''Use Event Bus as event destination.
+
+        :default: - do not send events to Event bus
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensions")
+    @abc.abstractmethod
+    def dimensions(self) -> typing.Optional[typing.List[CloudWatchDimension]]:
+        '''A list of CloudWatch dimensions upon which to categorize your emails.
+
+        :default: - do not send events to CloudWatch
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="stream")
+    @abc.abstractmethod
+    def stream(self) -> typing.Optional["FirehoseDeliveryStreamDestination"]:
+        '''Use Firehose Delivery Stream.
+
+        :default: - do not send events to Firehose Delivery Stream
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="topic")
+    @abc.abstractmethod
+    def topic(self) -> typing.Optional[_ITopic_9eca4852]:
+        '''A SNS topic to use as event destination.
+
+        :default: - do not send events to a SNS topic
+        '''
+        ...
+
+
+class _EventDestinationProxy(EventDestination):
+    @builtins.property
+    @jsii.member(jsii_name="bus")
+    def bus(self) -> typing.Optional[_IEventBus_88d13111]:
+        '''Use Event Bus as event destination.
+
+        :default: - do not send events to Event bus
+        '''
+        return typing.cast(typing.Optional[_IEventBus_88d13111], jsii.get(self, "bus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensions")
+    def dimensions(self) -> typing.Optional[typing.List[CloudWatchDimension]]:
+        '''A list of CloudWatch dimensions upon which to categorize your emails.
+
+        :default: - do not send events to CloudWatch
+        '''
+        return typing.cast(typing.Optional[typing.List[CloudWatchDimension]], jsii.get(self, "dimensions"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stream")
+    def stream(self) -> typing.Optional["FirehoseDeliveryStreamDestination"]:
+        '''Use Firehose Delivery Stream.
+
+        :default: - do not send events to Firehose Delivery Stream
+        '''
+        return typing.cast(typing.Optional["FirehoseDeliveryStreamDestination"], jsii.get(self, "stream"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topic")
+    def topic(self) -> typing.Optional[_ITopic_9eca4852]:
+        '''A SNS topic to use as event destination.
+
+        :default: - do not send events to a SNS topic
+        '''
+        return typing.cast(typing.Optional[_ITopic_9eca4852], jsii.get(self, "topic"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, EventDestination).__jsii_proxy_class__ = lambda : _EventDestinationProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.FirehoseDeliveryStreamDestination",
+    jsii_struct_bases=[],
+    name_mapping={"delivery_stream": "deliveryStream", "role": "role"},
+)
+class FirehoseDeliveryStreamDestination:
+    def __init__(
+        self,
+        *,
+        delivery_stream: _IDeliveryStream_8f118861,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> None:
+        '''An object that defines an Amazon Data Firehose destination for email events.
+
+        :param delivery_stream: The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.
+        :param role: The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream. Default: - Create IAM Role for Amazon Data Firehose Delivery stream
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_iam as iam
+            import aws_cdk.aws_kinesisfirehose as firehose
+            
+            # my_configuration_set: ses.ConfigurationSet
+            # firehose_delivery_stream: firehose.IDeliveryStream
+            # iam_role: iam.IRole
+            
+            
+            # Create IAM Role automatically
+            my_configuration_set.add_event_destination("ToFirehose",
+                destination=ses.EventDestination.firehose_delivery_stream(
+                    delivery_stream=firehose_delivery_stream
+                )
+            )
+            
+            # Specify your IAM Role
+            my_configuration_set.add_event_destination("ToFirehose",
+                destination=ses.EventDestination.firehose_delivery_stream(
+                    delivery_stream=firehose_delivery_stream,
+                    role=iam_role
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464)
+            check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "delivery_stream": delivery_stream,
+        }
+        if role is not None:
+            self._values["role"] = role
+
+    @builtins.property
+    def delivery_stream(self) -> _IDeliveryStream_8f118861:
+        '''The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.'''
+        result = self._values.get("delivery_stream")
+        assert result is not None, "Required property 'delivery_stream' is missing"
+        return typing.cast(_IDeliveryStream_8f118861, result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream.
+
+        :default: - Create IAM Role for Amazon Data Firehose Delivery stream
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirehoseDeliveryStreamDestination(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.HttpsPolicy")
+class HttpsPolicy(enum.Enum):
+    '''HTTPS policy option for the protocol of the open and click tracking links for your custom redirect domain.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            custom_tracking_redirect_domain="track.cdk.dev",
+            custom_tracking_https_policy=ses.HttpsPolicy.REQUIRE
+        )
+    '''
+
+    REQUIRE = "REQUIRE"
+    '''Open and Click tracking links will both be wrapped using HTTPS.'''
+    REQUIRE_OPEN_ONLY = "REQUIRE_OPEN_ONLY"
+    '''Open tracking links will be wrapped using HTTPS.
+
+    Click tracking links will be wrapped using the original protocol of the link.
+    '''
+    OPTIONAL = "OPTIONAL"
+    '''Open tracking links will be wrapped using HTTP.
+
+    Click tracking links will be wrapped using the original protocol of the link.
+    '''
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSet")
+class IConfigurationSet(_IResource_c80c4260, typing_extensions.Protocol):
+    '''A configuration set.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetName")
+    def configuration_set_name(self) -> builtins.str:
+        '''The name of the configuration set.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IConfigurationSetProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A configuration set.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSet"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetName")
+    def configuration_set_name(self) -> builtins.str:
+        '''The name of the configuration set.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "configurationSetName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationSet).__jsii_proxy_class__ = lambda : _IConfigurationSetProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSetEventDestination")
+class IConfigurationSetEventDestination(
+    _IResource_c80c4260,
+    typing_extensions.Protocol,
+):
+    '''A configuration set event destination.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetEventDestinationId")
+    def configuration_set_event_destination_id(self) -> builtins.str:
+        '''The ID of the configuration set event destination.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IConfigurationSetEventDestinationProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A configuration set event destination.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSetEventDestination"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetEventDestinationId")
+    def configuration_set_event_destination_id(self) -> builtins.str:
+        '''The ID of the configuration set event destination.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "configurationSetEventDestinationId"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationSetEventDestination).__jsii_proxy_class__ = lambda : _IConfigurationSetEventDestinationProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSetEventDestinationRef")
+class IConfigurationSetEventDestinationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationSetEventDestination.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetEventDestinationRef")
+    def configuration_set_event_destination_ref(
+        self,
+    ) -> ConfigurationSetEventDestinationReference:
+        '''(experimental) A reference to a ConfigurationSetEventDestination resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationSetEventDestinationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationSetEventDestination.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSetEventDestinationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetEventDestinationRef")
+    def configuration_set_event_destination_ref(
+        self,
+    ) -> ConfigurationSetEventDestinationReference:
+        '''(experimental) A reference to a ConfigurationSetEventDestination resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationSetEventDestinationReference, jsii.get(self, "configurationSetEventDestinationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationSetEventDestinationRef).__jsii_proxy_class__ = lambda : _IConfigurationSetEventDestinationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSetRef")
+class IConfigurationSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetRef")
+    def configuration_set_ref(self) -> ConfigurationSetReference:
+        '''(experimental) A reference to a ConfigurationSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetRef")
+    def configuration_set_ref(self) -> ConfigurationSetReference:
+        '''(experimental) A reference to a ConfigurationSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationSetReference, jsii.get(self, "configurationSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationSetRef).__jsii_proxy_class__ = lambda : _IConfigurationSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IContactListRef")
+class IContactListRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ContactList.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactListRef")
+    def contact_list_ref(self) -> ContactListReference:
+        '''(experimental) A reference to a ContactList resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactListRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactList.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IContactListRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactListRef")
+    def contact_list_ref(self) -> ContactListReference:
+        '''(experimental) A reference to a ContactList resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContactListReference, jsii.get(self, "contactListRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactListRef).__jsii_proxy_class__ = lambda : _IContactListRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IDedicatedIpPool")
+class IDedicatedIpPool(_IResource_c80c4260, typing_extensions.Protocol):
+    '''A dedicated IP pool.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="dedicatedIpPoolName")
+    def dedicated_ip_pool_name(self) -> builtins.str:
+        '''The name of the dedicated IP pool.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IDedicatedIpPoolProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A dedicated IP pool.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IDedicatedIpPool"
+
+    @builtins.property
+    @jsii.member(jsii_name="dedicatedIpPoolName")
+    def dedicated_ip_pool_name(self) -> builtins.str:
+        '''The name of the dedicated IP pool.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "dedicatedIpPoolName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDedicatedIpPool).__jsii_proxy_class__ = lambda : _IDedicatedIpPoolProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IDedicatedIpPoolRef")
+class IDedicatedIpPoolRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DedicatedIpPool.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dedicatedIpPoolRef")
+    def dedicated_ip_pool_ref(self) -> DedicatedIpPoolReference:
+        '''(experimental) A reference to a DedicatedIpPool resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDedicatedIpPoolRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DedicatedIpPool.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IDedicatedIpPoolRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dedicatedIpPoolRef")
+    def dedicated_ip_pool_ref(self) -> DedicatedIpPoolReference:
+        '''(experimental) A reference to a DedicatedIpPool resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DedicatedIpPoolReference, jsii.get(self, "dedicatedIpPoolRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDedicatedIpPoolRef).__jsii_proxy_class__ = lambda : _IDedicatedIpPoolRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IEmailIdentity")
+class IEmailIdentity(_IResource_c80c4260, typing_extensions.Protocol):
+    '''An email identity.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityArn")
+    def email_identity_arn(self) -> builtins.str:
+        '''The ARN of the email identity.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityName")
+    def email_identity_name(self) -> builtins.str:
+        '''The name of the email identity.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        *actions: builtins.str,
+    ) -> _Grant_a7ae64f8:
+        '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
+
+        :param grantee: the principal (no-op if undefined).
+        :param actions: the set of actions to allow.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantSendEmail")
+    def grant_send_email(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Permits an IAM principal the send email action.
+
+        Actions: SendEmail.
+
+        :param grantee: the principal to grant access to.
+        '''
+        ...
+
+
+class _IEmailIdentityProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''An email identity.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IEmailIdentity"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityArn")
+    def email_identity_arn(self) -> builtins.str:
+        '''The ARN of the email identity.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "emailIdentityArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityName")
+    def email_identity_name(self) -> builtins.str:
+        '''The name of the email identity.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "emailIdentityName"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        *actions: builtins.str,
+    ) -> _Grant_a7ae64f8:
+        '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
+
+        :param grantee: the principal (no-op if undefined).
+        :param actions: the set of actions to allow.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantSendEmail")
+    def grant_send_email(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Permits an IAM principal the send email action.
+
+        Actions: SendEmail.
+
+        :param grantee: the principal to grant access to.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSendEmail", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailIdentity).__jsii_proxy_class__ = lambda : _IEmailIdentityProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IEmailIdentityRef")
+class IEmailIdentityRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EmailIdentity.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityRef")
+    def email_identity_ref(self) -> EmailIdentityReference:
+        '''(experimental) A reference to a EmailIdentity resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEmailIdentityRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailIdentity.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IEmailIdentityRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityRef")
+    def email_identity_ref(self) -> EmailIdentityReference:
+        '''(experimental) A reference to a EmailIdentity resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EmailIdentityReference, jsii.get(self, "emailIdentityRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailIdentityRef).__jsii_proxy_class__ = lambda : _IEmailIdentityRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerAddonInstanceRef")
+class IMailManagerAddonInstanceRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonInstanceRef")
+    def mail_manager_addon_instance_ref(self) -> "MailManagerAddonInstanceReference":
+        '''(experimental) A reference to a MailManagerAddonInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerAddonInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerAddonInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonInstanceRef")
+    def mail_manager_addon_instance_ref(self) -> "MailManagerAddonInstanceReference":
+        '''(experimental) A reference to a MailManagerAddonInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerAddonInstanceReference", jsii.get(self, "mailManagerAddonInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerAddonInstanceRef).__jsii_proxy_class__ = lambda : _IMailManagerAddonInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerAddonSubscriptionRef")
+class IMailManagerAddonSubscriptionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonSubscription.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonSubscriptionRef")
+    def mail_manager_addon_subscription_ref(
+        self,
+    ) -> "MailManagerAddonSubscriptionReference":
+        '''(experimental) A reference to a MailManagerAddonSubscription resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerAddonSubscriptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddonSubscription.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerAddonSubscriptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonSubscriptionRef")
+    def mail_manager_addon_subscription_ref(
+        self,
+    ) -> "MailManagerAddonSubscriptionReference":
+        '''(experimental) A reference to a MailManagerAddonSubscription resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerAddonSubscriptionReference", jsii.get(self, "mailManagerAddonSubscriptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerAddonSubscriptionRef).__jsii_proxy_class__ = lambda : _IMailManagerAddonSubscriptionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerAddressListRef")
+class IMailManagerAddressListRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddressList.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddressListRef")
+    def mail_manager_address_list_ref(self) -> "MailManagerAddressListReference":
+        '''(experimental) A reference to a MailManagerAddressList resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerAddressListRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerAddressList.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerAddressListRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerAddressListRef")
+    def mail_manager_address_list_ref(self) -> "MailManagerAddressListReference":
+        '''(experimental) A reference to a MailManagerAddressList resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerAddressListReference", jsii.get(self, "mailManagerAddressListRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerAddressListRef).__jsii_proxy_class__ = lambda : _IMailManagerAddressListRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerArchiveRef")
+class IMailManagerArchiveRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerArchive.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerArchiveRef")
+    def mail_manager_archive_ref(self) -> "MailManagerArchiveReference":
+        '''(experimental) A reference to a MailManagerArchive resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerArchiveRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerArchive.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerArchiveRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerArchiveRef")
+    def mail_manager_archive_ref(self) -> "MailManagerArchiveReference":
+        '''(experimental) A reference to a MailManagerArchive resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerArchiveReference", jsii.get(self, "mailManagerArchiveRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerArchiveRef).__jsii_proxy_class__ = lambda : _IMailManagerArchiveRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerIngressPointRef")
+class IMailManagerIngressPointRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerIngressPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerIngressPointRef")
+    def mail_manager_ingress_point_ref(self) -> "MailManagerIngressPointReference":
+        '''(experimental) A reference to a MailManagerIngressPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerIngressPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerIngressPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerIngressPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerIngressPointRef")
+    def mail_manager_ingress_point_ref(self) -> "MailManagerIngressPointReference":
+        '''(experimental) A reference to a MailManagerIngressPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerIngressPointReference", jsii.get(self, "mailManagerIngressPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerIngressPointRef).__jsii_proxy_class__ = lambda : _IMailManagerIngressPointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerRelayRef")
+class IMailManagerRelayRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerRelay.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRelayRef")
+    def mail_manager_relay_ref(self) -> "MailManagerRelayReference":
+        '''(experimental) A reference to a MailManagerRelay resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerRelayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerRelay.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerRelayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRelayRef")
+    def mail_manager_relay_ref(self) -> "MailManagerRelayReference":
+        '''(experimental) A reference to a MailManagerRelay resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerRelayReference", jsii.get(self, "mailManagerRelayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerRelayRef).__jsii_proxy_class__ = lambda : _IMailManagerRelayRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerRuleSetRef")
+class IMailManagerRuleSetRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerRuleSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRuleSetRef")
+    def mail_manager_rule_set_ref(self) -> "MailManagerRuleSetReference":
+        '''(experimental) A reference to a MailManagerRuleSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerRuleSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerRuleSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerRuleSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRuleSetRef")
+    def mail_manager_rule_set_ref(self) -> "MailManagerRuleSetReference":
+        '''(experimental) A reference to a MailManagerRuleSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerRuleSetReference", jsii.get(self, "mailManagerRuleSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerRuleSetRef).__jsii_proxy_class__ = lambda : _IMailManagerRuleSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IMailManagerTrafficPolicyRef")
+class IMailManagerTrafficPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerTrafficPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerTrafficPolicyRef")
+    def mail_manager_traffic_policy_ref(self) -> "MailManagerTrafficPolicyReference":
+        '''(experimental) A reference to a MailManagerTrafficPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMailManagerTrafficPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MailManagerTrafficPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IMailManagerTrafficPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerTrafficPolicyRef")
+    def mail_manager_traffic_policy_ref(self) -> "MailManagerTrafficPolicyReference":
+        '''(experimental) A reference to a MailManagerTrafficPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MailManagerTrafficPolicyReference", jsii.get(self, "mailManagerTrafficPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMailManagerTrafficPolicyRef).__jsii_proxy_class__ = lambda : _IMailManagerTrafficPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptFilterRef")
+class IReceiptFilterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptFilter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptFilterRef")
+    def receipt_filter_ref(self) -> "ReceiptFilterReference":
+        '''(experimental) A reference to a ReceiptFilter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReceiptFilterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptFilter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptFilterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptFilterRef")
+    def receipt_filter_ref(self) -> "ReceiptFilterReference":
+        '''(experimental) A reference to a ReceiptFilter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReceiptFilterReference", jsii.get(self, "receiptFilterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptFilterRef).__jsii_proxy_class__ = lambda : _IReceiptFilterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRule")
+class IReceiptRule(_IResource_c80c4260, typing_extensions.Protocol):
+    '''A receipt rule.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleName")
+    def receipt_rule_name(self) -> builtins.str:
+        '''The name of the receipt rule.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IReceiptRuleProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A receipt rule.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRule"
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleName")
+    def receipt_rule_name(self) -> builtins.str:
+        '''The name of the receipt rule.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "receiptRuleName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptRule).__jsii_proxy_class__ = lambda : _IReceiptRuleProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleAction")
+class IReceiptRuleAction(typing_extensions.Protocol):
+    '''An abstract action for a receipt rule.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, receipt_rule: IReceiptRule) -> "ReceiptRuleActionConfig":
+        '''Returns the receipt rule action specification.
+
+        :param receipt_rule: -
+        '''
+        ...
+
+
+class _IReceiptRuleActionProxy:
+    '''An abstract action for a receipt rule.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleAction"
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, receipt_rule: IReceiptRule) -> "ReceiptRuleActionConfig":
+        '''Returns the receipt rule action specification.
+
+        :param receipt_rule: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5)
+            check_type(argname="argument receipt_rule", value=receipt_rule, expected_type=type_hints["receipt_rule"])
+        return typing.cast("ReceiptRuleActionConfig", jsii.invoke(self, "bind", [receipt_rule]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptRuleAction).__jsii_proxy_class__ = lambda : _IReceiptRuleActionProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleRef")
+class IReceiptRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleRef")
+    def receipt_rule_ref(self) -> "ReceiptRuleReference":
+        '''(experimental) A reference to a ReceiptRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReceiptRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleRef")
+    def receipt_rule_ref(self) -> "ReceiptRuleReference":
+        '''(experimental) A reference to a ReceiptRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReceiptRuleReference", jsii.get(self, "receiptRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptRuleRef).__jsii_proxy_class__ = lambda : _IReceiptRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleSet")
+class IReceiptRuleSet(_IResource_c80c4260, typing_extensions.Protocol):
+    '''A receipt rule set.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetName")
+    def receipt_rule_set_name(self) -> builtins.str:
+        '''The receipt rule set name.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="addRule")
+    def add_rule(
+        self,
+        id: builtins.str,
+        *,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> "ReceiptRule":
+        '''Adds a new receipt rule in this rule set.
+
+        The new rule is added after
+        the last added rule unless ``after`` is specified.
+
+        :param id: -
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        '''
+        ...
+
+
+class _IReceiptRuleSetProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A receipt rule set.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleSet"
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetName")
+    def receipt_rule_set_name(self) -> builtins.str:
+        '''The receipt rule set name.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "receiptRuleSetName"))
+
+    @jsii.member(jsii_name="addRule")
+    def add_rule(
+        self,
+        id: builtins.str,
+        *,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> "ReceiptRule":
+        '''Adds a new receipt rule in this rule set.
+
+        The new rule is added after
+        the last added rule unless ``after`` is specified.
+
+        :param id: -
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = ReceiptRuleOptions(
+            actions=actions,
+            after=after,
+            enabled=enabled,
+            receipt_rule_name=receipt_rule_name,
+            recipients=recipients,
+            scan_enabled=scan_enabled,
+            tls_policy=tls_policy,
+        )
+
+        return typing.cast("ReceiptRule", jsii.invoke(self, "addRule", [id, options]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptRuleSet).__jsii_proxy_class__ = lambda : _IReceiptRuleSetProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleSetRef")
+class IReceiptRuleSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptRuleSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetRef")
+    def receipt_rule_set_ref(self) -> "ReceiptRuleSetReference":
+        '''(experimental) A reference to a ReceiptRuleSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReceiptRuleSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReceiptRuleSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetRef")
+    def receipt_rule_set_ref(self) -> "ReceiptRuleSetReference":
+        '''(experimental) A reference to a ReceiptRuleSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReceiptRuleSetReference", jsii.get(self, "receiptRuleSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReceiptRuleSetRef).__jsii_proxy_class__ = lambda : _IReceiptRuleSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.ITemplateRef")
+class ITemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Template.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> "TemplateReference":
+        '''(experimental) A reference to a Template resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Template.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.ITemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> "TemplateReference":
+        '''(experimental) A reference to a Template resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TemplateReference", jsii.get(self, "templateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITemplateRef).__jsii_proxy_class__ = lambda : _ITemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IVdmAttributes")
+class IVdmAttributes(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Virtual Deliverability Manager (VDM) attributes.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesName")
+    def vdm_attributes_name(self) -> builtins.str:
+        '''The name of the resource behind the Virtual Deliverability Manager attributes.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IVdmAttributesProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Virtual Deliverability Manager (VDM) attributes.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IVdmAttributes"
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesName")
+    def vdm_attributes_name(self) -> builtins.str:
+        '''The name of the resource behind the Virtual Deliverability Manager attributes.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVdmAttributes).__jsii_proxy_class__ = lambda : _IVdmAttributesProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IVdmAttributesRef")
+class IVdmAttributesRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a VdmAttributes.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesRef")
+    def vdm_attributes_ref(self) -> "VdmAttributesReference":
+        '''(experimental) A reference to a VdmAttributes resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVdmAttributesRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VdmAttributes.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IVdmAttributesRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesRef")
+    def vdm_attributes_ref(self) -> "VdmAttributesReference":
+        '''(experimental) A reference to a VdmAttributes resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VdmAttributesReference", jsii.get(self, "vdmAttributesRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVdmAttributesRef).__jsii_proxy_class__ = lambda : _IVdmAttributesRefProxy
+
+
+class Identity(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_ses.Identity",
+):
+    '''Identity.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_iam as iam
+        # user: iam.User
+        
+        
+        identity = ses.EmailIdentity(self, "Identity",
+            identity=ses.Identity.domain("cdk.dev")
+        )
+        
+        identity.grant_send_email(user)
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="domain")
+    @builtins.classmethod
+    def domain(cls, domain: builtins.str) -> "Identity":
+        '''Verify a domain name.
+
+        DKIM records will have to be added manually to complete the verification
+        process
+
+        :param domain: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5)
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+        return typing.cast("Identity", jsii.sinvoke(cls, "domain", [domain]))
+
+    @jsii.member(jsii_name="email")
+    @builtins.classmethod
+    def email(cls, email: builtins.str) -> "Identity":
+        '''Verify an email address.
+
+        To complete the verification process look for an email from
+        no-reply-aws@amazon.com, open it and click the link.
+
+        :param email: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6)
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+        return typing.cast("Identity", jsii.sinvoke(cls, "email", [email]))
+
+    @jsii.member(jsii_name="publicHostedZone")
+    @builtins.classmethod
+    def public_hosted_zone(cls, hosted_zone: _IPublicHostedZone_9b6e7da4) -> "Identity":
+        '''Verify a public hosted zone.
+
+        DKIM and MAIL FROM records will be added automatically to the hosted
+        zone
+
+        :param hosted_zone: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776)
+            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
+        return typing.cast("Identity", jsii.sinvoke(cls, "publicHostedZone", [hosted_zone]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    @abc.abstractmethod
+    def value(self) -> builtins.str:
+        '''The value of the identity.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZone")
+    @abc.abstractmethod
+    def hosted_zone(self) -> typing.Optional[_IPublicHostedZone_9b6e7da4]:
+        '''The hosted zone associated with this identity.
+
+        :default: - no hosted zone is associated and no records are created
+        '''
+        ...
+
+
+class _IdentityProxy(Identity):
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''The value of the identity.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZone")
+    def hosted_zone(self) -> typing.Optional[_IPublicHostedZone_9b6e7da4]:
+        '''The hosted zone associated with this identity.
+
+        :default: - no hosted zone is associated and no records are created
+        '''
+        return typing.cast(typing.Optional[_IPublicHostedZone_9b6e7da4], jsii.get(self, "hostedZone"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Identity).__jsii_proxy_class__ = lambda : _IdentityProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.LambdaActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "function_arn": "functionArn",
+        "invocation_type": "invocationType",
+        "topic_arn": "topicArn",
+    },
+)
+class LambdaActionConfig:
+    def __init__(
+        self,
+        *,
+        function_arn: builtins.str,
+        invocation_type: typing.Optional[builtins.str] = None,
+        topic_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''LambdaAction configuration.
+
+        :param function_arn: The Amazon Resource Name (ARN) of the AWS Lambda function.
+        :param invocation_type: The invocation type of the AWS Lambda function. Default: 'Event'
+        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the Lambda action is executed. Default: - No notification is sent to SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            lambda_action_config = ses.LambdaActionConfig(
+                function_arn="functionArn",
+            
+                # the properties below are optional
+                invocation_type="invocationType",
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa)
+            check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
+            check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_arn": function_arn,
+        }
+        if invocation_type is not None:
+            self._values["invocation_type"] = invocation_type
+        if topic_arn is not None:
+            self._values["topic_arn"] = topic_arn
+
+    @builtins.property
+    def function_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the AWS Lambda function.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-functionarn
+        '''
+        result = self._values.get("function_arn")
+        assert result is not None, "Required property 'function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def invocation_type(self) -> typing.Optional[builtins.str]:
+        '''The invocation type of the AWS Lambda function.
+
+        :default: 'Event'
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-invocationtype
+        '''
+        result = self._values.get("invocation_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the Lambda action is executed.
+
+        :default: - No notification is sent to SNS.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-topicarn
+        '''
+        result = self._values.get("topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.MailFromBehaviorOnMxFailure")
+class MailFromBehaviorOnMxFailure(enum.Enum):
+    '''The action to take if the required MX record for the MAIL FROM domain isn't found.'''
+
+    USE_DEFAULT_VALUE = "USE_DEFAULT_VALUE"
+    '''The mail is sent using amazonses.com as the MAIL FROM domain.'''
+    REJECT_MESSAGE = "REJECT_MESSAGE"
+    '''The Amazon SES API v2 returns a ``MailFromDomainNotVerified`` error and doesn't attempt to deliver the email.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerAddonInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"addon_instance_id": "addonInstanceId"},
+)
+class MailManagerAddonInstanceReference:
+    def __init__(self, *, addon_instance_id: builtins.str) -> None:
+        '''A reference to a MailManagerAddonInstance resource.
+
+        :param addon_instance_id: The AddonInstanceId of the MailManagerAddonInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_addon_instance_reference = ses.MailManagerAddonInstanceReference(
+                addon_instance_id="addonInstanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38584df6d09b2813bb615450ec2b32744b42b9f4886235385106fc6cbf742232)
+            check_type(argname="argument addon_instance_id", value=addon_instance_id, expected_type=type_hints["addon_instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "addon_instance_id": addon_instance_id,
+        }
+
+    @builtins.property
+    def addon_instance_id(self) -> builtins.str:
+        '''The AddonInstanceId of the MailManagerAddonInstance resource.'''
+        result = self._values.get("addon_instance_id")
+        assert result is not None, "Required property 'addon_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerAddonInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerAddonSubscriptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"addon_subscription_id": "addonSubscriptionId"},
+)
+class MailManagerAddonSubscriptionReference:
+    def __init__(self, *, addon_subscription_id: builtins.str) -> None:
+        '''A reference to a MailManagerAddonSubscription resource.
+
+        :param addon_subscription_id: The AddonSubscriptionId of the MailManagerAddonSubscription resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_addon_subscription_reference = ses.MailManagerAddonSubscriptionReference(
+                addon_subscription_id="addonSubscriptionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__642c485e852bd4f3ebeb92b2b8e405addbe003e5516221021669ae044bf4cd02)
+            check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "addon_subscription_id": addon_subscription_id,
+        }
+
+    @builtins.property
+    def addon_subscription_id(self) -> builtins.str:
+        '''The AddonSubscriptionId of the MailManagerAddonSubscription resource.'''
+        result = self._values.get("addon_subscription_id")
+        assert result is not None, "Required property 'addon_subscription_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerAddonSubscriptionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerAddressListReference",
+    jsii_struct_bases=[],
+    name_mapping={"address_list_id": "addressListId"},
+)
+class MailManagerAddressListReference:
+    def __init__(self, *, address_list_id: builtins.str) -> None:
+        '''A reference to a MailManagerAddressList resource.
+
+        :param address_list_id: The AddressListId of the MailManagerAddressList resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_address_list_reference = ses.MailManagerAddressListReference(
+                address_list_id="addressListId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d0df7fe0f163c7f661a0a507c347bfc411e7fca3d59e83336b25e3c8039678f)
+            check_type(argname="argument address_list_id", value=address_list_id, expected_type=type_hints["address_list_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "address_list_id": address_list_id,
+        }
+
+    @builtins.property
+    def address_list_id(self) -> builtins.str:
+        '''The AddressListId of the MailManagerAddressList resource.'''
+        result = self._values.get("address_list_id")
+        assert result is not None, "Required property 'address_list_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerAddressListReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerArchiveReference",
+    jsii_struct_bases=[],
+    name_mapping={"archive_id": "archiveId"},
+)
+class MailManagerArchiveReference:
+    def __init__(self, *, archive_id: builtins.str) -> None:
+        '''A reference to a MailManagerArchive resource.
+
+        :param archive_id: The ArchiveId of the MailManagerArchive resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_archive_reference = ses.MailManagerArchiveReference(
+                archive_id="archiveId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__314947fb8504cf5a3538c20399ad44b5fdebdfa9c5e2ab9a1c8104977e42bba2)
+            check_type(argname="argument archive_id", value=archive_id, expected_type=type_hints["archive_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "archive_id": archive_id,
+        }
+
+    @builtins.property
+    def archive_id(self) -> builtins.str:
+        '''The ArchiveId of the MailManagerArchive resource.'''
+        result = self._values.get("archive_id")
+        assert result is not None, "Required property 'archive_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerArchiveReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerIngressPointReference",
+    jsii_struct_bases=[],
+    name_mapping={"ingress_point_id": "ingressPointId"},
+)
+class MailManagerIngressPointReference:
+    def __init__(self, *, ingress_point_id: builtins.str) -> None:
+        '''A reference to a MailManagerIngressPoint resource.
+
+        :param ingress_point_id: The IngressPointId of the MailManagerIngressPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_ingress_point_reference = ses.MailManagerIngressPointReference(
+                ingress_point_id="ingressPointId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17822d10f62ef827936abbe8b22f8800bd344ba11a87faac563339c3fc1a16fd)
+            check_type(argname="argument ingress_point_id", value=ingress_point_id, expected_type=type_hints["ingress_point_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ingress_point_id": ingress_point_id,
+        }
+
+    @builtins.property
+    def ingress_point_id(self) -> builtins.str:
+        '''The IngressPointId of the MailManagerIngressPoint resource.'''
+        result = self._values.get("ingress_point_id")
+        assert result is not None, "Required property 'ingress_point_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerIngressPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerRelayReference",
+    jsii_struct_bases=[],
+    name_mapping={"relay_id": "relayId"},
+)
+class MailManagerRelayReference:
+    def __init__(self, *, relay_id: builtins.str) -> None:
+        '''A reference to a MailManagerRelay resource.
+
+        :param relay_id: The RelayId of the MailManagerRelay resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_relay_reference = ses.MailManagerRelayReference(
+                relay_id="relayId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7d786f3093e907b35918d6df35b9bfe6f061acfd22485ce30f876d41c1d530c)
+            check_type(argname="argument relay_id", value=relay_id, expected_type=type_hints["relay_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "relay_id": relay_id,
+        }
+
+    @builtins.property
+    def relay_id(self) -> builtins.str:
+        '''The RelayId of the MailManagerRelay resource.'''
+        result = self._values.get("relay_id")
+        assert result is not None, "Required property 'relay_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerRelayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerRuleSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_set_id": "ruleSetId"},
+)
+class MailManagerRuleSetReference:
+    def __init__(self, *, rule_set_id: builtins.str) -> None:
+        '''A reference to a MailManagerRuleSet resource.
+
+        :param rule_set_id: The RuleSetId of the MailManagerRuleSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_rule_set_reference = ses.MailManagerRuleSetReference(
+                rule_set_id="ruleSetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56162ca1222beed6eb6e0e1e9e66898fc81931bb0e0d5adb13e8de6af0c82b18)
+            check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_set_id": rule_set_id,
+        }
+
+    @builtins.property
+    def rule_set_id(self) -> builtins.str:
+        '''The RuleSetId of the MailManagerRuleSet resource.'''
+        result = self._values.get("rule_set_id")
+        assert result is not None, "Required property 'rule_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerRuleSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.MailManagerTrafficPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"traffic_policy_id": "trafficPolicyId"},
+)
+class MailManagerTrafficPolicyReference:
+    def __init__(self, *, traffic_policy_id: builtins.str) -> None:
+        '''A reference to a MailManagerTrafficPolicy resource.
+
+        :param traffic_policy_id: The TrafficPolicyId of the MailManagerTrafficPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            mail_manager_traffic_policy_reference = ses.MailManagerTrafficPolicyReference(
+                traffic_policy_id="trafficPolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42eaf456f6ebea8bc73738feb3ab503ff941bf26a62bce8e0c71a77a8ba2cc02)
+            check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "traffic_policy_id": traffic_policy_id,
+        }
+
+    @builtins.property
+    def traffic_policy_id(self) -> builtins.str:
+        '''The TrafficPolicyId of the MailManagerTrafficPolicy resource.'''
+        result = self._values.get("traffic_policy_id")
+        assert result is not None, "Required property 'traffic_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MailManagerTrafficPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ReceiptFilter(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptFilter",
+):
+    '''A receipt filter.
+
+    When instantiated without props, it creates a
+    block all receipt filter.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        ses.ReceiptFilter(self, "Filter",
+            ip="1.2.3.4/16"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        ip: typing.Optional[builtins.str] = None,
+        policy: typing.Optional["ReceiptFilterPolicy"] = None,
+        receipt_filter_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param ip: The ip address or range to filter. Default: 0.0.0.0/0
+        :param policy: The policy for the filter. Default: Block
+        :param receipt_filter_name: The name for the receipt filter. Default: a CloudFormation generated name
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ReceiptFilterProps(
+            ip=ip, policy=policy, receipt_filter_name=receipt_filter_name
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ReceiptFilterPolicy")
+class ReceiptFilterPolicy(enum.Enum):
+    '''The policy for the receipt filter.'''
+
+    ALLOW = "ALLOW"
+    '''Allow the ip address or range.'''
+    BLOCK = "BLOCK"
+    '''Block the ip address or range.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ip": "ip",
+        "policy": "policy",
+        "receipt_filter_name": "receiptFilterName",
+    },
+)
+class ReceiptFilterProps:
+    def __init__(
+        self,
+        *,
+        ip: typing.Optional[builtins.str] = None,
+        policy: typing.Optional[ReceiptFilterPolicy] = None,
+        receipt_filter_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Construction properties for a ReceiptFilter.
+
+        :param ip: The ip address or range to filter. Default: 0.0.0.0/0
+        :param policy: The policy for the filter. Default: Block
+        :param receipt_filter_name: The name for the receipt filter. Default: a CloudFormation generated name
+
+        :exampleMetadata: infused
+
+        Example::
+
+            ses.ReceiptFilter(self, "Filter",
+                ip="1.2.3.4/16"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce)
+            check_type(argname="argument ip", value=ip, expected_type=type_hints["ip"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument receipt_filter_name", value=receipt_filter_name, expected_type=type_hints["receipt_filter_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if ip is not None:
+            self._values["ip"] = ip
+        if policy is not None:
+            self._values["policy"] = policy
+        if receipt_filter_name is not None:
+            self._values["receipt_filter_name"] = receipt_filter_name
+
+    @builtins.property
+    def ip(self) -> typing.Optional[builtins.str]:
+        '''The ip address or range to filter.
+
+        :default: 0.0.0.0/0
+        '''
+        result = self._values.get("ip")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy(self) -> typing.Optional[ReceiptFilterPolicy]:
+        '''The policy for the filter.
+
+        :default: Block
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Optional[ReceiptFilterPolicy], result)
+
+    @builtins.property
+    def receipt_filter_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the receipt filter.
+
+        :default: a CloudFormation generated name
+        '''
+        result = self._values.get("receipt_filter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptFilterReference",
+    jsii_struct_bases=[],
+    name_mapping={"receipt_filter_id": "receiptFilterId"},
+)
+class ReceiptFilterReference:
+    def __init__(self, *, receipt_filter_id: builtins.str) -> None:
+        '''A reference to a ReceiptFilter resource.
+
+        :param receipt_filter_id: The Id of the ReceiptFilter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            receipt_filter_reference = ses.ReceiptFilterReference(
+                receipt_filter_id="receiptFilterId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03e569183f294b1c92c1d1b9708c2735516c8eef09174bf1efefbb9dbc700394)
+            check_type(argname="argument receipt_filter_id", value=receipt_filter_id, expected_type=type_hints["receipt_filter_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "receipt_filter_id": receipt_filter_id,
+        }
+
+    @builtins.property
+    def receipt_filter_id(self) -> builtins.str:
+        '''The Id of the ReceiptFilter resource.'''
+        result = self._values.get("receipt_filter_id")
+        assert result is not None, "Required property 'receipt_filter_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptFilterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IReceiptRule)
+class ReceiptRule(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRule",
+):
+    '''A new receipt rule.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        rule_set = ses.ReceiptRuleSet(self, "RuleSet")
+        
+        aws_rule = rule_set.add_rule("Aws",
+            recipients=["aws.com"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        rule_set: IReceiptRuleSet,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param rule_set: The name of the rule set that the receipt rule will be added to.
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ReceiptRuleProps(
+            rule_set=rule_set,
+            actions=actions,
+            after=after,
+            enabled=enabled,
+            receipt_rule_name=receipt_rule_name,
+            recipients=recipients,
+            scan_enabled=scan_enabled,
+            tls_policy=tls_policy,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromReceiptRuleName")
+    @builtins.classmethod
+    def from_receipt_rule_name(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        receipt_rule_name: builtins.str,
+    ) -> IReceiptRule:
+        '''
+        :param scope: -
+        :param id: -
+        :param receipt_rule_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
+        return typing.cast(IReceiptRule, jsii.sinvoke(cls, "fromReceiptRuleName", [scope, id, receipt_rule_name]))
+
+    @jsii.member(jsii_name="addAction")
+    def add_action(self, action: IReceiptRuleAction) -> None:
+        '''Adds an action to this receipt rule.
+
+        :param action: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+        return typing.cast(None, jsii.invoke(self, "addAction", [action]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleName")
+    def receipt_rule_name(self) -> builtins.str:
+        '''The name of the receipt rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "receiptRuleName"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "add_header_action": "addHeaderAction",
+        "bounce_action": "bounceAction",
+        "lambda_action": "lambdaAction",
+        "s3_action": "s3Action",
+        "sns_action": "snsAction",
+        "stop_action": "stopAction",
+        "workmail_action": "workmailAction",
+    },
+)
+class ReceiptRuleActionConfig:
+    def __init__(
+        self,
+        *,
+        add_header_action: typing.Optional[typing.Union[AddHeaderActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        bounce_action: typing.Optional[typing.Union[BounceActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_action: typing.Optional[typing.Union[LambdaActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_action: typing.Optional[typing.Union["S3ActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        sns_action: typing.Optional[typing.Union["SNSActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        stop_action: typing.Optional[typing.Union["StopActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        workmail_action: typing.Optional[typing.Union["WorkmailActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Properties for a receipt rule action.
+
+        :param add_header_action: Adds a header to the received email.
+        :param bounce_action: Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon SNS.
+        :param lambda_action: Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.
+        :param s3_action: Saves the received message to an Amazon S3 bucket and, optionally, publishes a notification to Amazon SNS.
+        :param sns_action: Publishes the email content within a notification to Amazon SNS.
+        :param stop_action: Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.
+        :param workmail_action: Calls Amazon WorkMail and, optionally, publishes a notification to Amazon SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            receipt_rule_action_config = ses.ReceiptRuleActionConfig(
+                add_header_action=ses.AddHeaderActionConfig(
+                    header_name="headerName",
+                    header_value="headerValue"
+                ),
+                bounce_action=ses.BounceActionConfig(
+                    message="message",
+                    sender="sender",
+                    smtp_reply_code="smtpReplyCode",
+            
+                    # the properties below are optional
+                    status_code="statusCode",
+                    topic_arn="topicArn"
+                ),
+                lambda_action=ses.LambdaActionConfig(
+                    function_arn="functionArn",
+            
+                    # the properties below are optional
+                    invocation_type="invocationType",
+                    topic_arn="topicArn"
+                ),
+                s3_action=ses.S3ActionConfig(
+                    bucket_name="bucketName",
+            
+                    # the properties below are optional
+                    kms_key_arn="kmsKeyArn",
+                    object_key_prefix="objectKeyPrefix",
+                    topic_arn="topicArn"
+                ),
+                sns_action=ses.SNSActionConfig(
+                    encoding="encoding",
+                    topic_arn="topicArn"
+                ),
+                stop_action=ses.StopActionConfig(
+                    scope="scope",
+            
+                    # the properties below are optional
+                    topic_arn="topicArn"
+                ),
+                workmail_action=ses.WorkmailActionConfig(
+                    organization_arn="organizationArn",
+            
+                    # the properties below are optional
+                    topic_arn="topicArn"
+                )
+            )
+        '''
+        if isinstance(add_header_action, dict):
+            add_header_action = AddHeaderActionConfig(**add_header_action)
+        if isinstance(bounce_action, dict):
+            bounce_action = BounceActionConfig(**bounce_action)
+        if isinstance(lambda_action, dict):
+            lambda_action = LambdaActionConfig(**lambda_action)
+        if isinstance(s3_action, dict):
+            s3_action = S3ActionConfig(**s3_action)
+        if isinstance(sns_action, dict):
+            sns_action = SNSActionConfig(**sns_action)
+        if isinstance(stop_action, dict):
+            stop_action = StopActionConfig(**stop_action)
+        if isinstance(workmail_action, dict):
+            workmail_action = WorkmailActionConfig(**workmail_action)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c)
+            check_type(argname="argument add_header_action", value=add_header_action, expected_type=type_hints["add_header_action"])
+            check_type(argname="argument bounce_action", value=bounce_action, expected_type=type_hints["bounce_action"])
+            check_type(argname="argument lambda_action", value=lambda_action, expected_type=type_hints["lambda_action"])
+            check_type(argname="argument s3_action", value=s3_action, expected_type=type_hints["s3_action"])
+            check_type(argname="argument sns_action", value=sns_action, expected_type=type_hints["sns_action"])
+            check_type(argname="argument stop_action", value=stop_action, expected_type=type_hints["stop_action"])
+            check_type(argname="argument workmail_action", value=workmail_action, expected_type=type_hints["workmail_action"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if add_header_action is not None:
+            self._values["add_header_action"] = add_header_action
+        if bounce_action is not None:
+            self._values["bounce_action"] = bounce_action
+        if lambda_action is not None:
+            self._values["lambda_action"] = lambda_action
+        if s3_action is not None:
+            self._values["s3_action"] = s3_action
+        if sns_action is not None:
+            self._values["sns_action"] = sns_action
+        if stop_action is not None:
+            self._values["stop_action"] = stop_action
+        if workmail_action is not None:
+            self._values["workmail_action"] = workmail_action
+
+    @builtins.property
+    def add_header_action(self) -> typing.Optional[AddHeaderActionConfig]:
+        '''Adds a header to the received email.'''
+        result = self._values.get("add_header_action")
+        return typing.cast(typing.Optional[AddHeaderActionConfig], result)
+
+    @builtins.property
+    def bounce_action(self) -> typing.Optional[BounceActionConfig]:
+        '''Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon SNS.'''
+        result = self._values.get("bounce_action")
+        return typing.cast(typing.Optional[BounceActionConfig], result)
+
+    @builtins.property
+    def lambda_action(self) -> typing.Optional[LambdaActionConfig]:
+        '''Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.'''
+        result = self._values.get("lambda_action")
+        return typing.cast(typing.Optional[LambdaActionConfig], result)
+
+    @builtins.property
+    def s3_action(self) -> typing.Optional["S3ActionConfig"]:
+        '''Saves the received message to an Amazon S3 bucket and, optionally, publishes a notification to Amazon SNS.'''
+        result = self._values.get("s3_action")
+        return typing.cast(typing.Optional["S3ActionConfig"], result)
+
+    @builtins.property
+    def sns_action(self) -> typing.Optional["SNSActionConfig"]:
+        '''Publishes the email content within a notification to Amazon SNS.'''
+        result = self._values.get("sns_action")
+        return typing.cast(typing.Optional["SNSActionConfig"], result)
+
+    @builtins.property
+    def stop_action(self) -> typing.Optional["StopActionConfig"]:
+        '''Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.'''
+        result = self._values.get("stop_action")
+        return typing.cast(typing.Optional["StopActionConfig"], result)
+
+    @builtins.property
+    def workmail_action(self) -> typing.Optional["WorkmailActionConfig"]:
+        '''Calls Amazon WorkMail and, optionally, publishes a notification to Amazon SNS.'''
+        result = self._values.get("workmail_action")
+        return typing.cast(typing.Optional["WorkmailActionConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "after": "after",
+        "enabled": "enabled",
+        "receipt_rule_name": "receiptRuleName",
+        "recipients": "recipients",
+        "scan_enabled": "scanEnabled",
+        "tls_policy": "tlsPolicy",
+    },
+)
+class ReceiptRuleOptions:
+    def __init__(
+        self,
+        *,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> None:
+        '''Options to add a receipt rule to a receipt rule set.
+
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            rule_set = ses.ReceiptRuleSet(self, "RuleSet")
+            
+            aws_rule = rule_set.add_rule("Aws",
+                recipients=["aws.com"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
+            check_type(argname="argument recipients", value=recipients, expected_type=type_hints["recipients"])
+            check_type(argname="argument scan_enabled", value=scan_enabled, expected_type=type_hints["scan_enabled"])
+            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if actions is not None:
+            self._values["actions"] = actions
+        if after is not None:
+            self._values["after"] = after
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if receipt_rule_name is not None:
+            self._values["receipt_rule_name"] = receipt_rule_name
+        if recipients is not None:
+            self._values["recipients"] = recipients
+        if scan_enabled is not None:
+            self._values["scan_enabled"] = scan_enabled
+        if tls_policy is not None:
+            self._values["tls_policy"] = tls_policy
+
+    @builtins.property
+    def actions(self) -> typing.Optional[typing.List[IReceiptRuleAction]]:
+        '''An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule.
+
+        :default: - No actions.
+        '''
+        result = self._values.get("actions")
+        return typing.cast(typing.Optional[typing.List[IReceiptRuleAction]], result)
+
+    @builtins.property
+    def after(self) -> typing.Optional[IReceiptRule]:
+        '''An existing rule after which the new rule will be placed.
+
+        :default: - The new rule is inserted at the beginning of the rule list.
+        '''
+        result = self._values.get("after")
+        return typing.cast(typing.Optional[IReceiptRule], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether the rule is active.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def receipt_rule_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the rule.
+
+        :default: - A CloudFormation generated name.
+        '''
+        result = self._values.get("receipt_rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The recipient domains and email addresses that the receipt rule applies to.
+
+        :default: - Match all recipients under all verified domains.
+        '''
+        result = self._values.get("recipients")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def scan_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether to scan for spam and viruses.
+
+        :default: false
+        '''
+        result = self._values.get("scan_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tls_policy(self) -> typing.Optional["TlsPolicy"]:
+        '''Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS).
+
+        :default: - Optional which will not check for TLS.
+        '''
+        result = self._values.get("tls_policy")
+        return typing.cast(typing.Optional["TlsPolicy"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleProps",
+    jsii_struct_bases=[ReceiptRuleOptions],
+    name_mapping={
+        "actions": "actions",
+        "after": "after",
+        "enabled": "enabled",
+        "receipt_rule_name": "receiptRuleName",
+        "recipients": "recipients",
+        "scan_enabled": "scanEnabled",
+        "tls_policy": "tlsPolicy",
+        "rule_set": "ruleSet",
+    },
+)
+class ReceiptRuleProps(ReceiptRuleOptions):
+    def __init__(
+        self,
+        *,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+        rule_set: IReceiptRuleSet,
+    ) -> None:
+        '''Construction properties for a ReceiptRule.
+
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        :param rule_set: The name of the rule set that the receipt rule will be added to.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            # receipt_rule: ses.ReceiptRule
+            # receipt_rule_action: ses.IReceiptRuleAction
+            # receipt_rule_set: ses.ReceiptRuleSet
+            
+            receipt_rule_props = ses.ReceiptRuleProps(
+                rule_set=receipt_rule_set,
+            
+                # the properties below are optional
+                actions=[receipt_rule_action],
+                after=receipt_rule,
+                enabled=False,
+                receipt_rule_name="receiptRuleName",
+                recipients=["recipients"],
+                scan_enabled=False,
+                tls_policy=ses.TlsPolicy.OPTIONAL
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
+            check_type(argname="argument recipients", value=recipients, expected_type=type_hints["recipients"])
+            check_type(argname="argument scan_enabled", value=scan_enabled, expected_type=type_hints["scan_enabled"])
+            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
+            check_type(argname="argument rule_set", value=rule_set, expected_type=type_hints["rule_set"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_set": rule_set,
+        }
+        if actions is not None:
+            self._values["actions"] = actions
+        if after is not None:
+            self._values["after"] = after
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if receipt_rule_name is not None:
+            self._values["receipt_rule_name"] = receipt_rule_name
+        if recipients is not None:
+            self._values["recipients"] = recipients
+        if scan_enabled is not None:
+            self._values["scan_enabled"] = scan_enabled
+        if tls_policy is not None:
+            self._values["tls_policy"] = tls_policy
+
+    @builtins.property
+    def actions(self) -> typing.Optional[typing.List[IReceiptRuleAction]]:
+        '''An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule.
+
+        :default: - No actions.
+        '''
+        result = self._values.get("actions")
+        return typing.cast(typing.Optional[typing.List[IReceiptRuleAction]], result)
+
+    @builtins.property
+    def after(self) -> typing.Optional[IReceiptRule]:
+        '''An existing rule after which the new rule will be placed.
+
+        :default: - The new rule is inserted at the beginning of the rule list.
+        '''
+        result = self._values.get("after")
+        return typing.cast(typing.Optional[IReceiptRule], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether the rule is active.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def receipt_rule_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the rule.
+
+        :default: - A CloudFormation generated name.
+        '''
+        result = self._values.get("receipt_rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The recipient domains and email addresses that the receipt rule applies to.
+
+        :default: - Match all recipients under all verified domains.
+        '''
+        result = self._values.get("recipients")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def scan_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether to scan for spam and viruses.
+
+        :default: false
+        '''
+        result = self._values.get("scan_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tls_policy(self) -> typing.Optional["TlsPolicy"]:
+        '''Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS).
+
+        :default: - Optional which will not check for TLS.
+        '''
+        result = self._values.get("tls_policy")
+        return typing.cast(typing.Optional["TlsPolicy"], result)
+
+    @builtins.property
+    def rule_set(self) -> IReceiptRuleSet:
+        '''The name of the rule set that the receipt rule will be added to.'''
+        result = self._values.get("rule_set")
+        assert result is not None, "Required property 'rule_set' is missing"
+        return typing.cast(IReceiptRuleSet, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"receipt_rule_id": "receiptRuleId"},
+)
+class ReceiptRuleReference:
+    def __init__(self, *, receipt_rule_id: builtins.str) -> None:
+        '''A reference to a ReceiptRule resource.
+
+        :param receipt_rule_id: The Id of the ReceiptRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            receipt_rule_reference = ses.ReceiptRuleReference(
+                receipt_rule_id="receiptRuleId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b16e97f72b00b11de9ab724d29f591d9e08b0ae68c96d0bae9cc48693cc8a99)
+            check_type(argname="argument receipt_rule_id", value=receipt_rule_id, expected_type=type_hints["receipt_rule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "receipt_rule_id": receipt_rule_id,
+        }
+
+    @builtins.property
+    def receipt_rule_id(self) -> builtins.str:
+        '''The Id of the ReceiptRule resource.'''
+        result = self._values.get("receipt_rule_id")
+        assert result is not None, "Required property 'receipt_rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IReceiptRuleSet)
+class ReceiptRuleSet(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSet",
+):
+    '''A new receipt rule set.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        rule_set = ses.ReceiptRuleSet(self, "RuleSet")
+        
+        aws_rule = rule_set.add_rule("Aws",
+            recipients=["aws.com"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        drop_spam: typing.Optional[builtins.bool] = None,
+        receipt_rule_set_name: typing.Optional[builtins.str] = None,
+        rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param drop_spam: Whether to add a first rule to stop processing messages that have at least one spam indicator. Default: false
+        :param receipt_rule_set_name: The name for the receipt rule set. Default: - A CloudFormation generated name.
+        :param rules: The list of rules to add to this rule set. Rules are added in the same order as they appear in the list. Default: - No rules are added to the rule set.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ReceiptRuleSetProps(
+            drop_spam=drop_spam,
+            receipt_rule_set_name=receipt_rule_set_name,
+            rules=rules,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromReceiptRuleSetName")
+    @builtins.classmethod
+    def from_receipt_rule_set_name(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        receipt_rule_set_name: builtins.str,
+    ) -> IReceiptRuleSet:
+        '''Import an exported receipt rule set.
+
+        :param scope: -
+        :param id: -
+        :param receipt_rule_set_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
+        return typing.cast(IReceiptRuleSet, jsii.sinvoke(cls, "fromReceiptRuleSetName", [scope, id, receipt_rule_set_name]))
+
+    @jsii.member(jsii_name="addDropSpamRule")
+    def _add_drop_spam_rule(self) -> None:
+        '''Adds a drop spam rule.'''
+        return typing.cast(None, jsii.invoke(self, "addDropSpamRule", []))
+
+    @jsii.member(jsii_name="addRule")
+    def add_rule(
+        self,
+        id: builtins.str,
+        *,
+        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+        after: typing.Optional[IReceiptRule] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        receipt_rule_name: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        scan_enabled: typing.Optional[builtins.bool] = None,
+        tls_policy: typing.Optional["TlsPolicy"] = None,
+    ) -> ReceiptRule:
+        '''Adds a new receipt rule in this rule set.
+
+        The new rule is added after
+        the last added rule unless ``after`` is specified.
+
+        :param id: -
+        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
+        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
+        :param enabled: Whether the rule is active. Default: true
+        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
+        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
+        :param scan_enabled: Whether to scan for spam and viruses. Default: false
+        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = ReceiptRuleOptions(
+            actions=actions,
+            after=after,
+            enabled=enabled,
+            receipt_rule_name=receipt_rule_name,
+            recipients=recipients,
+            scan_enabled=scan_enabled,
+            tls_policy=tls_policy,
+        )
+
+        return typing.cast(ReceiptRule, jsii.invoke(self, "addRule", [id, options]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetName")
+    def receipt_rule_set_name(self) -> builtins.str:
+        '''The receipt rule set name.'''
+        return typing.cast(builtins.str, jsii.get(self, "receiptRuleSetName"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "drop_spam": "dropSpam",
+        "receipt_rule_set_name": "receiptRuleSetName",
+        "rules": "rules",
+    },
+)
+class ReceiptRuleSetProps:
+    def __init__(
+        self,
+        *,
+        drop_spam: typing.Optional[builtins.bool] = None,
+        receipt_rule_set_name: typing.Optional[builtins.str] = None,
+        rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Construction properties for a ReceiptRuleSet.
+
+        :param drop_spam: Whether to add a first rule to stop processing messages that have at least one spam indicator. Default: false
+        :param receipt_rule_set_name: The name for the receipt rule set. Default: - A CloudFormation generated name.
+        :param rules: The list of rules to add to this rule set. Rules are added in the same order as they appear in the list. Default: - No rules are added to the rule set.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            import aws_cdk.aws_ses as ses
+            from aws_cdk.custom_resources import CustomResourceConfig
+            
+            
+            app = cdk.App()
+            stack = cdk.Stack(app, "Stack")
+            CustomResourceConfig.of(app).add_log_retention_lifetime(logs.RetentionDays.TEN_YEARS)
+            CustomResourceConfig.of(app).add_removal_policy(cdk.RemovalPolicy.DESTROY)
+            
+            ses.ReceiptRuleSet(app, "RuleSet",
+                drop_spam=True
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe)
+            check_type(argname="argument drop_spam", value=drop_spam, expected_type=type_hints["drop_spam"])
+            check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if drop_spam is not None:
+            self._values["drop_spam"] = drop_spam
+        if receipt_rule_set_name is not None:
+            self._values["receipt_rule_set_name"] = receipt_rule_set_name
+        if rules is not None:
+            self._values["rules"] = rules
+
+    @builtins.property
+    def drop_spam(self) -> typing.Optional[builtins.bool]:
+        '''Whether to add a first rule to stop processing messages that have at least one spam indicator.
+
+        :default: false
+        '''
+        result = self._values.get("drop_spam")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def receipt_rule_set_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the receipt rule set.
+
+        :default: - A CloudFormation generated name.
+        '''
+        result = self._values.get("receipt_rule_set_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rules(self) -> typing.Optional[typing.List[ReceiptRuleOptions]]:
+        '''The list of rules to add to this rule set.
+
+        Rules are added in the same
+        order as they appear in the list.
+
+        :default: - No rules are added to the rule set.
+        '''
+        result = self._values.get("rules")
+        return typing.cast(typing.Optional[typing.List[ReceiptRuleOptions]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"receipt_rule_set_id": "receiptRuleSetId"},
+)
+class ReceiptRuleSetReference:
+    def __init__(self, *, receipt_rule_set_id: builtins.str) -> None:
+        '''A reference to a ReceiptRuleSet resource.
+
+        :param receipt_rule_set_id: The Id of the ReceiptRuleSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            receipt_rule_set_reference = ses.ReceiptRuleSetReference(
+                receipt_rule_set_id="receiptRuleSetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05fe4ebdbbc6ee81838c21826c8ef8a87e7c88ad41aea2f6e2ba12fec82ad5da)
+            check_type(argname="argument receipt_rule_set_id", value=receipt_rule_set_id, expected_type=type_hints["receipt_rule_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "receipt_rule_set_id": receipt_rule_set_id,
+        }
+
+    @builtins.property
+    def receipt_rule_set_id(self) -> builtins.str:
+        '''The Id of the ReceiptRuleSet resource.'''
+        result = self._values.get("receipt_rule_set_id")
+        assert result is not None, "Required property 'receipt_rule_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReceiptRuleSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.S3ActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_name": "bucketName",
+        "kms_key_arn": "kmsKeyArn",
+        "object_key_prefix": "objectKeyPrefix",
+        "topic_arn": "topicArn",
+    },
+)
+class S3ActionConfig:
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        object_key_prefix: typing.Optional[builtins.str] = None,
+        topic_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''S3Action configuration.
+
+        :param bucket_name: The name of the Amazon S3 bucket that you want to send incoming mail to.
+        :param kms_key_arn: The customer master key that Amazon SES should use to encrypt your emails before saving them to the Amazon S3 bucket. Default: - Emails are not encrypted.
+        :param object_key_prefix: The key prefix of the Amazon S3 bucket. Default: - No prefix.
+        :param topic_arn: The ARN of the Amazon SNS topic to notify when the message is saved to the Amazon S3 bucket. Default: - No notification is sent to SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            s3_action_config = ses.S3ActionConfig(
+                bucket_name="bucketName",
+            
+                # the properties below are optional
+                kms_key_arn="kmsKeyArn",
+                object_key_prefix="objectKeyPrefix",
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182)
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument object_key_prefix", value=object_key_prefix, expected_type=type_hints["object_key_prefix"])
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_name": bucket_name,
+        }
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if object_key_prefix is not None:
+            self._values["object_key_prefix"] = object_key_prefix
+        if topic_arn is not None:
+            self._values["topic_arn"] = topic_arn
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''The name of the Amazon S3 bucket that you want to send incoming mail to.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The customer master key that Amazon SES should use to encrypt your emails before saving them to the Amazon S3 bucket.
+
+        :default: - Emails are not encrypted.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def object_key_prefix(self) -> typing.Optional[builtins.str]:
+        '''The key prefix of the Amazon S3 bucket.
+
+        :default: - No prefix.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-objectkeyprefix
+        '''
+        result = self._values.get("object_key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the Amazon SNS topic to notify when the message is saved to the Amazon S3 bucket.
+
+        :default: - No notification is sent to SNS.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-topicarn
+        '''
+        result = self._values.get("topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "S3ActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.SNSActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={"encoding": "encoding", "topic_arn": "topicArn"},
+)
+class SNSActionConfig:
+    def __init__(
+        self,
+        *,
+        encoding: typing.Optional[builtins.str] = None,
+        topic_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''SNSAction configuration.
+
+        :param encoding: The encoding to use for the email within the Amazon SNS notification. Default: 'UTF-8'
+        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify. Default: - No notification is sent to SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            s_nSAction_config = ses.SNSActionConfig(
+                encoding="encoding",
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af)
+            check_type(argname="argument encoding", value=encoding, expected_type=type_hints["encoding"])
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if encoding is not None:
+            self._values["encoding"] = encoding
+        if topic_arn is not None:
+            self._values["topic_arn"] = topic_arn
+
+    @builtins.property
+    def encoding(self) -> typing.Optional[builtins.str]:
+        '''The encoding to use for the email within the Amazon SNS notification.
+
+        :default: 'UTF-8'
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-encoding
+        '''
+        result = self._values.get("encoding")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify.
+
+        :default: - No notification is sent to SNS.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-topicarn
+        '''
+        result = self._values.get("topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SNSActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ScalingMode")
+class ScalingMode(enum.Enum):
+    '''Scaling mode to use for this IP pool.
+
+    :see: https://docs.aws.amazon.com/ses/latest/dg/dedicated-ip.html
+    :exampleMetadata: infused
+
+    Example::
+
+        ses.DedicatedIpPool(self, "Pool",
+            dedicated_ip_pool_name="mypool",
+            scaling_mode=ses.ScalingMode.STANDARD
+        )
+    '''
+
+    STANDARD = "STANDARD"
+    '''The customer controls which IPs are part of the dedicated IP pool.'''
+    MANAGED = "MANAGED"
+    '''The reputation and number of IPs are automatically managed by Amazon SES.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.StopActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={"scope": "scope", "topic_arn": "topicArn"},
+)
+class StopActionConfig:
+    def __init__(
+        self,
+        *,
+        scope: builtins.str,
+        topic_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''StopAction configuration.
+
+        :param scope: The scope of the StopAction. The only acceptable value is RuleSet.
+        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the stop action is taken. Default: - No notification is sent to SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            stop_action_config = ses.StopActionConfig(
+                scope="scope",
+            
+                # the properties below are optional
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scope": scope,
+        }
+        if topic_arn is not None:
+            self._values["topic_arn"] = topic_arn
+
+    @builtins.property
+    def scope(self) -> builtins.str:
+        '''The scope of the StopAction.
+
+        The only acceptable value is RuleSet.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-scope
+        '''
+        result = self._values.get("scope")
+        assert result is not None, "Required property 'scope' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the stop action is taken.
+
+        :default: - No notification is sent to SNS.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-topicarn
+        '''
+        result = self._values.get("topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StopActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.SuppressionReasons")
+class SuppressionReasons(enum.Enum):
+    '''Reasons for which recipient email addresses should be automatically added to your account's suppression list.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # Only bounces will be suppressed.
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            suppression_reasons=ses.SuppressionReasons.BOUNCES_ONLY
+        )
+        
+        # Only complaints will be suppressed.
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            suppression_reasons=ses.SuppressionReasons.COMPLAINTS_ONLY
+        )
+        
+        # Both bounces and complaints will be suppressed.
+        ses.ConfigurationSet(self, "ConfigurationSet",
+            suppression_reasons=ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS
+        )
+    '''
+
+    BOUNCES_AND_COMPLAINTS = "BOUNCES_AND_COMPLAINTS"
+    '''Bounces and complaints.'''
+    BOUNCES_ONLY = "BOUNCES_ONLY"
+    '''Bounces only.'''
+    COMPLAINTS_ONLY = "COMPLAINTS_ONLY"
+    '''Complaints only.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.TemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"template_id": "templateId"},
+)
+class TemplateReference:
+    def __init__(self, *, template_id: builtins.str) -> None:
+        '''A reference to a Template resource.
+
+        :param template_id: The Id of the Template resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            template_reference = ses.TemplateReference(
+                template_id="templateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce8dc4d96bb6d14ce82bd2ef0365888e18732dcaee752e8eb908ab76dc0b56f3)
+            check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_id": template_id,
+        }
+
+    @builtins.property
+    def template_id(self) -> builtins.str:
+        '''The Id of the Template resource.'''
+        result = self._values.get("template_id")
+        assert result is not None, "Required property 'template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.TlsPolicy")
+class TlsPolicy(enum.Enum):
+    '''The type of TLS policy for a receipt rule.'''
+
+    OPTIONAL = "OPTIONAL"
+    '''Do not check for TLS.'''
+    REQUIRE = "REQUIRE"
+    '''Bounce emails that are not received over TLS.'''
+
+
+@jsii.implements(IVdmAttributes)
+class VdmAttributes(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.VdmAttributes",
+):
+    '''Virtual Deliverability Manager (VDM) attributes.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # Enables engagement tracking and optimized shared delivery by default
+        ses.VdmAttributes(self, "Vdm")
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        engagement_metrics: typing.Optional[builtins.bool] = None,
+        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param engagement_metrics: Whether engagement metrics are enabled for your account. Default: true
+        :param optimized_shared_delivery: Whether optimized shared delivery is enabled for your account. Default: true
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = VdmAttributesProps(
+            engagement_metrics=engagement_metrics,
+            optimized_shared_delivery=optimized_shared_delivery,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromVdmAttributesName")
+    @builtins.classmethod
+    def from_vdm_attributes_name(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        vdm_attributes_name: builtins.str,
+    ) -> IVdmAttributes:
+        '''Use an existing Virtual Deliverability Manager attributes resource.
+
+        :param scope: -
+        :param id: -
+        :param vdm_attributes_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument vdm_attributes_name", value=vdm_attributes_name, expected_type=type_hints["vdm_attributes_name"])
+        return typing.cast(IVdmAttributes, jsii.sinvoke(cls, "fromVdmAttributesName", [scope, id, vdm_attributes_name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesName")
+    def vdm_attributes_name(self) -> builtins.str:
+        '''The name of the resource behind the Virtual Deliverability Manager attributes.'''
+        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesResourceId")
+    def vdm_attributes_resource_id(self) -> builtins.str:
+        '''Resource ID for the Virtual Deliverability Manager attributes.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesResourceId"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.VdmAttributesProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engagement_metrics": "engagementMetrics",
+        "optimized_shared_delivery": "optimizedSharedDelivery",
+    },
+)
+class VdmAttributesProps:
+    def __init__(
+        self,
+        *,
+        engagement_metrics: typing.Optional[builtins.bool] = None,
+        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Properties for the Virtual Deliverability Manager (VDM) attributes.
+
+        :param engagement_metrics: Whether engagement metrics are enabled for your account. Default: true
+        :param optimized_shared_delivery: Whether optimized shared delivery is enabled for your account. Default: true
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            vdm_attributes_props = ses.VdmAttributesProps(
+                engagement_metrics=False,
+                optimized_shared_delivery=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0)
+            check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
+            check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if engagement_metrics is not None:
+            self._values["engagement_metrics"] = engagement_metrics
+        if optimized_shared_delivery is not None:
+            self._values["optimized_shared_delivery"] = optimized_shared_delivery
+
+    @builtins.property
+    def engagement_metrics(self) -> typing.Optional[builtins.bool]:
+        '''Whether engagement metrics are enabled for your account.
+
+        :default: true
+        '''
+        result = self._values.get("engagement_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def optimized_shared_delivery(self) -> typing.Optional[builtins.bool]:
+        '''Whether optimized shared delivery is enabled for your account.
+
+        :default: true
+        '''
+        result = self._values.get("optimized_shared_delivery")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VdmAttributesProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.VdmAttributesReference",
+    jsii_struct_bases=[],
+    name_mapping={"vdm_attributes_resource_id": "vdmAttributesResourceId"},
+)
+class VdmAttributesReference:
+    def __init__(self, *, vdm_attributes_resource_id: builtins.str) -> None:
+        '''A reference to a VdmAttributes resource.
+
+        :param vdm_attributes_resource_id: The VdmAttributesResourceId of the VdmAttributes resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            vdm_attributes_reference = ses.VdmAttributesReference(
+                vdm_attributes_resource_id="vdmAttributesResourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05550c6a892855eced356484e852b07fc431358b0997d8660bea4966e8688c43)
+            check_type(argname="argument vdm_attributes_resource_id", value=vdm_attributes_resource_id, expected_type=type_hints["vdm_attributes_resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "vdm_attributes_resource_id": vdm_attributes_resource_id,
+        }
+
+    @builtins.property
+    def vdm_attributes_resource_id(self) -> builtins.str:
+        '''The VdmAttributesResourceId of the VdmAttributes resource.'''
+        result = self._values.get("vdm_attributes_resource_id")
+        assert result is not None, "Required property 'vdm_attributes_resource_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VdmAttributesReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.VdmOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engagement_metrics": "engagementMetrics",
+        "optimized_shared_delivery": "optimizedSharedDelivery",
+    },
+)
+class VdmOptions:
+    def __init__(
+        self,
+        *,
+        engagement_metrics: typing.Optional[builtins.bool] = None,
+        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Properties for the Virtual Deliverability Manager (VDM) options that apply to the configuration set.
+
+        :param engagement_metrics: If true, engagement metrics are enabled for the configuration set. Default: - Engagement metrics not configured at the configuration set level. In this case, use account level settings.
+        :param optimized_shared_delivery: If true, optimized shared delivery is enabled for the configuration set. Default: - Optimized shared delivery not configured at the configuration set level. In this case, use account level settings.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            ses.ConfigurationSet(self, "ConfigurationSetWithVdmOptions",
+                vdm_options=ses.VdmOptions(
+                    engagement_metrics=True,
+                    optimized_shared_delivery=True
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa)
+            check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
+            check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if engagement_metrics is not None:
+            self._values["engagement_metrics"] = engagement_metrics
+        if optimized_shared_delivery is not None:
+            self._values["optimized_shared_delivery"] = optimized_shared_delivery
+
+    @builtins.property
+    def engagement_metrics(self) -> typing.Optional[builtins.bool]:
+        '''If true, engagement metrics are enabled for the configuration set.
+
+        :default: - Engagement metrics not configured at the configuration set level. In this case, use account level settings.
+        '''
+        result = self._values.get("engagement_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def optimized_shared_delivery(self) -> typing.Optional[builtins.bool]:
+        '''If true, optimized shared delivery is enabled for the configuration set.
+
+        :default: - Optimized shared delivery not configured at the configuration set level. In this case, use account level settings.
+        '''
+        result = self._values.get("optimized_shared_delivery")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VdmOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.WorkmailActionConfig",
+    jsii_struct_bases=[],
+    name_mapping={"organization_arn": "organizationArn", "topic_arn": "topicArn"},
+)
+class WorkmailActionConfig:
+    def __init__(
+        self,
+        *,
+        organization_arn: builtins.str,
+        topic_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''WorkmailAction configuration.
+
+        :param organization_arn: The Amazon Resource Name (ARN) of the Amazon WorkMail organization.
+        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the WorkMail action is called. Default: - No notification is sent to SNS.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            workmail_action_config = ses.WorkmailActionConfig(
+                organization_arn="organizationArn",
+            
+                # the properties below are optional
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b)
+            check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "organization_arn": organization_arn,
+        }
+        if topic_arn is not None:
+            self._values["topic_arn"] = topic_arn
+
+    @builtins.property
+    def organization_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon WorkMail organization.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-organizationarn
+        '''
+        result = self._values.get("organization_arn")
+        assert result is not None, "Required property 'organization_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the WorkMail action is called.
+
+        :default: - No notification is sent to SNS.
+
+        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-topicarn
+        '''
+        result = self._values.get("topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkmailActionConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IConfigurationSetRef, _ITaggableV2_4e6798f8)
 class CfnConfigurationSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -955,6 +8586,12 @@ class CfnConfigurationSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetRef")
+    def configuration_set_ref(self) -> ConfigurationSetReference:
+        '''A reference to a ConfigurationSet resource.'''
+        return typing.cast(ConfigurationSetReference, jsii.get(self, "configurationSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deliveryOptions")
@@ -1167,7 +8804,7 @@ class CfnConfigurationSet(
         ) -> None:
             '''Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
 
-            :param max_delivery_seconds: The maximum amount of time, in seconds, that Amazon SES API v2 will attempt delivery of email. If specified, the value must greater than or equal to 300 seconds (5 minutes) and less than or equal to 50400 seconds (840 minutes).
+            :param max_delivery_seconds: The name of the configuration set used when sent through a configuration set with archiving enabled.
             :param sending_pool_name: The name of the dedicated IP pool to associate with the configuration set.
             :param tls_policy: Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS). If the value is ``REQUIRE`` , messages are only delivered if a TLS connection can be established. If the value is ``OPTIONAL`` , messages can be delivered in plain text if a TLS connection can't be established. Valid Values: ``REQUIRE | OPTIONAL``
 
@@ -1201,9 +8838,7 @@ class CfnConfigurationSet(
 
         @builtins.property
         def max_delivery_seconds(self) -> typing.Optional[jsii.Number]:
-            '''The maximum amount of time, in seconds, that Amazon SES API v2 will attempt delivery of email.
-
-            If specified, the value must greater than or equal to 300 seconds (5 minutes) and less than or equal to 50400 seconds (840 minutes).
+            '''The name of the configuration set used when sent through a configuration set with archiving enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-deliveryoptions.html#cfn-ses-configurationset-deliveryoptions-maxdeliveryseconds
             '''
@@ -1500,7 +9135,7 @@ class CfnConfigurationSet(
             For more information, see `Configuring Custom Domains to Handle Open and Click Tracking <https://docs.aws.amazon.com/ses/latest/dg/configure-custom-open-click-domains.html>`_ in the *Amazon SES Developer Guide* .
 
             :param custom_redirect_domain: The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain.
-            :param https_policy: The https policy to use for tracking open and click events.
+            :param https_policy: The name of the configuration set used when sent through a configuration set with archiving enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-trackingoptions.html
             :exampleMetadata: fixture=_generated
@@ -1537,7 +9172,7 @@ class CfnConfigurationSet(
 
         @builtins.property
         def https_policy(self) -> typing.Optional[builtins.str]:
-            '''The https policy to use for tracking open and click events.
+            '''The name of the configuration set used when sent through a configuration set with archiving enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-trackingoptions.html#cfn-ses-configurationset-trackingoptions-httpspolicy
             '''
@@ -1637,7 +9272,7 @@ class CfnConfigurationSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IConfigurationSetEventDestinationRef)
 class CfnConfigurationSetEventDestination(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1755,6 +9390,14 @@ class CfnConfigurationSetEventDestination(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationSetEventDestinationRef")
+    def configuration_set_event_destination_ref(
+        self,
+    ) -> ConfigurationSetEventDestinationReference:
+        '''A reference to a ConfigurationSetEventDestination resource.'''
+        return typing.cast(ConfigurationSetEventDestinationReference, jsii.get(self, "configurationSetEventDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationSetName")
@@ -2346,315 +9989,7 @@ class CfnConfigurationSetEventDestination(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetEventDestinationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration_set_name": "configurationSetName",
-        "event_destination": "eventDestination",
-    },
-)
-class CfnConfigurationSetEventDestinationProps:
-    def __init__(
-        self,
-        *,
-        configuration_set_name: builtins.str,
-        event_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationSetEventDestination``.
-
-        :param configuration_set_name: The name of the configuration set that contains the event destination.
-        :param event_destination: An object that defines the event destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_configuration_set_event_destination_props = ses.CfnConfigurationSetEventDestinationProps(
-                configuration_set_name="configurationSetName",
-                event_destination=ses.CfnConfigurationSetEventDestination.EventDestinationProperty(
-                    matching_event_types=["matchingEventTypes"],
-            
-                    # the properties below are optional
-                    cloud_watch_destination=ses.CfnConfigurationSetEventDestination.CloudWatchDestinationProperty(
-                        dimension_configurations=[ses.CfnConfigurationSetEventDestination.DimensionConfigurationProperty(
-                            default_dimension_value="defaultDimensionValue",
-                            dimension_name="dimensionName",
-                            dimension_value_source="dimensionValueSource"
-                        )]
-                    ),
-                    enabled=False,
-                    event_bridge_destination=ses.CfnConfigurationSetEventDestination.EventBridgeDestinationProperty(
-                        event_bus_arn="eventBusArn"
-                    ),
-                    kinesis_firehose_destination=ses.CfnConfigurationSetEventDestination.KinesisFirehoseDestinationProperty(
-                        delivery_stream_arn="deliveryStreamArn",
-                        iam_role_arn="iamRoleArn"
-                    ),
-                    name="name",
-                    sns_destination=ses.CfnConfigurationSetEventDestination.SnsDestinationProperty(
-                        topic_arn="topicArn"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2)
-            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
-            check_type(argname="argument event_destination", value=event_destination, expected_type=type_hints["event_destination"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration_set_name": configuration_set_name,
-            "event_destination": event_destination,
-        }
-
-    @builtins.property
-    def configuration_set_name(self) -> builtins.str:
-        '''The name of the configuration set that contains the event destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-configurationsetname
-        '''
-        result = self._values.get("configuration_set_name")
-        assert result is not None, "Required property 'configuration_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_destination(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConfigurationSetEventDestination.EventDestinationProperty]:
-        '''An object that defines the event destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationseteventdestination.html#cfn-ses-configurationseteventdestination-eventdestination
-        '''
-        result = self._values.get("event_destination")
-        assert result is not None, "Required property 'event_destination' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConfigurationSetEventDestination.EventDestinationProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationSetEventDestinationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "delivery_options": "deliveryOptions",
-        "name": "name",
-        "reputation_options": "reputationOptions",
-        "sending_options": "sendingOptions",
-        "suppression_options": "suppressionOptions",
-        "tags": "tags",
-        "tracking_options": "trackingOptions",
-        "vdm_options": "vdmOptions",
-    },
-)
-class CfnConfigurationSetProps:
-    def __init__(
-        self,
-        *,
-        delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationSet``.
-
-        :param delivery_options: Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
-        :param name: The name of the configuration set. The name must meet the following requirements:. - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). - Contain 64 characters or fewer.
-        :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
-        :param sending_options: An object that defines whether or not Amazon SES can send email that you send using the configuration set.
-        :param suppression_options: An object that contains information about the suppression list preferences for your account.
-        :param tags: An array of objects that define the tags (keys and values) that are associated with the configuration set.
-        :param tracking_options: An object that defines the open and click tracking options for emails that you send using the configuration set.
-        :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_configuration_set_props = ses.CfnConfigurationSetProps(
-                delivery_options=ses.CfnConfigurationSet.DeliveryOptionsProperty(
-                    max_delivery_seconds=123,
-                    sending_pool_name="sendingPoolName",
-                    tls_policy="tlsPolicy"
-                ),
-                name="name",
-                reputation_options=ses.CfnConfigurationSet.ReputationOptionsProperty(
-                    reputation_metrics_enabled=False
-                ),
-                sending_options=ses.CfnConfigurationSet.SendingOptionsProperty(
-                    sending_enabled=False
-                ),
-                suppression_options=ses.CfnConfigurationSet.SuppressionOptionsProperty(
-                    suppressed_reasons=["suppressedReasons"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tracking_options=ses.CfnConfigurationSet.TrackingOptionsProperty(
-                    custom_redirect_domain="customRedirectDomain",
-                    https_policy="httpsPolicy"
-                ),
-                vdm_options=ses.CfnConfigurationSet.VdmOptionsProperty(
-                    dashboard_options=ses.CfnConfigurationSet.DashboardOptionsProperty(
-                        engagement_metrics="engagementMetrics"
-                    ),
-                    guardian_options=ses.CfnConfigurationSet.GuardianOptionsProperty(
-                        optimized_shared_delivery="optimizedSharedDelivery"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa)
-            check_type(argname="argument delivery_options", value=delivery_options, expected_type=type_hints["delivery_options"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument reputation_options", value=reputation_options, expected_type=type_hints["reputation_options"])
-            check_type(argname="argument sending_options", value=sending_options, expected_type=type_hints["sending_options"])
-            check_type(argname="argument suppression_options", value=suppression_options, expected_type=type_hints["suppression_options"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tracking_options", value=tracking_options, expected_type=type_hints["tracking_options"])
-            check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if delivery_options is not None:
-            self._values["delivery_options"] = delivery_options
-        if name is not None:
-            self._values["name"] = name
-        if reputation_options is not None:
-            self._values["reputation_options"] = reputation_options
-        if sending_options is not None:
-            self._values["sending_options"] = sending_options
-        if suppression_options is not None:
-            self._values["suppression_options"] = suppression_options
-        if tags is not None:
-            self._values["tags"] = tags
-        if tracking_options is not None:
-            self._values["tracking_options"] = tracking_options
-        if vdm_options is not None:
-            self._values["vdm_options"] = vdm_options
-
-    @builtins.property
-    def delivery_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.DeliveryOptionsProperty]]:
-        '''Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-deliveryoptions
-        '''
-        result = self._values.get("delivery_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.DeliveryOptionsProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the configuration set. The name must meet the following requirements:.
-
-        - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-).
-        - Contain 64 characters or fewer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def reputation_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.ReputationOptionsProperty]]:
-        '''An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-reputationoptions
-        '''
-        result = self._values.get("reputation_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.ReputationOptionsProperty]], result)
-
-    @builtins.property
-    def sending_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SendingOptionsProperty]]:
-        '''An object that defines whether or not Amazon SES can send email that you send using the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-sendingoptions
-        '''
-        result = self._values.get("sending_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SendingOptionsProperty]], result)
-
-    @builtins.property
-    def suppression_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SuppressionOptionsProperty]]:
-        '''An object that contains information about the suppression list preferences for your account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-suppressionoptions
-        '''
-        result = self._values.get("suppression_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SuppressionOptionsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of objects that define the tags (keys and values) that are associated with the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def tracking_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.TrackingOptionsProperty]]:
-        '''An object that defines the open and click tracking options for emails that you send using the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-trackingoptions
-        '''
-        result = self._values.get("tracking_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.TrackingOptionsProperty]], result)
-
-    @builtins.property
-    def vdm_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.VdmOptionsProperty]]:
-        '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-vdmoptions
-        '''
-        result = self._values.get("vdm_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.VdmOptionsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IContactListRef, _ITaggable_36806126)
 class CfnContactList(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2755,6 +10090,12 @@ class CfnContactList(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactListRef")
+    def contact_list_ref(self) -> ContactListReference:
+        '''A reference to a ContactList resource.'''
+        return typing.cast(ContactListReference, jsii.get(self, "contactListRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2930,127 +10271,7 @@ class CfnContactList(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnContactListProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "contact_list_name": "contactListName",
-        "description": "description",
-        "tags": "tags",
-        "topics": "topics",
-    },
-)
-class CfnContactListProps:
-    def __init__(
-        self,
-        *,
-        contact_list_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnContactList``.
-
-        :param contact_list_name: The name of the contact list.
-        :param description: A description of what the contact list is about.
-        :param tags: The tags associated with a contact list.
-        :param topics: An interest group, theme, or label within a list. A contact list can have multiple topics.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_contact_list_props = ses.CfnContactListProps(
-                contact_list_name="contactListName",
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                topics=[ses.CfnContactList.TopicProperty(
-                    default_subscription_status="defaultSubscriptionStatus",
-                    display_name="displayName",
-                    topic_name="topicName",
-            
-                    # the properties below are optional
-                    description="description"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0)
-            check_type(argname="argument contact_list_name", value=contact_list_name, expected_type=type_hints["contact_list_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument topics", value=topics, expected_type=type_hints["topics"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if contact_list_name is not None:
-            self._values["contact_list_name"] = contact_list_name
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if topics is not None:
-            self._values["topics"] = topics
-
-    @builtins.property
-    def contact_list_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the contact list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-contactlistname
-        '''
-        result = self._values.get("contact_list_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of what the contact list is about.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with a contact list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def topics(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContactList.TopicProperty]]]]:
-        '''An interest group, theme, or label within a list.
-
-        A contact list can have multiple topics.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-contactlist.html#cfn-ses-contactlist-topics
-        '''
-        result = self._values.get("topics")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContactList.TopicProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnContactListProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDedicatedIpPoolRef, _ITaggableV2_4e6798f8)
 class CfnDedicatedIpPool(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3151,6 +10372,12 @@ class CfnDedicatedIpPool(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="dedicatedIpPoolRef")
+    def dedicated_ip_pool_ref(self) -> DedicatedIpPoolReference:
+        '''A reference to a DedicatedIpPool resource.'''
+        return typing.cast(DedicatedIpPoolReference, jsii.get(self, "dedicatedIpPoolRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="poolName")
     def pool_name(self) -> typing.Optional[builtins.str]:
         '''The name of the dedicated IP pool that the IP address is associated with.'''
@@ -3190,110 +10417,7 @@ class CfnDedicatedIpPool(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnDedicatedIpPoolProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "pool_name": "poolName",
-        "scaling_mode": "scalingMode",
-        "tags": "tags",
-    },
-)
-class CfnDedicatedIpPoolProps:
-    def __init__(
-        self,
-        *,
-        pool_name: typing.Optional[builtins.str] = None,
-        scaling_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDedicatedIpPool``.
-
-        :param pool_name: The name of the dedicated IP pool that the IP address is associated with.
-        :param scaling_mode: The type of scaling mode. The following options are available: - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool. - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES . The ``STANDARD`` option is selected by default if no value is specified. .. epigraph:: Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
-        :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_dedicated_ip_pool_props = ses.CfnDedicatedIpPoolProps(
-                pool_name="poolName",
-                scaling_mode="scalingMode",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56)
-            check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
-            check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if pool_name is not None:
-            self._values["pool_name"] = pool_name
-        if scaling_mode is not None:
-            self._values["scaling_mode"] = scaling_mode
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def pool_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the dedicated IP pool that the IP address is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-poolname
-        '''
-        result = self._values.get("pool_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scaling_mode(self) -> typing.Optional[builtins.str]:
-        '''The type of scaling mode.
-
-        The following options are available:
-
-        - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool.
-        - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES .
-
-        The ``STANDARD`` option is selected by default if no value is specified.
-        .. epigraph::
-
-           Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-scalingmode
-        '''
-        result = self._values.get("scaling_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An object that defines the tags (keys and values) that you want to associate with the pool.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDedicatedIpPoolProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IEmailIdentityRef, _ITaggableV2_4e6798f8)
 class CfnEmailIdentity(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3482,6 +10606,12 @@ class CfnEmailIdentity(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="emailIdentityRef")
+    def email_identity_ref(self) -> EmailIdentityReference:
+        '''A reference to a EmailIdentity resource.'''
+        return typing.cast(EmailIdentityReference, jsii.get(self, "emailIdentityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emailIdentity")
@@ -3971,192 +11101,7 @@ class CfnEmailIdentity(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentityProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "email_identity": "emailIdentity",
-        "configuration_set_attributes": "configurationSetAttributes",
-        "dkim_attributes": "dkimAttributes",
-        "dkim_signing_attributes": "dkimSigningAttributes",
-        "feedback_attributes": "feedbackAttributes",
-        "mail_from_attributes": "mailFromAttributes",
-        "tags": "tags",
-    },
-)
-class CfnEmailIdentityProps:
-    def __init__(
-        self,
-        *,
-        email_identity: builtins.str,
-        configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEmailIdentity``.
-
-        :param email_identity: The email address or domain to verify.
-        :param configuration_set_attributes: Used to associate a configuration set with an email identity.
-        :param dkim_attributes: An object that contains information about the DKIM attributes for the identity.
-        :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ . You can only specify this object if the email identity is a domain, as opposed to an address.
-        :param feedback_attributes: Used to enable or disable feedback forwarding for an identity.
-        :param mail_from_attributes: Used to enable or disable the custom Mail-From domain configuration for an email identity.
-        :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_email_identity_props = ses.CfnEmailIdentityProps(
-                email_identity="emailIdentity",
-            
-                # the properties below are optional
-                configuration_set_attributes=ses.CfnEmailIdentity.ConfigurationSetAttributesProperty(
-                    configuration_set_name="configurationSetName"
-                ),
-                dkim_attributes=ses.CfnEmailIdentity.DkimAttributesProperty(
-                    signing_enabled=False
-                ),
-                dkim_signing_attributes=ses.CfnEmailIdentity.DkimSigningAttributesProperty(
-                    domain_signing_private_key="domainSigningPrivateKey",
-                    domain_signing_selector="domainSigningSelector",
-                    next_signing_key_length="nextSigningKeyLength"
-                ),
-                feedback_attributes=ses.CfnEmailIdentity.FeedbackAttributesProperty(
-                    email_forwarding_enabled=False
-                ),
-                mail_from_attributes=ses.CfnEmailIdentity.MailFromAttributesProperty(
-                    behavior_on_mx_failure="behaviorOnMxFailure",
-                    mail_from_domain="mailFromDomain"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54)
-            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
-            check_type(argname="argument configuration_set_attributes", value=configuration_set_attributes, expected_type=type_hints["configuration_set_attributes"])
-            check_type(argname="argument dkim_attributes", value=dkim_attributes, expected_type=type_hints["dkim_attributes"])
-            check_type(argname="argument dkim_signing_attributes", value=dkim_signing_attributes, expected_type=type_hints["dkim_signing_attributes"])
-            check_type(argname="argument feedback_attributes", value=feedback_attributes, expected_type=type_hints["feedback_attributes"])
-            check_type(argname="argument mail_from_attributes", value=mail_from_attributes, expected_type=type_hints["mail_from_attributes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "email_identity": email_identity,
-        }
-        if configuration_set_attributes is not None:
-            self._values["configuration_set_attributes"] = configuration_set_attributes
-        if dkim_attributes is not None:
-            self._values["dkim_attributes"] = dkim_attributes
-        if dkim_signing_attributes is not None:
-            self._values["dkim_signing_attributes"] = dkim_signing_attributes
-        if feedback_attributes is not None:
-            self._values["feedback_attributes"] = feedback_attributes
-        if mail_from_attributes is not None:
-            self._values["mail_from_attributes"] = mail_from_attributes
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def email_identity(self) -> builtins.str:
-        '''The email address or domain to verify.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-emailidentity
-        '''
-        result = self._values.get("email_identity")
-        assert result is not None, "Required property 'email_identity' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration_set_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.ConfigurationSetAttributesProperty]]:
-        '''Used to associate a configuration set with an email identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-configurationsetattributes
-        '''
-        result = self._values.get("configuration_set_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.ConfigurationSetAttributesProperty]], result)
-
-    @builtins.property
-    def dkim_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimAttributesProperty]]:
-        '''An object that contains information about the DKIM attributes for the identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimattributes
-        '''
-        result = self._values.get("dkim_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimAttributesProperty]], result)
-
-    @builtins.property
-    def dkim_signing_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimSigningAttributesProperty]]:
-        '''If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ .
-
-        You can only specify this object if the email identity is a domain, as opposed to an address.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-dkimsigningattributes
-        '''
-        result = self._values.get("dkim_signing_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.DkimSigningAttributesProperty]], result)
-
-    @builtins.property
-    def feedback_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.FeedbackAttributesProperty]]:
-        '''Used to enable or disable feedback forwarding for an identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-feedbackattributes
-        '''
-        result = self._values.get("feedback_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.FeedbackAttributesProperty]], result)
-
-    @builtins.property
-    def mail_from_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.MailFromAttributesProperty]]:
-        '''Used to enable or disable the custom Mail-From domain configuration for an email identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-mailfromattributes
-        '''
-        result = self._values.get("mail_from_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.MailFromAttributesProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of objects that define the tags (keys and values) to associate with the email identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEmailIdentityProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerAddonInstanceRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerAddonInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4280,6 +11225,12 @@ class CfnMailManagerAddonInstance(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonInstanceRef")
+    def mail_manager_addon_instance_ref(self) -> MailManagerAddonInstanceReference:
+        '''A reference to a MailManagerAddonInstance resource.'''
+        return typing.cast(MailManagerAddonInstanceReference, jsii.get(self, "mailManagerAddonInstanceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="addonSubscriptionId")
     def addon_subscription_id(self) -> builtins.str:
         '''The subscription ID for the instance.'''
@@ -4306,86 +11257,7 @@ class CfnMailManagerAddonInstance(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={"addon_subscription_id": "addonSubscriptionId", "tags": "tags"},
-)
-class CfnMailManagerAddonInstanceProps:
-    def __init__(
-        self,
-        *,
-        addon_subscription_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerAddonInstance``.
-
-        :param addon_subscription_id: The subscription ID for the instance.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_addon_instance_props = ses.CfnMailManagerAddonInstanceProps(
-                addon_subscription_id="addonSubscriptionId",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3)
-            check_type(argname="argument addon_subscription_id", value=addon_subscription_id, expected_type=type_hints["addon_subscription_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "addon_subscription_id": addon_subscription_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def addon_subscription_id(self) -> builtins.str:
-        '''The subscription ID for the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html#cfn-ses-mailmanageraddoninstance-addonsubscriptionid
-        '''
-        result = self._values.get("addon_subscription_id")
-        assert result is not None, "Required property 'addon_subscription_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddoninstance.html#cfn-ses-mailmanageraddoninstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerAddonInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerAddonSubscriptionRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerAddonSubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4427,7 +11299,7 @@ class CfnMailManagerAddonSubscription(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param addon_name: The name of the Add On to subscribe to. You can only have one subscription for each Add On name. Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE``
+        :param addon_name: The name of the Add On to subscribe to. You can only have one subscription for each Add On name. Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE | VADE_ADVANCED_EMAIL_SECURITY``
         :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
@@ -4498,6 +11370,14 @@ class CfnMailManagerAddonSubscription(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="mailManagerAddonSubscriptionRef")
+    def mail_manager_addon_subscription_ref(
+        self,
+    ) -> MailManagerAddonSubscriptionReference:
+        '''A reference to a MailManagerAddonSubscription resource.'''
+        return typing.cast(MailManagerAddonSubscriptionReference, jsii.get(self, "mailManagerAddonSubscriptionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="addonName")
     def addon_name(self) -> builtins.str:
         '''The name of the Add On to subscribe to.'''
@@ -4524,96 +11404,13 @@ class CfnMailManagerAddonSubscription(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddonSubscriptionProps",
-    jsii_struct_bases=[],
-    name_mapping={"addon_name": "addonName", "tags": "tags"},
-)
-class CfnMailManagerAddonSubscriptionProps:
-    def __init__(
-        self,
-        *,
-        addon_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerAddonSubscription``.
-
-        :param addon_name: The name of the Add On to subscribe to. You can only have one subscription for each Add On name. Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE``
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_addon_subscription_props = ses.CfnMailManagerAddonSubscriptionProps(
-                addon_name="addonName",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd)
-            check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "addon_name": addon_name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def addon_name(self) -> builtins.str:
-        '''The name of the Add On to subscribe to.
-
-        You can only have one subscription for each Add On name.
-
-        Valid Values: ``TRENDMICRO_VSAPI | SPAMHAUS_DBL | ABUSIX_MAIL_INTELLIGENCE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html#cfn-ses-mailmanageraddonsubscription-addonname
-        '''
-        result = self._values.get("addon_name")
-        assert result is not None, "Required property 'addon_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddonsubscription.html#cfn-ses-mailmanageraddonsubscription-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerAddonSubscriptionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerAddressListRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerAddressList(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddressList",
 ):
-    '''Definition of AWS::SES::MailManagerAddressList Resource Type.
+    '''The structure representing the address lists and address list attribute that will be used in evaluation of boolean expression.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html
     :cloudformationResource: AWS::SES::MailManagerAddressList
@@ -4645,8 +11442,8 @@ class CfnMailManagerAddressList(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param address_list_name: 
-        :param tags: 
+        :param address_list_name: A user-friendly name for the address list.
+        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a8a172d98fe048a3419d1b92dcaf2e59e8461e9b0baf073f812b3916bcd4974)
@@ -4691,7 +11488,8 @@ class CfnMailManagerAddressList(
     @builtins.property
     @jsii.member(jsii_name="attrAddressListArn")
     def attr_address_list_arn(self) -> builtins.str:
-        '''
+        '''The Amazon Resource Name (ARN) of the address list.
+
         :cloudformationAttribute: AddressListArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAddressListArn"))
@@ -4699,7 +11497,8 @@ class CfnMailManagerAddressList(
     @builtins.property
     @jsii.member(jsii_name="attrAddressListId")
     def attr_address_list_id(self) -> builtins.str:
-        '''
+        '''The identifier of the address list.
+
         :cloudformationAttribute: AddressListId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAddressListId"))
@@ -4716,8 +11515,15 @@ class CfnMailManagerAddressList(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="mailManagerAddressListRef")
+    def mail_manager_address_list_ref(self) -> MailManagerAddressListReference:
+        '''A reference to a MailManagerAddressList resource.'''
+        return typing.cast(MailManagerAddressListReference, jsii.get(self, "mailManagerAddressListRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="addressListName")
     def address_list_name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name for the address list.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "addressListName"))
 
     @address_list_name.setter
@@ -4730,6 +11536,7 @@ class CfnMailManagerAddressList(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for the resource.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -4740,79 +11547,7 @@ class CfnMailManagerAddressList(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerAddressListProps",
-    jsii_struct_bases=[],
-    name_mapping={"address_list_name": "addressListName", "tags": "tags"},
-)
-class CfnMailManagerAddressListProps:
-    def __init__(
-        self,
-        *,
-        address_list_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerAddressList``.
-
-        :param address_list_name: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_address_list_props = ses.CfnMailManagerAddressListProps(
-                address_list_name="addressListName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9)
-            check_type(argname="argument address_list_name", value=address_list_name, expected_type=type_hints["address_list_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if address_list_name is not None:
-            self._values["address_list_name"] = address_list_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def address_list_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html#cfn-ses-mailmanageraddresslist-addresslistname
-        '''
-        result = self._values.get("address_list_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageraddresslist.html#cfn-ses-mailmanageraddresslist-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerAddressListProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerArchiveRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerArchive(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4946,6 +11681,12 @@ class CfnMailManagerArchive(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="mailManagerArchiveRef")
+    def mail_manager_archive_ref(self) -> MailManagerArchiveReference:
+        '''A reference to a MailManagerArchive resource.'''
+        return typing.cast(MailManagerArchiveReference, jsii.get(self, "mailManagerArchiveRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="archiveName")
     def archive_name(self) -> typing.Optional[builtins.str]:
         '''A unique name for the new archive.'''
@@ -5055,122 +11796,7 @@ class CfnMailManagerArchive(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerArchiveProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "archive_name": "archiveName",
-        "kms_key_arn": "kmsKeyArn",
-        "retention": "retention",
-        "tags": "tags",
-    },
-)
-class CfnMailManagerArchiveProps:
-    def __init__(
-        self,
-        *,
-        archive_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerArchive``.
-
-        :param archive_name: A unique name for the new archive.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the KMS key for encrypting emails in the archive.
-        :param retention: The period for retaining emails in the archive before automatic deletion.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_archive_props = ses.CfnMailManagerArchiveProps(
-                archive_name="archiveName",
-                kms_key_arn="kmsKeyArn",
-                retention=ses.CfnMailManagerArchive.ArchiveRetentionProperty(
-                    retention_period="retentionPeriod"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c)
-            check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if archive_name is not None:
-            self._values["archive_name"] = archive_name
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if retention is not None:
-            self._values["retention"] = retention
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def archive_name(self) -> typing.Optional[builtins.str]:
-        '''A unique name for the new archive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-archivename
-        '''
-        result = self._values.get("archive_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the KMS key for encrypting emails in the archive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def retention(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerArchive.ArchiveRetentionProperty]]:
-        '''The period for retaining emails in the archive before automatic deletion.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-retention
-        '''
-        result = self._values.get("retention")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerArchive.ArchiveRetentionProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerarchive.html#cfn-ses-mailmanagerarchive-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerArchiveProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerIngressPointRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerIngressPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5338,6 +11964,12 @@ class CfnMailManagerIngressPoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerIngressPointRef")
+    def mail_manager_ingress_point_ref(self) -> MailManagerIngressPointReference:
+        '''A reference to a MailManagerIngressPoint resource.'''
+        return typing.cast(MailManagerIngressPointReference, jsii.get(self, "mailManagerIngressPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleSetId")
@@ -5715,199 +12347,7 @@ class CfnMailManagerIngressPoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerIngressPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "rule_set_id": "ruleSetId",
-        "traffic_policy_id": "trafficPolicyId",
-        "type": "type",
-        "ingress_point_configuration": "ingressPointConfiguration",
-        "ingress_point_name": "ingressPointName",
-        "network_configuration": "networkConfiguration",
-        "status_to_update": "statusToUpdate",
-        "tags": "tags",
-    },
-)
-class CfnMailManagerIngressPointProps:
-    def __init__(
-        self,
-        *,
-        rule_set_id: builtins.str,
-        traffic_policy_id: builtins.str,
-        type: builtins.str,
-        ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ingress_point_name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status_to_update: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerIngressPoint``.
-
-        :param rule_set_id: The identifier of an existing rule set that you attach to an ingress endpoint resource.
-        :param traffic_policy_id: The identifier of an existing traffic policy that you attach to an ingress endpoint resource.
-        :param type: The type of the ingress endpoint to create.
-        :param ingress_point_configuration: The configuration of the ingress endpoint resource.
-        :param ingress_point_name: A user friendly name for an ingress endpoint resource.
-        :param network_configuration: The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
-        :param status_to_update: The update status of an ingress endpoint.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_ingress_point_props = ses.CfnMailManagerIngressPointProps(
-                rule_set_id="ruleSetId",
-                traffic_policy_id="trafficPolicyId",
-                type="type",
-            
-                # the properties below are optional
-                ingress_point_configuration=ses.CfnMailManagerIngressPoint.IngressPointConfigurationProperty(
-                    secret_arn="secretArn",
-                    smtp_password="smtpPassword"
-                ),
-                ingress_point_name="ingressPointName",
-                network_configuration=ses.CfnMailManagerIngressPoint.NetworkConfigurationProperty(
-                    private_network_configuration=ses.CfnMailManagerIngressPoint.PrivateNetworkConfigurationProperty(
-                        vpc_endpoint_id="vpcEndpointId"
-                    ),
-                    public_network_configuration=ses.CfnMailManagerIngressPoint.PublicNetworkConfigurationProperty(
-                        ip_type="ipType"
-                    )
-                ),
-                status_to_update="statusToUpdate",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1)
-            check_type(argname="argument rule_set_id", value=rule_set_id, expected_type=type_hints["rule_set_id"])
-            check_type(argname="argument traffic_policy_id", value=traffic_policy_id, expected_type=type_hints["traffic_policy_id"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument ingress_point_configuration", value=ingress_point_configuration, expected_type=type_hints["ingress_point_configuration"])
-            check_type(argname="argument ingress_point_name", value=ingress_point_name, expected_type=type_hints["ingress_point_name"])
-            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
-            check_type(argname="argument status_to_update", value=status_to_update, expected_type=type_hints["status_to_update"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_set_id": rule_set_id,
-            "traffic_policy_id": traffic_policy_id,
-            "type": type,
-        }
-        if ingress_point_configuration is not None:
-            self._values["ingress_point_configuration"] = ingress_point_configuration
-        if ingress_point_name is not None:
-            self._values["ingress_point_name"] = ingress_point_name
-        if network_configuration is not None:
-            self._values["network_configuration"] = network_configuration
-        if status_to_update is not None:
-            self._values["status_to_update"] = status_to_update
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def rule_set_id(self) -> builtins.str:
-        '''The identifier of an existing rule set that you attach to an ingress endpoint resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-rulesetid
-        '''
-        result = self._values.get("rule_set_id")
-        assert result is not None, "Required property 'rule_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def traffic_policy_id(self) -> builtins.str:
-        '''The identifier of an existing traffic policy that you attach to an ingress endpoint resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-trafficpolicyid
-        '''
-        result = self._values.get("traffic_policy_id")
-        assert result is not None, "Required property 'traffic_policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of the ingress endpoint to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ingress_point_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.IngressPointConfigurationProperty]]:
-        '''The configuration of the ingress endpoint resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-ingresspointconfiguration
-        '''
-        result = self._values.get("ingress_point_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.IngressPointConfigurationProperty]], result)
-
-    @builtins.property
-    def ingress_point_name(self) -> typing.Optional[builtins.str]:
-        '''A user friendly name for an ingress endpoint resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-ingresspointname
-        '''
-        result = self._values.get("ingress_point_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.NetworkConfigurationProperty]]:
-        '''The network type (IPv4-only, Dual-Stack, PrivateLink) of the ingress endpoint resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-networkconfiguration
-        '''
-        result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMailManagerIngressPoint.NetworkConfigurationProperty]], result)
-
-    @builtins.property
-    def status_to_update(self) -> typing.Optional[builtins.str]:
-        '''The update status of an ingress endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-statustoupdate
-        '''
-        result = self._values.get("status_to_update")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanageringresspoint.html#cfn-ses-mailmanageringresspoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerIngressPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerRelayRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerRelay(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6036,6 +12476,12 @@ class CfnMailManagerRelay(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRelayRef")
+    def mail_manager_relay_ref(self) -> MailManagerRelayReference:
+        '''A reference to a MailManagerRelay resource.'''
+        return typing.cast(MailManagerRelayReference, jsii.get(self, "mailManagerRelayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authentication")
@@ -6187,144 +12633,7 @@ class CfnMailManagerRelay(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRelayProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authentication": "authentication",
-        "server_name": "serverName",
-        "server_port": "serverPort",
-        "relay_name": "relayName",
-        "tags": "tags",
-    },
-)
-class CfnMailManagerRelayProps:
-    def __init__(
-        self,
-        *,
-        authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-        server_name: builtins.str,
-        server_port: jsii.Number,
-        relay_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerRelay``.
-
-        :param authentication: Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.
-        :param server_name: The destination relay server address.
-        :param server_port: The destination relay server port.
-        :param relay_name: The unique relay name.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            # no_authentication: Any
-            
-            cfn_mail_manager_relay_props = ses.CfnMailManagerRelayProps(
-                authentication=ses.CfnMailManagerRelay.RelayAuthenticationProperty(
-                    no_authentication=no_authentication,
-                    secret_arn="secretArn"
-                ),
-                server_name="serverName",
-                server_port=123,
-            
-                # the properties below are optional
-                relay_name="relayName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971)
-            check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
-            check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
-            check_type(argname="argument server_port", value=server_port, expected_type=type_hints["server_port"])
-            check_type(argname="argument relay_name", value=relay_name, expected_type=type_hints["relay_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authentication": authentication,
-            "server_name": server_name,
-            "server_port": server_port,
-        }
-        if relay_name is not None:
-            self._values["relay_name"] = relay_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def authentication(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMailManagerRelay.RelayAuthenticationProperty]:
-        '''Authentication for the relay destination server—specify the secretARN where the SMTP credentials are stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-authentication
-        '''
-        result = self._values.get("authentication")
-        assert result is not None, "Required property 'authentication' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMailManagerRelay.RelayAuthenticationProperty], result)
-
-    @builtins.property
-    def server_name(self) -> builtins.str:
-        '''The destination relay server address.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-servername
-        '''
-        result = self._values.get("server_name")
-        assert result is not None, "Required property 'server_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_port(self) -> jsii.Number:
-        '''The destination relay server port.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-serverport
-        '''
-        result = self._values.get("server_port")
-        assert result is not None, "Required property 'server_port' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def relay_name(self) -> typing.Optional[builtins.str]:
-        '''The unique relay name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-relayname
-        '''
-        result = self._values.get("relay_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerrelay.html#cfn-ses-mailmanagerrelay-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerRelayProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerRuleSetRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerRuleSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6620,6 +12929,12 @@ class CfnMailManagerRuleSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerRuleSetRef")
+    def mail_manager_rule_set_ref(self) -> MailManagerRuleSetReference:
+        '''A reference to a MailManagerRuleSet resource.'''
+        return typing.cast(MailManagerRuleSetReference, jsii.get(self, "mailManagerRuleSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="rules")
@@ -9367,285 +15682,7 @@ class CfnMailManagerRuleSet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerRuleSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"rules": "rules", "rule_set_name": "ruleSetName", "tags": "tags"},
-)
-class CfnMailManagerRuleSetProps:
-    def __init__(
-        self,
-        *,
-        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        rule_set_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerRuleSet``.
-
-        :param rules: Conditional rules that are evaluated for determining actions on email.
-        :param rule_set_name: A user-friendly name for the rule set.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            # drop: Any
-            
-            cfn_mail_manager_rule_set_props = ses.CfnMailManagerRuleSetProps(
-                rules=[ses.CfnMailManagerRuleSet.RuleProperty(
-                    actions=[ses.CfnMailManagerRuleSet.RuleActionProperty(
-                        add_header=ses.CfnMailManagerRuleSet.AddHeaderActionProperty(
-                            header_name="headerName",
-                            header_value="headerValue"
-                        ),
-                        archive=ses.CfnMailManagerRuleSet.ArchiveActionProperty(
-                            target_archive="targetArchive",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy"
-                        ),
-                        deliver_to_mailbox=ses.CfnMailManagerRuleSet.DeliverToMailboxActionProperty(
-                            mailbox_arn="mailboxArn",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy"
-                        ),
-                        deliver_to_qBusiness=ses.CfnMailManagerRuleSet.DeliverToQBusinessActionProperty(
-                            application_id="applicationId",
-                            index_id="indexId",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy"
-                        ),
-                        drop=drop,
-                        publish_to_sns=ses.CfnMailManagerRuleSet.SnsActionProperty(
-                            role_arn="roleArn",
-                            topic_arn="topicArn",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy",
-                            encoding="encoding",
-                            payload_type="payloadType"
-                        ),
-                        relay=ses.CfnMailManagerRuleSet.RelayActionProperty(
-                            relay="relay",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy",
-                            mail_from="mailFrom"
-                        ),
-                        replace_recipient=ses.CfnMailManagerRuleSet.ReplaceRecipientActionProperty(
-                            replace_with=["replaceWith"]
-                        ),
-                        send=ses.CfnMailManagerRuleSet.SendActionProperty(
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy"
-                        ),
-                        write_to_s3=ses.CfnMailManagerRuleSet.S3ActionProperty(
-                            role_arn="roleArn",
-                            s3_bucket="s3Bucket",
-            
-                            # the properties below are optional
-                            action_failure_policy="actionFailurePolicy",
-                            s3_prefix="s3Prefix",
-                            s3_sse_kms_key_id="s3SseKmsKeyId"
-                        )
-                    )],
-            
-                    # the properties below are optional
-                    conditions=[ses.CfnMailManagerRuleSet.RuleConditionProperty(
-                        boolean_expression=ses.CfnMailManagerRuleSet.RuleBooleanExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute",
-                                is_in_address_list=ses.CfnMailManagerRuleSet.RuleIsInAddressListProperty(
-                                    address_lists=["addressLists"],
-                                    attribute="attribute"
-                                )
-                            ),
-                            operator="operator"
-                        ),
-                        dmarc_expression=ses.CfnMailManagerRuleSet.RuleDmarcExpressionProperty(
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        ip_expression=ses.CfnMailManagerRuleSet.RuleIpExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleIpToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        number_expression=ses.CfnMailManagerRuleSet.RuleNumberExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleNumberToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            value=123
-                        ),
-                        string_expression=ses.CfnMailManagerRuleSet.RuleStringExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleStringToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute",
-                                mime_header_attribute="mimeHeaderAttribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        verdict_expression=ses.CfnMailManagerRuleSet.RuleVerdictExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        )
-                    )],
-                    name="name",
-                    unless=[ses.CfnMailManagerRuleSet.RuleConditionProperty(
-                        boolean_expression=ses.CfnMailManagerRuleSet.RuleBooleanExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleBooleanToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute",
-                                is_in_address_list=ses.CfnMailManagerRuleSet.RuleIsInAddressListProperty(
-                                    address_lists=["addressLists"],
-                                    attribute="attribute"
-                                )
-                            ),
-                            operator="operator"
-                        ),
-                        dmarc_expression=ses.CfnMailManagerRuleSet.RuleDmarcExpressionProperty(
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        ip_expression=ses.CfnMailManagerRuleSet.RuleIpExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleIpToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        number_expression=ses.CfnMailManagerRuleSet.RuleNumberExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleNumberToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            value=123
-                        ),
-                        string_expression=ses.CfnMailManagerRuleSet.RuleStringExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleStringToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute",
-                                mime_header_attribute="mimeHeaderAttribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        verdict_expression=ses.CfnMailManagerRuleSet.RuleVerdictExpressionProperty(
-                            evaluate=ses.CfnMailManagerRuleSet.RuleVerdictToEvaluateProperty(
-                                analysis=ses.CfnMailManagerRuleSet.AnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        )
-                    )]
-                )],
-            
-                # the properties below are optional
-                rule_set_name="ruleSetName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf)
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rules": rules,
-        }
-        if rule_set_name is not None:
-            self._values["rule_set_name"] = rule_set_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerRuleSet.RuleProperty]]]:
-        '''Conditional rules that are evaluated for determining actions on email.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-rules
-        '''
-        result = self._values.get("rules")
-        assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerRuleSet.RuleProperty]]], result)
-
-    @builtins.property
-    def rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly name for the rule set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-rulesetname
-        '''
-        result = self._values.get("rule_set_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagerruleset.html#cfn-ses-mailmanagerruleset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerRuleSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMailManagerTrafficPolicyRef, _ITaggableV2_4e6798f8)
 class CfnMailManagerTrafficPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9818,6 +15855,12 @@ class CfnMailManagerTrafficPolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mailManagerTrafficPolicyRef")
+    def mail_manager_traffic_policy_ref(self) -> MailManagerTrafficPolicyReference:
+        '''A reference to a MailManagerTrafficPolicy resource.'''
+        return typing.cast(MailManagerTrafficPolicyReference, jsii.get(self, "mailManagerTrafficPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultAction")
@@ -10057,7 +16100,7 @@ class CfnMailManagerTrafficPolicy(
             '''The union type representing the allowed types of operands for a boolean condition.
 
             :param analysis: The structure type for a boolean condition stating the Add On ARN and its returned value.
-            :param is_in_address_list: 
+            :param is_in_address_list: The structure type for a boolean condition that provides the address lists to evaluate incoming traffic on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate.html
             :exampleMetadata: fixture=_generated
@@ -10104,7 +16147,8 @@ class CfnMailManagerTrafficPolicy(
         def is_in_address_list(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty"]]:
-            '''
+            '''The structure type for a boolean condition that provides the address lists to evaluate incoming traffic on.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressbooleantoevaluate-isinaddresslist
             '''
             result = self._values.get("is_in_address_list")
@@ -10284,10 +16328,11 @@ class CfnMailManagerTrafficPolicy(
             operator: builtins.str,
             values: typing.Sequence[builtins.str],
         ) -> None:
-            '''
-            :param evaluate: 
-            :param operator: 
-            :param values: 
+            '''The union type representing the allowed types for the left hand side of an IPv6 condition.
+
+            :param evaluate: The left hand side argument of an IPv6 condition expression.
+            :param operator: The matching operator for an IPv6 condition expression.
+            :param values: The right hand side argument of an IPv6 condition expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6expression.html
             :exampleMetadata: fixture=_generated
@@ -10321,7 +16366,8 @@ class CfnMailManagerTrafficPolicy(
         def evaluate(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty"]:
-            '''
+            '''The left hand side argument of an IPv6 condition expression.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6expression.html#cfn-ses-mailmanagertrafficpolicy-ingressipv6expression-evaluate
             '''
             result = self._values.get("evaluate")
@@ -10330,7 +16376,8 @@ class CfnMailManagerTrafficPolicy(
 
         @builtins.property
         def operator(self) -> builtins.str:
-            '''
+            '''The matching operator for an IPv6 condition expression.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6expression.html#cfn-ses-mailmanagertrafficpolicy-ingressipv6expression-operator
             '''
             result = self._values.get("operator")
@@ -10339,7 +16386,8 @@ class CfnMailManagerTrafficPolicy(
 
         @builtins.property
         def values(self) -> typing.List[builtins.str]:
-            '''
+            '''The right hand side argument of an IPv6 condition expression.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6expression.html#cfn-ses-mailmanagertrafficpolicy-ingressipv6expression-values
             '''
             result = self._values.get("values")
@@ -10364,8 +16412,9 @@ class CfnMailManagerTrafficPolicy(
     )
     class IngressIpv6ToEvaluateProperty:
         def __init__(self, *, attribute: builtins.str) -> None:
-            '''
-            :param attribute: 
+            '''The structure for an IPv6 based condition matching on the incoming mail.
+
+            :param attribute: An enum type representing the allowed attribute types for an IPv6 condition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6toevaluate.html
             :exampleMetadata: fixture=_generated
@@ -10389,7 +16438,8 @@ class CfnMailManagerTrafficPolicy(
 
         @builtins.property
         def attribute(self) -> builtins.str:
-            '''
+            '''An enum type representing the allowed attribute types for an IPv6 condition.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressipv6toevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressipv6toevaluate-attribute
             '''
             result = self._values.get("attribute")
@@ -10419,9 +16469,10 @@ class CfnMailManagerTrafficPolicy(
             address_lists: typing.Sequence[builtins.str],
             attribute: builtins.str,
         ) -> None:
-            '''
-            :param address_lists: 
-            :param attribute: 
+            '''The address lists and the address list attribute value that is evaluated in a policy statement's conditional expression to either deny or block the incoming email.
+
+            :param address_lists: The address lists that will be used for evaluation.
+            :param attribute: The email attribute that needs to be evaluated against the address list.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressisinaddresslist.html
             :exampleMetadata: fixture=_generated
@@ -10448,7 +16499,8 @@ class CfnMailManagerTrafficPolicy(
 
         @builtins.property
         def address_lists(self) -> typing.List[builtins.str]:
-            '''
+            '''The address lists that will be used for evaluation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressisinaddresslist.html#cfn-ses-mailmanagertrafficpolicy-ingressisinaddresslist-addresslists
             '''
             result = self._values.get("address_lists")
@@ -10457,7 +16509,8 @@ class CfnMailManagerTrafficPolicy(
 
         @builtins.property
         def attribute(self) -> builtins.str:
-            '''
+            '''The email attribute that needs to be evaluated against the address list.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressisinaddresslist.html#cfn-ses-mailmanagertrafficpolicy-ingressisinaddresslist-attribute
             '''
             result = self._values.get("attribute")
@@ -10586,7 +16639,7 @@ class CfnMailManagerTrafficPolicy(
         ) -> None:
             '''The union type representing the allowed types for the left hand side of a string condition.
 
-            :param analysis: 
+            :param analysis: The structure type for a string condition stating the Add On ARN and its returned value.
             :param attribute: The enum type representing the allowed attribute types for a string condition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressstringtoevaluate.html
@@ -10620,7 +16673,8 @@ class CfnMailManagerTrafficPolicy(
         def analysis(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.IngressAnalysisProperty"]]:
-            '''
+            '''The structure type for a string condition stating the Add On ARN and its returned value.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-ingressstringtoevaluate.html#cfn-ses-mailmanagertrafficpolicy-ingressstringtoevaluate-analysis
             '''
             result = self._values.get("analysis")
@@ -10821,7 +16875,7 @@ class CfnMailManagerTrafficPolicy(
 
             :param boolean_expression: This represents a boolean type condition matching on the incoming mail. It performs the boolean operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
             :param ip_expression: This represents an IP based condition matching on the incoming mail. It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
-            :param ipv6_expression: 
+            :param ipv6_expression: This represents an IPv6 based condition matching on the incoming mail. It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
             :param string_expression: This represents a string based condition matching on the incoming mail. It performs the string operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
             :param tls_expression: This represents a TLS based condition matching on the incoming mail. It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
 
@@ -10931,7 +16985,10 @@ class CfnMailManagerTrafficPolicy(
         def ipv6_expression(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty"]]:
-            '''
+            '''This represents an IPv6 based condition matching on the incoming mail.
+
+            It performs the operation configured in 'Operator' and evaluates the 'Protocol' object against the 'Value'.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-mailmanagertrafficpolicy-policycondition.html#cfn-ses-mailmanagertrafficpolicy-policycondition-ipv6expression
             '''
             result = self._values.get("ipv6_expression")
@@ -11094,190 +17151,7 @@ class CfnMailManagerTrafficPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnMailManagerTrafficPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_action": "defaultAction",
-        "policy_statements": "policyStatements",
-        "max_message_size_bytes": "maxMessageSizeBytes",
-        "tags": "tags",
-        "traffic_policy_name": "trafficPolicyName",
-    },
-)
-class CfnMailManagerTrafficPolicyProps:
-    def __init__(
-        self,
-        *,
-        default_action: builtins.str,
-        policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        max_message_size_bytes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        traffic_policy_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMailManagerTrafficPolicy``.
-
-        :param default_action: Default action instructs the traﬃc policy to either Allow or Deny (block) messages that fall outside of (or not addressed by) the conditions of your policy statements.
-        :param policy_statements: Conditional statements for filtering email traffic.
-        :param max_message_size_bytes: The maximum message size in bytes of email which is allowed in by this traffic policy—anything larger will be blocked.
-        :param tags: The tags used to organize, track, or control access for the resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-        :param traffic_policy_name: The name of the policy. The policy name cannot exceed 64 characters and can only include alphanumeric characters, dashes, and underscores.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_mail_manager_traffic_policy_props = ses.CfnMailManagerTrafficPolicyProps(
-                default_action="defaultAction",
-                policy_statements=[ses.CfnMailManagerTrafficPolicy.PolicyStatementProperty(
-                    action="action",
-                    conditions=[ses.CfnMailManagerTrafficPolicy.PolicyConditionProperty(
-                        boolean_expression=ses.CfnMailManagerTrafficPolicy.IngressBooleanExpressionProperty(
-                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressBooleanToEvaluateProperty(
-                                analysis=ses.CfnMailManagerTrafficPolicy.IngressAnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                is_in_address_list=ses.CfnMailManagerTrafficPolicy.IngressIsInAddressListProperty(
-                                    address_lists=["addressLists"],
-                                    attribute="attribute"
-                                )
-                            ),
-                            operator="operator"
-                        ),
-                        ip_expression=ses.CfnMailManagerTrafficPolicy.IngressIpv4ExpressionProperty(
-                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressIpToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        ipv6_expression=ses.CfnMailManagerTrafficPolicy.IngressIpv6ExpressionProperty(
-                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressIpv6ToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        string_expression=ses.CfnMailManagerTrafficPolicy.IngressStringExpressionProperty(
-                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressStringToEvaluateProperty(
-                                analysis=ses.CfnMailManagerTrafficPolicy.IngressAnalysisProperty(
-                                    analyzer="analyzer",
-                                    result_field="resultField"
-                                ),
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            values=["values"]
-                        ),
-                        tls_expression=ses.CfnMailManagerTrafficPolicy.IngressTlsProtocolExpressionProperty(
-                            evaluate=ses.CfnMailManagerTrafficPolicy.IngressTlsProtocolToEvaluateProperty(
-                                attribute="attribute"
-                            ),
-                            operator="operator",
-                            value="value"
-                        )
-                    )]
-                )],
-            
-                # the properties below are optional
-                max_message_size_bytes=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                traffic_policy_name="trafficPolicyName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef)
-            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
-            check_type(argname="argument policy_statements", value=policy_statements, expected_type=type_hints["policy_statements"])
-            check_type(argname="argument max_message_size_bytes", value=max_message_size_bytes, expected_type=type_hints["max_message_size_bytes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument traffic_policy_name", value=traffic_policy_name, expected_type=type_hints["traffic_policy_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_action": default_action,
-            "policy_statements": policy_statements,
-        }
-        if max_message_size_bytes is not None:
-            self._values["max_message_size_bytes"] = max_message_size_bytes
-        if tags is not None:
-            self._values["tags"] = tags
-        if traffic_policy_name is not None:
-            self._values["traffic_policy_name"] = traffic_policy_name
-
-    @builtins.property
-    def default_action(self) -> builtins.str:
-        '''Default action instructs the traﬃc policy to either Allow or Deny (block) messages that fall outside of (or not addressed by) the conditions of your policy statements.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-defaultaction
-        '''
-        result = self._values.get("default_action")
-        assert result is not None, "Required property 'default_action' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_statements(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerTrafficPolicy.PolicyStatementProperty]]]:
-        '''Conditional statements for filtering email traffic.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-policystatements
-        '''
-        result = self._values.get("policy_statements")
-        assert result is not None, "Required property 'policy_statements' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMailManagerTrafficPolicy.PolicyStatementProperty]]], result)
-
-    @builtins.property
-    def max_message_size_bytes(self) -> typing.Optional[jsii.Number]:
-        '''The maximum message size in bytes of email which is allowed in by this traffic policy—anything larger will be blocked.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-maxmessagesizebytes
-        '''
-        result = self._values.get("max_message_size_bytes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for the resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def traffic_policy_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the policy.
-
-        The policy name cannot exceed 64 characters and can only include alphanumeric characters, dashes, and underscores.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-mailmanagertrafficpolicy.html#cfn-ses-mailmanagertrafficpolicy-trafficpolicyname
-        '''
-        result = self._values.get("traffic_policy_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMailManagerTrafficPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IReceiptFilterRef)
 class CfnReceiptFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11372,6 +17246,12 @@ class CfnReceiptFilter(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="receiptFilterRef")
+    def receipt_filter_ref(self) -> ReceiptFilterReference:
+        '''A reference to a ReceiptFilter resource.'''
+        return typing.cast(ReceiptFilterReference, jsii.get(self, "receiptFilterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="filter")
@@ -11544,74 +17424,7 @@ class CfnReceiptFilter(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={"filter": "filter"},
-)
-class CfnReceiptFilterProps:
-    def __init__(
-        self,
-        *,
-        filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnReceiptFilter``.
-
-        :param filter: A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptfilter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_receipt_filter_props = ses.CfnReceiptFilterProps(
-                filter=ses.CfnReceiptFilter.FilterProperty(
-                    ip_filter=ses.CfnReceiptFilter.IpFilterProperty(
-                        cidr="cidr",
-                        policy="policy"
-                    ),
-            
-                    # the properties below are optional
-                    name="name"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f)
-            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "filter": filter,
-        }
-
-    @builtins.property
-    def filter(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnReceiptFilter.FilterProperty]:
-        '''A data structure that describes the IP address filter to create, which consists of a name, an IP address range, and whether to allow or block mail from it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptfilter.html#cfn-ses-receiptfilter-filter
-        '''
-        result = self._values.get("filter")
-        assert result is not None, "Required property 'filter' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnReceiptFilter.FilterProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReceiptFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IReceiptRuleRef)
 class CfnReceiptRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11765,6 +17578,12 @@ class CfnReceiptRule(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="receiptRuleRef")
+    def receipt_rule_ref(self) -> ReceiptRuleReference:
+        '''A reference to a ReceiptRule resource.'''
+        return typing.cast(ReceiptRuleReference, jsii.get(self, "receiptRuleRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="rule")
     def rule(
         self,
@@ -11843,7 +17662,7 @@ class CfnReceiptRule(
 
             :param add_header_action: Adds a header to the received email.
             :param bounce_action: Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon Simple Notification Service (Amazon SNS).
-            :param connect_action: 
+            :param connect_action: The action that informs a traffic policy resource to either allow or block the email if it matches a condition in the policy statement.
             :param lambda_action: Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.
             :param s3_action: Saves the received message to an Amazon Simple Storage Service (Amazon S3) bucket and, optionally, publishes a notification to Amazon SNS.
             :param sns_action: Publishes the email content within a notification to Amazon SNS.
@@ -11965,7 +17784,8 @@ class CfnReceiptRule(
         def connect_action(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnReceiptRule.ConnectActionProperty"]]:
-            '''
+            '''The action that informs a traffic policy resource to either allow or block the email if it matches a condition in the policy statement.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-action.html#cfn-ses-receiptrule-action-connectaction
             '''
             result = self._values.get("connect_action")
@@ -13045,155 +18865,7 @@ class CfnReceiptRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={"rule": "rule", "rule_set_name": "ruleSetName", "after": "after"},
-)
-class CfnReceiptRuleProps:
-    def __init__(
-        self,
-        *,
-        rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
-        rule_set_name: builtins.str,
-        after: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReceiptRule``.
-
-        :param rule: A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.
-        :param rule_set_name: The name of the rule set where the receipt rule is added.
-        :param after: The name of an existing rule after which the new rule is placed. If this parameter is null, the new rule is inserted at the beginning of the rule list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_receipt_rule_props = ses.CfnReceiptRuleProps(
-                rule=ses.CfnReceiptRule.RuleProperty(
-                    actions=[ses.CfnReceiptRule.ActionProperty(
-                        add_header_action=ses.CfnReceiptRule.AddHeaderActionProperty(
-                            header_name="headerName",
-                            header_value="headerValue"
-                        ),
-                        bounce_action=ses.CfnReceiptRule.BounceActionProperty(
-                            message="message",
-                            sender="sender",
-                            smtp_reply_code="smtpReplyCode",
-            
-                            # the properties below are optional
-                            status_code="statusCode",
-                            topic_arn="topicArn"
-                        ),
-                        connect_action=ses.CfnReceiptRule.ConnectActionProperty(
-                            iam_role_arn="iamRoleArn",
-                            instance_arn="instanceArn"
-                        ),
-                        lambda_action=ses.CfnReceiptRule.LambdaActionProperty(
-                            function_arn="functionArn",
-            
-                            # the properties below are optional
-                            invocation_type="invocationType",
-                            topic_arn="topicArn"
-                        ),
-                        s3_action=ses.CfnReceiptRule.S3ActionProperty(
-                            bucket_name="bucketName",
-            
-                            # the properties below are optional
-                            iam_role_arn="iamRoleArn",
-                            kms_key_arn="kmsKeyArn",
-                            object_key_prefix="objectKeyPrefix",
-                            topic_arn="topicArn"
-                        ),
-                        sns_action=ses.CfnReceiptRule.SNSActionProperty(
-                            encoding="encoding",
-                            topic_arn="topicArn"
-                        ),
-                        stop_action=ses.CfnReceiptRule.StopActionProperty(
-                            scope="scope",
-            
-                            # the properties below are optional
-                            topic_arn="topicArn"
-                        ),
-                        workmail_action=ses.CfnReceiptRule.WorkmailActionProperty(
-                            organization_arn="organizationArn",
-            
-                            # the properties below are optional
-                            topic_arn="topicArn"
-                        )
-                    )],
-                    enabled=False,
-                    name="name",
-                    recipients=["recipients"],
-                    scan_enabled=False,
-                    tls_policy="tlsPolicy"
-                ),
-                rule_set_name="ruleSetName",
-            
-                # the properties below are optional
-                after="after"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1)
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
-            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule": rule,
-            "rule_set_name": rule_set_name,
-        }
-        if after is not None:
-            self._values["after"] = after
-
-    @builtins.property
-    def rule(self) -> typing.Union[_IResolvable_da3f097b, CfnReceiptRule.RuleProperty]:
-        '''A data structure that contains the specified rule's name, actions, recipients, domains, enabled status, scan status, and TLS policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-rule
-        '''
-        result = self._values.get("rule")
-        assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnReceiptRule.RuleProperty], result)
-
-    @builtins.property
-    def rule_set_name(self) -> builtins.str:
-        '''The name of the rule set where the receipt rule is added.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-rulesetname
-        '''
-        result = self._values.get("rule_set_name")
-        assert result is not None, "Required property 'rule_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def after(self) -> typing.Optional[builtins.str]:
-        '''The name of an existing rule after which the new rule is placed.
-
-        If this parameter is null, the new rule is inserted at the beginning of the rule list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptrule.html#cfn-ses-receiptrule-after
-        '''
-        result = self._values.get("after")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReceiptRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IReceiptRuleSetRef)
 class CfnReceiptRuleSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13284,6 +18956,12 @@ class CfnReceiptRuleSet(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="receiptRuleSetRef")
+    def receipt_rule_set_ref(self) -> ReceiptRuleSetReference:
+        '''A reference to a ReceiptRuleSet resource.'''
+        return typing.cast(ReceiptRuleSetReference, jsii.get(self, "receiptRuleSetRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="ruleSetName")
     def rule_set_name(self) -> typing.Optional[builtins.str]:
         '''The name of the receipt rule set to make active.'''
@@ -13297,61 +18975,7 @@ class CfnReceiptRuleSet(
         jsii.set(self, "ruleSetName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnReceiptRuleSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"rule_set_name": "ruleSetName"},
-)
-class CfnReceiptRuleSetProps:
-    def __init__(self, *, rule_set_name: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnReceiptRuleSet``.
-
-        :param rule_set_name: The name of the receipt rule set to make active. Setting this value to null disables all email receiving.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_receipt_rule_set_props = ses.CfnReceiptRuleSetProps(
-                rule_set_name="ruleSetName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636)
-            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if rule_set_name is not None:
-            self._values["rule_set_name"] = rule_set_name
-
-    @builtins.property
-    def rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the receipt rule set to make active.
-
-        Setting this value to null disables all email receiving.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-receiptruleset.html#cfn-ses-receiptruleset-rulesetname
-        '''
-        result = self._values.get("rule_set_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReceiptRuleSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITemplateRef)
 class CfnTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13445,6 +19069,12 @@ class CfnTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> TemplateReference:
+        '''A reference to a Template resource.'''
+        return typing.cast(TemplateReference, jsii.get(self, "templateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="template")
@@ -13577,72 +19207,7 @@ class CfnTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={"template": "template"},
-)
-class CfnTemplateProps:
-    def __init__(
-        self,
-        *,
-        template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTemplate``.
-
-        :param template: The content of the email, composed of a subject line and either an HTML part or a text-only part.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_template_props = ses.CfnTemplateProps(
-                template=ses.CfnTemplate.TemplateProperty(
-                    subject_part="subjectPart",
-            
-                    # the properties below are optional
-                    html_part="htmlPart",
-                    template_name="templateName",
-                    text_part="textPart"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317)
-            check_type(argname="argument template", value=template, expected_type=type_hints["template"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if template is not None:
-            self._values["template"] = template
-
-    @builtins.property
-    def template(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateProperty]]:
-        '''The content of the email, composed of a subject line and either an HTML part or a text-only part.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html#cfn-ses-template-template
-        '''
-        result = self._values.get("template")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IVdmAttributesRef)
 class CfnVdmAttributes(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13738,6 +19303,12 @@ class CfnVdmAttributes(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vdmAttributesRef")
+    def vdm_attributes_ref(self) -> VdmAttributesReference:
+        '''A reference to a VdmAttributes resource.'''
+        return typing.cast(VdmAttributesReference, jsii.get(self, "vdmAttributesRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dashboardAttributes")
@@ -13890,3806 +19461,6 @@ class CfnVdmAttributes(
             return "GuardianAttributesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CfnVdmAttributesProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dashboard_attributes": "dashboardAttributes",
-        "guardian_attributes": "guardianAttributes",
-    },
-)
-class CfnVdmAttributesProps:
-    def __init__(
-        self,
-        *,
-        dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVdmAttributes``.
-
-        :param dashboard_attributes: Specifies additional settings for your VDM configuration as applicable to the Dashboard.
-        :param guardian_attributes: Specifies additional settings for your VDM configuration as applicable to the Guardian.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cfn_vdm_attributes_props = ses.CfnVdmAttributesProps(
-                dashboard_attributes=ses.CfnVdmAttributes.DashboardAttributesProperty(
-                    engagement_metrics="engagementMetrics"
-                ),
-                guardian_attributes=ses.CfnVdmAttributes.GuardianAttributesProperty(
-                    optimized_shared_delivery="optimizedSharedDelivery"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825)
-            check_type(argname="argument dashboard_attributes", value=dashboard_attributes, expected_type=type_hints["dashboard_attributes"])
-            check_type(argname="argument guardian_attributes", value=guardian_attributes, expected_type=type_hints["guardian_attributes"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dashboard_attributes is not None:
-            self._values["dashboard_attributes"] = dashboard_attributes
-        if guardian_attributes is not None:
-            self._values["guardian_attributes"] = guardian_attributes
-
-    @builtins.property
-    def dashboard_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.DashboardAttributesProperty]]:
-        '''Specifies additional settings for your VDM configuration as applicable to the Dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-dashboardattributes
-        '''
-        result = self._values.get("dashboard_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.DashboardAttributesProperty]], result)
-
-    @builtins.property
-    def guardian_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.GuardianAttributesProperty]]:
-        '''Specifies additional settings for your VDM configuration as applicable to the Guardian.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-vdmattributes.html#cfn-ses-vdmattributes-guardianattributes
-        '''
-        result = self._values.get("guardian_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVdmAttributes.GuardianAttributesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVdmAttributesProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.CloudWatchDimension",
-    jsii_struct_bases=[],
-    name_mapping={"default_value": "defaultValue", "name": "name", "source": "source"},
-)
-class CloudWatchDimension:
-    def __init__(
-        self,
-        *,
-        default_value: builtins.str,
-        name: builtins.str,
-        source: "CloudWatchDimensionSource",
-    ) -> None:
-        '''A CloudWatch dimension upon which to categorize your emails.
-
-        :param default_value: The default value of the dimension that is published to Amazon CloudWatch if you do not provide the value of the dimension when you send an email.
-        :param name: The name of an Amazon CloudWatch dimension associated with an email sending metric.
-        :param source: The place where Amazon SES finds the value of a dimension to publish to Amazon CloudWatch.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            cloud_watch_dimension = ses.CloudWatchDimension(
-                default_value="defaultValue",
-                name="name",
-                source=ses.CloudWatchDimensionSource.EMAIL_HEADER
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a)
-            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_value": default_value,
-            "name": name,
-            "source": source,
-        }
-
-    @builtins.property
-    def default_value(self) -> builtins.str:
-        '''The default value of the dimension that is published to Amazon CloudWatch if you do not provide the value of the dimension when you send an email.'''
-        result = self._values.get("default_value")
-        assert result is not None, "Required property 'default_value' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of an Amazon CloudWatch dimension associated with an email sending metric.'''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source(self) -> "CloudWatchDimensionSource":
-        '''The place where Amazon SES finds the value of a dimension to publish to Amazon CloudWatch.'''
-        result = self._values.get("source")
-        assert result is not None, "Required property 'source' is missing"
-        return typing.cast("CloudWatchDimensionSource", result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CloudWatchDimension(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.CloudWatchDimensionSource")
-class CloudWatchDimensionSource(enum.Enum):
-    '''Source for CloudWatch dimension.'''
-
-    EMAIL_HEADER = "EMAIL_HEADER"
-    '''Amazon SES retrieves the dimension name and value from a header in the email.
-
-    Note: You can't use any of the following email headers as the Dimension Name:
-    ``Received``, ``To``, ``From``, ``DKIM-Signature``, ``CC``, ``message-id``, or ``Return-Path``.
-    '''
-    LINK_TAG = "LINK_TAG"
-    '''Amazon SES retrieves the dimension name and value from a tag that you specified in a link.
-
-    :see: https://docs.aws.amazon.com/ses/latest/dg/faqs-metrics.html#sending-metric-faqs-clicks-q5
-    '''
-    MESSAGE_TAG = "MESSAGE_TAG"
-    '''Amazon SES retrieves the dimension name and value from a tag that you specify by using the ``X-SES-MESSAGE-TAGS`` header or the Tags API parameter.
-
-    You can also use the Message Tag value source to create dimensions based on Amazon SES auto-tags.
-    To use an auto-tag, type the complete name of the auto-tag as the Dimension Name. For example,
-    to create a dimension based on the configuration set auto-tag, use ``ses:configuration-set`` for the
-    Dimension Name, and the name of the configuration set for the Default Value.
-
-    :see: https://docs.aws.amazon.com/ses/latest/dg/monitor-using-event-publishing.html#event-publishing-how-works
-    '''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination": "destination",
-        "configuration_set_event_destination_name": "configurationSetEventDestinationName",
-        "enabled": "enabled",
-        "events": "events",
-    },
-)
-class ConfigurationSetEventDestinationOptions:
-    def __init__(
-        self,
-        *,
-        destination: "EventDestination",
-        configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        events: typing.Optional[typing.Sequence["EmailSendingEvent"]] = None,
-    ) -> None:
-        '''Options for a configuration set event destination.
-
-        :param destination: The event destination.
-        :param configuration_set_event_destination_name: A name for the configuration set event destination. Default: - a CloudFormation generated name
-        :param enabled: Whether Amazon SES publishes events to this destination. Default: true
-        :param events: The type of email sending events to publish to the event destination. Default: - send all event types
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_events as events
-            
-            # my_configuration_set: ses.ConfigurationSet
-            
-            
-            bus = events.EventBus.from_event_bus_name(self, "EventBus", "default")
-            
-            my_configuration_set.add_event_destination("ToEventBus",
-                destination=ses.EventDestination.event_bus(bus)
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6)
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination": destination,
-        }
-        if configuration_set_event_destination_name is not None:
-            self._values["configuration_set_event_destination_name"] = configuration_set_event_destination_name
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if events is not None:
-            self._values["events"] = events
-
-    @builtins.property
-    def destination(self) -> "EventDestination":
-        '''The event destination.'''
-        result = self._values.get("destination")
-        assert result is not None, "Required property 'destination' is missing"
-        return typing.cast("EventDestination", result)
-
-    @builtins.property
-    def configuration_set_event_destination_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the configuration set event destination.
-
-        :default: - a CloudFormation generated name
-        '''
-        result = self._values.get("configuration_set_event_destination_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether Amazon SES publishes events to this destination.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def events(self) -> typing.Optional[typing.List["EmailSendingEvent"]]:
-        '''The type of email sending events to publish to the event destination.
-
-        :default: - send all event types
-        '''
-        result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.List["EmailSendingEvent"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConfigurationSetEventDestinationOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetEventDestinationProps",
-    jsii_struct_bases=[ConfigurationSetEventDestinationOptions],
-    name_mapping={
-        "destination": "destination",
-        "configuration_set_event_destination_name": "configurationSetEventDestinationName",
-        "enabled": "enabled",
-        "events": "events",
-        "configuration_set": "configurationSet",
-    },
-)
-class ConfigurationSetEventDestinationProps(ConfigurationSetEventDestinationOptions):
-    def __init__(
-        self,
-        *,
-        destination: "EventDestination",
-        configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        events: typing.Optional[typing.Sequence["EmailSendingEvent"]] = None,
-        configuration_set: "IConfigurationSet",
-    ) -> None:
-        '''Properties for a configuration set event destination.
-
-        :param destination: The event destination.
-        :param configuration_set_event_destination_name: A name for the configuration set event destination. Default: - a CloudFormation generated name
-        :param enabled: Whether Amazon SES publishes events to this destination. Default: true
-        :param events: The type of email sending events to publish to the event destination. Default: - send all event types
-        :param configuration_set: The configuration set that contains the event destination.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            # configuration_set: ses.ConfigurationSet
-            # event_destination: ses.EventDestination
-            
-            configuration_set_event_destination_props = ses.ConfigurationSetEventDestinationProps(
-                configuration_set=configuration_set,
-                destination=event_destination,
-            
-                # the properties below are optional
-                configuration_set_event_destination_name="configurationSetEventDestinationName",
-                enabled=False,
-                events=[ses.EmailSendingEvent.SEND]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8)
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument configuration_set_event_destination_name", value=configuration_set_event_destination_name, expected_type=type_hints["configuration_set_event_destination_name"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination": destination,
-            "configuration_set": configuration_set,
-        }
-        if configuration_set_event_destination_name is not None:
-            self._values["configuration_set_event_destination_name"] = configuration_set_event_destination_name
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if events is not None:
-            self._values["events"] = events
-
-    @builtins.property
-    def destination(self) -> "EventDestination":
-        '''The event destination.'''
-        result = self._values.get("destination")
-        assert result is not None, "Required property 'destination' is missing"
-        return typing.cast("EventDestination", result)
-
-    @builtins.property
-    def configuration_set_event_destination_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the configuration set event destination.
-
-        :default: - a CloudFormation generated name
-        '''
-        result = self._values.get("configuration_set_event_destination_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether Amazon SES publishes events to this destination.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def events(self) -> typing.Optional[typing.List["EmailSendingEvent"]]:
-        '''The type of email sending events to publish to the event destination.
-
-        :default: - send all event types
-        '''
-        result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.List["EmailSendingEvent"]], result)
-
-    @builtins.property
-    def configuration_set(self) -> "IConfigurationSet":
-        '''The configuration set that contains the event destination.'''
-        result = self._values.get("configuration_set")
-        assert result is not None, "Required property 'configuration_set' is missing"
-        return typing.cast("IConfigurationSet", result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConfigurationSetEventDestinationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration_set_name": "configurationSetName",
-        "custom_tracking_https_policy": "customTrackingHttpsPolicy",
-        "custom_tracking_redirect_domain": "customTrackingRedirectDomain",
-        "dedicated_ip_pool": "dedicatedIpPool",
-        "disable_suppression_list": "disableSuppressionList",
-        "max_delivery_duration": "maxDeliveryDuration",
-        "reputation_metrics": "reputationMetrics",
-        "sending_enabled": "sendingEnabled",
-        "suppression_reasons": "suppressionReasons",
-        "tls_policy": "tlsPolicy",
-        "vdm_options": "vdmOptions",
-    },
-)
-class ConfigurationSetProps:
-    def __init__(
-        self,
-        *,
-        configuration_set_name: typing.Optional[builtins.str] = None,
-        custom_tracking_https_policy: typing.Optional["HttpsPolicy"] = None,
-        custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-        dedicated_ip_pool: typing.Optional["IDedicatedIpPool"] = None,
-        disable_suppression_list: typing.Optional[builtins.bool] = None,
-        max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
-        reputation_metrics: typing.Optional[builtins.bool] = None,
-        sending_enabled: typing.Optional[builtins.bool] = None,
-        suppression_reasons: typing.Optional["SuppressionReasons"] = None,
-        tls_policy: typing.Optional["ConfigurationSetTlsPolicy"] = None,
-        vdm_options: typing.Optional[typing.Union["VdmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Properties for a configuration set.
-
-        :param configuration_set_name: A name for the configuration set. Default: - a CloudFormation generated name
-        :param custom_tracking_https_policy: The https policy to use for tracking open and click events. Default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
-        :param custom_tracking_redirect_domain: The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain. Default: - use the default awstrack.me domain
-        :param dedicated_ip_pool: The dedicated IP pool to associate with the configuration set. Default: - do not use a dedicated IP pool
-        :param disable_suppression_list: If true, account-level suppression list is disabled; email sent with this configuration set will not use any suppression settings at all Default: false
-        :param max_delivery_duration: The maximum amount of time that Amazon SES API v2 will attempt delivery of email. This value must be greater than or equal to 5 minutes and less than or equal to 14 hours. Default: undefined - SES defaults to 14 hours
-        :param reputation_metrics: Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch. Default: true
-        :param sending_enabled: Whether email sending is enabled. Default: true
-        :param suppression_reasons: The reasons for which recipient email addresses should be automatically added to your account's suppression list. Default: - use account level settings
-        :param tls_policy: Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS). Default: ConfigurationSetTlsPolicy.OPTIONAL
-        :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set. Default: - VDM options not configured at the configuration set level. In this case, use account level settings. (To set the account level settings using CDK, use the ``VdmAttributes`` Construct.)
-
-        :exampleMetadata: infused
-
-        Example::
-
-            ses.ConfigurationSet(self, "ConfigurationSet",
-                custom_tracking_redirect_domain="track.cdk.dev",
-                custom_tracking_https_policy=ses.HttpsPolicy.REQUIRE
-            )
-        '''
-        if isinstance(vdm_options, dict):
-            vdm_options = VdmOptions(**vdm_options)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d)
-            check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
-            check_type(argname="argument custom_tracking_https_policy", value=custom_tracking_https_policy, expected_type=type_hints["custom_tracking_https_policy"])
-            check_type(argname="argument custom_tracking_redirect_domain", value=custom_tracking_redirect_domain, expected_type=type_hints["custom_tracking_redirect_domain"])
-            check_type(argname="argument dedicated_ip_pool", value=dedicated_ip_pool, expected_type=type_hints["dedicated_ip_pool"])
-            check_type(argname="argument disable_suppression_list", value=disable_suppression_list, expected_type=type_hints["disable_suppression_list"])
-            check_type(argname="argument max_delivery_duration", value=max_delivery_duration, expected_type=type_hints["max_delivery_duration"])
-            check_type(argname="argument reputation_metrics", value=reputation_metrics, expected_type=type_hints["reputation_metrics"])
-            check_type(argname="argument sending_enabled", value=sending_enabled, expected_type=type_hints["sending_enabled"])
-            check_type(argname="argument suppression_reasons", value=suppression_reasons, expected_type=type_hints["suppression_reasons"])
-            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
-            check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if configuration_set_name is not None:
-            self._values["configuration_set_name"] = configuration_set_name
-        if custom_tracking_https_policy is not None:
-            self._values["custom_tracking_https_policy"] = custom_tracking_https_policy
-        if custom_tracking_redirect_domain is not None:
-            self._values["custom_tracking_redirect_domain"] = custom_tracking_redirect_domain
-        if dedicated_ip_pool is not None:
-            self._values["dedicated_ip_pool"] = dedicated_ip_pool
-        if disable_suppression_list is not None:
-            self._values["disable_suppression_list"] = disable_suppression_list
-        if max_delivery_duration is not None:
-            self._values["max_delivery_duration"] = max_delivery_duration
-        if reputation_metrics is not None:
-            self._values["reputation_metrics"] = reputation_metrics
-        if sending_enabled is not None:
-            self._values["sending_enabled"] = sending_enabled
-        if suppression_reasons is not None:
-            self._values["suppression_reasons"] = suppression_reasons
-        if tls_policy is not None:
-            self._values["tls_policy"] = tls_policy
-        if vdm_options is not None:
-            self._values["vdm_options"] = vdm_options
-
-    @builtins.property
-    def configuration_set_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the configuration set.
-
-        :default: - a CloudFormation generated name
-        '''
-        result = self._values.get("configuration_set_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_tracking_https_policy(self) -> typing.Optional["HttpsPolicy"]:
-        '''The https policy to use for tracking open and click events.
-
-        :default: - HttpsPolicy.OPTIONAL if customTrackingRedirectDomain is set, otherwise undefined
-        '''
-        result = self._values.get("custom_tracking_https_policy")
-        return typing.cast(typing.Optional["HttpsPolicy"], result)
-
-    @builtins.property
-    def custom_tracking_redirect_domain(self) -> typing.Optional[builtins.str]:
-        '''The custom subdomain that is used to redirect email recipients to the Amazon SES event tracking domain.
-
-        :default: - use the default awstrack.me domain
-        '''
-        result = self._values.get("custom_tracking_redirect_domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dedicated_ip_pool(self) -> typing.Optional["IDedicatedIpPool"]:
-        '''The dedicated IP pool to associate with the configuration set.
-
-        :default: - do not use a dedicated IP pool
-        '''
-        result = self._values.get("dedicated_ip_pool")
-        return typing.cast(typing.Optional["IDedicatedIpPool"], result)
-
-    @builtins.property
-    def disable_suppression_list(self) -> typing.Optional[builtins.bool]:
-        '''If true, account-level suppression list is disabled;
-
-        email sent with this configuration set
-        will not use any suppression settings at all
-
-        :default: false
-        '''
-        result = self._values.get("disable_suppression_list")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def max_delivery_duration(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The maximum amount of time that Amazon SES API v2 will attempt delivery of email.
-
-        This value must be greater than or equal to 5 minutes and less than or equal to 14 hours.
-
-        :default: undefined - SES defaults to 14 hours
-        '''
-        result = self._values.get("max_delivery_duration")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def reputation_metrics(self) -> typing.Optional[builtins.bool]:
-        '''Whether to publish reputation metrics for the configuration set, such as bounce and complaint rates, to Amazon CloudWatch.
-
-        :default: true
-        '''
-        result = self._values.get("reputation_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def sending_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether email sending is enabled.
-
-        :default: true
-        '''
-        result = self._values.get("sending_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def suppression_reasons(self) -> typing.Optional["SuppressionReasons"]:
-        '''The reasons for which recipient email addresses should be automatically added to your account's suppression list.
-
-        :default: - use account level settings
-        '''
-        result = self._values.get("suppression_reasons")
-        return typing.cast(typing.Optional["SuppressionReasons"], result)
-
-    @builtins.property
-    def tls_policy(self) -> typing.Optional["ConfigurationSetTlsPolicy"]:
-        '''Specifies whether messages that use the configuration set are required to use Transport Layer Security (TLS).
-
-        :default: ConfigurationSetTlsPolicy.OPTIONAL
-        '''
-        result = self._values.get("tls_policy")
-        return typing.cast(typing.Optional["ConfigurationSetTlsPolicy"], result)
-
-    @builtins.property
-    def vdm_options(self) -> typing.Optional["VdmOptions"]:
-        '''The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
-
-        :default: - VDM options not configured at the configuration set level. In this case, use account level settings. (To set the account level settings using CDK, use the ``VdmAttributes`` Construct.)
-        '''
-        result = self._values.get("vdm_options")
-        return typing.cast(typing.Optional["VdmOptions"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConfigurationSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ConfigurationSetTlsPolicy")
-class ConfigurationSetTlsPolicy(enum.Enum):
-    '''TLS policy for a configuration set.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        from aws_cdk import Duration
-        
-        # my_pool: ses.IDedicatedIpPool
-        
-        
-        ses.ConfigurationSet(self, "ConfigurationSet",
-            tls_policy=ses.ConfigurationSetTlsPolicy.REQUIRE,
-            dedicated_ip_pool=my_pool,
-            # Specify maximum delivery time
-            # This configuration can be useful in such cases as time-sensitive emails (like those containing a one-time-password),
-            # transactional emails, and email that you want to ensure isn't delivered during non-business hours.
-            max_delivery_duration=Duration.minutes(10)
-        )
-    '''
-
-    REQUIRE = "REQUIRE"
-    '''Messages are only delivered if a TLS connection can be established.'''
-    OPTIONAL = "OPTIONAL"
-    '''Messages can be delivered in plain text if a TLS connection can't be established.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.DedicatedIpPoolProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dedicated_ip_pool_name": "dedicatedIpPoolName",
-        "scaling_mode": "scalingMode",
-    },
-)
-class DedicatedIpPoolProps:
-    def __init__(
-        self,
-        *,
-        dedicated_ip_pool_name: typing.Optional[builtins.str] = None,
-        scaling_mode: typing.Optional["ScalingMode"] = None,
-    ) -> None:
-        '''Properties for a dedicated IP pool.
-
-        :param dedicated_ip_pool_name: A name for the dedicated IP pool. The name must adhere to specific constraints: it can only include lowercase letters (a-z), numbers (0-9), underscores (_), and hyphens (-), and must not exceed 64 characters in length. Default: - a CloudFormation generated name
-        :param scaling_mode: The type of scailing mode to use for this IP pool. Updating ScalingMode doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED``. However, updating ScalingMode from ``MANAGED`` to ``STANDARD`` is not supported. Default: ScalingMode.STANDARD
-
-        :exampleMetadata: infused
-
-        Example::
-
-            ses.DedicatedIpPool(self, "Pool",
-                dedicated_ip_pool_name="mypool",
-                scaling_mode=ses.ScalingMode.STANDARD
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0)
-            check_type(argname="argument dedicated_ip_pool_name", value=dedicated_ip_pool_name, expected_type=type_hints["dedicated_ip_pool_name"])
-            check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dedicated_ip_pool_name is not None:
-            self._values["dedicated_ip_pool_name"] = dedicated_ip_pool_name
-        if scaling_mode is not None:
-            self._values["scaling_mode"] = scaling_mode
-
-    @builtins.property
-    def dedicated_ip_pool_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the dedicated IP pool.
-
-        The name must adhere to specific constraints: it can only include
-        lowercase letters (a-z), numbers (0-9), underscores (_), and hyphens (-),
-        and must not exceed 64 characters in length.
-
-        :default: - a CloudFormation generated name
-        '''
-        result = self._values.get("dedicated_ip_pool_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scaling_mode(self) -> typing.Optional["ScalingMode"]:
-        '''The type of scailing mode to use for this IP pool.
-
-        Updating ScalingMode doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED``.
-        However, updating ScalingMode from ``MANAGED`` to ``STANDARD`` is not supported.
-
-        :default: ScalingMode.STANDARD
-        '''
-        result = self._values.get("scaling_mode")
-        return typing.cast(typing.Optional["ScalingMode"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DedicatedIpPoolProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class DkimIdentity(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_ses.DkimIdentity",
-):
-    '''The identity to use for DKIM.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # my_hosted_zone: route53.IPublicHostedZone
-        
-        
-        ses.EmailIdentity(self, "Identity",
-            identity=ses.Identity.public_hosted_zone(my_hosted_zone),
-            dkim_identity=ses.DkimIdentity.byo_dkim(
-                private_key=SecretValue.secrets_manager("dkim-private-key"),
-                public_key="...base64-encoded-public-key...",
-                selector="selector"
-            )
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="byoDkim")
-    @builtins.classmethod
-    def byo_dkim(
-        cls,
-        *,
-        private_key: _SecretValue_3dd0ddae,
-        selector: builtins.str,
-        public_key: typing.Optional[builtins.str] = None,
-    ) -> "DkimIdentity":
-        '''Bring Your Own DKIM.
-
-        :param private_key: The private key that's used to generate a DKIM signature.
-        :param selector: A string that's used to identify a public key in the DNS configuration for a domain.
-        :param public_key: The public key. If specified, a TXT record with the public key is created. Default: - the validation TXT record with the public key is not created
-
-        :see: https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-bring-your-own.html
-        '''
-        options = ByoDkimOptions(
-            private_key=private_key, selector=selector, public_key=public_key
-        )
-
-        return typing.cast("DkimIdentity", jsii.sinvoke(cls, "byoDkim", [options]))
-
-    @jsii.member(jsii_name="easyDkim")
-    @builtins.classmethod
-    def easy_dkim(
-        cls,
-        signing_key_length: typing.Optional["EasyDkimSigningKeyLength"] = None,
-    ) -> "DkimIdentity":
-        '''Easy DKIM.
-
-        :param signing_key_length: The length of the signing key. This can be changed at most once per day.
-
-        :see: https://docs.aws.amazon.com/ses/latest/dg/send-email-authentication-dkim-easy.html
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc)
-            check_type(argname="argument signing_key_length", value=signing_key_length, expected_type=type_hints["signing_key_length"])
-        return typing.cast("DkimIdentity", jsii.sinvoke(cls, "easyDkim", [signing_key_length]))
-
-    @jsii.member(jsii_name="bind")
-    @abc.abstractmethod
-    def bind(
-        self,
-        email_identity: "EmailIdentity",
-        hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
-    ) -> typing.Optional["DkimIdentityConfig"]:
-        '''Binds this DKIM identity to the email identity.
-
-        :param email_identity: -
-        :param hosted_zone: -
-        '''
-        ...
-
-
-class _DkimIdentityProxy(DkimIdentity):
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        email_identity: "EmailIdentity",
-        hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
-    ) -> typing.Optional["DkimIdentityConfig"]:
-        '''Binds this DKIM identity to the email identity.
-
-        :param email_identity: -
-        :param hosted_zone: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db)
-            check_type(argname="argument email_identity", value=email_identity, expected_type=type_hints["email_identity"])
-            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
-        return typing.cast(typing.Optional["DkimIdentityConfig"], jsii.invoke(self, "bind", [email_identity, hosted_zone]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, DkimIdentity).__jsii_proxy_class__ = lambda : _DkimIdentityProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.DkimIdentityConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_signing_private_key": "domainSigningPrivateKey",
-        "domain_signing_selector": "domainSigningSelector",
-        "next_signing_key_length": "nextSigningKeyLength",
-    },
-)
-class DkimIdentityConfig:
-    def __init__(
-        self,
-        *,
-        domain_signing_private_key: typing.Optional[builtins.str] = None,
-        domain_signing_selector: typing.Optional[builtins.str] = None,
-        next_signing_key_length: typing.Optional["EasyDkimSigningKeyLength"] = None,
-    ) -> None:
-        '''Configuration for DKIM identity.
-
-        :param domain_signing_private_key: A private key that's used to generate a DKIM signature. Default: - use Easy DKIM
-        :param domain_signing_selector: A string that's used to identify a public key in the DNS configuration for a domain. Default: - use Easy DKIM
-        :param next_signing_key_length: The key length of the future DKIM key pair to be generated. This can be changed at most once per day. Default: EasyDkimSigningKeyLength.RSA_2048_BIT
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            dkim_identity_config = ses.DkimIdentityConfig(
-                domain_signing_private_key="domainSigningPrivateKey",
-                domain_signing_selector="domainSigningSelector",
-                next_signing_key_length=ses.EasyDkimSigningKeyLength.RSA_1024_BIT
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb)
-            check_type(argname="argument domain_signing_private_key", value=domain_signing_private_key, expected_type=type_hints["domain_signing_private_key"])
-            check_type(argname="argument domain_signing_selector", value=domain_signing_selector, expected_type=type_hints["domain_signing_selector"])
-            check_type(argname="argument next_signing_key_length", value=next_signing_key_length, expected_type=type_hints["next_signing_key_length"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if domain_signing_private_key is not None:
-            self._values["domain_signing_private_key"] = domain_signing_private_key
-        if domain_signing_selector is not None:
-            self._values["domain_signing_selector"] = domain_signing_selector
-        if next_signing_key_length is not None:
-            self._values["next_signing_key_length"] = next_signing_key_length
-
-    @builtins.property
-    def domain_signing_private_key(self) -> typing.Optional[builtins.str]:
-        '''A private key that's used to generate a DKIM signature.
-
-        :default: - use Easy DKIM
-        '''
-        result = self._values.get("domain_signing_private_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_signing_selector(self) -> typing.Optional[builtins.str]:
-        '''A string that's used to identify a public key in the DNS configuration for a domain.
-
-        :default: - use Easy DKIM
-        '''
-        result = self._values.get("domain_signing_selector")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def next_signing_key_length(self) -> typing.Optional["EasyDkimSigningKeyLength"]:
-        '''The key length of the future DKIM key pair to be generated.
-
-        This can be changed
-        at most once per day.
-
-        :default: EasyDkimSigningKeyLength.RSA_2048_BIT
-        '''
-        result = self._values.get("next_signing_key_length")
-        return typing.cast(typing.Optional["EasyDkimSigningKeyLength"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DkimIdentityConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.DkimRecord",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "value": "value"},
-)
-class DkimRecord:
-    def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
-        '''A DKIM record.
-
-        :param name: The name of the record.
-        :param value: The value of the record.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            dkim_record = ses.DkimRecord(
-                name="name",
-                value="value"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "value": value,
-        }
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the record.'''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def value(self) -> builtins.str:
-        '''The value of the record.'''
-        result = self._values.get("value")
-        assert result is not None, "Required property 'value' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DkimRecord(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class DropSpamReceiptRule(
-    _constructs_77d1e7e8.Construct,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ses.DropSpamReceiptRule",
-):
-    '''A rule added at the top of the rule set to drop spam/virus.
-
-    :see: https://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-action-lambda-example-functions.html
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_ses as ses
-        
-        # receipt_rule: ses.ReceiptRule
-        # receipt_rule_action: ses.IReceiptRuleAction
-        # receipt_rule_set: ses.ReceiptRuleSet
-        
-        drop_spam_receipt_rule = ses.DropSpamReceiptRule(self, "MyDropSpamReceiptRule",
-            rule_set=receipt_rule_set,
-        
-            # the properties below are optional
-            actions=[receipt_rule_action],
-            after=receipt_rule,
-            enabled=False,
-            receipt_rule_name="receiptRuleName",
-            recipients=["recipients"],
-            scan_enabled=False,
-            tls_policy=ses.TlsPolicy.OPTIONAL
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        rule_set: "IReceiptRuleSet",
-        actions: typing.Optional[typing.Sequence["IReceiptRuleAction"]] = None,
-        after: typing.Optional["IReceiptRule"] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param rule_set: The name of the rule set that the receipt rule will be added to.
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = DropSpamReceiptRuleProps(
-            rule_set=rule_set,
-            actions=actions,
-            after=after,
-            enabled=enabled,
-            receipt_rule_name=receipt_rule_name,
-            recipients=recipients,
-            scan_enabled=scan_enabled,
-            tls_policy=tls_policy,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="rule")
-    def rule(self) -> "ReceiptRule":
-        return typing.cast("ReceiptRule", jsii.get(self, "rule"))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.EasyDkimSigningKeyLength")
-class EasyDkimSigningKeyLength(enum.Enum):
-    '''The signing key length for Easy DKIM.'''
-
-    RSA_1024_BIT = "RSA_1024_BIT"
-    '''RSA 1024-bit.'''
-    RSA_2048_BIT = "RSA_2048_BIT"
-    '''RSA 2048-bit.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.EmailIdentityProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity": "identity",
-        "configuration_set": "configurationSet",
-        "dkim_identity": "dkimIdentity",
-        "dkim_signing": "dkimSigning",
-        "feedback_forwarding": "feedbackForwarding",
-        "mail_from_behavior_on_mx_failure": "mailFromBehaviorOnMxFailure",
-        "mail_from_domain": "mailFromDomain",
-    },
-)
-class EmailIdentityProps:
-    def __init__(
-        self,
-        *,
-        identity: "Identity",
-        configuration_set: typing.Optional["IConfigurationSet"] = None,
-        dkim_identity: typing.Optional[DkimIdentity] = None,
-        dkim_signing: typing.Optional[builtins.bool] = None,
-        feedback_forwarding: typing.Optional[builtins.bool] = None,
-        mail_from_behavior_on_mx_failure: typing.Optional["MailFromBehaviorOnMxFailure"] = None,
-        mail_from_domain: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for an email identity.
-
-        :param identity: The email address or domain to verify.
-        :param configuration_set: The configuration set to associate with the email identity. Default: - do not use a specific configuration set
-        :param dkim_identity: The type of DKIM identity to use. Default: - Easy DKIM with a key length of 2048-bit
-        :param dkim_signing: Whether the messages that are sent from the identity are signed using DKIM. Default: true
-        :param feedback_forwarding: Whether to receive email notifications when bounce or complaint events occur. These notifications are sent to the address that you specified in the ``Return-Path`` header of the original email. You're required to have a method of tracking bounces and complaints. If you haven't set up another mechanism for receiving bounce or complaint notifications (for example, by setting up an event destination), you receive an email notification when these events occur (even if this setting is disabled). Default: true
-        :param mail_from_behavior_on_mx_failure: The action to take if the required MX record for the MAIL FROM domain isn't found when you send an email. Default: MailFromBehaviorOnMxFailure.USE_DEFAULT_VALUE
-        :param mail_from_domain: The custom MAIL FROM domain that you want the verified identity to use. The MAIL FROM domain must meet the following criteria: - It has to be a subdomain of the verified identity - It can't be used to receive email - It can't be used in a "From" address if the MAIL FROM domain is a destination for feedback forwarding emails Default: - use amazonses.com
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_iam as iam
-            # user: iam.User
-            
-            
-            identity = ses.EmailIdentity(self, "Identity",
-                identity=ses.Identity.domain("cdk.dev")
-            )
-            
-            identity.grant_send_email(user)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-            check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
-            check_type(argname="argument dkim_identity", value=dkim_identity, expected_type=type_hints["dkim_identity"])
-            check_type(argname="argument dkim_signing", value=dkim_signing, expected_type=type_hints["dkim_signing"])
-            check_type(argname="argument feedback_forwarding", value=feedback_forwarding, expected_type=type_hints["feedback_forwarding"])
-            check_type(argname="argument mail_from_behavior_on_mx_failure", value=mail_from_behavior_on_mx_failure, expected_type=type_hints["mail_from_behavior_on_mx_failure"])
-            check_type(argname="argument mail_from_domain", value=mail_from_domain, expected_type=type_hints["mail_from_domain"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity": identity,
-        }
-        if configuration_set is not None:
-            self._values["configuration_set"] = configuration_set
-        if dkim_identity is not None:
-            self._values["dkim_identity"] = dkim_identity
-        if dkim_signing is not None:
-            self._values["dkim_signing"] = dkim_signing
-        if feedback_forwarding is not None:
-            self._values["feedback_forwarding"] = feedback_forwarding
-        if mail_from_behavior_on_mx_failure is not None:
-            self._values["mail_from_behavior_on_mx_failure"] = mail_from_behavior_on_mx_failure
-        if mail_from_domain is not None:
-            self._values["mail_from_domain"] = mail_from_domain
-
-    @builtins.property
-    def identity(self) -> "Identity":
-        '''The email address or domain to verify.'''
-        result = self._values.get("identity")
-        assert result is not None, "Required property 'identity' is missing"
-        return typing.cast("Identity", result)
-
-    @builtins.property
-    def configuration_set(self) -> typing.Optional["IConfigurationSet"]:
-        '''The configuration set to associate with the email identity.
-
-        :default: - do not use a specific configuration set
-        '''
-        result = self._values.get("configuration_set")
-        return typing.cast(typing.Optional["IConfigurationSet"], result)
-
-    @builtins.property
-    def dkim_identity(self) -> typing.Optional[DkimIdentity]:
-        '''The type of DKIM identity to use.
-
-        :default: - Easy DKIM with a key length of 2048-bit
-        '''
-        result = self._values.get("dkim_identity")
-        return typing.cast(typing.Optional[DkimIdentity], result)
-
-    @builtins.property
-    def dkim_signing(self) -> typing.Optional[builtins.bool]:
-        '''Whether the messages that are sent from the identity are signed using DKIM.
-
-        :default: true
-        '''
-        result = self._values.get("dkim_signing")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def feedback_forwarding(self) -> typing.Optional[builtins.bool]:
-        '''Whether to receive email notifications when bounce or complaint events occur.
-
-        These notifications are sent to the address that you specified in the ``Return-Path``
-        header of the original email.
-
-        You're required to have a method of tracking bounces and complaints. If you haven't set
-        up another mechanism for receiving bounce or complaint notifications (for example, by
-        setting up an event destination), you receive an email notification when these events
-        occur (even if this setting is disabled).
-
-        :default: true
-        '''
-        result = self._values.get("feedback_forwarding")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def mail_from_behavior_on_mx_failure(
-        self,
-    ) -> typing.Optional["MailFromBehaviorOnMxFailure"]:
-        '''The action to take if the required MX record for the MAIL FROM domain isn't found when you send an email.
-
-        :default: MailFromBehaviorOnMxFailure.USE_DEFAULT_VALUE
-        '''
-        result = self._values.get("mail_from_behavior_on_mx_failure")
-        return typing.cast(typing.Optional["MailFromBehaviorOnMxFailure"], result)
-
-    @builtins.property
-    def mail_from_domain(self) -> typing.Optional[builtins.str]:
-        '''The custom MAIL FROM domain that you want the verified identity to use.
-
-        The MAIL FROM domain
-        must meet the following criteria:
-
-        - It has to be a subdomain of the verified identity
-        - It can't be used to receive email
-        - It can't be used in a "From" address if the MAIL FROM domain is a destination for feedback
-          forwarding emails
-
-        :default: - use amazonses.com
-        '''
-        result = self._values.get("mail_from_domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EmailIdentityProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.EmailSendingEvent")
-class EmailSendingEvent(enum.Enum):
-    '''Email sending event.'''
-
-    SEND = "SEND"
-    '''The send request was successful and SES will attempt to deliver the message to the recipient's mail server.
-
-    (If account-level or global suppression is
-    being used, SES will still count it as a send, but delivery is suppressed.)
-    '''
-    REJECT = "REJECT"
-    '''SES accepted the email, but determined that it contained a virus and didn’t attempt to deliver it to the recipient’s mail server.'''
-    BOUNCE = "BOUNCE"
-    '''(Hard bounce) The recipient's mail server permanently rejected the email.
-
-    (Soft bounces are only included when SES fails to deliver the email after
-    retrying for a period of time.)
-    '''
-    COMPLAINT = "COMPLAINT"
-    '''The email was successfully delivered to the recipient’s mail server, but the recipient marked it as spam.'''
-    DELIVERY = "DELIVERY"
-    '''SES successfully delivered the email to the recipient's mail server.'''
-    OPEN = "OPEN"
-    '''The recipient received the message and opened it in their email client.'''
-    CLICK = "CLICK"
-    '''The recipient clicked one or more links in the email.'''
-    RENDERING_FAILURE = "RENDERING_FAILURE"
-    '''The email wasn't sent because of a template rendering issue.
-
-    This event type
-    can occur when template data is missing, or when there is a mismatch between
-    template parameters and data. (This event type only occurs when you send email
-    using the ``SendTemplatedEmail`` or ``SendBulkTemplatedEmail`` API operations.)
-    '''
-    DELIVERY_DELAY = "DELIVERY_DELAY"
-    '''The email couldn't be delivered to the recipient’s mail server because a temporary issue occurred.
-
-    Delivery delays can occur, for example, when the recipient's inbox
-    is full, or when the receiving email server experiences a transient issue.
-    '''
-    SUBSCRIPTION = "SUBSCRIPTION"
-    '''The email was successfully delivered, but the recipient updated their subscription preferences by clicking on an unsubscribe link as part of your subscription management.'''
-
-
-class EventDestination(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_ses.EventDestination",
-):
-    '''An event destination.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_events as events
-        
-        # my_configuration_set: ses.ConfigurationSet
-        
-        
-        bus = events.EventBus.from_event_bus_name(self, "EventBus", "default")
-        
-        my_configuration_set.add_event_destination("ToEventBus",
-            destination=ses.EventDestination.event_bus(bus)
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="cloudWatchDimensions")
-    @builtins.classmethod
-    def cloud_watch_dimensions(
-        cls,
-        dimensions: typing.Sequence[typing.Union[CloudWatchDimension, typing.Dict[builtins.str, typing.Any]]],
-    ) -> "EventDestination":
-        '''Use CloudWatch dimensions as event destination.
-
-        :param dimensions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92)
-            check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
-        return typing.cast("EventDestination", jsii.sinvoke(cls, "cloudWatchDimensions", [dimensions]))
-
-    @jsii.member(jsii_name="eventBus")
-    @builtins.classmethod
-    def event_bus(cls, event_bus: _IEventBus_88d13111) -> "EventDestination":
-        '''Use Event Bus as event destination.
-
-        :param event_bus: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567)
-            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
-        return typing.cast("EventDestination", jsii.sinvoke(cls, "eventBus", [event_bus]))
-
-    @jsii.member(jsii_name="firehoseDeliveryStream")
-    @builtins.classmethod
-    def firehose_delivery_stream(
-        cls,
-        *,
-        delivery_stream: _IDeliveryStream_8f118861,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> "EventDestination":
-        '''Use Firehose Delivery Stream as event destination.
-
-        :param delivery_stream: The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.
-        :param role: The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream. Default: - Create IAM Role for Amazon Data Firehose Delivery stream
-        '''
-        stream = FirehoseDeliveryStreamDestination(
-            delivery_stream=delivery_stream, role=role
-        )
-
-        return typing.cast("EventDestination", jsii.sinvoke(cls, "firehoseDeliveryStream", [stream]))
-
-    @jsii.member(jsii_name="snsTopic")
-    @builtins.classmethod
-    def sns_topic(cls, topic: _ITopic_9eca4852) -> "EventDestination":
-        '''Use a SNS topic as event destination.
-
-        :param topic: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c)
-            check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
-        return typing.cast("EventDestination", jsii.sinvoke(cls, "snsTopic", [topic]))
-
-    @builtins.property
-    @jsii.member(jsii_name="bus")
-    @abc.abstractmethod
-    def bus(self) -> typing.Optional[_IEventBus_88d13111]:
-        '''Use Event Bus as event destination.
-
-        :default: - do not send events to Event bus
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="dimensions")
-    @abc.abstractmethod
-    def dimensions(self) -> typing.Optional[typing.List[CloudWatchDimension]]:
-        '''A list of CloudWatch dimensions upon which to categorize your emails.
-
-        :default: - do not send events to CloudWatch
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="stream")
-    @abc.abstractmethod
-    def stream(self) -> typing.Optional["FirehoseDeliveryStreamDestination"]:
-        '''Use Firehose Delivery Stream.
-
-        :default: - do not send events to Firehose Delivery Stream
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="topic")
-    @abc.abstractmethod
-    def topic(self) -> typing.Optional[_ITopic_9eca4852]:
-        '''A SNS topic to use as event destination.
-
-        :default: - do not send events to a SNS topic
-        '''
-        ...
-
-
-class _EventDestinationProxy(EventDestination):
-    @builtins.property
-    @jsii.member(jsii_name="bus")
-    def bus(self) -> typing.Optional[_IEventBus_88d13111]:
-        '''Use Event Bus as event destination.
-
-        :default: - do not send events to Event bus
-        '''
-        return typing.cast(typing.Optional[_IEventBus_88d13111], jsii.get(self, "bus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dimensions")
-    def dimensions(self) -> typing.Optional[typing.List[CloudWatchDimension]]:
-        '''A list of CloudWatch dimensions upon which to categorize your emails.
-
-        :default: - do not send events to CloudWatch
-        '''
-        return typing.cast(typing.Optional[typing.List[CloudWatchDimension]], jsii.get(self, "dimensions"))
-
-    @builtins.property
-    @jsii.member(jsii_name="stream")
-    def stream(self) -> typing.Optional["FirehoseDeliveryStreamDestination"]:
-        '''Use Firehose Delivery Stream.
-
-        :default: - do not send events to Firehose Delivery Stream
-        '''
-        return typing.cast(typing.Optional["FirehoseDeliveryStreamDestination"], jsii.get(self, "stream"))
-
-    @builtins.property
-    @jsii.member(jsii_name="topic")
-    def topic(self) -> typing.Optional[_ITopic_9eca4852]:
-        '''A SNS topic to use as event destination.
-
-        :default: - do not send events to a SNS topic
-        '''
-        return typing.cast(typing.Optional[_ITopic_9eca4852], jsii.get(self, "topic"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, EventDestination).__jsii_proxy_class__ = lambda : _EventDestinationProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.FirehoseDeliveryStreamDestination",
-    jsii_struct_bases=[],
-    name_mapping={"delivery_stream": "deliveryStream", "role": "role"},
-)
-class FirehoseDeliveryStreamDestination:
-    def __init__(
-        self,
-        *,
-        delivery_stream: _IDeliveryStream_8f118861,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> None:
-        '''An object that defines an Amazon Data Firehose destination for email events.
-
-        :param delivery_stream: The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.
-        :param role: The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream. Default: - Create IAM Role for Amazon Data Firehose Delivery stream
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_iam as iam
-            import aws_cdk.aws_kinesisfirehose as firehose
-            
-            # my_configuration_set: ses.ConfigurationSet
-            # firehose_delivery_stream: firehose.IDeliveryStream
-            # iam_role: iam.IRole
-            
-            
-            # Create IAM Role automatically
-            my_configuration_set.add_event_destination("ToFirehose",
-                destination=ses.EventDestination.firehose_delivery_stream(
-                    delivery_stream=firehose_delivery_stream
-                )
-            )
-            
-            # Specify your IAM Role
-            my_configuration_set.add_event_destination("ToFirehose",
-                destination=ses.EventDestination.firehose_delivery_stream(
-                    delivery_stream=firehose_delivery_stream,
-                    role=iam_role
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464)
-            check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "delivery_stream": delivery_stream,
-        }
-        if role is not None:
-            self._values["role"] = role
-
-    @builtins.property
-    def delivery_stream(self) -> _IDeliveryStream_8f118861:
-        '''The Amazon Data Firehose stream that the Amazon SES API v2 sends email events to.'''
-        result = self._values.get("delivery_stream")
-        assert result is not None, "Required property 'delivery_stream' is missing"
-        return typing.cast(_IDeliveryStream_8f118861, result)
-
-    @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
-        '''The IAM role that the Amazon SES API v2 uses to send email events to the Amazon Data Firehose stream.
-
-        :default: - Create IAM Role for Amazon Data Firehose Delivery stream
-        '''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FirehoseDeliveryStreamDestination(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.HttpsPolicy")
-class HttpsPolicy(enum.Enum):
-    '''HTTPS policy option for the protocol of the open and click tracking links for your custom redirect domain.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        ses.ConfigurationSet(self, "ConfigurationSet",
-            custom_tracking_redirect_domain="track.cdk.dev",
-            custom_tracking_https_policy=ses.HttpsPolicy.REQUIRE
-        )
-    '''
-
-    REQUIRE = "REQUIRE"
-    '''Open and Click tracking links will both be wrapped using HTTPS.'''
-    REQUIRE_OPEN_ONLY = "REQUIRE_OPEN_ONLY"
-    '''Open tracking links will be wrapped using HTTPS.
-
-    Click tracking links will be wrapped using the original protocol of the link.
-    '''
-    OPTIONAL = "OPTIONAL"
-    '''Open tracking links will be wrapped using HTTP.
-
-    Click tracking links will be wrapped using the original protocol of the link.
-    '''
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSet")
-class IConfigurationSet(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A configuration set.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationSetName")
-    def configuration_set_name(self) -> builtins.str:
-        '''The name of the configuration set.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IConfigurationSetProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A configuration set.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSet"
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationSetName")
-    def configuration_set_name(self) -> builtins.str:
-        '''The name of the configuration set.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "configurationSetName"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IConfigurationSet).__jsii_proxy_class__ = lambda : _IConfigurationSetProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IConfigurationSetEventDestination")
-class IConfigurationSetEventDestination(
-    _IResource_c80c4260,
-    typing_extensions.Protocol,
-):
-    '''A configuration set event destination.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationSetEventDestinationId")
-    def configuration_set_event_destination_id(self) -> builtins.str:
-        '''The ID of the configuration set event destination.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IConfigurationSetEventDestinationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A configuration set event destination.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IConfigurationSetEventDestination"
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationSetEventDestinationId")
-    def configuration_set_event_destination_id(self) -> builtins.str:
-        '''The ID of the configuration set event destination.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "configurationSetEventDestinationId"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IConfigurationSetEventDestination).__jsii_proxy_class__ = lambda : _IConfigurationSetEventDestinationProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IDedicatedIpPool")
-class IDedicatedIpPool(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A dedicated IP pool.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="dedicatedIpPoolName")
-    def dedicated_ip_pool_name(self) -> builtins.str:
-        '''The name of the dedicated IP pool.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IDedicatedIpPoolProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A dedicated IP pool.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IDedicatedIpPool"
-
-    @builtins.property
-    @jsii.member(jsii_name="dedicatedIpPoolName")
-    def dedicated_ip_pool_name(self) -> builtins.str:
-        '''The name of the dedicated IP pool.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "dedicatedIpPoolName"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDedicatedIpPool).__jsii_proxy_class__ = lambda : _IDedicatedIpPoolProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IEmailIdentity")
-class IEmailIdentity(_IResource_c80c4260, typing_extensions.Protocol):
-    '''An email identity.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="emailIdentityArn")
-    def email_identity_arn(self) -> builtins.str:
-        '''The ARN of the email identity.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="emailIdentityName")
-    def email_identity_name(self) -> builtins.str:
-        '''The name of the email identity.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
-
-        :param grantee: the principal (no-op if undefined).
-        :param actions: the set of actions to allow.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantSendEmail")
-    def grant_send_email(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Permits an IAM principal the send email action.
-
-        Actions: SendEmail.
-
-        :param grantee: the principal to grant access to.
-        '''
-        ...
-
-
-class _IEmailIdentityProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''An email identity.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IEmailIdentity"
-
-    @builtins.property
-    @jsii.member(jsii_name="emailIdentityArn")
-    def email_identity_arn(self) -> builtins.str:
-        '''The ARN of the email identity.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "emailIdentityArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="emailIdentityName")
-    def email_identity_name(self) -> builtins.str:
-        '''The name of the email identity.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "emailIdentityName"))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Adds an IAM policy statement associated with this email identity to an IAM principal's policy.
-
-        :param grantee: the principal (no-op if undefined).
-        :param actions: the set of actions to allow.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.member(jsii_name="grantSendEmail")
-    def grant_send_email(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Permits an IAM principal the send email action.
-
-        Actions: SendEmail.
-
-        :param grantee: the principal to grant access to.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantSendEmail", [grantee]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEmailIdentity).__jsii_proxy_class__ = lambda : _IEmailIdentityProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRule")
-class IReceiptRule(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A receipt rule.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleName")
-    def receipt_rule_name(self) -> builtins.str:
-        '''The name of the receipt rule.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IReceiptRuleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A receipt rule.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRule"
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleName")
-    def receipt_rule_name(self) -> builtins.str:
-        '''The name of the receipt rule.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "receiptRuleName"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReceiptRule).__jsii_proxy_class__ = lambda : _IReceiptRuleProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleAction")
-class IReceiptRuleAction(typing_extensions.Protocol):
-    '''An abstract action for a receipt rule.'''
-
-    @jsii.member(jsii_name="bind")
-    def bind(self, receipt_rule: IReceiptRule) -> "ReceiptRuleActionConfig":
-        '''Returns the receipt rule action specification.
-
-        :param receipt_rule: -
-        '''
-        ...
-
-
-class _IReceiptRuleActionProxy:
-    '''An abstract action for a receipt rule.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleAction"
-
-    @jsii.member(jsii_name="bind")
-    def bind(self, receipt_rule: IReceiptRule) -> "ReceiptRuleActionConfig":
-        '''Returns the receipt rule action specification.
-
-        :param receipt_rule: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5)
-            check_type(argname="argument receipt_rule", value=receipt_rule, expected_type=type_hints["receipt_rule"])
-        return typing.cast("ReceiptRuleActionConfig", jsii.invoke(self, "bind", [receipt_rule]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReceiptRuleAction).__jsii_proxy_class__ = lambda : _IReceiptRuleActionProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IReceiptRuleSet")
-class IReceiptRuleSet(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A receipt rule set.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleSetName")
-    def receipt_rule_set_name(self) -> builtins.str:
-        '''The receipt rule set name.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="addRule")
-    def add_rule(
-        self,
-        id: builtins.str,
-        *,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> "ReceiptRule":
-        '''Adds a new receipt rule in this rule set.
-
-        The new rule is added after
-        the last added rule unless ``after`` is specified.
-
-        :param id: -
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        '''
-        ...
-
-
-class _IReceiptRuleSetProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A receipt rule set.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IReceiptRuleSet"
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleSetName")
-    def receipt_rule_set_name(self) -> builtins.str:
-        '''The receipt rule set name.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "receiptRuleSetName"))
-
-    @jsii.member(jsii_name="addRule")
-    def add_rule(
-        self,
-        id: builtins.str,
-        *,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> "ReceiptRule":
-        '''Adds a new receipt rule in this rule set.
-
-        The new rule is added after
-        the last added rule unless ``after`` is specified.
-
-        :param id: -
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = ReceiptRuleOptions(
-            actions=actions,
-            after=after,
-            enabled=enabled,
-            receipt_rule_name=receipt_rule_name,
-            recipients=recipients,
-            scan_enabled=scan_enabled,
-            tls_policy=tls_policy,
-        )
-
-        return typing.cast("ReceiptRule", jsii.invoke(self, "addRule", [id, options]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReceiptRuleSet).__jsii_proxy_class__ = lambda : _IReceiptRuleSetProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ses.IVdmAttributes")
-class IVdmAttributes(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Virtual Deliverability Manager (VDM) attributes.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="vdmAttributesName")
-    def vdm_attributes_name(self) -> builtins.str:
-        '''The name of the resource behind the Virtual Deliverability Manager attributes.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IVdmAttributesProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Virtual Deliverability Manager (VDM) attributes.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ses.IVdmAttributes"
-
-    @builtins.property
-    @jsii.member(jsii_name="vdmAttributesName")
-    def vdm_attributes_name(self) -> builtins.str:
-        '''The name of the resource behind the Virtual Deliverability Manager attributes.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesName"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVdmAttributes).__jsii_proxy_class__ = lambda : _IVdmAttributesProxy
-
-
-class Identity(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_ses.Identity",
-):
-    '''Identity.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_iam as iam
-        # user: iam.User
-        
-        
-        identity = ses.EmailIdentity(self, "Identity",
-            identity=ses.Identity.domain("cdk.dev")
-        )
-        
-        identity.grant_send_email(user)
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="domain")
-    @builtins.classmethod
-    def domain(cls, domain: builtins.str) -> "Identity":
-        '''Verify a domain name.
-
-        DKIM records will have to be added manually to complete the verification
-        process
-
-        :param domain: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5)
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        return typing.cast("Identity", jsii.sinvoke(cls, "domain", [domain]))
-
-    @jsii.member(jsii_name="email")
-    @builtins.classmethod
-    def email(cls, email: builtins.str) -> "Identity":
-        '''Verify an email address.
-
-        To complete the verification process look for an email from
-        no-reply-aws@amazon.com, open it and click the link.
-
-        :param email: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6)
-            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
-        return typing.cast("Identity", jsii.sinvoke(cls, "email", [email]))
-
-    @jsii.member(jsii_name="publicHostedZone")
-    @builtins.classmethod
-    def public_hosted_zone(cls, hosted_zone: _IPublicHostedZone_9b6e7da4) -> "Identity":
-        '''Verify a public hosted zone.
-
-        DKIM and MAIL FROM records will be added automatically to the hosted
-        zone
-
-        :param hosted_zone: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776)
-            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
-        return typing.cast("Identity", jsii.sinvoke(cls, "publicHostedZone", [hosted_zone]))
-
-    @builtins.property
-    @jsii.member(jsii_name="value")
-    @abc.abstractmethod
-    def value(self) -> builtins.str:
-        '''The value of the identity.'''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="hostedZone")
-    @abc.abstractmethod
-    def hosted_zone(self) -> typing.Optional[_IPublicHostedZone_9b6e7da4]:
-        '''The hosted zone associated with this identity.
-
-        :default: - no hosted zone is associated and no records are created
-        '''
-        ...
-
-
-class _IdentityProxy(Identity):
-    @builtins.property
-    @jsii.member(jsii_name="value")
-    def value(self) -> builtins.str:
-        '''The value of the identity.'''
-        return typing.cast(builtins.str, jsii.get(self, "value"))
-
-    @builtins.property
-    @jsii.member(jsii_name="hostedZone")
-    def hosted_zone(self) -> typing.Optional[_IPublicHostedZone_9b6e7da4]:
-        '''The hosted zone associated with this identity.
-
-        :default: - no hosted zone is associated and no records are created
-        '''
-        return typing.cast(typing.Optional[_IPublicHostedZone_9b6e7da4], jsii.get(self, "hostedZone"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, Identity).__jsii_proxy_class__ = lambda : _IdentityProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.LambdaActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "function_arn": "functionArn",
-        "invocation_type": "invocationType",
-        "topic_arn": "topicArn",
-    },
-)
-class LambdaActionConfig:
-    def __init__(
-        self,
-        *,
-        function_arn: builtins.str,
-        invocation_type: typing.Optional[builtins.str] = None,
-        topic_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''LambdaAction configuration.
-
-        :param function_arn: The Amazon Resource Name (ARN) of the AWS Lambda function.
-        :param invocation_type: The invocation type of the AWS Lambda function. Default: 'Event'
-        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the Lambda action is executed. Default: - No notification is sent to SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            lambda_action_config = ses.LambdaActionConfig(
-                function_arn="functionArn",
-            
-                # the properties below are optional
-                invocation_type="invocationType",
-                topic_arn="topicArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa)
-            check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
-            check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
-            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "function_arn": function_arn,
-        }
-        if invocation_type is not None:
-            self._values["invocation_type"] = invocation_type
-        if topic_arn is not None:
-            self._values["topic_arn"] = topic_arn
-
-    @builtins.property
-    def function_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the AWS Lambda function.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-functionarn
-        '''
-        result = self._values.get("function_arn")
-        assert result is not None, "Required property 'function_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def invocation_type(self) -> typing.Optional[builtins.str]:
-        '''The invocation type of the AWS Lambda function.
-
-        :default: 'Event'
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-invocationtype
-        '''
-        result = self._values.get("invocation_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the Lambda action is executed.
-
-        :default: - No notification is sent to SNS.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-topicarn
-        '''
-        result = self._values.get("topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LambdaActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.MailFromBehaviorOnMxFailure")
-class MailFromBehaviorOnMxFailure(enum.Enum):
-    '''The action to take if the required MX record for the MAIL FROM domain isn't found.'''
-
-    USE_DEFAULT_VALUE = "USE_DEFAULT_VALUE"
-    '''The mail is sent using amazonses.com as the MAIL FROM domain.'''
-    REJECT_MESSAGE = "REJECT_MESSAGE"
-    '''The Amazon SES API v2 returns a ``MailFromDomainNotVerified`` error and doesn't attempt to deliver the email.'''
-
-
-class ReceiptFilter(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptFilter",
-):
-    '''A receipt filter.
-
-    When instantiated without props, it creates a
-    block all receipt filter.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        ses.ReceiptFilter(self, "Filter",
-            ip="1.2.3.4/16"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        ip: typing.Optional[builtins.str] = None,
-        policy: typing.Optional["ReceiptFilterPolicy"] = None,
-        receipt_filter_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param ip: The ip address or range to filter. Default: 0.0.0.0/0
-        :param policy: The policy for the filter. Default: Block
-        :param receipt_filter_name: The name for the receipt filter. Default: a CloudFormation generated name
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ReceiptFilterProps(
-            ip=ip, policy=policy, receipt_filter_name=receipt_filter_name
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ReceiptFilterPolicy")
-class ReceiptFilterPolicy(enum.Enum):
-    '''The policy for the receipt filter.'''
-
-    ALLOW = "ALLOW"
-    '''Allow the ip address or range.'''
-    BLOCK = "BLOCK"
-    '''Block the ip address or range.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ip": "ip",
-        "policy": "policy",
-        "receipt_filter_name": "receiptFilterName",
-    },
-)
-class ReceiptFilterProps:
-    def __init__(
-        self,
-        *,
-        ip: typing.Optional[builtins.str] = None,
-        policy: typing.Optional[ReceiptFilterPolicy] = None,
-        receipt_filter_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Construction properties for a ReceiptFilter.
-
-        :param ip: The ip address or range to filter. Default: 0.0.0.0/0
-        :param policy: The policy for the filter. Default: Block
-        :param receipt_filter_name: The name for the receipt filter. Default: a CloudFormation generated name
-
-        :exampleMetadata: infused
-
-        Example::
-
-            ses.ReceiptFilter(self, "Filter",
-                ip="1.2.3.4/16"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce)
-            check_type(argname="argument ip", value=ip, expected_type=type_hints["ip"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument receipt_filter_name", value=receipt_filter_name, expected_type=type_hints["receipt_filter_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if ip is not None:
-            self._values["ip"] = ip
-        if policy is not None:
-            self._values["policy"] = policy
-        if receipt_filter_name is not None:
-            self._values["receipt_filter_name"] = receipt_filter_name
-
-    @builtins.property
-    def ip(self) -> typing.Optional[builtins.str]:
-        '''The ip address or range to filter.
-
-        :default: 0.0.0.0/0
-        '''
-        result = self._values.get("ip")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policy(self) -> typing.Optional[ReceiptFilterPolicy]:
-        '''The policy for the filter.
-
-        :default: Block
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Optional[ReceiptFilterPolicy], result)
-
-    @builtins.property
-    def receipt_filter_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the receipt filter.
-
-        :default: a CloudFormation generated name
-        '''
-        result = self._values.get("receipt_filter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReceiptFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(IReceiptRule)
-class ReceiptRule(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRule",
-):
-    '''A new receipt rule.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        rule_set = ses.ReceiptRuleSet(self, "RuleSet")
-        
-        aws_rule = rule_set.add_rule("Aws",
-            recipients=["aws.com"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        rule_set: IReceiptRuleSet,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param rule_set: The name of the rule set that the receipt rule will be added to.
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ReceiptRuleProps(
-            rule_set=rule_set,
-            actions=actions,
-            after=after,
-            enabled=enabled,
-            receipt_rule_name=receipt_rule_name,
-            recipients=recipients,
-            scan_enabled=scan_enabled,
-            tls_policy=tls_policy,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromReceiptRuleName")
-    @builtins.classmethod
-    def from_receipt_rule_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        receipt_rule_name: builtins.str,
-    ) -> IReceiptRule:
-        '''
-        :param scope: -
-        :param id: -
-        :param receipt_rule_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
-        return typing.cast(IReceiptRule, jsii.sinvoke(cls, "fromReceiptRuleName", [scope, id, receipt_rule_name]))
-
-    @jsii.member(jsii_name="addAction")
-    def add_action(self, action: IReceiptRuleAction) -> None:
-        '''Adds an action to this receipt rule.
-
-        :param action: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b)
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-        return typing.cast(None, jsii.invoke(self, "addAction", [action]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleName")
-    def receipt_rule_name(self) -> builtins.str:
-        '''The name of the receipt rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "receiptRuleName"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "add_header_action": "addHeaderAction",
-        "bounce_action": "bounceAction",
-        "lambda_action": "lambdaAction",
-        "s3_action": "s3Action",
-        "sns_action": "snsAction",
-        "stop_action": "stopAction",
-        "workmail_action": "workmailAction",
-    },
-)
-class ReceiptRuleActionConfig:
-    def __init__(
-        self,
-        *,
-        add_header_action: typing.Optional[typing.Union[AddHeaderActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        bounce_action: typing.Optional[typing.Union[BounceActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        lambda_action: typing.Optional[typing.Union[LambdaActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        s3_action: typing.Optional[typing.Union["S3ActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        sns_action: typing.Optional[typing.Union["SNSActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        stop_action: typing.Optional[typing.Union["StopActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-        workmail_action: typing.Optional[typing.Union["WorkmailActionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Properties for a receipt rule action.
-
-        :param add_header_action: Adds a header to the received email.
-        :param bounce_action: Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon SNS.
-        :param lambda_action: Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.
-        :param s3_action: Saves the received message to an Amazon S3 bucket and, optionally, publishes a notification to Amazon SNS.
-        :param sns_action: Publishes the email content within a notification to Amazon SNS.
-        :param stop_action: Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.
-        :param workmail_action: Calls Amazon WorkMail and, optionally, publishes a notification to Amazon SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            receipt_rule_action_config = ses.ReceiptRuleActionConfig(
-                add_header_action=ses.AddHeaderActionConfig(
-                    header_name="headerName",
-                    header_value="headerValue"
-                ),
-                bounce_action=ses.BounceActionConfig(
-                    message="message",
-                    sender="sender",
-                    smtp_reply_code="smtpReplyCode",
-            
-                    # the properties below are optional
-                    status_code="statusCode",
-                    topic_arn="topicArn"
-                ),
-                lambda_action=ses.LambdaActionConfig(
-                    function_arn="functionArn",
-            
-                    # the properties below are optional
-                    invocation_type="invocationType",
-                    topic_arn="topicArn"
-                ),
-                s3_action=ses.S3ActionConfig(
-                    bucket_name="bucketName",
-            
-                    # the properties below are optional
-                    kms_key_arn="kmsKeyArn",
-                    object_key_prefix="objectKeyPrefix",
-                    topic_arn="topicArn"
-                ),
-                sns_action=ses.SNSActionConfig(
-                    encoding="encoding",
-                    topic_arn="topicArn"
-                ),
-                stop_action=ses.StopActionConfig(
-                    scope="scope",
-            
-                    # the properties below are optional
-                    topic_arn="topicArn"
-                ),
-                workmail_action=ses.WorkmailActionConfig(
-                    organization_arn="organizationArn",
-            
-                    # the properties below are optional
-                    topic_arn="topicArn"
-                )
-            )
-        '''
-        if isinstance(add_header_action, dict):
-            add_header_action = AddHeaderActionConfig(**add_header_action)
-        if isinstance(bounce_action, dict):
-            bounce_action = BounceActionConfig(**bounce_action)
-        if isinstance(lambda_action, dict):
-            lambda_action = LambdaActionConfig(**lambda_action)
-        if isinstance(s3_action, dict):
-            s3_action = S3ActionConfig(**s3_action)
-        if isinstance(sns_action, dict):
-            sns_action = SNSActionConfig(**sns_action)
-        if isinstance(stop_action, dict):
-            stop_action = StopActionConfig(**stop_action)
-        if isinstance(workmail_action, dict):
-            workmail_action = WorkmailActionConfig(**workmail_action)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c)
-            check_type(argname="argument add_header_action", value=add_header_action, expected_type=type_hints["add_header_action"])
-            check_type(argname="argument bounce_action", value=bounce_action, expected_type=type_hints["bounce_action"])
-            check_type(argname="argument lambda_action", value=lambda_action, expected_type=type_hints["lambda_action"])
-            check_type(argname="argument s3_action", value=s3_action, expected_type=type_hints["s3_action"])
-            check_type(argname="argument sns_action", value=sns_action, expected_type=type_hints["sns_action"])
-            check_type(argname="argument stop_action", value=stop_action, expected_type=type_hints["stop_action"])
-            check_type(argname="argument workmail_action", value=workmail_action, expected_type=type_hints["workmail_action"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if add_header_action is not None:
-            self._values["add_header_action"] = add_header_action
-        if bounce_action is not None:
-            self._values["bounce_action"] = bounce_action
-        if lambda_action is not None:
-            self._values["lambda_action"] = lambda_action
-        if s3_action is not None:
-            self._values["s3_action"] = s3_action
-        if sns_action is not None:
-            self._values["sns_action"] = sns_action
-        if stop_action is not None:
-            self._values["stop_action"] = stop_action
-        if workmail_action is not None:
-            self._values["workmail_action"] = workmail_action
-
-    @builtins.property
-    def add_header_action(self) -> typing.Optional[AddHeaderActionConfig]:
-        '''Adds a header to the received email.'''
-        result = self._values.get("add_header_action")
-        return typing.cast(typing.Optional[AddHeaderActionConfig], result)
-
-    @builtins.property
-    def bounce_action(self) -> typing.Optional[BounceActionConfig]:
-        '''Rejects the received email by returning a bounce response to the sender and, optionally, publishes a notification to Amazon SNS.'''
-        result = self._values.get("bounce_action")
-        return typing.cast(typing.Optional[BounceActionConfig], result)
-
-    @builtins.property
-    def lambda_action(self) -> typing.Optional[LambdaActionConfig]:
-        '''Calls an AWS Lambda function, and optionally, publishes a notification to Amazon SNS.'''
-        result = self._values.get("lambda_action")
-        return typing.cast(typing.Optional[LambdaActionConfig], result)
-
-    @builtins.property
-    def s3_action(self) -> typing.Optional["S3ActionConfig"]:
-        '''Saves the received message to an Amazon S3 bucket and, optionally, publishes a notification to Amazon SNS.'''
-        result = self._values.get("s3_action")
-        return typing.cast(typing.Optional["S3ActionConfig"], result)
-
-    @builtins.property
-    def sns_action(self) -> typing.Optional["SNSActionConfig"]:
-        '''Publishes the email content within a notification to Amazon SNS.'''
-        result = self._values.get("sns_action")
-        return typing.cast(typing.Optional["SNSActionConfig"], result)
-
-    @builtins.property
-    def stop_action(self) -> typing.Optional["StopActionConfig"]:
-        '''Terminates the evaluation of the receipt rule set and optionally publishes a notification to Amazon SNS.'''
-        result = self._values.get("stop_action")
-        return typing.cast(typing.Optional["StopActionConfig"], result)
-
-    @builtins.property
-    def workmail_action(self) -> typing.Optional["WorkmailActionConfig"]:
-        '''Calls Amazon WorkMail and, optionally, publishes a notification to Amazon SNS.'''
-        result = self._values.get("workmail_action")
-        return typing.cast(typing.Optional["WorkmailActionConfig"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReceiptRuleActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "after": "after",
-        "enabled": "enabled",
-        "receipt_rule_name": "receiptRuleName",
-        "recipients": "recipients",
-        "scan_enabled": "scanEnabled",
-        "tls_policy": "tlsPolicy",
-    },
-)
-class ReceiptRuleOptions:
-    def __init__(
-        self,
-        *,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> None:
-        '''Options to add a receipt rule to a receipt rule set.
-
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            rule_set = ses.ReceiptRuleSet(self, "RuleSet")
-            
-            aws_rule = rule_set.add_rule("Aws",
-                recipients=["aws.com"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
-            check_type(argname="argument recipients", value=recipients, expected_type=type_hints["recipients"])
-            check_type(argname="argument scan_enabled", value=scan_enabled, expected_type=type_hints["scan_enabled"])
-            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if actions is not None:
-            self._values["actions"] = actions
-        if after is not None:
-            self._values["after"] = after
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if receipt_rule_name is not None:
-            self._values["receipt_rule_name"] = receipt_rule_name
-        if recipients is not None:
-            self._values["recipients"] = recipients
-        if scan_enabled is not None:
-            self._values["scan_enabled"] = scan_enabled
-        if tls_policy is not None:
-            self._values["tls_policy"] = tls_policy
-
-    @builtins.property
-    def actions(self) -> typing.Optional[typing.List[IReceiptRuleAction]]:
-        '''An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule.
-
-        :default: - No actions.
-        '''
-        result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.List[IReceiptRuleAction]], result)
-
-    @builtins.property
-    def after(self) -> typing.Optional[IReceiptRule]:
-        '''An existing rule after which the new rule will be placed.
-
-        :default: - The new rule is inserted at the beginning of the rule list.
-        '''
-        result = self._values.get("after")
-        return typing.cast(typing.Optional[IReceiptRule], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether the rule is active.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def receipt_rule_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the rule.
-
-        :default: - A CloudFormation generated name.
-        '''
-        result = self._values.get("receipt_rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The recipient domains and email addresses that the receipt rule applies to.
-
-        :default: - Match all recipients under all verified domains.
-        '''
-        result = self._values.get("recipients")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def scan_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether to scan for spam and viruses.
-
-        :default: false
-        '''
-        result = self._values.get("scan_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tls_policy(self) -> typing.Optional["TlsPolicy"]:
-        '''Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS).
-
-        :default: - Optional which will not check for TLS.
-        '''
-        result = self._values.get("tls_policy")
-        return typing.cast(typing.Optional["TlsPolicy"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReceiptRuleOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleProps",
-    jsii_struct_bases=[ReceiptRuleOptions],
-    name_mapping={
-        "actions": "actions",
-        "after": "after",
-        "enabled": "enabled",
-        "receipt_rule_name": "receiptRuleName",
-        "recipients": "recipients",
-        "scan_enabled": "scanEnabled",
-        "tls_policy": "tlsPolicy",
-        "rule_set": "ruleSet",
-    },
-)
-class ReceiptRuleProps(ReceiptRuleOptions):
-    def __init__(
-        self,
-        *,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-        rule_set: IReceiptRuleSet,
-    ) -> None:
-        '''Construction properties for a ReceiptRule.
-
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        :param rule_set: The name of the rule set that the receipt rule will be added to.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            # receipt_rule: ses.ReceiptRule
-            # receipt_rule_action: ses.IReceiptRuleAction
-            # receipt_rule_set: ses.ReceiptRuleSet
-            
-            receipt_rule_props = ses.ReceiptRuleProps(
-                rule_set=receipt_rule_set,
-            
-                # the properties below are optional
-                actions=[receipt_rule_action],
-                after=receipt_rule,
-                enabled=False,
-                receipt_rule_name="receiptRuleName",
-                recipients=["recipients"],
-                scan_enabled=False,
-                tls_policy=ses.TlsPolicy.OPTIONAL
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument after", value=after, expected_type=type_hints["after"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument receipt_rule_name", value=receipt_rule_name, expected_type=type_hints["receipt_rule_name"])
-            check_type(argname="argument recipients", value=recipients, expected_type=type_hints["recipients"])
-            check_type(argname="argument scan_enabled", value=scan_enabled, expected_type=type_hints["scan_enabled"])
-            check_type(argname="argument tls_policy", value=tls_policy, expected_type=type_hints["tls_policy"])
-            check_type(argname="argument rule_set", value=rule_set, expected_type=type_hints["rule_set"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_set": rule_set,
-        }
-        if actions is not None:
-            self._values["actions"] = actions
-        if after is not None:
-            self._values["after"] = after
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if receipt_rule_name is not None:
-            self._values["receipt_rule_name"] = receipt_rule_name
-        if recipients is not None:
-            self._values["recipients"] = recipients
-        if scan_enabled is not None:
-            self._values["scan_enabled"] = scan_enabled
-        if tls_policy is not None:
-            self._values["tls_policy"] = tls_policy
-
-    @builtins.property
-    def actions(self) -> typing.Optional[typing.List[IReceiptRuleAction]]:
-        '''An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule.
-
-        :default: - No actions.
-        '''
-        result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.List[IReceiptRuleAction]], result)
-
-    @builtins.property
-    def after(self) -> typing.Optional[IReceiptRule]:
-        '''An existing rule after which the new rule will be placed.
-
-        :default: - The new rule is inserted at the beginning of the rule list.
-        '''
-        result = self._values.get("after")
-        return typing.cast(typing.Optional[IReceiptRule], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether the rule is active.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def receipt_rule_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the rule.
-
-        :default: - A CloudFormation generated name.
-        '''
-        result = self._values.get("receipt_rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The recipient domains and email addresses that the receipt rule applies to.
-
-        :default: - Match all recipients under all verified domains.
-        '''
-        result = self._values.get("recipients")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def scan_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether to scan for spam and viruses.
-
-        :default: false
-        '''
-        result = self._values.get("scan_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tls_policy(self) -> typing.Optional["TlsPolicy"]:
-        '''Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS).
-
-        :default: - Optional which will not check for TLS.
-        '''
-        result = self._values.get("tls_policy")
-        return typing.cast(typing.Optional["TlsPolicy"], result)
-
-    @builtins.property
-    def rule_set(self) -> IReceiptRuleSet:
-        '''The name of the rule set that the receipt rule will be added to.'''
-        result = self._values.get("rule_set")
-        assert result is not None, "Required property 'rule_set' is missing"
-        return typing.cast(IReceiptRuleSet, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReceiptRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(IReceiptRuleSet)
-class ReceiptRuleSet(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSet",
-):
-    '''A new receipt rule set.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        rule_set = ses.ReceiptRuleSet(self, "RuleSet")
-        
-        aws_rule = rule_set.add_rule("Aws",
-            recipients=["aws.com"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        drop_spam: typing.Optional[builtins.bool] = None,
-        receipt_rule_set_name: typing.Optional[builtins.str] = None,
-        rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param drop_spam: Whether to add a first rule to stop processing messages that have at least one spam indicator. Default: false
-        :param receipt_rule_set_name: The name for the receipt rule set. Default: - A CloudFormation generated name.
-        :param rules: The list of rules to add to this rule set. Rules are added in the same order as they appear in the list. Default: - No rules are added to the rule set.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ReceiptRuleSetProps(
-            drop_spam=drop_spam,
-            receipt_rule_set_name=receipt_rule_set_name,
-            rules=rules,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromReceiptRuleSetName")
-    @builtins.classmethod
-    def from_receipt_rule_set_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        receipt_rule_set_name: builtins.str,
-    ) -> IReceiptRuleSet:
-        '''Import an exported receipt rule set.
-
-        :param scope: -
-        :param id: -
-        :param receipt_rule_set_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
-        return typing.cast(IReceiptRuleSet, jsii.sinvoke(cls, "fromReceiptRuleSetName", [scope, id, receipt_rule_set_name]))
-
-    @jsii.member(jsii_name="addDropSpamRule")
-    def _add_drop_spam_rule(self) -> None:
-        '''Adds a drop spam rule.'''
-        return typing.cast(None, jsii.invoke(self, "addDropSpamRule", []))
-
-    @jsii.member(jsii_name="addRule")
-    def add_rule(
-        self,
-        id: builtins.str,
-        *,
-        actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-        after: typing.Optional[IReceiptRule] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        receipt_rule_name: typing.Optional[builtins.str] = None,
-        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-        scan_enabled: typing.Optional[builtins.bool] = None,
-        tls_policy: typing.Optional["TlsPolicy"] = None,
-    ) -> ReceiptRule:
-        '''Adds a new receipt rule in this rule set.
-
-        The new rule is added after
-        the last added rule unless ``after`` is specified.
-
-        :param id: -
-        :param actions: An ordered list of actions to perform on messages that match at least one of the recipient email addresses or domains specified in the receipt rule. Default: - No actions.
-        :param after: An existing rule after which the new rule will be placed. Default: - The new rule is inserted at the beginning of the rule list.
-        :param enabled: Whether the rule is active. Default: true
-        :param receipt_rule_name: The name for the rule. Default: - A CloudFormation generated name.
-        :param recipients: The recipient domains and email addresses that the receipt rule applies to. Default: - Match all recipients under all verified domains.
-        :param scan_enabled: Whether to scan for spam and viruses. Default: false
-        :param tls_policy: Whether Amazon SES should require that incoming email is delivered over a connection encrypted with Transport Layer Security (TLS). Default: - Optional which will not check for TLS.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = ReceiptRuleOptions(
-            actions=actions,
-            after=after,
-            enabled=enabled,
-            receipt_rule_name=receipt_rule_name,
-            recipients=recipients,
-            scan_enabled=scan_enabled,
-            tls_policy=tls_policy,
-        )
-
-        return typing.cast(ReceiptRule, jsii.invoke(self, "addRule", [id, options]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="receiptRuleSetName")
-    def receipt_rule_set_name(self) -> builtins.str:
-        '''The receipt rule set name.'''
-        return typing.cast(builtins.str, jsii.get(self, "receiptRuleSetName"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.ReceiptRuleSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "drop_spam": "dropSpam",
-        "receipt_rule_set_name": "receiptRuleSetName",
-        "rules": "rules",
-    },
-)
-class ReceiptRuleSetProps:
-    def __init__(
-        self,
-        *,
-        drop_spam: typing.Optional[builtins.bool] = None,
-        receipt_rule_set_name: typing.Optional[builtins.str] = None,
-        rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Construction properties for a ReceiptRuleSet.
-
-        :param drop_spam: Whether to add a first rule to stop processing messages that have at least one spam indicator. Default: false
-        :param receipt_rule_set_name: The name for the receipt rule set. Default: - A CloudFormation generated name.
-        :param rules: The list of rules to add to this rule set. Rules are added in the same order as they appear in the list. Default: - No rules are added to the rule set.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk as cdk
-            import aws_cdk.aws_ses as ses
-            from aws_cdk.custom_resources import CustomResourceConfig
-            
-            
-            app = cdk.App()
-            stack = cdk.Stack(app, "Stack")
-            CustomResourceConfig.of(app).add_log_retention_lifetime(logs.RetentionDays.TEN_YEARS)
-            CustomResourceConfig.of(app).add_removal_policy(cdk.RemovalPolicy.DESTROY)
-            
-            ses.ReceiptRuleSet(app, "RuleSet",
-                drop_spam=True
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe)
-            check_type(argname="argument drop_spam", value=drop_spam, expected_type=type_hints["drop_spam"])
-            check_type(argname="argument receipt_rule_set_name", value=receipt_rule_set_name, expected_type=type_hints["receipt_rule_set_name"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if drop_spam is not None:
-            self._values["drop_spam"] = drop_spam
-        if receipt_rule_set_name is not None:
-            self._values["receipt_rule_set_name"] = receipt_rule_set_name
-        if rules is not None:
-            self._values["rules"] = rules
-
-    @builtins.property
-    def drop_spam(self) -> typing.Optional[builtins.bool]:
-        '''Whether to add a first rule to stop processing messages that have at least one spam indicator.
-
-        :default: false
-        '''
-        result = self._values.get("drop_spam")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def receipt_rule_set_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the receipt rule set.
-
-        :default: - A CloudFormation generated name.
-        '''
-        result = self._values.get("receipt_rule_set_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rules(self) -> typing.Optional[typing.List[ReceiptRuleOptions]]:
-        '''The list of rules to add to this rule set.
-
-        Rules are added in the same
-        order as they appear in the list.
-
-        :default: - No rules are added to the rule set.
-        '''
-        result = self._values.get("rules")
-        return typing.cast(typing.Optional[typing.List[ReceiptRuleOptions]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReceiptRuleSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.S3ActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket_name": "bucketName",
-        "kms_key_arn": "kmsKeyArn",
-        "object_key_prefix": "objectKeyPrefix",
-        "topic_arn": "topicArn",
-    },
-)
-class S3ActionConfig:
-    def __init__(
-        self,
-        *,
-        bucket_name: builtins.str,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        object_key_prefix: typing.Optional[builtins.str] = None,
-        topic_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''S3Action configuration.
-
-        :param bucket_name: The name of the Amazon S3 bucket that you want to send incoming mail to.
-        :param kms_key_arn: The customer master key that Amazon SES should use to encrypt your emails before saving them to the Amazon S3 bucket. Default: - Emails are not encrypted.
-        :param object_key_prefix: The key prefix of the Amazon S3 bucket. Default: - No prefix.
-        :param topic_arn: The ARN of the Amazon SNS topic to notify when the message is saved to the Amazon S3 bucket. Default: - No notification is sent to SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            s3_action_config = ses.S3ActionConfig(
-                bucket_name="bucketName",
-            
-                # the properties below are optional
-                kms_key_arn="kmsKeyArn",
-                object_key_prefix="objectKeyPrefix",
-                topic_arn="topicArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182)
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument object_key_prefix", value=object_key_prefix, expected_type=type_hints["object_key_prefix"])
-            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket_name": bucket_name,
-        }
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if object_key_prefix is not None:
-            self._values["object_key_prefix"] = object_key_prefix
-        if topic_arn is not None:
-            self._values["topic_arn"] = topic_arn
-
-    @builtins.property
-    def bucket_name(self) -> builtins.str:
-        '''The name of the Amazon S3 bucket that you want to send incoming mail to.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        assert result is not None, "Required property 'bucket_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The customer master key that Amazon SES should use to encrypt your emails before saving them to the Amazon S3 bucket.
-
-        :default: - Emails are not encrypted.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def object_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''The key prefix of the Amazon S3 bucket.
-
-        :default: - No prefix.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-objectkeyprefix
-        '''
-        result = self._values.get("object_key_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the Amazon SNS topic to notify when the message is saved to the Amazon S3 bucket.
-
-        :default: - No notification is sent to SNS.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-topicarn
-        '''
-        result = self._values.get("topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "S3ActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.SNSActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={"encoding": "encoding", "topic_arn": "topicArn"},
-)
-class SNSActionConfig:
-    def __init__(
-        self,
-        *,
-        encoding: typing.Optional[builtins.str] = None,
-        topic_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''SNSAction configuration.
-
-        :param encoding: The encoding to use for the email within the Amazon SNS notification. Default: 'UTF-8'
-        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify. Default: - No notification is sent to SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            s_nSAction_config = ses.SNSActionConfig(
-                encoding="encoding",
-                topic_arn="topicArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af)
-            check_type(argname="argument encoding", value=encoding, expected_type=type_hints["encoding"])
-            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if encoding is not None:
-            self._values["encoding"] = encoding
-        if topic_arn is not None:
-            self._values["topic_arn"] = topic_arn
-
-    @builtins.property
-    def encoding(self) -> typing.Optional[builtins.str]:
-        '''The encoding to use for the email within the Amazon SNS notification.
-
-        :default: 'UTF-8'
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-encoding
-        '''
-        result = self._values.get("encoding")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify.
-
-        :default: - No notification is sent to SNS.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-topicarn
-        '''
-        result = self._values.get("topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SNSActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.ScalingMode")
-class ScalingMode(enum.Enum):
-    '''Scaling mode to use for this IP pool.
-
-    :see: https://docs.aws.amazon.com/ses/latest/dg/dedicated-ip.html
-    :exampleMetadata: infused
-
-    Example::
-
-        ses.DedicatedIpPool(self, "Pool",
-            dedicated_ip_pool_name="mypool",
-            scaling_mode=ses.ScalingMode.STANDARD
-        )
-    '''
-
-    STANDARD = "STANDARD"
-    '''The customer controls which IPs are part of the dedicated IP pool.'''
-    MANAGED = "MANAGED"
-    '''The reputation and number of IPs are automatically managed by Amazon SES.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.StopActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={"scope": "scope", "topic_arn": "topicArn"},
-)
-class StopActionConfig:
-    def __init__(
-        self,
-        *,
-        scope: builtins.str,
-        topic_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''StopAction configuration.
-
-        :param scope: The scope of the StopAction. The only acceptable value is RuleSet.
-        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the stop action is taken. Default: - No notification is sent to SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            stop_action_config = ses.StopActionConfig(
-                scope="scope",
-            
-                # the properties below are optional
-                topic_arn="topicArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scope": scope,
-        }
-        if topic_arn is not None:
-            self._values["topic_arn"] = topic_arn
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''The scope of the StopAction.
-
-        The only acceptable value is RuleSet.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-scope
-        '''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the stop action is taken.
-
-        :default: - No notification is sent to SNS.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-topicarn
-        '''
-        result = self._values.get("topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StopActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.SuppressionReasons")
-class SuppressionReasons(enum.Enum):
-    '''Reasons for which recipient email addresses should be automatically added to your account's suppression list.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # Only bounces will be suppressed.
-        ses.ConfigurationSet(self, "ConfigurationSet",
-            suppression_reasons=ses.SuppressionReasons.BOUNCES_ONLY
-        )
-        
-        # Only complaints will be suppressed.
-        ses.ConfigurationSet(self, "ConfigurationSet",
-            suppression_reasons=ses.SuppressionReasons.COMPLAINTS_ONLY
-        )
-        
-        # Both bounces and complaints will be suppressed.
-        ses.ConfigurationSet(self, "ConfigurationSet",
-            suppression_reasons=ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS
-        )
-    '''
-
-    BOUNCES_AND_COMPLAINTS = "BOUNCES_AND_COMPLAINTS"
-    '''Bounces and complaints.'''
-    BOUNCES_ONLY = "BOUNCES_ONLY"
-    '''Bounces only.'''
-    COMPLAINTS_ONLY = "COMPLAINTS_ONLY"
-    '''Complaints only.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ses.TlsPolicy")
-class TlsPolicy(enum.Enum):
-    '''The type of TLS policy for a receipt rule.'''
-
-    OPTIONAL = "OPTIONAL"
-    '''Do not check for TLS.'''
-    REQUIRE = "REQUIRE"
-    '''Bounce emails that are not received over TLS.'''
-
-
-@jsii.implements(IVdmAttributes)
-class VdmAttributes(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ses.VdmAttributes",
-):
-    '''Virtual Deliverability Manager (VDM) attributes.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # Enables engagement tracking and optimized shared delivery by default
-        ses.VdmAttributes(self, "Vdm")
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        engagement_metrics: typing.Optional[builtins.bool] = None,
-        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param engagement_metrics: Whether engagement metrics are enabled for your account. Default: true
-        :param optimized_shared_delivery: Whether optimized shared delivery is enabled for your account. Default: true
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = VdmAttributesProps(
-            engagement_metrics=engagement_metrics,
-            optimized_shared_delivery=optimized_shared_delivery,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromVdmAttributesName")
-    @builtins.classmethod
-    def from_vdm_attributes_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        vdm_attributes_name: builtins.str,
-    ) -> IVdmAttributes:
-        '''Use an existing Virtual Deliverability Manager attributes resource.
-
-        :param scope: -
-        :param id: -
-        :param vdm_attributes_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument vdm_attributes_name", value=vdm_attributes_name, expected_type=type_hints["vdm_attributes_name"])
-        return typing.cast(IVdmAttributes, jsii.sinvoke(cls, "fromVdmAttributesName", [scope, id, vdm_attributes_name]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="vdmAttributesName")
-    def vdm_attributes_name(self) -> builtins.str:
-        '''The name of the resource behind the Virtual Deliverability Manager attributes.'''
-        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="vdmAttributesResourceId")
-    def vdm_attributes_resource_id(self) -> builtins.str:
-        '''Resource ID for the Virtual Deliverability Manager attributes.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "vdmAttributesResourceId"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.VdmAttributesProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engagement_metrics": "engagementMetrics",
-        "optimized_shared_delivery": "optimizedSharedDelivery",
-    },
-)
-class VdmAttributesProps:
-    def __init__(
-        self,
-        *,
-        engagement_metrics: typing.Optional[builtins.bool] = None,
-        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''Properties for the Virtual Deliverability Manager (VDM) attributes.
-
-        :param engagement_metrics: Whether engagement metrics are enabled for your account. Default: true
-        :param optimized_shared_delivery: Whether optimized shared delivery is enabled for your account. Default: true
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            vdm_attributes_props = ses.VdmAttributesProps(
-                engagement_metrics=False,
-                optimized_shared_delivery=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0)
-            check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
-            check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if engagement_metrics is not None:
-            self._values["engagement_metrics"] = engagement_metrics
-        if optimized_shared_delivery is not None:
-            self._values["optimized_shared_delivery"] = optimized_shared_delivery
-
-    @builtins.property
-    def engagement_metrics(self) -> typing.Optional[builtins.bool]:
-        '''Whether engagement metrics are enabled for your account.
-
-        :default: true
-        '''
-        result = self._values.get("engagement_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def optimized_shared_delivery(self) -> typing.Optional[builtins.bool]:
-        '''Whether optimized shared delivery is enabled for your account.
-
-        :default: true
-        '''
-        result = self._values.get("optimized_shared_delivery")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VdmAttributesProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.VdmOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engagement_metrics": "engagementMetrics",
-        "optimized_shared_delivery": "optimizedSharedDelivery",
-    },
-)
-class VdmOptions:
-    def __init__(
-        self,
-        *,
-        engagement_metrics: typing.Optional[builtins.bool] = None,
-        optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''Properties for the Virtual Deliverability Manager (VDM) options that apply to the configuration set.
-
-        :param engagement_metrics: If true, engagement metrics are enabled for the configuration set. Default: - Engagement metrics not configured at the configuration set level. In this case, use account level settings.
-        :param optimized_shared_delivery: If true, optimized shared delivery is enabled for the configuration set. Default: - Optimized shared delivery not configured at the configuration set level. In this case, use account level settings.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            ses.ConfigurationSet(self, "ConfigurationSetWithVdmOptions",
-                vdm_options=ses.VdmOptions(
-                    engagement_metrics=True,
-                    optimized_shared_delivery=True
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa)
-            check_type(argname="argument engagement_metrics", value=engagement_metrics, expected_type=type_hints["engagement_metrics"])
-            check_type(argname="argument optimized_shared_delivery", value=optimized_shared_delivery, expected_type=type_hints["optimized_shared_delivery"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if engagement_metrics is not None:
-            self._values["engagement_metrics"] = engagement_metrics
-        if optimized_shared_delivery is not None:
-            self._values["optimized_shared_delivery"] = optimized_shared_delivery
-
-    @builtins.property
-    def engagement_metrics(self) -> typing.Optional[builtins.bool]:
-        '''If true, engagement metrics are enabled for the configuration set.
-
-        :default: - Engagement metrics not configured at the configuration set level. In this case, use account level settings.
-        '''
-        result = self._values.get("engagement_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def optimized_shared_delivery(self) -> typing.Optional[builtins.bool]:
-        '''If true, optimized shared delivery is enabled for the configuration set.
-
-        :default: - Optimized shared delivery not configured at the configuration set level. In this case, use account level settings.
-        '''
-        result = self._values.get("optimized_shared_delivery")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VdmOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ses.WorkmailActionConfig",
-    jsii_struct_bases=[],
-    name_mapping={"organization_arn": "organizationArn", "topic_arn": "topicArn"},
-)
-class WorkmailActionConfig:
-    def __init__(
-        self,
-        *,
-        organization_arn: builtins.str,
-        topic_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''WorkmailAction configuration.
-
-        :param organization_arn: The Amazon Resource Name (ARN) of the Amazon WorkMail organization.
-        :param topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the WorkMail action is called. Default: - No notification is sent to SNS.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ses as ses
-            
-            workmail_action_config = ses.WorkmailActionConfig(
-                organization_arn="organizationArn",
-            
-                # the properties below are optional
-                topic_arn="topicArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b)
-            check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
-            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "organization_arn": organization_arn,
-        }
-        if topic_arn is not None:
-            self._values["topic_arn"] = topic_arn
-
-    @builtins.property
-    def organization_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon WorkMail organization.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-organizationarn
-        '''
-        result = self._values.get("organization_arn")
-        assert result is not None, "Required property 'organization_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to notify when the WorkMail action is called.
-
-        :default: - No notification is sent to SNS.
-
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-topicarn
-        '''
-        result = self._values.get("topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WorkmailActionConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.implements(IConfigurationSet)
@@ -18434,10 +20205,14 @@ __all__ = [
     "ConfigurationSetEventDestination",
     "ConfigurationSetEventDestinationOptions",
     "ConfigurationSetEventDestinationProps",
+    "ConfigurationSetEventDestinationReference",
     "ConfigurationSetProps",
+    "ConfigurationSetReference",
     "ConfigurationSetTlsPolicy",
+    "ContactListReference",
     "DedicatedIpPool",
     "DedicatedIpPoolProps",
+    "DedicatedIpPoolReference",
     "DkimIdentity",
     "DkimIdentityConfig",
     "DkimRecord",
@@ -18446,38 +20221,70 @@ __all__ = [
     "EasyDkimSigningKeyLength",
     "EmailIdentity",
     "EmailIdentityProps",
+    "EmailIdentityReference",
     "EmailSendingEvent",
     "EventDestination",
     "FirehoseDeliveryStreamDestination",
     "HttpsPolicy",
     "IConfigurationSet",
     "IConfigurationSetEventDestination",
+    "IConfigurationSetEventDestinationRef",
+    "IConfigurationSetRef",
+    "IContactListRef",
     "IDedicatedIpPool",
+    "IDedicatedIpPoolRef",
     "IEmailIdentity",
+    "IEmailIdentityRef",
+    "IMailManagerAddonInstanceRef",
+    "IMailManagerAddonSubscriptionRef",
+    "IMailManagerAddressListRef",
+    "IMailManagerArchiveRef",
+    "IMailManagerIngressPointRef",
+    "IMailManagerRelayRef",
+    "IMailManagerRuleSetRef",
+    "IMailManagerTrafficPolicyRef",
+    "IReceiptFilterRef",
     "IReceiptRule",
     "IReceiptRuleAction",
+    "IReceiptRuleRef",
     "IReceiptRuleSet",
+    "IReceiptRuleSetRef",
+    "ITemplateRef",
     "IVdmAttributes",
+    "IVdmAttributesRef",
     "Identity",
     "LambdaActionConfig",
     "MailFromBehaviorOnMxFailure",
+    "MailManagerAddonInstanceReference",
+    "MailManagerAddonSubscriptionReference",
+    "MailManagerAddressListReference",
+    "MailManagerArchiveReference",
+    "MailManagerIngressPointReference",
+    "MailManagerRelayReference",
+    "MailManagerRuleSetReference",
+    "MailManagerTrafficPolicyReference",
     "ReceiptFilter",
     "ReceiptFilterPolicy",
     "ReceiptFilterProps",
+    "ReceiptFilterReference",
     "ReceiptRule",
     "ReceiptRuleActionConfig",
     "ReceiptRuleOptions",
     "ReceiptRuleProps",
+    "ReceiptRuleReference",
     "ReceiptRuleSet",
     "ReceiptRuleSetProps",
+    "ReceiptRuleSetReference",
     "S3ActionConfig",
     "SNSActionConfig",
     "ScalingMode",
     "StopActionConfig",
     "SuppressionReasons",
+    "TemplateReference",
     "TlsPolicy",
     "VdmAttributes",
     "VdmAttributesProps",
+    "VdmAttributesReference",
     "VdmOptions",
     "WorkmailActionConfig",
 ]
@@ -18524,6 +20331,703 @@ def _typecheckingstub__b4e23b7bc7e365a5b875e5ba4ad81ccfb3182ca4059f46dfe11066714
     private_key: _SecretValue_3dd0ddae,
     selector: builtins.str,
     public_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2(
+    *,
+    configuration_set_name: builtins.str,
+    event_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa(
+    *,
+    delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0(
+    *,
+    contact_list_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56(
+    *,
+    pool_name: typing.Optional[builtins.str] = None,
+    scaling_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54(
+    *,
+    email_identity: builtins.str,
+    configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3(
+    *,
+    addon_subscription_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd(
+    *,
+    addon_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9(
+    *,
+    address_list_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c(
+    *,
+    archive_name: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1(
+    *,
+    rule_set_id: builtins.str,
+    traffic_policy_id: builtins.str,
+    type: builtins.str,
+    ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_point_name: typing.Optional[builtins.str] = None,
+    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status_to_update: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971(
+    *,
+    authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    server_name: builtins.str,
+    server_port: jsii.Number,
+    relay_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf(
+    *,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rule_set_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef(
+    *,
+    default_action: builtins.str,
+    policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    max_message_size_bytes: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_policy_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f(
+    *,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1(
+    *,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule_set_name: builtins.str,
+    after: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636(
+    *,
+    rule_set_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317(
+    *,
+    template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825(
+    *,
+    dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a(
+    *,
+    default_value: builtins.str,
+    name: builtins.str,
+    source: CloudWatchDimensionSource,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6(
+    *,
+    destination: EventDestination,
+    configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8(
+    *,
+    destination: EventDestination,
+    configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
+    configuration_set: IConfigurationSet,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43e1802e47e3092941de120649ffbd566b805cf1cf6043fa634e18988fe3ce52(
+    *,
+    configuration_set_event_destination_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d(
+    *,
+    configuration_set_name: typing.Optional[builtins.str] = None,
+    custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
+    custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
+    dedicated_ip_pool: typing.Optional[IDedicatedIpPool] = None,
+    disable_suppression_list: typing.Optional[builtins.bool] = None,
+    max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
+    reputation_metrics: typing.Optional[builtins.bool] = None,
+    sending_enabled: typing.Optional[builtins.bool] = None,
+    suppression_reasons: typing.Optional[SuppressionReasons] = None,
+    tls_policy: typing.Optional[ConfigurationSetTlsPolicy] = None,
+    vdm_options: typing.Optional[typing.Union[VdmOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0432723a40f659e0c9a755895613856e9ce60ef794d5d8d33f6804a2b862fcbd(
+    *,
+    configuration_set_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed5a273bf7130b018ecd7582491f2c9414e3ac902ce8475acddf7283220f7f64(
+    *,
+    contact_list_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0(
+    *,
+    dedicated_ip_pool_name: typing.Optional[builtins.str] = None,
+    scaling_mode: typing.Optional[ScalingMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cffb1b60b083e8f5fa9dbcafb86f1a4ccf3e52ed88d1058a7620f649026e044(
+    *,
+    pool_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc(
+    signing_key_length: typing.Optional[EasyDkimSigningKeyLength] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db(
+    email_identity: EmailIdentity,
+    hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb(
+    *,
+    domain_signing_private_key: typing.Optional[builtins.str] = None,
+    domain_signing_selector: typing.Optional[builtins.str] = None,
+    next_signing_key_length: typing.Optional[EasyDkimSigningKeyLength] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    rule_set: IReceiptRuleSet,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030(
+    *,
+    identity: Identity,
+    configuration_set: typing.Optional[IConfigurationSet] = None,
+    dkim_identity: typing.Optional[DkimIdentity] = None,
+    dkim_signing: typing.Optional[builtins.bool] = None,
+    feedback_forwarding: typing.Optional[builtins.bool] = None,
+    mail_from_behavior_on_mx_failure: typing.Optional[MailFromBehaviorOnMxFailure] = None,
+    mail_from_domain: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5507f1a574b4485f2b462f26427262c5729d7b81756b96a8a865a52b3769811(
+    *,
+    email_identity: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92(
+    dimensions: typing.Sequence[typing.Union[CloudWatchDimension, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567(
+    event_bus: _IEventBus_88d13111,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c(
+    topic: _ITopic_9eca4852,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464(
+    *,
+    delivery_stream: _IDeliveryStream_8f118861,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5(
+    receipt_rule: IReceiptRule,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15(
+    id: builtins.str,
+    *,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5(
+    domain: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6(
+    email: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776(
+    hosted_zone: _IPublicHostedZone_9b6e7da4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa(
+    *,
+    function_arn: builtins.str,
+    invocation_type: typing.Optional[builtins.str] = None,
+    topic_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38584df6d09b2813bb615450ec2b32744b42b9f4886235385106fc6cbf742232(
+    *,
+    addon_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__642c485e852bd4f3ebeb92b2b8e405addbe003e5516221021669ae044bf4cd02(
+    *,
+    addon_subscription_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d0df7fe0f163c7f661a0a507c347bfc411e7fca3d59e83336b25e3c8039678f(
+    *,
+    address_list_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__314947fb8504cf5a3538c20399ad44b5fdebdfa9c5e2ab9a1c8104977e42bba2(
+    *,
+    archive_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17822d10f62ef827936abbe8b22f8800bd344ba11a87faac563339c3fc1a16fd(
+    *,
+    ingress_point_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7d786f3093e907b35918d6df35b9bfe6f061acfd22485ce30f876d41c1d530c(
+    *,
+    relay_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56162ca1222beed6eb6e0e1e9e66898fc81931bb0e0d5adb13e8de6af0c82b18(
+    *,
+    rule_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42eaf456f6ebea8bc73738feb3ab503ff941bf26a62bce8e0c71a77a8ba2cc02(
+    *,
+    traffic_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    ip: typing.Optional[builtins.str] = None,
+    policy: typing.Optional[ReceiptFilterPolicy] = None,
+    receipt_filter_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce(
+    *,
+    ip: typing.Optional[builtins.str] = None,
+    policy: typing.Optional[ReceiptFilterPolicy] = None,
+    receipt_filter_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03e569183f294b1c92c1d1b9708c2735516c8eef09174bf1efefbb9dbc700394(
+    *,
+    receipt_filter_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    rule_set: IReceiptRuleSet,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    receipt_rule_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b(
+    action: IReceiptRuleAction,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c(
+    *,
+    add_header_action: typing.Optional[typing.Union[AddHeaderActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    bounce_action: typing.Optional[typing.Union[BounceActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    lambda_action: typing.Optional[typing.Union[LambdaActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    s3_action: typing.Optional[typing.Union[S3ActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    sns_action: typing.Optional[typing.Union[SNSActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    stop_action: typing.Optional[typing.Union[StopActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    workmail_action: typing.Optional[typing.Union[WorkmailActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab(
+    *,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b(
+    *,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+    rule_set: IReceiptRuleSet,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b16e97f72b00b11de9ab724d29f591d9e08b0ae68c96d0bae9cc48693cc8a99(
+    *,
+    receipt_rule_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    drop_spam: typing.Optional[builtins.bool] = None,
+    receipt_rule_set_name: typing.Optional[builtins.str] = None,
+    rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    receipt_rule_set_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a(
+    id: builtins.str,
+    *,
+    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
+    after: typing.Optional[IReceiptRule] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    receipt_rule_name: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    scan_enabled: typing.Optional[builtins.bool] = None,
+    tls_policy: typing.Optional[TlsPolicy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe(
+    *,
+    drop_spam: typing.Optional[builtins.bool] = None,
+    receipt_rule_set_name: typing.Optional[builtins.str] = None,
+    rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05fe4ebdbbc6ee81838c21826c8ef8a87e7c88ad41aea2f6e2ba12fec82ad5da(
+    *,
+    receipt_rule_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182(
+    *,
+    bucket_name: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    object_key_prefix: typing.Optional[builtins.str] = None,
+    topic_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af(
+    *,
+    encoding: typing.Optional[builtins.str] = None,
+    topic_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc(
+    *,
+    scope: builtins.str,
+    topic_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce8dc4d96bb6d14ce82bd2ef0365888e18732dcaee752e8eb908ab76dc0b56f3(
+    *,
+    template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    engagement_metrics: typing.Optional[builtins.bool] = None,
+    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    vdm_attributes_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0(
+    *,
+    engagement_metrics: typing.Optional[builtins.bool] = None,
+    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05550c6a892855eced356484e852b07fc431358b0997d8660bea4966e8688c43(
+    *,
+    vdm_attributes_resource_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa(
+    *,
+    engagement_metrics: typing.Optional[builtins.bool] = None,
+    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b(
+    *,
+    organization_arn: builtins.str,
+    topic_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18749,28 +21253,6 @@ def _typecheckingstub__088fd890007dccc782783b2f90e64f8c72607c080bdc0d3a15c7d13f1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb3997a9ca2(
-    *,
-    configuration_set_name: builtins.str,
-    event_destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSetEventDestination.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa(
-    *,
-    delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4f5901f6c4687a5069b93788dd46825d3f820617b06ab7617c713daa19e6b0a1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18829,16 +21311,6 @@ def _typecheckingstub__51caf9f57b613a46837ae653fc48f880d6c601b01293293e456968c3a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aaf2782c0(
-    *,
-    contact_list_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595c9930e2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18876,15 +21348,6 @@ def _typecheckingstub__cfe768b550097b0e81974377ae65fba6791743f6787f72492af555cd1
 
 def _typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56(
-    *,
-    pool_name: typing.Optional[builtins.str] = None,
-    scaling_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18996,19 +21459,6 @@ def _typecheckingstub__172959be1e69fff5bd9bf8f0d9d248c8bcc08b8792f68376cb22ae484
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890a323f54(
-    *,
-    email_identity: builtins.str,
-    configuration_set_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.ConfigurationSetAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b264df921b4ca04913aa8a8375e2c83055fd8df0a14752396030e13fc28af504(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19039,14 +21489,6 @@ def _typecheckingstub__1c833ec80f9a2cc32ab374cb53026b9f1d8d3c1f0e49a56b5215425a3
 
 def _typecheckingstub__45f7138156b176186763c85a97772c803146dbab0e3cb8ee80efe5d4cd89834d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__289e792b8b6e6d06849cec9e987e77c0a1c0458c3b65e439049dd54f1d88e7c3(
-    *,
-    addon_subscription_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19085,14 +21527,6 @@ def _typecheckingstub__29c55bb74fd3d612b39c13ec35f22819219ba03de6b766602d804e921
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__60d068c00268064de7df238df2dd073326a0cbc422fee4d79433b91b517fb6bd(
-    *,
-    addon_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6a8a172d98fe048a3419d1b92dcaf2e59e8461e9b0baf073f812b3916bcd4974(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19123,14 +21557,6 @@ def _typecheckingstub__53d1505dab469f39095f9e22ba4d8bdae2405adbe8d8d641e4d4a1abb
 
 def _typecheckingstub__f941c234d4973425d4ac187f87f54965bfdb82848d3fcf93664acc11143c1068(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ec45e85ebcc385f7d054df8a6b207754f0fa06560d7270f49432e2594f0626f9(
-    *,
-    address_list_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19186,16 +21612,6 @@ def _typecheckingstub__2f356c2c7a0aabd9047f921ce42c4491a563cc8afe412db26f32819d3
 def _typecheckingstub__303a5f296dcb181950406376e61a575f34ab8c4c0d3ecca4fb1a6ac07db29370(
     *,
     retention_period: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b0cda830441c6b6579edb6c993137e6a074c545a3aa59d9635938c8241f8b6c(
-    *,
-    archive_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    retention: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerArchive.ArchiveRetentionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19306,20 +21722,6 @@ def _typecheckingstub__44de118258c4f2ec589299800463fecb183b1dbbd040e740d7547fd88
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4a58faebfc97ab1b10162e7546f05d5e8ed2912a90a84602bdbf7d61271bfdd1(
-    *,
-    rule_set_id: builtins.str,
-    traffic_policy_id: builtins.str,
-    type: builtins.str,
-    ingress_point_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.IngressPointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_point_name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerIngressPoint.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    status_to_update: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c9ee528cdf366e99e1f68b7018c131315da04193c666245fa2c99e56bdf434e4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19379,17 +21781,6 @@ def _typecheckingstub__43dfcada45f91f06fd9d7504799d90465587ba4c4b8214f065a8c7a14
     *,
     no_authentication: typing.Any = None,
     secret_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be0b9e4b859cc0a164b7e8db86b84a6657f98ac4a21f3b3670fc159383de6971(
-    *,
-    authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRelay.RelayAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-    server_name: builtins.str,
-    server_port: jsii.Number,
-    relay_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19662,15 +22053,6 @@ def _typecheckingstub__c1dba6e94fdb5a871528ffcc897120b50f8c7998718a851aaed472055
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9120678c5e64c2879e05de88594491cf3cdaac302d42183fc9f8d7289a9725cf(
-    *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerRuleSet.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    rule_set_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__450b0bd78f68450d39a41b2242250c64ec412e1a58381c2d9d31cc0b92bf5457(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19842,17 +22224,6 @@ def _typecheckingstub__b922305a6b38d117885f741ba67de50b32b60f8d84e07583f5e79f9ef
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ed881964bd518a16a88f17ded480c0caabc8547dbbd126d0803e1424b80d51ef(
-    *,
-    default_action: builtins.str,
-    policy_statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMailManagerTrafficPolicy.PolicyStatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    max_message_size_bytes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    traffic_policy_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1a1615f3821db38c2d17213d45f5aaf7419e2ac2a387e68854a97ab1b660aa82(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19892,13 +22263,6 @@ def _typecheckingstub__a491d6597c852f28ae26e9b6690598de1ef3f7a5ee8865818d9104b05
     *,
     cidr: builtins.str,
     policy: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0c3aafa7b21eb24b6b09cf371f4935926a3d6310d168a5ca16bcad331d2d6a1f(
-    *,
-    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptFilter.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20041,15 +22405,6 @@ def _typecheckingstub__af2dae7f39846f3f50114d44fa542e8b0390a51e98f63405b5a32de3f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__aab91d8adb8d443158cc46ba99ec820f62513cdec0b436079652f454fb21cfd1(
-    *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReceiptRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
-    rule_set_name: builtins.str,
-    after: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c8e8c05ea09aa8fb4e787d2e45cbe7d16eaf164f24c154797b3e350dd0b5316c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -20073,13 +22428,6 @@ def _typecheckingstub__45b28225e64d365acc2eb75263d1547441c57ed192fa484b706bcc0a8
 
 def _typecheckingstub__d7df684309baff9de02a1535483083992de84a7e4b7e34279f0dd37bd4bb1fcb(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea296ac8e1ca4779dc1c9f1d5d572e1ae5dd8506ecf9694e2fb73b514ae26636(
-    *,
-    rule_set_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20117,13 +22465,6 @@ def _typecheckingstub__6894407236d481fe73e1d7b05b61377a9e1a2ea9e6ee4bfaa48a81bd5
     html_part: typing.Optional[builtins.str] = None,
     template_name: typing.Optional[builtins.str] = None,
     text_part: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317(
-    *,
-    template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20172,414 +22513,6 @@ def _typecheckingstub__7bb318ca7ff1c3e34c0a31904f95354c80864527eeb292bf9db6ea3ac
 def _typecheckingstub__c129497041cde369dd20c917699582d68e5a27620a3bdb6da3a7048e743a3cdf(
     *,
     optimized_shared_delivery: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__05720eed835713353d777877a75758a4e172dae5b79690ea107edcb7cf1e4825(
-    *,
-    dashboard_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.DashboardAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    guardian_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVdmAttributes.GuardianAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c718e80d3dd746209ff12fd14d08ce529bed18f85e0af362c1a2df8b5adc173a(
-    *,
-    default_value: builtins.str,
-    name: builtins.str,
-    source: CloudWatchDimensionSource,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__80b5162c2d2ea9081e7450a4b5db43212eaf82f433a217fb2be6e012977034b6(
-    *,
-    destination: EventDestination,
-    configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd3ac4f1af1f2fe9c11fa8894b2eae0f4b13c464b826cffda8b6937f4ab3e9c8(
-    *,
-    destination: EventDestination,
-    configuration_set_event_destination_name: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    events: typing.Optional[typing.Sequence[EmailSendingEvent]] = None,
-    configuration_set: IConfigurationSet,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fb010161f6c1e40b88122d9cb7754dae093e9cbe5bbfc72b19737729a4f4523d(
-    *,
-    configuration_set_name: typing.Optional[builtins.str] = None,
-    custom_tracking_https_policy: typing.Optional[HttpsPolicy] = None,
-    custom_tracking_redirect_domain: typing.Optional[builtins.str] = None,
-    dedicated_ip_pool: typing.Optional[IDedicatedIpPool] = None,
-    disable_suppression_list: typing.Optional[builtins.bool] = None,
-    max_delivery_duration: typing.Optional[_Duration_4839e8c3] = None,
-    reputation_metrics: typing.Optional[builtins.bool] = None,
-    sending_enabled: typing.Optional[builtins.bool] = None,
-    suppression_reasons: typing.Optional[SuppressionReasons] = None,
-    tls_policy: typing.Optional[ConfigurationSetTlsPolicy] = None,
-    vdm_options: typing.Optional[typing.Union[VdmOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cbbd68e1fe68b915968886e4089439bf017848bb3c0f82036ac33e6a6de46dd0(
-    *,
-    dedicated_ip_pool_name: typing.Optional[builtins.str] = None,
-    scaling_mode: typing.Optional[ScalingMode] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__994835eb6fc73d3a1816da5c4409a2dda8bf60416433ec82d3c77e1b7f8801bc(
-    signing_key_length: typing.Optional[EasyDkimSigningKeyLength] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9b2a9a4d5a04b9eb8c5081160726f10e62e8072c32851a0ec47dc874a5ecd6db(
-    email_identity: EmailIdentity,
-    hosted_zone: typing.Optional[_IPublicHostedZone_9b6e7da4] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a12b15597f5468ef7ba7f763da92c48506401bbeba665c431a78482dcb24b3bb(
-    *,
-    domain_signing_private_key: typing.Optional[builtins.str] = None,
-    domain_signing_selector: typing.Optional[builtins.str] = None,
-    next_signing_key_length: typing.Optional[EasyDkimSigningKeyLength] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8446e7095e52fceeeac69f7c1807060cf3465e09ec2b3af84028d1df922471e6(
-    *,
-    name: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__620f8d2305a209eeebb24bd2358ba969bde0f80c50a46c3fa91e56d814fa6152(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    rule_set: IReceiptRuleSet,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__53e1ee2f3b565a95ed952bf4ad2ae80cb7388ac4bd51d6eab5219f8a733ca030(
-    *,
-    identity: Identity,
-    configuration_set: typing.Optional[IConfigurationSet] = None,
-    dkim_identity: typing.Optional[DkimIdentity] = None,
-    dkim_signing: typing.Optional[builtins.bool] = None,
-    feedback_forwarding: typing.Optional[builtins.bool] = None,
-    mail_from_behavior_on_mx_failure: typing.Optional[MailFromBehaviorOnMxFailure] = None,
-    mail_from_domain: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__48f9cce8b82649ed9874f37f0ed571721b324063ca98764a07bb10a451e9fe92(
-    dimensions: typing.Sequence[typing.Union[CloudWatchDimension, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__78ca2ceff9eadb6d2fd3c462d34cb7f67a24ade525c2a3315a2817370e1d2567(
-    event_bus: _IEventBus_88d13111,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__70dbe9528b7fbaa2cbed5b1def55a8c3126fbfed3ee256b878bbb907e4585c9c(
-    topic: _ITopic_9eca4852,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__25e298d77ea0f34cfbae7db26e4f74efd5a1ddd1fa1c691226c8fa211cb24464(
-    *,
-    delivery_stream: _IDeliveryStream_8f118861,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6eb2e4383fa830ca0d609c782e4234141a31536edcdc3259b3ad6d4f1a87c702(
-    grantee: _IGrantable_71c4f5de,
-    *actions: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de0a61fcbbcb2828db9308241fcd8e74a52c411c11c743cbfe9e2e4d3d3313dd(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1c0b08f3a2fda3c68a4ad951604e55664aeae1537b8b8eb996f95b6feedcf9b5(
-    receipt_rule: IReceiptRule,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__122fb3fdbd3a8f500e0f61c3d2533bd2f3c984f5adc4220663c7c60a5e6cad15(
-    id: builtins.str,
-    *,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__694ee3f881b596f644bf78eec0110a1de21fa0968b51aac198d16dc4300152a5(
-    domain: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4cd96b179380c844d33e1c8146fdcd73dda4442d8f15d6ec14f0d13964631f6(
-    email: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0eb32adc3b9ec102b9a239f5273e26b9dc183e06c2e841a07bb8e8865f65d776(
-    hosted_zone: _IPublicHostedZone_9b6e7da4,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c5bf3251571f8d55618125a7248ae05fc227e5f493642b4ff5f700dfa8105fa(
-    *,
-    function_arn: builtins.str,
-    invocation_type: typing.Optional[builtins.str] = None,
-    topic_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be1bedd2ed98e8b9a5eafff592b3be89e41244d9b42293f0924022a7f27a537f(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    ip: typing.Optional[builtins.str] = None,
-    policy: typing.Optional[ReceiptFilterPolicy] = None,
-    receipt_filter_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__14330b86b5842b62205be575cd211ebe283567b16984be282e6ee5085d7777ce(
-    *,
-    ip: typing.Optional[builtins.str] = None,
-    policy: typing.Optional[ReceiptFilterPolicy] = None,
-    receipt_filter_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6538ae0354b52c95d3f59e885aa37e670088031cd04d3731f535129e11231d3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    rule_set: IReceiptRuleSet,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a2938a672425842bfae972477b62457f138b21842405c6d5cb21988892d92c7c(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    receipt_rule_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e53269c4ea365e8ad5ea79b458ec9a4cd161a16b84e0de7f577a755251624a6b(
-    action: IReceiptRuleAction,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e54c86543028b77ffed9d64cfee35a01463cb4a33a112de436e67beaf2b9608c(
-    *,
-    add_header_action: typing.Optional[typing.Union[AddHeaderActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    bounce_action: typing.Optional[typing.Union[BounceActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    lambda_action: typing.Optional[typing.Union[LambdaActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    s3_action: typing.Optional[typing.Union[S3ActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    sns_action: typing.Optional[typing.Union[SNSActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    stop_action: typing.Optional[typing.Union[StopActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    workmail_action: typing.Optional[typing.Union[WorkmailActionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__699a2986fda0df5077b1242432999d4d4b894d3e4dd15df070152fae49160eab(
-    *,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1b6d8cc8ec3dfcf989e29bcbab39380e799bee428bb33c1fe79ab53debbc056b(
-    *,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-    rule_set: IReceiptRuleSet,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e30edd88543242272f6bbc66d4c1125786ce1237720d89b577e253760eb28e2a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    drop_spam: typing.Optional[builtins.bool] = None,
-    receipt_rule_set_name: typing.Optional[builtins.str] = None,
-    rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb544e652efede317fbc4b71b8f4c7e7ac6549e66fa70957106d0835bd174832(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    receipt_rule_set_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cd532ef11b279fc4ddb81d21e2fd9962d1cc828cc92e5f4985bb2451030ca3a(
-    id: builtins.str,
-    *,
-    actions: typing.Optional[typing.Sequence[IReceiptRuleAction]] = None,
-    after: typing.Optional[IReceiptRule] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    receipt_rule_name: typing.Optional[builtins.str] = None,
-    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
-    scan_enabled: typing.Optional[builtins.bool] = None,
-    tls_policy: typing.Optional[TlsPolicy] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1cc19b30dc991a483fd278ee500d3d3e57d7a5a9ff95850a924babd266fac0fe(
-    *,
-    drop_spam: typing.Optional[builtins.bool] = None,
-    receipt_rule_set_name: typing.Optional[builtins.str] = None,
-    rules: typing.Optional[typing.Sequence[typing.Union[ReceiptRuleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ef118e7dd1d569a24b4ab4f36d8ac563d485f357ed7b48efc12c802a2b6b2182(
-    *,
-    bucket_name: builtins.str,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    object_key_prefix: typing.Optional[builtins.str] = None,
-    topic_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__173bb322225263bb156456dc72b3d2b251f55cd39ef1474dc97211e5e41f07af(
-    *,
-    encoding: typing.Optional[builtins.str] = None,
-    topic_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d7e81c4cd24879569e0bdfa8c28a29714bdb254ca09f291cf53f0fddd448e9fc(
-    *,
-    scope: builtins.str,
-    topic_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e90b2ec586dfbf0314232aaea6d64cdd5816072b0bcfed076d517ff63a3b1000(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    engagement_metrics: typing.Optional[builtins.bool] = None,
-    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1c4f2d4b83707480c9a8afc395f18812d02a2c5e0fc50cd63f1eb9d708176325(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    vdm_attributes_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1882e9d1289b07868b3ffcfb9d92629e699992b01e6475750adbffc0137815b0(
-    *,
-    engagement_metrics: typing.Optional[builtins.bool] = None,
-    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a8516e8026df071dc99524fe916f8b7e253b71bc1734a0073475e2c6eca17aa(
-    *,
-    engagement_metrics: typing.Optional[builtins.bool] = None,
-    optimized_shared_delivery: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08a56aa5b57fd1699d7c92c360d0709a2cfb31d3cb323b992c4b4e89432c836b(
-    *,
-    organization_arn: builtins.str,
-    topic_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

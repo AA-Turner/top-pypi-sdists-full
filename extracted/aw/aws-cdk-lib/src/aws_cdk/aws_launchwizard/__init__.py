@@ -79,7 +79,230 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_launchwizard.CfnDeploymentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "deployment_pattern_name": "deploymentPatternName",
+        "name": "name",
+        "workload_name": "workloadName",
+        "specifications": "specifications",
+        "tags": "tags",
+    },
+)
+class CfnDeploymentProps:
+    def __init__(
+        self,
+        *,
+        deployment_pattern_name: builtins.str,
+        name: builtins.str,
+        workload_name: builtins.str,
+        specifications: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDeployment``.
+
+        :param deployment_pattern_name: The name of the deployment pattern.
+        :param name: The name of the deployment.
+        :param workload_name: The name of the workload.
+        :param specifications: The settings specified for the deployment. These settings define how to deploy and configure your resources created by the deployment. For more information about the specifications required for creating a deployment for a SAP workload, see `SAP deployment specifications <https://docs.aws.amazon.com/launchwizard/latest/APIReference/launch-wizard-specifications-sap.html>`_ . To retrieve the specifications required to create a deployment for other workloads, use the ```GetWorkloadDeploymentPattern`` <https://docs.aws.amazon.com/launchwizard/latest/APIReference/API_GetWorkloadDeploymentPattern.html>`_ operation.
+        :param tags: Information about the tags attached to a deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_launchwizard as launchwizard
+            
+            cfn_deployment_props = launchwizard.CfnDeploymentProps(
+                deployment_pattern_name="deploymentPatternName",
+                name="name",
+                workload_name="workloadName",
+            
+                # the properties below are optional
+                specifications={
+                    "specifications_key": "specifications"
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf)
+            check_type(argname="argument deployment_pattern_name", value=deployment_pattern_name, expected_type=type_hints["deployment_pattern_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument workload_name", value=workload_name, expected_type=type_hints["workload_name"])
+            check_type(argname="argument specifications", value=specifications, expected_type=type_hints["specifications"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "deployment_pattern_name": deployment_pattern_name,
+            "name": name,
+            "workload_name": workload_name,
+        }
+        if specifications is not None:
+            self._values["specifications"] = specifications
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def deployment_pattern_name(self) -> builtins.str:
+        '''The name of the deployment pattern.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-deploymentpatternname
+        '''
+        result = self._values.get("deployment_pattern_name")
+        assert result is not None, "Required property 'deployment_pattern_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workload_name(self) -> builtins.str:
+        '''The name of the workload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-workloadname
+        '''
+        result = self._values.get("workload_name")
+        assert result is not None, "Required property 'workload_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def specifications(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The settings specified for the deployment.
+
+        These settings define how to deploy and configure your resources created by the deployment. For more information about the specifications required for creating a deployment for a SAP workload, see `SAP deployment specifications <https://docs.aws.amazon.com/launchwizard/latest/APIReference/launch-wizard-specifications-sap.html>`_ . To retrieve the specifications required to create a deployment for other workloads, use the ```GetWorkloadDeploymentPattern`` <https://docs.aws.amazon.com/launchwizard/latest/APIReference/API_GetWorkloadDeploymentPattern.html>`_ operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-specifications
+        '''
+        result = self._values.get("specifications")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Information about the tags attached to a deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeploymentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_launchwizard.DeploymentReference",
+    jsii_struct_bases=[],
+    name_mapping={"deployment_arn": "deploymentArn"},
+)
+class DeploymentReference:
+    def __init__(self, *, deployment_arn: builtins.str) -> None:
+        '''A reference to a Deployment resource.
+
+        :param deployment_arn: The Arn of the Deployment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_launchwizard as launchwizard
+            
+            deployment_reference = launchwizard.DeploymentReference(
+                deployment_arn="deploymentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9803ecadb2bab93f74ba35e34ebadf6953beeeda841455412ec2346e2b8b238)
+            check_type(argname="argument deployment_arn", value=deployment_arn, expected_type=type_hints["deployment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "deployment_arn": deployment_arn,
+        }
+
+    @builtins.property
+    def deployment_arn(self) -> builtins.str:
+        '''The Arn of the Deployment resource.'''
+        result = self._values.get("deployment_arn")
+        assert result is not None, "Required property 'deployment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_launchwizard.IDeploymentRef")
+class IDeploymentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeploymentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_launchwizard.IDeploymentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploymentRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDeploymentRef, _ITaggableV2_4e6798f8)
 class CfnDeployment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -245,6 +468,12 @@ class CfnDeployment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''A reference to a Deployment resource.'''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="deploymentPatternName")
     def deployment_pattern_name(self) -> builtins.str:
         '''The name of the deployment pattern.'''
@@ -315,146 +544,32 @@ class CfnDeployment(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_launchwizard.CfnDeploymentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "deployment_pattern_name": "deploymentPatternName",
-        "name": "name",
-        "workload_name": "workloadName",
-        "specifications": "specifications",
-        "tags": "tags",
-    },
-)
-class CfnDeploymentProps:
-    def __init__(
-        self,
-        *,
-        deployment_pattern_name: builtins.str,
-        name: builtins.str,
-        workload_name: builtins.str,
-        specifications: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDeployment``.
-
-        :param deployment_pattern_name: The name of the deployment pattern.
-        :param name: The name of the deployment.
-        :param workload_name: The name of the workload.
-        :param specifications: The settings specified for the deployment. These settings define how to deploy and configure your resources created by the deployment. For more information about the specifications required for creating a deployment for a SAP workload, see `SAP deployment specifications <https://docs.aws.amazon.com/launchwizard/latest/APIReference/launch-wizard-specifications-sap.html>`_ . To retrieve the specifications required to create a deployment for other workloads, use the ```GetWorkloadDeploymentPattern`` <https://docs.aws.amazon.com/launchwizard/latest/APIReference/API_GetWorkloadDeploymentPattern.html>`_ operation.
-        :param tags: Information about the tags attached to a deployment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_launchwizard as launchwizard
-            
-            cfn_deployment_props = launchwizard.CfnDeploymentProps(
-                deployment_pattern_name="deploymentPatternName",
-                name="name",
-                workload_name="workloadName",
-            
-                # the properties below are optional
-                specifications={
-                    "specifications_key": "specifications"
-                },
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf)
-            check_type(argname="argument deployment_pattern_name", value=deployment_pattern_name, expected_type=type_hints["deployment_pattern_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument workload_name", value=workload_name, expected_type=type_hints["workload_name"])
-            check_type(argname="argument specifications", value=specifications, expected_type=type_hints["specifications"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "deployment_pattern_name": deployment_pattern_name,
-            "name": name,
-            "workload_name": workload_name,
-        }
-        if specifications is not None:
-            self._values["specifications"] = specifications
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def deployment_pattern_name(self) -> builtins.str:
-        '''The name of the deployment pattern.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-deploymentpatternname
-        '''
-        result = self._values.get("deployment_pattern_name")
-        assert result is not None, "Required property 'deployment_pattern_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the deployment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workload_name(self) -> builtins.str:
-        '''The name of the workload.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-workloadname
-        '''
-        result = self._values.get("workload_name")
-        assert result is not None, "Required property 'workload_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def specifications(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The settings specified for the deployment.
-
-        These settings define how to deploy and configure your resources created by the deployment. For more information about the specifications required for creating a deployment for a SAP workload, see `SAP deployment specifications <https://docs.aws.amazon.com/launchwizard/latest/APIReference/launch-wizard-specifications-sap.html>`_ . To retrieve the specifications required to create a deployment for other workloads, use the ```GetWorkloadDeploymentPattern`` <https://docs.aws.amazon.com/launchwizard/latest/APIReference/API_GetWorkloadDeploymentPattern.html>`_ operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-specifications
-        '''
-        result = self._values.get("specifications")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Information about the tags attached to a deployment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDeploymentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDeployment",
     "CfnDeploymentProps",
+    "DeploymentReference",
+    "IDeploymentRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf(
+    *,
+    deployment_pattern_name: builtins.str,
+    name: builtins.str,
+    workload_name: builtins.str,
+    specifications: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9803ecadb2bab93f74ba35e34ebadf6953beeeda841455412ec2346e2b8b238(
+    *,
+    deployment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__fe77ed4e81ab71d948f0b03ed5f8780bcc2f324a23805bc45e7eef5f9137ded1(
     scope: _constructs_77d1e7e8.Construct,
@@ -507,17 +622,6 @@ def _typecheckingstub__6343321573b3c3c84666431fb123811dbd97cb11a86c65d6c6d7d4c66
 
 def _typecheckingstub__057665c8ffa5f5cdaedcf0301e727d15ee8b0244807853f59c72aadbb741357d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf(
-    *,
-    deployment_pattern_name: builtins.str,
-    name: builtins.str,
-    workload_name: builtins.str,
-    specifications: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

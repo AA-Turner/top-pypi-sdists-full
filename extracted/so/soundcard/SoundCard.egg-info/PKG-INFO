@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SoundCard
-Version: 0.4.4
+Version: 0.4.5
 Summary: Play and record audio without resorting to CPython extensions
 Home-page: https://github.com/bastibe/SoundCard
 Author: Bastian Bechtold
@@ -17,7 +17,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio :: Players
 Requires-Python: >=3.5
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy
+Requires-Dist: numpy>=1.11
 Requires-Dist: cffi
 Dynamic: author
 Dynamic: classifier
@@ -349,3 +349,5 @@ Changelog
   (Thank you, Patrice Brend'amour!)
 - 2025-03-20 fixes various issues on macOS
   (Thank you, coexe and TnTora!)
+- 2025-09-15 fixes compatibility with latest Numpy
+  (Thank you, Jer Miller!)

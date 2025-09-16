@@ -56,7 +56,7 @@ pub enum CallStyle<'a> {
 /// A thing that can be called (see as_call_target and call_infer).
 /// Note that a single "call" may invoke multiple functions under the hood,
 /// e.g., `__new__` followed by `__init__` for Class.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub enum CallTarget {
     /// A typing.Callable.
     Callable(TargetWithTParams<Callable>),
@@ -78,7 +78,7 @@ pub enum CallTarget {
     Any(AnyStyle),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone)]
 pub struct TargetWithTParams<T>(pub Option<Arc<TParams>>, pub T);
 
 impl CallTarget {
@@ -186,7 +186,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => Some(CallTarget::Any(style)),
             Type::TypeAlias(ta) => self.as_call_target_impl(ta.as_value(self.stdlib), quantified),
-            Type::ClassType(cls) | Type::SelfType(cls) => {
+            Type::ClassType(cls) => {
                 if let Some(quantified) = quantified {
                     self.quantified_instance_as_dunder_call(quantified.clone(), &cls)
                         .and_then(|ty| self.as_call_target_impl(ty, Some(quantified)))
@@ -194,6 +194,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.instance_as_dunder_call(&cls)
                         .and_then(|ty| self.as_call_target_impl(ty, quantified))
                 }
+            }
+            Type::SelfType(cls) => {
+                // Ignoring `quantified` is okay here because Self is not a valid typevar bound.
+                self.self_as_dunder_call(&cls)
+                    .and_then(|ty| self.as_call_target_impl(ty, None))
             }
             Type::Type(box Type::TypedDict(typed_dict)) => Some(CallTarget::TypedDict(typed_dict)),
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
@@ -597,6 +602,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let res = match call_target {
             CallTarget::Class(cls) => {
+                if cls.has_qname("typing", "Any") {
+                    return self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::BadInstantiation, context),
+                        format!("`{}` can not be instantiated", cls.name()),
+                    );
+                }
                 if self
                     .get_metadata_for_class(cls.class_object())
                     .is_protocol()

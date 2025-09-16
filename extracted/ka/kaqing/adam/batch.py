@@ -22,7 +22,6 @@ from adam.commands.report import Report
 from adam.commands.restart import Restart
 from adam.commands.rollout import RollOut
 from adam.commands.show.show import Show, ShowCommandHelper
-from adam.commands.user_entry import UserEntry
 from adam.commands.watch import Watch
 from adam.k8s_utils.kube_context import KubeContext
 from adam.repl import enter_repl
@@ -261,16 +260,6 @@ def undeploy(kubeconfig: str, config: str, param: list[str], namespace: str, ext
     run_command(Undeploy(), kubeconfig, config, param, None, namespace, None, extra_args)
 
 
-@cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=PodCommandHelper, help='Get cassandra log.')
-@click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
-@click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
-@click.option('--param', '-v', multiple=True, metavar='<key>=<value>', help='parameter override')
-@click.option('--namespace', '-n', required=False, metavar='namespace', help='Kubernetes namespace')
-@click.argument('extra_args', nargs=-1, metavar='<pod>', type=click.UNPROCESSED)
-def entry(kubeconfig: str, config: str, param: list[str], namespace: str, extra_args):
-    run_command(UserEntry(), kubeconfig, config, param, None, namespace, None, extra_args)
-
-
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=ClusterOrPodCommandHelper, help='Watch pods in cluster.')
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
 @click.option('--config', default='params.yaml', metavar='path', help='path to kaqing parameters file')
@@ -283,7 +272,7 @@ def watch(kubeconfig: str, config: str, param: list[str], cluster: str, namespac
 
 
 def run_command(cmd: Command, kubeconfig: str, config: str, params: list[str], cluster:str, namespace: str, pod: str, extra_args):
-    is_user_entry = cmd.command() == UserEntry().command()
+    is_user_entry = False
 
     KubeContext.init_config(kubeconfig, is_user_entry=is_user_entry)
     if not KubeContext.init_params(config, params, is_user_entry=is_user_entry):

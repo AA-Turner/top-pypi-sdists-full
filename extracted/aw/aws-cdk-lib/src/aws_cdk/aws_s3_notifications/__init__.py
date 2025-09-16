@@ -84,8 +84,8 @@ import constructs as _constructs_77d1e7e8
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
 from ..aws_s3 import (
     BucketNotificationDestinationConfig as _BucketNotificationDestinationConfig_a4c4f83d,
-    IBucket as _IBucket_42e086fd,
     IBucketNotificationDestination as _IBucketNotificationDestination_ae5ca51a,
+    IBucketRef as _IBucketRef_fb8fe266,
 )
 from ..aws_sns import ITopic as _ITopic_9eca4852
 from ..aws_sqs import IQueue as _IQueue_7ed6f679
@@ -127,7 +127,7 @@ class LambdaDestination(
     def bind(
         self,
         scope: _constructs_77d1e7e8.Construct,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
     ) -> _BucketNotificationDestinationConfig_a4c4f83d:
         '''Registers this resource to receive notifications for the specified bucket.
 
@@ -174,7 +174,7 @@ class SnsDestination(
     def bind(
         self,
         scope: _constructs_77d1e7e8.Construct,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
     ) -> _BucketNotificationDestinationConfig_a4c4f83d:
         '''Registers this resource to receive notifications for the specified bucket.
 
@@ -224,7 +224,7 @@ class SqsDestination(
     def bind(
         self,
         _scope: _constructs_77d1e7e8.Construct,
-        bucket: _IBucket_42e086fd,
+        bucket: _IBucketRef_fb8fe266,
     ) -> _BucketNotificationDestinationConfig_a4c4f83d:
         '''Allows using SQS queues as destinations for bucket notifications.
 
@@ -256,7 +256,7 @@ def _typecheckingstub__aa31f009d508c5e9716ef8081ccf63abb6866ffbf349417ea81abf6f6
 
 def _typecheckingstub__72fb0e43c5d0bdebbc9b643b327c5cd42f851dbe4c4a6ac53bb2849787b3adec(
     scope: _constructs_77d1e7e8.Construct,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -269,7 +269,7 @@ def _typecheckingstub__88bc302a2eb7b4d1c7dc00b1564ab4c536d2626942f2cec60d543582b
 
 def _typecheckingstub__3553ece4b599ce7e526b55722477cb04771e1907840471521f08a9dbdea726a1(
     scope: _constructs_77d1e7e8.Construct,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -282,7 +282,7 @@ def _typecheckingstub__b615fa89f2fab6db113bd6376cf27eba6eb754a702e60b29024bc94c8
 
 def _typecheckingstub__e60900d91c64bba2d0ee8f8b0ace07ff0ee2d07e518d7b03941ed5bb85044f8b(
     _scope: _constructs_77d1e7e8.Construct,
-    bucket: _IBucket_42e086fd,
+    bucket: _IBucketRef_fb8fe266,
 ) -> None:
     """Type checking stubs"""
     pass

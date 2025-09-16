@@ -1960,3 +1960,122 @@ fn alternate_config_file() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn show_diff_on_failure() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+    context.disable_auto_crlf();
+
+    let config = indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: modify
+                name: modify
+                language: python
+                entry: python -c "import sys; open('file.txt', 'a').write('Added line\n')"
+                pass_filenames: false
+    "#};
+    context.write_pre_commit_config(config);
+    context
+        .work_dir()
+        .child("file.txt")
+        .write_str("Original line\n")?;
+    context.git_add(".");
+
+    let mut filters = context.filters();
+    filters.push((r"index \w{7}\.\.\w{7} \d{6}", "index [OLD]..[NEW] 100644"));
+
+    cmd_snapshot!(filters.clone(), context.run().arg("--show-diff-on-failure").arg("-v"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    modify...................................................................Failed
+    - hook id: modify
+    - duration: [TIME]
+    - files were modified by this hook
+    All changes made by hooks:
+    diff --git a/file.txt b/file.txt
+    index [OLD]..[NEW] 100644
+    --- a/file.txt
+    +++ b/file.txt
+    @@ -1 +1,2 @@
+     Original line
+    +Added line
+
+    ----- stderr -----
+    ");
+
+    // Run in the `app` subproject.
+    let app = context.work_dir().child("app");
+    app.create_dir_all()?;
+    app.child("file.txt").write_str("Original line\n")?;
+    app.child(CONFIG_FILE).write_str(config)?;
+
+    Command::new("git")
+        .arg("add")
+        .arg(".")
+        .current_dir(&app)
+        .assert()
+        .success();
+
+    cmd_snapshot!(filters.clone(), context.run().current_dir(&app).arg("--show-diff-on-failure"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    modify...................................................................Failed
+    - hook id: modify
+    - files were modified by this hook
+    All changes made by hooks:
+    diff --git a/app/file.txt b/app/file.txt
+    index [OLD]..[NEW] 100644
+    --- a/app/file.txt
+    +++ b/app/file.txt
+    @@ -1 +1,2 @@
+     Original line
+    +Added line
+
+    ----- stderr -----
+    ");
+
+    context.git_add(".");
+
+    // Run in the root
+    // Since we add a new subproject, use `--refresh` to find that.
+    cmd_snapshot!(filters.clone(), context.run().arg("--show-diff-on-failure").arg("--refresh"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    Running hooks for `app`:
+    modify...................................................................Failed
+    - hook id: modify
+    - files were modified by this hook
+
+    Running hooks for `.`:
+    modify...................................................................Failed
+    - hook id: modify
+    - files were modified by this hook
+    All changes made by hooks:
+    diff --git a/app/file.txt b/app/file.txt
+    index [OLD]..[NEW] 100644
+    --- a/app/file.txt
+    +++ b/app/file.txt
+    @@ -1,2 +1,3 @@
+     Original line
+     Added line
+    +Added line
+    diff --git a/file.txt b/file.txt
+    index [OLD]..[NEW] 100644
+    --- a/file.txt
+    +++ b/file.txt
+    @@ -1,2 +1,3 @@
+     Original line
+     Added line
+    +Added line
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}

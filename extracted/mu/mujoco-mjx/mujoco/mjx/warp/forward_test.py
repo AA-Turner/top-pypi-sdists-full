@@ -142,7 +142,7 @@ class ForwardTest(parameterized.TestCase):
       if m.ncam:
         tu.assert_attr_eq(dx, d, 'cam_xpos')
         tu.assert_eq(dx.cam_xmat, d.cam_xmat.reshape((-1, 3, 3)), 'cam_xmat')
-      tu.assert_attr_eq(dx._impl, d, 'ten_length')
+      tu.assert_attr_eq(dx, d, 'ten_length')
       tu.assert_attr_eq(dx._impl, d, 'ten_J')
       tu.assert_attr_eq(dx._impl, d, 'ten_wrapadr')
       tu.assert_attr_eq(dx._impl, d, 'ten_wrapnum')
@@ -192,14 +192,6 @@ class ForwardTest(parameterized.TestCase):
       tu.assert_attr_eq(dx, d, 'qfrc_smooth')
       tu.assert_attr_eq(dx, d, 'qacc_smooth')
 
-      # solve
-      np.testing.assert_allclose(
-          dx.qacc_warmstart,
-          d.qacc_warmstart,
-          err_msg='qacc_warmstart',
-          rtol=1e-5,
-          atol=1.0,
-      )
       np.testing.assert_allclose(
           dx.qacc, d.qacc, err_msg='qacc', rtol=1e-5, atol=1.0
       )

@@ -1,5 +1,8 @@
+import re
 from enum import Enum
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Sequence, Tuple
+
+import click
 
 JENKINS_URL_KEY = 'JENKINS_URL'
 JENKINS_BUILD_URL_KEY = 'BUILD_URL'
@@ -17,6 +20,8 @@ CIRCLECI_KEY = 'CIRCLECI'
 CIRCLECI_BUILD_URL_KEY = 'CIRCLE_BUILD_URL'
 CIRCLECI_BUILD_NUM_KEY = 'CIRCLE_BUILD_NUM'
 CIRCLECI_JOB_KEY = 'CIRCLE_JOB'
+
+GITHUB_PR_REGEX = re.compile(r"^https://github\.com/[^/]+/[^/]+/pull/\d+$")
 
 
 class LinkKind(Enum):
@@ -71,3 +76,81 @@ def capture_link(env: Mapping[str, str]) -> List[Dict[str, str]]:
         })
 
     return links
+
+
+def capture_links_from_options(link_options: Sequence[Tuple[str, str]]) -> List[Dict[str, str]]:
+    """
+    Validate user-provided link options, inferring the kind when not explicitly specified.
+
+    Each link option is expected in the format "kind|title=url" or "title=url".
+    If the kind is not provided, it infers the kind based on the URL pattern.
+
+    Returns:
+        A list of dictionaries, where each dictionary contains the validated title, URL, and kind for each link.
+
+    Raises:
+        click.UsageError: If an invalid kind is provided or URL doesn't match with the specified kind.
+    """
+    links = []
+    for k, url in link_options:
+        url = url.strip()
+
+        # if k,v in format "kind|title=url"
+        if '|' in k:
+            kind, title = (part.strip() for part in k.split('|', 1))
+            if kind not in _valid_kinds():
+                msg = ("Invalid kind '{}' passed to --link option.\n"
+                       "Supported kinds are: {}".format(kind, _valid_kinds()))
+                raise click.UsageError(click.style(msg, fg="red"))
+
+            if not _url_matches_kind(url, kind):
+                msg = ("Invalid url '{}' passed to --link option.\n"
+                       "URL doesn't match with the specified kind: {}".format(url, kind))
+                raise click.UsageError(click.style(msg, fg="red"))
+
+        # if k,v in format "title=url"
+        else:
+            kind = _infer_kind(url)
+            title = k.strip()
+
+        links.append({
+            "title": title,
+            "url": url,
+            "kind": kind,
+        })
+
+    return links
+
+
+def capture_links(link_options: Sequence[Tuple[str, str]], env: Mapping[str, str]) -> List[Dict[str, str]]:
+
+    links = capture_links_from_options(link_options)
+
+    env_links = capture_link(env)
+    for env_link in env_links:
+        if not _has_kind(links, env_link['kind']):
+            links.append(env_link)
+
+    return links
+
+
+def _infer_kind(url: str) -> str:
+    if GITHUB_PR_REGEX.match(url):
+        return LinkKind.GITHUB_PULL_REQUEST.name
+
+    return LinkKind.CUSTOM_LINK.name
+
+
+def _has_kind(input_links: List[Dict[str, str]], kind: str) -> bool:
+    return any(link for link in input_links if link['kind'] == kind)
+
+
+def _valid_kinds() -> List[str]:
+    return [kind.name for kind in LinkKind if kind != LinkKind.LINK_KIND_UNSPECIFIED]
+
+
+def _url_matches_kind(url: str, kind: str) -> bool:
+    if kind == LinkKind.GITHUB_PULL_REQUEST.name:
+        return bool(GITHUB_PR_REGEX.match(url))
+
+    return True

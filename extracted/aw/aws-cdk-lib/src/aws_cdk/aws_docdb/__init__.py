@@ -536,990 +536,6 @@ class CaCertificate(
         return typing.cast(_CaCertificate_e77d2630, jsii.sget(cls, "RDS_CA_RSA4096_G1"))
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDBCluster(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_docdb.CfnDBCluster",
-):
-    '''The ``AWS::DocDB::DBCluster`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBCluster.
-
-    Amazon DocumentDB is a fully managed, MongoDB-compatible document database engine. For more information, see `DBCluster <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBCluster.html>`_ in the *Amazon DocumentDB Developer Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbcluster.html
-    :cloudformationResource: AWS::DocDB::DBCluster
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_docdb as docdb
-        
-        cfn_dBCluster = docdb.CfnDBCluster(self, "MyCfnDBCluster",
-            availability_zones=["availabilityZones"],
-            backup_retention_period=123,
-            copy_tags_to_snapshot=False,
-            db_cluster_identifier="dbClusterIdentifier",
-            db_cluster_parameter_group_name="dbClusterParameterGroupName",
-            db_subnet_group_name="dbSubnetGroupName",
-            deletion_protection=False,
-            enable_cloudwatch_logs_exports=["enableCloudwatchLogsExports"],
-            engine_version="engineVersion",
-            global_cluster_identifier="globalClusterIdentifier",
-            kms_key_id="kmsKeyId",
-            manage_master_user_password=False,
-            master_username="masterUsername",
-            master_user_password="masterUserPassword",
-            master_user_secret_kms_key_id="masterUserSecretKmsKeyId",
-            network_type="networkType",
-            port=123,
-            preferred_backup_window="preferredBackupWindow",
-            preferred_maintenance_window="preferredMaintenanceWindow",
-            restore_to_time="restoreToTime",
-            restore_type="restoreType",
-            rotate_master_user_password=False,
-            serverless_v2_scaling_configuration=docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty(
-                max_capacity=123,
-                min_capacity=123
-            ),
-            snapshot_identifier="snapshotIdentifier",
-            source_db_cluster_identifier="sourceDbClusterIdentifier",
-            storage_encrypted=False,
-            storage_type="storageType",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            use_latest_restorable_time=False,
-            vpc_security_group_ids=["vpcSecurityGroupIds"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        backup_retention_period: typing.Optional[jsii.Number] = None,
-        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        db_cluster_identifier: typing.Optional[builtins.str] = None,
-        db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-        db_subnet_group_name: typing.Optional[builtins.str] = None,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        global_cluster_identifier: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        manage_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        master_username: typing.Optional[builtins.str] = None,
-        master_user_password: typing.Optional[builtins.str] = None,
-        master_user_secret_kms_key_id: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        preferred_backup_window: typing.Optional[builtins.str] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        restore_to_time: typing.Optional[builtins.str] = None,
-        restore_type: typing.Optional[builtins.str] = None,
-        rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBCluster.ServerlessV2ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_identifier: typing.Optional[builtins.str] = None,
-        source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-        storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        storage_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param availability_zones: A list of Amazon EC2 Availability Zones that instances in the cluster can be created in.
-        :param backup_retention_period: The number of days for which automated backups are retained. You must specify a minimum value of 1. Default: 1 Constraints: - Must be a value from 1 to 35.
-        :param copy_tags_to_snapshot: Set to ``true`` to copy all tags from the source cluster snapshot to the target cluster snapshot, and otherwise ``false`` . The default is ``false`` .
-        :param db_cluster_identifier: The cluster identifier. This parameter is stored as a lowercase string. Constraints: - Must contain from 1 to 63 letters, numbers, or hyphens. - The first character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. Example: ``my-cluster``
-        :param db_cluster_parameter_group_name: The name of the cluster parameter group to associate with this cluster.
-        :param db_subnet_group_name: A subnet group to associate with this cluster. Constraints: Must match the name of an existing ``DBSubnetGroup`` . Must not be default. Example: ``mySubnetgroup``
-        :param deletion_protection: Protects clusters from being accidentally deleted. If enabled, the cluster cannot be deleted unless it is modified and ``DeletionProtection`` is disabled.
-        :param enable_cloudwatch_logs_exports: The list of log types that need to be enabled for exporting to Amazon CloudWatch Logs. You can enable audit logs or profiler logs. For more information, see `Auditing Amazon DocumentDB Events <https://docs.aws.amazon.com/documentdb/latest/developerguide/event-auditing.html>`_ and `Profiling Amazon DocumentDB Operations <https://docs.aws.amazon.com/documentdb/latest/developerguide/profiling.html>`_ .
-        :param engine_version: The version number of the database engine to use. The ``--engine-version`` will default to the latest major engine version. For production workloads, we recommend explicitly declaring this parameter with the intended major engine version. If you intend to trigger an in-place upgrade, please refer to `Amazon DocumentDB in-place major version upgrade <https://docs.aws.amazon.com/documentdb/latest/developerguide/docdb-mvu.html>`_ . Note that for an in-place engine version upgrade, you need to remove other cluster properties changes (e.g. SecurityGroupId) from the CFN template.
-        :param global_cluster_identifier: The cluster identifier of the new global cluster.
-        :param kms_key_id: The AWS KMS key identifier for an encrypted cluster. The AWS KMS key identifier is the Amazon Resource Name (ARN) for the AWS KMS encryption key. If you are creating a cluster using the same AWS account that owns the AWS KMS encryption key that is used to encrypt the new cluster, you can use the AWS KMS key alias instead of the ARN for the AWS KMS encryption key. If an encryption key is not specified in ``KmsKeyId`` : - If the ``StorageEncrypted`` parameter is ``true`` , Amazon DocumentDB uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Regions .
-        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager. Constraint: You can't manage the master user password with Amazon Web Services Secrets Manager if ``MasterUserPassword`` is specified.
-        :param master_username: The name of the master user for the cluster. Constraints: - Must be from 1 to 63 letters or numbers. - The first character must be a letter. - Cannot be a reserved word for the chosen database engine.
-        :param master_user_password: The password for the master database user. This password can contain any printable ASCII character except forward slash (/), double quote ("), or the "at" symbol (@). Constraints: Must contain from 8 to 100 characters.
-        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the DB cluster. The Amazon Web Services KMS key identifier is the key ARN, key ID, alias ARN, or alias name for the KMS key. To use a KMS key in a different Amazon Web Services account, specify the key ARN or alias ARN. If you don't specify ``MasterUserSecretKmsKeyId`` , then the ``aws/secretsmanager`` KMS key is used to encrypt the secret. If the secret is in a different Amazon Web Services account, then you can't use the ``aws/secretsmanager`` KMS key to encrypt the secret, and you must use a customer managed KMS key. There is a default KMS key for your Amazon Web Services account. Your Amazon Web Services account has a different default KMS key for each Amazon Web Services Region.
-        :param network_type: 
-        :param port: Specifies the port that the database engine is listening on.
-        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter. The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region . Constraints: - Must be in the format ``hh24:mi-hh24:mi`` . - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC). Format: ``ddd:hh24:mi-ddd:hh24:mi`` The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region , occurring on a random day of the week. Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun Constraints: Minimum 30-minute window.
-        :param restore_to_time: The date and time to restore the cluster to. Valid values: A time in Universal Coordinated Time (UTC) format. Constraints: - Must be before the latest restorable time for the instance. - Must be specified if the ``UseLatestRestorableTime`` parameter is not provided. - Cannot be specified if the ``UseLatestRestorableTime`` parameter is ``true`` . - Cannot be specified if the ``RestoreType`` parameter is ``copy-on-write`` . Example: ``2015-03-07T23:45:00Z``
-        :param restore_type: The type of restore to be performed. You can specify one of the following values:. - ``full-copy`` - The new DB cluster is restored as a full copy of the source DB cluster. - ``copy-on-write`` - The new DB cluster is restored as a clone of the source DB cluster. Constraints: You can't specify ``copy-on-write`` if the engine version of the source DB cluster is earlier than 1.11. If you don't specify a ``RestoreType`` value, then the new DB cluster is restored as a full copy of the source DB cluster.
-        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the cluster. The secret value contains the updated password. Constraint: You must apply the change immediately when rotating the master user password.
-        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
-        :param snapshot_identifier: The identifier for the snapshot or cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a cluster snapshot. However, you can use only the ARN to specify a snapshot. Constraints: - Must match the identifier of an existing snapshot.
-        :param source_db_cluster_identifier: The identifier of the source cluster from which to restore. Constraints: - Must match the identifier of an existing ``DBCluster`` .
-        :param storage_encrypted: Specifies whether the cluster is encrypted. If you specify ``SourceDBClusterIdentifier`` or ``SnapshotIdentifier`` and don’t specify ``StorageEncrypted`` , the encryption property is inherited from the source cluster or snapshot (unless ``KMSKeyId`` is specified, in which case the restored cluster will be encrypted with that KMS key). If the source is encrypted and ``StorageEncrypted`` is specified to be true, the restored cluster will be encrypted (if you want to use a different KMS key, specify the ``KMSKeyId`` property as well). If the source is unencrypted and ``StorageEncrypted`` is specified to be true, then the ``KMSKeyId`` property must be specified. If the source is encrypted, don’t specify ``StorageEncrypted`` to be false as opting out of encryption is not allowed.
-        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create an Amazon DocumentDB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
-        :param tags: The tags to be assigned to the cluster.
-        :param use_latest_restorable_time: A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise. Default: ``false`` Constraints: Cannot be specified if the ``RestoreToTime`` parameter is provided.
-        :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this cluster.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7db61dc80f26049d79a38255d8a0b3abaf4b5019d7cbed64c937ec0f3e40056c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDBClusterProps(
-            availability_zones=availability_zones,
-            backup_retention_period=backup_retention_period,
-            copy_tags_to_snapshot=copy_tags_to_snapshot,
-            db_cluster_identifier=db_cluster_identifier,
-            db_cluster_parameter_group_name=db_cluster_parameter_group_name,
-            db_subnet_group_name=db_subnet_group_name,
-            deletion_protection=deletion_protection,
-            enable_cloudwatch_logs_exports=enable_cloudwatch_logs_exports,
-            engine_version=engine_version,
-            global_cluster_identifier=global_cluster_identifier,
-            kms_key_id=kms_key_id,
-            manage_master_user_password=manage_master_user_password,
-            master_username=master_username,
-            master_user_password=master_user_password,
-            master_user_secret_kms_key_id=master_user_secret_kms_key_id,
-            network_type=network_type,
-            port=port,
-            preferred_backup_window=preferred_backup_window,
-            preferred_maintenance_window=preferred_maintenance_window,
-            restore_to_time=restore_to_time,
-            restore_type=restore_type,
-            rotate_master_user_password=rotate_master_user_password,
-            serverless_v2_scaling_configuration=serverless_v2_scaling_configuration,
-            snapshot_identifier=snapshot_identifier,
-            source_db_cluster_identifier=source_db_cluster_identifier,
-            storage_encrypted=storage_encrypted,
-            storage_type=storage_type,
-            tags=tags,
-            use_latest_restorable_time=use_latest_restorable_time,
-            vpc_security_group_ids=vpc_security_group_ids,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f49adaa49bdc08b786dfe6f113030ff5dd0db0af1cab13c2ea50ea5487f4b802)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49d68682da6d2b0ce5ca0609607e472a09f9f77f27ba4214de01d037f2eca6c6)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrClusterResourceId")
-    def attr_cluster_resource_id(self) -> builtins.str:
-        '''The resource id for the cluster;
-
-        for example: ``cluster-ABCD1234EFGH5678IJKL90MNOP`` . The cluster ID uniquely identifies the cluster and is used in things like IAM authentication policies.
-
-        :cloudformationAttribute: ClusterResourceId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrClusterResourceId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEndpoint")
-    def attr_endpoint(self) -> builtins.str:
-        '''The connection endpoint for the cluster, such as ``sample-cluster.cluster-cozrlsfrcjoc.us-east-1.docdb.amazonaws.com`` .
-
-        :cloudformationAttribute: Endpoint
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPort")
-    def attr_port(self) -> builtins.str:
-        '''The port number on which the cluster accepts connections.
-
-        For example: ``27017`` .
-
-        :cloudformationAttribute: Port
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrPort"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReadEndpoint")
-    def attr_read_endpoint(self) -> builtins.str:
-        '''The reader endpoint for the cluster.
-
-        For example: ``sample-cluster.cluster-ro-cozrlsfrcjoc.us-east-1.docdb.amazonaws.com`` .
-
-        :cloudformationAttribute: ReadEndpoint
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReadEndpoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="availabilityZones")
-    def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon EC2 Availability Zones that instances in the cluster can be created in.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "availabilityZones"))
-
-    @availability_zones.setter
-    def availability_zones(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4bdaf0bc7cad58ade1a34b4b85daf3a0c9caf4e9c4aa423d8c08839742b0d4d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="backupRetentionPeriod")
-    def backup_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days for which automated backups are retained.
-
-        You must specify a minimum value of 1.
-        '''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "backupRetentionPeriod"))
-
-    @backup_retention_period.setter
-    def backup_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c664a6034ddc5d1a75cd1bae48398fc11875b13ff09951c293559b0708786b47)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="copyTagsToSnapshot")
-    def copy_tags_to_snapshot(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Set to ``true`` to copy all tags from the source cluster snapshot to the target cluster snapshot, and otherwise ``false`` .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "copyTagsToSnapshot"))
-
-    @copy_tags_to_snapshot.setter
-    def copy_tags_to_snapshot(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9579155c60f37e7baaefd2add0496a87f54293584ec94a2a7785dc3264ebe4e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbClusterIdentifier")
-    def db_cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''The cluster identifier.
-
-        This parameter is stored as a lowercase string.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbClusterIdentifier"))
-
-    @db_cluster_identifier.setter
-    def db_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22fbd7b0bf1256197f71b3b43f4d11d7eb59e118a93d9b0c59335aea8e7b586f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbClusterParameterGroupName")
-    def db_cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the cluster parameter group to associate with this cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbClusterParameterGroupName"))
-
-    @db_cluster_parameter_group_name.setter
-    def db_cluster_parameter_group_name(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1a2f5fa89f057ba4759b48019d5a08e9de7fcb5cc68ed5ace17b6303dec5d87)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbSubnetGroupName")
-    def db_subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''A subnet group to associate with this cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbSubnetGroupName"))
-
-    @db_subnet_group_name.setter
-    def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43f1e52bdd69041102d5550de099fe30eb54180c8559f2760b4c5a4cb3af9e07)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deletionProtection")
-    def deletion_protection(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Protects clusters from being accidentally deleted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
-
-    @deletion_protection.setter
-    def deletion_protection(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc9a3746b34c3c8e0f788ea45970b8e53d09b5b282a722fbed39cfe0b59b8f97)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enableCloudwatchLogsExports")
-    def enable_cloudwatch_logs_exports(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of log types that need to be enabled for exporting to Amazon CloudWatch Logs.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "enableCloudwatchLogsExports"))
-
-    @enable_cloudwatch_logs_exports.setter
-    def enable_cloudwatch_logs_exports(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b98a157c72eff100321309f96926d75d4cfd89d474c71de6df075763daff6e71)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="engineVersion")
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version number of the database engine to use.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engineVersion"))
-
-    @engine_version.setter
-    def engine_version(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6c3f347d46adbb72bedc7428b15c6469cfe26cf4f30488e8abd2f8f22ca84d2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="globalClusterIdentifier")
-    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''The cluster identifier of the new global cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalClusterIdentifier"))
-
-    @global_cluster_identifier.setter
-    def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1df18874740f7d79670e3866720fac8967c1b52aced5a089132ee06a94fd72d2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyId")
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS KMS key identifier for an encrypted cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
-
-    @kms_key_id.setter
-    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03e9375b32d036932973e964a270516d21d155bd0db4369d824ccb7e7f0bdc62)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="manageMasterUserPassword")
-    def manage_master_user_password(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "manageMasterUserPassword"))
-
-    @manage_master_user_password.setter
-    def manage_master_user_password(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdcd3cca26349ee0c4a653267f8614c14cebb3b1c16af84aa9d85681fe2b07dd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterUsername")
-    def master_username(self) -> typing.Optional[builtins.str]:
-        '''The name of the master user for the cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUsername"))
-
-    @master_username.setter
-    def master_username(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c07cdadbef8a45e2db19e8559d89c8cec47c9d2d698c3fc441a996847907dfc0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterUserPassword")
-    def master_user_password(self) -> typing.Optional[builtins.str]:
-        '''The password for the master database user.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserPassword"))
-
-    @master_user_password.setter
-    def master_user_password(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2998c76e0321a3f0bc1fe35b15ded5ba4f630cb6e5e7519736bf7455e2abe14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="masterUserSecretKmsKeyId")
-    def master_user_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserSecretKmsKeyId"))
-
-    @master_user_secret_kms_key_id.setter
-    def master_user_secret_kms_key_id(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a1df2c9ac1f613c512469d693487a300c74230885d5e260bf5ada30155d14d7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserSecretKmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="networkType")
-    def network_type(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
-
-    @network_type.setter
-    def network_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79c741f6d8f922d19130884d7c02ab03431fc05781cc91b8ec5ac23e2ecd06e2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="port")
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the port that the database engine is listening on.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
-
-    @port.setter
-    def port(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a09b878a6d8b852d7eb17f26dcd8f718779776e12f67987303b1e944b3a40516)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="preferredBackupWindow")
-    def preferred_backup_window(self) -> typing.Optional[builtins.str]:
-        '''The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredBackupWindow"))
-
-    @preferred_backup_window.setter
-    def preferred_backup_window(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__903ec8bf5c75ee86965cb4a2c278ea1e1e98dd095e22060664e8fa764f66256e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="preferredMaintenanceWindow")
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
-
-    @preferred_maintenance_window.setter
-    def preferred_maintenance_window(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4322d6fabf4d2d1ef485d3e448e48faf3b9968a20e9c0b97b5a07213032c1c30)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreToTime")
-    def restore_to_time(self) -> typing.Optional[builtins.str]:
-        '''The date and time to restore the cluster to.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "restoreToTime"))
-
-    @restore_to_time.setter
-    def restore_to_time(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0ee86da53d4a8f5b7ebf251632e7ba9588ee4112a830c775ece3433f227e29c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreToTime", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreType")
-    def restore_type(self) -> typing.Optional[builtins.str]:
-        '''The type of restore to be performed.
-
-        You can specify one of the following values:.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "restoreType"))
-
-    @restore_type.setter
-    def restore_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43c278d2c39f8d3f098ad2320789939b448b2958965646678cb8dd9f218f8736)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rotateMasterUserPassword")
-    def rotate_master_user_password(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rotateMasterUserPassword"))
-
-    @rotate_master_user_password.setter
-    def rotate_master_user_password(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a962178d061c1e3b6b6e4c04690d1515176ca035477d280a9ddaee831ed19ae)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotateMasterUserPassword", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serverlessV2ScalingConfiguration")
-    def serverless_v2_scaling_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]]:
-        '''Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]], jsii.get(self, "serverlessV2ScalingConfiguration"))
-
-    @serverless_v2_scaling_configuration.setter
-    def serverless_v2_scaling_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f23cec17e6d5a308bc97faa6c2e987d67b01e77f99c6ad20b6019114adb90e97)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverlessV2ScalingConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotIdentifier")
-    def snapshot_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier for the snapshot or cluster snapshot to restore from.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotIdentifier"))
-
-    @snapshot_identifier.setter
-    def snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9827e5902a31fbb3009632e22e0590a6a453b8ad1f433893f790e68c5abe9b8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceDbClusterIdentifier")
-    def source_db_cluster_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the source cluster from which to restore.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceDbClusterIdentifier"))
-
-    @source_db_cluster_identifier.setter
-    def source_db_cluster_identifier(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38eacfeb3f4a2ffe2d0fb22ed93a5652cb018e7fed96bb166e4d29176228a8d6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="storageEncrypted")
-    def storage_encrypted(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the cluster is encrypted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "storageEncrypted"))
-
-    @storage_encrypted.setter
-    def storage_encrypted(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efd881b325008feb4534c0ce6da0a09c3cfeabe00ff36a389bdfadd597bcf73f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="storageType")
-    def storage_type(self) -> typing.Optional[builtins.str]:
-        '''The storage type to associate with the DB cluster.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "storageType"))
-
-    @storage_type.setter
-    def storage_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b645f0dac4407e66855e7b0c6023c5c4199e9306e017bdd5ba6514a9ae5dab3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be assigned to the cluster.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__467cb576faa79b69ba7e6b18a96e5bbf103b0f9e2e68b9ca5c5b6baa2c3116c1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="useLatestRestorableTime")
-    def use_latest_restorable_time(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useLatestRestorableTime"))
-
-    @use_latest_restorable_time.setter
-    def use_latest_restorable_time(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__313b92cc69cbcbc01b1b3c76867167207277927cc984c7fd4f92ea48c138bbda)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcSecurityGroupIds")
-    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of EC2 VPC security groups to associate with this cluster.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSecurityGroupIds"))
-
-    @vpc_security_group_ids.setter
-    def vpc_security_group_ids(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__461b181007a5279b076f42e5ac0a26f146fd3b28454ba100be1045b0614f2f9b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"max_capacity": "maxCapacity", "min_capacity": "minCapacity"},
-    )
-    class ServerlessV2ScalingConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            max_capacity: jsii.Number,
-            min_capacity: jsii.Number,
-        ) -> None:
-            '''Sets the scaling configuration of an Amazon DocumentDB Serverless cluster.
-
-            :param max_capacity: The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
-            :param min_capacity: The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_docdb as docdb
-                
-                serverless_v2_scaling_configuration_property = docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty(
-                    max_capacity=123,
-                    min_capacity=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__20a567af32a2157b0abde0b6bdb15faa4ec4db8519748c7488f5ec5b3ddf4b13)
-                check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
-                check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "max_capacity": max_capacity,
-                "min_capacity": min_capacity,
-            }
-
-        @builtins.property
-        def max_capacity(self) -> jsii.Number:
-            '''The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
-
-            You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-maxcapacity
-            '''
-            result = self._values.get("max_capacity")
-            assert result is not None, "Required property 'max_capacity' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def min_capacity(self) -> jsii.Number:
-            '''The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
-
-            You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-mincapacity
-            '''
-            result = self._values.get("min_capacity")
-            assert result is not None, "Required property 'min_capacity' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ServerlessV2ScalingConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDBClusterParameterGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_docdb.CfnDBClusterParameterGroup",
-):
-    '''The ``AWS::DocDB::DBClusterParameterGroup`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBClusterParameterGroup.
-
-    For more information, see `DBClusterParameterGroup <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBClusterParameterGroup.html>`_ in the *Amazon DocumentDB Developer Guide* .
-
-    Parameters in a cluster parameter group apply to all of the instances in a cluster.
-
-    A cluster parameter group is initially created with the default parameters for the database engine used by instances in the cluster. To provide custom values for any of the parameters, you must modify the group after you create it. After you create a DB cluster parameter group, you must associate it with your cluster. For the new cluster parameter group and associated settings to take effect, you must then reboot the DB instances in the cluster without failover.
-    .. epigraph::
-
-       After you create a cluster parameter group, you should wait at least 5 minutes before creating your first cluster that uses that cluster parameter group as the default parameter group. This allows Amazon DocumentDB to fully complete the create action before the cluster parameter group is used as the default for a new cluster. This step is especially important for parameters that are critical when creating the default database for a cluster, such as the character set for the default database defined by the ``character_set_database`` parameter.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbclusterparametergroup.html
-    :cloudformationResource: AWS::DocDB::DBClusterParameterGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_docdb as docdb
-        
-        # parameters: Any
-        
-        cfn_dBCluster_parameter_group = docdb.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
-            description="description",
-            family="family",
-            parameters=parameters,
-        
-            # the properties below are optional
-            name="name",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: builtins.str,
-        family: builtins.str,
-        parameters: typing.Any,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: The description for the cluster parameter group.
-        :param family: The cluster parameter group family name.
-        :param parameters: Provides a list of parameters for the cluster parameter group.
-        :param name: The name of the DB cluster parameter group. Constraints: - Must not match the name of an existing ``DBClusterParameterGroup`` . .. epigraph:: This value is stored as a lowercase string.
-        :param tags: The tags to be assigned to the cluster parameter group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf702887107dc3b6d0e1c2cf7a2f922b9fa66ae4817c7d3122ceaf8e3b958132)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDBClusterParameterGroupProps(
-            description=description,
-            family=family,
-            parameters=parameters,
-            name=name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6a8171791541b174749473c2f0235ec8f6d2df6bcf47a0de97a3e0d0f5f4ba1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c1f45d655c3578d1faf53be5531c206b7adce79fc6ed731b32498a9f03d92eb)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''The description for the cluster parameter group.'''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e27b4f0b3d2455b83e7b94d42a23c0c8ff2300e3ab6fba5c69d15cd9464adb7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="family")
-    def family(self) -> builtins.str:
-        '''The cluster parameter group family name.'''
-        return typing.cast(builtins.str, jsii.get(self, "family"))
-
-    @family.setter
-    def family(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bdc5b6562ba3c1478a5fee7c979b6215b64e8bb2b58e86475cfde6421ae1272)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''Provides a list of parameters for the cluster parameter group.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__332a0d384ecea2c65bb972833483a0e813f12d76d753ec68ce55267e1a229804)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the DB cluster parameter group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702d9cc13fd6cd2a95ea6c1b6615540be0c5afe0086986a3555d3d957840d35b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be assigned to the cluster parameter group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e8ee52ae08b545bed27f58e883eee6b47f43f216f34098f0850a8bd9e024e08)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_docdb.CfnDBClusterParameterGroupProps",
     jsii_struct_bases=[],
@@ -1720,7 +736,7 @@ class CfnDBClusterProps:
         restore_to_time: typing.Optional[builtins.str] = None,
         restore_type: typing.Optional[builtins.str] = None,
         rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBCluster.ServerlessV2ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -2209,13 +1225,13 @@ class CfnDBClusterProps:
     @builtins.property
     def serverless_v2_scaling_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDBCluster.ServerlessV2ScalingConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]]:
         '''Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbcluster.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration
         '''
         result = self._values.get("serverless_v2_scaling_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDBCluster.ServerlessV2ScalingConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]], result)
 
     @builtins.property
     def snapshot_identifier(self) -> typing.Optional[builtins.str]:
@@ -2319,315 +1335,6 @@ class CfnDBClusterProps:
         return "CfnDBClusterProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDBInstance(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_docdb.CfnDBInstance",
-):
-    '''The ``AWS::DocDB::DBInstance`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBInstance.
-
-    For more information, see `DBInstance <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBInstance.html>`_ in the *Amazon DocumentDB Developer Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbinstance.html
-    :cloudformationResource: AWS::DocDB::DBInstance
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_docdb as docdb
-        
-        cfn_dBInstance = docdb.CfnDBInstance(self, "MyCfnDBInstance",
-            db_cluster_identifier="dbClusterIdentifier",
-            db_instance_class="dbInstanceClass",
-        
-            # the properties below are optional
-            auto_minor_version_upgrade=False,
-            availability_zone="availabilityZone",
-            ca_certificate_identifier="caCertificateIdentifier",
-            certificate_rotation_restart=False,
-            db_instance_identifier="dbInstanceIdentifier",
-            enable_performance_insights=False,
-            preferred_maintenance_window="preferredMaintenanceWindow",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        db_cluster_identifier: builtins.str,
-        db_instance_class: builtins.str,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        availability_zone: typing.Optional[builtins.str] = None,
-        ca_certificate_identifier: typing.Optional[builtins.str] = None,
-        certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        db_instance_identifier: typing.Optional[builtins.str] = None,
-        enable_performance_insights: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param db_cluster_identifier: The identifier of the cluster that the instance will belong to.
-        :param db_instance_class: The compute and memory capacity of the instance; for example, ``db.m4.large`` . If you change the class of an instance there can be some interruption in the cluster's service.
-        :param auto_minor_version_upgrade: This parameter does not apply to Amazon DocumentDB. Amazon DocumentDB does not perform minor version upgrades regardless of the value set. Default: ``false``
-        :param availability_zone: The Amazon EC2 Availability Zone that the instance is created in. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Example: ``us-east-1d``
-        :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
-        :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, see `Updating Your Amazon DocumentDB TLS Certificates <https://docs.aws.amazon.com/documentdb/latest/developerguide/ca_cert_rotation.html>`_ and `Encrypting Data in Transit <https://docs.aws.amazon.com/documentdb/latest/developerguide/security.encryption.ssl.html>`_ in the *Amazon DocumentDB Developer Guide* .
-        :param db_instance_identifier: The instance identifier. This parameter is stored as a lowercase string. Constraints: - Must contain from 1 to 63 letters, numbers, or hyphens. - The first character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. Example: ``mydbinstance``
-        :param enable_performance_insights: A value that indicates whether to enable Performance Insights for the DB Instance. For more information, see `Using Amazon Performance Insights <https://docs.aws.amazon.com/documentdb/latest/developerguide/performance-insights.html>`_ .
-        :param preferred_maintenance_window: The time range each week during which system maintenance can occur, in Universal Coordinated Time (UTC). Format: ``ddd:hh24:mi-ddd:hh24:mi`` The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region , occurring on a random day of the week. Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun Constraints: Minimum 30-minute window.
-        :param tags: The tags to be assigned to the instance. You can assign up to 10 tags to an instance.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04a2ef738116d21f3bef48c2f9d0cccb18afe06fe39e0db6ce75d1bdded1b035)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDBInstanceProps(
-            db_cluster_identifier=db_cluster_identifier,
-            db_instance_class=db_instance_class,
-            auto_minor_version_upgrade=auto_minor_version_upgrade,
-            availability_zone=availability_zone,
-            ca_certificate_identifier=ca_certificate_identifier,
-            certificate_rotation_restart=certificate_rotation_restart,
-            db_instance_identifier=db_instance_identifier,
-            enable_performance_insights=enable_performance_insights,
-            preferred_maintenance_window=preferred_maintenance_window,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8aa4ecf8be7edba47bf14689b009e670ad96cd741eff0a8cc1e1339f0d0c5e9)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d07607ec8a7fcfd27494096e32588c2dca376fc583b6928247cc741a848498c0)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEndpoint")
-    def attr_endpoint(self) -> builtins.str:
-        '''The connection endpoint for the instance.
-
-        For example: ``sample-cluster.cluster-abcdefghijkl.us-east-1.docdb.amazonaws.com`` .
-
-        :cloudformationAttribute: Endpoint
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPort")
-    def attr_port(self) -> builtins.str:
-        '''The port number on which the database accepts connections, such as ``27017`` .
-
-        :cloudformationAttribute: Port
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrPort"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dbClusterIdentifier")
-    def db_cluster_identifier(self) -> builtins.str:
-        '''The identifier of the cluster that the instance will belong to.'''
-        return typing.cast(builtins.str, jsii.get(self, "dbClusterIdentifier"))
-
-    @db_cluster_identifier.setter
-    def db_cluster_identifier(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80b91c5185212df44fcdfd50a3fc8af7618b82ddf9b010801f03aa6406893084)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbInstanceClass")
-    def db_instance_class(self) -> builtins.str:
-        '''The compute and memory capacity of the instance;'''
-        return typing.cast(builtins.str, jsii.get(self, "dbInstanceClass"))
-
-    @db_instance_class.setter
-    def db_instance_class(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__029c9f8b16eafbef2fc69d8acedeac66b64c5f54d4181c222b8ccdac9c799cf4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceClass", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="autoMinorVersionUpgrade")
-    def auto_minor_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''This parameter does not apply to Amazon DocumentDB.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "autoMinorVersionUpgrade"))
-
-    @auto_minor_version_upgrade.setter
-    def auto_minor_version_upgrade(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3cdf0adea06b9d8f482fb95fb33660d1499428dfa0cb77f3f07f118054cbc3a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="availabilityZone")
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Amazon EC2 Availability Zone that the instance is created in.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
-
-    @availability_zone.setter
-    def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c97a8d0db9d5aeae5aae1b2716ddc77dc210b628e704c9fb560f2e5f9f354e1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="caCertificateIdentifier")
-    def ca_certificate_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the CA certificate for this DB instance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificateIdentifier"))
-
-    @ca_certificate_identifier.setter
-    def ca_certificate_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__193d56c7c2508ccdc280335b753057896277d8d04a5dd9d87dfc060e0516e242)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRotationRestart")
-    def certificate_rotation_restart(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "certificateRotationRestart"))
-
-    @certificate_rotation_restart.setter
-    def certificate_rotation_restart(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a44cc71e239a50c2ba8e26c4a201166550e3b3b8d3dded99bc99c4e47f79b365)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateRotationRestart", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbInstanceIdentifier")
-    def db_instance_identifier(self) -> typing.Optional[builtins.str]:
-        '''The instance identifier.
-
-        This parameter is stored as a lowercase string.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbInstanceIdentifier"))
-
-    @db_instance_identifier.setter
-    def db_instance_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b45ff85dbf36b2c15a8a4b5e7ad1f0c9f9eb5577435cebd788a2606cbec6255)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enablePerformanceInsights")
-    def enable_performance_insights(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A value that indicates whether to enable Performance Insights for the DB Instance.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enablePerformanceInsights"))
-
-    @enable_performance_insights.setter
-    def enable_performance_insights(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9998ef6aa09a50a2905d1d918bc4bb893f66e90b164daccd2292eab9af3d6f8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enablePerformanceInsights", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="preferredMaintenanceWindow")
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''The time range each week during which system maintenance can occur, in Universal Coordinated Time (UTC).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
-
-    @preferred_maintenance_window.setter
-    def preferred_maintenance_window(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1261d32bc82ad0c231ccfd241bb82acfe898707f947c36ba29797ffe6917fbd9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be assigned to the instance.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__112d9161916b1c4ecabe22178d1e136ce15dc818a63e39711e0c01b8a28b6e7a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2881,175 +1588,6 @@ class CfnDBInstanceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDBSubnetGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_docdb.CfnDBSubnetGroup",
-):
-    '''The ``AWS::DocDB::DBSubnetGroup`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBSubnetGroup.
-
-    subnet groups must contain at least one subnet in at least two Availability Zones in the AWS Region . For more information, see `DBSubnetGroup <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBSubnetGroup.html>`_ in the *Amazon DocumentDB Developer Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbsubnetgroup.html
-    :cloudformationResource: AWS::DocDB::DBSubnetGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_docdb as docdb
-        
-        cfn_dBSubnet_group = docdb.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
-            db_subnet_group_description="dbSubnetGroupDescription",
-            subnet_ids=["subnetIds"],
-        
-            # the properties below are optional
-            db_subnet_group_name="dbSubnetGroupName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        db_subnet_group_description: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        db_subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param db_subnet_group_description: The description for the subnet group.
-        :param subnet_ids: The Amazon EC2 subnet IDs for the subnet group.
-        :param db_subnet_group_name: The name for the subnet group. This value is stored as a lowercase string. Constraints: Must contain no more than 255 letters, numbers, periods, underscores, spaces, or hyphens. Must not be default. Example: ``mySubnetgroup``
-        :param tags: The tags to be assigned to the subnet group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a66d84abf60ab10e544c9e2e5ed2d4cacef5cda174f0ec0ff1ac838ea0658570)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDBSubnetGroupProps(
-            db_subnet_group_description=db_subnet_group_description,
-            subnet_ids=subnet_ids,
-            db_subnet_group_name=db_subnet_group_name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beed62a49f888c354df00668e95461321a595ecfb5f76ff1aaad757929b53ab8)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a609b5a19927a1afc763cd7ea9c1e7c02e8337dedde50cdeb7a70895fd163d02)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dbSubnetGroupDescription")
-    def db_subnet_group_description(self) -> builtins.str:
-        '''The description for the subnet group.'''
-        return typing.cast(builtins.str, jsii.get(self, "dbSubnetGroupDescription"))
-
-    @db_subnet_group_description.setter
-    def db_subnet_group_description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__850c5dced7314d3602ee9d080b8694a65dc2f4ffef020d657e4fa4fc2bf55025)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subnetIds")
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''The Amazon EC2 subnet IDs for the subnet group.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "subnetIds"))
-
-    @subnet_ids.setter
-    def subnet_ids(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75553da48e99dee7463a4e6973f58dfe6c143be1e0a737b8d27cab2738646257)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dbSubnetGroupName")
-    def db_subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the subnet group.
-
-        This value is stored as a lowercase string.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbSubnetGroupName"))
-
-    @db_subnet_group_name.setter
-    def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a461937c4bb0e819298839e96415d65e9462c00459cccb23d6147d4118f1cb74)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be assigned to the subnet group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aa03e7aefbfc736e2e8595ebfa58a0fc955af7dd797db1d97f4d1a21cd9b635)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_docdb.CfnDBSubnetGroupProps",
     jsii_struct_bases=[],
@@ -3164,209 +1702,6 @@ class CfnDBSubnetGroupProps:
         return "CfnDBSubnetGroupProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnEventSubscription(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_docdb.CfnEventSubscription",
-):
-    '''Creates an Amazon DocumentDB event notification subscription.
-
-    This action requires a topic Amazon Resource Name (ARN) created by using the Amazon DocumentDB console, the Amazon SNS console, or the Amazon SNS API. To obtain an ARN with Amazon SNS, you must create a topic in Amazon SNS and subscribe to the topic. The ARN is displayed in the Amazon SNS console.
-
-    You can specify the type of source ( ``SourceType`` ) that you want to be notified of. You can also provide a list of Amazon DocumentDB sources ( ``SourceIds`` ) that trigger the events, and you can provide a list of event categories ( ``EventCategories`` ) for events that you want to be notified of. For example, you can specify ``SourceType = db-instance`` , ``SourceIds = mydbinstance1, mydbinstance2`` and ``EventCategories = Availability, Backup`` .
-
-    If you specify both the ``SourceType`` and ``SourceIds`` (such as ``SourceType = db-instance`` and ``SourceIdentifier = myDBInstance1`` ), you are notified of all the ``db-instance`` events for the specified source. If you specify a ``SourceType`` but do not specify a ``SourceIdentifier`` , you receive notice of the events for that source type for all your Amazon DocumentDB sources. If you do not specify either the ``SourceType`` or the ``SourceIdentifier`` , you are notified of events generated from all Amazon DocumentDB sources belonging to your customer account.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-eventsubscription.html
-    :cloudformationResource: AWS::DocDB::EventSubscription
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_docdb as docdb
-        
-        cfn_event_subscription = docdb.CfnEventSubscription(self, "MyCfnEventSubscription",
-            sns_topic_arn="snsTopicArn",
-        
-            # the properties below are optional
-            enabled=False,
-            event_categories=["eventCategories"],
-            source_ids=["sourceIds"],
-            source_type="sourceType",
-            subscription_name="subscriptionName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        sns_topic_arn: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source_type: typing.Optional[builtins.str] = None,
-        subscription_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event notification. Amazon SNS creates the ARN when you create a topic and subscribe to it.
-        :param enabled: A Boolean value; set to ``true`` to activate the subscription, set to ``false`` to create the subscription but not active it.
-        :param event_categories: A list of event categories for a ``SourceType`` that you want to subscribe to.
-        :param source_ids: The list of identifiers of the event sources for which events are returned. If not specified, then all sources are included in the response. An identifier must begin with a letter and must contain only ASCII letters, digits, and hyphens; it can't end with a hyphen or contain two consecutive hyphens. Constraints: - If ``SourceIds`` are provided, ``SourceType`` must also be provided. - If the source type is an instance, a ``DBInstanceIdentifier`` must be provided. - If the source type is a security group, a ``DBSecurityGroupName`` must be provided. - If the source type is a parameter group, a ``DBParameterGroupName`` must be provided. - If the source type is a snapshot, a ``DBSnapshotIdentifier`` must be provided.
-        :param source_type: The type of source that is generating the events. For example, if you want to be notified of events generated by an instance, you would set this parameter to ``db-instance`` . If this value is not specified, all events are returned. Valid values: ``db-instance`` , ``db-cluster`` , ``db-parameter-group`` , ``db-security-group`` , ``db-cluster-snapshot``
-        :param subscription_name: The name of the subscription. Constraints: The name must be fewer than 255 characters.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40f8dfdc0873c60465b0acfa4f2aa03b6140bfeab2b2555ea12d442d945dfd8d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnEventSubscriptionProps(
-            sns_topic_arn=sns_topic_arn,
-            enabled=enabled,
-            event_categories=event_categories,
-            source_ids=source_ids,
-            source_type=source_type,
-            subscription_name=subscription_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a78e07c2239bdb281b28e228142106e2611c29c9ef30abda83a7f24a14f057f3)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dffd722e143a1ef7621bed14bf1e5f3eba17e8d691035f5a6cacf368c62db770)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="snsTopicArn")
-    def sns_topic_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the SNS topic created for event notification.'''
-        return typing.cast(builtins.str, jsii.get(self, "snsTopicArn"))
-
-    @sns_topic_arn.setter
-    def sns_topic_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbdf559b24615e45ddf5c69cfd3641d78184cbadf589ae301537d02c4bdfbb7b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="enabled")
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A Boolean value;'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
-
-    @enabled.setter
-    def enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0516058187ff1e96246f1be785eb949dc458861e2393e993f4c6296a87f1163f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventCategories")
-    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of event categories for a ``SourceType`` that you want to subscribe to.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "eventCategories"))
-
-    @event_categories.setter
-    def event_categories(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7d499d907468c66313404015876f161704901bbddf0fb60ec8014aa0ff32682)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventCategories", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceIds")
-    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of identifiers of the event sources for which events are returned.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "sourceIds"))
-
-    @source_ids.setter
-    def source_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__408c6e4d5c088c34a6428d6bc56a0cd33158f2b01c56372df307cb6d9bd2c844)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceIds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceType")
-    def source_type(self) -> typing.Optional[builtins.str]:
-        '''The type of source that is generating the events.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceType"))
-
-    @source_type.setter
-    def source_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d09ba07ebf0ad0a63b9515db6dee97880048766ce1683054a3c9d864abe3a39)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="subscriptionName")
-    def subscription_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the subscription.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "subscriptionName"))
-
-    @subscription_name.setter
-    def subscription_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d7bc2e62bb3b2b35f63e5b6a8a20e68b3082eb38625b5f563734f9659b0f148)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -3632,6 +1967,202 @@ class ClusterParameterGroupProps:
 
     def __repr__(self) -> str:
         return "ClusterParameterGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdb.DBClusterParameterGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_cluster_parameter_group_id": "dbClusterParameterGroupId"},
+)
+class DBClusterParameterGroupReference:
+    def __init__(self, *, db_cluster_parameter_group_id: builtins.str) -> None:
+        '''A reference to a DBClusterParameterGroup resource.
+
+        :param db_cluster_parameter_group_id: The Id of the DBClusterParameterGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdb as docdb
+            
+            d_bCluster_parameter_group_reference = docdb.DBClusterParameterGroupReference(
+                db_cluster_parameter_group_id="dbClusterParameterGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4609e0ad041fbb92bd48423fdb1d48227710acce7257e45b9a9e68616c731da8)
+            check_type(argname="argument db_cluster_parameter_group_id", value=db_cluster_parameter_group_id, expected_type=type_hints["db_cluster_parameter_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_cluster_parameter_group_id": db_cluster_parameter_group_id,
+        }
+
+    @builtins.property
+    def db_cluster_parameter_group_id(self) -> builtins.str:
+        '''The Id of the DBClusterParameterGroup resource.'''
+        result = self._values.get("db_cluster_parameter_group_id")
+        assert result is not None, "Required property 'db_cluster_parameter_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBClusterParameterGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdb.DBClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_cluster_id": "dbClusterId"},
+)
+class DBClusterReference:
+    def __init__(self, *, db_cluster_id: builtins.str) -> None:
+        '''A reference to a DBCluster resource.
+
+        :param db_cluster_id: The Id of the DBCluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdb as docdb
+            
+            d_bCluster_reference = docdb.DBClusterReference(
+                db_cluster_id="dbClusterId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a586502e51d5bc32b82895460d52e53c1d0d09a1b48fc4bf21e37e2cbfcbdb0b)
+            check_type(argname="argument db_cluster_id", value=db_cluster_id, expected_type=type_hints["db_cluster_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_cluster_id": db_cluster_id,
+        }
+
+    @builtins.property
+    def db_cluster_id(self) -> builtins.str:
+        '''The Id of the DBCluster resource.'''
+        result = self._values.get("db_cluster_id")
+        assert result is not None, "Required property 'db_cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdb.DBInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_instance_id": "dbInstanceId"},
+)
+class DBInstanceReference:
+    def __init__(self, *, db_instance_id: builtins.str) -> None:
+        '''A reference to a DBInstance resource.
+
+        :param db_instance_id: The Id of the DBInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdb as docdb
+            
+            d_bInstance_reference = docdb.DBInstanceReference(
+                db_instance_id="dbInstanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1216b64dd87de3fbd851e1c765811d0cf20de25d58c0bf7e365c759f3ca3a1f)
+            check_type(argname="argument db_instance_id", value=db_instance_id, expected_type=type_hints["db_instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_instance_id": db_instance_id,
+        }
+
+    @builtins.property
+    def db_instance_id(self) -> builtins.str:
+        '''The Id of the DBInstance resource.'''
+        result = self._values.get("db_instance_id")
+        assert result is not None, "Required property 'db_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdb.DBSubnetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_subnet_group_id": "dbSubnetGroupId"},
+)
+class DBSubnetGroupReference:
+    def __init__(self, *, db_subnet_group_id: builtins.str) -> None:
+        '''A reference to a DBSubnetGroup resource.
+
+        :param db_subnet_group_id: The Id of the DBSubnetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdb as docdb
+            
+            d_bSubnet_group_reference = docdb.DBSubnetGroupReference(
+                db_subnet_group_id="dbSubnetGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6799e316198c0d43ca7787d9ed5de045e15cded02e1d71c4ef905b212757c12)
+            check_type(argname="argument db_subnet_group_id", value=db_subnet_group_id, expected_type=type_hints["db_subnet_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_subnet_group_id": db_subnet_group_id,
+        }
+
+    @builtins.property
+    def db_subnet_group_id(self) -> builtins.str:
+        '''The Id of the DBSubnetGroup resource.'''
+        result = self._values.get("db_subnet_group_id")
+        assert result is not None, "Required property 'db_subnet_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBSubnetGroupReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4839,6 +3370,55 @@ class Endpoint(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_docdb.Endpoin
         return typing.cast(builtins.str, jsii.get(self, "socketAddress"))
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_docdb.EventSubscriptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_subscription_id": "eventSubscriptionId"},
+)
+class EventSubscriptionReference:
+    def __init__(self, *, event_subscription_id: builtins.str) -> None:
+        '''A reference to a EventSubscription resource.
+
+        :param event_subscription_id: The Id of the EventSubscription resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_docdb as docdb
+            
+            event_subscription_reference = docdb.EventSubscriptionReference(
+                event_subscription_id="eventSubscriptionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10f4c8eb9a681eba6817d05c2a1da95e6540cb113bb69f781635977381c81ef7)
+            check_type(argname="argument event_subscription_id", value=event_subscription_id, expected_type=type_hints["event_subscription_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_subscription_id": event_subscription_id,
+        }
+
+    @builtins.property
+    def event_subscription_id(self) -> builtins.str:
+        '''The Id of the EventSubscription resource.'''
+        result = self._values.get("event_subscription_id")
+        assert result is not None, "Required property 'event_subscription_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventSubscriptionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IClusterParameterGroup")
 class IClusterParameterGroup(_IResource_c80c4260, typing_extensions.Protocol):
     '''A parameter group.'''
@@ -4865,6 +3445,169 @@ class _IClusterParameterGroupProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IClusterParameterGroup).__jsii_proxy_class__ = lambda : _IClusterParameterGroupProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IDBClusterParameterGroupRef")
+class IDBClusterParameterGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBClusterParameterGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterParameterGroupRef")
+    def db_cluster_parameter_group_ref(self) -> DBClusterParameterGroupReference:
+        '''(experimental) A reference to a DBClusterParameterGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBClusterParameterGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBClusterParameterGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_docdb.IDBClusterParameterGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterParameterGroupRef")
+    def db_cluster_parameter_group_ref(self) -> DBClusterParameterGroupReference:
+        '''(experimental) A reference to a DBClusterParameterGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DBClusterParameterGroupReference, jsii.get(self, "dbClusterParameterGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBClusterParameterGroupRef).__jsii_proxy_class__ = lambda : _IDBClusterParameterGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IDBClusterRef")
+class IDBClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DBCluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterRef")
+    def db_cluster_ref(self) -> DBClusterReference:
+        '''(experimental) A reference to a DBCluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBCluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_docdb.IDBClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterRef")
+    def db_cluster_ref(self) -> DBClusterReference:
+        '''(experimental) A reference to a DBCluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DBClusterReference, jsii.get(self, "dbClusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBClusterRef).__jsii_proxy_class__ = lambda : _IDBClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IDBInstanceRef")
+class IDBInstanceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DBInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceRef")
+    def db_instance_ref(self) -> DBInstanceReference:
+        '''(experimental) A reference to a DBInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_docdb.IDBInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceRef")
+    def db_instance_ref(self) -> DBInstanceReference:
+        '''(experimental) A reference to a DBInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DBInstanceReference, jsii.get(self, "dbInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBInstanceRef).__jsii_proxy_class__ = lambda : _IDBInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IDBSubnetGroupRef")
+class IDBSubnetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DBSubnetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupRef")
+    def db_subnet_group_ref(self) -> DBSubnetGroupReference:
+        '''(experimental) A reference to a DBSubnetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBSubnetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBSubnetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_docdb.IDBSubnetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupRef")
+    def db_subnet_group_ref(self) -> DBSubnetGroupReference:
+        '''(experimental) A reference to a DBSubnetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DBSubnetGroupReference, jsii.get(self, "dbSubnetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBSubnetGroupRef).__jsii_proxy_class__ = lambda : _IDBSubnetGroupRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IDatabaseCluster")
@@ -5060,6 +3803,49 @@ class _IDatabaseInstanceProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDatabaseInstance).__jsii_proxy_class__ = lambda : _IDatabaseInstanceProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_docdb.IEventSubscriptionRef")
+class IEventSubscriptionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSubscriptionRef")
+    def event_subscription_ref(self) -> EventSubscriptionReference:
+        '''(experimental) A reference to a EventSubscription resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventSubscriptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_docdb.IEventSubscriptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSubscriptionRef")
+    def event_subscription_ref(self) -> EventSubscriptionReference:
+        '''(experimental) A reference to a EventSubscription resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _IEventSubscriptionRefProxy
 
 
 @jsii.data_type(
@@ -5295,6 +4081,1701 @@ class StorageType(enum.Enum):
     '''Standard storage.'''
     IOPT1 = "IOPT1"
     '''I/O-optimized storage.'''
+
+
+@jsii.implements(_IInspectable_c2943556, IDBClusterRef, _ITaggable_36806126)
+class CfnDBCluster(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdb.CfnDBCluster",
+):
+    '''The ``AWS::DocDB::DBCluster`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBCluster.
+
+    Amazon DocumentDB is a fully managed, MongoDB-compatible document database engine. For more information, see `DBCluster <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBCluster.html>`_ in the *Amazon DocumentDB Developer Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbcluster.html
+    :cloudformationResource: AWS::DocDB::DBCluster
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdb as docdb
+        
+        cfn_dBCluster = docdb.CfnDBCluster(self, "MyCfnDBCluster",
+            availability_zones=["availabilityZones"],
+            backup_retention_period=123,
+            copy_tags_to_snapshot=False,
+            db_cluster_identifier="dbClusterIdentifier",
+            db_cluster_parameter_group_name="dbClusterParameterGroupName",
+            db_subnet_group_name="dbSubnetGroupName",
+            deletion_protection=False,
+            enable_cloudwatch_logs_exports=["enableCloudwatchLogsExports"],
+            engine_version="engineVersion",
+            global_cluster_identifier="globalClusterIdentifier",
+            kms_key_id="kmsKeyId",
+            manage_master_user_password=False,
+            master_username="masterUsername",
+            master_user_password="masterUserPassword",
+            master_user_secret_kms_key_id="masterUserSecretKmsKeyId",
+            network_type="networkType",
+            port=123,
+            preferred_backup_window="preferredBackupWindow",
+            preferred_maintenance_window="preferredMaintenanceWindow",
+            restore_to_time="restoreToTime",
+            restore_type="restoreType",
+            rotate_master_user_password=False,
+            serverless_v2_scaling_configuration=docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty(
+                max_capacity=123,
+                min_capacity=123
+            ),
+            snapshot_identifier="snapshotIdentifier",
+            source_db_cluster_identifier="sourceDbClusterIdentifier",
+            storage_encrypted=False,
+            storage_type="storageType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            use_latest_restorable_time=False,
+            vpc_security_group_ids=["vpcSecurityGroupIds"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+        backup_retention_period: typing.Optional[jsii.Number] = None,
+        copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        db_cluster_identifier: typing.Optional[builtins.str] = None,
+        db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+        db_subnet_group_name: typing.Optional[builtins.str] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        global_cluster_identifier: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        manage_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        master_username: typing.Optional[builtins.str] = None,
+        master_user_password: typing.Optional[builtins.str] = None,
+        master_user_secret_kms_key_id: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        preferred_backup_window: typing.Optional[builtins.str] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        restore_to_time: typing.Optional[builtins.str] = None,
+        restore_type: typing.Optional[builtins.str] = None,
+        rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBCluster.ServerlessV2ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_identifier: typing.Optional[builtins.str] = None,
+        source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        storage_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param availability_zones: A list of Amazon EC2 Availability Zones that instances in the cluster can be created in.
+        :param backup_retention_period: The number of days for which automated backups are retained. You must specify a minimum value of 1. Default: 1 Constraints: - Must be a value from 1 to 35.
+        :param copy_tags_to_snapshot: Set to ``true`` to copy all tags from the source cluster snapshot to the target cluster snapshot, and otherwise ``false`` . The default is ``false`` .
+        :param db_cluster_identifier: The cluster identifier. This parameter is stored as a lowercase string. Constraints: - Must contain from 1 to 63 letters, numbers, or hyphens. - The first character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. Example: ``my-cluster``
+        :param db_cluster_parameter_group_name: The name of the cluster parameter group to associate with this cluster.
+        :param db_subnet_group_name: A subnet group to associate with this cluster. Constraints: Must match the name of an existing ``DBSubnetGroup`` . Must not be default. Example: ``mySubnetgroup``
+        :param deletion_protection: Protects clusters from being accidentally deleted. If enabled, the cluster cannot be deleted unless it is modified and ``DeletionProtection`` is disabled.
+        :param enable_cloudwatch_logs_exports: The list of log types that need to be enabled for exporting to Amazon CloudWatch Logs. You can enable audit logs or profiler logs. For more information, see `Auditing Amazon DocumentDB Events <https://docs.aws.amazon.com/documentdb/latest/developerguide/event-auditing.html>`_ and `Profiling Amazon DocumentDB Operations <https://docs.aws.amazon.com/documentdb/latest/developerguide/profiling.html>`_ .
+        :param engine_version: The version number of the database engine to use. The ``--engine-version`` will default to the latest major engine version. For production workloads, we recommend explicitly declaring this parameter with the intended major engine version. If you intend to trigger an in-place upgrade, please refer to `Amazon DocumentDB in-place major version upgrade <https://docs.aws.amazon.com/documentdb/latest/developerguide/docdb-mvu.html>`_ . Note that for an in-place engine version upgrade, you need to remove other cluster properties changes (e.g. SecurityGroupId) from the CFN template.
+        :param global_cluster_identifier: The cluster identifier of the new global cluster.
+        :param kms_key_id: The AWS KMS key identifier for an encrypted cluster. The AWS KMS key identifier is the Amazon Resource Name (ARN) for the AWS KMS encryption key. If you are creating a cluster using the same AWS account that owns the AWS KMS encryption key that is used to encrypt the new cluster, you can use the AWS KMS key alias instead of the ARN for the AWS KMS encryption key. If an encryption key is not specified in ``KmsKeyId`` : - If the ``StorageEncrypted`` parameter is ``true`` , Amazon DocumentDB uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Regions .
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web Services Secrets Manager. Constraint: You can't manage the master user password with Amazon Web Services Secrets Manager if ``MasterUserPassword`` is specified.
+        :param master_username: The name of the master user for the cluster. Constraints: - Must be from 1 to 63 letters or numbers. - The first character must be a letter. - Cannot be a reserved word for the chosen database engine.
+        :param master_user_password: The password for the master database user. This password can contain any printable ASCII character except forward slash (/), double quote ("), or the "at" symbol (@). Constraints: Must contain from 8 to 100 characters.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the DB cluster. The Amazon Web Services KMS key identifier is the key ARN, key ID, alias ARN, or alias name for the KMS key. To use a KMS key in a different Amazon Web Services account, specify the key ARN or alias ARN. If you don't specify ``MasterUserSecretKmsKeyId`` , then the ``aws/secretsmanager`` KMS key is used to encrypt the secret. If the secret is in a different Amazon Web Services account, then you can't use the ``aws/secretsmanager`` KMS key to encrypt the secret, and you must use a customer managed KMS key. There is a default KMS key for your Amazon Web Services account. Your Amazon Web Services account has a different default KMS key for each Amazon Web Services Region.
+        :param network_type: 
+        :param port: Specifies the port that the database engine is listening on.
+        :param preferred_backup_window: The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter. The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region . Constraints: - Must be in the format ``hh24:mi-hh24:mi`` . - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes.
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC). Format: ``ddd:hh24:mi-ddd:hh24:mi`` The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region , occurring on a random day of the week. Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun Constraints: Minimum 30-minute window.
+        :param restore_to_time: The date and time to restore the cluster to. Valid values: A time in Universal Coordinated Time (UTC) format. Constraints: - Must be before the latest restorable time for the instance. - Must be specified if the ``UseLatestRestorableTime`` parameter is not provided. - Cannot be specified if the ``UseLatestRestorableTime`` parameter is ``true`` . - Cannot be specified if the ``RestoreType`` parameter is ``copy-on-write`` . Example: ``2015-03-07T23:45:00Z``
+        :param restore_type: The type of restore to be performed. You can specify one of the following values:. - ``full-copy`` - The new DB cluster is restored as a full copy of the source DB cluster. - ``copy-on-write`` - The new DB cluster is restored as a clone of the source DB cluster. Constraints: You can't specify ``copy-on-write`` if the engine version of the source DB cluster is earlier than 1.11. If you don't specify a ``RestoreType`` value, then the new DB cluster is restored as a full copy of the source DB cluster.
+        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the cluster. The secret value contains the updated password. Constraint: You must apply the change immediately when rotating the master user password.
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
+        :param snapshot_identifier: The identifier for the snapshot or cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a cluster snapshot. However, you can use only the ARN to specify a snapshot. Constraints: - Must match the identifier of an existing snapshot.
+        :param source_db_cluster_identifier: The identifier of the source cluster from which to restore. Constraints: - Must match the identifier of an existing ``DBCluster`` .
+        :param storage_encrypted: Specifies whether the cluster is encrypted. If you specify ``SourceDBClusterIdentifier`` or ``SnapshotIdentifier`` and don’t specify ``StorageEncrypted`` , the encryption property is inherited from the source cluster or snapshot (unless ``KMSKeyId`` is specified, in which case the restored cluster will be encrypted with that KMS key). If the source is encrypted and ``StorageEncrypted`` is specified to be true, the restored cluster will be encrypted (if you want to use a different KMS key, specify the ``KMSKeyId`` property as well). If the source is unencrypted and ``StorageEncrypted`` is specified to be true, then the ``KMSKeyId`` property must be specified. If the source is encrypted, don’t specify ``StorageEncrypted`` to be false as opting out of encryption is not allowed.
+        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create an Amazon DocumentDB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
+        :param tags: The tags to be assigned to the cluster.
+        :param use_latest_restorable_time: A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise. Default: ``false`` Constraints: Cannot be specified if the ``RestoreToTime`` parameter is provided.
+        :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this cluster.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7db61dc80f26049d79a38255d8a0b3abaf4b5019d7cbed64c937ec0f3e40056c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBClusterProps(
+            availability_zones=availability_zones,
+            backup_retention_period=backup_retention_period,
+            copy_tags_to_snapshot=copy_tags_to_snapshot,
+            db_cluster_identifier=db_cluster_identifier,
+            db_cluster_parameter_group_name=db_cluster_parameter_group_name,
+            db_subnet_group_name=db_subnet_group_name,
+            deletion_protection=deletion_protection,
+            enable_cloudwatch_logs_exports=enable_cloudwatch_logs_exports,
+            engine_version=engine_version,
+            global_cluster_identifier=global_cluster_identifier,
+            kms_key_id=kms_key_id,
+            manage_master_user_password=manage_master_user_password,
+            master_username=master_username,
+            master_user_password=master_user_password,
+            master_user_secret_kms_key_id=master_user_secret_kms_key_id,
+            network_type=network_type,
+            port=port,
+            preferred_backup_window=preferred_backup_window,
+            preferred_maintenance_window=preferred_maintenance_window,
+            restore_to_time=restore_to_time,
+            restore_type=restore_type,
+            rotate_master_user_password=rotate_master_user_password,
+            serverless_v2_scaling_configuration=serverless_v2_scaling_configuration,
+            snapshot_identifier=snapshot_identifier,
+            source_db_cluster_identifier=source_db_cluster_identifier,
+            storage_encrypted=storage_encrypted,
+            storage_type=storage_type,
+            tags=tags,
+            use_latest_restorable_time=use_latest_restorable_time,
+            vpc_security_group_ids=vpc_security_group_ids,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f49adaa49bdc08b786dfe6f113030ff5dd0db0af1cab13c2ea50ea5487f4b802)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49d68682da6d2b0ce5ca0609607e472a09f9f77f27ba4214de01d037f2eca6c6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterResourceId")
+    def attr_cluster_resource_id(self) -> builtins.str:
+        '''The resource id for the cluster;
+
+        for example: ``cluster-ABCD1234EFGH5678IJKL90MNOP`` . The cluster ID uniquely identifies the cluster and is used in things like IAM authentication policies.
+
+        :cloudformationAttribute: ClusterResourceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClusterResourceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpoint")
+    def attr_endpoint(self) -> builtins.str:
+        '''The connection endpoint for the cluster, such as ``sample-cluster.cluster-cozrlsfrcjoc.us-east-1.docdb.amazonaws.com`` .
+
+        :cloudformationAttribute: Endpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> builtins.str:
+        '''The port number on which the cluster accepts connections.
+
+        For example: ``27017`` .
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReadEndpoint")
+    def attr_read_endpoint(self) -> builtins.str:
+        '''The reader endpoint for the cluster.
+
+        For example: ``sample-cluster.cluster-ro-cozrlsfrcjoc.us-east-1.docdb.amazonaws.com`` .
+
+        :cloudformationAttribute: ReadEndpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReadEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterRef")
+    def db_cluster_ref(self) -> DBClusterReference:
+        '''A reference to a DBCluster resource.'''
+        return typing.cast(DBClusterReference, jsii.get(self, "dbClusterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZones")
+    def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon EC2 Availability Zones that instances in the cluster can be created in.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "availabilityZones"))
+
+    @availability_zones.setter
+    def availability_zones(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4bdaf0bc7cad58ade1a34b4b85daf3a0c9caf4e9c4aa423d8c08839742b0d4d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="backupRetentionPeriod")
+    def backup_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days for which automated backups are retained.
+
+        You must specify a minimum value of 1.
+        '''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "backupRetentionPeriod"))
+
+    @backup_retention_period.setter
+    def backup_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c664a6034ddc5d1a75cd1bae48398fc11875b13ff09951c293559b0708786b47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="copyTagsToSnapshot")
+    def copy_tags_to_snapshot(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Set to ``true`` to copy all tags from the source cluster snapshot to the target cluster snapshot, and otherwise ``false`` .'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "copyTagsToSnapshot"))
+
+    @copy_tags_to_snapshot.setter
+    def copy_tags_to_snapshot(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9579155c60f37e7baaefd2add0496a87f54293584ec94a2a7785dc3264ebe4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterIdentifier")
+    def db_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The cluster identifier.
+
+        This parameter is stored as a lowercase string.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbClusterIdentifier"))
+
+    @db_cluster_identifier.setter
+    def db_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22fbd7b0bf1256197f71b3b43f4d11d7eb59e118a93d9b0c59335aea8e7b586f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterParameterGroupName")
+    def db_cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the cluster parameter group to associate with this cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbClusterParameterGroupName"))
+
+    @db_cluster_parameter_group_name.setter
+    def db_cluster_parameter_group_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1a2f5fa89f057ba4759b48019d5a08e9de7fcb5cc68ed5ace17b6303dec5d87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupName")
+    def db_subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''A subnet group to associate with this cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbSubnetGroupName"))
+
+    @db_subnet_group_name.setter
+    def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43f1e52bdd69041102d5550de099fe30eb54180c8559f2760b4c5a4cb3af9e07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Protects clusters from being accidentally deleted.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc9a3746b34c3c8e0f788ea45970b8e53d09b5b282a722fbed39cfe0b59b8f97)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableCloudwatchLogsExports")
+    def enable_cloudwatch_logs_exports(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of log types that need to be enabled for exporting to Amazon CloudWatch Logs.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "enableCloudwatchLogsExports"))
+
+    @enable_cloudwatch_logs_exports.setter
+    def enable_cloudwatch_logs_exports(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b98a157c72eff100321309f96926d75d4cfd89d474c71de6df075763daff6e71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="engineVersion")
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version number of the database engine to use.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engineVersion"))
+
+    @engine_version.setter
+    def engine_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6c3f347d46adbb72bedc7428b15c6469cfe26cf4f30488e8abd2f8f22ca84d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalClusterIdentifier")
+    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The cluster identifier of the new global cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalClusterIdentifier"))
+
+    @global_cluster_identifier.setter
+    def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1df18874740f7d79670e3866720fac8967c1b52aced5a089132ee06a94fd72d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS KMS key identifier for an encrypted cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03e9375b32d036932973e964a270516d21d155bd0db4369d824ccb7e7f0bdc62)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="manageMasterUserPassword")
+    def manage_master_user_password(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to manage the master user password with Amazon Web Services Secrets Manager.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "manageMasterUserPassword"))
+
+    @manage_master_user_password.setter
+    def manage_master_user_password(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdcd3cca26349ee0c4a653267f8614c14cebb3b1c16af84aa9d85681fe2b07dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterUsername")
+    def master_username(self) -> typing.Optional[builtins.str]:
+        '''The name of the master user for the cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUsername"))
+
+    @master_username.setter
+    def master_username(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c07cdadbef8a45e2db19e8559d89c8cec47c9d2d698c3fc441a996847907dfc0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterUserPassword")
+    def master_user_password(self) -> typing.Optional[builtins.str]:
+        '''The password for the master database user.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserPassword"))
+
+    @master_user_password.setter
+    def master_user_password(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2998c76e0321a3f0bc1fe35b15ded5ba4f630cb6e5e7519736bf7455e2abe14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="masterUserSecretKmsKeyId")
+    def master_user_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Web Services KMS key identifier to encrypt a secret that is automatically generated and managed in Amazon Web Services Secrets Manager.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "masterUserSecretKmsKeyId"))
+
+    @master_user_secret_kms_key_id.setter
+    def master_user_secret_kms_key_id(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a1df2c9ac1f613c512469d693487a300c74230885d5e260bf5ada30155d14d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "masterUserSecretKmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79c741f6d8f922d19130884d7c02ab03431fc05781cc91b8ec5ac23e2ecd06e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="port")
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the port that the database engine is listening on.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
+
+    @port.setter
+    def port(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a09b878a6d8b852d7eb17f26dcd8f718779776e12f67987303b1e944b3a40516)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preferredBackupWindow")
+    def preferred_backup_window(self) -> typing.Optional[builtins.str]:
+        '''The daily time range during which automated backups are created if automated backups are enabled using the ``BackupRetentionPeriod`` parameter.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredBackupWindow"))
+
+    @preferred_backup_window.setter
+    def preferred_backup_window(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__903ec8bf5c75ee86965cb4a2c278ea1e1e98dd095e22060664e8fa764f66256e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preferredMaintenanceWindow")
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''The weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
+
+    @preferred_maintenance_window.setter
+    def preferred_maintenance_window(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4322d6fabf4d2d1ef485d3e448e48faf3b9968a20e9c0b97b5a07213032c1c30)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restoreToTime")
+    def restore_to_time(self) -> typing.Optional[builtins.str]:
+        '''The date and time to restore the cluster to.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "restoreToTime"))
+
+    @restore_to_time.setter
+    def restore_to_time(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0ee86da53d4a8f5b7ebf251632e7ba9588ee4112a830c775ece3433f227e29c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restoreToTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restoreType")
+    def restore_type(self) -> typing.Optional[builtins.str]:
+        '''The type of restore to be performed.
+
+        You can specify one of the following values:.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "restoreType"))
+
+    @restore_type.setter
+    def restore_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43c278d2c39f8d3f098ad2320789939b448b2958965646678cb8dd9f218f8736)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restoreType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rotateMasterUserPassword")
+    def rotate_master_user_password(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rotateMasterUserPassword"))
+
+    @rotate_master_user_password.setter
+    def rotate_master_user_password(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a962178d061c1e3b6b6e4c04690d1515176ca035477d280a9ddaee831ed19ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rotateMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessV2ScalingConfiguration")
+    def serverless_v2_scaling_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]]:
+        '''Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]], jsii.get(self, "serverlessV2ScalingConfiguration"))
+
+    @serverless_v2_scaling_configuration.setter
+    def serverless_v2_scaling_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f23cec17e6d5a308bc97faa6c2e987d67b01e77f99c6ad20b6019114adb90e97)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverlessV2ScalingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotIdentifier")
+    def snapshot_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the snapshot or cluster snapshot to restore from.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "snapshotIdentifier"))
+
+    @snapshot_identifier.setter
+    def snapshot_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9827e5902a31fbb3009632e22e0590a6a453b8ad1f433893f790e68c5abe9b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceDbClusterIdentifier")
+    def source_db_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the source cluster from which to restore.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceDbClusterIdentifier"))
+
+    @source_db_cluster_identifier.setter
+    def source_db_cluster_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38eacfeb3f4a2ffe2d0fb22ed93a5652cb018e7fed96bb166e4d29176228a8d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="storageEncrypted")
+    def storage_encrypted(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the cluster is encrypted.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "storageEncrypted"))
+
+    @storage_encrypted.setter
+    def storage_encrypted(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efd881b325008feb4534c0ce6da0a09c3cfeabe00ff36a389bdfadd597bcf73f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="storageType")
+    def storage_type(self) -> typing.Optional[builtins.str]:
+        '''The storage type to associate with the DB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "storageType"))
+
+    @storage_type.setter
+    def storage_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b645f0dac4407e66855e7b0c6023c5c4199e9306e017bdd5ba6514a9ae5dab3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be assigned to the cluster.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__467cb576faa79b69ba7e6b18a96e5bbf103b0f9e2e68b9ca5c5b6baa2c3116c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useLatestRestorableTime")
+    def use_latest_restorable_time(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useLatestRestorableTime"))
+
+    @use_latest_restorable_time.setter
+    def use_latest_restorable_time(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__313b92cc69cbcbc01b1b3c76867167207277927cc984c7fd4f92ea48c138bbda)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcSecurityGroupIds")
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of EC2 VPC security groups to associate with this cluster.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSecurityGroupIds"))
+
+    @vpc_security_group_ids.setter
+    def vpc_security_group_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__461b181007a5279b076f42e5ac0a26f146fd3b28454ba100be1045b0614f2f9b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_capacity": "maxCapacity", "min_capacity": "minCapacity"},
+    )
+    class ServerlessV2ScalingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            max_capacity: jsii.Number,
+            min_capacity: jsii.Number,
+        ) -> None:
+            '''Sets the scaling configuration of an Amazon DocumentDB Serverless cluster.
+
+            :param max_capacity: The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
+            :param min_capacity: The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_docdb as docdb
+                
+                serverless_v2_scaling_configuration_property = docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty(
+                    max_capacity=123,
+                    min_capacity=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__20a567af32a2157b0abde0b6bdb15faa4ec4db8519748c7488f5ec5b3ddf4b13)
+                check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
+                check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_capacity": max_capacity,
+                "min_capacity": min_capacity,
+            }
+
+        @builtins.property
+        def max_capacity(self) -> jsii.Number:
+            '''The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
+
+            You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-maxcapacity
+            '''
+            result = self._values.get("max_capacity")
+            assert result is not None, "Required property 'max_capacity' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def min_capacity(self) -> jsii.Number:
+            '''The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
+
+            You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-mincapacity
+            '''
+            result = self._values.get("min_capacity")
+            assert result is not None, "Required property 'min_capacity' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServerlessV2ScalingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IDBClusterParameterGroupRef, _ITaggable_36806126)
+class CfnDBClusterParameterGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdb.CfnDBClusterParameterGroup",
+):
+    '''The ``AWS::DocDB::DBClusterParameterGroup`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBClusterParameterGroup.
+
+    For more information, see `DBClusterParameterGroup <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBClusterParameterGroup.html>`_ in the *Amazon DocumentDB Developer Guide* .
+
+    Parameters in a cluster parameter group apply to all of the instances in a cluster.
+
+    A cluster parameter group is initially created with the default parameters for the database engine used by instances in the cluster. To provide custom values for any of the parameters, you must modify the group after you create it. After you create a DB cluster parameter group, you must associate it with your cluster. For the new cluster parameter group and associated settings to take effect, you must then reboot the DB instances in the cluster without failover.
+    .. epigraph::
+
+       After you create a cluster parameter group, you should wait at least 5 minutes before creating your first cluster that uses that cluster parameter group as the default parameter group. This allows Amazon DocumentDB to fully complete the create action before the cluster parameter group is used as the default for a new cluster. This step is especially important for parameters that are critical when creating the default database for a cluster, such as the character set for the default database defined by the ``character_set_database`` parameter.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbclusterparametergroup.html
+    :cloudformationResource: AWS::DocDB::DBClusterParameterGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdb as docdb
+        
+        # parameters: Any
+        
+        cfn_dBCluster_parameter_group = docdb.CfnDBClusterParameterGroup(self, "MyCfnDBClusterParameterGroup",
+            description="description",
+            family="family",
+            parameters=parameters,
+        
+            # the properties below are optional
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        family: builtins.str,
+        parameters: typing.Any,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description for the cluster parameter group.
+        :param family: The cluster parameter group family name.
+        :param parameters: Provides a list of parameters for the cluster parameter group.
+        :param name: The name of the DB cluster parameter group. Constraints: - Must not match the name of an existing ``DBClusterParameterGroup`` . .. epigraph:: This value is stored as a lowercase string.
+        :param tags: The tags to be assigned to the cluster parameter group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf702887107dc3b6d0e1c2cf7a2f922b9fa66ae4817c7d3122ceaf8e3b958132)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBClusterParameterGroupProps(
+            description=description,
+            family=family,
+            parameters=parameters,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6a8171791541b174749473c2f0235ec8f6d2df6bcf47a0de97a3e0d0f5f4ba1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c1f45d655c3578d1faf53be5531c206b7adce79fc6ed731b32498a9f03d92eb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterParameterGroupRef")
+    def db_cluster_parameter_group_ref(self) -> DBClusterParameterGroupReference:
+        '''A reference to a DBClusterParameterGroup resource.'''
+        return typing.cast(DBClusterParameterGroupReference, jsii.get(self, "dbClusterParameterGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description for the cluster parameter group.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e27b4f0b3d2455b83e7b94d42a23c0c8ff2300e3ab6fba5c69d15cd9464adb7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="family")
+    def family(self) -> builtins.str:
+        '''The cluster parameter group family name.'''
+        return typing.cast(builtins.str, jsii.get(self, "family"))
+
+    @family.setter
+    def family(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6bdc5b6562ba3c1478a5fee7c979b6215b64e8bb2b58e86475cfde6421ae1272)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''Provides a list of parameters for the cluster parameter group.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__332a0d384ecea2c65bb972833483a0e813f12d76d753ec68ce55267e1a229804)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the DB cluster parameter group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__702d9cc13fd6cd2a95ea6c1b6615540be0c5afe0086986a3555d3d957840d35b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be assigned to the cluster parameter group.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e8ee52ae08b545bed27f58e883eee6b47f43f216f34098f0850a8bd9e024e08)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IDBInstanceRef, _ITaggable_36806126)
+class CfnDBInstance(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdb.CfnDBInstance",
+):
+    '''The ``AWS::DocDB::DBInstance`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBInstance.
+
+    For more information, see `DBInstance <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBInstance.html>`_ in the *Amazon DocumentDB Developer Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbinstance.html
+    :cloudformationResource: AWS::DocDB::DBInstance
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdb as docdb
+        
+        cfn_dBInstance = docdb.CfnDBInstance(self, "MyCfnDBInstance",
+            db_cluster_identifier="dbClusterIdentifier",
+            db_instance_class="dbInstanceClass",
+        
+            # the properties below are optional
+            auto_minor_version_upgrade=False,
+            availability_zone="availabilityZone",
+            ca_certificate_identifier="caCertificateIdentifier",
+            certificate_rotation_restart=False,
+            db_instance_identifier="dbInstanceIdentifier",
+            enable_performance_insights=False,
+            preferred_maintenance_window="preferredMaintenanceWindow",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        db_cluster_identifier: builtins.str,
+        db_instance_class: builtins.str,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        availability_zone: typing.Optional[builtins.str] = None,
+        ca_certificate_identifier: typing.Optional[builtins.str] = None,
+        certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        db_instance_identifier: typing.Optional[builtins.str] = None,
+        enable_performance_insights: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param db_cluster_identifier: The identifier of the cluster that the instance will belong to.
+        :param db_instance_class: The compute and memory capacity of the instance; for example, ``db.m4.large`` . If you change the class of an instance there can be some interruption in the cluster's service.
+        :param auto_minor_version_upgrade: This parameter does not apply to Amazon DocumentDB. Amazon DocumentDB does not perform minor version upgrades regardless of the value set. Default: ``false``
+        :param availability_zone: The Amazon EC2 Availability Zone that the instance is created in. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Example: ``us-east-1d``
+        :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
+        :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, see `Updating Your Amazon DocumentDB TLS Certificates <https://docs.aws.amazon.com/documentdb/latest/developerguide/ca_cert_rotation.html>`_ and `Encrypting Data in Transit <https://docs.aws.amazon.com/documentdb/latest/developerguide/security.encryption.ssl.html>`_ in the *Amazon DocumentDB Developer Guide* .
+        :param db_instance_identifier: The instance identifier. This parameter is stored as a lowercase string. Constraints: - Must contain from 1 to 63 letters, numbers, or hyphens. - The first character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens. Example: ``mydbinstance``
+        :param enable_performance_insights: A value that indicates whether to enable Performance Insights for the DB Instance. For more information, see `Using Amazon Performance Insights <https://docs.aws.amazon.com/documentdb/latest/developerguide/performance-insights.html>`_ .
+        :param preferred_maintenance_window: The time range each week during which system maintenance can occur, in Universal Coordinated Time (UTC). Format: ``ddd:hh24:mi-ddd:hh24:mi`` The default is a 30-minute window selected at random from an 8-hour block of time for each AWS Region , occurring on a random day of the week. Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun Constraints: Minimum 30-minute window.
+        :param tags: The tags to be assigned to the instance. You can assign up to 10 tags to an instance.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04a2ef738116d21f3bef48c2f9d0cccb18afe06fe39e0db6ce75d1bdded1b035)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBInstanceProps(
+            db_cluster_identifier=db_cluster_identifier,
+            db_instance_class=db_instance_class,
+            auto_minor_version_upgrade=auto_minor_version_upgrade,
+            availability_zone=availability_zone,
+            ca_certificate_identifier=ca_certificate_identifier,
+            certificate_rotation_restart=certificate_rotation_restart,
+            db_instance_identifier=db_instance_identifier,
+            enable_performance_insights=enable_performance_insights,
+            preferred_maintenance_window=preferred_maintenance_window,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8aa4ecf8be7edba47bf14689b009e670ad96cd741eff0a8cc1e1339f0d0c5e9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d07607ec8a7fcfd27494096e32588c2dca376fc583b6928247cc741a848498c0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpoint")
+    def attr_endpoint(self) -> builtins.str:
+        '''The connection endpoint for the instance.
+
+        For example: ``sample-cluster.cluster-abcdefghijkl.us-east-1.docdb.amazonaws.com`` .
+
+        :cloudformationAttribute: Endpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> builtins.str:
+        '''The port number on which the database accepts connections, such as ``27017`` .
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceRef")
+    def db_instance_ref(self) -> DBInstanceReference:
+        '''A reference to a DBInstance resource.'''
+        return typing.cast(DBInstanceReference, jsii.get(self, "dbInstanceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterIdentifier")
+    def db_cluster_identifier(self) -> builtins.str:
+        '''The identifier of the cluster that the instance will belong to.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbClusterIdentifier"))
+
+    @db_cluster_identifier.setter
+    def db_cluster_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80b91c5185212df44fcdfd50a3fc8af7618b82ddf9b010801f03aa6406893084)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceClass")
+    def db_instance_class(self) -> builtins.str:
+        '''The compute and memory capacity of the instance;'''
+        return typing.cast(builtins.str, jsii.get(self, "dbInstanceClass"))
+
+    @db_instance_class.setter
+    def db_instance_class(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__029c9f8b16eafbef2fc69d8acedeac66b64c5f54d4181c222b8ccdac9c799cf4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbInstanceClass", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="autoMinorVersionUpgrade")
+    def auto_minor_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''This parameter does not apply to Amazon DocumentDB.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "autoMinorVersionUpgrade"))
+
+    @auto_minor_version_upgrade.setter
+    def auto_minor_version_upgrade(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3cdf0adea06b9d8f482fb95fb33660d1499428dfa0cb77f3f07f118054cbc3a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EC2 Availability Zone that the instance is created in.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
+
+    @availability_zone.setter
+    def availability_zone(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c97a8d0db9d5aeae5aae1b2716ddc77dc210b628e704c9fb560f2e5f9f354e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificateIdentifier")
+    def ca_certificate_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the CA certificate for this DB instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caCertificateIdentifier"))
+
+    @ca_certificate_identifier.setter
+    def ca_certificate_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__193d56c7c2508ccdc280335b753057896277d8d04a5dd9d87dfc060e0516e242)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateRotationRestart")
+    def certificate_rotation_restart(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "certificateRotationRestart"))
+
+    @certificate_rotation_restart.setter
+    def certificate_rotation_restart(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a44cc71e239a50c2ba8e26c4a201166550e3b3b8d3dded99bc99c4e47f79b365)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateRotationRestart", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceIdentifier")
+    def db_instance_identifier(self) -> typing.Optional[builtins.str]:
+        '''The instance identifier.
+
+        This parameter is stored as a lowercase string.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbInstanceIdentifier"))
+
+    @db_instance_identifier.setter
+    def db_instance_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b45ff85dbf36b2c15a8a4b5e7ad1f0c9f9eb5577435cebd788a2606cbec6255)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enablePerformanceInsights")
+    def enable_performance_insights(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A value that indicates whether to enable Performance Insights for the DB Instance.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enablePerformanceInsights"))
+
+    @enable_performance_insights.setter
+    def enable_performance_insights(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9998ef6aa09a50a2905d1d918bc4bb893f66e90b164daccd2292eab9af3d6f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enablePerformanceInsights", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preferredMaintenanceWindow")
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''The time range each week during which system maintenance can occur, in Universal Coordinated Time (UTC).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "preferredMaintenanceWindow"))
+
+    @preferred_maintenance_window.setter
+    def preferred_maintenance_window(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1261d32bc82ad0c231ccfd241bb82acfe898707f947c36ba29797ffe6917fbd9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be assigned to the instance.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__112d9161916b1c4ecabe22178d1e136ce15dc818a63e39711e0c01b8a28b6e7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IDBSubnetGroupRef, _ITaggable_36806126)
+class CfnDBSubnetGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdb.CfnDBSubnetGroup",
+):
+    '''The ``AWS::DocDB::DBSubnetGroup`` Amazon DocumentDB (with MongoDB compatibility) resource describes a DBSubnetGroup.
+
+    subnet groups must contain at least one subnet in at least two Availability Zones in the AWS Region . For more information, see `DBSubnetGroup <https://docs.aws.amazon.com/documentdb/latest/developerguide/API_DBSubnetGroup.html>`_ in the *Amazon DocumentDB Developer Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbsubnetgroup.html
+    :cloudformationResource: AWS::DocDB::DBSubnetGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdb as docdb
+        
+        cfn_dBSubnet_group = docdb.CfnDBSubnetGroup(self, "MyCfnDBSubnetGroup",
+            db_subnet_group_description="dbSubnetGroupDescription",
+            subnet_ids=["subnetIds"],
+        
+            # the properties below are optional
+            db_subnet_group_name="dbSubnetGroupName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        db_subnet_group_description: builtins.str,
+        subnet_ids: typing.Sequence[builtins.str],
+        db_subnet_group_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param db_subnet_group_description: The description for the subnet group.
+        :param subnet_ids: The Amazon EC2 subnet IDs for the subnet group.
+        :param db_subnet_group_name: The name for the subnet group. This value is stored as a lowercase string. Constraints: Must contain no more than 255 letters, numbers, periods, underscores, spaces, or hyphens. Must not be default. Example: ``mySubnetgroup``
+        :param tags: The tags to be assigned to the subnet group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a66d84abf60ab10e544c9e2e5ed2d4cacef5cda174f0ec0ff1ac838ea0658570)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBSubnetGroupProps(
+            db_subnet_group_description=db_subnet_group_description,
+            subnet_ids=subnet_ids,
+            db_subnet_group_name=db_subnet_group_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__beed62a49f888c354df00668e95461321a595ecfb5f76ff1aaad757929b53ab8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a609b5a19927a1afc763cd7ea9c1e7c02e8337dedde50cdeb7a70895fd163d02)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupRef")
+    def db_subnet_group_ref(self) -> DBSubnetGroupReference:
+        '''A reference to a DBSubnetGroup resource.'''
+        return typing.cast(DBSubnetGroupReference, jsii.get(self, "dbSubnetGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupDescription")
+    def db_subnet_group_description(self) -> builtins.str:
+        '''The description for the subnet group.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbSubnetGroupDescription"))
+
+    @db_subnet_group_description.setter
+    def db_subnet_group_description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__850c5dced7314d3602ee9d080b8694a65dc2f4ffef020d657e4fa4fc2bf55025)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbSubnetGroupDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetIds")
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''The Amazon EC2 subnet IDs for the subnet group.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "subnetIds"))
+
+    @subnet_ids.setter
+    def subnet_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75553da48e99dee7463a4e6973f58dfe6c143be1e0a737b8d27cab2738646257)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbSubnetGroupName")
+    def db_subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the subnet group.
+
+        This value is stored as a lowercase string.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbSubnetGroupName"))
+
+    @db_subnet_group_name.setter
+    def db_subnet_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a461937c4bb0e819298839e96415d65e9462c00459cccb23d6147d4118f1cb74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be assigned to the subnet group.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2aa03e7aefbfc736e2e8595ebfa58a0fc955af7dd797db1d97f4d1a21cd9b635)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IEventSubscriptionRef)
+class CfnEventSubscription(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_docdb.CfnEventSubscription",
+):
+    '''Creates an Amazon DocumentDB event notification subscription.
+
+    This action requires a topic Amazon Resource Name (ARN) created by using the Amazon DocumentDB console, the Amazon SNS console, or the Amazon SNS API. To obtain an ARN with Amazon SNS, you must create a topic in Amazon SNS and subscribe to the topic. The ARN is displayed in the Amazon SNS console.
+
+    You can specify the type of source ( ``SourceType`` ) that you want to be notified of. You can also provide a list of Amazon DocumentDB sources ( ``SourceIds`` ) that trigger the events, and you can provide a list of event categories ( ``EventCategories`` ) for events that you want to be notified of. For example, you can specify ``SourceType = db-instance`` , ``SourceIds = mydbinstance1, mydbinstance2`` and ``EventCategories = Availability, Backup`` .
+
+    If you specify both the ``SourceType`` and ``SourceIds`` (such as ``SourceType = db-instance`` and ``SourceIdentifier = myDBInstance1`` ), you are notified of all the ``db-instance`` events for the specified source. If you specify a ``SourceType`` but do not specify a ``SourceIdentifier`` , you receive notice of the events for that source type for all your Amazon DocumentDB sources. If you do not specify either the ``SourceType`` or the ``SourceIdentifier`` , you are notified of events generated from all Amazon DocumentDB sources belonging to your customer account.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-eventsubscription.html
+    :cloudformationResource: AWS::DocDB::EventSubscription
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_docdb as docdb
+        
+        cfn_event_subscription = docdb.CfnEventSubscription(self, "MyCfnEventSubscription",
+            sns_topic_arn="snsTopicArn",
+        
+            # the properties below are optional
+            enabled=False,
+            event_categories=["eventCategories"],
+            source_ids=["sourceIds"],
+            source_type="sourceType",
+            subscription_name="subscriptionName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        sns_topic_arn: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source_type: typing.Optional[builtins.str] = None,
+        subscription_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the SNS topic created for event notification. Amazon SNS creates the ARN when you create a topic and subscribe to it.
+        :param enabled: A Boolean value; set to ``true`` to activate the subscription, set to ``false`` to create the subscription but not active it.
+        :param event_categories: A list of event categories for a ``SourceType`` that you want to subscribe to.
+        :param source_ids: The list of identifiers of the event sources for which events are returned. If not specified, then all sources are included in the response. An identifier must begin with a letter and must contain only ASCII letters, digits, and hyphens; it can't end with a hyphen or contain two consecutive hyphens. Constraints: - If ``SourceIds`` are provided, ``SourceType`` must also be provided. - If the source type is an instance, a ``DBInstanceIdentifier`` must be provided. - If the source type is a security group, a ``DBSecurityGroupName`` must be provided. - If the source type is a parameter group, a ``DBParameterGroupName`` must be provided. - If the source type is a snapshot, a ``DBSnapshotIdentifier`` must be provided.
+        :param source_type: The type of source that is generating the events. For example, if you want to be notified of events generated by an instance, you would set this parameter to ``db-instance`` . If this value is not specified, all events are returned. Valid values: ``db-instance`` , ``db-cluster`` , ``db-parameter-group`` , ``db-security-group`` , ``db-cluster-snapshot``
+        :param subscription_name: The name of the subscription. Constraints: The name must be fewer than 255 characters.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40f8dfdc0873c60465b0acfa4f2aa03b6140bfeab2b2555ea12d442d945dfd8d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEventSubscriptionProps(
+            sns_topic_arn=sns_topic_arn,
+            enabled=enabled,
+            event_categories=event_categories,
+            source_ids=source_ids,
+            source_type=source_type,
+            subscription_name=subscription_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a78e07c2239bdb281b28e228142106e2611c29c9ef30abda83a7f24a14f057f3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dffd722e143a1ef7621bed14bf1e5f3eba17e8d691035f5a6cacf368c62db770)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSubscriptionRef")
+    def event_subscription_ref(self) -> EventSubscriptionReference:
+        '''A reference to a EventSubscription resource.'''
+        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snsTopicArn")
+    def sns_topic_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the SNS topic created for event notification.'''
+        return typing.cast(builtins.str, jsii.get(self, "snsTopicArn"))
+
+    @sns_topic_arn.setter
+    def sns_topic_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbdf559b24615e45ddf5c69cfd3641d78184cbadf589ae301537d02c4bdfbb7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A Boolean value;'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0516058187ff1e96246f1be785eb949dc458861e2393e993f4c6296a87f1163f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventCategories")
+    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of event categories for a ``SourceType`` that you want to subscribe to.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "eventCategories"))
+
+    @event_categories.setter
+    def event_categories(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7d499d907468c66313404015876f161704901bbddf0fb60ec8014aa0ff32682)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventCategories", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceIds")
+    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of identifiers of the event sources for which events are returned.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "sourceIds"))
+
+    @source_ids.setter
+    def source_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__408c6e4d5c088c34a6428d6bc56a0cd33158f2b01c56372df307cb6d9bd2c844)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceType")
+    def source_type(self) -> typing.Optional[builtins.str]:
+        '''The type of source that is generating the events.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceType"))
+
+    @source_type.setter
+    def source_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d09ba07ebf0ad0a63b9515db6dee97880048766ce1683054a3c9d864abe3a39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionName")
+    def subscription_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the subscription.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "subscriptionName"))
+
+    @subscription_name.setter
+    def subscription_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d7bc2e62bb3b2b35f63e5b6a8a20e68b3082eb38625b5f563734f9659b0f148)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.implements(IClusterParameterGroup)
@@ -5881,6 +6362,10 @@ __all__ = [
     "CfnEventSubscriptionProps",
     "ClusterParameterGroup",
     "ClusterParameterGroupProps",
+    "DBClusterParameterGroupReference",
+    "DBClusterReference",
+    "DBInstanceReference",
+    "DBSubnetGroupReference",
     "DatabaseCluster",
     "DatabaseClusterAttributes",
     "DatabaseClusterProps",
@@ -5890,9 +6375,15 @@ __all__ = [
     "DatabaseSecret",
     "DatabaseSecretProps",
     "Endpoint",
+    "EventSubscriptionReference",
     "IClusterParameterGroup",
+    "IDBClusterParameterGroupRef",
+    "IDBClusterRef",
+    "IDBInstanceRef",
+    "IDBSubnetGroupRef",
     "IDatabaseCluster",
     "IDatabaseInstance",
+    "IEventSubscriptionRef",
     "Login",
     "RotationMultiUserOptions",
     "StorageType",
@@ -5910,6 +6401,256 @@ def _typecheckingstub__ee6fe0fa77944f4ac01bc65293ff8588d9093a5a1b3fa48a6bab1d3e7
 
 def _typecheckingstub__12afe9cc79eeaf5e583167389fab10fd90ade8f1fee3c8f0119c02136d36047f(
     identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ece7bd2ef5aeaa71e7436ee669c393da120bf9e46815bde86b3caa96d817ca2(
+    *,
+    description: builtins.str,
+    family: builtins.str,
+    parameters: typing.Any,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e1a4213f95bc5df31b056bdc5858ecdc49954b349d7a647b8775edf506b3937(
+    *,
+    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+    backup_retention_period: typing.Optional[jsii.Number] = None,
+    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    db_cluster_identifier: typing.Optional[builtins.str] = None,
+    db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+    db_subnet_group_name: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    global_cluster_identifier: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    manage_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    master_username: typing.Optional[builtins.str] = None,
+    master_user_password: typing.Optional[builtins.str] = None,
+    master_user_secret_kms_key_id: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    preferred_backup_window: typing.Optional[builtins.str] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    restore_to_time: typing.Optional[builtins.str] = None,
+    restore_type: typing.Optional[builtins.str] = None,
+    rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_identifier: typing.Optional[builtins.str] = None,
+    source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    storage_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6b430cf173b240abd94bd08d8d0a6aca474ffd0faaf1592b8a71dbba504f407(
+    *,
+    db_cluster_identifier: builtins.str,
+    db_instance_class: builtins.str,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    ca_certificate_identifier: typing.Optional[builtins.str] = None,
+    certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    db_instance_identifier: typing.Optional[builtins.str] = None,
+    enable_performance_insights: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a557322d49da14bfd89b62840e1cf819fbe27ee6b0c3d31a486b4494d8caa118(
+    *,
+    db_subnet_group_description: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    db_subnet_group_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92e72afa83105140ea15cc6ce1340e83894ccd39b3b2bb6575b33f8fa505c2e7(
+    *,
+    sns_topic_arn: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source_type: typing.Optional[builtins.str] = None,
+    subscription_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__491f89cfa8a5f727c317b5eded8174371b0bb8ddb08980d3f8ad7e3c0bf535e0(
+    *,
+    family: builtins.str,
+    parameters: typing.Mapping[builtins.str, builtins.str],
+    db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4609e0ad041fbb92bd48423fdb1d48227710acce7257e45b9a9e68616c731da8(
+    *,
+    db_cluster_parameter_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a586502e51d5bc32b82895460d52e53c1d0d09a1b48fc4bf21e37e2cbfcbdb0b(
+    *,
+    db_cluster_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1216b64dd87de3fbd851e1c765811d0cf20de25d58c0bf7e365c759f3ca3a1f(
+    *,
+    db_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6799e316198c0d43ca7787d9ed5de045e15cded02e1d71c4ef905b212757c12(
+    *,
+    db_subnet_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7aaa09fc3d83b3aef333d99a0eb22e9b6c412979a1f20e5f22628ebd96268af(
+    *,
+    cluster_identifier: builtins.str,
+    cluster_endpoint_address: typing.Optional[builtins.str] = None,
+    instance_endpoint_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    port: typing.Optional[jsii.Number] = None,
+    reader_endpoint_address: typing.Optional[builtins.str] = None,
+    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb24ec128a97ca07df15f55d4e96dda851d4300951806a7a3d7f391cc4e83218(
+    *,
+    instance_type: _InstanceType_f64915b9,
+    master_user: typing.Union[Login, typing.Dict[builtins.str, typing.Any]],
+    vpc: _IVpc_f30d5663,
+    backup: typing.Optional[typing.Union[BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    ca_certificate: typing.Optional[_CaCertificate_e77d2630] = None,
+    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
+    cloud_watch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
+    copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    db_cluster_name: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
+    enable_performance_insights: typing.Optional[builtins.bool] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
+    export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
+    instance_identifier_base: typing.Optional[builtins.str] = None,
+    instance_removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    instances: typing.Optional[jsii.Number] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    parameter_group: typing.Optional[IClusterParameterGroup] = None,
+    port: typing.Optional[jsii.Number] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    security_group_removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    storage_encrypted: typing.Optional[builtins.bool] = None,
+    storage_type: typing.Optional[StorageType] = None,
+    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36cfeaaeef4180fd2afc1ee16f95e19c74c9cfb8467158fc246cb7a17eb3928d(
+    *,
+    instance_endpoint_address: builtins.str,
+    instance_identifier: builtins.str,
+    port: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__676d69b0db2a30b5f20b867ed1d439431b0f7d419a335b2a51aaaf2086c68ada(
+    *,
+    cluster: IDatabaseCluster,
+    instance_type: _InstanceType_f64915b9,
+    auto_minor_version_upgrade: typing.Optional[builtins.bool] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    ca_certificate: typing.Optional[_CaCertificate_e77d2630] = None,
+    db_instance_name: typing.Optional[builtins.str] = None,
+    enable_performance_insights: typing.Optional[builtins.bool] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__301107b66199648127d17d20860dbe803a3d87431e52d4f9d2abc79de870219d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    username: builtins.str,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    exclude_characters: typing.Optional[builtins.str] = None,
+    master_secret: typing.Optional[_ISecret_6e020e6a] = None,
+    secret_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__343a21f1e686a5045ca07e1bbabf751aca7546abb7d6b4c6e772a1cb90dac5ee(
+    *,
+    username: builtins.str,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    exclude_characters: typing.Optional[builtins.str] = None,
+    master_secret: typing.Optional[_ISecret_6e020e6a] = None,
+    secret_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86090f1fcbb1fc65cf7280e237e3b30c007e6df106c58878ed05e8214070d42a(
+    address: builtins.str,
+    port: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10f4c8eb9a681eba6817d05c2a1da95e6540cb113bb69f781635977381c81ef7(
+    *,
+    event_subscription_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dad38367cfec515cace70ff9a772ed28e36ab2501b59860e254c77fa2f51a005(
+    *,
+    username: builtins.str,
+    exclude_characters: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    password: typing.Optional[_SecretValue_3dd0ddae] = None,
+    secret_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__222dd3344c65bc26a3a94843e3f6ff30239e319d6a229dd3bdf41ceb343c10f8(
+    *,
+    secret: _ISecret_6e020e6a,
+    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6207,53 +6948,6 @@ def _typecheckingstub__6e8ee52ae08b545bed27f58e883eee6b47f43f216f34098f0850a8bd9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7ece7bd2ef5aeaa71e7436ee669c393da120bf9e46815bde86b3caa96d817ca2(
-    *,
-    description: builtins.str,
-    family: builtins.str,
-    parameters: typing.Any,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e1a4213f95bc5df31b056bdc5858ecdc49954b349d7a647b8775edf506b3937(
-    *,
-    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    backup_retention_period: typing.Optional[jsii.Number] = None,
-    copy_tags_to_snapshot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    db_cluster_identifier: typing.Optional[builtins.str] = None,
-    db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    db_subnet_group_name: typing.Optional[builtins.str] = None,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    global_cluster_identifier: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    manage_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    master_username: typing.Optional[builtins.str] = None,
-    master_user_password: typing.Optional[builtins.str] = None,
-    master_user_secret_kms_key_id: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    preferred_backup_window: typing.Optional[builtins.str] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    restore_to_time: typing.Optional[builtins.str] = None,
-    restore_type: typing.Optional[builtins.str] = None,
-    rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snapshot_identifier: typing.Optional[builtins.str] = None,
-    source_db_cluster_identifier: typing.Optional[builtins.str] = None,
-    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    storage_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_latest_restorable_time: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__04a2ef738116d21f3bef48c2f9d0cccb18afe06fe39e0db6ce75d1bdded1b035(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6344,22 +7038,6 @@ def _typecheckingstub__112d9161916b1c4ecabe22178d1e136ce15dc818a63e39711e0c01b8a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a6b430cf173b240abd94bd08d8d0a6aca474ffd0faaf1592b8a71dbba504f407(
-    *,
-    db_cluster_identifier: builtins.str,
-    db_instance_class: builtins.str,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    availability_zone: typing.Optional[builtins.str] = None,
-    ca_certificate_identifier: typing.Optional[builtins.str] = None,
-    certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    db_instance_identifier: typing.Optional[builtins.str] = None,
-    enable_performance_insights: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a66d84abf60ab10e544c9e2e5ed2d4cacef5cda174f0ec0ff1ac838ea0658570(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6404,16 +7082,6 @@ def _typecheckingstub__a461937c4bb0e819298839e96415d65e9462c00459cccb23d6147d411
 
 def _typecheckingstub__2aa03e7aefbfc736e2e8595ebfa58a0fc955af7dd797db1d97f4d1a21cd9b635(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a557322d49da14bfd89b62840e1cf819fbe27ee6b0c3d31a486b4494d8caa118(
-    *,
-    db_subnet_group_description: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    db_subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6476,148 +7144,6 @@ def _typecheckingstub__2d09ba07ebf0ad0a63b9515db6dee97880048766ce1683054a3c9d864
 
 def _typecheckingstub__8d7bc2e62bb3b2b35f63e5b6a8a20e68b3082eb38625b5f563734f9659b0f148(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92e72afa83105140ea15cc6ce1340e83894ccd39b3b2bb6575b33f8fa505c2e7(
-    *,
-    sns_topic_arn: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_type: typing.Optional[builtins.str] = None,
-    subscription_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__491f89cfa8a5f727c317b5eded8174371b0bb8ddb08980d3f8ad7e3c0bf535e0(
-    *,
-    family: builtins.str,
-    parameters: typing.Mapping[builtins.str, builtins.str],
-    db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d7aaa09fc3d83b3aef333d99a0eb22e9b6c412979a1f20e5f22628ebd96268af(
-    *,
-    cluster_identifier: builtins.str,
-    cluster_endpoint_address: typing.Optional[builtins.str] = None,
-    instance_endpoint_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
-    instance_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    port: typing.Optional[jsii.Number] = None,
-    reader_endpoint_address: typing.Optional[builtins.str] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb24ec128a97ca07df15f55d4e96dda851d4300951806a7a3d7f391cc4e83218(
-    *,
-    instance_type: _InstanceType_f64915b9,
-    master_user: typing.Union[Login, typing.Dict[builtins.str, typing.Any]],
-    vpc: _IVpc_f30d5663,
-    backup: typing.Optional[typing.Union[BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    ca_certificate: typing.Optional[_CaCertificate_e77d2630] = None,
-    cloud_watch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
-    cloud_watch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
-    copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
-    db_cluster_name: typing.Optional[builtins.str] = None,
-    deletion_protection: typing.Optional[builtins.bool] = None,
-    enable_performance_insights: typing.Optional[builtins.bool] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
-    export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
-    instance_identifier_base: typing.Optional[builtins.str] = None,
-    instance_removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    instances: typing.Optional[jsii.Number] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    parameter_group: typing.Optional[IClusterParameterGroup] = None,
-    port: typing.Optional[jsii.Number] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    security_group_removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    storage_encrypted: typing.Optional[builtins.bool] = None,
-    storage_type: typing.Optional[StorageType] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__36cfeaaeef4180fd2afc1ee16f95e19c74c9cfb8467158fc246cb7a17eb3928d(
-    *,
-    instance_endpoint_address: builtins.str,
-    instance_identifier: builtins.str,
-    port: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__676d69b0db2a30b5f20b867ed1d439431b0f7d419a335b2a51aaaf2086c68ada(
-    *,
-    cluster: IDatabaseCluster,
-    instance_type: _InstanceType_f64915b9,
-    auto_minor_version_upgrade: typing.Optional[builtins.bool] = None,
-    availability_zone: typing.Optional[builtins.str] = None,
-    ca_certificate: typing.Optional[_CaCertificate_e77d2630] = None,
-    db_instance_name: typing.Optional[builtins.str] = None,
-    enable_performance_insights: typing.Optional[builtins.bool] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__301107b66199648127d17d20860dbe803a3d87431e52d4f9d2abc79de870219d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    username: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    exclude_characters: typing.Optional[builtins.str] = None,
-    master_secret: typing.Optional[_ISecret_6e020e6a] = None,
-    secret_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__343a21f1e686a5045ca07e1bbabf751aca7546abb7d6b4c6e772a1cb90dac5ee(
-    *,
-    username: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    exclude_characters: typing.Optional[builtins.str] = None,
-    master_secret: typing.Optional[_ISecret_6e020e6a] = None,
-    secret_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86090f1fcbb1fc65cf7280e237e3b30c007e6df106c58878ed05e8214070d42a(
-    address: builtins.str,
-    port: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dad38367cfec515cace70ff9a772ed28e36ab2501b59860e254c77fa2f51a005(
-    *,
-    username: builtins.str,
-    exclude_characters: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    password: typing.Optional[_SecretValue_3dd0ddae] = None,
-    secret_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__222dd3344c65bc26a3a94843e3f6ff30239e319d6a229dd3bdf41ceb343c10f8(
-    *,
-    secret: _ISecret_6e020e6a,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -78,7 +78,204 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bcmdataexports.CfnExportProps",
+    jsii_struct_bases=[],
+    name_mapping={"export": "export", "tags": "tags"},
+)
+class CfnExportProps:
+    def __init__(
+        self,
+        *,
+        export: typing.Union[_IResolvable_da3f097b, typing.Union["CfnExport.ExportProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnExport.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExport``.
+
+        :param export: The details that are available for an export.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bcmdataexports as bcmdataexports
+            
+            cfn_export_props = bcmdataexports.CfnExportProps(
+                export=bcmdataexports.CfnExport.ExportProperty(
+                    data_query=bcmdataexports.CfnExport.DataQueryProperty(
+                        query_statement="queryStatement",
+            
+                        # the properties below are optional
+                        table_configurations={
+                            "table_configurations_key": {
+                                "table_configurations_key": "tableConfigurations"
+                            }
+                        }
+                    ),
+                    destination_configurations=bcmdataexports.CfnExport.DestinationConfigurationsProperty(
+                        s3_destination=bcmdataexports.CfnExport.S3DestinationProperty(
+                            s3_bucket="s3Bucket",
+                            s3_output_configurations=bcmdataexports.CfnExport.S3OutputConfigurationsProperty(
+                                compression="compression",
+                                format="format",
+                                output_type="outputType",
+                                overwrite="overwrite"
+                            ),
+                            s3_prefix="s3Prefix",
+                            s3_region="s3Region"
+                        )
+                    ),
+                    name="name",
+                    refresh_cadence=bcmdataexports.CfnExport.RefreshCadenceProperty(
+                        frequency="frequency"
+                    ),
+            
+                    # the properties below are optional
+                    description="description",
+                    export_arn="exportArn"
+                ),
+            
+                # the properties below are optional
+                tags=[bcmdataexports.CfnExport.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31)
+            check_type(argname="argument export", value=export, expected_type=type_hints["export"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "export": export,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def export(self) -> typing.Union[_IResolvable_da3f097b, "CfnExport.ExportProperty"]:
+        '''The details that are available for an export.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html#cfn-bcmdataexports-export-export
+        '''
+        result = self._values.get("export")
+        assert result is not None, "Required property 'export' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnExport.ExportProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnExport.ResourceTagProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html#cfn-bcmdataexports-export-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnExport.ResourceTagProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExportProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bcmdataexports.ExportReference",
+    jsii_struct_bases=[],
+    name_mapping={"export_arn": "exportArn"},
+)
+class ExportReference:
+    def __init__(self, *, export_arn: builtins.str) -> None:
+        '''A reference to a Export resource.
+
+        :param export_arn: The ExportArn of the Export resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bcmdataexports as bcmdataexports
+            
+            export_reference = bcmdataexports.ExportReference(
+                export_arn="exportArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94203638fcd644a789f20703401a82a45f1a516ca5729563dfe3441fa42dfa5d)
+            check_type(argname="argument export_arn", value=export_arn, expected_type=type_hints["export_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "export_arn": export_arn,
+        }
+
+    @builtins.property
+    def export_arn(self) -> builtins.str:
+        '''The ExportArn of the Export resource.'''
+        result = self._values.get("export_arn")
+        assert result is not None, "Required property 'export_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExportReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bcmdataexports.IExportRef")
+class IExportRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Export.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> ExportReference:
+        '''(experimental) A reference to a Export resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExportRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Export.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bcmdataexports.IExportRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> ExportReference:
+        '''(experimental) A reference to a Export resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ExportReference, jsii.get(self, "exportRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExportRef).__jsii_proxy_class__ = lambda : _IExportRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IExportRef, _ITaggableV2_4e6798f8)
 class CfnExport(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -216,6 +413,12 @@ class CfnExport(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> ExportReference:
+        '''A reference to a Export resource.'''
+        return typing.cast(ExportReference, jsii.get(self, "exportRef"))
 
     @builtins.property
     @jsii.member(jsii_name="export")
@@ -909,120 +1112,29 @@ class CfnExport(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bcmdataexports.CfnExportProps",
-    jsii_struct_bases=[],
-    name_mapping={"export": "export", "tags": "tags"},
-)
-class CfnExportProps:
-    def __init__(
-        self,
-        *,
-        export: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnExport.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnExport``.
-
-        :param export: The details that are available for an export.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bcmdataexports as bcmdataexports
-            
-            cfn_export_props = bcmdataexports.CfnExportProps(
-                export=bcmdataexports.CfnExport.ExportProperty(
-                    data_query=bcmdataexports.CfnExport.DataQueryProperty(
-                        query_statement="queryStatement",
-            
-                        # the properties below are optional
-                        table_configurations={
-                            "table_configurations_key": {
-                                "table_configurations_key": "tableConfigurations"
-                            }
-                        }
-                    ),
-                    destination_configurations=bcmdataexports.CfnExport.DestinationConfigurationsProperty(
-                        s3_destination=bcmdataexports.CfnExport.S3DestinationProperty(
-                            s3_bucket="s3Bucket",
-                            s3_output_configurations=bcmdataexports.CfnExport.S3OutputConfigurationsProperty(
-                                compression="compression",
-                                format="format",
-                                output_type="outputType",
-                                overwrite="overwrite"
-                            ),
-                            s3_prefix="s3Prefix",
-                            s3_region="s3Region"
-                        )
-                    ),
-                    name="name",
-                    refresh_cadence=bcmdataexports.CfnExport.RefreshCadenceProperty(
-                        frequency="frequency"
-                    ),
-            
-                    # the properties below are optional
-                    description="description",
-                    export_arn="exportArn"
-                ),
-            
-                # the properties below are optional
-                tags=[bcmdataexports.CfnExport.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31)
-            check_type(argname="argument export", value=export, expected_type=type_hints["export"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "export": export,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def export(self) -> typing.Union[_IResolvable_da3f097b, CfnExport.ExportProperty]:
-        '''The details that are available for an export.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html#cfn-bcmdataexports-export-export
-        '''
-        result = self._values.get("export")
-        assert result is not None, "Required property 'export' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnExport.ExportProperty], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnExport.ResourceTagProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bcmdataexports-export.html#cfn-bcmdataexports-export-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnExport.ResourceTagProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnExportProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnExport",
     "CfnExportProps",
+    "ExportReference",
+    "IExportRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31(
+    *,
+    export: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnExport.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94203638fcd644a789f20703401a82a45f1a516ca5729563dfe3441fa42dfa5d(
+    *,
+    export_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__b2bcca1af59fac907ca8714563d055c566e701daae8450fde60df7c0e3d3db64(
     scope: _constructs_77d1e7e8.Construct,
@@ -1116,14 +1228,6 @@ def _typecheckingstub__921d4e97c7f0398e33206f9dc2808c5bbe6f9ab0df93b16ab6e4b3315
     format: builtins.str,
     output_type: builtins.str,
     overwrite: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0f07a9b27578e3470b9f0c00c3d616068c70c252cc5f2b23f3ae0e27d9b81b31(
-    *,
-    export: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExport.ExportProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnExport.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -9,6 +9,7 @@ import responses  # type: ignore
 
 from launchable.commands.record.tests import INVALID_TIMESTAMP, parse_launchable_timeformat
 from launchable.utils.http_client import get_base_url
+from launchable.utils.link import LinkKind
 from launchable.utils.no_build import NO_BUILD_BUILD_NAME, NO_BUILD_TEST_SESSION_ID
 from launchable.utils.session import write_build, write_session
 from tests.cli_test_case import CliTestCase
@@ -107,3 +108,106 @@ class TestsTest(CliTestCase):
 
         self.assert_success(result)
         self.assertIn("Total test duration is 0.", result.output)
+
+    @responses.activate
+    @mock.patch.dict(os.environ, {
+        "LAUNCHABLE_TOKEN": CliTestCase.launchable_token,
+        "GITHUB_PULL_REQUEST_URL": "https://github.com/launchableinc/cli/pull/1",
+    }, clear=True)
+    def test_with_links(self):
+        # Endpoint to assert
+        endpoint = "{}/intake/organizations/{}/workspaces/{}/builds/{}/test_sessions".format(
+            get_base_url(),
+            self.organization,
+            self.workspace,
+            self.build_name)
+
+        # Capture from environment
+        write_build(self.build_name)
+        result = self.cli("record", "tests", "--build", self.build_name, 'maven', str(self.report_files_dir) + "**/reports/")
+        self.assert_success(result)
+        payload = json.loads(self.find_request(endpoint, 0).request.body.decode())
+        self.assertEqual([{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "",
+            "url": "https://github.com/launchableinc/cli/pull/1",
+        }], payload["links"])
+
+        # Priority check
+        write_build(self.build_name)
+        result = self.cli("record", "tests", "--build", self.build_name, "--link",
+                          "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/2", 'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assert_success(result)
+        payload = json.loads(self.find_request(endpoint, 1).request.body.decode())
+        self.assertEqual([{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/2",
+        }], payload["links"])
+
+        # Infer kind
+        write_build(self.build_name)
+        result = self.cli("record",
+                          "tests",
+                          "--build",
+                          self.build_name,
+                          "--link",
+                          "PR=https://github.com/launchableinc/cli/pull/2",
+                          'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assert_success(result)
+        payload = json.loads(self.find_request(endpoint, 2).request.body.decode())
+        self.assertEqual([{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/2",
+        }], payload["links"])
+
+        # Explicit kind
+        write_build(self.build_name)
+        result = self.cli("record", "tests", "--build", self.build_name, "--link",
+                          "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/2", 'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assert_success(result)
+        payload = json.loads(self.find_request(endpoint, 3).request.body.decode())
+        self.assertEqual([{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/2",
+        }], payload["links"])
+
+        # Invalid kind
+        write_build(self.build_name)
+        result = self.cli("record",
+                          "tests",
+                          "--build",
+                          self.build_name,
+                          "--link",
+                          "UNKNOWN_KIND|PR=https://github.com/launchableinc/cli/pull/2",
+                          'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assertIn("Invalid kind 'UNKNOWN_KIND' passed to --link option", result.output)
+
+        # Invalid URL
+        write_build(self.build_name)
+        result = self.cli("record", "tests", "--build", self.build_name, "--link",
+                          "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/2/files", 'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assertIn("Invalid url 'https://github.com/launchableinc/cli/pull/2/files' passed to --link option", result.output)
+
+        # With --session flag
+        write_session(self.build_name, self.session)
+        result = self.cli("record", "tests", "--session", self.session, "--link",
+                          "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/2/files", 'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assertIn("WARNING: `--link` and `--session` are set together", result.output)
+        self.assert_success(result)
+
+        # Existing session
+        write_session(self.build_name, self.session)
+        result = self.cli("record", "tests", "--link",
+                          "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/2/files", 'maven',
+                          str(self.report_files_dir) + "**/reports/")
+        self.assertIn("WARNING: --link option is ignored since session already exists", result.output)
+        self.assert_success(result)

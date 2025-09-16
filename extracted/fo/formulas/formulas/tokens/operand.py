@@ -9,6 +9,7 @@
 """
 It provides Operand classes.
 """
+import collections
 
 # noinspection PyCompatibility
 import regex
@@ -33,6 +34,7 @@ REF = XlError('#REF!')
 NUM = XlError('#NUM!')
 NAME = XlError('#NAME?')
 NA = XlError('#N/A')
+GETTING_DATA = XlError('#GETTING_DATA')
 
 
 class Operand(Token):
@@ -56,7 +58,7 @@ class String(Operand):
 
 class Empty(Operand):
     # noinspection PyMissingConstructor
-    def __init__(self):
+    def __init__(self, context=None, parser=None):
         self.source, self.attr = None, {'name': ''}
 
     @staticmethod
@@ -65,7 +67,7 @@ class Empty(Operand):
 
 
 _re_error = regex.compile(r'''
-    ^\s*(?>
+    ^\s*(?P<error>(?>
         (?>
             '(\[(?>[^\[\]]+)\])?
             (?>(?>''|[^\?!*\/\[\]':"])+)?'
@@ -76,13 +78,16 @@ _re_error = regex.compile(r'''
         |
             '(?>(?>''|[^\?!*\/\[\]':"])+)'
         )!
-    )?(?P<name>\#(?>NULL!|DIV/0!|VALUE!|REF!|NUM!|NAME\?|N/A))\s*
+    )?(?P<name>\#(?>NULL!|DIV/0!|VALUE!|REF!|NUM!|NAME\?|N/A|GETTING_DATA)))\s*
 ''', regex.IGNORECASE | regex.X | regex.DOTALL)
 
 
 class Error(Operand):
     _re = _re_error
-    errors = {str(k): k for k in (NULL, DIV, VALUE, REF, NUM, NAME, NA)}
+    errors = collections.OrderedDict(
+        (str(k), k) for k in
+        (NULL, DIV, VALUE, REF, NAME, NUM, NA, GETTING_DATA)
+    )
 
     def compile(self):
         return self.errors[self.name.upper()]
@@ -133,7 +138,7 @@ _re_range = r"""
         (?>
             (?>
                 (?>
-                    \$?(?P<c1>[A-Z]{1,3})?\$?(?P<r1>[1-9]\d*)?
+                    (?>\$?(?P<c1>[A-Z]{1,3}))?(?>\$?(?P<r1>[1-9]\d*))?
                     (?>:\$?(?P<c2>[A-Z]{1,3}))(\$?(?P<r2>[1-9]\d*))?
                 )
             |
@@ -360,7 +365,7 @@ def range2parts(outputs, **inputs):
 class Range(Operand):
     _re = _re_range
 
-    def process(self, match, context=None):
+    def process(self, match, context=None, parser=None):
         d = super(Range, self).process(match)
         if len(d) <= 1 and 'indirect' not in d and 'ref' in d:
             try:

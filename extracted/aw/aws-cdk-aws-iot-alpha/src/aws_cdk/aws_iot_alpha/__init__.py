@@ -153,7 +153,7 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
     check_configuration=iot.CheckConfiguration(
         device_certificate_age_check=True,
         # The default value is 365 days
-        # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+        # Valid values range from 30 days (minimum) to 3650 days (10 years, maximum)
         device_certificate_age_check_duration=Duration.days(365)
     )
 )
@@ -264,7 +264,7 @@ class AccountAuditConfigurationProps:
                 check_configuration=iot.CheckConfiguration(
                     device_certificate_age_check=True,
                     # The default value is 365 days
-                    # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+                    # Valid values range from 30 days (minimum) to 3650 days (10 years, maximum)
                     device_certificate_age_check_duration=Duration.days(365)
                 )
             )
@@ -781,7 +781,7 @@ class CheckConfiguration:
         :param ca_certificate_key_quality_check: (experimental) Checks the quality of the CA certificate key. The quality checks if the key is in a valid format, not expired, and if the key meets a minimum required size. This check applies to CA certificates that are ACTIVE or PENDING_TRANSFER. Default: true
         :param conflicting_client_ids_check: (experimental) Checks if multiple devices connect using the same client ID. Default: true
         :param device_certificate_age_check: (experimental) Checks when a device certificate has been active for a number of days greater than or equal to the number you specify. Default: true
-        :param device_certificate_age_check_duration: (experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify. Valid values range from 30 days (minimum) to 3652 days (10 years, maximum). You cannot specify a value for this check if ``deviceCertificateAgeCheck`` is set to ``false``. Default: - 365 days
+        :param device_certificate_age_check_duration: (experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify. Valid values range from 30 days (minimum) to 3650 days (10 years, maximum). You cannot specify a value for this check if ``deviceCertificateAgeCheck`` is set to ``false``. Default: - 365 days
         :param device_certificate_expiring_check: (experimental) Checks if a device certificate is expiring. This check applies to device certificates expiring within 30 days or that have expired. Default: true
         :param device_certificate_key_quality_check: (experimental) Checks the quality of the device certificate key. The quality checks if the key is in a valid format, not expired, signed by a registered certificate authority, and if the key meets a minimum required size. Default: true
         :param device_certificate_shared_check: (experimental) Checks if multiple concurrent connections use the same X.509 certificate to authenticate with AWS IoT. Default: true
@@ -956,7 +956,7 @@ class CheckConfiguration:
     ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
         '''(experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify.
 
-        Valid values range from 30 days (minimum) to 3652 days (10 years, maximum).
+        Valid values range from 30 days (minimum) to 3650 days (10 years, maximum).
 
         You cannot specify a value for this check if ``deviceCertificateAgeCheck`` is set to ``false``.
 
@@ -2655,7 +2655,7 @@ class AccountAuditConfiguration(
             check_configuration=iot.CheckConfiguration(
                 device_certificate_age_check=True,
                 # The default value is 365 days
-                # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+                # Valid values range from 30 days (minimum) to 3650 days (10 years, maximum)
                 device_certificate_age_check_duration=Duration.days(365)
             )
         )

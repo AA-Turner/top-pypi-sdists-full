@@ -124,6 +124,8 @@ def find_or_create_session(
     session_id = read_session(saved_build_name)
     if session_id:
         _check_observation_mode_status(session_id, is_observation, tracking_client=tracking_client, app=context.obj)
+        if links:
+            click.echo(click.style("WARNING: --link option is ignored since session already exists."), err=True)
         return session_id
 
     context.invoke(

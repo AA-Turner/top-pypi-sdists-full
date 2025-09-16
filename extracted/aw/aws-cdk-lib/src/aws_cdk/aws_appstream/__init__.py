@@ -70,7 +70,3840 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.AppBlockBuilderReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_block_builder_arn": "appBlockBuilderArn",
+        "app_block_builder_name": "appBlockBuilderName",
+    },
+)
+class AppBlockBuilderReference:
+    def __init__(
+        self,
+        *,
+        app_block_builder_arn: builtins.str,
+        app_block_builder_name: builtins.str,
+    ) -> None:
+        '''A reference to a AppBlockBuilder resource.
+
+        :param app_block_builder_arn: The ARN of the AppBlockBuilder resource.
+        :param app_block_builder_name: The Name of the AppBlockBuilder resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            app_block_builder_reference = appstream.AppBlockBuilderReference(
+                app_block_builder_arn="appBlockBuilderArn",
+                app_block_builder_name="appBlockBuilderName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe39419879f4c614000b8b8861702f3f384d58050372b68927de149026dbb3b6)
+            check_type(argname="argument app_block_builder_arn", value=app_block_builder_arn, expected_type=type_hints["app_block_builder_arn"])
+            check_type(argname="argument app_block_builder_name", value=app_block_builder_name, expected_type=type_hints["app_block_builder_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_block_builder_arn": app_block_builder_arn,
+            "app_block_builder_name": app_block_builder_name,
+        }
+
+    @builtins.property
+    def app_block_builder_arn(self) -> builtins.str:
+        '''The ARN of the AppBlockBuilder resource.'''
+        result = self._values.get("app_block_builder_arn")
+        assert result is not None, "Required property 'app_block_builder_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_block_builder_name(self) -> builtins.str:
+        '''The Name of the AppBlockBuilder resource.'''
+        result = self._values.get("app_block_builder_name")
+        assert result is not None, "Required property 'app_block_builder_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppBlockBuilderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.AppBlockReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_block_arn": "appBlockArn"},
+)
+class AppBlockReference:
+    def __init__(self, *, app_block_arn: builtins.str) -> None:
+        '''A reference to a AppBlock resource.
+
+        :param app_block_arn: The Arn of the AppBlock resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            app_block_reference = appstream.AppBlockReference(
+                app_block_arn="appBlockArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1c7e34f11ea940be01c74082ccb706cf76f203b5fae3b27062e69a468ba6c84)
+            check_type(argname="argument app_block_arn", value=app_block_arn, expected_type=type_hints["app_block_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_block_arn": app_block_arn,
+        }
+
+    @builtins.property
+    def app_block_arn(self) -> builtins.str:
+        '''The Arn of the AppBlock resource.'''
+        result = self._values.get("app_block_arn")
+        assert result is not None, "Required property 'app_block_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppBlockReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.ApplicationEntitlementAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "entitlement_name": "entitlementName",
+        "stack_name": "stackName",
+    },
+)
+class ApplicationEntitlementAssociationReference:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        entitlement_name: builtins.str,
+        stack_name: builtins.str,
+    ) -> None:
+        '''A reference to a ApplicationEntitlementAssociation resource.
+
+        :param application_identifier: The ApplicationIdentifier of the ApplicationEntitlementAssociation resource.
+        :param entitlement_name: The EntitlementName of the ApplicationEntitlementAssociation resource.
+        :param stack_name: The StackName of the ApplicationEntitlementAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            application_entitlement_association_reference = appstream.ApplicationEntitlementAssociationReference(
+                application_identifier="applicationIdentifier",
+                entitlement_name="entitlementName",
+                stack_name="stackName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6dfed1465f62cd738e95a12e865c9d2682c040852e4fdac1a6ad551d0f6fe178)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "entitlement_name": entitlement_name,
+            "stack_name": stack_name,
+        }
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The ApplicationIdentifier of the ApplicationEntitlementAssociation resource.'''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def entitlement_name(self) -> builtins.str:
+        '''The EntitlementName of the ApplicationEntitlementAssociation resource.'''
+        result = self._values.get("entitlement_name")
+        assert result is not None, "Required property 'entitlement_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The StackName of the ApplicationEntitlementAssociation resource.'''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationEntitlementAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.ApplicationFleetAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn", "fleet_name": "fleetName"},
+)
+class ApplicationFleetAssociationReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        fleet_name: builtins.str,
+    ) -> None:
+        '''A reference to a ApplicationFleetAssociation resource.
+
+        :param application_arn: The ApplicationArn of the ApplicationFleetAssociation resource.
+        :param fleet_name: The FleetName of the ApplicationFleetAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            application_fleet_association_reference = appstream.ApplicationFleetAssociationReference(
+                application_arn="applicationArn",
+                fleet_name="fleetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d74dd11bb330620371bc43057d100c6cd9fde96c1b5b09d398eb84d9794cd17d)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "fleet_name": fleet_name,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ApplicationArn of the ApplicationFleetAssociation resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fleet_name(self) -> builtins.str:
+        '''The FleetName of the ApplicationFleetAssociation resource.'''
+        result = self._values.get("fleet_name")
+        assert result is not None, "Required property 'fleet_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationFleetAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_arn: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The Arn of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            application_reference = appstream.ApplicationReference(
+                application_arn="applicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__528c65d075a10cf48ef97e3d9b57b3c9d23c9cc660c08b7b3d4daec21e2dc83f)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The Arn of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnAppBlockBuilderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_type": "instanceType",
+        "name": "name",
+        "platform": "platform",
+        "vpc_config": "vpcConfig",
+        "access_endpoints": "accessEndpoints",
+        "app_block_arns": "appBlockArns",
+        "description": "description",
+        "display_name": "displayName",
+        "enable_default_internet_access": "enableDefaultInternetAccess",
+        "iam_role_arn": "iamRoleArn",
+        "tags": "tags",
+    },
+)
+class CfnAppBlockBuilderProps:
+    def __init__(
+        self,
+        *,
+        instance_type: builtins.str,
+        name: builtins.str,
+        platform: builtins.str,
+        vpc_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppBlockBuilder.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppBlockBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        iam_role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAppBlockBuilder``.
+
+        :param instance_type: The instance type of the app block builder.
+        :param name: The name of the app block builder.
+        :param platform: The platform of the app block builder. *Allowed values* : ``WINDOWS_SERVER_2019``
+        :param vpc_config: The VPC configuration for the app block builder.
+        :param access_endpoints: The access endpoints of the app block builder.
+        :param app_block_arns: The ARN of the app block. *Maximum* : ``1``
+        :param description: The description of the app block builder.
+        :param display_name: The display name of the app block builder.
+        :param enable_default_internet_access: Indicates whether default internet access is enabled for the app block builder.
+        :param iam_role_arn: The ARN of the IAM role that is applied to the app block builder.
+        :param tags: The tags of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_app_block_builder_props = appstream.CfnAppBlockBuilderProps(
+                instance_type="instanceType",
+                name="name",
+                platform="platform",
+                vpc_config=appstream.CfnAppBlockBuilder.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                ),
+            
+                # the properties below are optional
+                access_endpoints=[appstream.CfnAppBlockBuilder.AccessEndpointProperty(
+                    endpoint_type="endpointType",
+                    vpce_id="vpceId"
+                )],
+                app_block_arns=["appBlockArns"],
+                description="description",
+                display_name="displayName",
+                enable_default_internet_access=False,
+                iam_role_arn="iamRoleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e788750b4b78274a373182d9b8ff84f13602b9b9ce827c99dbbbeefc73304b62)
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
+            check_type(argname="argument app_block_arns", value=app_block_arns, expected_type=type_hints["app_block_arns"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_type": instance_type,
+            "name": name,
+            "platform": platform,
+            "vpc_config": vpc_config,
+        }
+        if access_endpoints is not None:
+            self._values["access_endpoints"] = access_endpoints
+        if app_block_arns is not None:
+            self._values["app_block_arns"] = app_block_arns
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if enable_default_internet_access is not None:
+            self._values["enable_default_internet_access"] = enable_default_internet_access
+        if iam_role_arn is not None:
+            self._values["iam_role_arn"] = iam_role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The instance type of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def platform(self) -> builtins.str:
+        '''The platform of the app block builder.
+
+        *Allowed values* : ``WINDOWS_SERVER_2019``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-platform
+        '''
+        result = self._values.get("platform")
+        assert result is not None, "Required property 'platform' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAppBlockBuilder.VpcConfigProperty"]:
+        '''The VPC configuration for the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        assert result is not None, "Required property 'vpc_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAppBlockBuilder.VpcConfigProperty"], result)
+
+    @builtins.property
+    def access_endpoints(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppBlockBuilder.AccessEndpointProperty"]]]]:
+        '''The access endpoints of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-accessendpoints
+        '''
+        result = self._values.get("access_endpoints")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppBlockBuilder.AccessEndpointProperty"]]]], result)
+
+    @builtins.property
+    def app_block_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARN of the app block.
+
+        *Maximum* : ``1``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-appblockarns
+        '''
+        result = self._values.get("app_block_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_default_internet_access(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether default internet access is enabled for the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-enabledefaultinternetaccess
+        '''
+        result = self._values.get("enable_default_internet_access")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def iam_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that is applied to the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags of the app block builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppBlockBuilderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnAppBlockProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "source_s3_location": "sourceS3Location",
+        "description": "description",
+        "display_name": "displayName",
+        "packaging_type": "packagingType",
+        "post_setup_script_details": "postSetupScriptDetails",
+        "setup_script_details": "setupScriptDetails",
+        "tags": "tags",
+    },
+)
+class CfnAppBlockProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        source_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppBlock.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        packaging_type: typing.Optional[builtins.str] = None,
+        post_setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppBlock.ScriptDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppBlock.ScriptDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAppBlock``.
+
+        :param name: The name of the app block. *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
+        :param source_s3_location: The source S3 location of the app block.
+        :param description: The description of the app block.
+        :param display_name: The display name of the app block.
+        :param packaging_type: The packaging type of the app block.
+        :param post_setup_script_details: The post setup script details of the app block.
+        :param setup_script_details: The setup script details of the app block.
+        :param tags: The tags of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_app_block_props = appstream.CfnAppBlockProps(
+                name="name",
+                source_s3_location=appstream.CfnAppBlock.S3LocationProperty(
+                    s3_bucket="s3Bucket",
+            
+                    # the properties below are optional
+                    s3_key="s3Key"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                display_name="displayName",
+                packaging_type="packagingType",
+                post_setup_script_details=appstream.CfnAppBlock.ScriptDetailsProperty(
+                    executable_path="executablePath",
+                    script_s3_location=appstream.CfnAppBlock.S3LocationProperty(
+                        s3_bucket="s3Bucket",
+            
+                        # the properties below are optional
+                        s3_key="s3Key"
+                    ),
+                    timeout_in_seconds=123,
+            
+                    # the properties below are optional
+                    executable_parameters="executableParameters"
+                ),
+                setup_script_details=appstream.CfnAppBlock.ScriptDetailsProperty(
+                    executable_path="executablePath",
+                    script_s3_location=appstream.CfnAppBlock.S3LocationProperty(
+                        s3_bucket="s3Bucket",
+            
+                        # the properties below are optional
+                        s3_key="s3Key"
+                    ),
+                    timeout_in_seconds=123,
+            
+                    # the properties below are optional
+                    executable_parameters="executableParameters"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d81fb9c3e1fcc7b221dbc8290b04501b1af7d21a103a5dacb19c8221493f37f1)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument source_s3_location", value=source_s3_location, expected_type=type_hints["source_s3_location"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument packaging_type", value=packaging_type, expected_type=type_hints["packaging_type"])
+            check_type(argname="argument post_setup_script_details", value=post_setup_script_details, expected_type=type_hints["post_setup_script_details"])
+            check_type(argname="argument setup_script_details", value=setup_script_details, expected_type=type_hints["setup_script_details"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "source_s3_location": source_s3_location,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if packaging_type is not None:
+            self._values["packaging_type"] = packaging_type
+        if post_setup_script_details is not None:
+            self._values["post_setup_script_details"] = post_setup_script_details
+        if setup_script_details is not None:
+            self._values["setup_script_details"] = setup_script_details
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the app block.
+
+        *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_s3_location(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAppBlock.S3LocationProperty"]:
+        '''The source S3 location of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-sources3location
+        '''
+        result = self._values.get("source_s3_location")
+        assert result is not None, "Required property 'source_s3_location' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAppBlock.S3LocationProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def packaging_type(self) -> typing.Optional[builtins.str]:
+        '''The packaging type of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-packagingtype
+        '''
+        result = self._values.get("packaging_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def post_setup_script_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppBlock.ScriptDetailsProperty"]]:
+        '''The post setup script details of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-postsetupscriptdetails
+        '''
+        result = self._values.get("post_setup_script_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppBlock.ScriptDetailsProperty"]], result)
+
+    @builtins.property
+    def setup_script_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppBlock.ScriptDetailsProperty"]]:
+        '''The setup script details of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-setupscriptdetails
+        '''
+        result = self._values.get("setup_script_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppBlock.ScriptDetailsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags of the app block.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppBlockProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationEntitlementAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "entitlement_name": "entitlementName",
+        "stack_name": "stackName",
+    },
+)
+class CfnApplicationEntitlementAssociationProps:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        entitlement_name: builtins.str,
+        stack_name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationEntitlementAssociation``.
+
+        :param application_identifier: The identifier of the application.
+        :param entitlement_name: The name of the entitlement.
+        :param stack_name: The name of the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_application_entitlement_association_props = appstream.CfnApplicationEntitlementAssociationProps(
+                application_identifier="applicationIdentifier",
+                entitlement_name="entitlementName",
+                stack_name="stackName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ed66445aef0340172777886fa668a63161e6556da0c4ddda56f9f1d4ec958ba)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "entitlement_name": entitlement_name,
+            "stack_name": stack_name,
+        }
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The identifier of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-applicationidentifier
+        '''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def entitlement_name(self) -> builtins.str:
+        '''The name of the entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-entitlementname
+        '''
+        result = self._values.get("entitlement_name")
+        assert result is not None, "Required property 'entitlement_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The name of the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-stackname
+        '''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationEntitlementAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationFleetAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn", "fleet_name": "fleetName"},
+)
+class CfnApplicationFleetAssociationProps:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        fleet_name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationFleetAssociation``.
+
+        :param application_arn: The ARN of the application.
+        :param fleet_name: The name of the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_application_fleet_association_props = appstream.CfnApplicationFleetAssociationProps(
+                application_arn="applicationArn",
+                fleet_name="fleetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d294820a31c019b7ec8574f34a068e3a21437c2751ab65ed99beb677455d420a)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "fleet_name": fleet_name,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html#cfn-appstream-applicationfleetassociation-applicationarn
+        '''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fleet_name(self) -> builtins.str:
+        '''The name of the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html#cfn-appstream-applicationfleetassociation-fleetname
+        '''
+        result = self._values.get("fleet_name")
+        assert result is not None, "Required property 'fleet_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationFleetAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_block_arn": "appBlockArn",
+        "icon_s3_location": "iconS3Location",
+        "instance_families": "instanceFamilies",
+        "launch_path": "launchPath",
+        "name": "name",
+        "platforms": "platforms",
+        "attributes_to_delete": "attributesToDelete",
+        "description": "description",
+        "display_name": "displayName",
+        "launch_parameters": "launchParameters",
+        "tags": "tags",
+        "working_directory": "workingDirectory",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        app_block_arn: builtins.str,
+        icon_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        instance_families: typing.Sequence[builtins.str],
+        launch_path: builtins.str,
+        name: builtins.str,
+        platforms: typing.Sequence[builtins.str],
+        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        launch_parameters: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        working_directory: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param app_block_arn: The app block ARN with which the application should be associated.
+        :param icon_s3_location: The icon S3 location of the application.
+        :param instance_families: The instance families the application supports. *Allowed Values* : ``GENERAL_PURPOSE`` | ``GRAPHICS_G4``
+        :param launch_path: The launch path of the application.
+        :param name: The name of the application. This name is visible to users when a name is not specified in the DisplayName property. *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
+        :param platforms: The platforms the application supports. *Allowed Values* : ``WINDOWS_SERVER_2019`` | ``AMAZON_LINUX2``
+        :param attributes_to_delete: A list of attributes to delete from an application.
+        :param description: The description of the application.
+        :param display_name: The display name of the application. This name is visible to users in the application catalog.
+        :param launch_parameters: The launch parameters of the application.
+        :param tags: The tags of the application.
+        :param working_directory: The working directory of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_application_props = appstream.CfnApplicationProps(
+                app_block_arn="appBlockArn",
+                icon_s3_location=appstream.CfnApplication.S3LocationProperty(
+                    s3_bucket="s3Bucket",
+                    s3_key="s3Key"
+                ),
+                instance_families=["instanceFamilies"],
+                launch_path="launchPath",
+                name="name",
+                platforms=["platforms"],
+            
+                # the properties below are optional
+                attributes_to_delete=["attributesToDelete"],
+                description="description",
+                display_name="displayName",
+                launch_parameters="launchParameters",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                working_directory="workingDirectory"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb96c46dcf41b8bf52ccede1fadb0b2ffaef8995b618f1e0816e434f6605e2f2)
+            check_type(argname="argument app_block_arn", value=app_block_arn, expected_type=type_hints["app_block_arn"])
+            check_type(argname="argument icon_s3_location", value=icon_s3_location, expected_type=type_hints["icon_s3_location"])
+            check_type(argname="argument instance_families", value=instance_families, expected_type=type_hints["instance_families"])
+            check_type(argname="argument launch_path", value=launch_path, expected_type=type_hints["launch_path"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument platforms", value=platforms, expected_type=type_hints["platforms"])
+            check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument launch_parameters", value=launch_parameters, expected_type=type_hints["launch_parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_block_arn": app_block_arn,
+            "icon_s3_location": icon_s3_location,
+            "instance_families": instance_families,
+            "launch_path": launch_path,
+            "name": name,
+            "platforms": platforms,
+        }
+        if attributes_to_delete is not None:
+            self._values["attributes_to_delete"] = attributes_to_delete
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if launch_parameters is not None:
+            self._values["launch_parameters"] = launch_parameters
+        if tags is not None:
+            self._values["tags"] = tags
+        if working_directory is not None:
+            self._values["working_directory"] = working_directory
+
+    @builtins.property
+    def app_block_arn(self) -> builtins.str:
+        '''The app block ARN with which the application should be associated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-appblockarn
+        '''
+        result = self._values.get("app_block_arn")
+        assert result is not None, "Required property 'app_block_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def icon_s3_location(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplication.S3LocationProperty"]:
+        '''The icon S3 location of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-icons3location
+        '''
+        result = self._values.get("icon_s3_location")
+        assert result is not None, "Required property 'icon_s3_location' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplication.S3LocationProperty"], result)
+
+    @builtins.property
+    def instance_families(self) -> typing.List[builtins.str]:
+        '''The instance families the application supports.
+
+        *Allowed Values* : ``GENERAL_PURPOSE`` | ``GRAPHICS_G4``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-instancefamilies
+        '''
+        result = self._values.get("instance_families")
+        assert result is not None, "Required property 'instance_families' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def launch_path(self) -> builtins.str:
+        '''The launch path of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-launchpath
+        '''
+        result = self._values.get("launch_path")
+        assert result is not None, "Required property 'launch_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the application.
+
+        This name is visible to users when a name is not specified in the DisplayName property.
+
+        *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def platforms(self) -> typing.List[builtins.str]:
+        '''The platforms the application supports.
+
+        *Allowed Values* : ``WINDOWS_SERVER_2019`` | ``AMAZON_LINUX2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-platforms
+        '''
+        result = self._values.get("platforms")
+        assert result is not None, "Required property 'platforms' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of attributes to delete from an application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-attributestodelete
+        '''
+        result = self._values.get("attributes_to_delete")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the application.
+
+        This name is visible to users in the application catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def launch_parameters(self) -> typing.Optional[builtins.str]:
+        '''The launch parameters of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-launchparameters
+        '''
+        result = self._values.get("launch_parameters")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def working_directory(self) -> typing.Optional[builtins.str]:
+        '''The working directory of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-workingdirectory
+        '''
+        result = self._values.get("working_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnDirectoryConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "directory_name": "directoryName",
+        "organizational_unit_distinguished_names": "organizationalUnitDistinguishedNames",
+        "service_account_credentials": "serviceAccountCredentials",
+        "certificate_based_auth_properties": "certificateBasedAuthProperties",
+    },
+)
+class CfnDirectoryConfigProps:
+    def __init__(
+        self,
+        *,
+        directory_name: builtins.str,
+        organizational_unit_distinguished_names: typing.Sequence[builtins.str],
+        service_account_credentials: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDirectoryConfig.ServiceAccountCredentialsProperty", typing.Dict[builtins.str, typing.Any]]],
+        certificate_based_auth_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDirectoryConfig``.
+
+        :param directory_name: The fully qualified name of the directory (for example, corp.example.com).
+        :param organizational_unit_distinguished_names: The distinguished names of the organizational units for computer accounts.
+        :param service_account_credentials: The credentials for the service account used by the streaming instance to connect to the directory. Do not use this parameter directly. Use ``ServiceAccountCredentials`` as an input parameter with ``noEcho`` as shown in the `Parameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html>`_ . For best practices information, see `Do Not Embed Credentials in Your Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#creds>`_ .
+        :param certificate_based_auth_properties: The certificate-based authentication properties used to authenticate SAML 2.0 Identity Provider (IdP) user identities to Active Directory domain-joined streaming instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_directory_config_props = appstream.CfnDirectoryConfigProps(
+                directory_name="directoryName",
+                organizational_unit_distinguished_names=["organizationalUnitDistinguishedNames"],
+                service_account_credentials=appstream.CfnDirectoryConfig.ServiceAccountCredentialsProperty(
+                    account_name="accountName",
+                    account_password="accountPassword"
+                ),
+            
+                # the properties below are optional
+                certificate_based_auth_properties=appstream.CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty(
+                    certificate_authority_arn="certificateAuthorityArn",
+                    status="status"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__578684e8816c2df1e186869cdebb5605355669857041d859dd30c2859c435801)
+            check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
+            check_type(argname="argument organizational_unit_distinguished_names", value=organizational_unit_distinguished_names, expected_type=type_hints["organizational_unit_distinguished_names"])
+            check_type(argname="argument service_account_credentials", value=service_account_credentials, expected_type=type_hints["service_account_credentials"])
+            check_type(argname="argument certificate_based_auth_properties", value=certificate_based_auth_properties, expected_type=type_hints["certificate_based_auth_properties"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_name": directory_name,
+            "organizational_unit_distinguished_names": organizational_unit_distinguished_names,
+            "service_account_credentials": service_account_credentials,
+        }
+        if certificate_based_auth_properties is not None:
+            self._values["certificate_based_auth_properties"] = certificate_based_auth_properties
+
+    @builtins.property
+    def directory_name(self) -> builtins.str:
+        '''The fully qualified name of the directory (for example, corp.example.com).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-directoryname
+        '''
+        result = self._values.get("directory_name")
+        assert result is not None, "Required property 'directory_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def organizational_unit_distinguished_names(self) -> typing.List[builtins.str]:
+        '''The distinguished names of the organizational units for computer accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-organizationalunitdistinguishednames
+        '''
+        result = self._values.get("organizational_unit_distinguished_names")
+        assert result is not None, "Required property 'organizational_unit_distinguished_names' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def service_account_credentials(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDirectoryConfig.ServiceAccountCredentialsProperty"]:
+        '''The credentials for the service account used by the streaming instance to connect to the directory.
+
+        Do not use this parameter directly. Use ``ServiceAccountCredentials`` as an input parameter with ``noEcho`` as shown in the `Parameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html>`_ . For best practices information, see `Do Not Embed Credentials in Your Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#creds>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-serviceaccountcredentials
+        '''
+        result = self._values.get("service_account_credentials")
+        assert result is not None, "Required property 'service_account_credentials' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDirectoryConfig.ServiceAccountCredentialsProperty"], result)
+
+    @builtins.property
+    def certificate_based_auth_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty"]]:
+        '''The certificate-based authentication properties used to authenticate SAML 2.0 Identity Provider (IdP) user identities to Active Directory domain-joined streaming instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-certificatebasedauthproperties
+        '''
+        result = self._values.get("certificate_based_auth_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDirectoryConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnEntitlementProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_visibility": "appVisibility",
+        "attributes": "attributes",
+        "name": "name",
+        "stack_name": "stackName",
+        "description": "description",
+    },
+)
+class CfnEntitlementProps:
+    def __init__(
+        self,
+        *,
+        app_visibility: builtins.str,
+        attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEntitlement.AttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        stack_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEntitlement``.
+
+        :param app_visibility: Specifies whether to entitle all apps or only selected apps.
+        :param attributes: The attributes of the entitlement.
+        :param name: The name of the entitlement.
+        :param stack_name: The name of the stack.
+        :param description: The description of the entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_entitlement_props = appstream.CfnEntitlementProps(
+                app_visibility="appVisibility",
+                attributes=[appstream.CfnEntitlement.AttributeProperty(
+                    name="name",
+                    value="value"
+                )],
+                name="name",
+                stack_name="stackName",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e7b6ad14b42e5a4dc8b1f0be3cc48eb3f96a7fc22176cfee8fe233b842ca6c9)
+            check_type(argname="argument app_visibility", value=app_visibility, expected_type=type_hints["app_visibility"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_visibility": app_visibility,
+            "attributes": attributes,
+            "name": name,
+            "stack_name": stack_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def app_visibility(self) -> builtins.str:
+        '''Specifies whether to entitle all apps or only selected apps.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-appvisibility
+        '''
+        result = self._values.get("app_visibility")
+        assert result is not None, "Required property 'app_visibility' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEntitlement.AttributeProperty"]]]:
+        '''The attributes of the entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-attributes
+        '''
+        result = self._values.get("attributes")
+        assert result is not None, "Required property 'attributes' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEntitlement.AttributeProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The name of the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-stackname
+        '''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEntitlementProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnFleetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_type": "instanceType",
+        "name": "name",
+        "compute_capacity": "computeCapacity",
+        "description": "description",
+        "disconnect_timeout_in_seconds": "disconnectTimeoutInSeconds",
+        "display_name": "displayName",
+        "domain_join_info": "domainJoinInfo",
+        "enable_default_internet_access": "enableDefaultInternetAccess",
+        "fleet_type": "fleetType",
+        "iam_role_arn": "iamRoleArn",
+        "idle_disconnect_timeout_in_seconds": "idleDisconnectTimeoutInSeconds",
+        "image_arn": "imageArn",
+        "image_name": "imageName",
+        "max_concurrent_sessions": "maxConcurrentSessions",
+        "max_sessions_per_instance": "maxSessionsPerInstance",
+        "max_user_duration_in_seconds": "maxUserDurationInSeconds",
+        "platform": "platform",
+        "session_script_s3_location": "sessionScriptS3Location",
+        "stream_view": "streamView",
+        "tags": "tags",
+        "usb_device_filter_strings": "usbDeviceFilterStrings",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnFleetProps:
+    def __init__(
+        self,
+        *,
+        instance_type: builtins.str,
+        name: builtins.str,
+        compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ComputeCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        fleet_type: typing.Optional[builtins.str] = None,
+        iam_role_arn: typing.Optional[builtins.str] = None,
+        idle_disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        image_arn: typing.Optional[builtins.str] = None,
+        image_name: typing.Optional[builtins.str] = None,
+        max_concurrent_sessions: typing.Optional[jsii.Number] = None,
+        max_sessions_per_instance: typing.Optional[jsii.Number] = None,
+        max_user_duration_in_seconds: typing.Optional[jsii.Number] = None,
+        platform: typing.Optional[builtins.str] = None,
+        session_script_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_view: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        usb_device_filter_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFleet``.
+
+        :param instance_type: The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics-desktop.2xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics-pro.4xlarge - stream.graphics-pro.8xlarge - stream.graphics-pro.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge The following instance types are available for Elastic fleets: - stream.standard.small - stream.standard.medium
+        :param name: A unique name for the fleet.
+        :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
+        :param description: The description to display.
+        :param disconnect_timeout_in_seconds: The amount of time that a streaming session remains active after users disconnect. If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance. Specify a value between 60 and 36000.
+        :param display_name: The fleet name to display.
+        :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain. This is not allowed for Elastic fleets.
+        :param enable_default_internet_access: Enables or disables default internet access for the fleet.
+        :param fleet_type: The fleet type. - **ALWAYS_ON** - Provides users with instant-on access to their apps. You are charged for all running instances in your fleet, even if no users are streaming apps. - **ON_DEMAND** - Provide users with access to applications after they connect, which takes one to two minutes. You are charged for instance streaming when users are connected and a small hourly fee for instances that are not streaming apps. - **ELASTIC** - The pool of streaming instances is managed by Amazon AppStream 2.0. When a user selects their application or desktop to launch, they will start streaming after the app block has been downloaded and mounted to a streaming instance. *Allowed Values* : ``ALWAYS_ON`` | ``ELASTIC`` | ``ON_DEMAND``
+        :param iam_role_arn: The ARN of the IAM role that is applied to the fleet. To assume a role, the fleet instance calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
+        :param idle_disconnect_timeout_in_seconds: The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the ``DisconnectTimeoutInSeconds`` time interval begins. Users are notified before they are disconnected due to inactivity. If they try to reconnect to the streaming session before the time interval specified in ``DisconnectTimeoutInSeconds`` elapses, they are connected to their previous session. Users are considered idle when they stop providing keyboard or mouse input during their streaming session. File uploads and downloads, audio in, audio out, and pixels changing do not qualify as user activity. If users continue to be idle after the time interval in ``IdleDisconnectTimeoutInSeconds`` elapses, they are disconnected. To prevent users from being disconnected due to inactivity, specify a value of 0. Otherwise, specify a value between 60 and 36000. If you enable this feature, we recommend that you specify a value that corresponds exactly to a whole number of minutes (for example, 60, 120, and 180). If you don't do this, the value is rounded to the nearest minute. For example, if you specify a value of 70, users are disconnected after 1 minute of inactivity. If you specify a value that is at the midpoint between two different minutes, the value is rounded up. For example, if you specify a value of 90, users are disconnected after 2 minutes of inactivity.
+        :param image_arn: The ARN of the public, private, or shared image to use.
+        :param image_name: The name of the image used to create the fleet.
+        :param max_concurrent_sessions: The maximum number of concurrent sessions that can be run on an Elastic fleet. This setting is required for Elastic fleets, but is not used for other fleet types.
+        :param max_sessions_per_instance: Max number of user sessions on an instance. This is applicable only for multi-session fleets.
+        :param max_user_duration_in_seconds: The maximum amount of time that a streaming session can remain active, in seconds. If users are still connected to a streaming instance five minutes before this limit is reached, they are prompted to save any open documents before being disconnected. After this time elapses, the instance is terminated and replaced by a new instance. Specify a value between 600 and 432000.
+        :param platform: The platform of the fleet. Platform is a required setting for Elastic fleets, and is not used for other fleet types.
+        :param session_script_s3_location: The S3 location of the session scripts configuration zip file. This only applies to Elastic fleets.
+        :param stream_view: The AppStream 2.0 view that is displayed to your users when they stream from the fleet. When ``APP`` is specified, only the windows of applications opened by users display. When ``DESKTOP`` is specified, the standard desktop that is provided by the operating system displays. The default value is ``APP`` .
+        :param tags: An array of key-value pairs.
+        :param usb_device_filter_strings: The USB device filter strings that specify which USB devices a user can redirect to the fleet streaming session, when using the Windows native client. This is allowed but not required for Elastic fleets.
+        :param vpc_config: The VPC configuration for the fleet. This is required for Elastic fleets, but not required for other fleet types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html
+        :exampleMetadata: infused
+
+        Example::
+
+            fleet = appstream.CfnFleet(self, "Fleet",
+                instance_type="stream.standard.small",
+                name="Fleet",
+                compute_capacity=appstream.CfnFleet.ComputeCapacityProperty(
+                    desired_instances=1
+                ),
+                image_name="AppStream-AmazonLinux2-09-21-2022"
+            )
+            fleet.cfn_options.creation_policy = CfnCreationPolicy(
+                start_fleet=True
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee9699fa56e)
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument compute_capacity", value=compute_capacity, expected_type=type_hints["compute_capacity"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disconnect_timeout_in_seconds", value=disconnect_timeout_in_seconds, expected_type=type_hints["disconnect_timeout_in_seconds"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
+            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
+            check_type(argname="argument fleet_type", value=fleet_type, expected_type=type_hints["fleet_type"])
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument idle_disconnect_timeout_in_seconds", value=idle_disconnect_timeout_in_seconds, expected_type=type_hints["idle_disconnect_timeout_in_seconds"])
+            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
+            check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
+            check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
+            check_type(argname="argument max_sessions_per_instance", value=max_sessions_per_instance, expected_type=type_hints["max_sessions_per_instance"])
+            check_type(argname="argument max_user_duration_in_seconds", value=max_user_duration_in_seconds, expected_type=type_hints["max_user_duration_in_seconds"])
+            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
+            check_type(argname="argument session_script_s3_location", value=session_script_s3_location, expected_type=type_hints["session_script_s3_location"])
+            check_type(argname="argument stream_view", value=stream_view, expected_type=type_hints["stream_view"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument usb_device_filter_strings", value=usb_device_filter_strings, expected_type=type_hints["usb_device_filter_strings"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_type": instance_type,
+            "name": name,
+        }
+        if compute_capacity is not None:
+            self._values["compute_capacity"] = compute_capacity
+        if description is not None:
+            self._values["description"] = description
+        if disconnect_timeout_in_seconds is not None:
+            self._values["disconnect_timeout_in_seconds"] = disconnect_timeout_in_seconds
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if domain_join_info is not None:
+            self._values["domain_join_info"] = domain_join_info
+        if enable_default_internet_access is not None:
+            self._values["enable_default_internet_access"] = enable_default_internet_access
+        if fleet_type is not None:
+            self._values["fleet_type"] = fleet_type
+        if iam_role_arn is not None:
+            self._values["iam_role_arn"] = iam_role_arn
+        if idle_disconnect_timeout_in_seconds is not None:
+            self._values["idle_disconnect_timeout_in_seconds"] = idle_disconnect_timeout_in_seconds
+        if image_arn is not None:
+            self._values["image_arn"] = image_arn
+        if image_name is not None:
+            self._values["image_name"] = image_name
+        if max_concurrent_sessions is not None:
+            self._values["max_concurrent_sessions"] = max_concurrent_sessions
+        if max_sessions_per_instance is not None:
+            self._values["max_sessions_per_instance"] = max_sessions_per_instance
+        if max_user_duration_in_seconds is not None:
+            self._values["max_user_duration_in_seconds"] = max_user_duration_in_seconds
+        if platform is not None:
+            self._values["platform"] = platform
+        if session_script_s3_location is not None:
+            self._values["session_script_s3_location"] = session_script_s3_location
+        if stream_view is not None:
+            self._values["stream_view"] = stream_view
+        if tags is not None:
+            self._values["tags"] = tags
+        if usb_device_filter_strings is not None:
+            self._values["usb_device_filter_strings"] = usb_device_filter_strings
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:.
+
+        - stream.standard.small
+        - stream.standard.medium
+        - stream.standard.large
+        - stream.compute.large
+        - stream.compute.xlarge
+        - stream.compute.2xlarge
+        - stream.compute.4xlarge
+        - stream.compute.8xlarge
+        - stream.memory.large
+        - stream.memory.xlarge
+        - stream.memory.2xlarge
+        - stream.memory.4xlarge
+        - stream.memory.8xlarge
+        - stream.memory.z1d.large
+        - stream.memory.z1d.xlarge
+        - stream.memory.z1d.2xlarge
+        - stream.memory.z1d.3xlarge
+        - stream.memory.z1d.6xlarge
+        - stream.memory.z1d.12xlarge
+        - stream.graphics-design.large
+        - stream.graphics-design.xlarge
+        - stream.graphics-design.2xlarge
+        - stream.graphics-design.4xlarge
+        - stream.graphics-desktop.2xlarge
+        - stream.graphics.g4dn.xlarge
+        - stream.graphics.g4dn.2xlarge
+        - stream.graphics.g4dn.4xlarge
+        - stream.graphics.g4dn.8xlarge
+        - stream.graphics.g4dn.12xlarge
+        - stream.graphics.g4dn.16xlarge
+        - stream.graphics-pro.4xlarge
+        - stream.graphics-pro.8xlarge
+        - stream.graphics-pro.16xlarge
+        - stream.graphics.g5.xlarge
+        - stream.graphics.g5.2xlarge
+        - stream.graphics.g5.4xlarge
+        - stream.graphics.g5.8xlarge
+        - stream.graphics.g5.16xlarge
+        - stream.graphics.g5.12xlarge
+        - stream.graphics.g5.24xlarge
+        - stream.graphics.g6.xlarge
+        - stream.graphics.g6.2xlarge
+        - stream.graphics.g6.4xlarge
+        - stream.graphics.g6.8xlarge
+        - stream.graphics.g6.16xlarge
+        - stream.graphics.g6.12xlarge
+        - stream.graphics.g6.24xlarge
+        - stream.graphics.gr6.4xlarge
+        - stream.graphics.gr6.8xlarge
+
+        The following instance types are available for Elastic fleets:
+
+        - stream.standard.small
+        - stream.standard.medium
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A unique name for the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def compute_capacity(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.ComputeCapacityProperty"]]:
+        '''The desired capacity for the fleet.
+
+        This is not allowed for Elastic fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-computecapacity
+        '''
+        result = self._values.get("compute_capacity")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.ComputeCapacityProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disconnect_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time that a streaming session remains active after users disconnect.
+
+        If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance.
+
+        Specify a value between 60 and 36000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-disconnecttimeoutinseconds
+        '''
+        result = self._values.get("disconnect_timeout_in_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The fleet name to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_join_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.DomainJoinInfoProperty"]]:
+        '''The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain.
+
+        This is not allowed for Elastic fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-domainjoininfo
+        '''
+        result = self._values.get("domain_join_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.DomainJoinInfoProperty"]], result)
+
+    @builtins.property
+    def enable_default_internet_access(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables or disables default internet access for the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-enabledefaultinternetaccess
+        '''
+        result = self._values.get("enable_default_internet_access")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def fleet_type(self) -> typing.Optional[builtins.str]:
+        '''The fleet type.
+
+        - **ALWAYS_ON** - Provides users with instant-on access to their apps. You are charged for all running instances in your fleet, even if no users are streaming apps.
+        - **ON_DEMAND** - Provide users with access to applications after they connect, which takes one to two minutes. You are charged for instance streaming when users are connected and a small hourly fee for instances that are not streaming apps.
+        - **ELASTIC** - The pool of streaming instances is managed by Amazon AppStream 2.0. When a user selects their application or desktop to launch, they will start streaming after the app block has been downloaded and mounted to a streaming instance.
+
+        *Allowed Values* : ``ALWAYS_ON`` | ``ELASTIC`` | ``ON_DEMAND``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-fleettype
+        '''
+        result = self._values.get("fleet_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that is applied to the fleet.
+
+        To assume a role, the fleet instance calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance.
+
+        For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idle_disconnect_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the ``DisconnectTimeoutInSeconds`` time interval begins.
+
+        Users are notified before they are disconnected due to inactivity. If they try to reconnect to the streaming session before the time interval specified in ``DisconnectTimeoutInSeconds`` elapses, they are connected to their previous session. Users are considered idle when they stop providing keyboard or mouse input during their streaming session. File uploads and downloads, audio in, audio out, and pixels changing do not qualify as user activity. If users continue to be idle after the time interval in ``IdleDisconnectTimeoutInSeconds`` elapses, they are disconnected.
+
+        To prevent users from being disconnected due to inactivity, specify a value of 0. Otherwise, specify a value between 60 and 36000.
+
+        If you enable this feature, we recommend that you specify a value that corresponds exactly to a whole number of minutes (for example, 60, 120, and 180). If you don't do this, the value is rounded to the nearest minute. For example, if you specify a value of 70, users are disconnected after 1 minute of inactivity. If you specify a value that is at the midpoint between two different minutes, the value is rounded up. For example, if you specify a value of 90, users are disconnected after 2 minutes of inactivity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-idledisconnecttimeoutinseconds
+        '''
+        result = self._values.get("idle_disconnect_timeout_in_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def image_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the public, private, or shared image to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-imagearn
+        '''
+        result = self._values.get("image_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the image used to create the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-imagename
+        '''
+        result = self._values.get("image_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_concurrent_sessions(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent sessions that can be run on an Elastic fleet.
+
+        This setting is required for Elastic fleets, but is not used for other fleet types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxconcurrentsessions
+        '''
+        result = self._values.get("max_concurrent_sessions")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_sessions_per_instance(self) -> typing.Optional[jsii.Number]:
+        '''Max number of user sessions on an instance.
+
+        This is applicable only for multi-session fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxsessionsperinstance
+        '''
+        result = self._values.get("max_sessions_per_instance")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_user_duration_in_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The maximum amount of time that a streaming session can remain active, in seconds.
+
+        If users are still connected to a streaming instance five minutes before this limit is reached, they are prompted to save any open documents before being disconnected. After this time elapses, the instance is terminated and replaced by a new instance.
+
+        Specify a value between 600 and 432000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxuserdurationinseconds
+        '''
+        result = self._values.get("max_user_duration_in_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def platform(self) -> typing.Optional[builtins.str]:
+        '''The platform of the fleet.
+
+        Platform is a required setting for Elastic fleets, and is not used for other fleet types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-platform
+        '''
+        result = self._values.get("platform")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def session_script_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.S3LocationProperty"]]:
+        '''The S3 location of the session scripts configuration zip file.
+
+        This only applies to Elastic fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-sessionscripts3location
+        '''
+        result = self._values.get("session_script_s3_location")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.S3LocationProperty"]], result)
+
+    @builtins.property
+    def stream_view(self) -> typing.Optional[builtins.str]:
+        '''The AppStream 2.0 view that is displayed to your users when they stream from the fleet. When ``APP`` is specified, only the windows of applications opened by users display. When ``DESKTOP`` is specified, the standard desktop that is provided by the operating system displays.
+
+        The default value is ``APP`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-streamview
+        '''
+        result = self._values.get("stream_view")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def usb_device_filter_strings(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The USB device filter strings that specify which USB devices a user can redirect to the fleet streaming session, when using the Windows native client.
+
+        This is allowed but not required for Elastic fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-usbdevicefilterstrings
+        '''
+        result = self._values.get("usb_device_filter_strings")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.VpcConfigProperty"]]:
+        '''The VPC configuration for the fleet.
+
+        This is required for Elastic fleets, but not required for other fleet types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFleetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnImageBuilderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_type": "instanceType",
+        "name": "name",
+        "access_endpoints": "accessEndpoints",
+        "appstream_agent_version": "appstreamAgentVersion",
+        "description": "description",
+        "display_name": "displayName",
+        "domain_join_info": "domainJoinInfo",
+        "enable_default_internet_access": "enableDefaultInternetAccess",
+        "iam_role_arn": "iamRoleArn",
+        "image_arn": "imageArn",
+        "image_name": "imageName",
+        "tags": "tags",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnImageBuilderProps:
+    def __init__(
+        self,
+        *,
+        instance_type: builtins.str,
+        name: builtins.str,
+        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageBuilder.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        appstream_agent_version: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageBuilder.DomainJoinInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        iam_role_arn: typing.Optional[builtins.str] = None,
+        image_arn: typing.Optional[builtins.str] = None,
+        image_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnImageBuilder.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnImageBuilder``.
+
+        :param instance_type: The instance type to use when launching the image builder. The following instance types are available:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics-desktop.2xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics-pro.4xlarge - stream.graphics-pro.8xlarge - stream.graphics-pro.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge
+        :param name: A unique name for the image builder.
+        :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Administrators can connect to the image builder only through the specified endpoints.
+        :param appstream_agent_version: The version of the AppStream 2.0 agent to use for this image builder. To use the latest version of the AppStream 2.0 agent, specify [LATEST].
+        :param description: The description to display.
+        :param display_name: The image builder name to display.
+        :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
+        :param enable_default_internet_access: Enables or disables default internet access for the image builder.
+        :param iam_role_arn: The ARN of the IAM role that is applied to the image builder. To assume a role, the image builder calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
+        :param image_arn: The ARN of the public, private, or shared image to use.
+        :param image_name: The name of the image used to create the image builder.
+        :param tags: An array of key-value pairs.
+        :param vpc_config: The VPC configuration for the image builder. You can specify only one subnet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_image_builder_props = appstream.CfnImageBuilderProps(
+                instance_type="instanceType",
+                name="name",
+            
+                # the properties below are optional
+                access_endpoints=[appstream.CfnImageBuilder.AccessEndpointProperty(
+                    endpoint_type="endpointType",
+                    vpce_id="vpceId"
+                )],
+                appstream_agent_version="appstreamAgentVersion",
+                description="description",
+                display_name="displayName",
+                domain_join_info=appstream.CfnImageBuilder.DomainJoinInfoProperty(
+                    directory_name="directoryName",
+                    organizational_unit_distinguished_name="organizationalUnitDistinguishedName"
+                ),
+                enable_default_internet_access=False,
+                iam_role_arn="iamRoleArn",
+                image_arn="imageArn",
+                image_name="imageName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_config=appstream.CfnImageBuilder.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f881e4810)
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
+            check_type(argname="argument appstream_agent_version", value=appstream_agent_version, expected_type=type_hints["appstream_agent_version"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
+            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
+            check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_type": instance_type,
+            "name": name,
+        }
+        if access_endpoints is not None:
+            self._values["access_endpoints"] = access_endpoints
+        if appstream_agent_version is not None:
+            self._values["appstream_agent_version"] = appstream_agent_version
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if domain_join_info is not None:
+            self._values["domain_join_info"] = domain_join_info
+        if enable_default_internet_access is not None:
+            self._values["enable_default_internet_access"] = enable_default_internet_access
+        if iam_role_arn is not None:
+            self._values["iam_role_arn"] = iam_role_arn
+        if image_arn is not None:
+            self._values["image_arn"] = image_arn
+        if image_name is not None:
+            self._values["image_name"] = image_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The instance type to use when launching the image builder. The following instance types are available:.
+
+        - stream.standard.small
+        - stream.standard.medium
+        - stream.standard.large
+        - stream.compute.large
+        - stream.compute.xlarge
+        - stream.compute.2xlarge
+        - stream.compute.4xlarge
+        - stream.compute.8xlarge
+        - stream.memory.large
+        - stream.memory.xlarge
+        - stream.memory.2xlarge
+        - stream.memory.4xlarge
+        - stream.memory.8xlarge
+        - stream.memory.z1d.large
+        - stream.memory.z1d.xlarge
+        - stream.memory.z1d.2xlarge
+        - stream.memory.z1d.3xlarge
+        - stream.memory.z1d.6xlarge
+        - stream.memory.z1d.12xlarge
+        - stream.graphics-design.large
+        - stream.graphics-design.xlarge
+        - stream.graphics-design.2xlarge
+        - stream.graphics-design.4xlarge
+        - stream.graphics-desktop.2xlarge
+        - stream.graphics.g4dn.xlarge
+        - stream.graphics.g4dn.2xlarge
+        - stream.graphics.g4dn.4xlarge
+        - stream.graphics.g4dn.8xlarge
+        - stream.graphics.g4dn.12xlarge
+        - stream.graphics.g4dn.16xlarge
+        - stream.graphics-pro.4xlarge
+        - stream.graphics-pro.8xlarge
+        - stream.graphics-pro.16xlarge
+        - stream.graphics.g5.xlarge
+        - stream.graphics.g5.2xlarge
+        - stream.graphics.g5.4xlarge
+        - stream.graphics.g5.8xlarge
+        - stream.graphics.g5.16xlarge
+        - stream.graphics.g5.12xlarge
+        - stream.graphics.g5.24xlarge
+        - stream.graphics.g6.xlarge
+        - stream.graphics.g6.2xlarge
+        - stream.graphics.g6.4xlarge
+        - stream.graphics.g6.8xlarge
+        - stream.graphics.g6.16xlarge
+        - stream.graphics.g6.12xlarge
+        - stream.graphics.g6.24xlarge
+        - stream.graphics.gr6.4xlarge
+        - stream.graphics.gr6.8xlarge
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A unique name for the image builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_endpoints(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.AccessEndpointProperty"]]]]:
+        '''The list of virtual private cloud (VPC) interface endpoint objects.
+
+        Administrators can connect to the image builder only through the specified endpoints.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-accessendpoints
+        '''
+        result = self._values.get("access_endpoints")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.AccessEndpointProperty"]]]], result)
+
+    @builtins.property
+    def appstream_agent_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the AppStream 2.0 agent to use for this image builder. To use the latest version of the AppStream 2.0 agent, specify [LATEST].
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-appstreamagentversion
+        '''
+        result = self._values.get("appstream_agent_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The image builder name to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_join_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.DomainJoinInfoProperty"]]:
+        '''The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-domainjoininfo
+        '''
+        result = self._values.get("domain_join_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.DomainJoinInfoProperty"]], result)
+
+    @builtins.property
+    def enable_default_internet_access(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables or disables default internet access for the image builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-enabledefaultinternetaccess
+        '''
+        result = self._values.get("enable_default_internet_access")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def iam_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that is applied to the image builder.
+
+        To assume a role, the image builder calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance.
+
+        For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the public, private, or shared image to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-imagearn
+        '''
+        result = self._values.get("image_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the image used to create the image builder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-imagename
+        '''
+        result = self._values.get("image_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.VpcConfigProperty"]]:
+        '''The VPC configuration for the image builder.
+
+        You can specify only one subnet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnImageBuilder.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnImageBuilderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnStackFleetAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"fleet_name": "fleetName", "stack_name": "stackName"},
+)
+class CfnStackFleetAssociationProps:
+    def __init__(self, *, fleet_name: builtins.str, stack_name: builtins.str) -> None:
+        '''Properties for defining a ``CfnStackFleetAssociation``.
+
+        :param fleet_name: The name of the fleet. To associate a fleet with a stack, you must specify a dependency on the fleet resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
+        :param stack_name: The name of the stack. To associate a fleet with a stack, you must specify a dependency on the stack resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_stack_fleet_association_props = appstream.CfnStackFleetAssociationProps(
+                fleet_name="fleetName",
+                stack_name="stackName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1480c1a389e0a505f08c8a89fcde9176cdb68f3f06682e9ee925e2d04934be68)
+            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fleet_name": fleet_name,
+            "stack_name": stack_name,
+        }
+
+    @builtins.property
+    def fleet_name(self) -> builtins.str:
+        '''The name of the fleet.
+
+        To associate a fleet with a stack, you must specify a dependency on the fleet resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html#cfn-appstream-stackfleetassociation-fleetname
+        '''
+        result = self._values.get("fleet_name")
+        assert result is not None, "Required property 'fleet_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The name of the stack.
+
+        To associate a fleet with a stack, you must specify a dependency on the stack resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html#cfn-appstream-stackfleetassociation-stackname
+        '''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackFleetAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnStackProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_endpoints": "accessEndpoints",
+        "application_settings": "applicationSettings",
+        "attributes_to_delete": "attributesToDelete",
+        "delete_storage_connectors": "deleteStorageConnectors",
+        "description": "description",
+        "display_name": "displayName",
+        "embed_host_domains": "embedHostDomains",
+        "feedback_url": "feedbackUrl",
+        "name": "name",
+        "redirect_url": "redirectUrl",
+        "storage_connectors": "storageConnectors",
+        "streaming_experience_settings": "streamingExperienceSettings",
+        "tags": "tags",
+        "user_settings": "userSettings",
+    },
+)
+class CfnStackProps:
+    def __init__(
+        self,
+        *,
+        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+        delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        embed_host_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+        feedback_url: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        redirect_url: typing.Optional[builtins.str] = None,
+        storage_connectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.StorageConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        streaming_experience_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.StreamingExperienceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.UserSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStack``.
+
+        :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Users of the stack can connect to AppStream 2.0 only through the specified endpoints.
+        :param application_settings: The persistent application settings for users of the stack. When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
+        :param attributes_to_delete: The stack attributes to delete.
+        :param delete_storage_connectors: *This parameter has been deprecated.*. Deletes the storage connectors currently enabled for the stack.
+        :param description: The description to display.
+        :param display_name: The stack name to display.
+        :param embed_host_domains: The domains where AppStream 2.0 streaming sessions can be embedded in an iframe. You must approve the domains that you want to host embedded AppStream 2.0 streaming sessions.
+        :param feedback_url: The URL that users are redirected to after they click the Send Feedback link. If no URL is specified, no Send Feedback link is displayed.
+        :param name: The name of the stack.
+        :param redirect_url: The URL that users are redirected to after their streaming session ends.
+        :param storage_connectors: The storage connectors to enable.
+        :param streaming_experience_settings: The streaming protocol that you want your stack to prefer. This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
+        :param tags: An array of key-value pairs.
+        :param user_settings: The actions that are enabled or disabled for users during their streaming sessions. By default, these actions are enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_stack_props = appstream.CfnStackProps(
+                access_endpoints=[appstream.CfnStack.AccessEndpointProperty(
+                    endpoint_type="endpointType",
+                    vpce_id="vpceId"
+                )],
+                application_settings=appstream.CfnStack.ApplicationSettingsProperty(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    settings_group="settingsGroup"
+                ),
+                attributes_to_delete=["attributesToDelete"],
+                delete_storage_connectors=False,
+                description="description",
+                display_name="displayName",
+                embed_host_domains=["embedHostDomains"],
+                feedback_url="feedbackUrl",
+                name="name",
+                redirect_url="redirectUrl",
+                storage_connectors=[appstream.CfnStack.StorageConnectorProperty(
+                    connector_type="connectorType",
+            
+                    # the properties below are optional
+                    domains=["domains"],
+                    resource_identifier="resourceIdentifier"
+                )],
+                streaming_experience_settings=appstream.CfnStack.StreamingExperienceSettingsProperty(
+                    preferred_protocol="preferredProtocol"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                user_settings=[appstream.CfnStack.UserSettingProperty(
+                    action="action",
+                    permission="permission",
+            
+                    # the properties below are optional
+                    maximum_length=123
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8fa0fe4b7)
+            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
+            check_type(argname="argument application_settings", value=application_settings, expected_type=type_hints["application_settings"])
+            check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
+            check_type(argname="argument delete_storage_connectors", value=delete_storage_connectors, expected_type=type_hints["delete_storage_connectors"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument embed_host_domains", value=embed_host_domains, expected_type=type_hints["embed_host_domains"])
+            check_type(argname="argument feedback_url", value=feedback_url, expected_type=type_hints["feedback_url"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument redirect_url", value=redirect_url, expected_type=type_hints["redirect_url"])
+            check_type(argname="argument storage_connectors", value=storage_connectors, expected_type=type_hints["storage_connectors"])
+            check_type(argname="argument streaming_experience_settings", value=streaming_experience_settings, expected_type=type_hints["streaming_experience_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument user_settings", value=user_settings, expected_type=type_hints["user_settings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_endpoints is not None:
+            self._values["access_endpoints"] = access_endpoints
+        if application_settings is not None:
+            self._values["application_settings"] = application_settings
+        if attributes_to_delete is not None:
+            self._values["attributes_to_delete"] = attributes_to_delete
+        if delete_storage_connectors is not None:
+            self._values["delete_storage_connectors"] = delete_storage_connectors
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if embed_host_domains is not None:
+            self._values["embed_host_domains"] = embed_host_domains
+        if feedback_url is not None:
+            self._values["feedback_url"] = feedback_url
+        if name is not None:
+            self._values["name"] = name
+        if redirect_url is not None:
+            self._values["redirect_url"] = redirect_url
+        if storage_connectors is not None:
+            self._values["storage_connectors"] = storage_connectors
+        if streaming_experience_settings is not None:
+            self._values["streaming_experience_settings"] = streaming_experience_settings
+        if tags is not None:
+            self._values["tags"] = tags
+        if user_settings is not None:
+            self._values["user_settings"] = user_settings
+
+    @builtins.property
+    def access_endpoints(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.AccessEndpointProperty"]]]]:
+        '''The list of virtual private cloud (VPC) interface endpoint objects.
+
+        Users of the stack can connect to AppStream 2.0 only through the specified endpoints.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-accessendpoints
+        '''
+        result = self._values.get("access_endpoints")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.AccessEndpointProperty"]]]], result)
+
+    @builtins.property
+    def application_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.ApplicationSettingsProperty"]]:
+        '''The persistent application settings for users of the stack.
+
+        When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-applicationsettings
+        '''
+        result = self._values.get("application_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.ApplicationSettingsProperty"]], result)
+
+    @builtins.property
+    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The stack attributes to delete.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-attributestodelete
+        '''
+        result = self._values.get("attributes_to_delete")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def delete_storage_connectors(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''*This parameter has been deprecated.*.
+
+        Deletes the storage connectors currently enabled for the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-deletestorageconnectors
+        '''
+        result = self._values.get("delete_storage_connectors")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The stack name to display.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def embed_host_domains(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The domains where AppStream 2.0 streaming sessions can be embedded in an iframe. You must approve the domains that you want to host embedded AppStream 2.0 streaming sessions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-embedhostdomains
+        '''
+        result = self._values.get("embed_host_domains")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def feedback_url(self) -> typing.Optional[builtins.str]:
+        '''The URL that users are redirected to after they click the Send Feedback link.
+
+        If no URL is specified, no Send Feedback link is displayed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-feedbackurl
+        '''
+        result = self._values.get("feedback_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def redirect_url(self) -> typing.Optional[builtins.str]:
+        '''The URL that users are redirected to after their streaming session ends.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-redirecturl
+        '''
+        result = self._values.get("redirect_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_connectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.StorageConnectorProperty"]]]]:
+        '''The storage connectors to enable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-storageconnectors
+        '''
+        result = self._values.get("storage_connectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.StorageConnectorProperty"]]]], result)
+
+    @builtins.property
+    def streaming_experience_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.StreamingExperienceSettingsProperty"]]:
+        '''The streaming protocol that you want your stack to prefer.
+
+        This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-streamingexperiencesettings
+        '''
+        result = self._values.get("streaming_experience_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.StreamingExperienceSettingsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def user_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.UserSettingProperty"]]]]:
+        '''The actions that are enabled or disabled for users during their streaming sessions.
+
+        By default, these actions are enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-usersettings
+        '''
+        result = self._values.get("user_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.UserSettingProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnStackUserAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authentication_type": "authenticationType",
+        "stack_name": "stackName",
+        "user_name": "userName",
+        "send_email_notification": "sendEmailNotification",
+    },
+)
+class CfnStackUserAssociationProps:
+    def __init__(
+        self,
+        *,
+        authentication_type: builtins.str,
+        stack_name: builtins.str,
+        user_name: builtins.str,
+        send_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStackUserAssociation``.
+
+        :param authentication_type: The authentication type for the user who is associated with the stack. You must specify USERPOOL.
+        :param stack_name: The name of the stack that is associated with the user.
+        :param user_name: The email address of the user who is associated with the stack. .. epigraph:: Users' email addresses are case-sensitive.
+        :param send_email_notification: Specifies whether a welcome email is sent to a user after the user is created in the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_stack_user_association_props = appstream.CfnStackUserAssociationProps(
+                authentication_type="authenticationType",
+                stack_name="stackName",
+                user_name="userName",
+            
+                # the properties below are optional
+                send_email_notification=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74aaf98b7d4c632c40e4e8dc18d65c1b406717f29b491f772b1e285eb5861fd8)
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+            check_type(argname="argument send_email_notification", value=send_email_notification, expected_type=type_hints["send_email_notification"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authentication_type": authentication_type,
+            "stack_name": stack_name,
+            "user_name": user_name,
+        }
+        if send_email_notification is not None:
+            self._values["send_email_notification"] = send_email_notification
+
+    @builtins.property
+    def authentication_type(self) -> builtins.str:
+        '''The authentication type for the user who is associated with the stack.
+
+        You must specify USERPOOL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        assert result is not None, "Required property 'authentication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The name of the stack that is associated with the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-stackname
+        '''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''The email address of the user who is associated with the stack.
+
+        .. epigraph::
+
+           Users' email addresses are case-sensitive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-username
+        '''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def send_email_notification(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether a welcome email is sent to a user after the user is created in the user pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-sendemailnotification
+        '''
+        result = self._values.get("send_email_notification")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackUserAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.CfnUserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authentication_type": "authenticationType",
+        "user_name": "userName",
+        "first_name": "firstName",
+        "last_name": "lastName",
+        "message_action": "messageAction",
+    },
+)
+class CfnUserProps:
+    def __init__(
+        self,
+        *,
+        authentication_type: builtins.str,
+        user_name: builtins.str,
+        first_name: typing.Optional[builtins.str] = None,
+        last_name: typing.Optional[builtins.str] = None,
+        message_action: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUser``.
+
+        :param authentication_type: The authentication type for the user. You must specify USERPOOL.
+        :param user_name: The email address of the user. Users' email addresses are case-sensitive. During login, if they specify an email address that doesn't use the same capitalization as the email address specified when their user pool account was created, a "user does not exist" error message displays.
+        :param first_name: The first name, or given name, of the user.
+        :param last_name: The last name, or surname, of the user.
+        :param message_action: The action to take for the welcome email that is sent to a user after the user is created in the user pool. If you specify SUPPRESS, no email is sent. If you specify RESEND, do not specify the first name or last name of the user. If the value is null, the email is sent. .. epigraph:: The temporary password in the welcome email is valid for only 7 days. If users don’t set their passwords within 7 days, you must send them a new welcome email.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            cfn_user_props = appstream.CfnUserProps(
+                authentication_type="authenticationType",
+                user_name="userName",
+            
+                # the properties below are optional
+                first_name="firstName",
+                last_name="lastName",
+                message_action="messageAction"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59d6dce4cd4b814f53051d27e4f9e61dcb2e7cccfbc898cc602607476ea77395)
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+            check_type(argname="argument first_name", value=first_name, expected_type=type_hints["first_name"])
+            check_type(argname="argument last_name", value=last_name, expected_type=type_hints["last_name"])
+            check_type(argname="argument message_action", value=message_action, expected_type=type_hints["message_action"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authentication_type": authentication_type,
+            "user_name": user_name,
+        }
+        if first_name is not None:
+            self._values["first_name"] = first_name
+        if last_name is not None:
+            self._values["last_name"] = last_name
+        if message_action is not None:
+            self._values["message_action"] = message_action
+
+    @builtins.property
+    def authentication_type(self) -> builtins.str:
+        '''The authentication type for the user.
+
+        You must specify USERPOOL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        assert result is not None, "Required property 'authentication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''The email address of the user.
+
+        Users' email addresses are case-sensitive. During login, if they specify an email address that doesn't use the same capitalization as the email address specified when their user pool account was created, a "user does not exist" error message displays.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-username
+        '''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def first_name(self) -> typing.Optional[builtins.str]:
+        '''The first name, or given name, of the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-firstname
+        '''
+        result = self._values.get("first_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_name(self) -> typing.Optional[builtins.str]:
+        '''The last name, or surname, of the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-lastname
+        '''
+        result = self._values.get("last_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def message_action(self) -> typing.Optional[builtins.str]:
+        '''The action to take for the welcome email that is sent to a user after the user is created in the user pool.
+
+        If you specify SUPPRESS, no email is sent. If you specify RESEND, do not specify the first name or last name of the user. If the value is null, the email is sent.
+        .. epigraph::
+
+           The temporary password in the welcome email is valid for only 7 days. If users don’t set their passwords within 7 days, you must send them a new welcome email.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-messageaction
+        '''
+        result = self._values.get("message_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.DirectoryConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"directory_name": "directoryName"},
+)
+class DirectoryConfigReference:
+    def __init__(self, *, directory_name: builtins.str) -> None:
+        '''A reference to a DirectoryConfig resource.
+
+        :param directory_name: The DirectoryName of the DirectoryConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            directory_config_reference = appstream.DirectoryConfigReference(
+                directory_name="directoryName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6cf30a700f11f334949e95ef6e2b478d907c36d2cec4ed5435c59c2380d98082)
+            check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_name": directory_name,
+        }
+
+    @builtins.property
+    def directory_name(self) -> builtins.str:
+        '''The DirectoryName of the DirectoryConfig resource.'''
+        result = self._values.get("directory_name")
+        assert result is not None, "Required property 'directory_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DirectoryConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.EntitlementReference",
+    jsii_struct_bases=[],
+    name_mapping={"entitlement_name": "entitlementName", "stack_name": "stackName"},
+)
+class EntitlementReference:
+    def __init__(
+        self,
+        *,
+        entitlement_name: builtins.str,
+        stack_name: builtins.str,
+    ) -> None:
+        '''A reference to a Entitlement resource.
+
+        :param entitlement_name: The Name of the Entitlement resource.
+        :param stack_name: The StackName of the Entitlement resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            entitlement_reference = appstream.EntitlementReference(
+                entitlement_name="entitlementName",
+                stack_name="stackName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d8da32636bb19f52980927258dd23b0e898809677ba2c16f7fd50640082bc41)
+            check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entitlement_name": entitlement_name,
+            "stack_name": stack_name,
+        }
+
+    @builtins.property
+    def entitlement_name(self) -> builtins.str:
+        '''The Name of the Entitlement resource.'''
+        result = self._values.get("entitlement_name")
+        assert result is not None, "Required property 'entitlement_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The StackName of the Entitlement resource.'''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EntitlementReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.FleetReference",
+    jsii_struct_bases=[],
+    name_mapping={"fleet_id": "fleetId"},
+)
+class FleetReference:
+    def __init__(self, *, fleet_id: builtins.str) -> None:
+        '''A reference to a Fleet resource.
+
+        :param fleet_id: The Id of the Fleet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            fleet_reference = appstream.FleetReference(
+                fleet_id="fleetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4119e749ba397a753245ac27a7b879e4c0e36bd7d6d2fb5f3dc1eb808bc07a4)
+            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fleet_id": fleet_id,
+        }
+
+    @builtins.property
+    def fleet_id(self) -> builtins.str:
+        '''The Id of the Fleet resource.'''
+        result = self._values.get("fleet_id")
+        assert result is not None, "Required property 'fleet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FleetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IAppBlockBuilderRef")
+class IAppBlockBuilderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AppBlockBuilder.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockBuilderRef")
+    def app_block_builder_ref(self) -> AppBlockBuilderReference:
+        '''(experimental) A reference to a AppBlockBuilder resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppBlockBuilderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppBlockBuilder.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IAppBlockBuilderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockBuilderRef")
+    def app_block_builder_ref(self) -> AppBlockBuilderReference:
+        '''(experimental) A reference to a AppBlockBuilder resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AppBlockBuilderReference, jsii.get(self, "appBlockBuilderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppBlockBuilderRef).__jsii_proxy_class__ = lambda : _IAppBlockBuilderRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IAppBlockRef")
+class IAppBlockRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AppBlock.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockRef")
+    def app_block_ref(self) -> AppBlockReference:
+        '''(experimental) A reference to a AppBlock resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppBlockRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AppBlock.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IAppBlockRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockRef")
+    def app_block_ref(self) -> AppBlockReference:
+        '''(experimental) A reference to a AppBlock resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AppBlockReference, jsii.get(self, "appBlockRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppBlockRef).__jsii_proxy_class__ = lambda : _IAppBlockRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_appstream.IApplicationEntitlementAssociationRef"
+)
+class IApplicationEntitlementAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationEntitlementAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationEntitlementAssociationRef")
+    def application_entitlement_association_ref(
+        self,
+    ) -> ApplicationEntitlementAssociationReference:
+        '''(experimental) A reference to a ApplicationEntitlementAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationEntitlementAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationEntitlementAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IApplicationEntitlementAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationEntitlementAssociationRef")
+    def application_entitlement_association_ref(
+        self,
+    ) -> ApplicationEntitlementAssociationReference:
+        '''(experimental) A reference to a ApplicationEntitlementAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationEntitlementAssociationReference, jsii.get(self, "applicationEntitlementAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationEntitlementAssociationRef).__jsii_proxy_class__ = lambda : _IApplicationEntitlementAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IApplicationFleetAssociationRef")
+class IApplicationFleetAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationFleetAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationFleetAssociationRef")
+    def application_fleet_association_ref(self) -> ApplicationFleetAssociationReference:
+        '''(experimental) A reference to a ApplicationFleetAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationFleetAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationFleetAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IApplicationFleetAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationFleetAssociationRef")
+    def application_fleet_association_ref(self) -> ApplicationFleetAssociationReference:
+        '''(experimental) A reference to a ApplicationFleetAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationFleetAssociationReference, jsii.get(self, "applicationFleetAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationFleetAssociationRef).__jsii_proxy_class__ = lambda : _IApplicationFleetAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IDirectoryConfigRef")
+class IDirectoryConfigRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryConfigRef")
+    def directory_config_ref(self) -> DirectoryConfigReference:
+        '''(experimental) A reference to a DirectoryConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDirectoryConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IDirectoryConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryConfigRef")
+    def directory_config_ref(self) -> DirectoryConfigReference:
+        '''(experimental) A reference to a DirectoryConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DirectoryConfigReference, jsii.get(self, "directoryConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDirectoryConfigRef).__jsii_proxy_class__ = lambda : _IDirectoryConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IEntitlementRef")
+class IEntitlementRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Entitlement.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="entitlementRef")
+    def entitlement_ref(self) -> EntitlementReference:
+        '''(experimental) A reference to a Entitlement resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEntitlementRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Entitlement.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IEntitlementRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="entitlementRef")
+    def entitlement_ref(self) -> EntitlementReference:
+        '''(experimental) A reference to a Entitlement resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EntitlementReference, jsii.get(self, "entitlementRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEntitlementRef).__jsii_proxy_class__ = lambda : _IEntitlementRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IFleetRef")
+class IFleetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Fleet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''(experimental) A reference to a Fleet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFleetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Fleet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IFleetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''(experimental) A reference to a Fleet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IImageBuilderRef")
+class IImageBuilderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ImageBuilder.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="imageBuilderRef")
+    def image_builder_ref(self) -> "ImageBuilderReference":
+        '''(experimental) A reference to a ImageBuilder resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IImageBuilderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ImageBuilder.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IImageBuilderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="imageBuilderRef")
+    def image_builder_ref(self) -> "ImageBuilderReference":
+        '''(experimental) A reference to a ImageBuilder resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ImageBuilderReference", jsii.get(self, "imageBuilderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IImageBuilderRef).__jsii_proxy_class__ = lambda : _IImageBuilderRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IStackFleetAssociationRef")
+class IStackFleetAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackFleetAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackFleetAssociationRef")
+    def stack_fleet_association_ref(self) -> "StackFleetAssociationReference":
+        '''(experimental) A reference to a StackFleetAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackFleetAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackFleetAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IStackFleetAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackFleetAssociationRef")
+    def stack_fleet_association_ref(self) -> "StackFleetAssociationReference":
+        '''(experimental) A reference to a StackFleetAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackFleetAssociationReference", jsii.get(self, "stackFleetAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackFleetAssociationRef).__jsii_proxy_class__ = lambda : _IStackFleetAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IStackRef")
+class IStackRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IStackRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackReference", jsii.get(self, "stackRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IStackUserAssociationRef")
+class IStackUserAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackUserAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackUserAssociationRef")
+    def stack_user_association_ref(self) -> "StackUserAssociationReference":
+        '''(experimental) A reference to a StackUserAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackUserAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackUserAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IStackUserAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackUserAssociationRef")
+    def stack_user_association_ref(self) -> "StackUserAssociationReference":
+        '''(experimental) A reference to a StackUserAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackUserAssociationReference", jsii.get(self, "stackUserAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackUserAssociationRef).__jsii_proxy_class__ = lambda : _IStackUserAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appstream.IUserRef")
+class IUserRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appstream.IUserRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserReference", jsii.get(self, "userRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.ImageBuilderReference",
+    jsii_struct_bases=[],
+    name_mapping={"image_builder_name": "imageBuilderName"},
+)
+class ImageBuilderReference:
+    def __init__(self, *, image_builder_name: builtins.str) -> None:
+        '''A reference to a ImageBuilder resource.
+
+        :param image_builder_name: The Name of the ImageBuilder resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            image_builder_reference = appstream.ImageBuilderReference(
+                image_builder_name="imageBuilderName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c394661ae8d7c3e73854152902796eb7f43a04538d7520a9246fb2c351f6ad80)
+            check_type(argname="argument image_builder_name", value=image_builder_name, expected_type=type_hints["image_builder_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_builder_name": image_builder_name,
+        }
+
+    @builtins.property
+    def image_builder_name(self) -> builtins.str:
+        '''The Name of the ImageBuilder resource.'''
+        result = self._values.get("image_builder_name")
+        assert result is not None, "Required property 'image_builder_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ImageBuilderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.StackFleetAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_fleet_association_id": "stackFleetAssociationId"},
+)
+class StackFleetAssociationReference:
+    def __init__(self, *, stack_fleet_association_id: builtins.str) -> None:
+        '''A reference to a StackFleetAssociation resource.
+
+        :param stack_fleet_association_id: The Id of the StackFleetAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            stack_fleet_association_reference = appstream.StackFleetAssociationReference(
+                stack_fleet_association_id="stackFleetAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fcb4f0e81a45a13feabf0bd08b38af23c20ddd3454537a7e499008d00e45cf6f)
+            check_type(argname="argument stack_fleet_association_id", value=stack_fleet_association_id, expected_type=type_hints["stack_fleet_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_fleet_association_id": stack_fleet_association_id,
+        }
+
+    @builtins.property
+    def stack_fleet_association_id(self) -> builtins.str:
+        '''The Id of the StackFleetAssociation resource.'''
+        result = self._values.get("stack_fleet_association_id")
+        assert result is not None, "Required property 'stack_fleet_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackFleetAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.StackReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_id": "stackId"},
+)
+class StackReference:
+    def __init__(self, *, stack_id: builtins.str) -> None:
+        '''A reference to a Stack resource.
+
+        :param stack_id: The Id of the Stack resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            stack_reference = appstream.StackReference(
+                stack_id="stackId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52bb35345d407e87143d6496361684b73bbd4b85aae31ab7960439d59799241a)
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_id": stack_id,
+        }
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The Id of the Stack resource.'''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.StackUserAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_user_association_id": "stackUserAssociationId"},
+)
+class StackUserAssociationReference:
+    def __init__(self, *, stack_user_association_id: builtins.str) -> None:
+        '''A reference to a StackUserAssociation resource.
+
+        :param stack_user_association_id: The Id of the StackUserAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            stack_user_association_reference = appstream.StackUserAssociationReference(
+                stack_user_association_id="stackUserAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90ff1b480098747bcc8820c2cf4fbab7d20e3fe73f2cf5475e8347ed21c5dce9)
+            check_type(argname="argument stack_user_association_id", value=stack_user_association_id, expected_type=type_hints["stack_user_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_user_association_id": stack_user_association_id,
+        }
+
+    @builtins.property
+    def stack_user_association_id(self) -> builtins.str:
+        '''The Id of the StackUserAssociation resource.'''
+        result = self._values.get("stack_user_association_id")
+        assert result is not None, "Required property 'stack_user_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackUserAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appstream.UserReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_id": "userId"},
+)
+class UserReference:
+    def __init__(self, *, user_id: builtins.str) -> None:
+        '''A reference to a User resource.
+
+        :param user_id: The Id of the User resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appstream as appstream
+            
+            user_reference = appstream.UserReference(
+                user_id="userId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__605adad31907f1574c8b907b9a10fe80274a56f8524649f3fb29f154235d5078)
+            check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_id": user_id,
+        }
+
+    @builtins.property
+    def user_id(self) -> builtins.str:
+        '''The Id of the User resource.'''
+        result = self._values.get("user_id")
+        assert result is not None, "Required property 'user_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAppBlockRef, _ITaggable_36806126)
 class CfnAppBlock(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -208,6 +4041,12 @@ class CfnAppBlock(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockRef")
+    def app_block_ref(self) -> AppBlockReference:
+        '''A reference to a AppBlock resource.'''
+        return typing.cast(AppBlockReference, jsii.get(self, "appBlockRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -548,7 +4387,7 @@ class CfnAppBlock(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAppBlockBuilderRef, _ITaggableV2_4e6798f8)
 class CfnAppBlockBuilder(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -673,6 +4512,12 @@ class CfnAppBlockBuilder(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appBlockBuilderRef")
+    def app_block_builder_ref(self) -> AppBlockBuilderReference:
+        '''A reference to a AppBlockBuilder resource.'''
+        return typing.cast(AppBlockBuilderReference, jsii.get(self, "appBlockBuilderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1008,460 +4853,7 @@ class CfnAppBlockBuilder(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnAppBlockBuilderProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_type": "instanceType",
-        "name": "name",
-        "platform": "platform",
-        "vpc_config": "vpcConfig",
-        "access_endpoints": "accessEndpoints",
-        "app_block_arns": "appBlockArns",
-        "description": "description",
-        "display_name": "displayName",
-        "enable_default_internet_access": "enableDefaultInternetAccess",
-        "iam_role_arn": "iamRoleArn",
-        "tags": "tags",
-    },
-)
-class CfnAppBlockBuilderProps:
-    def __init__(
-        self,
-        *,
-        instance_type: builtins.str,
-        name: builtins.str,
-        platform: builtins.str,
-        vpc_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        iam_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAppBlockBuilder``.
-
-        :param instance_type: The instance type of the app block builder.
-        :param name: The name of the app block builder.
-        :param platform: The platform of the app block builder. *Allowed values* : ``WINDOWS_SERVER_2019``
-        :param vpc_config: The VPC configuration for the app block builder.
-        :param access_endpoints: The access endpoints of the app block builder.
-        :param app_block_arns: The ARN of the app block. *Maximum* : ``1``
-        :param description: The description of the app block builder.
-        :param display_name: The display name of the app block builder.
-        :param enable_default_internet_access: Indicates whether default internet access is enabled for the app block builder.
-        :param iam_role_arn: The ARN of the IAM role that is applied to the app block builder.
-        :param tags: The tags of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_app_block_builder_props = appstream.CfnAppBlockBuilderProps(
-                instance_type="instanceType",
-                name="name",
-                platform="platform",
-                vpc_config=appstream.CfnAppBlockBuilder.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                ),
-            
-                # the properties below are optional
-                access_endpoints=[appstream.CfnAppBlockBuilder.AccessEndpointProperty(
-                    endpoint_type="endpointType",
-                    vpce_id="vpceId"
-                )],
-                app_block_arns=["appBlockArns"],
-                description="description",
-                display_name="displayName",
-                enable_default_internet_access=False,
-                iam_role_arn="iamRoleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e788750b4b78274a373182d9b8ff84f13602b9b9ce827c99dbbbeefc73304b62)
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
-            check_type(argname="argument app_block_arns", value=app_block_arns, expected_type=type_hints["app_block_arns"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_type": instance_type,
-            "name": name,
-            "platform": platform,
-            "vpc_config": vpc_config,
-        }
-        if access_endpoints is not None:
-            self._values["access_endpoints"] = access_endpoints
-        if app_block_arns is not None:
-            self._values["app_block_arns"] = app_block_arns
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if enable_default_internet_access is not None:
-            self._values["enable_default_internet_access"] = enable_default_internet_access
-        if iam_role_arn is not None:
-            self._values["iam_role_arn"] = iam_role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The instance type of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def platform(self) -> builtins.str:
-        '''The platform of the app block builder.
-
-        *Allowed values* : ``WINDOWS_SERVER_2019``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-platform
-        '''
-        result = self._values.get("platform")
-        assert result is not None, "Required property 'platform' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAppBlockBuilder.VpcConfigProperty]:
-        '''The VPC configuration for the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        assert result is not None, "Required property 'vpc_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAppBlockBuilder.VpcConfigProperty], result)
-
-    @builtins.property
-    def access_endpoints(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAppBlockBuilder.AccessEndpointProperty]]]]:
-        '''The access endpoints of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-accessendpoints
-        '''
-        result = self._values.get("access_endpoints")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAppBlockBuilder.AccessEndpointProperty]]]], result)
-
-    @builtins.property
-    def app_block_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARN of the app block.
-
-        *Maximum* : ``1``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-appblockarns
-        '''
-        result = self._values.get("app_block_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_default_internet_access(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether default internet access is enabled for the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-enabledefaultinternetaccess
-        '''
-        result = self._values.get("enable_default_internet_access")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the IAM role that is applied to the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags of the app block builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblockbuilder.html#cfn-appstream-appblockbuilder-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppBlockBuilderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnAppBlockProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "source_s3_location": "sourceS3Location",
-        "description": "description",
-        "display_name": "displayName",
-        "packaging_type": "packagingType",
-        "post_setup_script_details": "postSetupScriptDetails",
-        "setup_script_details": "setupScriptDetails",
-        "tags": "tags",
-    },
-)
-class CfnAppBlockProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        source_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        packaging_type: typing.Optional[builtins.str] = None,
-        post_setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAppBlock``.
-
-        :param name: The name of the app block. *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
-        :param source_s3_location: The source S3 location of the app block.
-        :param description: The description of the app block.
-        :param display_name: The display name of the app block.
-        :param packaging_type: The packaging type of the app block.
-        :param post_setup_script_details: The post setup script details of the app block.
-        :param setup_script_details: The setup script details of the app block.
-        :param tags: The tags of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_app_block_props = appstream.CfnAppBlockProps(
-                name="name",
-                source_s3_location=appstream.CfnAppBlock.S3LocationProperty(
-                    s3_bucket="s3Bucket",
-            
-                    # the properties below are optional
-                    s3_key="s3Key"
-                ),
-            
-                # the properties below are optional
-                description="description",
-                display_name="displayName",
-                packaging_type="packagingType",
-                post_setup_script_details=appstream.CfnAppBlock.ScriptDetailsProperty(
-                    executable_path="executablePath",
-                    script_s3_location=appstream.CfnAppBlock.S3LocationProperty(
-                        s3_bucket="s3Bucket",
-            
-                        # the properties below are optional
-                        s3_key="s3Key"
-                    ),
-                    timeout_in_seconds=123,
-            
-                    # the properties below are optional
-                    executable_parameters="executableParameters"
-                ),
-                setup_script_details=appstream.CfnAppBlock.ScriptDetailsProperty(
-                    executable_path="executablePath",
-                    script_s3_location=appstream.CfnAppBlock.S3LocationProperty(
-                        s3_bucket="s3Bucket",
-            
-                        # the properties below are optional
-                        s3_key="s3Key"
-                    ),
-                    timeout_in_seconds=123,
-            
-                    # the properties below are optional
-                    executable_parameters="executableParameters"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d81fb9c3e1fcc7b221dbc8290b04501b1af7d21a103a5dacb19c8221493f37f1)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument source_s3_location", value=source_s3_location, expected_type=type_hints["source_s3_location"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument packaging_type", value=packaging_type, expected_type=type_hints["packaging_type"])
-            check_type(argname="argument post_setup_script_details", value=post_setup_script_details, expected_type=type_hints["post_setup_script_details"])
-            check_type(argname="argument setup_script_details", value=setup_script_details, expected_type=type_hints["setup_script_details"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "source_s3_location": source_s3_location,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if packaging_type is not None:
-            self._values["packaging_type"] = packaging_type
-        if post_setup_script_details is not None:
-            self._values["post_setup_script_details"] = post_setup_script_details
-        if setup_script_details is not None:
-            self._values["setup_script_details"] = setup_script_details
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the app block.
-
-        *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_s3_location(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAppBlock.S3LocationProperty]:
-        '''The source S3 location of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-sources3location
-        '''
-        result = self._values.get("source_s3_location")
-        assert result is not None, "Required property 'source_s3_location' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAppBlock.S3LocationProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def packaging_type(self) -> typing.Optional[builtins.str]:
-        '''The packaging type of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-packagingtype
-        '''
-        result = self._values.get("packaging_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_setup_script_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppBlock.ScriptDetailsProperty]]:
-        '''The post setup script details of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-postsetupscriptdetails
-        '''
-        result = self._values.get("post_setup_script_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppBlock.ScriptDetailsProperty]], result)
-
-    @builtins.property
-    def setup_script_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppBlock.ScriptDetailsProperty]]:
-        '''The setup script details of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-setupscriptdetails
-        '''
-        result = self._values.get("setup_script_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppBlock.ScriptDetailsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags of the app block.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-appblock.html#cfn-appstream-appblock-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppBlockProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1589,6 +4981,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1850,7 +5248,7 @@ class CfnApplication(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationEntitlementAssociationRef)
 class CfnApplicationEntitlementAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1934,6 +5332,14 @@ class CfnApplicationEntitlementAssociation(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="applicationEntitlementAssociationRef")
+    def application_entitlement_association_ref(
+        self,
+    ) -> ApplicationEntitlementAssociationReference:
+        '''A reference to a ApplicationEntitlementAssociation resource.'''
+        return typing.cast(ApplicationEntitlementAssociationReference, jsii.get(self, "applicationEntitlementAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1978,98 +5384,7 @@ class CfnApplicationEntitlementAssociation(
         jsii.set(self, "stackName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationEntitlementAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_identifier": "applicationIdentifier",
-        "entitlement_name": "entitlementName",
-        "stack_name": "stackName",
-    },
-)
-class CfnApplicationEntitlementAssociationProps:
-    def __init__(
-        self,
-        *,
-        application_identifier: builtins.str,
-        entitlement_name: builtins.str,
-        stack_name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationEntitlementAssociation``.
-
-        :param application_identifier: The identifier of the application.
-        :param entitlement_name: The name of the entitlement.
-        :param stack_name: The name of the stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_application_entitlement_association_props = appstream.CfnApplicationEntitlementAssociationProps(
-                application_identifier="applicationIdentifier",
-                entitlement_name="entitlementName",
-                stack_name="stackName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ed66445aef0340172777886fa668a63161e6556da0c4ddda56f9f1d4ec958ba)
-            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
-            check_type(argname="argument entitlement_name", value=entitlement_name, expected_type=type_hints["entitlement_name"])
-            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_identifier": application_identifier,
-            "entitlement_name": entitlement_name,
-            "stack_name": stack_name,
-        }
-
-    @builtins.property
-    def application_identifier(self) -> builtins.str:
-        '''The identifier of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-applicationidentifier
-        '''
-        result = self._values.get("application_identifier")
-        assert result is not None, "Required property 'application_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def entitlement_name(self) -> builtins.str:
-        '''The name of the entitlement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-entitlementname
-        '''
-        result = self._values.get("entitlement_name")
-        assert result is not None, "Required property 'entitlement_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_name(self) -> builtins.str:
-        '''The name of the stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationentitlementassociation.html#cfn-appstream-applicationentitlementassociation-stackname
-        '''
-        result = self._values.get("stack_name")
-        assert result is not None, "Required property 'stack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationEntitlementAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationFleetAssociationRef)
 class CfnApplicationFleetAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2150,6 +5465,12 @@ class CfnApplicationFleetAssociation(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="applicationFleetAssociationRef")
+    def application_fleet_association_ref(self) -> ApplicationFleetAssociationReference:
+        '''A reference to a ApplicationFleetAssociation resource.'''
+        return typing.cast(ApplicationFleetAssociationReference, jsii.get(self, "applicationFleetAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -2181,334 +5502,7 @@ class CfnApplicationFleetAssociation(
         jsii.set(self, "fleetName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationFleetAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"application_arn": "applicationArn", "fleet_name": "fleetName"},
-)
-class CfnApplicationFleetAssociationProps:
-    def __init__(
-        self,
-        *,
-        application_arn: builtins.str,
-        fleet_name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationFleetAssociation``.
-
-        :param application_arn: The ARN of the application.
-        :param fleet_name: The name of the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_application_fleet_association_props = appstream.CfnApplicationFleetAssociationProps(
-                application_arn="applicationArn",
-                fleet_name="fleetName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d294820a31c019b7ec8574f34a068e3a21437c2751ab65ed99beb677455d420a)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "fleet_name": fleet_name,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ARN of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html#cfn-appstream-applicationfleetassociation-applicationarn
-        '''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def fleet_name(self) -> builtins.str:
-        '''The name of the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-applicationfleetassociation.html#cfn-appstream-applicationfleetassociation-fleetname
-        '''
-        result = self._values.get("fleet_name")
-        assert result is not None, "Required property 'fleet_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationFleetAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_block_arn": "appBlockArn",
-        "icon_s3_location": "iconS3Location",
-        "instance_families": "instanceFamilies",
-        "launch_path": "launchPath",
-        "name": "name",
-        "platforms": "platforms",
-        "attributes_to_delete": "attributesToDelete",
-        "description": "description",
-        "display_name": "displayName",
-        "launch_parameters": "launchParameters",
-        "tags": "tags",
-        "working_directory": "workingDirectory",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        app_block_arn: builtins.str,
-        icon_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-        instance_families: typing.Sequence[builtins.str],
-        launch_path: builtins.str,
-        name: builtins.str,
-        platforms: typing.Sequence[builtins.str],
-        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        launch_parameters: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        working_directory: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param app_block_arn: The app block ARN with which the application should be associated.
-        :param icon_s3_location: The icon S3 location of the application.
-        :param instance_families: The instance families the application supports. *Allowed Values* : ``GENERAL_PURPOSE`` | ``GRAPHICS_G4``
-        :param launch_path: The launch path of the application.
-        :param name: The name of the application. This name is visible to users when a name is not specified in the DisplayName property. *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
-        :param platforms: The platforms the application supports. *Allowed Values* : ``WINDOWS_SERVER_2019`` | ``AMAZON_LINUX2``
-        :param attributes_to_delete: A list of attributes to delete from an application.
-        :param description: The description of the application.
-        :param display_name: The display name of the application. This name is visible to users in the application catalog.
-        :param launch_parameters: The launch parameters of the application.
-        :param tags: The tags of the application.
-        :param working_directory: The working directory of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_application_props = appstream.CfnApplicationProps(
-                app_block_arn="appBlockArn",
-                icon_s3_location=appstream.CfnApplication.S3LocationProperty(
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key"
-                ),
-                instance_families=["instanceFamilies"],
-                launch_path="launchPath",
-                name="name",
-                platforms=["platforms"],
-            
-                # the properties below are optional
-                attributes_to_delete=["attributesToDelete"],
-                description="description",
-                display_name="displayName",
-                launch_parameters="launchParameters",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                working_directory="workingDirectory"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb96c46dcf41b8bf52ccede1fadb0b2ffaef8995b618f1e0816e434f6605e2f2)
-            check_type(argname="argument app_block_arn", value=app_block_arn, expected_type=type_hints["app_block_arn"])
-            check_type(argname="argument icon_s3_location", value=icon_s3_location, expected_type=type_hints["icon_s3_location"])
-            check_type(argname="argument instance_families", value=instance_families, expected_type=type_hints["instance_families"])
-            check_type(argname="argument launch_path", value=launch_path, expected_type=type_hints["launch_path"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument platforms", value=platforms, expected_type=type_hints["platforms"])
-            check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument launch_parameters", value=launch_parameters, expected_type=type_hints["launch_parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_block_arn": app_block_arn,
-            "icon_s3_location": icon_s3_location,
-            "instance_families": instance_families,
-            "launch_path": launch_path,
-            "name": name,
-            "platforms": platforms,
-        }
-        if attributes_to_delete is not None:
-            self._values["attributes_to_delete"] = attributes_to_delete
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if launch_parameters is not None:
-            self._values["launch_parameters"] = launch_parameters
-        if tags is not None:
-            self._values["tags"] = tags
-        if working_directory is not None:
-            self._values["working_directory"] = working_directory
-
-    @builtins.property
-    def app_block_arn(self) -> builtins.str:
-        '''The app block ARN with which the application should be associated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-appblockarn
-        '''
-        result = self._values.get("app_block_arn")
-        assert result is not None, "Required property 'app_block_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def icon_s3_location(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplication.S3LocationProperty]:
-        '''The icon S3 location of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-icons3location
-        '''
-        result = self._values.get("icon_s3_location")
-        assert result is not None, "Required property 'icon_s3_location' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplication.S3LocationProperty], result)
-
-    @builtins.property
-    def instance_families(self) -> typing.List[builtins.str]:
-        '''The instance families the application supports.
-
-        *Allowed Values* : ``GENERAL_PURPOSE`` | ``GRAPHICS_G4``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-instancefamilies
-        '''
-        result = self._values.get("instance_families")
-        assert result is not None, "Required property 'instance_families' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def launch_path(self) -> builtins.str:
-        '''The launch path of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-launchpath
-        '''
-        result = self._values.get("launch_path")
-        assert result is not None, "Required property 'launch_path' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the application.
-
-        This name is visible to users when a name is not specified in the DisplayName property.
-
-        *Pattern* : ``^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def platforms(self) -> typing.List[builtins.str]:
-        '''The platforms the application supports.
-
-        *Allowed Values* : ``WINDOWS_SERVER_2019`` | ``AMAZON_LINUX2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-platforms
-        '''
-        result = self._values.get("platforms")
-        assert result is not None, "Required property 'platforms' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of attributes to delete from an application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-attributestodelete
-        '''
-        result = self._values.get("attributes_to_delete")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the application.
-
-        This name is visible to users in the application catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def launch_parameters(self) -> typing.Optional[builtins.str]:
-        '''The launch parameters of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-launchparameters
-        '''
-        result = self._values.get("launch_parameters")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def working_directory(self) -> typing.Optional[builtins.str]:
-        '''The working directory of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-application.html#cfn-appstream-application-workingdirectory
-        '''
-        result = self._values.get("working_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDirectoryConfigRef)
 class CfnDirectoryConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2607,6 +5601,12 @@ class CfnDirectoryConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryConfigRef")
+    def directory_config_ref(self) -> DirectoryConfigReference:
+        '''A reference to a DirectoryConfig resource.'''
+        return typing.cast(DirectoryConfigReference, jsii.get(self, "directoryConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="directoryName")
@@ -2825,128 +5825,7 @@ class CfnDirectoryConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnDirectoryConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "directory_name": "directoryName",
-        "organizational_unit_distinguished_names": "organizationalUnitDistinguishedNames",
-        "service_account_credentials": "serviceAccountCredentials",
-        "certificate_based_auth_properties": "certificateBasedAuthProperties",
-    },
-)
-class CfnDirectoryConfigProps:
-    def __init__(
-        self,
-        *,
-        directory_name: builtins.str,
-        organizational_unit_distinguished_names: typing.Sequence[builtins.str],
-        service_account_credentials: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.ServiceAccountCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
-        certificate_based_auth_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDirectoryConfig``.
-
-        :param directory_name: The fully qualified name of the directory (for example, corp.example.com).
-        :param organizational_unit_distinguished_names: The distinguished names of the organizational units for computer accounts.
-        :param service_account_credentials: The credentials for the service account used by the streaming instance to connect to the directory. Do not use this parameter directly. Use ``ServiceAccountCredentials`` as an input parameter with ``noEcho`` as shown in the `Parameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html>`_ . For best practices information, see `Do Not Embed Credentials in Your Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#creds>`_ .
-        :param certificate_based_auth_properties: The certificate-based authentication properties used to authenticate SAML 2.0 Identity Provider (IdP) user identities to Active Directory domain-joined streaming instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_directory_config_props = appstream.CfnDirectoryConfigProps(
-                directory_name="directoryName",
-                organizational_unit_distinguished_names=["organizationalUnitDistinguishedNames"],
-                service_account_credentials=appstream.CfnDirectoryConfig.ServiceAccountCredentialsProperty(
-                    account_name="accountName",
-                    account_password="accountPassword"
-                ),
-            
-                # the properties below are optional
-                certificate_based_auth_properties=appstream.CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty(
-                    certificate_authority_arn="certificateAuthorityArn",
-                    status="status"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__578684e8816c2df1e186869cdebb5605355669857041d859dd30c2859c435801)
-            check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
-            check_type(argname="argument organizational_unit_distinguished_names", value=organizational_unit_distinguished_names, expected_type=type_hints["organizational_unit_distinguished_names"])
-            check_type(argname="argument service_account_credentials", value=service_account_credentials, expected_type=type_hints["service_account_credentials"])
-            check_type(argname="argument certificate_based_auth_properties", value=certificate_based_auth_properties, expected_type=type_hints["certificate_based_auth_properties"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "directory_name": directory_name,
-            "organizational_unit_distinguished_names": organizational_unit_distinguished_names,
-            "service_account_credentials": service_account_credentials,
-        }
-        if certificate_based_auth_properties is not None:
-            self._values["certificate_based_auth_properties"] = certificate_based_auth_properties
-
-    @builtins.property
-    def directory_name(self) -> builtins.str:
-        '''The fully qualified name of the directory (for example, corp.example.com).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-directoryname
-        '''
-        result = self._values.get("directory_name")
-        assert result is not None, "Required property 'directory_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def organizational_unit_distinguished_names(self) -> typing.List[builtins.str]:
-        '''The distinguished names of the organizational units for computer accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-organizationalunitdistinguishednames
-        '''
-        result = self._values.get("organizational_unit_distinguished_names")
-        assert result is not None, "Required property 'organizational_unit_distinguished_names' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def service_account_credentials(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDirectoryConfig.ServiceAccountCredentialsProperty]:
-        '''The credentials for the service account used by the streaming instance to connect to the directory.
-
-        Do not use this parameter directly. Use ``ServiceAccountCredentials`` as an input parameter with ``noEcho`` as shown in the `Parameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html>`_ . For best practices information, see `Do Not Embed Credentials in Your Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/best-practices.html#creds>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-serviceaccountcredentials
-        '''
-        result = self._values.get("service_account_credentials")
-        assert result is not None, "Required property 'service_account_credentials' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDirectoryConfig.ServiceAccountCredentialsProperty], result)
-
-    @builtins.property
-    def certificate_based_auth_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty]]:
-        '''The certificate-based authentication properties used to authenticate SAML 2.0 Identity Provider (IdP) user identities to Active Directory domain-joined streaming instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-directoryconfig.html#cfn-appstream-directoryconfig-certificatebasedauthproperties
-        '''
-        result = self._values.get("certificate_based_auth_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDirectoryConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEntitlementRef)
 class CfnEntitlement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3066,6 +5945,12 @@ class CfnEntitlement(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="entitlementRef")
+    def entitlement_ref(self) -> EntitlementReference:
+        '''A reference to a Entitlement resource.'''
+        return typing.cast(EntitlementReference, jsii.get(self, "entitlementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appVisibility")
@@ -3216,137 +6101,7 @@ class CfnEntitlement(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnEntitlementProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_visibility": "appVisibility",
-        "attributes": "attributes",
-        "name": "name",
-        "stack_name": "stackName",
-        "description": "description",
-    },
-)
-class CfnEntitlementProps:
-    def __init__(
-        self,
-        *,
-        app_visibility: builtins.str,
-        attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntitlement.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        stack_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEntitlement``.
-
-        :param app_visibility: Specifies whether to entitle all apps or only selected apps.
-        :param attributes: The attributes of the entitlement.
-        :param name: The name of the entitlement.
-        :param stack_name: The name of the stack.
-        :param description: The description of the entitlement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_entitlement_props = appstream.CfnEntitlementProps(
-                app_visibility="appVisibility",
-                attributes=[appstream.CfnEntitlement.AttributeProperty(
-                    name="name",
-                    value="value"
-                )],
-                name="name",
-                stack_name="stackName",
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e7b6ad14b42e5a4dc8b1f0be3cc48eb3f96a7fc22176cfee8fe233b842ca6c9)
-            check_type(argname="argument app_visibility", value=app_visibility, expected_type=type_hints["app_visibility"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_visibility": app_visibility,
-            "attributes": attributes,
-            "name": name,
-            "stack_name": stack_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def app_visibility(self) -> builtins.str:
-        '''Specifies whether to entitle all apps or only selected apps.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-appvisibility
-        '''
-        result = self._values.get("app_visibility")
-        assert result is not None, "Required property 'app_visibility' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEntitlement.AttributeProperty]]]:
-        '''The attributes of the entitlement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-attributes
-        '''
-        result = self._values.get("attributes")
-        assert result is not None, "Required property 'attributes' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEntitlement.AttributeProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the entitlement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_name(self) -> builtins.str:
-        '''The name of the stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-stackname
-        '''
-        result = self._values.get("stack_name")
-        assert result is not None, "Required property 'stack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the entitlement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-entitlement.html#cfn-appstream-entitlement-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEntitlementProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFleetRef, _ITaggable_36806126)
 class CfnFleet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3500,6 +6255,12 @@ class CfnFleet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''A reference to a Fleet resource.'''
+        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4124,492 +6885,7 @@ class CfnFleet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnFleetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_type": "instanceType",
-        "name": "name",
-        "compute_capacity": "computeCapacity",
-        "description": "description",
-        "disconnect_timeout_in_seconds": "disconnectTimeoutInSeconds",
-        "display_name": "displayName",
-        "domain_join_info": "domainJoinInfo",
-        "enable_default_internet_access": "enableDefaultInternetAccess",
-        "fleet_type": "fleetType",
-        "iam_role_arn": "iamRoleArn",
-        "idle_disconnect_timeout_in_seconds": "idleDisconnectTimeoutInSeconds",
-        "image_arn": "imageArn",
-        "image_name": "imageName",
-        "max_concurrent_sessions": "maxConcurrentSessions",
-        "max_sessions_per_instance": "maxSessionsPerInstance",
-        "max_user_duration_in_seconds": "maxUserDurationInSeconds",
-        "platform": "platform",
-        "session_script_s3_location": "sessionScriptS3Location",
-        "stream_view": "streamView",
-        "tags": "tags",
-        "usb_device_filter_strings": "usbDeviceFilterStrings",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnFleetProps:
-    def __init__(
-        self,
-        *,
-        instance_type: builtins.str,
-        name: builtins.str,
-        compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        fleet_type: typing.Optional[builtins.str] = None,
-        iam_role_arn: typing.Optional[builtins.str] = None,
-        idle_disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-        image_arn: typing.Optional[builtins.str] = None,
-        image_name: typing.Optional[builtins.str] = None,
-        max_concurrent_sessions: typing.Optional[jsii.Number] = None,
-        max_sessions_per_instance: typing.Optional[jsii.Number] = None,
-        max_user_duration_in_seconds: typing.Optional[jsii.Number] = None,
-        platform: typing.Optional[builtins.str] = None,
-        session_script_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_view: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        usb_device_filter_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFleet``.
-
-        :param instance_type: The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics-desktop.2xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics-pro.4xlarge - stream.graphics-pro.8xlarge - stream.graphics-pro.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge The following instance types are available for Elastic fleets: - stream.standard.small - stream.standard.medium
-        :param name: A unique name for the fleet.
-        :param compute_capacity: The desired capacity for the fleet. This is not allowed for Elastic fleets.
-        :param description: The description to display.
-        :param disconnect_timeout_in_seconds: The amount of time that a streaming session remains active after users disconnect. If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance. Specify a value between 60 and 36000.
-        :param display_name: The fleet name to display.
-        :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain. This is not allowed for Elastic fleets.
-        :param enable_default_internet_access: Enables or disables default internet access for the fleet.
-        :param fleet_type: The fleet type. - **ALWAYS_ON** - Provides users with instant-on access to their apps. You are charged for all running instances in your fleet, even if no users are streaming apps. - **ON_DEMAND** - Provide users with access to applications after they connect, which takes one to two minutes. You are charged for instance streaming when users are connected and a small hourly fee for instances that are not streaming apps. - **ELASTIC** - The pool of streaming instances is managed by Amazon AppStream 2.0. When a user selects their application or desktop to launch, they will start streaming after the app block has been downloaded and mounted to a streaming instance. *Allowed Values* : ``ALWAYS_ON`` | ``ELASTIC`` | ``ON_DEMAND``
-        :param iam_role_arn: The ARN of the IAM role that is applied to the fleet. To assume a role, the fleet instance calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
-        :param idle_disconnect_timeout_in_seconds: The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the ``DisconnectTimeoutInSeconds`` time interval begins. Users are notified before they are disconnected due to inactivity. If they try to reconnect to the streaming session before the time interval specified in ``DisconnectTimeoutInSeconds`` elapses, they are connected to their previous session. Users are considered idle when they stop providing keyboard or mouse input during their streaming session. File uploads and downloads, audio in, audio out, and pixels changing do not qualify as user activity. If users continue to be idle after the time interval in ``IdleDisconnectTimeoutInSeconds`` elapses, they are disconnected. To prevent users from being disconnected due to inactivity, specify a value of 0. Otherwise, specify a value between 60 and 36000. If you enable this feature, we recommend that you specify a value that corresponds exactly to a whole number of minutes (for example, 60, 120, and 180). If you don't do this, the value is rounded to the nearest minute. For example, if you specify a value of 70, users are disconnected after 1 minute of inactivity. If you specify a value that is at the midpoint between two different minutes, the value is rounded up. For example, if you specify a value of 90, users are disconnected after 2 minutes of inactivity.
-        :param image_arn: The ARN of the public, private, or shared image to use.
-        :param image_name: The name of the image used to create the fleet.
-        :param max_concurrent_sessions: The maximum number of concurrent sessions that can be run on an Elastic fleet. This setting is required for Elastic fleets, but is not used for other fleet types.
-        :param max_sessions_per_instance: Max number of user sessions on an instance. This is applicable only for multi-session fleets.
-        :param max_user_duration_in_seconds: The maximum amount of time that a streaming session can remain active, in seconds. If users are still connected to a streaming instance five minutes before this limit is reached, they are prompted to save any open documents before being disconnected. After this time elapses, the instance is terminated and replaced by a new instance. Specify a value between 600 and 432000.
-        :param platform: The platform of the fleet. Platform is a required setting for Elastic fleets, and is not used for other fleet types.
-        :param session_script_s3_location: The S3 location of the session scripts configuration zip file. This only applies to Elastic fleets.
-        :param stream_view: The AppStream 2.0 view that is displayed to your users when they stream from the fleet. When ``APP`` is specified, only the windows of applications opened by users display. When ``DESKTOP`` is specified, the standard desktop that is provided by the operating system displays. The default value is ``APP`` .
-        :param tags: An array of key-value pairs.
-        :param usb_device_filter_strings: The USB device filter strings that specify which USB devices a user can redirect to the fleet streaming session, when using the Windows native client. This is allowed but not required for Elastic fleets.
-        :param vpc_config: The VPC configuration for the fleet. This is required for Elastic fleets, but not required for other fleet types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html
-        :exampleMetadata: infused
-
-        Example::
-
-            fleet = appstream.CfnFleet(self, "Fleet",
-                instance_type="stream.standard.small",
-                name="Fleet",
-                compute_capacity=appstream.CfnFleet.ComputeCapacityProperty(
-                    desired_instances=1
-                ),
-                image_name="AppStream-AmazonLinux2-09-21-2022"
-            )
-            fleet.cfn_options.creation_policy = CfnCreationPolicy(
-                start_fleet=True
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee9699fa56e)
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument compute_capacity", value=compute_capacity, expected_type=type_hints["compute_capacity"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument disconnect_timeout_in_seconds", value=disconnect_timeout_in_seconds, expected_type=type_hints["disconnect_timeout_in_seconds"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
-            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
-            check_type(argname="argument fleet_type", value=fleet_type, expected_type=type_hints["fleet_type"])
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument idle_disconnect_timeout_in_seconds", value=idle_disconnect_timeout_in_seconds, expected_type=type_hints["idle_disconnect_timeout_in_seconds"])
-            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
-            check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
-            check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
-            check_type(argname="argument max_sessions_per_instance", value=max_sessions_per_instance, expected_type=type_hints["max_sessions_per_instance"])
-            check_type(argname="argument max_user_duration_in_seconds", value=max_user_duration_in_seconds, expected_type=type_hints["max_user_duration_in_seconds"])
-            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
-            check_type(argname="argument session_script_s3_location", value=session_script_s3_location, expected_type=type_hints["session_script_s3_location"])
-            check_type(argname="argument stream_view", value=stream_view, expected_type=type_hints["stream_view"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument usb_device_filter_strings", value=usb_device_filter_strings, expected_type=type_hints["usb_device_filter_strings"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_type": instance_type,
-            "name": name,
-        }
-        if compute_capacity is not None:
-            self._values["compute_capacity"] = compute_capacity
-        if description is not None:
-            self._values["description"] = description
-        if disconnect_timeout_in_seconds is not None:
-            self._values["disconnect_timeout_in_seconds"] = disconnect_timeout_in_seconds
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if domain_join_info is not None:
-            self._values["domain_join_info"] = domain_join_info
-        if enable_default_internet_access is not None:
-            self._values["enable_default_internet_access"] = enable_default_internet_access
-        if fleet_type is not None:
-            self._values["fleet_type"] = fleet_type
-        if iam_role_arn is not None:
-            self._values["iam_role_arn"] = iam_role_arn
-        if idle_disconnect_timeout_in_seconds is not None:
-            self._values["idle_disconnect_timeout_in_seconds"] = idle_disconnect_timeout_in_seconds
-        if image_arn is not None:
-            self._values["image_arn"] = image_arn
-        if image_name is not None:
-            self._values["image_name"] = image_name
-        if max_concurrent_sessions is not None:
-            self._values["max_concurrent_sessions"] = max_concurrent_sessions
-        if max_sessions_per_instance is not None:
-            self._values["max_sessions_per_instance"] = max_sessions_per_instance
-        if max_user_duration_in_seconds is not None:
-            self._values["max_user_duration_in_seconds"] = max_user_duration_in_seconds
-        if platform is not None:
-            self._values["platform"] = platform
-        if session_script_s3_location is not None:
-            self._values["session_script_s3_location"] = session_script_s3_location
-        if stream_view is not None:
-            self._values["stream_view"] = stream_view
-        if tags is not None:
-            self._values["tags"] = tags
-        if usb_device_filter_strings is not None:
-            self._values["usb_device_filter_strings"] = usb_device_filter_strings
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The instance type to use when launching fleet instances. The following instance types are available for non-Elastic fleets:.
-
-        - stream.standard.small
-        - stream.standard.medium
-        - stream.standard.large
-        - stream.compute.large
-        - stream.compute.xlarge
-        - stream.compute.2xlarge
-        - stream.compute.4xlarge
-        - stream.compute.8xlarge
-        - stream.memory.large
-        - stream.memory.xlarge
-        - stream.memory.2xlarge
-        - stream.memory.4xlarge
-        - stream.memory.8xlarge
-        - stream.memory.z1d.large
-        - stream.memory.z1d.xlarge
-        - stream.memory.z1d.2xlarge
-        - stream.memory.z1d.3xlarge
-        - stream.memory.z1d.6xlarge
-        - stream.memory.z1d.12xlarge
-        - stream.graphics-design.large
-        - stream.graphics-design.xlarge
-        - stream.graphics-design.2xlarge
-        - stream.graphics-design.4xlarge
-        - stream.graphics-desktop.2xlarge
-        - stream.graphics.g4dn.xlarge
-        - stream.graphics.g4dn.2xlarge
-        - stream.graphics.g4dn.4xlarge
-        - stream.graphics.g4dn.8xlarge
-        - stream.graphics.g4dn.12xlarge
-        - stream.graphics.g4dn.16xlarge
-        - stream.graphics-pro.4xlarge
-        - stream.graphics-pro.8xlarge
-        - stream.graphics-pro.16xlarge
-        - stream.graphics.g5.xlarge
-        - stream.graphics.g5.2xlarge
-        - stream.graphics.g5.4xlarge
-        - stream.graphics.g5.8xlarge
-        - stream.graphics.g5.16xlarge
-        - stream.graphics.g5.12xlarge
-        - stream.graphics.g5.24xlarge
-        - stream.graphics.g6.xlarge
-        - stream.graphics.g6.2xlarge
-        - stream.graphics.g6.4xlarge
-        - stream.graphics.g6.8xlarge
-        - stream.graphics.g6.16xlarge
-        - stream.graphics.g6.12xlarge
-        - stream.graphics.g6.24xlarge
-        - stream.graphics.gr6.4xlarge
-        - stream.graphics.gr6.8xlarge
-
-        The following instance types are available for Elastic fleets:
-
-        - stream.standard.small
-        - stream.standard.medium
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A unique name for the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def compute_capacity(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.ComputeCapacityProperty]]:
-        '''The desired capacity for the fleet.
-
-        This is not allowed for Elastic fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-computecapacity
-        '''
-        result = self._values.get("compute_capacity")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.ComputeCapacityProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def disconnect_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The amount of time that a streaming session remains active after users disconnect.
-
-        If users try to reconnect to the streaming session after a disconnection or network interruption within this time interval, they are connected to their previous session. Otherwise, they are connected to a new session with a new streaming instance.
-
-        Specify a value between 60 and 36000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-disconnecttimeoutinseconds
-        '''
-        result = self._values.get("disconnect_timeout_in_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The fleet name to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_join_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.DomainJoinInfoProperty]]:
-        '''The name of the directory and organizational unit (OU) to use to join the fleet to a Microsoft Active Directory domain.
-
-        This is not allowed for Elastic fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-domainjoininfo
-        '''
-        result = self._values.get("domain_join_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.DomainJoinInfoProperty]], result)
-
-    @builtins.property
-    def enable_default_internet_access(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables or disables default internet access for the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-enabledefaultinternetaccess
-        '''
-        result = self._values.get("enable_default_internet_access")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def fleet_type(self) -> typing.Optional[builtins.str]:
-        '''The fleet type.
-
-        - **ALWAYS_ON** - Provides users with instant-on access to their apps. You are charged for all running instances in your fleet, even if no users are streaming apps.
-        - **ON_DEMAND** - Provide users with access to applications after they connect, which takes one to two minutes. You are charged for instance streaming when users are connected and a small hourly fee for instances that are not streaming apps.
-        - **ELASTIC** - The pool of streaming instances is managed by Amazon AppStream 2.0. When a user selects their application or desktop to launch, they will start streaming after the app block has been downloaded and mounted to a streaming instance.
-
-        *Allowed Values* : ``ALWAYS_ON`` | ``ELASTIC`` | ``ON_DEMAND``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-fleettype
-        '''
-        result = self._values.get("fleet_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the IAM role that is applied to the fleet.
-
-        To assume a role, the fleet instance calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance.
-
-        For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def idle_disconnect_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the ``DisconnectTimeoutInSeconds`` time interval begins.
-
-        Users are notified before they are disconnected due to inactivity. If they try to reconnect to the streaming session before the time interval specified in ``DisconnectTimeoutInSeconds`` elapses, they are connected to their previous session. Users are considered idle when they stop providing keyboard or mouse input during their streaming session. File uploads and downloads, audio in, audio out, and pixels changing do not qualify as user activity. If users continue to be idle after the time interval in ``IdleDisconnectTimeoutInSeconds`` elapses, they are disconnected.
-
-        To prevent users from being disconnected due to inactivity, specify a value of 0. Otherwise, specify a value between 60 and 36000.
-
-        If you enable this feature, we recommend that you specify a value that corresponds exactly to a whole number of minutes (for example, 60, 120, and 180). If you don't do this, the value is rounded to the nearest minute. For example, if you specify a value of 70, users are disconnected after 1 minute of inactivity. If you specify a value that is at the midpoint between two different minutes, the value is rounded up. For example, if you specify a value of 90, users are disconnected after 2 minutes of inactivity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-idledisconnecttimeoutinseconds
-        '''
-        result = self._values.get("idle_disconnect_timeout_in_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def image_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the public, private, or shared image to use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-imagearn
-        '''
-        result = self._values.get("image_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the image used to create the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-imagename
-        '''
-        result = self._values.get("image_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_concurrent_sessions(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of concurrent sessions that can be run on an Elastic fleet.
-
-        This setting is required for Elastic fleets, but is not used for other fleet types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxconcurrentsessions
-        '''
-        result = self._values.get("max_concurrent_sessions")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_sessions_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Max number of user sessions on an instance.
-
-        This is applicable only for multi-session fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxsessionsperinstance
-        '''
-        result = self._values.get("max_sessions_per_instance")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_user_duration_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The maximum amount of time that a streaming session can remain active, in seconds.
-
-        If users are still connected to a streaming instance five minutes before this limit is reached, they are prompted to save any open documents before being disconnected. After this time elapses, the instance is terminated and replaced by a new instance.
-
-        Specify a value between 600 and 432000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-maxuserdurationinseconds
-        '''
-        result = self._values.get("max_user_duration_in_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def platform(self) -> typing.Optional[builtins.str]:
-        '''The platform of the fleet.
-
-        Platform is a required setting for Elastic fleets, and is not used for other fleet types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-platform
-        '''
-        result = self._values.get("platform")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def session_script_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.S3LocationProperty]]:
-        '''The S3 location of the session scripts configuration zip file.
-
-        This only applies to Elastic fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-sessionscripts3location
-        '''
-        result = self._values.get("session_script_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.S3LocationProperty]], result)
-
-    @builtins.property
-    def stream_view(self) -> typing.Optional[builtins.str]:
-        '''The AppStream 2.0 view that is displayed to your users when they stream from the fleet. When ``APP`` is specified, only the windows of applications opened by users display. When ``DESKTOP`` is specified, the standard desktop that is provided by the operating system displays.
-
-        The default value is ``APP`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-streamview
-        '''
-        result = self._values.get("stream_view")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def usb_device_filter_strings(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The USB device filter strings that specify which USB devices a user can redirect to the fleet streaming session, when using the Windows native client.
-
-        This is allowed but not required for Elastic fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-usbdevicefilterstrings
-        '''
-        result = self._values.get("usb_device_filter_strings")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.VpcConfigProperty]]:
-        '''The VPC configuration for the fleet.
-
-        This is required for Elastic fleets, but not required for other fleet types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html#cfn-appstream-fleet-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.VpcConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFleetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IImageBuilderRef, _ITaggable_36806126)
 class CfnImageBuilder(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4761,6 +7037,12 @@ class CfnImageBuilder(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imageBuilderRef")
+    def image_builder_ref(self) -> ImageBuilderReference:
+        '''A reference to a ImageBuilder resource.'''
+        return typing.cast(ImageBuilderReference, jsii.get(self, "imageBuilderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5182,338 +7464,7 @@ class CfnImageBuilder(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnImageBuilderProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_type": "instanceType",
-        "name": "name",
-        "access_endpoints": "accessEndpoints",
-        "appstream_agent_version": "appstreamAgentVersion",
-        "description": "description",
-        "display_name": "displayName",
-        "domain_join_info": "domainJoinInfo",
-        "enable_default_internet_access": "enableDefaultInternetAccess",
-        "iam_role_arn": "iamRoleArn",
-        "image_arn": "imageArn",
-        "image_name": "imageName",
-        "tags": "tags",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnImageBuilderProps:
-    def __init__(
-        self,
-        *,
-        instance_type: builtins.str,
-        name: builtins.str,
-        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        appstream_agent_version: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        iam_role_arn: typing.Optional[builtins.str] = None,
-        image_arn: typing.Optional[builtins.str] = None,
-        image_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnImageBuilder``.
-
-        :param instance_type: The instance type to use when launching the image builder. The following instance types are available:. - stream.standard.small - stream.standard.medium - stream.standard.large - stream.compute.large - stream.compute.xlarge - stream.compute.2xlarge - stream.compute.4xlarge - stream.compute.8xlarge - stream.memory.large - stream.memory.xlarge - stream.memory.2xlarge - stream.memory.4xlarge - stream.memory.8xlarge - stream.memory.z1d.large - stream.memory.z1d.xlarge - stream.memory.z1d.2xlarge - stream.memory.z1d.3xlarge - stream.memory.z1d.6xlarge - stream.memory.z1d.12xlarge - stream.graphics-design.large - stream.graphics-design.xlarge - stream.graphics-design.2xlarge - stream.graphics-design.4xlarge - stream.graphics-desktop.2xlarge - stream.graphics.g4dn.xlarge - stream.graphics.g4dn.2xlarge - stream.graphics.g4dn.4xlarge - stream.graphics.g4dn.8xlarge - stream.graphics.g4dn.12xlarge - stream.graphics.g4dn.16xlarge - stream.graphics-pro.4xlarge - stream.graphics-pro.8xlarge - stream.graphics-pro.16xlarge - stream.graphics.g5.xlarge - stream.graphics.g5.2xlarge - stream.graphics.g5.4xlarge - stream.graphics.g5.8xlarge - stream.graphics.g5.16xlarge - stream.graphics.g5.12xlarge - stream.graphics.g5.24xlarge - stream.graphics.g6.xlarge - stream.graphics.g6.2xlarge - stream.graphics.g6.4xlarge - stream.graphics.g6.8xlarge - stream.graphics.g6.16xlarge - stream.graphics.g6.12xlarge - stream.graphics.g6.24xlarge - stream.graphics.gr6.4xlarge - stream.graphics.gr6.8xlarge
-        :param name: A unique name for the image builder.
-        :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Administrators can connect to the image builder only through the specified endpoints.
-        :param appstream_agent_version: The version of the AppStream 2.0 agent to use for this image builder. To use the latest version of the AppStream 2.0 agent, specify [LATEST].
-        :param description: The description to display.
-        :param display_name: The image builder name to display.
-        :param domain_join_info: The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
-        :param enable_default_internet_access: Enables or disables default internet access for the image builder.
-        :param iam_role_arn: The ARN of the IAM role that is applied to the image builder. To assume a role, the image builder calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
-        :param image_arn: The ARN of the public, private, or shared image to use.
-        :param image_name: The name of the image used to create the image builder.
-        :param tags: An array of key-value pairs.
-        :param vpc_config: The VPC configuration for the image builder. You can specify only one subnet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_image_builder_props = appstream.CfnImageBuilderProps(
-                instance_type="instanceType",
-                name="name",
-            
-                # the properties below are optional
-                access_endpoints=[appstream.CfnImageBuilder.AccessEndpointProperty(
-                    endpoint_type="endpointType",
-                    vpce_id="vpceId"
-                )],
-                appstream_agent_version="appstreamAgentVersion",
-                description="description",
-                display_name="displayName",
-                domain_join_info=appstream.CfnImageBuilder.DomainJoinInfoProperty(
-                    directory_name="directoryName",
-                    organizational_unit_distinguished_name="organizationalUnitDistinguishedName"
-                ),
-                enable_default_internet_access=False,
-                iam_role_arn="iamRoleArn",
-                image_arn="imageArn",
-                image_name="imageName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_config=appstream.CfnImageBuilder.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f881e4810)
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
-            check_type(argname="argument appstream_agent_version", value=appstream_agent_version, expected_type=type_hints["appstream_agent_version"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument domain_join_info", value=domain_join_info, expected_type=type_hints["domain_join_info"])
-            check_type(argname="argument enable_default_internet_access", value=enable_default_internet_access, expected_type=type_hints["enable_default_internet_access"])
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
-            check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_type": instance_type,
-            "name": name,
-        }
-        if access_endpoints is not None:
-            self._values["access_endpoints"] = access_endpoints
-        if appstream_agent_version is not None:
-            self._values["appstream_agent_version"] = appstream_agent_version
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if domain_join_info is not None:
-            self._values["domain_join_info"] = domain_join_info
-        if enable_default_internet_access is not None:
-            self._values["enable_default_internet_access"] = enable_default_internet_access
-        if iam_role_arn is not None:
-            self._values["iam_role_arn"] = iam_role_arn
-        if image_arn is not None:
-            self._values["image_arn"] = image_arn
-        if image_name is not None:
-            self._values["image_name"] = image_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The instance type to use when launching the image builder. The following instance types are available:.
-
-        - stream.standard.small
-        - stream.standard.medium
-        - stream.standard.large
-        - stream.compute.large
-        - stream.compute.xlarge
-        - stream.compute.2xlarge
-        - stream.compute.4xlarge
-        - stream.compute.8xlarge
-        - stream.memory.large
-        - stream.memory.xlarge
-        - stream.memory.2xlarge
-        - stream.memory.4xlarge
-        - stream.memory.8xlarge
-        - stream.memory.z1d.large
-        - stream.memory.z1d.xlarge
-        - stream.memory.z1d.2xlarge
-        - stream.memory.z1d.3xlarge
-        - stream.memory.z1d.6xlarge
-        - stream.memory.z1d.12xlarge
-        - stream.graphics-design.large
-        - stream.graphics-design.xlarge
-        - stream.graphics-design.2xlarge
-        - stream.graphics-design.4xlarge
-        - stream.graphics-desktop.2xlarge
-        - stream.graphics.g4dn.xlarge
-        - stream.graphics.g4dn.2xlarge
-        - stream.graphics.g4dn.4xlarge
-        - stream.graphics.g4dn.8xlarge
-        - stream.graphics.g4dn.12xlarge
-        - stream.graphics.g4dn.16xlarge
-        - stream.graphics-pro.4xlarge
-        - stream.graphics-pro.8xlarge
-        - stream.graphics-pro.16xlarge
-        - stream.graphics.g5.xlarge
-        - stream.graphics.g5.2xlarge
-        - stream.graphics.g5.4xlarge
-        - stream.graphics.g5.8xlarge
-        - stream.graphics.g5.16xlarge
-        - stream.graphics.g5.12xlarge
-        - stream.graphics.g5.24xlarge
-        - stream.graphics.g6.xlarge
-        - stream.graphics.g6.2xlarge
-        - stream.graphics.g6.4xlarge
-        - stream.graphics.g6.8xlarge
-        - stream.graphics.g6.16xlarge
-        - stream.graphics.g6.12xlarge
-        - stream.graphics.g6.24xlarge
-        - stream.graphics.gr6.4xlarge
-        - stream.graphics.gr6.8xlarge
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A unique name for the image builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_endpoints(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.AccessEndpointProperty]]]]:
-        '''The list of virtual private cloud (VPC) interface endpoint objects.
-
-        Administrators can connect to the image builder only through the specified endpoints.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-accessendpoints
-        '''
-        result = self._values.get("access_endpoints")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.AccessEndpointProperty]]]], result)
-
-    @builtins.property
-    def appstream_agent_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the AppStream 2.0 agent to use for this image builder. To use the latest version of the AppStream 2.0 agent, specify [LATEST].
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-appstreamagentversion
-        '''
-        result = self._values.get("appstream_agent_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The image builder name to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_join_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.DomainJoinInfoProperty]]:
-        '''The name of the directory and organizational unit (OU) to use to join the image builder to a Microsoft Active Directory domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-domainjoininfo
-        '''
-        result = self._values.get("domain_join_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.DomainJoinInfoProperty]], result)
-
-    @builtins.property
-    def enable_default_internet_access(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables or disables default internet access for the image builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-enabledefaultinternetaccess
-        '''
-        result = self._values.get("enable_default_internet_access")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the IAM role that is applied to the image builder.
-
-        To assume a role, the image builder calls the AWS Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance.
-
-        For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the public, private, or shared image to use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-imagearn
-        '''
-        result = self._values.get("image_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the image used to create the image builder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-imagename
-        '''
-        result = self._values.get("image_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.VpcConfigProperty]]:
-        '''The VPC configuration for the image builder.
-
-        You can specify only one subnet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.VpcConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnImageBuilderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStackRef, _ITaggable_36806126)
 class CfnStack(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5677,6 +7628,12 @@ class CfnStack(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> StackReference:
+        '''A reference to a Stack resource.'''
+        return typing.cast(StackReference, jsii.get(self, "stackRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6296,7 +8253,7 @@ class CfnStack(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IStackFleetAssociationRef)
 class CfnStackFleetAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6388,6 +8345,12 @@ class CfnStackFleetAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="stackFleetAssociationRef")
+    def stack_fleet_association_ref(self) -> StackFleetAssociationReference:
+        '''A reference to a StackFleetAssociation resource.'''
+        return typing.cast(StackFleetAssociationReference, jsii.get(self, "stackFleetAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="fleetName")
     def fleet_name(self) -> builtins.str:
         '''The name of the fleet.'''
@@ -6414,393 +8377,7 @@ class CfnStackFleetAssociation(
         jsii.set(self, "stackName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnStackFleetAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"fleet_name": "fleetName", "stack_name": "stackName"},
-)
-class CfnStackFleetAssociationProps:
-    def __init__(self, *, fleet_name: builtins.str, stack_name: builtins.str) -> None:
-        '''Properties for defining a ``CfnStackFleetAssociation``.
-
-        :param fleet_name: The name of the fleet. To associate a fleet with a stack, you must specify a dependency on the fleet resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
-        :param stack_name: The name of the stack. To associate a fleet with a stack, you must specify a dependency on the stack resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_stack_fleet_association_props = appstream.CfnStackFleetAssociationProps(
-                fleet_name="fleetName",
-                stack_name="stackName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1480c1a389e0a505f08c8a89fcde9176cdb68f3f06682e9ee925e2d04934be68)
-            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
-            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "fleet_name": fleet_name,
-            "stack_name": stack_name,
-        }
-
-    @builtins.property
-    def fleet_name(self) -> builtins.str:
-        '''The name of the fleet.
-
-        To associate a fleet with a stack, you must specify a dependency on the fleet resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html#cfn-appstream-stackfleetassociation-fleetname
-        '''
-        result = self._values.get("fleet_name")
-        assert result is not None, "Required property 'fleet_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_name(self) -> builtins.str:
-        '''The name of the stack.
-
-        To associate a fleet with a stack, you must specify a dependency on the stack resource. For more information, see `DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackfleetassociation.html#cfn-appstream-stackfleetassociation-stackname
-        '''
-        result = self._values.get("stack_name")
-        assert result is not None, "Required property 'stack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackFleetAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnStackProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_endpoints": "accessEndpoints",
-        "application_settings": "applicationSettings",
-        "attributes_to_delete": "attributesToDelete",
-        "delete_storage_connectors": "deleteStorageConnectors",
-        "description": "description",
-        "display_name": "displayName",
-        "embed_host_domains": "embedHostDomains",
-        "feedback_url": "feedbackUrl",
-        "name": "name",
-        "redirect_url": "redirectUrl",
-        "storage_connectors": "storageConnectors",
-        "streaming_experience_settings": "streamingExperienceSettings",
-        "tags": "tags",
-        "user_settings": "userSettings",
-    },
-)
-class CfnStackProps:
-    def __init__(
-        self,
-        *,
-        access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
-        delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        embed_host_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-        feedback_url: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        redirect_url: typing.Optional[builtins.str] = None,
-        storage_connectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        streaming_experience_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.UserSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStack``.
-
-        :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Users of the stack can connect to AppStream 2.0 only through the specified endpoints.
-        :param application_settings: The persistent application settings for users of the stack. When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
-        :param attributes_to_delete: The stack attributes to delete.
-        :param delete_storage_connectors: *This parameter has been deprecated.*. Deletes the storage connectors currently enabled for the stack.
-        :param description: The description to display.
-        :param display_name: The stack name to display.
-        :param embed_host_domains: The domains where AppStream 2.0 streaming sessions can be embedded in an iframe. You must approve the domains that you want to host embedded AppStream 2.0 streaming sessions.
-        :param feedback_url: The URL that users are redirected to after they click the Send Feedback link. If no URL is specified, no Send Feedback link is displayed.
-        :param name: The name of the stack.
-        :param redirect_url: The URL that users are redirected to after their streaming session ends.
-        :param storage_connectors: The storage connectors to enable.
-        :param streaming_experience_settings: The streaming protocol that you want your stack to prefer. This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
-        :param tags: An array of key-value pairs.
-        :param user_settings: The actions that are enabled or disabled for users during their streaming sessions. By default, these actions are enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_stack_props = appstream.CfnStackProps(
-                access_endpoints=[appstream.CfnStack.AccessEndpointProperty(
-                    endpoint_type="endpointType",
-                    vpce_id="vpceId"
-                )],
-                application_settings=appstream.CfnStack.ApplicationSettingsProperty(
-                    enabled=False,
-            
-                    # the properties below are optional
-                    settings_group="settingsGroup"
-                ),
-                attributes_to_delete=["attributesToDelete"],
-                delete_storage_connectors=False,
-                description="description",
-                display_name="displayName",
-                embed_host_domains=["embedHostDomains"],
-                feedback_url="feedbackUrl",
-                name="name",
-                redirect_url="redirectUrl",
-                storage_connectors=[appstream.CfnStack.StorageConnectorProperty(
-                    connector_type="connectorType",
-            
-                    # the properties below are optional
-                    domains=["domains"],
-                    resource_identifier="resourceIdentifier"
-                )],
-                streaming_experience_settings=appstream.CfnStack.StreamingExperienceSettingsProperty(
-                    preferred_protocol="preferredProtocol"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                user_settings=[appstream.CfnStack.UserSettingProperty(
-                    action="action",
-                    permission="permission",
-            
-                    # the properties below are optional
-                    maximum_length=123
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8fa0fe4b7)
-            check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
-            check_type(argname="argument application_settings", value=application_settings, expected_type=type_hints["application_settings"])
-            check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
-            check_type(argname="argument delete_storage_connectors", value=delete_storage_connectors, expected_type=type_hints["delete_storage_connectors"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument embed_host_domains", value=embed_host_domains, expected_type=type_hints["embed_host_domains"])
-            check_type(argname="argument feedback_url", value=feedback_url, expected_type=type_hints["feedback_url"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument redirect_url", value=redirect_url, expected_type=type_hints["redirect_url"])
-            check_type(argname="argument storage_connectors", value=storage_connectors, expected_type=type_hints["storage_connectors"])
-            check_type(argname="argument streaming_experience_settings", value=streaming_experience_settings, expected_type=type_hints["streaming_experience_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument user_settings", value=user_settings, expected_type=type_hints["user_settings"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if access_endpoints is not None:
-            self._values["access_endpoints"] = access_endpoints
-        if application_settings is not None:
-            self._values["application_settings"] = application_settings
-        if attributes_to_delete is not None:
-            self._values["attributes_to_delete"] = attributes_to_delete
-        if delete_storage_connectors is not None:
-            self._values["delete_storage_connectors"] = delete_storage_connectors
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if embed_host_domains is not None:
-            self._values["embed_host_domains"] = embed_host_domains
-        if feedback_url is not None:
-            self._values["feedback_url"] = feedback_url
-        if name is not None:
-            self._values["name"] = name
-        if redirect_url is not None:
-            self._values["redirect_url"] = redirect_url
-        if storage_connectors is not None:
-            self._values["storage_connectors"] = storage_connectors
-        if streaming_experience_settings is not None:
-            self._values["streaming_experience_settings"] = streaming_experience_settings
-        if tags is not None:
-            self._values["tags"] = tags
-        if user_settings is not None:
-            self._values["user_settings"] = user_settings
-
-    @builtins.property
-    def access_endpoints(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.AccessEndpointProperty]]]]:
-        '''The list of virtual private cloud (VPC) interface endpoint objects.
-
-        Users of the stack can connect to AppStream 2.0 only through the specified endpoints.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-accessendpoints
-        '''
-        result = self._values.get("access_endpoints")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.AccessEndpointProperty]]]], result)
-
-    @builtins.property
-    def application_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.ApplicationSettingsProperty]]:
-        '''The persistent application settings for users of the stack.
-
-        When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-applicationsettings
-        '''
-        result = self._values.get("application_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.ApplicationSettingsProperty]], result)
-
-    @builtins.property
-    def attributes_to_delete(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The stack attributes to delete.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-attributestodelete
-        '''
-        result = self._values.get("attributes_to_delete")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def delete_storage_connectors(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''*This parameter has been deprecated.*.
-
-        Deletes the storage connectors currently enabled for the stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-deletestorageconnectors
-        '''
-        result = self._values.get("delete_storage_connectors")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The stack name to display.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def embed_host_domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The domains where AppStream 2.0 streaming sessions can be embedded in an iframe. You must approve the domains that you want to host embedded AppStream 2.0 streaming sessions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-embedhostdomains
-        '''
-        result = self._values.get("embed_host_domains")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def feedback_url(self) -> typing.Optional[builtins.str]:
-        '''The URL that users are redirected to after they click the Send Feedback link.
-
-        If no URL is specified, no Send Feedback link is displayed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-feedbackurl
-        '''
-        result = self._values.get("feedback_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def redirect_url(self) -> typing.Optional[builtins.str]:
-        '''The URL that users are redirected to after their streaming session ends.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-redirecturl
-        '''
-        result = self._values.get("redirect_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def storage_connectors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.StorageConnectorProperty]]]]:
-        '''The storage connectors to enable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-storageconnectors
-        '''
-        result = self._values.get("storage_connectors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.StorageConnectorProperty]]]], result)
-
-    @builtins.property
-    def streaming_experience_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.StreamingExperienceSettingsProperty]]:
-        '''The streaming protocol that you want your stack to prefer.
-
-        This can be UDP or TCP. Currently, UDP is only supported in the Windows native client.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-streamingexperiencesettings
-        '''
-        result = self._values.get("streaming_experience_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.StreamingExperienceSettingsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def user_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.UserSettingProperty]]]]:
-        '''The actions that are enabled or disabled for users during their streaming sessions.
-
-        By default, these actions are enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-usersettings
-        '''
-        result = self._values.get("user_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.UserSettingProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IStackUserAssociationRef)
 class CfnStackUserAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6903,6 +8480,12 @@ class CfnStackUserAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="stackUserAssociationRef")
+    def stack_user_association_ref(self) -> StackUserAssociationReference:
+        '''A reference to a StackUserAssociation resource.'''
+        return typing.cast(StackUserAssociationReference, jsii.get(self, "stackUserAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="authenticationType")
     def authentication_type(self) -> builtins.str:
         '''The authentication type for the user who is associated with the stack.'''
@@ -6960,124 +8543,7 @@ class CfnStackUserAssociation(
         jsii.set(self, "sendEmailNotification", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnStackUserAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authentication_type": "authenticationType",
-        "stack_name": "stackName",
-        "user_name": "userName",
-        "send_email_notification": "sendEmailNotification",
-    },
-)
-class CfnStackUserAssociationProps:
-    def __init__(
-        self,
-        *,
-        authentication_type: builtins.str,
-        stack_name: builtins.str,
-        user_name: builtins.str,
-        send_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStackUserAssociation``.
-
-        :param authentication_type: The authentication type for the user who is associated with the stack. You must specify USERPOOL.
-        :param stack_name: The name of the stack that is associated with the user.
-        :param user_name: The email address of the user who is associated with the stack. .. epigraph:: Users' email addresses are case-sensitive.
-        :param send_email_notification: Specifies whether a welcome email is sent to a user after the user is created in the user pool.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_stack_user_association_props = appstream.CfnStackUserAssociationProps(
-                authentication_type="authenticationType",
-                stack_name="stackName",
-                user_name="userName",
-            
-                # the properties below are optional
-                send_email_notification=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74aaf98b7d4c632c40e4e8dc18d65c1b406717f29b491f772b1e285eb5861fd8)
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-            check_type(argname="argument send_email_notification", value=send_email_notification, expected_type=type_hints["send_email_notification"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authentication_type": authentication_type,
-            "stack_name": stack_name,
-            "user_name": user_name,
-        }
-        if send_email_notification is not None:
-            self._values["send_email_notification"] = send_email_notification
-
-    @builtins.property
-    def authentication_type(self) -> builtins.str:
-        '''The authentication type for the user who is associated with the stack.
-
-        You must specify USERPOOL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        assert result is not None, "Required property 'authentication_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_name(self) -> builtins.str:
-        '''The name of the stack that is associated with the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-stackname
-        '''
-        result = self._values.get("stack_name")
-        assert result is not None, "Required property 'stack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The email address of the user who is associated with the stack.
-
-        .. epigraph::
-
-           Users' email addresses are case-sensitive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-username
-        '''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def send_email_notification(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether a welcome email is sent to a user after the user is created in the user pool.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stackuserassociation.html#cfn-appstream-stackuserassociation-sendemailnotification
-        '''
-        result = self._values.get("send_email_notification")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackUserAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IUserRef)
 class CfnUser(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7184,6 +8650,12 @@ class CfnUser(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> UserReference:
+        '''A reference to a User resource.'''
+        return typing.cast(UserReference, jsii.get(self, "userRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="authenticationType")
     def authentication_type(self) -> builtins.str:
         '''The authentication type for the user.'''
@@ -7249,141 +8721,12 @@ class CfnUser(
         jsii.set(self, "messageAction", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appstream.CfnUserProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authentication_type": "authenticationType",
-        "user_name": "userName",
-        "first_name": "firstName",
-        "last_name": "lastName",
-        "message_action": "messageAction",
-    },
-)
-class CfnUserProps:
-    def __init__(
-        self,
-        *,
-        authentication_type: builtins.str,
-        user_name: builtins.str,
-        first_name: typing.Optional[builtins.str] = None,
-        last_name: typing.Optional[builtins.str] = None,
-        message_action: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUser``.
-
-        :param authentication_type: The authentication type for the user. You must specify USERPOOL.
-        :param user_name: The email address of the user. Users' email addresses are case-sensitive. During login, if they specify an email address that doesn't use the same capitalization as the email address specified when their user pool account was created, a "user does not exist" error message displays.
-        :param first_name: The first name, or given name, of the user.
-        :param last_name: The last name, or surname, of the user.
-        :param message_action: The action to take for the welcome email that is sent to a user after the user is created in the user pool. If you specify SUPPRESS, no email is sent. If you specify RESEND, do not specify the first name or last name of the user. If the value is null, the email is sent. .. epigraph:: The temporary password in the welcome email is valid for only 7 days. If users don’t set their passwords within 7 days, you must send them a new welcome email.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appstream as appstream
-            
-            cfn_user_props = appstream.CfnUserProps(
-                authentication_type="authenticationType",
-                user_name="userName",
-            
-                # the properties below are optional
-                first_name="firstName",
-                last_name="lastName",
-                message_action="messageAction"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59d6dce4cd4b814f53051d27e4f9e61dcb2e7cccfbc898cc602607476ea77395)
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-            check_type(argname="argument first_name", value=first_name, expected_type=type_hints["first_name"])
-            check_type(argname="argument last_name", value=last_name, expected_type=type_hints["last_name"])
-            check_type(argname="argument message_action", value=message_action, expected_type=type_hints["message_action"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authentication_type": authentication_type,
-            "user_name": user_name,
-        }
-        if first_name is not None:
-            self._values["first_name"] = first_name
-        if last_name is not None:
-            self._values["last_name"] = last_name
-        if message_action is not None:
-            self._values["message_action"] = message_action
-
-    @builtins.property
-    def authentication_type(self) -> builtins.str:
-        '''The authentication type for the user.
-
-        You must specify USERPOOL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        assert result is not None, "Required property 'authentication_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The email address of the user.
-
-        Users' email addresses are case-sensitive. During login, if they specify an email address that doesn't use the same capitalization as the email address specified when their user pool account was created, a "user does not exist" error message displays.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-username
-        '''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def first_name(self) -> typing.Optional[builtins.str]:
-        '''The first name, or given name, of the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-firstname
-        '''
-        result = self._values.get("first_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def last_name(self) -> typing.Optional[builtins.str]:
-        '''The last name, or surname, of the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-lastname
-        '''
-        result = self._values.get("last_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def message_action(self) -> typing.Optional[builtins.str]:
-        '''The action to take for the welcome email that is sent to a user after the user is created in the user pool.
-
-        If you specify SUPPRESS, no email is sent. If you specify RESEND, do not specify the first name or last name of the user. If the value is null, the email is sent.
-        .. epigraph::
-
-           The temporary password in the welcome email is valid for only 7 days. If users don’t set their passwords within 7 days, you must send them a new welcome email.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-user.html#cfn-appstream-user-messageaction
-        '''
-        result = self._values.get("message_action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AppBlockBuilderReference",
+    "AppBlockReference",
+    "ApplicationEntitlementAssociationReference",
+    "ApplicationFleetAssociationReference",
+    "ApplicationReference",
     "CfnAppBlock",
     "CfnAppBlockBuilder",
     "CfnAppBlockBuilderProps",
@@ -7410,9 +8753,309 @@ __all__ = [
     "CfnStackUserAssociationProps",
     "CfnUser",
     "CfnUserProps",
+    "DirectoryConfigReference",
+    "EntitlementReference",
+    "FleetReference",
+    "IAppBlockBuilderRef",
+    "IAppBlockRef",
+    "IApplicationEntitlementAssociationRef",
+    "IApplicationFleetAssociationRef",
+    "IApplicationRef",
+    "IDirectoryConfigRef",
+    "IEntitlementRef",
+    "IFleetRef",
+    "IImageBuilderRef",
+    "IStackFleetAssociationRef",
+    "IStackRef",
+    "IStackUserAssociationRef",
+    "IUserRef",
+    "ImageBuilderReference",
+    "StackFleetAssociationReference",
+    "StackReference",
+    "StackUserAssociationReference",
+    "UserReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__fe39419879f4c614000b8b8861702f3f384d58050372b68927de149026dbb3b6(
+    *,
+    app_block_builder_arn: builtins.str,
+    app_block_builder_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1c7e34f11ea940be01c74082ccb706cf76f203b5fae3b27062e69a468ba6c84(
+    *,
+    app_block_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6dfed1465f62cd738e95a12e865c9d2682c040852e4fdac1a6ad551d0f6fe178(
+    *,
+    application_identifier: builtins.str,
+    entitlement_name: builtins.str,
+    stack_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d74dd11bb330620371bc43057d100c6cd9fde96c1b5b09d398eb84d9794cd17d(
+    *,
+    application_arn: builtins.str,
+    fleet_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__528c65d075a10cf48ef97e3d9b57b3c9d23c9cc660c08b7b3d4daec21e2dc83f(
+    *,
+    application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e788750b4b78274a373182d9b8ff84f13602b9b9ce827c99dbbbeefc73304b62(
+    *,
+    instance_type: builtins.str,
+    name: builtins.str,
+    platform: builtins.str,
+    vpc_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d81fb9c3e1fcc7b221dbc8290b04501b1af7d21a103a5dacb19c8221493f37f1(
+    *,
+    name: builtins.str,
+    source_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    packaging_type: typing.Optional[builtins.str] = None,
+    post_setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ed66445aef0340172777886fa668a63161e6556da0c4ddda56f9f1d4ec958ba(
+    *,
+    application_identifier: builtins.str,
+    entitlement_name: builtins.str,
+    stack_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d294820a31c019b7ec8574f34a068e3a21437c2751ab65ed99beb677455d420a(
+    *,
+    application_arn: builtins.str,
+    fleet_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb96c46dcf41b8bf52ccede1fadb0b2ffaef8995b618f1e0816e434f6605e2f2(
+    *,
+    app_block_arn: builtins.str,
+    icon_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_families: typing.Sequence[builtins.str],
+    launch_path: builtins.str,
+    name: builtins.str,
+    platforms: typing.Sequence[builtins.str],
+    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    launch_parameters: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__578684e8816c2df1e186869cdebb5605355669857041d859dd30c2859c435801(
+    *,
+    directory_name: builtins.str,
+    organizational_unit_distinguished_names: typing.Sequence[builtins.str],
+    service_account_credentials: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.ServiceAccountCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
+    certificate_based_auth_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e7b6ad14b42e5a4dc8b1f0be3cc48eb3f96a7fc22176cfee8fe233b842ca6c9(
+    *,
+    app_visibility: builtins.str,
+    attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntitlement.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    stack_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee9699fa56e(
+    *,
+    instance_type: builtins.str,
+    name: builtins.str,
+    compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fleet_type: typing.Optional[builtins.str] = None,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    idle_disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    image_arn: typing.Optional[builtins.str] = None,
+    image_name: typing.Optional[builtins.str] = None,
+    max_concurrent_sessions: typing.Optional[jsii.Number] = None,
+    max_sessions_per_instance: typing.Optional[jsii.Number] = None,
+    max_user_duration_in_seconds: typing.Optional[jsii.Number] = None,
+    platform: typing.Optional[builtins.str] = None,
+    session_script_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_view: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    usb_device_filter_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f881e4810(
+    *,
+    instance_type: builtins.str,
+    name: builtins.str,
+    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    appstream_agent_version: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    image_arn: typing.Optional[builtins.str] = None,
+    image_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1480c1a389e0a505f08c8a89fcde9176cdb68f3f06682e9ee925e2d04934be68(
+    *,
+    fleet_name: builtins.str,
+    stack_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8fa0fe4b7(
+    *,
+    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+    delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    embed_host_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+    feedback_url: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    redirect_url: typing.Optional[builtins.str] = None,
+    storage_connectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    streaming_experience_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.UserSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74aaf98b7d4c632c40e4e8dc18d65c1b406717f29b491f772b1e285eb5861fd8(
+    *,
+    authentication_type: builtins.str,
+    stack_name: builtins.str,
+    user_name: builtins.str,
+    send_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59d6dce4cd4b814f53051d27e4f9e61dcb2e7cccfbc898cc602607476ea77395(
+    *,
+    authentication_type: builtins.str,
+    user_name: builtins.str,
+    first_name: typing.Optional[builtins.str] = None,
+    last_name: typing.Optional[builtins.str] = None,
+    message_action: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cf30a700f11f334949e95ef6e2b478d907c36d2cec4ed5435c59c2380d98082(
+    *,
+    directory_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d8da32636bb19f52980927258dd23b0e898809677ba2c16f7fd50640082bc41(
+    *,
+    entitlement_name: builtins.str,
+    stack_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4119e749ba397a753245ac27a7b879e4c0e36bd7d6d2fb5f3dc1eb808bc07a4(
+    *,
+    fleet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c394661ae8d7c3e73854152902796eb7f43a04538d7520a9246fb2c351f6ad80(
+    *,
+    image_builder_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcb4f0e81a45a13feabf0bd08b38af23c20ddd3454537a7e499008d00e45cf6f(
+    *,
+    stack_fleet_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52bb35345d407e87143d6496361684b73bbd4b85aae31ab7960439d59799241a(
+    *,
+    stack_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90ff1b480098747bcc8820c2cf4fbab7d20e3fe73f2cf5475e8347ed21c5dce9(
+    *,
+    stack_user_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__605adad31907f1574c8b907b9a10fe80274a56f8524649f3fb29f154235d5078(
+    *,
+    user_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__41cea9e42ea830db5b0d999c409efe33186557a7bb3be96abafb06fba47482c9(
     scope: _constructs_77d1e7e8.Construct,
@@ -7621,37 +9264,6 @@ def _typecheckingstub__23900099939292b49034d4a7bcee1e44ad2bddaf629079b514d80ab28
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e788750b4b78274a373182d9b8ff84f13602b9b9ce827c99dbbbeefc73304b62(
-    *,
-    instance_type: builtins.str,
-    name: builtins.str,
-    platform: builtins.str,
-    vpc_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlockBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    app_block_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iam_role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d81fb9c3e1fcc7b221dbc8290b04501b1af7d21a103a5dacb19c8221493f37f1(
-    *,
-    name: builtins.str,
-    source_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    packaging_type: typing.Optional[builtins.str] = None,
-    post_setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    setup_script_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppBlock.ScriptDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e9009fa37c2ae00864d9c32d96617498f6fbd69d6e961b9ed0d57b66ea8a5aa1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7805,15 +9417,6 @@ def _typecheckingstub__120e4482e49986c6ca616b933efc543a39747121fc631acf467d6d653
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8ed66445aef0340172777886fa668a63161e6556da0c4ddda56f9f1d4ec958ba(
-    *,
-    application_identifier: builtins.str,
-    entitlement_name: builtins.str,
-    stack_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a9dfb530d7e84f7276b2c13f4b5afbb9da758e394426c8ec880af3ce38971813(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7844,32 +9447,6 @@ def _typecheckingstub__991b96fa7affbe3e674886c56e8c99de877d878da156c1eecdb8136f5
 
 def _typecheckingstub__a0aaa8270f20c093ca5740d4e9601ed61163065bb9b02b6ff293151ec389d60e(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d294820a31c019b7ec8574f34a068e3a21437c2751ab65ed99beb677455d420a(
-    *,
-    application_arn: builtins.str,
-    fleet_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb96c46dcf41b8bf52ccede1fadb0b2ffaef8995b618f1e0816e434f6605e2f2(
-    *,
-    app_block_arn: builtins.str,
-    icon_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    instance_families: typing.Sequence[builtins.str],
-    launch_path: builtins.str,
-    name: builtins.str,
-    platforms: typing.Sequence[builtins.str],
-    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    launch_parameters: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7938,16 +9515,6 @@ def _typecheckingstub__844f7de5d43ef3bfc92f8ee34800439d7fe27186f269bed1be021e10e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__578684e8816c2df1e186869cdebb5605355669857041d859dd30c2859c435801(
-    *,
-    directory_name: builtins.str,
-    organizational_unit_distinguished_names: typing.Sequence[builtins.str],
-    service_account_credentials: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.ServiceAccountCredentialsProperty, typing.Dict[builtins.str, typing.Any]]],
-    certificate_based_auth_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryConfig.CertificateBasedAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d0bfa3b98fc526a6a563308a8862238ce51273e7eb19d8bbebd7a86fb7e44502(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8007,17 +9574,6 @@ def _typecheckingstub__c09f476db6997870a53f0b29bef4fa36a8d180cbfb901e0f9e6f0fdfb
     *,
     name: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e7b6ad14b42e5a4dc8b1f0be3cc48eb3f96a7fc22176cfee8fe233b842ca6c9(
-    *,
-    app_visibility: builtins.str,
-    attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntitlement.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    stack_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8228,34 +9784,6 @@ def _typecheckingstub__b84008983de6a1ed7aa5257a44cfb82723e58267dad7890bb77001fd7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2c1696e8b6f6c109609fff783812cdcaafc37e209e10ad5c9f177ee9699fa56e(
-    *,
-    instance_type: builtins.str,
-    name: builtins.str,
-    compute_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ComputeCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    fleet_type: typing.Optional[builtins.str] = None,
-    iam_role_arn: typing.Optional[builtins.str] = None,
-    idle_disconnect_timeout_in_seconds: typing.Optional[jsii.Number] = None,
-    image_arn: typing.Optional[builtins.str] = None,
-    image_name: typing.Optional[builtins.str] = None,
-    max_concurrent_sessions: typing.Optional[jsii.Number] = None,
-    max_sessions_per_instance: typing.Optional[jsii.Number] = None,
-    max_user_duration_in_seconds: typing.Optional[jsii.Number] = None,
-    platform: typing.Optional[builtins.str] = None,
-    session_script_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_view: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    usb_device_filter_strings: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__25dccb4354e677f39c5c97fd983d6a76f7631b1133ab64219d2975708166efe2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8387,25 +9915,6 @@ def _typecheckingstub__e8d93dcafbda7cc30fc6a56bcf4eebd91a55747713e0043d6fdac8bc1
     *,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f881e4810(
-    *,
-    instance_type: builtins.str,
-    name: builtins.str,
-    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    appstream_agent_version: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    domain_join_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.DomainJoinInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enable_default_internet_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iam_role_arn: typing.Optional[builtins.str] = None,
-    image_arn: typing.Optional[builtins.str] = None,
-    image_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8603,34 +10112,6 @@ def _typecheckingstub__f091262b0bcbec47a122c68936b6834a45a0aeebefa27b699caf9d999
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1480c1a389e0a505f08c8a89fcde9176cdb68f3f06682e9ee925e2d04934be68(
-    *,
-    fleet_name: builtins.str,
-    stack_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8fa0fe4b7(
-    *,
-    access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
-    delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    embed_host_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    feedback_url: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    redirect_url: typing.Optional[builtins.str] = None,
-    storage_connectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    streaming_experience_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.UserSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__bec854832b0f9d56be7a3fa2822fd9c3f4650fc7b55e2919217a926149ad3822(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8675,16 +10156,6 @@ def _typecheckingstub__5f5cf4643b9d3d31802d1cb1b08e3f5b2966db6bf0257fe4a730a1a10
 
 def _typecheckingstub__f3463450ee71bea209f38a68febac5e6a88747dcc544b3bea07a8a94198c6b54(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__74aaf98b7d4c632c40e4e8dc18d65c1b406717f29b491f772b1e285eb5861fd8(
-    *,
-    authentication_type: builtins.str,
-    stack_name: builtins.str,
-    user_name: builtins.str,
-    send_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8740,17 +10211,6 @@ def _typecheckingstub__e186a2f566258aa2e46f273f7866c2de4e4844214046c5fd15ffbc17c
 
 def _typecheckingstub__39dceea8a6664abbe00f127243f53a5951099209c0866b52a504bf3044e4241f(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__59d6dce4cd4b814f53051d27e4f9e61dcb2e7cccfbc898cc602607476ea77395(
-    *,
-    authentication_type: builtins.str,
-    user_name: builtins.str,
-    first_name: typing.Optional[builtins.str] = None,
-    last_name: typing.Optional[builtins.str] = None,
-    message_action: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

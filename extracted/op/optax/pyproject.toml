@@ -33,8 +33,8 @@ dependencies = [
   "absl-py>=0.7.1",
   "chex>=0.1.87",
   # Keep jax, jaxlib versions in sync with .github/workflows/tests.yml
-  "jax>=0.4.27",
-  "jaxlib>=0.4.27",
+  "jax>=0.5.3",
+  "jaxlib>=0.5.3",
   "numpy>=1.18.0",
 ]
 
@@ -62,11 +62,15 @@ docs = [
     "sphinx-collections>=0.0.1",
     "flax",
     "sphinx_contributors",
+    "setuptools",
 ]
 
 [tool.setuptools.packages.find]
 include = ["README.md", "LICENSE"]
 exclude = ["*_test.py"]
+
+[tool.ruff]
+line-length = 80
 
 [tool.ruff.lint]
 select = [
@@ -77,7 +81,6 @@ select = [
 ]
 ignore = [
     "E731",  # lambdas are allowed
-    "E501",  # don't check line lengths
     "F401",  # allow unused imports
     "E402",  # allow modules not at top of file
     "E741",  # allow "l" as a variable name
@@ -120,3 +123,12 @@ disable = [
     "too-many-public-methods",
     "import-error",
 ]
+
+# We include pyink to allow external contributors to optionally, but easily,
+# pass google internal formatting checks.
+[tool.pyink]
+pyink = true  # false would mean black is used directly without pyink features
+pyink-use-majority-quotes = true
+pyink-indentation = 2
+line-length = 80
+include = '\.pyi?$'

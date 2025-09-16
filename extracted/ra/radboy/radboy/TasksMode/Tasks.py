@@ -48,7 +48,8 @@ import radboy.DB.OrderedAndRxd as OAR
 import radboy.DB.LetterWriter as LW
 from scipy.io.wavfile import write
 from radboy.DB.SimpleScanner import SimpleScanner
-
+from radboy.DB.NW.NetWorth import *
+from decimal import Decimal as DEC
 def today():
     dt=datetime.now()
     return date(dt.year,dt.month,dt.day)
@@ -1160,6 +1161,8 @@ def generateWhiteNoise():
 
 
 class TasksMode:
+    def networth_ui(self):
+        NetWorthUi()
     def simple_scanner(self):
         SimpleScanner.SimpleScanUi()
     def white_noise(self):

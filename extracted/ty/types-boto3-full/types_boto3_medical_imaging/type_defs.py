@@ -156,6 +156,7 @@ class CreateDatastoreRequestTypeDef(TypedDict):
     datastoreName: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     kmsKeyArn: NotRequired[str]
+    lambdaAuthorizerArn: NotRequired[str]
 
 
 class DICOMImportJobPropertiesTypeDef(TypedDict):
@@ -211,6 +212,7 @@ class DatastorePropertiesTypeDef(TypedDict):
     datastoreName: str
     datastoreStatus: DatastoreStatusType
     kmsKeyArn: NotRequired[str]
+    lambdaAuthorizerArn: NotRequired[str]
     datastoreArn: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]

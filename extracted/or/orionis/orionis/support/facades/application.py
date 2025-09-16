@@ -1,24 +1,22 @@
 from orionis.container.facades.facade import Facade
-from orionis.foundation.contracts.application import IApplication
 
 class Application(Facade):
 
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Get the registered service container binding key for the console component.
+        Retrieve the service container binding key for the application component.
 
-        This method returns the specific binding key that is used to resolve the
-        console output service from the dependency injection container. The facade
-        pattern uses this key to locate and instantiate the underlying console
-        service implementation.
+        This class method provides the unique string identifier (binding key) that is registered
+        in the service container for the application interface. The facade uses this key to resolve
+        and access the underlying application service implementation from the dependency injection container.
 
         Returns
         -------
         str
-            The string identifier "x-orionis.foundation.contracts.application.IApplication" used as the
-            binding key to resolve the console service from the service container.
+            The binding key "x-orionis.foundation.contracts.application.IApplication" used to resolve
+            the application service from the service container.
         """
 
-        # Return the predefined binding key for the console output service
-        return f"x-{IApplication.__module__}.{IApplication.__name__}"
+        # Return the predefined binding key for the application service
+        return "x-orionis.foundation.contracts.application.IApplication"

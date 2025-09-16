@@ -46,7 +46,8 @@ class ApplyProductionServiceV2Model(object):
         'ray_gcs_external_storage_config': 'RayGCSExternalStorageConfig',
         'tracing_config': 'TracingConfig',
         'auto_complete_rollout': 'bool',
-        'max_surge_percent': 'int'
+        'max_surge_percent': 'int',
+        'tags': 'dict(str, str)'
     }
 
     attribute_map = {
@@ -63,10 +64,11 @@ class ApplyProductionServiceV2Model(object):
         'ray_gcs_external_storage_config': 'ray_gcs_external_storage_config',
         'tracing_config': 'tracing_config',
         'auto_complete_rollout': 'auto_complete_rollout',
-        'max_surge_percent': 'max_surge_percent'
+        'max_surge_percent': 'max_surge_percent',
+        'tags': 'tags'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, local_vars_configuration=None):  # noqa: E501
         """ApplyProductionServiceV2Model - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +88,7 @@ class ApplyProductionServiceV2Model(object):
         self._tracing_config = None
         self._auto_complete_rollout = None
         self._max_surge_percent = None
+        self._tags = None
         self.discriminator = None
 
         self.name = name
@@ -112,6 +115,8 @@ class ApplyProductionServiceV2Model(object):
             self.auto_complete_rollout = auto_complete_rollout
         if max_surge_percent is not None:
             self.max_surge_percent = max_surge_percent
+        if tags is not None:
+            self.tags = tags
 
     @property
     def name(self):
@@ -442,6 +447,29 @@ class ApplyProductionServiceV2Model(object):
         """
 
         self._max_surge_percent = max_surge_percent
+
+    @property
+    def tags(self):
+        """Gets the tags of this ApplyProductionServiceV2Model.  # noqa: E501
+
+        Tags to associate with the service  # noqa: E501
+
+        :return: The tags of this ApplyProductionServiceV2Model.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this ApplyProductionServiceV2Model.
+
+        Tags to associate with the service  # noqa: E501
+
+        :param tags: The tags of this ApplyProductionServiceV2Model.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

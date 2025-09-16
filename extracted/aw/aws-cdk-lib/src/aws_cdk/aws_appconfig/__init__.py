@@ -779,9 +779,10 @@ from ..aws_iam import (
     Grant as _Grant_a7ae64f8,
     IGrantable as _IGrantable_71c4f5de,
     IRole as _IRole_235f5d8e,
+    IRoleRef as _IRoleRef_613dafc2,
     PolicyDocument as _PolicyDocument_3ac34393,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKey as _IKey_5f11635f, IKeyRef as _IKeyRef_1e82344b
 from ..aws_lambda import (
     Function as _Function_244f85d8, IFunction as _IFunction_6adb0ab8
 )
@@ -1117,160 +1118,53 @@ class ApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnApplication(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnApplication",
-):
-    '''The ``AWS::AppConfig::Application`` resource creates an application.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_id": "applicationId"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_id: builtins.str) -> None:
+        '''A reference to a Application resource.
 
-    In AWS AppConfig , an application is simply an organizational construct like a folder. This organizational construct has a relationship with some unit of executable code. For example, you could create an application called MyMobileApp to organize and manage configuration data for a mobile application installed by your users.
+        :param application_id: The ApplicationId of the Application resource.
 
-    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+        :exampleMetadata: fixture=_generated
 
-    - Create an application
-    - Create an environment
-    - Create a configuration profile
-    - Choose a pre-defined deployment strategy or create your own
-    - Deploy the configuration
+        Example::
 
-    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            application_reference = appconfig.ApplicationReference(
+                application_id="applicationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eeb2356e30170be42efc780f0808ec4cc340ea1cf77b81b59abb1f1fb482b72c)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-application.html
-    :cloudformationResource: AWS::AppConfig::Application
-    :exampleMetadata: fixture=_generated
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Application resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
 
-    Example::
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_application = appconfig.CfnApplication(self, "MyCfnApplication",
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: A name for the application.
-        :param description: A description of the application.
-        :param tags: Metadata to assign to the application. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5cb8c402a0d1a836162f596142de6ed2a1f2a0635a355ae334b92eb1175e956)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApplicationProps(name=name, description=description, tags=tags)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ea7b1a84049868bc175511a7cff8896cbe830377b519f6e81ca6912165c12a6)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6ba5479a5d56f629f8d2769fdc6bc86ac3ecfb94f4a9b20a0a26e228f899e8a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrApplicationId")
-    def attr_application_id(self) -> builtins.str:
-        '''The application ID.
-
-        :cloudformationAttribute: ApplicationId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrApplicationId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the application.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd439efd20029913dc2dc3442824daa5698101df926aeab59ca95e5e5b8bbd51)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the application.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a824db2a54c11ce0a54133772196bc9c7049c60fe6169de15459866f72df2438)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata to assign to the application.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1c6b2136fb3c6e3eba293e5878e147b18261e888036e9d04f50ade7f12363e3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1367,383 +1261,6 @@ class CfnApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnConfigurationProfile(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnConfigurationProfile",
-):
-    '''The ``AWS::AppConfig::ConfigurationProfile`` resource creates a configuration profile that enables AWS AppConfig to access the configuration source.
-
-    Valid configuration sources include AWS Systems Manager (SSM) documents, SSM Parameter Store parameters, and Amazon S3 . A configuration profile includes the following information.
-
-    - The Uri location of the configuration data.
-    - The AWS Identity and Access Management ( IAM ) role that provides access to the configuration data.
-    - A validator for the configuration data. Available validators include either a JSON Schema or the Amazon Resource Name (ARN) of an AWS Lambda function.
-
-    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
-
-    - Create an application
-    - Create an environment
-    - Create a configuration profile
-    - Choose a pre-defined deployment strategy or create your own
-    - Deploy the configuration
-
-    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-configurationprofile.html
-    :cloudformationResource: AWS::AppConfig::ConfigurationProfile
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_configuration_profile = appconfig.CfnConfigurationProfile(self, "MyCfnConfigurationProfile",
-            application_id="applicationId",
-            location_uri="locationUri",
-            name="name",
-        
-            # the properties below are optional
-            deletion_protection_check="deletionProtectionCheck",
-            description="description",
-            kms_key_identifier="kmsKeyIdentifier",
-            retrieval_role_arn="retrievalRoleArn",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            type="type",
-            validators=[appconfig.CfnConfigurationProfile.ValidatorsProperty(
-                content="content",
-                type="type"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        location_uri: builtins.str,
-        name: builtins.str,
-        deletion_protection_check: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        retrieval_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-        validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationProfile.ValidatorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The application ID.
-        :param location_uri: A URI to locate the configuration. You can specify the following:. - For the AWS AppConfig hosted configuration store and for feature flags, specify ``hosted`` . - For an AWS Systems Manager Parameter Store parameter, specify either the parameter name in the format ``ssm-parameter://<parameter name>`` or the ARN. - For an AWS CodePipeline pipeline, specify the URI in the following format: ``codepipeline`` ://. - For an AWS Secrets Manager secret, specify the URI in the following format: ``secretsmanager`` ://. - For an Amazon S3 object, specify the URI in the following format: ``s3://<bucket>/<objectKey>`` . Here is an example: ``s3://amzn-s3-demo-bucket/my-app/us-east-1/my-config.json`` - For an SSM document, specify either the document name in the format ``ssm-document://<document name>`` or the Amazon Resource Name (ARN).
-        :param name: A name for the configuration profile.
-        :param deletion_protection_check: A parameter to configure deletion protection. Deletion protection prevents a user from deleting a configuration profile if your application has called either `GetLatestConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html>`_ or `GetConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_GetConfiguration.html>`_ for the configuration profile during the specified interval. This parameter supports the following values: - ``BYPASS`` : Instructs AWS AppConfig to bypass the deletion protection check and delete a configuration profile even if deletion protection would have otherwise prevented it. - ``APPLY`` : Instructs the deletion protection check to run, even if deletion protection is disabled at the account level. ``APPLY`` also forces the deletion protection check to run against resources created in the past hour, which are normally excluded from deletion protection checks. - ``ACCOUNT_DEFAULT`` : The default setting, which instructs AWS AppConfig to implement the deletion protection value specified in the ``UpdateAccountSettings`` API.
-        :param description: A description of the configuration profile.
-        :param kms_key_identifier: The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.
-        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri`` . .. epigraph:: A retrieval role ARN is not required for configurations stored in AWS CodePipeline or the AWS AppConfig hosted configuration store. It is required for all other sources that store your configuration.
-        :param tags: Metadata to assign to the configuration profile. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
-        :param type: The type of configurations contained in the profile. AWS AppConfig supports ``feature flags`` and ``freeform`` configurations. We recommend you create feature flag configurations to enable or disable new features and freeform configurations to distribute configurations to an application. When calling this API, enter one of the following values for ``Type`` : ``AWS.AppConfig.FeatureFlags`` ``AWS.Freeform``
-        :param validators: A list of methods for validating the configuration.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__332c05b5fb120e53a9fcdde311f2bc23aaec927aa0e70b013e72cc2cebe88708)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnConfigurationProfileProps(
-            application_id=application_id,
-            location_uri=location_uri,
-            name=name,
-            deletion_protection_check=deletion_protection_check,
-            description=description,
-            kms_key_identifier=kms_key_identifier,
-            retrieval_role_arn=retrieval_role_arn,
-            tags=tags,
-            type=type,
-            validators=validators,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e772e24251baa448c01bcc3e6670ade5ceed90c38ae4803dc614bd5e09316acd)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e32e704ce25e06be45d32d6a2f4cb3655c378ec2a6662baf1f650e54d58d3148)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrConfigurationProfileId")
-    def attr_configuration_profile_id(self) -> builtins.str:
-        '''The configuration profile ID.
-
-        :cloudformationAttribute: ConfigurationProfileId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrConfigurationProfileId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrKmsKeyArn")
-    def attr_kms_key_arn(self) -> builtins.str:
-        '''The Amazon Resource Name of the AWS Key Management Service key to encrypt new configuration data versions in the AWS AppConfig hosted configuration store.
-
-        This attribute is only used for ``hosted`` configuration types. To encrypt data managed in other configuration stores, see the documentation for how to specify an AWS KMS key for that particular service.
-
-        :cloudformationAttribute: KmsKeyArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The application ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a90d416aa5727f39ec3c71cf2276506643a5cf358d97a872994efb5efc0c6a23)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="locationUri")
-    def location_uri(self) -> builtins.str:
-        '''A URI to locate the configuration.
-
-        You can specify the following:.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "locationUri"))
-
-    @location_uri.setter
-    def location_uri(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b354f0f45617e66d27b62ebf9a76fdbe168c6f5b6731023e6a366547233a4cb5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "locationUri", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the configuration profile.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92d26c2b0d5b0b13ed55ca82e2b92075cdb99d8bd6d4a9122e33104a12cf9d5d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deletionProtectionCheck")
-    def deletion_protection_check(self) -> typing.Optional[builtins.str]:
-        '''A parameter to configure deletion protection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtectionCheck"))
-
-    @deletion_protection_check.setter
-    def deletion_protection_check(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22cac161ad4fa05857f45ba25cc0c7261b423a1898e3c4f8f2d40a8122519300)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtectionCheck", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the configuration profile.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5884bd7f8fdc28919378604807977665ba3e82a47697c023e5982eb7257f557c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyIdentifier")
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
-
-    @kms_key_identifier.setter
-    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3eeb407208b90160e95c0fa6df04c352da355146a3ccf76bdbd6393ad76427e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="retrievalRoleArn")
-    def retrieval_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri`` .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "retrievalRoleArn"))
-
-    @retrieval_role_arn.setter
-    def retrieval_role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d3f2e474a52e1c1e45abe4e24cd6c758600c20023f3697e0c69533c0e771bc2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retrievalRoleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata to assign to the configuration profile.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebd94616157773a4ab3988775ff92592f3cda9938c8625e395d1dbbf8406354b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of configurations contained in the profile.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c45113a4405009713d71c8289b038f5cff241d53b81b243f0372147d29440ad9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="validators")
-    def validators(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]]:
-        '''A list of methods for validating the configuration.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]], jsii.get(self, "validators"))
-
-    @validators.setter
-    def validators(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11ba2acd464e5613cd96989e3516592dcd5684d8452b3028698e0549f5d5fafb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validators", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnConfigurationProfile.ValidatorsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"content": "content", "type": "type"},
-    )
-    class ValidatorsProperty:
-        def __init__(
-            self,
-            *,
-            content: typing.Optional[builtins.str] = None,
-            type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''A validator provides a syntactic or semantic check to ensure the configuration that you want to deploy functions as intended.
-
-            To validate your application configuration data, you provide a schema or an AWS Lambda function that runs against the configuration. The configuration deployment or update can only proceed when the configuration data is valid. For more information, see `About validators <https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-creating-configuration-profile.html#appconfig-creating-configuration-and-profile-validators>`_ in the *AWS AppConfig User Guide* .
-
-            :param content: Either the JSON Schema content or the Amazon Resource Name (ARN) of an Lambda function.
-            :param type: AWS AppConfig supports validators of type ``JSON_SCHEMA`` and ``LAMBDA``.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                validators_property = appconfig.CfnConfigurationProfile.ValidatorsProperty(
-                    content="content",
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3e2223bb16cf91626b0a44db9aa8ec9190717961f143668d3ff6961eec9abdd)
-                check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if content is not None:
-                self._values["content"] = content
-            if type is not None:
-                self._values["type"] = type
-
-        @builtins.property
-        def content(self) -> typing.Optional[builtins.str]:
-            '''Either the JSON Schema content or the Amazon Resource Name (ARN) of an Lambda function.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html#cfn-appconfig-configurationprofile-validators-content
-            '''
-            result = self._values.get("content")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def type(self) -> typing.Optional[builtins.str]:
-            '''AWS AppConfig supports validators of type ``JSON_SCHEMA`` and ``LAMBDA``.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html#cfn-appconfig-configurationprofile-validators-type
-            '''
-            result = self._values.get("type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ValidatorsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appconfig.CfnConfigurationProfileProps",
     jsii_struct_bases=[],
@@ -1773,7 +1290,7 @@ class CfnConfigurationProfileProps:
         retrieval_role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
-        validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationProfile.ValidatorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationProfile.ValidatorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConfigurationProfile``.
 
@@ -1964,13 +1481,13 @@ class CfnConfigurationProfileProps:
     @builtins.property
     def validators(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationProfile.ValidatorsProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]]:
         '''A list of methods for validating the configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-configurationprofile.html#cfn-appconfig-configurationprofile-validators
         '''
         result = self._values.get("validators")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationProfile.ValidatorsProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1982,377 +1499,6 @@ class CfnConfigurationProfileProps:
         return "CfnConfigurationProfileProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnDeployment(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnDeployment",
-):
-    '''The ``AWS::AppConfig::Deployment`` resource starts a deployment.
-
-    Starting a deployment in AWS AppConfig calls the ``StartDeployment`` API action. This call includes the IDs of the AWS AppConfig application, the environment, the configuration profile, and (optionally) the configuration data version to deploy. The call also includes the ID of the deployment strategy to use, which determines how the configuration data is deployed.
-
-    AWS AppConfig monitors the distribution to all hosts and reports status. If a distribution fails, then AWS AppConfig rolls back the configuration.
-
-    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
-
-    - Create an application
-    - Create an environment
-    - Create a configuration profile
-    - Choose a pre-defined deployment strategy or create your own
-    - Deploy the configuration
-
-    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-deployment.html
-    :cloudformationResource: AWS::AppConfig::Deployment
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_deployment = appconfig.CfnDeployment(self, "MyCfnDeployment",
-            application_id="applicationId",
-            configuration_profile_id="configurationProfileId",
-            configuration_version="configurationVersion",
-            deployment_strategy_id="deploymentStrategyId",
-            environment_id="environmentId",
-        
-            # the properties below are optional
-            description="description",
-            dynamic_extension_parameters=[appconfig.CfnDeployment.DynamicExtensionParametersProperty(
-                extension_reference="extensionReference",
-                parameter_name="parameterName",
-                parameter_value="parameterValue"
-            )],
-            kms_key_identifier="kmsKeyIdentifier",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        configuration_profile_id: builtins.str,
-        configuration_version: builtins.str,
-        deployment_strategy_id: builtins.str,
-        environment_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.DynamicExtensionParametersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The application ID.
-        :param configuration_profile_id: The configuration profile ID.
-        :param configuration_version: The configuration version to deploy. If deploying an AWS AppConfig hosted configuration version, you can specify either the version number or version label. For all other configurations, you must specify the version number.
-        :param deployment_strategy_id: The deployment strategy ID.
-        :param environment_id: The environment ID.
-        :param description: A description of the deployment.
-        :param dynamic_extension_parameters: A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
-        :param kms_key_identifier: The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.
-        :param tags: Metadata to assign to the deployment. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1b3c15ba63fb6169371007d7bae981d061f49c21042389030326b9ae1271344)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDeploymentProps(
-            application_id=application_id,
-            configuration_profile_id=configuration_profile_id,
-            configuration_version=configuration_version,
-            deployment_strategy_id=deployment_strategy_id,
-            environment_id=environment_id,
-            description=description,
-            dynamic_extension_parameters=dynamic_extension_parameters,
-            kms_key_identifier=kms_key_identifier,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaa2637a497fc43f28ee8b6e77e0f1878471c7f5bc0a736d0303ca69cb2d082c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d3096cada1facd4de77c79fe8d588aa3d9567d81b3f913d2c2e6cf8fac54d0e)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDeploymentNumber")
-    def attr_deployment_number(self) -> builtins.str:
-        '''The sequence number of the deployment.
-
-        :cloudformationAttribute: DeploymentNumber
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDeploymentNumber"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''The state of the deployment.
-
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The application ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95aaa1f67bb9531251e5f9c62292c84df7727307a58c223aaa637f0a36a3d65d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationProfileId")
-    def configuration_profile_id(self) -> builtins.str:
-        '''The configuration profile ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "configurationProfileId"))
-
-    @configuration_profile_id.setter
-    def configuration_profile_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca3182ab453e0412fad7ba8649da4e0cfebf187bd90f38a026444982eb8bf50e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationProfileId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationVersion")
-    def configuration_version(self) -> builtins.str:
-        '''The configuration version to deploy.'''
-        return typing.cast(builtins.str, jsii.get(self, "configurationVersion"))
-
-    @configuration_version.setter
-    def configuration_version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5abde1954bdb5d84cfce775808f90c961127e86db5ff5164bb90a98e3b0f9f20)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deploymentStrategyId")
-    def deployment_strategy_id(self) -> builtins.str:
-        '''The deployment strategy ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "deploymentStrategyId"))
-
-    @deployment_strategy_id.setter
-    def deployment_strategy_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0527964ec5c65ed1bca366f0674e5cda5d23fe019ae479f3ee3fb550fbdb0c23)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentStrategyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentId")
-    def environment_id(self) -> builtins.str:
-        '''The environment ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "environmentId"))
-
-    @environment_id.setter
-    def environment_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f949624a9b6e222d754ab636966342dbb9eb207d34230837c882091a20f9abac)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environmentId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the deployment.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96f77dd19f2c1b41d04318bc8aa9cc8f75808190471ba4922eb58652c55c5e38)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dynamicExtensionParameters")
-    def dynamic_extension_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]]:
-        '''A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]], jsii.get(self, "dynamicExtensionParameters"))
-
-    @dynamic_extension_parameters.setter
-    def dynamic_extension_parameters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5a4416b6ac2f6fbc5dd497fd6aafe41844d2e927bc75ce571b37c2f1b805bfb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dynamicExtensionParameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyIdentifier")
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
-
-    @kms_key_identifier.setter
-    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98b30f15af8144546829026dccf1aaf4fedd94b59dabeb6c8e8d7bc2b71e2efb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata to assign to the deployment.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12211b05040a4e1a62df97a0128f266db1c0380eba8db0726824e99ad7241551)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnDeployment.DynamicExtensionParametersProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "extension_reference": "extensionReference",
-            "parameter_name": "parameterName",
-            "parameter_value": "parameterValue",
-        },
-    )
-    class DynamicExtensionParametersProperty:
-        def __init__(
-            self,
-            *,
-            extension_reference: typing.Optional[builtins.str] = None,
-            parameter_name: typing.Optional[builtins.str] = None,
-            parameter_value: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
-
-            :param extension_reference: The ARN or ID of the extension for which you are inserting a dynamic parameter.
-            :param parameter_name: The parameter name.
-            :param parameter_value: The parameter value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                dynamic_extension_parameters_property = appconfig.CfnDeployment.DynamicExtensionParametersProperty(
-                    extension_reference="extensionReference",
-                    parameter_name="parameterName",
-                    parameter_value="parameterValue"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__db7299354c46559a877995ee8ab04c4fd72aaaf53cc390877fbf50f65ac43390)
-                check_type(argname="argument extension_reference", value=extension_reference, expected_type=type_hints["extension_reference"])
-                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if extension_reference is not None:
-                self._values["extension_reference"] = extension_reference
-            if parameter_name is not None:
-                self._values["parameter_name"] = parameter_name
-            if parameter_value is not None:
-                self._values["parameter_value"] = parameter_value
-
-        @builtins.property
-        def extension_reference(self) -> typing.Optional[builtins.str]:
-            '''The ARN or ID of the extension for which you are inserting a dynamic parameter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-extensionreference
-            '''
-            result = self._values.get("extension_reference")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def parameter_name(self) -> typing.Optional[builtins.str]:
-            '''The parameter name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-parametername
-            '''
-            result = self._values.get("parameter_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def parameter_value(self) -> typing.Optional[builtins.str]:
-            '''The parameter value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-parametervalue
-            '''
-            result = self._values.get("parameter_value")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DynamicExtensionParametersProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -2380,7 +1526,7 @@ class CfnDeploymentProps:
         deployment_strategy_id: builtins.str,
         environment_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DynamicExtensionParametersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.DynamicExtensionParametersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2517,13 +1663,13 @@ class CfnDeploymentProps:
     @builtins.property
     def dynamic_extension_parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeployment.DynamicExtensionParametersProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]]:
         '''A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-deployment.html#cfn-appconfig-deployment-dynamicextensionparameters
         '''
         result = self._values.get("dynamic_extension_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeployment.DynamicExtensionParametersProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]], result)
 
     @builtins.property
     def kms_key_identifier(self) -> typing.Optional[builtins.str]:
@@ -2555,254 +1701,6 @@ class CfnDeploymentProps:
         return "CfnDeploymentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnDeploymentStrategy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnDeploymentStrategy",
-):
-    '''The ``AWS::AppConfig::DeploymentStrategy`` resource creates an AWS AppConfig deployment strategy.
-
-    A deployment strategy defines important criteria for rolling out your configuration to the designated targets. A deployment strategy includes: the overall duration required, a percentage of targets to receive the deployment during each interval, an algorithm that defines how percentage grows, and bake time.
-
-    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
-
-    - Create an application
-    - Create an environment
-    - Create a configuration profile
-    - Choose a pre-defined deployment strategy or create your own
-    - Deploy the configuration
-
-    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-deploymentstrategy.html
-    :cloudformationResource: AWS::AppConfig::DeploymentStrategy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_deployment_strategy = appconfig.CfnDeploymentStrategy(self, "MyCfnDeploymentStrategy",
-            deployment_duration_in_minutes=123,
-            growth_factor=123,
-            name="name",
-            replicate_to="replicateTo",
-        
-            # the properties below are optional
-            description="description",
-            final_bake_time_in_minutes=123,
-            growth_type="growthType",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        deployment_duration_in_minutes: jsii.Number,
-        growth_factor: jsii.Number,
-        name: builtins.str,
-        replicate_to: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        final_bake_time_in_minutes: typing.Optional[jsii.Number] = None,
-        growth_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param deployment_duration_in_minutes: Total amount of time for a deployment to last.
-        :param growth_factor: The percentage of targets to receive a deployed configuration during each interval.
-        :param name: A name for the deployment strategy.
-        :param replicate_to: Save the deployment strategy to a Systems Manager (SSM) document.
-        :param description: A description of the deployment strategy.
-        :param final_bake_time_in_minutes: Specifies the amount of time AWS AppConfig monitors for Amazon CloudWatch alarms after the configuration has been deployed to 100% of its targets, before considering the deployment to be complete. If an alarm is triggered during this time, AWS AppConfig rolls back the deployment. You must configure permissions for AWS AppConfig to roll back based on CloudWatch alarms. For more information, see `Configuring permissions for rollback based on Amazon CloudWatch alarms <https://docs.aws.amazon.com/appconfig/latest/userguide/getting-started-with-appconfig-cloudwatch-alarms-permissions.html>`_ in the *AWS AppConfig User Guide* .
-        :param growth_type: The algorithm used to define how percentage grows over time. AWS AppConfig supports the following growth types:. *Linear* : For this type, AWS AppConfig processes the deployment by dividing the total number of targets by the value specified for ``Step percentage`` . For example, a linear deployment that uses a ``Step percentage`` of 10 deploys the configuration to 10 percent of the hosts. After those deployments are complete, the system deploys the configuration to the next 10 percent. This continues until 100% of the targets have successfully received the configuration. *Exponential* : For this type, AWS AppConfig processes the deployment exponentially using the following formula: ``G*(2^N)`` . In this formula, ``G`` is the growth factor specified by the user and ``N`` is the number of steps until the configuration is deployed to all targets. For example, if you specify a growth factor of 2, then the system rolls out the configuration as follows: ``2*(2^0)`` ``2*(2^1)`` ``2*(2^2)`` Expressed numerically, the deployment rolls out as follows: 2% of the targets, 4% of the targets, 8% of the targets, and continues until the configuration has been deployed to all targets.
-        :param tags: Assigns metadata to an AWS AppConfig resource. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define. You can specify a maximum of 50 tags for a resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb88c221f102c1b57ba4f19db7656eb36ff011a70e3643e39d048c313eda22fd)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDeploymentStrategyProps(
-            deployment_duration_in_minutes=deployment_duration_in_minutes,
-            growth_factor=growth_factor,
-            name=name,
-            replicate_to=replicate_to,
-            description=description,
-            final_bake_time_in_minutes=final_bake_time_in_minutes,
-            growth_type=growth_type,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c07282bd387e2aab09e9241f96ded37ff336d3f231f996e048ef207d3a38bc3)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__750f81fb9177952991767d28a4a55a4de59c55177b25056fdd45e8aff0c293c2)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The deployment strategy ID.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="deploymentDurationInMinutes")
-    def deployment_duration_in_minutes(self) -> jsii.Number:
-        '''Total amount of time for a deployment to last.'''
-        return typing.cast(jsii.Number, jsii.get(self, "deploymentDurationInMinutes"))
-
-    @deployment_duration_in_minutes.setter
-    def deployment_duration_in_minutes(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2b9cfcca9dae7bf599adef5f2b44e7662994e8143e1b3ccfa6f12c4d8ad5a19)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentDurationInMinutes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="growthFactor")
-    def growth_factor(self) -> jsii.Number:
-        '''The percentage of targets to receive a deployed configuration during each interval.'''
-        return typing.cast(jsii.Number, jsii.get(self, "growthFactor"))
-
-    @growth_factor.setter
-    def growth_factor(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ac4cbcedcf27ec80d55a98d836dbb9ac52523d6ff7838145b4d527fadaf652d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "growthFactor", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the deployment strategy.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43a46b42e0607ca1c01aa58dff3034f44511b63f99f559fe0fd370080f52f2c7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="replicateTo")
-    def replicate_to(self) -> builtins.str:
-        '''Save the deployment strategy to a Systems Manager (SSM) document.'''
-        return typing.cast(builtins.str, jsii.get(self, "replicateTo"))
-
-    @replicate_to.setter
-    def replicate_to(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb6ef1a3102939b024e6e99b451674a1ad1f6879f5355a20a6d365cfeab4ad4e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicateTo", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the deployment strategy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f47275a573fd911ba6db69f152dd00eab69b450d732941105375d198524fd2b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="finalBakeTimeInMinutes")
-    def final_bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the amount of time AWS AppConfig monitors for Amazon CloudWatch alarms after the configuration has been deployed to 100% of its targets, before considering the deployment to be complete.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "finalBakeTimeInMinutes"))
-
-    @final_bake_time_in_minutes.setter
-    def final_bake_time_in_minutes(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad18c900d6d84d1f1dba268d6d666b830e5e5276badda4b775deb06725f3c4ea)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "finalBakeTimeInMinutes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="growthType")
-    def growth_type(self) -> typing.Optional[builtins.str]:
-        '''The algorithm used to define how percentage grows over time.
-
-        AWS AppConfig supports the following growth types:.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "growthType"))
-
-    @growth_type.setter
-    def growth_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38dbe338fc520a7ce3134f048d86265b2db4966fa73c38281b48ff6124acbc16)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "growthType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns metadata to an AWS AppConfig resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b0c7e44af284b89d6923411489d05fa28350784f8d88a837a0d019a1d575e65)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2997,365 +1895,6 @@ class CfnDeploymentStrategyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnEnvironment(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment",
-):
-    '''The ``AWS::AppConfig::Environment`` resource creates an environment, which is a logical deployment group of AWS AppConfig targets, such as applications in a ``Beta`` or ``Production`` environment.
-
-    You define one or more environments for each AWS AppConfig application. You can also define environments for application subcomponents such as the ``Web`` , ``Mobile`` and ``Back-end`` components for your application. You can configure Amazon CloudWatch alarms for each environment. The system monitors alarms during a configuration deployment. If an alarm is triggered, the system rolls back the configuration.
-
-    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
-
-    - Create an application
-    - Create an environment
-    - Create a configuration profile
-    - Choose a pre-defined deployment strategy or create your own
-    - Deploy the configuration
-
-    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-environment.html
-    :cloudformationResource: AWS::AppConfig::Environment
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_environment = appconfig.CfnEnvironment(self, "MyCfnEnvironment",
-            application_id="applicationId",
-            name="name",
-        
-            # the properties below are optional
-            deletion_protection_check="deletionProtectionCheck",
-            description="description",
-            monitors=[appconfig.CfnEnvironment.MonitorsProperty(
-                alarm_arn="alarmArn",
-                alarm_role_arn="alarmRoleArn"
-            )],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        name: builtins.str,
-        deletion_protection_check: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.MonitorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The application ID.
-        :param name: A name for the environment.
-        :param deletion_protection_check: A parameter to configure deletion protection. Deletion protection prevents a user from deleting an environment if your application called either `GetLatestConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html>`_ or `GetConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_GetConfiguration.html>`_ in the environment during the specified interval. This parameter supports the following values: - ``BYPASS`` : Instructs AWS AppConfig to bypass the deletion protection check and delete a configuration profile even if deletion protection would have otherwise prevented it. - ``APPLY`` : Instructs the deletion protection check to run, even if deletion protection is disabled at the account level. ``APPLY`` also forces the deletion protection check to run against resources created in the past hour, which are normally excluded from deletion protection checks. - ``ACCOUNT_DEFAULT`` : The default setting, which instructs AWS AppConfig to implement the deletion protection value specified in the ``UpdateAccountSettings`` API.
-        :param description: A description of the environment.
-        :param monitors: Amazon CloudWatch alarms to monitor during the deployment process.
-        :param tags: Metadata to assign to the environment. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f357d5cab83004926812cf34c99a144f4f5d23ca26e4a818590a950622a06fc3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnEnvironmentProps(
-            application_id=application_id,
-            name=name,
-            deletion_protection_check=deletion_protection_check,
-            description=description,
-            monitors=monitors,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3842dacad1a08e5d9103a4c646c8fa2385f77b6f5495fbd4dab597c037c8f09b)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dbe73a2ef533ed22edd7fd274c6cca5a979759478da06114e8699f7b2409820)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEnvironmentId")
-    def attr_environment_id(self) -> builtins.str:
-        '''The environment ID.
-
-        :cloudformationAttribute: EnvironmentId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEnvironmentId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The application ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d35c6a50b39401e18b97d5d78f1d4d92aaf846c18aa4ec32bce024a53e54c4be)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the environment.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__569391bda37ae2bcb096c8b3ab953d25c7ff488899b2557c773cc8f72ee8a4cb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deletionProtectionCheck")
-    def deletion_protection_check(self) -> typing.Optional[builtins.str]:
-        '''A parameter to configure deletion protection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtectionCheck"))
-
-    @deletion_protection_check.setter
-    def deletion_protection_check(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f1d148cd005383120b271748e66adadcb6c113dd27c70a758f2f86f91e76e9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtectionCheck", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the environment.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__154bd59aabeed21e27800d9d45bcdbb412639a65e9aaaf72ef6dae673fa26a43)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="monitors")
-    def monitors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]]:
-        '''Amazon CloudWatch alarms to monitor during the deployment process.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]], jsii.get(self, "monitors"))
-
-    @monitors.setter
-    def monitors(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8d099ead34dfe7be9eb945722b31207889d993d21d927e1eeba6592c7f8fd44)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitors", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata to assign to the environment.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60701727c0b2b8f0404d231ccc24899f35678bacc781ed4c6443de1b14432f68)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment.MonitorProperty",
-        jsii_struct_bases=[],
-        name_mapping={"alarm_arn": "alarmArn", "alarm_role_arn": "alarmRoleArn"},
-    )
-    class MonitorProperty:
-        def __init__(
-            self,
-            *,
-            alarm_arn: builtins.str,
-            alarm_role_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Amazon CloudWatch alarms to monitor during the deployment process.
-
-            :param alarm_arn: Amazon Resource Name (ARN) of the Amazon CloudWatch alarm.
-            :param alarm_role_arn: ARN of an AWS Identity and Access Management (IAM) role for AWS AppConfig to monitor ``AlarmArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                monitor_property = appconfig.CfnEnvironment.MonitorProperty(
-                    alarm_arn="alarmArn",
-                
-                    # the properties below are optional
-                    alarm_role_arn="alarmRoleArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__252b3a605905895f1b8ffc133b32547c64db1b58b121d4f635ec61960b027938)
-                check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
-                check_type(argname="argument alarm_role_arn", value=alarm_role_arn, expected_type=type_hints["alarm_role_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "alarm_arn": alarm_arn,
-            }
-            if alarm_role_arn is not None:
-                self._values["alarm_role_arn"] = alarm_role_arn
-
-        @builtins.property
-        def alarm_arn(self) -> builtins.str:
-            '''Amazon Resource Name (ARN) of the Amazon CloudWatch alarm.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html#cfn-appconfig-environment-monitor-alarmarn
-            '''
-            result = self._values.get("alarm_arn")
-            assert result is not None, "Required property 'alarm_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def alarm_role_arn(self) -> typing.Optional[builtins.str]:
-            '''ARN of an AWS Identity and Access Management (IAM) role for AWS AppConfig to monitor ``AlarmArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html#cfn-appconfig-environment-monitor-alarmrolearn
-            '''
-            result = self._values.get("alarm_role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MonitorProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment.MonitorsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"alarm_arn": "alarmArn", "alarm_role_arn": "alarmRoleArn"},
-    )
-    class MonitorsProperty:
-        def __init__(
-            self,
-            *,
-            alarm_arn: typing.Optional[builtins.str] = None,
-            alarm_role_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param alarm_arn: 
-            :param alarm_role_arn: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                monitors_property = appconfig.CfnEnvironment.MonitorsProperty(
-                    alarm_arn="alarmArn",
-                    alarm_role_arn="alarmRoleArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__43d91f41d1c9d1acd545d0999d47687e0e5b7be03ec08728e3c5aa73ff76549f)
-                check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
-                check_type(argname="argument alarm_role_arn", value=alarm_role_arn, expected_type=type_hints["alarm_role_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if alarm_arn is not None:
-                self._values["alarm_arn"] = alarm_arn
-            if alarm_role_arn is not None:
-                self._values["alarm_role_arn"] = alarm_role_arn
-
-        @builtins.property
-        def alarm_arn(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html#cfn-appconfig-environment-monitors-alarmarn
-            '''
-            result = self._values.get("alarm_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def alarm_role_arn(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html#cfn-appconfig-environment-monitors-alarmrolearn
-            '''
-            result = self._values.get("alarm_role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MonitorsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironmentProps",
     jsii_struct_bases=[],
@@ -3376,7 +1915,7 @@ class CfnEnvironmentProps:
         name: builtins.str,
         deletion_protection_check: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.MonitorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.MonitorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironment``.
@@ -3484,13 +2023,13 @@ class CfnEnvironmentProps:
     @builtins.property
     def monitors(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.MonitorsProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]]:
         '''Amazon CloudWatch alarms to monitor during the deployment process.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-environment.html#cfn-appconfig-environment-monitors
         '''
         result = self._values.get("monitors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.MonitorsProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -3513,672 +2052,6 @@ class CfnEnvironmentProps:
         return "CfnEnvironmentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnExtension(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension",
-):
-    '''Creates an AWS AppConfig extension.
-
-    An extension augments your ability to inject logic or behavior at different points during the AWS AppConfig workflow of creating or deploying a configuration.
-
-    You can create your own extensions or use the AWS authored extensions provided by AWS AppConfig . For an AWS AppConfig extension that uses AWS Lambda , you must create a Lambda function to perform any computation and processing defined in the extension. If you plan to create custom versions of the AWS authored notification extensions, you only need to specify an Amazon Resource Name (ARN) in the ``Uri`` field for the new extension version.
-
-    - For a custom EventBridge notification extension, enter the ARN of the EventBridge default events in the ``Uri`` field.
-    - For a custom Amazon SNS notification extension, enter the ARN of an Amazon SNS topic in the ``Uri`` field.
-    - For a custom Amazon SQS notification extension, enter the ARN of an Amazon SQS message queue in the ``Uri`` field.
-
-    For more information about extensions, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-extension.html
-    :cloudformationResource: AWS::AppConfig::Extension
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        # actions: Any
-        
-        cfn_extension = appconfig.CfnExtension(self, "MyCfnExtension",
-            actions=actions,
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            latest_version_number=123,
-            parameters={
-                "parameters_key": appconfig.CfnExtension.ParameterProperty(
-                    required=False,
-        
-                    # the properties below are optional
-                    description="description",
-                    dynamic=False
-                )
-            },
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        actions: typing.Any,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        latest_version_number: typing.Optional[jsii.Number] = None,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnExtension.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param actions: The actions defined in the extension.
-        :param name: A name for the extension. Each extension name in your account must be unique. Extension versions use the same name.
-        :param description: Information about the extension.
-        :param latest_version_number: You can omit this field when you create an extension. When you create a new version, specify the most recent current version number. For example, you create version 3, enter 2 for this field.
-        :param parameters: The parameters accepted by the extension. You specify parameter values when you associate the extension to an AWS AppConfig resource by using the ``CreateExtensionAssociation`` API action. For AWS Lambda extension actions, these parameters are included in the Lambda request object.
-        :param tags: Adds one or more tags for the specified extension. Tags are metadata that help you categorize resources in different ways, for example, by purpose, owner, or environment. Each tag consists of a key and an optional value, both of which you define.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3442a7f4d7a9c3256544c6b0526d285ef0cf3970ec1f140b344aed1abc4eef5)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnExtensionProps(
-            actions=actions,
-            name=name,
-            description=description,
-            latest_version_number=latest_version_number,
-            parameters=parameters,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6930a24c04bd5aebe54f7a225f7ec08743e520b61a781973e88a4b6678524a5)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57070195544dc008ade09c677ffa495cf4120e6b1dc834d6ffa101c3cf189599)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The system-generated Amazon Resource Name (ARN) for the extension.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The system-generated ID of the extension.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrVersionNumber")
-    def attr_version_number(self) -> jsii.Number:
-        '''The extension version number.
-
-        :cloudformationAttribute: VersionNumber
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrVersionNumber"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="actions")
-    def actions(self) -> typing.Any:
-        '''The actions defined in the extension.'''
-        return typing.cast(typing.Any, jsii.get(self, "actions"))
-
-    @actions.setter
-    def actions(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f734d5e14d1ac32f7ec277282f23b1f2f7c0b8ce8e48d8df2b080f67d200577f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the extension.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__081c55af29bf24c3599cf24134be4ce60656f052c575f59ff68c2084fa523481)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the extension.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__334508667f33fe5d26ff2e39e3bcbaaea618391e439f25094004fab0d75eb718)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="latestVersionNumber")
-    def latest_version_number(self) -> typing.Optional[jsii.Number]:
-        '''You can omit this field when you create an extension.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "latestVersionNumber"))
-
-    @latest_version_number.setter
-    def latest_version_number(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b38bdb75b51870401d0b83754078af02e3e6886d97a64481c3733b63a5a4c814)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "latestVersionNumber", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]]:
-        '''The parameters accepted by the extension.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]], jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ad5fbf78cb34accb172520e561c08795fbca80280af2dcc78243ceb84841d07)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Adds one or more tags for the specified extension.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e6cc683bfd791a6ddfdc2295e58057279b3a19bc4adc7a11fbff993fe64fe37)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension.ActionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "name": "name",
-            "uri": "uri",
-            "description": "description",
-            "role_arn": "roleArn",
-        },
-    )
-    class ActionProperty:
-        def __init__(
-            self,
-            *,
-            name: builtins.str,
-            uri: builtins.str,
-            description: typing.Optional[builtins.str] = None,
-            role_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The actions defined in the extension.
-
-            :param name: The extension name.
-            :param uri: The extension URI associated to the action point in the extension definition. The URI can be an Amazon Resource Name (ARN) for one of the following: an AWS Lambda function, an Amazon Simple Queue Service queue, an Amazon Simple Notification Service topic, or the Amazon EventBridge default event bus.
-            :param description: Information about actions defined in the extension.
-            :param role_arn: An Amazon Resource Name (ARN) for an AWS Identity and Access Management assume role.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                action_property = appconfig.CfnExtension.ActionProperty(
-                    name="name",
-                    uri="uri",
-                
-                    # the properties below are optional
-                    description="description",
-                    role_arn="roleArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__58317247cdf8a690d14849381527f22c6a038c04470bb6ed420b3ade323b7e43)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
-                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-                "uri": uri,
-            }
-            if description is not None:
-                self._values["description"] = description
-            if role_arn is not None:
-                self._values["role_arn"] = role_arn
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The extension name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def uri(self) -> builtins.str:
-            '''The extension URI associated to the action point in the extension definition.
-
-            The URI can be an Amazon Resource Name (ARN) for one of the following: an AWS Lambda function, an Amazon Simple Queue Service queue, an Amazon Simple Notification Service topic, or the Amazon EventBridge default event bus.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-uri
-            '''
-            result = self._values.get("uri")
-            assert result is not None, "Required property 'uri' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def description(self) -> typing.Optional[builtins.str]:
-            '''Information about actions defined in the extension.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-description
-            '''
-            result = self._values.get("description")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def role_arn(self) -> typing.Optional[builtins.str]:
-            '''An Amazon Resource Name (ARN) for an AWS Identity and Access Management assume role.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-rolearn
-            '''
-            result = self._values.get("role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ActionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension.ParameterProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "required": "required",
-            "description": "description",
-            "dynamic": "dynamic",
-        },
-    )
-    class ParameterProperty:
-        def __init__(
-            self,
-            *,
-            required: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            description: typing.Optional[builtins.str] = None,
-            dynamic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''A value such as an Amazon Resource Name (ARN) or an Amazon Simple Notification Service topic entered in an extension when invoked.
-
-            Parameter values are specified in an extension association. For more information about extensions, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
-
-            :param required: A parameter value must be specified in the extension association.
-            :param description: Information about the parameter.
-            :param dynamic: Indicates whether this parameter's value can be supplied at the extension's action point instead of during extension association. Dynamic parameters can't be marked ``Required`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_appconfig as appconfig
-                
-                parameter_property = appconfig.CfnExtension.ParameterProperty(
-                    required=False,
-                
-                    # the properties below are optional
-                    description="description",
-                    dynamic=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__683bc731900456f8d594ddc90d3c7fc1fcdc884942410401537639fad3d02ed1)
-                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
-                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-                check_type(argname="argument dynamic", value=dynamic, expected_type=type_hints["dynamic"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "required": required,
-            }
-            if description is not None:
-                self._values["description"] = description
-            if dynamic is not None:
-                self._values["dynamic"] = dynamic
-
-        @builtins.property
-        def required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''A parameter value must be specified in the extension association.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-required
-            '''
-            result = self._values.get("required")
-            assert result is not None, "Required property 'required' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def description(self) -> typing.Optional[builtins.str]:
-            '''Information about the parameter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-description
-            '''
-            result = self._values.get("description")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def dynamic(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether this parameter's value can be supplied at the extension's action point instead of during extension association.
-
-            Dynamic parameters can't be marked ``Required`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-dynamic
-            '''
-            result = self._values.get("dynamic")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ParameterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnExtensionAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnExtensionAssociation",
-):
-    '''When you create an extension or configure an AWS authored extension, you associate the extension with an AWS AppConfig application, environment, or configuration profile.
-
-    For example, you can choose to run the ``AWS AppConfig deployment events to Amazon SNS`` AWS authored extension and receive notifications on an Amazon SNS topic anytime a configuration deployment is started for a specific application. Defining which extension to associate with an AWS AppConfig resource is called an *extension association* . An extension association is a specified relationship between an extension and an AWS AppConfig resource, such as an application or a configuration profile. For more information about extensions and associations, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-extensionassociation.html
-    :cloudformationResource: AWS::AppConfig::ExtensionAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_extension_association = appconfig.CfnExtensionAssociation(self, "MyCfnExtensionAssociation",
-            extension_identifier="extensionIdentifier",
-            extension_version_number=123,
-            parameters={
-                "parameters_key": "parameters"
-            },
-            resource_identifier="resourceIdentifier",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        extension_identifier: typing.Optional[builtins.str] = None,
-        extension_version_number: typing.Optional[jsii.Number] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param extension_identifier: The name, the ID, or the Amazon Resource Name (ARN) of the extension.
-        :param extension_version_number: The version number of the extension. If not specified, AWS AppConfig uses the maximum version of the extension.
-        :param parameters: The parameter names and values defined in the extensions. Extension parameters marked ``Required`` must be entered for this field.
-        :param resource_identifier: The ARN of an application, configuration profile, or environment.
-        :param tags: Adds one or more tags for the specified extension association. Tags are metadata that help you categorize resources in different ways, for example, by purpose, owner, or environment. Each tag consists of a key and an optional value, both of which you define.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2e5a069dff64a93330fdfc39cee819956ed46cafa89dc1aee558b0c288de8af)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnExtensionAssociationProps(
-            extension_identifier=extension_identifier,
-            extension_version_number=extension_version_number,
-            parameters=parameters,
-            resource_identifier=resource_identifier,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__209622600665bfa16663cc19d0b91c8caf5c5d29f4cc7cb09fd6fba67bcb1739)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0a9f34459bdf3e807e0362d7767352a597304250be35f36b98afb6b8d6ca733)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the extension defined in the association.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrExtensionArn")
-    def attr_extension_arn(self) -> builtins.str:
-        '''The ARN of the extension defined in the association.
-
-        :cloudformationAttribute: ExtensionArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExtensionArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The system-generated ID for the association.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrResourceArn")
-    def attr_resource_arn(self) -> builtins.str:
-        '''The ARNs of applications, configuration profiles, or environments defined in the association.
-
-        :cloudformationAttribute: ResourceArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="extensionIdentifier")
-    def extension_identifier(self) -> typing.Optional[builtins.str]:
-        '''The name, the ID, or the Amazon Resource Name (ARN) of the extension.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "extensionIdentifier"))
-
-    @extension_identifier.setter
-    def extension_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd635cb248fd501f641536d553e5645fb6dd03b8db84e4059ddc6af591a307e8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extensionIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="extensionVersionNumber")
-    def extension_version_number(self) -> typing.Optional[jsii.Number]:
-        '''The version number of the extension.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "extensionVersionNumber"))
-
-    @extension_version_number.setter
-    def extension_version_number(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4aa600ead50aeb1f2d5f5f5fe334e3e11a16eccfa413e5de0742f763f7938a43)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extensionVersionNumber", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The parameter names and values defined in the extensions.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(
-        self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc72677d37ba0fe5b56dcbee5b8705c9e4e30a75b5d3b051bc792305dfd3deda)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceIdentifier")
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an application, configuration profile, or environment.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceIdentifier"))
-
-    @resource_identifier.setter
-    def resource_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff48a7c10c5007769564f0b18da5363288efbb9ca805f7bb5a7fd93e791ec3d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Adds one or more tags for the specified extension association.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d31c336e3843162aab44371392cbb25a2b62fcd270c6fc472b3f2819a21b9ea1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -4336,7 +2209,7 @@ class CfnExtensionProps:
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         latest_version_number: typing.Optional[jsii.Number] = None,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnExtension.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnExtension.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnExtension``.
@@ -4447,7 +2320,7 @@ class CfnExtensionProps:
     @builtins.property
     def parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnExtension.ParameterProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]]:
         '''The parameters accepted by the extension.
 
         You specify parameter values when you associate the extension to an AWS AppConfig resource by using the ``CreateExtensionAssociation`` API action. For AWS Lambda extension actions, these parameters are included in the Lambda request object.
@@ -4455,7 +2328,7 @@ class CfnExtensionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-extension.html#cfn-appconfig-extension-parameters
         '''
         result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnExtension.ParameterProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -4478,221 +2351,6 @@ class CfnExtensionProps:
         return "CfnExtensionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnHostedConfigurationVersion(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_appconfig.CfnHostedConfigurationVersion",
-):
-    '''Create a new configuration in the AWS AppConfig hosted configuration store.
-
-    Configurations must be 1 MB or smaller. The AWS AppConfig hosted configuration store provides the following benefits over other configuration store options.
-
-    - You don't need to set up and configure other services such as Amazon Simple Storage Service ( Amazon S3 ) or Parameter Store.
-    - You don't need to configure AWS Identity and Access Management ( IAM ) permissions to use the configuration store.
-    - You can store configurations in any content type.
-    - There is no cost to use the store.
-    - You can create a configuration and add it to the store when you create a configuration profile.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-hostedconfigurationversion.html
-    :cloudformationResource: AWS::AppConfig::HostedConfigurationVersion
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appconfig as appconfig
-        
-        cfn_hosted_configuration_version = appconfig.CfnHostedConfigurationVersion(self, "MyCfnHostedConfigurationVersion",
-            application_id="applicationId",
-            configuration_profile_id="configurationProfileId",
-            content="content",
-            content_type="contentType",
-        
-            # the properties below are optional
-            description="description",
-            latest_version_number=123,
-            version_label="versionLabel"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_id: builtins.str,
-        configuration_profile_id: builtins.str,
-        content: builtins.str,
-        content_type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        latest_version_number: typing.Optional[jsii.Number] = None,
-        version_label: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_id: The application ID.
-        :param configuration_profile_id: The configuration profile ID.
-        :param content: The configuration data, as bytes. .. epigraph:: AWS AppConfig accepts any type of data, including text formats like JSON or TOML, or binary formats like protocol buffers or compressed data.
-        :param content_type: A standard MIME type describing the format of the configuration content. For more information, see `Content-Type <https://docs.aws.amazon.com/https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.17>`_ .
-        :param description: A description of the configuration. .. epigraph:: Due to HTTP limitations, this field only supports ASCII characters.
-        :param latest_version_number: An optional locking token used to prevent race conditions from overwriting configuration updates when creating a new version. To ensure your data is not overwritten when creating multiple hosted configuration versions in rapid succession, specify the version number of the latest hosted configuration version.
-        :param version_label: A user-defined label for an AWS AppConfig hosted configuration version.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f2dc9ae7157f5223a79cf8ea4a7355ec285dbe0fda348428c6e0e6cdabbb60b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnHostedConfigurationVersionProps(
-            application_id=application_id,
-            configuration_profile_id=configuration_profile_id,
-            content=content,
-            content_type=content_type,
-            description=description,
-            latest_version_number=latest_version_number,
-            version_label=version_label,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__287f244644cef79eb3704756fc9fd6f98e693a42df76727f726091d3190ab82c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694959938824dc357bd7ac9b60be653c213df7cdcc44905d59d6e7d7e1182171)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrVersionNumber")
-    def attr_version_number(self) -> builtins.str:
-        '''The configuration version.
-
-        :cloudformationAttribute: VersionNumber
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrVersionNumber"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationId")
-    def application_id(self) -> builtins.str:
-        '''The application ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
-
-    @application_id.setter
-    def application_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97e3d21e204bcf08a8dceb763729bfb70936f6d97ed550af3dfe101fac0f4331)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationProfileId")
-    def configuration_profile_id(self) -> builtins.str:
-        '''The configuration profile ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "configurationProfileId"))
-
-    @configuration_profile_id.setter
-    def configuration_profile_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4193469efc98930e2e72ffffb47c40bb1631526d907d8eaab051ac721dce3631)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationProfileId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="content")
-    def content(self) -> builtins.str:
-        '''The configuration data, as bytes.'''
-        return typing.cast(builtins.str, jsii.get(self, "content"))
-
-    @content.setter
-    def content(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac0de9d6bf3585fb47f9ad3fbb1d23a9a11447de5c02a24b6971d67ab3a7fa70)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="contentType")
-    def content_type(self) -> builtins.str:
-        '''A standard MIME type describing the format of the configuration content.'''
-        return typing.cast(builtins.str, jsii.get(self, "contentType"))
-
-    @content_type.setter
-    def content_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb880ec8c47eca7663501403482ddb505ffe759b4792fa0a7236d31e1313d7fe)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contentType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the configuration.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d43da3f82c30824ce1a2d29683403d6e68cb792341046055e7df42a980951259)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="latestVersionNumber")
-    def latest_version_number(self) -> typing.Optional[jsii.Number]:
-        '''An optional locking token used to prevent race conditions from overwriting configuration updates when creating a new version.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "latestVersionNumber"))
-
-    @latest_version_number.setter
-    def latest_version_number(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14797876de335768bb8254a37ba88bf3300df4a568a8174a333380741acaa4b8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "latestVersionNumber", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="versionLabel")
-    def version_label(self) -> typing.Optional[builtins.str]:
-        '''A user-defined label for an AWS AppConfig hosted configuration version.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "versionLabel"))
-
-    @version_label.setter
-    def version_label(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__384487882c55b43a28f4a742590e489e653df19c023a94fbfacb65cdf0cf00e2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionLabel", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5199,6 +2857,74 @@ class ConfigurationOptions:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.ConfigurationProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "configuration_profile_id": "configurationProfileId",
+    },
+)
+class ConfigurationProfileReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        configuration_profile_id: builtins.str,
+    ) -> None:
+        '''A reference to a ConfigurationProfile resource.
+
+        :param application_id: The ApplicationId of the ConfigurationProfile resource.
+        :param configuration_profile_id: The ConfigurationProfileId of the ConfigurationProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            configuration_profile_reference = appconfig.ConfigurationProfileReference(
+                application_id="applicationId",
+                configuration_profile_id="configurationProfileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__405facd2ed3cc1c8ff3279603493aa9b4a13f91372ff425b704e8b5c0cf6e6f1)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument configuration_profile_id", value=configuration_profile_id, expected_type=type_hints["configuration_profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "configuration_profile_id": configuration_profile_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the ConfigurationProfile resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_profile_id(self) -> builtins.str:
+        '''The ConfigurationProfileId of the ConfigurationProfile resource.'''
+        result = self._values.get("configuration_profile_id")
+        assert result is not None, "Required property 'configuration_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appconfig.ConfigurationProps",
     jsii_struct_bases=[ConfigurationOptions],
     name_mapping={
@@ -5650,6 +3376,87 @@ class DeletionProtectionCheck(enum.Enum):
     '''Instructs AWS AppConfig to bypass the deletion protection check and delete an environment or a configuration profile even if deletion protection would have otherwise prevented it.'''
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.DeploymentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "deployment_number": "deploymentNumber",
+        "environment_id": "environmentId",
+    },
+)
+class DeploymentReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        deployment_number: builtins.str,
+        environment_id: builtins.str,
+    ) -> None:
+        '''A reference to a Deployment resource.
+
+        :param application_id: The ApplicationId of the Deployment resource.
+        :param deployment_number: The DeploymentNumber of the Deployment resource.
+        :param environment_id: The EnvironmentId of the Deployment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            deployment_reference = appconfig.DeploymentReference(
+                application_id="applicationId",
+                deployment_number="deploymentNumber",
+                environment_id="environmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__787a747d246947d0fb6d4a10852e53e6b7ad8eeb3f648bac42da92ba3ad845e1)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument deployment_number", value=deployment_number, expected_type=type_hints["deployment_number"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "deployment_number": deployment_number,
+            "environment_id": environment_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Deployment resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def deployment_number(self) -> builtins.str:
+        '''The DeploymentNumber of the Deployment resource.'''
+        result = self._values.get("deployment_number")
+        assert result is not None, "Required property 'deployment_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_id(self) -> builtins.str:
+        '''The EnvironmentId of the Deployment resource.'''
+        result = self._values.get("environment_id")
+        assert result is not None, "Required property 'environment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class DeploymentStrategyId(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_appconfig.DeploymentStrategyId",
@@ -5829,6 +3636,55 @@ class DeploymentStrategyProps:
 
     def __repr__(self) -> str:
         return "DeploymentStrategyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.DeploymentStrategyReference",
+    jsii_struct_bases=[],
+    name_mapping={"deployment_strategy_id": "deploymentStrategyId"},
+)
+class DeploymentStrategyReference:
+    def __init__(self, *, deployment_strategy_id: builtins.str) -> None:
+        '''A reference to a DeploymentStrategy resource.
+
+        :param deployment_strategy_id: The Id of the DeploymentStrategy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            deployment_strategy_reference = appconfig.DeploymentStrategyReference(
+                deployment_strategy_id="deploymentStrategyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f85bf4345420f9226987c9e0362fa1c9cdb046ba1677a969e35c7252fd94afc)
+            check_type(argname="argument deployment_strategy_id", value=deployment_strategy_id, expected_type=type_hints["deployment_strategy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "deployment_strategy_id": deployment_strategy_id,
+        }
+
+    @builtins.property
+    def deployment_strategy_id(self) -> builtins.str:
+        '''The Id of the DeploymentStrategy resource.'''
+        result = self._values.get("deployment_strategy_id")
+        assert result is not None, "Required property 'deployment_strategy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentStrategyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6181,6 +4037,142 @@ class EnvironmentProps(EnvironmentOptions):
 
     def __repr__(self) -> str:
         return "EnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.EnvironmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "environment_id": "environmentId",
+    },
+)
+class EnvironmentReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        environment_id: builtins.str,
+    ) -> None:
+        '''A reference to a Environment resource.
+
+        :param application_id: The ApplicationId of the Environment resource.
+        :param environment_id: The EnvironmentId of the Environment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            environment_reference = appconfig.EnvironmentReference(
+                application_id="applicationId",
+                environment_id="environmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e46622812d5e738351df2d2f9b9085c20bd92d37d6c9c79314bd41c132798672)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "environment_id": environment_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Environment resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_id(self) -> builtins.str:
+        '''The EnvironmentId of the Environment resource.'''
+        result = self._values.get("environment_id")
+        assert result is not None, "Required property 'environment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.ExtensionAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "extension_association_arn": "extensionAssociationArn",
+        "extension_association_id": "extensionAssociationId",
+    },
+)
+class ExtensionAssociationReference:
+    def __init__(
+        self,
+        *,
+        extension_association_arn: builtins.str,
+        extension_association_id: builtins.str,
+    ) -> None:
+        '''A reference to a ExtensionAssociation resource.
+
+        :param extension_association_arn: The ARN of the ExtensionAssociation resource.
+        :param extension_association_id: The Id of the ExtensionAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            extension_association_reference = appconfig.ExtensionAssociationReference(
+                extension_association_arn="extensionAssociationArn",
+                extension_association_id="extensionAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec51ae36ea464758ac6cf833f6aed7a6e5d3a65a4929a2c1b5252cdee9dcc31b)
+            check_type(argname="argument extension_association_arn", value=extension_association_arn, expected_type=type_hints["extension_association_arn"])
+            check_type(argname="argument extension_association_id", value=extension_association_id, expected_type=type_hints["extension_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "extension_association_arn": extension_association_arn,
+            "extension_association_id": extension_association_id,
+        }
+
+    @builtins.property
+    def extension_association_arn(self) -> builtins.str:
+        '''The ARN of the ExtensionAssociation resource.'''
+        result = self._values.get("extension_association_arn")
+        assert result is not None, "Required property 'extension_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def extension_association_id(self) -> builtins.str:
+        '''The Id of the ExtensionAssociation resource.'''
+        result = self._values.get("extension_association_id")
+        assert result is not None, "Required property 'extension_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExtensionAssociationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6555,6 +4547,71 @@ class ExtensionProps(ExtensionOptions):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.ExtensionReference",
+    jsii_struct_bases=[],
+    name_mapping={"extension_arn": "extensionArn", "extension_id": "extensionId"},
+)
+class ExtensionReference:
+    def __init__(
+        self,
+        *,
+        extension_arn: builtins.str,
+        extension_id: builtins.str,
+    ) -> None:
+        '''A reference to a Extension resource.
+
+        :param extension_arn: The ARN of the Extension resource.
+        :param extension_id: The Id of the Extension resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            extension_reference = appconfig.ExtensionReference(
+                extension_arn="extensionArn",
+                extension_id="extensionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14958c6aa7e587d1cb19e1804b5e2be113af30f72ccdcc58d14914410d46e290)
+            check_type(argname="argument extension_arn", value=extension_arn, expected_type=type_hints["extension_arn"])
+            check_type(argname="argument extension_id", value=extension_id, expected_type=type_hints["extension_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "extension_arn": extension_arn,
+            "extension_id": extension_id,
+        }
+
+    @builtins.property
+    def extension_arn(self) -> builtins.str:
+        '''The ARN of the Extension resource.'''
+        result = self._values.get("extension_arn")
+        assert result is not None, "Required property 'extension_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def extension_id(self) -> builtins.str:
+        '''The Id of the Extension resource.'''
+        result = self._values.get("extension_id")
+        assert result is not None, "Required property 'extension_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExtensionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_appconfig.GrowthType")
 class GrowthType(enum.Enum):
     '''Defines the growth type of the deployment strategy.'''
@@ -6840,7 +4897,7 @@ class HostedConfigurationProps(ConfigurationProps):
         validators: typing.Optional[typing.Sequence["IValidator"]] = None,
         application: "IApplication",
         content: ConfigurationContent,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         latest_version_number: typing.Optional[jsii.Number] = None,
         version_label: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7020,13 +5077,13 @@ class HostedConfigurationProps(ConfigurationProps):
         return typing.cast(ConfigurationContent, result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''The customer managed key to encrypt hosted configuration.
 
         :default: None
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     @builtins.property
     def latest_version_number(self) -> typing.Optional[jsii.Number]:
@@ -7054,6 +5111,87 @@ class HostedConfigurationProps(ConfigurationProps):
 
     def __repr__(self) -> str:
         return "HostedConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.HostedConfigurationVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "configuration_profile_id": "configurationProfileId",
+        "version_number": "versionNumber",
+    },
+)
+class HostedConfigurationVersionReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        configuration_profile_id: builtins.str,
+        version_number: builtins.str,
+    ) -> None:
+        '''A reference to a HostedConfigurationVersion resource.
+
+        :param application_id: The ApplicationId of the HostedConfigurationVersion resource.
+        :param configuration_profile_id: The ConfigurationProfileId of the HostedConfigurationVersion resource.
+        :param version_number: The VersionNumber of the HostedConfigurationVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            hosted_configuration_version_reference = appconfig.HostedConfigurationVersionReference(
+                application_id="applicationId",
+                configuration_profile_id="configurationProfileId",
+                version_number="versionNumber"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0cf9f796bb680e57cbbeafc1a9bb2ccc74a38015d0ccdf2356f2195423920ed)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument configuration_profile_id", value=configuration_profile_id, expected_type=type_hints["configuration_profile_id"])
+            check_type(argname="argument version_number", value=version_number, expected_type=type_hints["version_number"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "configuration_profile_id": configuration_profile_id,
+            "version_number": version_number,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the HostedConfigurationVersion resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_profile_id(self) -> builtins.str:
+        '''The ConfigurationProfileId of the HostedConfigurationVersion resource.'''
+        result = self._values.get("configuration_profile_id")
+        assert result is not None, "Required property 'configuration_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_number(self) -> builtins.str:
+        '''The VersionNumber of the HostedConfigurationVersion resource.'''
+        result = self._values.get("version_number")
+        assert result is not None, "Required property 'version_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HostedConfigurationVersionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7166,7 +5304,7 @@ class IApplication(_IResource_c80c4260, typing_extensions.Protocol):
         id: builtins.str,
         *,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
         deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
         deployment_key: typing.Optional[_IKey_5f11635f] = None,
@@ -7526,7 +5664,7 @@ class _IApplicationProxy(
         id: builtins.str,
         *,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
         deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
         deployment_key: typing.Optional[_IKey_5f11635f] = None,
@@ -7853,6 +5991,46 @@ class _IApplicationProxy(
 typing.cast(typing.Any, IApplication).__jsii_proxy_class__ = lambda : _IApplicationProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IConfiguration")
 class IConfiguration(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
     @builtins.property
@@ -7985,6 +6163,89 @@ class _IConfigurationProxy(
 typing.cast(typing.Any, IConfiguration).__jsii_proxy_class__ = lambda : _IConfigurationProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IConfigurationProfileRef")
+class IConfigurationProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProfileRef")
+    def configuration_profile_ref(self) -> ConfigurationProfileReference:
+        '''(experimental) A reference to a ConfigurationProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IConfigurationProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProfileRef")
+    def configuration_profile_ref(self) -> ConfigurationProfileReference:
+        '''(experimental) A reference to a ConfigurationProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationProfileReference, jsii.get(self, "configurationProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationProfileRef).__jsii_proxy_class__ = lambda : _IConfigurationProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IDeploymentRef")
+class IDeploymentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeploymentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IDeploymentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploymentRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IDeploymentStrategy")
 class IDeploymentStrategy(_IResource_c80c4260, typing_extensions.Protocol):
     @builtins.property
@@ -8103,6 +6364,49 @@ class _IDeploymentStrategyProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDeploymentStrategy).__jsii_proxy_class__ = lambda : _IDeploymentStrategyProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IDeploymentStrategyRef")
+class IDeploymentStrategyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DeploymentStrategy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentStrategyRef")
+    def deployment_strategy_ref(self) -> DeploymentStrategyReference:
+        '''(experimental) A reference to a DeploymentStrategy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeploymentStrategyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DeploymentStrategy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IDeploymentStrategyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentStrategyRef")
+    def deployment_strategy_ref(self) -> DeploymentStrategyReference:
+        '''(experimental) A reference to a DeploymentStrategy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeploymentStrategyReference, jsii.get(self, "deploymentStrategyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentStrategyRef).__jsii_proxy_class__ = lambda : _IDeploymentStrategyRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IEnvironment")
@@ -8790,6 +7094,46 @@ class _IEnvironmentProxy(
 typing.cast(typing.Any, IEnvironment).__jsii_proxy_class__ = lambda : _IEnvironmentProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IEnvironmentRef")
+class IEnvironmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEnvironmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IEnvironmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvironmentRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IEventDestination")
 class IEventDestination(typing_extensions.Protocol):
     '''Implemented by allowed extension event destinations.'''
@@ -9454,6 +7798,132 @@ class _IExtensionProxy(
 typing.cast(typing.Any, IExtension).__jsii_proxy_class__ = lambda : _IExtensionProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IExtensionAssociationRef")
+class IExtensionAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ExtensionAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionAssociationRef")
+    def extension_association_ref(self) -> ExtensionAssociationReference:
+        '''(experimental) A reference to a ExtensionAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExtensionAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ExtensionAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IExtensionAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionAssociationRef")
+    def extension_association_ref(self) -> ExtensionAssociationReference:
+        '''(experimental) A reference to a ExtensionAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ExtensionAssociationReference, jsii.get(self, "extensionAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExtensionAssociationRef).__jsii_proxy_class__ = lambda : _IExtensionAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IExtensionRef")
+class IExtensionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Extension.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> ExtensionReference:
+        '''(experimental) A reference to a Extension resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExtensionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Extension.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IExtensionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> ExtensionReference:
+        '''(experimental) A reference to a Extension resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ExtensionReference, jsii.get(self, "extensionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExtensionRef).__jsii_proxy_class__ = lambda : _IExtensionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IHostedConfigurationVersionRef")
+class IHostedConfigurationVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HostedConfigurationVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedConfigurationVersionRef")
+    def hosted_configuration_version_ref(self) -> HostedConfigurationVersionReference:
+        '''(experimental) A reference to a HostedConfigurationVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHostedConfigurationVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HostedConfigurationVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appconfig.IHostedConfigurationVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedConfigurationVersionRef")
+    def hosted_configuration_version_ref(self) -> HostedConfigurationVersionReference:
+        '''(experimental) A reference to a HostedConfigurationVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HostedConfigurationVersionReference, jsii.get(self, "hostedConfigurationVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHostedConfigurationVersionRef).__jsii_proxy_class__ = lambda : _IHostedConfigurationVersionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_appconfig.IValidator")
 class IValidator(typing_extensions.Protocol):
     @builtins.property
@@ -9750,7 +8220,7 @@ class Monitor(
     def from_cloud_watch_alarm(
         cls,
         alarm: _IAlarm_ff3eabc0,
-        alarm_role: typing.Optional[_IRole_235f5d8e] = None,
+        alarm_role: typing.Optional[_IRoleRef_613dafc2] = None,
     ) -> "Monitor":
         '''Creates a Monitor from a CloudWatch alarm.
 
@@ -10302,7 +8772,7 @@ class SourcedConfiguration(
         id: builtins.str,
         *,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
         application: IApplication,
         deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
@@ -10802,7 +9272,7 @@ class SourcedConfigurationOptions(ConfigurationOptions):
         type: typing.Optional[ConfigurationType] = None,
         validators: typing.Optional[typing.Sequence[IValidator]] = None,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for SourcedConfiguration.
@@ -10833,7 +9303,7 @@ class SourcedConfigurationOptions(ConfigurationOptions):
             # deployment_strategy: appconfig.DeploymentStrategy
             # environment: appconfig.Environment
             # key: kms.Key
-            # role: iam.Role
+            # role_ref: iam.IRoleRef
             # validator: appconfig.IValidator
             
             sourced_configuration_options = appconfig.SourcedConfigurationOptions(
@@ -10846,7 +9316,7 @@ class SourcedConfigurationOptions(ConfigurationOptions):
                 deploy_to=[environment],
                 description="description",
                 name="name",
-                retrieval_role=role,
+                retrieval_role=role_ref,
                 type=appconfig.ConfigurationType.FREEFORM,
                 validators=[validator],
                 version_number="versionNumber"
@@ -10983,13 +9453,13 @@ class SourcedConfigurationOptions(ConfigurationOptions):
         return typing.cast(ConfigurationSource, result)
 
     @builtins.property
-    def retrieval_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def retrieval_role(self) -> typing.Optional[_IRoleRef_613dafc2]:
         '''The IAM role to retrieve the configuration.
 
         :default: - A role is generated.
         '''
         result = self._values.get("retrieval_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional[_IRoleRef_613dafc2], result)
 
     @builtins.property
     def version_number(self) -> typing.Optional[builtins.str]:
@@ -11047,7 +9517,7 @@ class SourcedConfigurationProps(ConfigurationProps):
         validators: typing.Optional[typing.Sequence[IValidator]] = None,
         application: IApplication,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for SourcedConfiguration.
@@ -11221,13 +9691,13 @@ class SourcedConfigurationProps(ConfigurationProps):
         return typing.cast(ConfigurationSource, result)
 
     @builtins.property
-    def retrieval_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def retrieval_role(self) -> typing.Optional[_IRoleRef_613dafc2]:
         '''The IAM role to retrieve the configuration.
 
         :default: - Auto generated if location type is not ConfigurationSourceType.CODE_PIPELINE otherwise no role specified.
         '''
         result = self._values.get("retrieval_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional[_IRoleRef_613dafc2], result)
 
     @builtins.property
     def version_number(self) -> typing.Optional[builtins.str]:
@@ -11548,7 +10018,7 @@ class Application(
         id: builtins.str,
         *,
         location: ConfigurationSource,
-        retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+        retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
         version_number: typing.Optional[builtins.str] = None,
         deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
         deployment_key: typing.Optional[_IKey_5f11635f] = None,
@@ -11918,6 +10388,2446 @@ class Application(
             type_hints = typing.get_type_hints(_typecheckingstub__82766fd65d19c222e55a3bd3d37a0ce2dbc32473446dfef2bbba053456f75dd9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "extensible", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggableV2_4e6798f8)
+class CfnApplication(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnApplication",
+):
+    '''The ``AWS::AppConfig::Application`` resource creates an application.
+
+    In AWS AppConfig , an application is simply an organizational construct like a folder. This organizational construct has a relationship with some unit of executable code. For example, you could create an application called MyMobileApp to organize and manage configuration data for a mobile application installed by your users.
+
+    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+
+    - Create an application
+    - Create an environment
+    - Create a configuration profile
+    - Choose a pre-defined deployment strategy or create your own
+    - Deploy the configuration
+
+    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-application.html
+    :cloudformationResource: AWS::AppConfig::Application
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_application = appconfig.CfnApplication(self, "MyCfnApplication",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: A name for the application.
+        :param description: A description of the application.
+        :param tags: Metadata to assign to the application. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5cb8c402a0d1a836162f596142de6ed2a1f2a0635a355ae334b92eb1175e956)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApplicationProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ea7b1a84049868bc175511a7cff8896cbe830377b519f6e81ca6912165c12a6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6ba5479a5d56f629f8d2769fdc6bc86ac3ecfb94f4a9b20a0a26e228f899e8a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationId")
+    def attr_application_id(self) -> builtins.str:
+        '''The application ID.
+
+        :cloudformationAttribute: ApplicationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the application.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd439efd20029913dc2dc3442824daa5698101df926aeab59ca95e5e5b8bbd51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a824db2a54c11ce0a54133772196bc9c7049c60fe6169de15459866f72df2438)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata to assign to the application.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1c6b2136fb3c6e3eba293e5878e147b18261e888036e9d04f50ade7f12363e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IConfigurationProfileRef, _ITaggableV2_4e6798f8)
+class CfnConfigurationProfile(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnConfigurationProfile",
+):
+    '''The ``AWS::AppConfig::ConfigurationProfile`` resource creates a configuration profile that enables AWS AppConfig to access the configuration source.
+
+    Valid configuration sources include AWS Systems Manager (SSM) documents, SSM Parameter Store parameters, and Amazon S3 . A configuration profile includes the following information.
+
+    - The Uri location of the configuration data.
+    - The AWS Identity and Access Management ( IAM ) role that provides access to the configuration data.
+    - A validator for the configuration data. Available validators include either a JSON Schema or the Amazon Resource Name (ARN) of an AWS Lambda function.
+
+    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+
+    - Create an application
+    - Create an environment
+    - Create a configuration profile
+    - Choose a pre-defined deployment strategy or create your own
+    - Deploy the configuration
+
+    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-configurationprofile.html
+    :cloudformationResource: AWS::AppConfig::ConfigurationProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_configuration_profile = appconfig.CfnConfigurationProfile(self, "MyCfnConfigurationProfile",
+            application_id="applicationId",
+            location_uri="locationUri",
+            name="name",
+        
+            # the properties below are optional
+            deletion_protection_check="deletionProtectionCheck",
+            description="description",
+            kms_key_identifier="kmsKeyIdentifier",
+            retrieval_role_arn="retrievalRoleArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            type="type",
+            validators=[appconfig.CfnConfigurationProfile.ValidatorsProperty(
+                content="content",
+                type="type"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        location_uri: builtins.str,
+        name: builtins.str,
+        deletion_protection_check: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        retrieval_role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+        validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationProfile.ValidatorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The application ID.
+        :param location_uri: A URI to locate the configuration. You can specify the following:. - For the AWS AppConfig hosted configuration store and for feature flags, specify ``hosted`` . - For an AWS Systems Manager Parameter Store parameter, specify either the parameter name in the format ``ssm-parameter://<parameter name>`` or the ARN. - For an AWS CodePipeline pipeline, specify the URI in the following format: ``codepipeline`` ://. - For an AWS Secrets Manager secret, specify the URI in the following format: ``secretsmanager`` ://. - For an Amazon S3 object, specify the URI in the following format: ``s3://<bucket>/<objectKey>`` . Here is an example: ``s3://amzn-s3-demo-bucket/my-app/us-east-1/my-config.json`` - For an SSM document, specify either the document name in the format ``ssm-document://<document name>`` or the Amazon Resource Name (ARN).
+        :param name: A name for the configuration profile.
+        :param deletion_protection_check: A parameter to configure deletion protection. Deletion protection prevents a user from deleting a configuration profile if your application has called either `GetLatestConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html>`_ or `GetConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_GetConfiguration.html>`_ for the configuration profile during the specified interval. This parameter supports the following values: - ``BYPASS`` : Instructs AWS AppConfig to bypass the deletion protection check and delete a configuration profile even if deletion protection would have otherwise prevented it. - ``APPLY`` : Instructs the deletion protection check to run, even if deletion protection is disabled at the account level. ``APPLY`` also forces the deletion protection check to run against resources created in the past hour, which are normally excluded from deletion protection checks. - ``ACCOUNT_DEFAULT`` : The default setting, which instructs AWS AppConfig to implement the deletion protection value specified in the ``UpdateAccountSettings`` API.
+        :param description: A description of the configuration profile.
+        :param kms_key_identifier: The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.
+        :param retrieval_role_arn: The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri`` . .. epigraph:: A retrieval role ARN is not required for configurations stored in AWS CodePipeline or the AWS AppConfig hosted configuration store. It is required for all other sources that store your configuration.
+        :param tags: Metadata to assign to the configuration profile. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
+        :param type: The type of configurations contained in the profile. AWS AppConfig supports ``feature flags`` and ``freeform`` configurations. We recommend you create feature flag configurations to enable or disable new features and freeform configurations to distribute configurations to an application. When calling this API, enter one of the following values for ``Type`` : ``AWS.AppConfig.FeatureFlags`` ``AWS.Freeform``
+        :param validators: A list of methods for validating the configuration.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__332c05b5fb120e53a9fcdde311f2bc23aaec927aa0e70b013e72cc2cebe88708)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConfigurationProfileProps(
+            application_id=application_id,
+            location_uri=location_uri,
+            name=name,
+            deletion_protection_check=deletion_protection_check,
+            description=description,
+            kms_key_identifier=kms_key_identifier,
+            retrieval_role_arn=retrieval_role_arn,
+            tags=tags,
+            type=type,
+            validators=validators,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e772e24251baa448c01bcc3e6670ade5ceed90c38ae4803dc614bd5e09316acd)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e32e704ce25e06be45d32d6a2f4cb3655c378ec2a6662baf1f650e54d58d3148)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConfigurationProfileId")
+    def attr_configuration_profile_id(self) -> builtins.str:
+        '''The configuration profile ID.
+
+        :cloudformationAttribute: ConfigurationProfileId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConfigurationProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyArn")
+    def attr_kms_key_arn(self) -> builtins.str:
+        '''The Amazon Resource Name of the AWS Key Management Service key to encrypt new configuration data versions in the AWS AppConfig hosted configuration store.
+
+        This attribute is only used for ``hosted`` configuration types. To encrypt data managed in other configuration stores, see the documentation for how to specify an AWS KMS key for that particular service.
+
+        :cloudformationAttribute: KmsKeyArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProfileRef")
+    def configuration_profile_ref(self) -> ConfigurationProfileReference:
+        '''A reference to a ConfigurationProfile resource.'''
+        return typing.cast(ConfigurationProfileReference, jsii.get(self, "configurationProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The application ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a90d416aa5727f39ec3c71cf2276506643a5cf358d97a872994efb5efc0c6a23)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="locationUri")
+    def location_uri(self) -> builtins.str:
+        '''A URI to locate the configuration.
+
+        You can specify the following:.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "locationUri"))
+
+    @location_uri.setter
+    def location_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b354f0f45617e66d27b62ebf9a76fdbe168c6f5b6731023e6a366547233a4cb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "locationUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the configuration profile.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92d26c2b0d5b0b13ed55ca82e2b92075cdb99d8bd6d4a9122e33104a12cf9d5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtectionCheck")
+    def deletion_protection_check(self) -> typing.Optional[builtins.str]:
+        '''A parameter to configure deletion protection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtectionCheck"))
+
+    @deletion_protection_check.setter
+    def deletion_protection_check(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22cac161ad4fa05857f45ba25cc0c7261b423a1898e3c4f8f2d40a8122519300)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtectionCheck", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the configuration profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5884bd7f8fdc28919378604807977665ba3e82a47697c023e5982eb7257f557c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3eeb407208b90160e95c0fa6df04c352da355146a3ccf76bdbd6393ad76427e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retrievalRoleArn")
+    def retrieval_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM role with permission to access the configuration at the specified ``LocationUri`` .'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "retrievalRoleArn"))
+
+    @retrieval_role_arn.setter
+    def retrieval_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d3f2e474a52e1c1e45abe4e24cd6c758600c20023f3697e0c69533c0e771bc2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retrievalRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata to assign to the configuration profile.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebd94616157773a4ab3988775ff92592f3cda9938c8625e395d1dbbf8406354b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of configurations contained in the profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c45113a4405009713d71c8289b038f5cff241d53b81b243f0372147d29440ad9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="validators")
+    def validators(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]]:
+        '''A list of methods for validating the configuration.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]], jsii.get(self, "validators"))
+
+    @validators.setter
+    def validators(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationProfile.ValidatorsProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11ba2acd464e5613cd96989e3516592dcd5684d8452b3028698e0549f5d5fafb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "validators", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnConfigurationProfile.ValidatorsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"content": "content", "type": "type"},
+    )
+    class ValidatorsProperty:
+        def __init__(
+            self,
+            *,
+            content: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A validator provides a syntactic or semantic check to ensure the configuration that you want to deploy functions as intended.
+
+            To validate your application configuration data, you provide a schema or an AWS Lambda function that runs against the configuration. The configuration deployment or update can only proceed when the configuration data is valid. For more information, see `About validators <https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-creating-configuration-profile.html#appconfig-creating-configuration-and-profile-validators>`_ in the *AWS AppConfig User Guide* .
+
+            :param content: Either the JSON Schema content or the Amazon Resource Name (ARN) of an Lambda function.
+            :param type: AWS AppConfig supports validators of type ``JSON_SCHEMA`` and ``LAMBDA``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                validators_property = appconfig.CfnConfigurationProfile.ValidatorsProperty(
+                    content="content",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e3e2223bb16cf91626b0a44db9aa8ec9190717961f143668d3ff6961eec9abdd)
+                check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if content is not None:
+                self._values["content"] = content
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def content(self) -> typing.Optional[builtins.str]:
+            '''Either the JSON Schema content or the Amazon Resource Name (ARN) of an Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html#cfn-appconfig-configurationprofile-validators-content
+            '''
+            result = self._values.get("content")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''AWS AppConfig supports validators of type ``JSON_SCHEMA`` and ``LAMBDA``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-configurationprofile-validators.html#cfn-appconfig-configurationprofile-validators-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ValidatorsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IDeploymentRef, _ITaggableV2_4e6798f8)
+class CfnDeployment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnDeployment",
+):
+    '''The ``AWS::AppConfig::Deployment`` resource starts a deployment.
+
+    Starting a deployment in AWS AppConfig calls the ``StartDeployment`` API action. This call includes the IDs of the AWS AppConfig application, the environment, the configuration profile, and (optionally) the configuration data version to deploy. The call also includes the ID of the deployment strategy to use, which determines how the configuration data is deployed.
+
+    AWS AppConfig monitors the distribution to all hosts and reports status. If a distribution fails, then AWS AppConfig rolls back the configuration.
+
+    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+
+    - Create an application
+    - Create an environment
+    - Create a configuration profile
+    - Choose a pre-defined deployment strategy or create your own
+    - Deploy the configuration
+
+    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-deployment.html
+    :cloudformationResource: AWS::AppConfig::Deployment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_deployment = appconfig.CfnDeployment(self, "MyCfnDeployment",
+            application_id="applicationId",
+            configuration_profile_id="configurationProfileId",
+            configuration_version="configurationVersion",
+            deployment_strategy_id="deploymentStrategyId",
+            environment_id="environmentId",
+        
+            # the properties below are optional
+            description="description",
+            dynamic_extension_parameters=[appconfig.CfnDeployment.DynamicExtensionParametersProperty(
+                extension_reference="extensionReference",
+                parameter_name="parameterName",
+                parameter_value="parameterValue"
+            )],
+            kms_key_identifier="kmsKeyIdentifier",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        configuration_profile_id: builtins.str,
+        configuration_version: builtins.str,
+        deployment_strategy_id: builtins.str,
+        environment_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.DynamicExtensionParametersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The application ID.
+        :param configuration_profile_id: The configuration profile ID.
+        :param configuration_version: The configuration version to deploy. If deploying an AWS AppConfig hosted configuration version, you can specify either the version number or version label. For all other configurations, you must specify the version number.
+        :param deployment_strategy_id: The deployment strategy ID.
+        :param environment_id: The environment ID.
+        :param description: A description of the deployment.
+        :param dynamic_extension_parameters: A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
+        :param kms_key_identifier: The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.
+        :param tags: Metadata to assign to the deployment. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1b3c15ba63fb6169371007d7bae981d061f49c21042389030326b9ae1271344)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDeploymentProps(
+            application_id=application_id,
+            configuration_profile_id=configuration_profile_id,
+            configuration_version=configuration_version,
+            deployment_strategy_id=deployment_strategy_id,
+            environment_id=environment_id,
+            description=description,
+            dynamic_extension_parameters=dynamic_extension_parameters,
+            kms_key_identifier=kms_key_identifier,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aaa2637a497fc43f28ee8b6e77e0f1878471c7f5bc0a736d0303ca69cb2d082c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d3096cada1facd4de77c79fe8d588aa3d9567d81b3f913d2c2e6cf8fac54d0e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDeploymentNumber")
+    def attr_deployment_number(self) -> builtins.str:
+        '''The sequence number of the deployment.
+
+        :cloudformationAttribute: DeploymentNumber
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDeploymentNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the deployment.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''A reference to a Deployment resource.'''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The application ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95aaa1f67bb9531251e5f9c62292c84df7727307a58c223aaa637f0a36a3d65d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProfileId")
+    def configuration_profile_id(self) -> builtins.str:
+        '''The configuration profile ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "configurationProfileId"))
+
+    @configuration_profile_id.setter
+    def configuration_profile_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca3182ab453e0412fad7ba8649da4e0cfebf187bd90f38a026444982eb8bf50e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurationProfileId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationVersion")
+    def configuration_version(self) -> builtins.str:
+        '''The configuration version to deploy.'''
+        return typing.cast(builtins.str, jsii.get(self, "configurationVersion"))
+
+    @configuration_version.setter
+    def configuration_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5abde1954bdb5d84cfce775808f90c961127e86db5ff5164bb90a98e3b0f9f20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurationVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentStrategyId")
+    def deployment_strategy_id(self) -> builtins.str:
+        '''The deployment strategy ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "deploymentStrategyId"))
+
+    @deployment_strategy_id.setter
+    def deployment_strategy_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0527964ec5c65ed1bca366f0674e5cda5d23fe019ae479f3ee3fb550fbdb0c23)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentStrategyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentId")
+    def environment_id(self) -> builtins.str:
+        '''The environment ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "environmentId"))
+
+    @environment_id.setter
+    def environment_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f949624a9b6e222d754ab636966342dbb9eb207d34230837c882091a20f9abac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the deployment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96f77dd19f2c1b41d04318bc8aa9cc8f75808190471ba4922eb58652c55c5e38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dynamicExtensionParameters")
+    def dynamic_extension_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]]:
+        '''A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]], jsii.get(self, "dynamicExtensionParameters"))
+
+    @dynamic_extension_parameters.setter
+    def dynamic_extension_parameters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DynamicExtensionParametersProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5a4416b6ac2f6fbc5dd497fd6aafe41844d2e927bc75ce571b37c2f1b805bfb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dynamicExtensionParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service key identifier (key ID, key alias, or key ARN) provided when the resource was created or updated.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98b30f15af8144546829026dccf1aaf4fedd94b59dabeb6c8e8d7bc2b71e2efb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata to assign to the deployment.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12211b05040a4e1a62df97a0128f266db1c0380eba8db0726824e99ad7241551)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnDeployment.DynamicExtensionParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "extension_reference": "extensionReference",
+            "parameter_name": "parameterName",
+            "parameter_value": "parameterValue",
+        },
+    )
+    class DynamicExtensionParametersProperty:
+        def __init__(
+            self,
+            *,
+            extension_reference: typing.Optional[builtins.str] = None,
+            parameter_name: typing.Optional[builtins.str] = None,
+            parameter_value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A map of dynamic extension parameter names to values to pass to associated extensions with ``PRE_START_DEPLOYMENT`` actions.
+
+            :param extension_reference: The ARN or ID of the extension for which you are inserting a dynamic parameter.
+            :param parameter_name: The parameter name.
+            :param parameter_value: The parameter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                dynamic_extension_parameters_property = appconfig.CfnDeployment.DynamicExtensionParametersProperty(
+                    extension_reference="extensionReference",
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__db7299354c46559a877995ee8ab04c4fd72aaaf53cc390877fbf50f65ac43390)
+                check_type(argname="argument extension_reference", value=extension_reference, expected_type=type_hints["extension_reference"])
+                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if extension_reference is not None:
+                self._values["extension_reference"] = extension_reference
+            if parameter_name is not None:
+                self._values["parameter_name"] = parameter_name
+            if parameter_value is not None:
+                self._values["parameter_value"] = parameter_value
+
+        @builtins.property
+        def extension_reference(self) -> typing.Optional[builtins.str]:
+            '''The ARN or ID of the extension for which you are inserting a dynamic parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-extensionreference
+            '''
+            result = self._values.get("extension_reference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def parameter_name(self) -> typing.Optional[builtins.str]:
+            '''The parameter name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-parametername
+            '''
+            result = self._values.get("parameter_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def parameter_value(self) -> typing.Optional[builtins.str]:
+            '''The parameter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-deployment-dynamicextensionparameters.html#cfn-appconfig-deployment-dynamicextensionparameters-parametervalue
+            '''
+            result = self._values.get("parameter_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DynamicExtensionParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IDeploymentStrategyRef, _ITaggableV2_4e6798f8)
+class CfnDeploymentStrategy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnDeploymentStrategy",
+):
+    '''The ``AWS::AppConfig::DeploymentStrategy`` resource creates an AWS AppConfig deployment strategy.
+
+    A deployment strategy defines important criteria for rolling out your configuration to the designated targets. A deployment strategy includes: the overall duration required, a percentage of targets to receive the deployment during each interval, an algorithm that defines how percentage grows, and bake time.
+
+    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+
+    - Create an application
+    - Create an environment
+    - Create a configuration profile
+    - Choose a pre-defined deployment strategy or create your own
+    - Deploy the configuration
+
+    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-deploymentstrategy.html
+    :cloudformationResource: AWS::AppConfig::DeploymentStrategy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_deployment_strategy = appconfig.CfnDeploymentStrategy(self, "MyCfnDeploymentStrategy",
+            deployment_duration_in_minutes=123,
+            growth_factor=123,
+            name="name",
+            replicate_to="replicateTo",
+        
+            # the properties below are optional
+            description="description",
+            final_bake_time_in_minutes=123,
+            growth_type="growthType",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        deployment_duration_in_minutes: jsii.Number,
+        growth_factor: jsii.Number,
+        name: builtins.str,
+        replicate_to: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        final_bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+        growth_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param deployment_duration_in_minutes: Total amount of time for a deployment to last.
+        :param growth_factor: The percentage of targets to receive a deployed configuration during each interval.
+        :param name: A name for the deployment strategy.
+        :param replicate_to: Save the deployment strategy to a Systems Manager (SSM) document.
+        :param description: A description of the deployment strategy.
+        :param final_bake_time_in_minutes: Specifies the amount of time AWS AppConfig monitors for Amazon CloudWatch alarms after the configuration has been deployed to 100% of its targets, before considering the deployment to be complete. If an alarm is triggered during this time, AWS AppConfig rolls back the deployment. You must configure permissions for AWS AppConfig to roll back based on CloudWatch alarms. For more information, see `Configuring permissions for rollback based on Amazon CloudWatch alarms <https://docs.aws.amazon.com/appconfig/latest/userguide/getting-started-with-appconfig-cloudwatch-alarms-permissions.html>`_ in the *AWS AppConfig User Guide* .
+        :param growth_type: The algorithm used to define how percentage grows over time. AWS AppConfig supports the following growth types:. *Linear* : For this type, AWS AppConfig processes the deployment by dividing the total number of targets by the value specified for ``Step percentage`` . For example, a linear deployment that uses a ``Step percentage`` of 10 deploys the configuration to 10 percent of the hosts. After those deployments are complete, the system deploys the configuration to the next 10 percent. This continues until 100% of the targets have successfully received the configuration. *Exponential* : For this type, AWS AppConfig processes the deployment exponentially using the following formula: ``G*(2^N)`` . In this formula, ``G`` is the growth factor specified by the user and ``N`` is the number of steps until the configuration is deployed to all targets. For example, if you specify a growth factor of 2, then the system rolls out the configuration as follows: ``2*(2^0)`` ``2*(2^1)`` ``2*(2^2)`` Expressed numerically, the deployment rolls out as follows: 2% of the targets, 4% of the targets, 8% of the targets, and continues until the configuration has been deployed to all targets.
+        :param tags: Assigns metadata to an AWS AppConfig resource. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define. You can specify a maximum of 50 tags for a resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb88c221f102c1b57ba4f19db7656eb36ff011a70e3643e39d048c313eda22fd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDeploymentStrategyProps(
+            deployment_duration_in_minutes=deployment_duration_in_minutes,
+            growth_factor=growth_factor,
+            name=name,
+            replicate_to=replicate_to,
+            description=description,
+            final_bake_time_in_minutes=final_bake_time_in_minutes,
+            growth_type=growth_type,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c07282bd387e2aab09e9241f96ded37ff336d3f231f996e048ef207d3a38bc3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__750f81fb9177952991767d28a4a55a4de59c55177b25056fdd45e8aff0c293c2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The deployment strategy ID.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentStrategyRef")
+    def deployment_strategy_ref(self) -> DeploymentStrategyReference:
+        '''A reference to a DeploymentStrategy resource.'''
+        return typing.cast(DeploymentStrategyReference, jsii.get(self, "deploymentStrategyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentDurationInMinutes")
+    def deployment_duration_in_minutes(self) -> jsii.Number:
+        '''Total amount of time for a deployment to last.'''
+        return typing.cast(jsii.Number, jsii.get(self, "deploymentDurationInMinutes"))
+
+    @deployment_duration_in_minutes.setter
+    def deployment_duration_in_minutes(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2b9cfcca9dae7bf599adef5f2b44e7662994e8143e1b3ccfa6f12c4d8ad5a19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentDurationInMinutes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="growthFactor")
+    def growth_factor(self) -> jsii.Number:
+        '''The percentage of targets to receive a deployed configuration during each interval.'''
+        return typing.cast(jsii.Number, jsii.get(self, "growthFactor"))
+
+    @growth_factor.setter
+    def growth_factor(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ac4cbcedcf27ec80d55a98d836dbb9ac52523d6ff7838145b4d527fadaf652d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "growthFactor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the deployment strategy.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43a46b42e0607ca1c01aa58dff3034f44511b63f99f559fe0fd370080f52f2c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicateTo")
+    def replicate_to(self) -> builtins.str:
+        '''Save the deployment strategy to a Systems Manager (SSM) document.'''
+        return typing.cast(builtins.str, jsii.get(self, "replicateTo"))
+
+    @replicate_to.setter
+    def replicate_to(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb6ef1a3102939b024e6e99b451674a1ad1f6879f5355a20a6d365cfeab4ad4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicateTo", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the deployment strategy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f47275a573fd911ba6db69f152dd00eab69b450d732941105375d198524fd2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="finalBakeTimeInMinutes")
+    def final_bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the amount of time AWS AppConfig monitors for Amazon CloudWatch alarms after the configuration has been deployed to 100% of its targets, before considering the deployment to be complete.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "finalBakeTimeInMinutes"))
+
+    @final_bake_time_in_minutes.setter
+    def final_bake_time_in_minutes(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad18c900d6d84d1f1dba268d6d666b830e5e5276badda4b775deb06725f3c4ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "finalBakeTimeInMinutes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="growthType")
+    def growth_type(self) -> typing.Optional[builtins.str]:
+        '''The algorithm used to define how percentage grows over time.
+
+        AWS AppConfig supports the following growth types:.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "growthType"))
+
+    @growth_type.setter
+    def growth_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38dbe338fc520a7ce3134f048d86265b2db4966fa73c38281b48ff6124acbc16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "growthType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns metadata to an AWS AppConfig resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b0c7e44af284b89d6923411489d05fa28350784f8d88a837a0d019a1d575e65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IEnvironmentRef, _ITaggableV2_4e6798f8)
+class CfnEnvironment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment",
+):
+    '''The ``AWS::AppConfig::Environment`` resource creates an environment, which is a logical deployment group of AWS AppConfig targets, such as applications in a ``Beta`` or ``Production`` environment.
+
+    You define one or more environments for each AWS AppConfig application. You can also define environments for application subcomponents such as the ``Web`` , ``Mobile`` and ``Back-end`` components for your application. You can configure Amazon CloudWatch alarms for each environment. The system monitors alarms during a configuration deployment. If an alarm is triggered, the system rolls back the configuration.
+
+    AWS AppConfig requires that you create resources and deploy a configuration in the following order:
+
+    - Create an application
+    - Create an environment
+    - Create a configuration profile
+    - Choose a pre-defined deployment strategy or create your own
+    - Deploy the configuration
+
+    For more information, see `AWS AppConfig <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-environment.html
+    :cloudformationResource: AWS::AppConfig::Environment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_environment = appconfig.CfnEnvironment(self, "MyCfnEnvironment",
+            application_id="applicationId",
+            name="name",
+        
+            # the properties below are optional
+            deletion_protection_check="deletionProtectionCheck",
+            description="description",
+            monitors=[appconfig.CfnEnvironment.MonitorsProperty(
+                alarm_arn="alarmArn",
+                alarm_role_arn="alarmRoleArn"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        name: builtins.str,
+        deletion_protection_check: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.MonitorsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The application ID.
+        :param name: A name for the environment.
+        :param deletion_protection_check: A parameter to configure deletion protection. Deletion protection prevents a user from deleting an environment if your application called either `GetLatestConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html>`_ or `GetConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_GetConfiguration.html>`_ in the environment during the specified interval. This parameter supports the following values: - ``BYPASS`` : Instructs AWS AppConfig to bypass the deletion protection check and delete a configuration profile even if deletion protection would have otherwise prevented it. - ``APPLY`` : Instructs the deletion protection check to run, even if deletion protection is disabled at the account level. ``APPLY`` also forces the deletion protection check to run against resources created in the past hour, which are normally excluded from deletion protection checks. - ``ACCOUNT_DEFAULT`` : The default setting, which instructs AWS AppConfig to implement the deletion protection value specified in the ``UpdateAccountSettings`` API.
+        :param description: A description of the environment.
+        :param monitors: Amazon CloudWatch alarms to monitor during the deployment process.
+        :param tags: Metadata to assign to the environment. Tags help organize and categorize your AWS AppConfig resources. Each tag consists of a key and an optional value, both of which you define.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f357d5cab83004926812cf34c99a144f4f5d23ca26e4a818590a950622a06fc3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEnvironmentProps(
+            application_id=application_id,
+            name=name,
+            deletion_protection_check=deletion_protection_check,
+            description=description,
+            monitors=monitors,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3842dacad1a08e5d9103a4c646c8fa2385f77b6f5495fbd4dab597c037c8f09b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2dbe73a2ef533ed22edd7fd274c6cca5a979759478da06114e8699f7b2409820)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEnvironmentId")
+    def attr_environment_id(self) -> builtins.str:
+        '''The environment ID.
+
+        :cloudformationAttribute: EnvironmentId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEnvironmentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''A reference to a Environment resource.'''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The application ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d35c6a50b39401e18b97d5d78f1d4d92aaf846c18aa4ec32bce024a53e54c4be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the environment.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__569391bda37ae2bcb096c8b3ab953d25c7ff488899b2557c773cc8f72ee8a4cb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtectionCheck")
+    def deletion_protection_check(self) -> typing.Optional[builtins.str]:
+        '''A parameter to configure deletion protection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtectionCheck"))
+
+    @deletion_protection_check.setter
+    def deletion_protection_check(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9f1d148cd005383120b271748e66adadcb6c113dd27c70a758f2f86f91e76e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtectionCheck", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__154bd59aabeed21e27800d9d45bcdbb412639a65e9aaaf72ef6dae673fa26a43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="monitors")
+    def monitors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]]:
+        '''Amazon CloudWatch alarms to monitor during the deployment process.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]], jsii.get(self, "monitors"))
+
+    @monitors.setter
+    def monitors(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.MonitorsProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8d099ead34dfe7be9eb945722b31207889d993d21d927e1eeba6592c7f8fd44)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "monitors", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata to assign to the environment.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60701727c0b2b8f0404d231ccc24899f35678bacc781ed4c6443de1b14432f68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment.MonitorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_arn": "alarmArn", "alarm_role_arn": "alarmRoleArn"},
+    )
+    class MonitorProperty:
+        def __init__(
+            self,
+            *,
+            alarm_arn: builtins.str,
+            alarm_role_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Amazon CloudWatch alarms to monitor during the deployment process.
+
+            :param alarm_arn: Amazon Resource Name (ARN) of the Amazon CloudWatch alarm.
+            :param alarm_role_arn: ARN of an AWS Identity and Access Management (IAM) role for AWS AppConfig to monitor ``AlarmArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                monitor_property = appconfig.CfnEnvironment.MonitorProperty(
+                    alarm_arn="alarmArn",
+                
+                    # the properties below are optional
+                    alarm_role_arn="alarmRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__252b3a605905895f1b8ffc133b32547c64db1b58b121d4f635ec61960b027938)
+                check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
+                check_type(argname="argument alarm_role_arn", value=alarm_role_arn, expected_type=type_hints["alarm_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alarm_arn": alarm_arn,
+            }
+            if alarm_role_arn is not None:
+                self._values["alarm_role_arn"] = alarm_role_arn
+
+        @builtins.property
+        def alarm_arn(self) -> builtins.str:
+            '''Amazon Resource Name (ARN) of the Amazon CloudWatch alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html#cfn-appconfig-environment-monitor-alarmarn
+            '''
+            result = self._values.get("alarm_arn")
+            assert result is not None, "Required property 'alarm_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def alarm_role_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN of an AWS Identity and Access Management (IAM) role for AWS AppConfig to monitor ``AlarmArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitor.html#cfn-appconfig-environment-monitor-alarmrolearn
+            '''
+            result = self._values.get("alarm_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonitorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnEnvironment.MonitorsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_arn": "alarmArn", "alarm_role_arn": "alarmRoleArn"},
+    )
+    class MonitorsProperty:
+        def __init__(
+            self,
+            *,
+            alarm_arn: typing.Optional[builtins.str] = None,
+            alarm_role_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param alarm_arn: 
+            :param alarm_role_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                monitors_property = appconfig.CfnEnvironment.MonitorsProperty(
+                    alarm_arn="alarmArn",
+                    alarm_role_arn="alarmRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__43d91f41d1c9d1acd545d0999d47687e0e5b7be03ec08728e3c5aa73ff76549f)
+                check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
+                check_type(argname="argument alarm_role_arn", value=alarm_role_arn, expected_type=type_hints["alarm_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarm_arn is not None:
+                self._values["alarm_arn"] = alarm_arn
+            if alarm_role_arn is not None:
+                self._values["alarm_role_arn"] = alarm_role_arn
+
+        @builtins.property
+        def alarm_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html#cfn-appconfig-environment-monitors-alarmarn
+            '''
+            result = self._values.get("alarm_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def alarm_role_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-environment-monitors.html#cfn-appconfig-environment-monitors-alarmrolearn
+            '''
+            result = self._values.get("alarm_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MonitorsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IExtensionRef, _ITaggable_36806126)
+class CfnExtension(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension",
+):
+    '''Creates an AWS AppConfig extension.
+
+    An extension augments your ability to inject logic or behavior at different points during the AWS AppConfig workflow of creating or deploying a configuration.
+
+    You can create your own extensions or use the AWS authored extensions provided by AWS AppConfig . For an AWS AppConfig extension that uses AWS Lambda , you must create a Lambda function to perform any computation and processing defined in the extension. If you plan to create custom versions of the AWS authored notification extensions, you only need to specify an Amazon Resource Name (ARN) in the ``Uri`` field for the new extension version.
+
+    - For a custom EventBridge notification extension, enter the ARN of the EventBridge default events in the ``Uri`` field.
+    - For a custom Amazon SNS notification extension, enter the ARN of an Amazon SNS topic in the ``Uri`` field.
+    - For a custom Amazon SQS notification extension, enter the ARN of an Amazon SQS message queue in the ``Uri`` field.
+
+    For more information about extensions, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-extension.html
+    :cloudformationResource: AWS::AppConfig::Extension
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        # actions: Any
+        
+        cfn_extension = appconfig.CfnExtension(self, "MyCfnExtension",
+            actions=actions,
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            latest_version_number=123,
+            parameters={
+                "parameters_key": appconfig.CfnExtension.ParameterProperty(
+                    required=False,
+        
+                    # the properties below are optional
+                    description="description",
+                    dynamic=False
+                )
+            },
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        actions: typing.Any,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        latest_version_number: typing.Optional[jsii.Number] = None,
+        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnExtension.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param actions: The actions defined in the extension.
+        :param name: A name for the extension. Each extension name in your account must be unique. Extension versions use the same name.
+        :param description: Information about the extension.
+        :param latest_version_number: You can omit this field when you create an extension. When you create a new version, specify the most recent current version number. For example, you create version 3, enter 2 for this field.
+        :param parameters: The parameters accepted by the extension. You specify parameter values when you associate the extension to an AWS AppConfig resource by using the ``CreateExtensionAssociation`` API action. For AWS Lambda extension actions, these parameters are included in the Lambda request object.
+        :param tags: Adds one or more tags for the specified extension. Tags are metadata that help you categorize resources in different ways, for example, by purpose, owner, or environment. Each tag consists of a key and an optional value, both of which you define.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3442a7f4d7a9c3256544c6b0526d285ef0cf3970ec1f140b344aed1abc4eef5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnExtensionProps(
+            actions=actions,
+            name=name,
+            description=description,
+            latest_version_number=latest_version_number,
+            parameters=parameters,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6930a24c04bd5aebe54f7a225f7ec08743e520b61a781973e88a4b6678524a5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57070195544dc008ade09c677ffa495cf4120e6b1dc834d6ffa101c3cf189599)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The system-generated Amazon Resource Name (ARN) for the extension.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The system-generated ID of the extension.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersionNumber")
+    def attr_version_number(self) -> jsii.Number:
+        '''The extension version number.
+
+        :cloudformationAttribute: VersionNumber
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrVersionNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionRef")
+    def extension_ref(self) -> ExtensionReference:
+        '''A reference to a Extension resource.'''
+        return typing.cast(ExtensionReference, jsii.get(self, "extensionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="actions")
+    def actions(self) -> typing.Any:
+        '''The actions defined in the extension.'''
+        return typing.cast(typing.Any, jsii.get(self, "actions"))
+
+    @actions.setter
+    def actions(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f734d5e14d1ac32f7ec277282f23b1f2f7c0b8ce8e48d8df2b080f67d200577f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the extension.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__081c55af29bf24c3599cf24134be4ce60656f052c575f59ff68c2084fa523481)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the extension.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__334508667f33fe5d26ff2e39e3bcbaaea618391e439f25094004fab0d75eb718)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="latestVersionNumber")
+    def latest_version_number(self) -> typing.Optional[jsii.Number]:
+        '''You can omit this field when you create an extension.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "latestVersionNumber"))
+
+    @latest_version_number.setter
+    def latest_version_number(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b38bdb75b51870401d0b83754078af02e3e6886d97a64481c3733b63a5a4c814)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "latestVersionNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]]:
+        '''The parameters accepted by the extension.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnExtension.ParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ad5fbf78cb34accb172520e561c08795fbca80280af2dcc78243ceb84841d07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Adds one or more tags for the specified extension.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e6cc683bfd791a6ddfdc2295e58057279b3a19bc4adc7a11fbff993fe64fe37)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension.ActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "uri": "uri",
+            "description": "description",
+            "role_arn": "roleArn",
+        },
+    )
+    class ActionProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            uri: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The actions defined in the extension.
+
+            :param name: The extension name.
+            :param uri: The extension URI associated to the action point in the extension definition. The URI can be an Amazon Resource Name (ARN) for one of the following: an AWS Lambda function, an Amazon Simple Queue Service queue, an Amazon Simple Notification Service topic, or the Amazon EventBridge default event bus.
+            :param description: Information about actions defined in the extension.
+            :param role_arn: An Amazon Resource Name (ARN) for an AWS Identity and Access Management assume role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                action_property = appconfig.CfnExtension.ActionProperty(
+                    name="name",
+                    uri="uri",
+                
+                    # the properties below are optional
+                    description="description",
+                    role_arn="roleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__58317247cdf8a690d14849381527f22c6a038c04470bb6ed420b3ade323b7e43)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "uri": uri,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The extension name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def uri(self) -> builtins.str:
+            '''The extension URI associated to the action point in the extension definition.
+
+            The URI can be an Amazon Resource Name (ARN) for one of the following: an AWS Lambda function, an Amazon Simple Queue Service queue, an Amazon Simple Notification Service topic, or the Amazon EventBridge default event bus.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-uri
+            '''
+            result = self._values.get("uri")
+            assert result is not None, "Required property 'uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Information about actions defined in the extension.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''An Amazon Resource Name (ARN) for an AWS Identity and Access Management assume role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-action.html#cfn-appconfig-extension-action-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnExtension.ParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "required": "required",
+            "description": "description",
+            "dynamic": "dynamic",
+        },
+    )
+    class ParameterProperty:
+        def __init__(
+            self,
+            *,
+            required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            description: typing.Optional[builtins.str] = None,
+            dynamic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''A value such as an Amazon Resource Name (ARN) or an Amazon Simple Notification Service topic entered in an extension when invoked.
+
+            Parameter values are specified in an extension association. For more information about extensions, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
+
+            :param required: A parameter value must be specified in the extension association.
+            :param description: Information about the parameter.
+            :param dynamic: Indicates whether this parameter's value can be supplied at the extension's action point instead of during extension association. Dynamic parameters can't be marked ``Required`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                parameter_property = appconfig.CfnExtension.ParameterProperty(
+                    required=False,
+                
+                    # the properties below are optional
+                    description="description",
+                    dynamic=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__683bc731900456f8d594ddc90d3c7fc1fcdc884942410401537639fad3d02ed1)
+                check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument dynamic", value=dynamic, expected_type=type_hints["dynamic"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "required": required,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if dynamic is not None:
+                self._values["dynamic"] = dynamic
+
+        @builtins.property
+        def required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''A parameter value must be specified in the extension association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-required
+            '''
+            result = self._values.get("required")
+            assert result is not None, "Required property 'required' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Information about the parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dynamic(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether this parameter's value can be supplied at the extension's action point instead of during extension association.
+
+            Dynamic parameters can't be marked ``Required`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html#cfn-appconfig-extension-parameter-dynamic
+            '''
+            result = self._values.get("dynamic")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IExtensionAssociationRef, _ITaggable_36806126)
+class CfnExtensionAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnExtensionAssociation",
+):
+    '''When you create an extension or configure an AWS authored extension, you associate the extension with an AWS AppConfig application, environment, or configuration profile.
+
+    For example, you can choose to run the ``AWS AppConfig deployment events to Amazon SNS`` AWS authored extension and receive notifications on an Amazon SNS topic anytime a configuration deployment is started for a specific application. Defining which extension to associate with an AWS AppConfig resource is called an *extension association* . An extension association is a specified relationship between an extension and an AWS AppConfig resource, such as an application or a configuration profile. For more information about extensions and associations, see `Extending workflows <https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions.html>`_ in the *AWS AppConfig User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-extensionassociation.html
+    :cloudformationResource: AWS::AppConfig::ExtensionAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_extension_association = appconfig.CfnExtensionAssociation(self, "MyCfnExtensionAssociation",
+            extension_identifier="extensionIdentifier",
+            extension_version_number=123,
+            parameters={
+                "parameters_key": "parameters"
+            },
+            resource_identifier="resourceIdentifier",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        extension_identifier: typing.Optional[builtins.str] = None,
+        extension_version_number: typing.Optional[jsii.Number] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param extension_identifier: The name, the ID, or the Amazon Resource Name (ARN) of the extension.
+        :param extension_version_number: The version number of the extension. If not specified, AWS AppConfig uses the maximum version of the extension.
+        :param parameters: The parameter names and values defined in the extensions. Extension parameters marked ``Required`` must be entered for this field.
+        :param resource_identifier: The ARN of an application, configuration profile, or environment.
+        :param tags: Adds one or more tags for the specified extension association. Tags are metadata that help you categorize resources in different ways, for example, by purpose, owner, or environment. Each tag consists of a key and an optional value, both of which you define.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2e5a069dff64a93330fdfc39cee819956ed46cafa89dc1aee558b0c288de8af)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnExtensionAssociationProps(
+            extension_identifier=extension_identifier,
+            extension_version_number=extension_version_number,
+            parameters=parameters,
+            resource_identifier=resource_identifier,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__209622600665bfa16663cc19d0b91c8caf5c5d29f4cc7cb09fd6fba67bcb1739)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0a9f34459bdf3e807e0362d7767352a597304250be35f36b98afb6b8d6ca733)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the extension defined in the association.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExtensionArn")
+    def attr_extension_arn(self) -> builtins.str:
+        '''The ARN of the extension defined in the association.
+
+        :cloudformationAttribute: ExtensionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExtensionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The system-generated ID for the association.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The ARNs of applications, configuration profiles, or environments defined in the association.
+
+        :cloudformationAttribute: ResourceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionAssociationRef")
+    def extension_association_ref(self) -> ExtensionAssociationReference:
+        '''A reference to a ExtensionAssociation resource.'''
+        return typing.cast(ExtensionAssociationReference, jsii.get(self, "extensionAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionIdentifier")
+    def extension_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name, the ID, or the Amazon Resource Name (ARN) of the extension.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "extensionIdentifier"))
+
+    @extension_identifier.setter
+    def extension_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd635cb248fd501f641536d553e5645fb6dd03b8db84e4059ddc6af591a307e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extensionIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="extensionVersionNumber")
+    def extension_version_number(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the extension.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "extensionVersionNumber"))
+
+    @extension_version_number.setter
+    def extension_version_number(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4aa600ead50aeb1f2d5f5f5fe334e3e11a16eccfa413e5de0742f763f7938a43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extensionVersionNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The parameter names and values defined in the extensions.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc72677d37ba0fe5b56dcbee5b8705c9e4e30a75b5d3b051bc792305dfd3deda)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceIdentifier")
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an application, configuration profile, or environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceIdentifier"))
+
+    @resource_identifier.setter
+    def resource_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ff48a7c10c5007769564f0b18da5363288efbb9ca805f7bb5a7fd93e791ec3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Adds one or more tags for the specified extension association.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d31c336e3843162aab44371392cbb25a2b62fcd270c6fc472b3f2819a21b9ea1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IHostedConfigurationVersionRef)
+class CfnHostedConfigurationVersion(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnHostedConfigurationVersion",
+):
+    '''Create a new configuration in the AWS AppConfig hosted configuration store.
+
+    Configurations must be 1 MB or smaller. The AWS AppConfig hosted configuration store provides the following benefits over other configuration store options.
+
+    - You don't need to set up and configure other services such as Amazon Simple Storage Service ( Amazon S3 ) or Parameter Store.
+    - You don't need to configure AWS Identity and Access Management ( IAM ) permissions to use the configuration store.
+    - You can store configurations in any content type.
+    - There is no cost to use the store.
+    - You can create a configuration and add it to the store when you create a configuration profile.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-hostedconfigurationversion.html
+    :cloudformationResource: AWS::AppConfig::HostedConfigurationVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_hosted_configuration_version = appconfig.CfnHostedConfigurationVersion(self, "MyCfnHostedConfigurationVersion",
+            application_id="applicationId",
+            configuration_profile_id="configurationProfileId",
+            content="content",
+            content_type="contentType",
+        
+            # the properties below are optional
+            description="description",
+            latest_version_number=123,
+            version_label="versionLabel"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        application_id: builtins.str,
+        configuration_profile_id: builtins.str,
+        content: builtins.str,
+        content_type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        latest_version_number: typing.Optional[jsii.Number] = None,
+        version_label: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_id: The application ID.
+        :param configuration_profile_id: The configuration profile ID.
+        :param content: The configuration data, as bytes. .. epigraph:: AWS AppConfig accepts any type of data, including text formats like JSON or TOML, or binary formats like protocol buffers or compressed data.
+        :param content_type: A standard MIME type describing the format of the configuration content. For more information, see `Content-Type <https://docs.aws.amazon.com/https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.17>`_ .
+        :param description: A description of the configuration. .. epigraph:: Due to HTTP limitations, this field only supports ASCII characters.
+        :param latest_version_number: An optional locking token used to prevent race conditions from overwriting configuration updates when creating a new version. To ensure your data is not overwritten when creating multiple hosted configuration versions in rapid succession, specify the version number of the latest hosted configuration version.
+        :param version_label: A user-defined label for an AWS AppConfig hosted configuration version.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f2dc9ae7157f5223a79cf8ea4a7355ec285dbe0fda348428c6e0e6cdabbb60b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnHostedConfigurationVersionProps(
+            application_id=application_id,
+            configuration_profile_id=configuration_profile_id,
+            content=content,
+            content_type=content_type,
+            description=description,
+            latest_version_number=latest_version_number,
+            version_label=version_label,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__287f244644cef79eb3704756fc9fd6f98e693a42df76727f726091d3190ab82c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__694959938824dc357bd7ac9b60be653c213df7cdcc44905d59d6e7d7e1182171)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersionNumber")
+    def attr_version_number(self) -> builtins.str:
+        '''The configuration version.
+
+        :cloudformationAttribute: VersionNumber
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersionNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedConfigurationVersionRef")
+    def hosted_configuration_version_ref(self) -> HostedConfigurationVersionReference:
+        '''A reference to a HostedConfigurationVersion resource.'''
+        return typing.cast(HostedConfigurationVersionReference, jsii.get(self, "hostedConfigurationVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationId")
+    def application_id(self) -> builtins.str:
+        '''The application ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationId"))
+
+    @application_id.setter
+    def application_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97e3d21e204bcf08a8dceb763729bfb70936f6d97ed550af3dfe101fac0f4331)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationProfileId")
+    def configuration_profile_id(self) -> builtins.str:
+        '''The configuration profile ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "configurationProfileId"))
+
+    @configuration_profile_id.setter
+    def configuration_profile_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4193469efc98930e2e72ffffb47c40bb1631526d907d8eaab051ac721dce3631)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configurationProfileId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(self) -> builtins.str:
+        '''The configuration data, as bytes.'''
+        return typing.cast(builtins.str, jsii.get(self, "content"))
+
+    @content.setter
+    def content(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac0de9d6bf3585fb47f9ad3fbb1d23a9a11447de5c02a24b6971d67ab3a7fa70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contentType")
+    def content_type(self) -> builtins.str:
+        '''A standard MIME type describing the format of the configuration content.'''
+        return typing.cast(builtins.str, jsii.get(self, "contentType"))
+
+    @content_type.setter
+    def content_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb880ec8c47eca7663501403482ddb505ffe759b4792fa0a7236d31e1313d7fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d43da3f82c30824ce1a2d29683403d6e68cb792341046055e7df42a980951259)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="latestVersionNumber")
+    def latest_version_number(self) -> typing.Optional[jsii.Number]:
+        '''An optional locking token used to prevent race conditions from overwriting configuration updates when creating a new version.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "latestVersionNumber"))
+
+    @latest_version_number.setter
+    def latest_version_number(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14797876de335768bb8254a37ba88bf3300df4a568a8174a333380741acaa4b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "latestVersionNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="versionLabel")
+    def version_label(self) -> typing.Optional[builtins.str]:
+        '''A user-defined label for an AWS AppConfig hosted configuration version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "versionLabel"))
+
+    @version_label.setter
+    def version_label(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__384487882c55b43a28f4a742590e489e653df19c023a94fbfacb65cdf0cf00e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "versionLabel", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.implements(IDeploymentStrategy)
@@ -13205,7 +14115,7 @@ class HostedConfiguration(
         id: builtins.str,
         *,
         content: ConfigurationContent,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         latest_version_number: typing.Optional[jsii.Number] = None,
         version_label: typing.Optional[builtins.str] = None,
         application: IApplication,
@@ -13695,6 +14605,7 @@ __all__ = [
     "ActionProps",
     "Application",
     "ApplicationProps",
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnConfigurationProfile",
@@ -13713,35 +14624,50 @@ __all__ = [
     "CfnHostedConfigurationVersionProps",
     "ConfigurationContent",
     "ConfigurationOptions",
+    "ConfigurationProfileReference",
     "ConfigurationProps",
     "ConfigurationSource",
     "ConfigurationSourceType",
     "ConfigurationType",
     "DeletionProtectionCheck",
+    "DeploymentReference",
     "DeploymentStrategy",
     "DeploymentStrategyId",
     "DeploymentStrategyProps",
+    "DeploymentStrategyReference",
     "Environment",
     "EnvironmentAttributes",
     "EnvironmentOptions",
     "EnvironmentProps",
+    "EnvironmentReference",
     "EventBridgeDestination",
     "ExtensibleBase",
     "Extension",
+    "ExtensionAssociationReference",
     "ExtensionAttributes",
     "ExtensionOptions",
     "ExtensionProps",
+    "ExtensionReference",
     "GrowthType",
     "HostedConfiguration",
     "HostedConfigurationOptions",
     "HostedConfigurationProps",
+    "HostedConfigurationVersionReference",
     "IApplication",
+    "IApplicationRef",
     "IConfiguration",
+    "IConfigurationProfileRef",
+    "IDeploymentRef",
     "IDeploymentStrategy",
+    "IDeploymentStrategyRef",
     "IEnvironment",
+    "IEnvironmentRef",
     "IEventDestination",
     "IExtensible",
     "IExtension",
+    "IExtensionAssociationRef",
+    "IExtensionRef",
+    "IHostedConfigurationVersionRef",
     "IValidator",
     "JsonSchemaValidator",
     "LambdaDestination",
@@ -13783,43 +14709,9 @@ def _typecheckingstub__0c495cbb9f880c8e82aa0fdbd8db994460c32e416c849e56db45c634d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c5cb8c402a0d1a836162f596142de6ed2a1f2a0635a355ae334b92eb1175e956(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
+def _typecheckingstub__eeb2356e30170be42efc780f0808ec4cc340ea1cf77b81b59abb1f1fb482b72c(
     *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ea7b1a84049868bc175511a7cff8896cbe830377b519f6e81ca6912165c12a6(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6ba5479a5d56f629f8d2769fdc6bc86ac3ecfb94f4a9b20a0a26e228f899e8a(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd439efd20029913dc2dc3442824daa5698101df926aeab59ca95e5e5b8bbd51(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a824db2a54c11ce0a54133772196bc9c7049c60fe6169de15459866f72df2438(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e1c6b2136fb3c6e3eba293e5878e147b18261e888036e9d04f50ade7f12363e3(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    application_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13829,104 +14721,6 @@ def _typecheckingstub__32e1eda1678f32e80ec88e7c377d932bfe40dcff82d39b0dd0edf98a6
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__332c05b5fb120e53a9fcdde311f2bc23aaec927aa0e70b013e72cc2cebe88708(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    application_id: builtins.str,
-    location_uri: builtins.str,
-    name: builtins.str,
-    deletion_protection_check: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    retrieval_role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-    validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationProfile.ValidatorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e772e24251baa448c01bcc3e6670ade5ceed90c38ae4803dc614bd5e09316acd(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e32e704ce25e06be45d32d6a2f4cb3655c378ec2a6662baf1f650e54d58d3148(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a90d416aa5727f39ec3c71cf2276506643a5cf358d97a872994efb5efc0c6a23(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b354f0f45617e66d27b62ebf9a76fdbe168c6f5b6731023e6a366547233a4cb5(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92d26c2b0d5b0b13ed55ca82e2b92075cdb99d8bd6d4a9122e33104a12cf9d5d(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__22cac161ad4fa05857f45ba25cc0c7261b423a1898e3c4f8f2d40a8122519300(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5884bd7f8fdc28919378604807977665ba3e82a47697c023e5982eb7257f557c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b3eeb407208b90160e95c0fa6df04c352da355146a3ccf76bdbd6393ad76427e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0d3f2e474a52e1c1e45abe4e24cd6c758600c20023f3697e0c69533c0e771bc2(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ebd94616157773a4ab3988775ff92592f3cda9938c8625e395d1dbbf8406354b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c45113a4405009713d71c8289b038f5cff241d53b81b243f0372147d29440ad9(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__11ba2acd464e5613cd96989e3516592dcd5684d8452b3028698e0549f5d5fafb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationProfile.ValidatorsProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3e2223bb16cf91626b0a44db9aa8ec9190717961f143668d3ff6961eec9abdd(
-    *,
-    content: typing.Optional[builtins.str] = None,
-    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13947,98 +14741,6 @@ def _typecheckingstub__37522e89a156f185f3387aea77d01f8010adde3d2bcfeb76862a70fd9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f1b3c15ba63fb6169371007d7bae981d061f49c21042389030326b9ae1271344(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    application_id: builtins.str,
-    configuration_profile_id: builtins.str,
-    configuration_version: builtins.str,
-    deployment_strategy_id: builtins.str,
-    environment_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DynamicExtensionParametersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aaa2637a497fc43f28ee8b6e77e0f1878471c7f5bc0a736d0303ca69cb2d082c(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d3096cada1facd4de77c79fe8d588aa3d9567d81b3f913d2c2e6cf8fac54d0e(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__95aaa1f67bb9531251e5f9c62292c84df7727307a58c223aaa637f0a36a3d65d(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca3182ab453e0412fad7ba8649da4e0cfebf187bd90f38a026444982eb8bf50e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5abde1954bdb5d84cfce775808f90c961127e86db5ff5164bb90a98e3b0f9f20(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0527964ec5c65ed1bca366f0674e5cda5d23fe019ae479f3ee3fb550fbdb0c23(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f949624a9b6e222d754ab636966342dbb9eb207d34230837c882091a20f9abac(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__96f77dd19f2c1b41d04318bc8aa9cc8f75808190471ba4922eb58652c55c5e38(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e5a4416b6ac2f6fbc5dd497fd6aafe41844d2e927bc75ce571b37c2f1b805bfb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeployment.DynamicExtensionParametersProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98b30f15af8144546829026dccf1aaf4fedd94b59dabeb6c8e8d7bc2b71e2efb(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__12211b05040a4e1a62df97a0128f266db1c0380eba8db0726824e99ad7241551(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__db7299354c46559a877995ee8ab04c4fd72aaaf53cc390877fbf50f65ac43390(
-    *,
-    extension_reference: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    parameter_value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8289d78d65be12b91a60529d6c53d8a4385f73c87b2a23cfef86efebc1e00914(
     *,
     application_id: builtins.str,
@@ -14050,82 +14752,6 @@ def _typecheckingstub__8289d78d65be12b91a60529d6c53d8a4385f73c87b2a23cfef86efebc
     dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DynamicExtensionParametersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb88c221f102c1b57ba4f19db7656eb36ff011a70e3643e39d048c313eda22fd(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    deployment_duration_in_minutes: jsii.Number,
-    growth_factor: jsii.Number,
-    name: builtins.str,
-    replicate_to: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    final_bake_time_in_minutes: typing.Optional[jsii.Number] = None,
-    growth_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6c07282bd387e2aab09e9241f96ded37ff336d3f231f996e048ef207d3a38bc3(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__750f81fb9177952991767d28a4a55a4de59c55177b25056fdd45e8aff0c293c2(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2b9cfcca9dae7bf599adef5f2b44e7662994e8143e1b3ccfa6f12c4d8ad5a19(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ac4cbcedcf27ec80d55a98d836dbb9ac52523d6ff7838145b4d527fadaf652d(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__43a46b42e0607ca1c01aa58dff3034f44511b63f99f559fe0fd370080f52f2c7(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb6ef1a3102939b024e6e99b451674a1ad1f6879f5355a20a6d365cfeab4ad4e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f47275a573fd911ba6db69f152dd00eab69b450d732941105375d198524fd2b(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ad18c900d6d84d1f1dba268d6d666b830e5e5276badda4b775deb06725f3c4ea(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38dbe338fc520a7ce3134f048d86265b2db4966fa73c38281b48ff6124acbc16(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b0c7e44af284b89d6923411489d05fa28350784f8d88a837a0d019a1d575e65(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14144,84 +14770,6 @@ def _typecheckingstub__199999cc14040404b938fa601301d483ec681a01c3bd23495d2d90dde
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f357d5cab83004926812cf34c99a144f4f5d23ca26e4a818590a950622a06fc3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    application_id: builtins.str,
-    name: builtins.str,
-    deletion_protection_check: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.MonitorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3842dacad1a08e5d9103a4c646c8fa2385f77b6f5495fbd4dab597c037c8f09b(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2dbe73a2ef533ed22edd7fd274c6cca5a979759478da06114e8699f7b2409820(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d35c6a50b39401e18b97d5d78f1d4d92aaf846c18aa4ec32bce024a53e54c4be(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__569391bda37ae2bcb096c8b3ab953d25c7ff488899b2557c773cc8f72ee8a4cb(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9f1d148cd005383120b271748e66adadcb6c113dd27c70a758f2f86f91e76e9(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__154bd59aabeed21e27800d9d45bcdbb412639a65e9aaaf72ef6dae673fa26a43(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8d099ead34dfe7be9eb945722b31207889d993d21d927e1eeba6592c7f8fd44(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.MonitorsProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60701727c0b2b8f0404d231ccc24899f35678bacc781ed4c6443de1b14432f68(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__252b3a605905895f1b8ffc133b32547c64db1b58b121d4f635ec61960b027938(
-    *,
-    alarm_arn: builtins.str,
-    alarm_role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__43d91f41d1c9d1acd545d0999d47687e0e5b7be03ec08728e3c5aa73ff76549f(
-    *,
-    alarm_arn: typing.Optional[builtins.str] = None,
-    alarm_role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a6c9856f1a5a9dfaed9be42ec835bb6eac4d4882999b993cbd02b3b11bbfe1ca(
     *,
     application_id: builtins.str,
@@ -14230,142 +14778,6 @@ def _typecheckingstub__a6c9856f1a5a9dfaed9be42ec835bb6eac4d4882999b993cbd02b3b11
     description: typing.Optional[builtins.str] = None,
     monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.MonitorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d3442a7f4d7a9c3256544c6b0526d285ef0cf3970ec1f140b344aed1abc4eef5(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    actions: typing.Any,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    latest_version_number: typing.Optional[jsii.Number] = None,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnExtension.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6930a24c04bd5aebe54f7a225f7ec08743e520b61a781973e88a4b6678524a5(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__57070195544dc008ade09c677ffa495cf4120e6b1dc834d6ffa101c3cf189599(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f734d5e14d1ac32f7ec277282f23b1f2f7c0b8ce8e48d8df2b080f67d200577f(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__081c55af29bf24c3599cf24134be4ce60656f052c575f59ff68c2084fa523481(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__334508667f33fe5d26ff2e39e3bcbaaea618391e439f25094004fab0d75eb718(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b38bdb75b51870401d0b83754078af02e3e6886d97a64481c3733b63a5a4c814(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ad5fbf78cb34accb172520e561c08795fbca80280af2dcc78243ceb84841d07(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnExtension.ParameterProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e6cc683bfd791a6ddfdc2295e58057279b3a19bc4adc7a11fbff993fe64fe37(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58317247cdf8a690d14849381527f22c6a038c04470bb6ed420b3ade323b7e43(
-    *,
-    name: builtins.str,
-    uri: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__683bc731900456f8d594ddc90d3c7fc1fcdc884942410401537639fad3d02ed1(
-    *,
-    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    description: typing.Optional[builtins.str] = None,
-    dynamic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2e5a069dff64a93330fdfc39cee819956ed46cafa89dc1aee558b0c288de8af(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    extension_identifier: typing.Optional[builtins.str] = None,
-    extension_version_number: typing.Optional[jsii.Number] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__209622600665bfa16663cc19d0b91c8caf5c5d29f4cc7cb09fd6fba67bcb1739(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0a9f34459bdf3e807e0362d7767352a597304250be35f36b98afb6b8d6ca733(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd635cb248fd501f641536d553e5645fb6dd03b8db84e4059ddc6af591a307e8(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4aa600ead50aeb1f2d5f5f5fe334e3e11a16eccfa413e5de0742f763f7938a43(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bc72677d37ba0fe5b56dcbee5b8705c9e4e30a75b5d3b051bc792305dfd3deda(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ff48a7c10c5007769564f0b18da5363288efbb9ca805f7bb5a7fd93e791ec3d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d31c336e3843162aab44371392cbb25a2b62fcd270c6fc472b3f2819a21b9ea1(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14389,75 +14801,6 @@ def _typecheckingstub__a81148d01bee60e4140891afd5b9da3eab7a3dd5f81524eaa37f895ff
     latest_version_number: typing.Optional[jsii.Number] = None,
     parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnExtension.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9f2dc9ae7157f5223a79cf8ea4a7355ec285dbe0fda348428c6e0e6cdabbb60b(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    application_id: builtins.str,
-    configuration_profile_id: builtins.str,
-    content: builtins.str,
-    content_type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    latest_version_number: typing.Optional[jsii.Number] = None,
-    version_label: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__287f244644cef79eb3704756fc9fd6f98e693a42df76727f726091d3190ab82c(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__694959938824dc357bd7ac9b60be653c213df7cdcc44905d59d6e7d7e1182171(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__97e3d21e204bcf08a8dceb763729bfb70936f6d97ed550af3dfe101fac0f4331(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4193469efc98930e2e72ffffb47c40bb1631526d907d8eaab051ac721dce3631(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac0de9d6bf3585fb47f9ad3fbb1d23a9a11447de5c02a24b6971d67ab3a7fa70(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb880ec8c47eca7663501403482ddb505ffe759b4792fa0a7236d31e1313d7fe(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d43da3f82c30824ce1a2d29683403d6e68cb792341046055e7df42a980951259(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__14797876de335768bb8254a37ba88bf3300df4a568a8174a333380741acaa4b8(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__384487882c55b43a28f4a742590e489e653df19c023a94fbfacb65cdf0cf00e2(
-    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14522,6 +14865,14 @@ def _typecheckingstub__7d8aafff2e2f314c1c4bef6e213f0aaef56ff294051b33fee835ad571
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__405facd2ed3cc1c8ff3279603493aa9b4a13f91372ff425b704e8b5c0cf6e6f1(
+    *,
+    application_id: builtins.str,
+    configuration_profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fde28a86ff967e860849eabd5d00b00f1f841ba2ded09e00655f2b7d433ef121(
     *,
     deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
@@ -14570,6 +14921,15 @@ def _typecheckingstub__a73d209b4025c3cdaf34909720e3249a1d3d4989e16aec9d748a6e59b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__787a747d246947d0fb6d4a10852e53e6b7ad8eeb3f648bac42da92ba3ad845e1(
+    *,
+    application_id: builtins.str,
+    deployment_number: builtins.str,
+    environment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f8463842034a8619eb54964cc08c28aa3cea9fcdbf4e58de63f128b5b5322da8(
     deployment_strategy_id: builtins.str,
 ) -> None:
@@ -14581,6 +14941,13 @@ def _typecheckingstub__8b2751d6de1bb1e5195de3102d4fca0a566bedf6102d7bf2ce66a0d82
     rollout_strategy: RolloutStrategy,
     deployment_strategy_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f85bf4345420f9226987c9e0362fa1c9cdb046ba1677a969e35c7252fd94afc(
+    *,
+    deployment_strategy_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14613,6 +14980,22 @@ def _typecheckingstub__70814b8db38d5e11a0b33e43663913fb290e190ace3191585fc4d0bd4
     environment_name: typing.Optional[builtins.str] = None,
     monitors: typing.Optional[typing.Sequence[Monitor]] = None,
     application: IApplication,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e46622812d5e738351df2d2f9b9085c20bd92d37d6c9c79314bd41c132798672(
+    *,
+    application_id: builtins.str,
+    environment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec51ae36ea464758ac6cf833f6aed7a6e5d3a65a4929a2c1b5252cdee9dcc31b(
+    *,
+    extension_association_arn: builtins.str,
+    extension_association_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14650,6 +15033,14 @@ def _typecheckingstub__003bfe5f4d042a69eceddde85ccfcfdb2e64aaea78e28426808804379
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__14958c6aa7e587d1cb19e1804b5e2be113af30f72ccdcc58d14914410d46e290(
+    *,
+    extension_arn: builtins.str,
+    extension_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4c4d8fda2e4860630073eda40d5a32347248e82c24127624ef93e735b071da8f(
     *,
     deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
@@ -14679,9 +15070,18 @@ def _typecheckingstub__7cba9d5464f3f4cbc208d892995245e5078fc2cc794651c71942035a9
     validators: typing.Optional[typing.Sequence[IValidator]] = None,
     application: IApplication,
     content: ConfigurationContent,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     latest_version_number: typing.Optional[jsii.Number] = None,
     version_label: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0cf9f796bb680e57cbbeafc1a9bb2ccc74a38015d0ccdf2356f2195423920ed(
+    *,
+    application_id: builtins.str,
+    configuration_profile_id: builtins.str,
+    version_number: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14731,7 +15131,7 @@ def _typecheckingstub__652068ebd01467de1bc3159a4c8fef165c1053fe6662fcbb6e0b8cb9f
     id: builtins.str,
     *,
     location: ConfigurationSource,
-    retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+    retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
     version_number: typing.Optional[builtins.str] = None,
     deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
     deployment_key: typing.Optional[_IKey_5f11635f] = None,
@@ -15108,7 +15508,7 @@ def _typecheckingstub__a245d9ad2d5a72963867d7f392bf31c9977c87f33b0ba8389f1024ee4
 
 def _typecheckingstub__ccc59f1c5523364b8528526a5b6087774df2b905407caca37b7c685a5bfb76cb(
     alarm: _IAlarm_ff3eabc0,
-    alarm_role: typing.Optional[_IRole_235f5d8e] = None,
+    alarm_role: typing.Optional[_IRoleRef_613dafc2] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15149,7 +15549,7 @@ def _typecheckingstub__61200a738f2584e5d86190492c99ded9cebb5cc41d230eec1c74f7130
     id: builtins.str,
     *,
     location: ConfigurationSource,
-    retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+    retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
     version_number: typing.Optional[builtins.str] = None,
     application: IApplication,
     deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
@@ -15299,7 +15699,7 @@ def _typecheckingstub__115deabe7a02ce295c431e7d9a99bcbe112bc017436380d80181c5db4
     type: typing.Optional[ConfigurationType] = None,
     validators: typing.Optional[typing.Sequence[IValidator]] = None,
     location: ConfigurationSource,
-    retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+    retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
     version_number: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15317,7 +15717,7 @@ def _typecheckingstub__d41101d1b0f699a52d44a2b86fe3e9dcd0e6f1487f088908464eb49cb
     validators: typing.Optional[typing.Sequence[IValidator]] = None,
     application: IApplication,
     location: ConfigurationSource,
-    retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+    retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
     version_number: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15413,7 +15813,7 @@ def _typecheckingstub__8c0399b30aac3a09a4a5e9f3f33f358c90afa60099a7dd6cfc1f1b40f
     id: builtins.str,
     *,
     location: ConfigurationSource,
-    retrieval_role: typing.Optional[_IRole_235f5d8e] = None,
+    retrieval_role: typing.Optional[_IRoleRef_613dafc2] = None,
     version_number: typing.Optional[builtins.str] = None,
     deletion_protection_check: typing.Optional[DeletionProtectionCheck] = None,
     deployment_key: typing.Optional[_IKey_5f11635f] = None,
@@ -15529,6 +15929,596 @@ def _typecheckingstub__af63cf64ce7c3fe83523222dceaef56e9447ce8f6a2afb5d2567c6c97
 
 def _typecheckingstub__82766fd65d19c222e55a3bd3d37a0ce2dbc32473446dfef2bbba053456f75dd9(
     value: ExtensibleBase,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5cb8c402a0d1a836162f596142de6ed2a1f2a0635a355ae334b92eb1175e956(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ea7b1a84049868bc175511a7cff8896cbe830377b519f6e81ca6912165c12a6(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6ba5479a5d56f629f8d2769fdc6bc86ac3ecfb94f4a9b20a0a26e228f899e8a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd439efd20029913dc2dc3442824daa5698101df926aeab59ca95e5e5b8bbd51(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a824db2a54c11ce0a54133772196bc9c7049c60fe6169de15459866f72df2438(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1c6b2136fb3c6e3eba293e5878e147b18261e888036e9d04f50ade7f12363e3(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__332c05b5fb120e53a9fcdde311f2bc23aaec927aa0e70b013e72cc2cebe88708(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_id: builtins.str,
+    location_uri: builtins.str,
+    name: builtins.str,
+    deletion_protection_check: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    retrieval_role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+    validators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationProfile.ValidatorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e772e24251baa448c01bcc3e6670ade5ceed90c38ae4803dc614bd5e09316acd(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e32e704ce25e06be45d32d6a2f4cb3655c378ec2a6662baf1f650e54d58d3148(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a90d416aa5727f39ec3c71cf2276506643a5cf358d97a872994efb5efc0c6a23(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b354f0f45617e66d27b62ebf9a76fdbe168c6f5b6731023e6a366547233a4cb5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92d26c2b0d5b0b13ed55ca82e2b92075cdb99d8bd6d4a9122e33104a12cf9d5d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22cac161ad4fa05857f45ba25cc0c7261b423a1898e3c4f8f2d40a8122519300(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5884bd7f8fdc28919378604807977665ba3e82a47697c023e5982eb7257f557c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3eeb407208b90160e95c0fa6df04c352da355146a3ccf76bdbd6393ad76427e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d3f2e474a52e1c1e45abe4e24cd6c758600c20023f3697e0c69533c0e771bc2(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebd94616157773a4ab3988775ff92592f3cda9938c8625e395d1dbbf8406354b(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c45113a4405009713d71c8289b038f5cff241d53b81b243f0372147d29440ad9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11ba2acd464e5613cd96989e3516592dcd5684d8452b3028698e0549f5d5fafb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationProfile.ValidatorsProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3e2223bb16cf91626b0a44db9aa8ec9190717961f143668d3ff6961eec9abdd(
+    *,
+    content: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1b3c15ba63fb6169371007d7bae981d061f49c21042389030326b9ae1271344(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_id: builtins.str,
+    configuration_profile_id: builtins.str,
+    configuration_version: builtins.str,
+    deployment_strategy_id: builtins.str,
+    environment_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    dynamic_extension_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DynamicExtensionParametersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aaa2637a497fc43f28ee8b6e77e0f1878471c7f5bc0a736d0303ca69cb2d082c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d3096cada1facd4de77c79fe8d588aa3d9567d81b3f913d2c2e6cf8fac54d0e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95aaa1f67bb9531251e5f9c62292c84df7727307a58c223aaa637f0a36a3d65d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca3182ab453e0412fad7ba8649da4e0cfebf187bd90f38a026444982eb8bf50e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5abde1954bdb5d84cfce775808f90c961127e86db5ff5164bb90a98e3b0f9f20(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0527964ec5c65ed1bca366f0674e5cda5d23fe019ae479f3ee3fb550fbdb0c23(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f949624a9b6e222d754ab636966342dbb9eb207d34230837c882091a20f9abac(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96f77dd19f2c1b41d04318bc8aa9cc8f75808190471ba4922eb58652c55c5e38(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5a4416b6ac2f6fbc5dd497fd6aafe41844d2e927bc75ce571b37c2f1b805bfb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDeployment.DynamicExtensionParametersProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98b30f15af8144546829026dccf1aaf4fedd94b59dabeb6c8e8d7bc2b71e2efb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12211b05040a4e1a62df97a0128f266db1c0380eba8db0726824e99ad7241551(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db7299354c46559a877995ee8ab04c4fd72aaaf53cc390877fbf50f65ac43390(
+    *,
+    extension_reference: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    parameter_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb88c221f102c1b57ba4f19db7656eb36ff011a70e3643e39d048c313eda22fd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    deployment_duration_in_minutes: jsii.Number,
+    growth_factor: jsii.Number,
+    name: builtins.str,
+    replicate_to: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    final_bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+    growth_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c07282bd387e2aab09e9241f96ded37ff336d3f231f996e048ef207d3a38bc3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__750f81fb9177952991767d28a4a55a4de59c55177b25056fdd45e8aff0c293c2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2b9cfcca9dae7bf599adef5f2b44e7662994e8143e1b3ccfa6f12c4d8ad5a19(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ac4cbcedcf27ec80d55a98d836dbb9ac52523d6ff7838145b4d527fadaf652d(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43a46b42e0607ca1c01aa58dff3034f44511b63f99f559fe0fd370080f52f2c7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb6ef1a3102939b024e6e99b451674a1ad1f6879f5355a20a6d365cfeab4ad4e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f47275a573fd911ba6db69f152dd00eab69b450d732941105375d198524fd2b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad18c900d6d84d1f1dba268d6d666b830e5e5276badda4b775deb06725f3c4ea(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38dbe338fc520a7ce3134f048d86265b2db4966fa73c38281b48ff6124acbc16(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b0c7e44af284b89d6923411489d05fa28350784f8d88a837a0d019a1d575e65(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f357d5cab83004926812cf34c99a144f4f5d23ca26e4a818590a950622a06fc3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_id: builtins.str,
+    name: builtins.str,
+    deletion_protection_check: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.MonitorsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3842dacad1a08e5d9103a4c646c8fa2385f77b6f5495fbd4dab597c037c8f09b(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2dbe73a2ef533ed22edd7fd274c6cca5a979759478da06114e8699f7b2409820(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d35c6a50b39401e18b97d5d78f1d4d92aaf846c18aa4ec32bce024a53e54c4be(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__569391bda37ae2bcb096c8b3ab953d25c7ff488899b2557c773cc8f72ee8a4cb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f1d148cd005383120b271748e66adadcb6c113dd27c70a758f2f86f91e76e9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__154bd59aabeed21e27800d9d45bcdbb412639a65e9aaaf72ef6dae673fa26a43(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8d099ead34dfe7be9eb945722b31207889d993d21d927e1eeba6592c7f8fd44(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.MonitorsProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60701727c0b2b8f0404d231ccc24899f35678bacc781ed4c6443de1b14432f68(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__252b3a605905895f1b8ffc133b32547c64db1b58b121d4f635ec61960b027938(
+    *,
+    alarm_arn: builtins.str,
+    alarm_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43d91f41d1c9d1acd545d0999d47687e0e5b7be03ec08728e3c5aa73ff76549f(
+    *,
+    alarm_arn: typing.Optional[builtins.str] = None,
+    alarm_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3442a7f4d7a9c3256544c6b0526d285ef0cf3970ec1f140b344aed1abc4eef5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    actions: typing.Any,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    latest_version_number: typing.Optional[jsii.Number] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnExtension.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6930a24c04bd5aebe54f7a225f7ec08743e520b61a781973e88a4b6678524a5(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57070195544dc008ade09c677ffa495cf4120e6b1dc834d6ffa101c3cf189599(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f734d5e14d1ac32f7ec277282f23b1f2f7c0b8ce8e48d8df2b080f67d200577f(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__081c55af29bf24c3599cf24134be4ce60656f052c575f59ff68c2084fa523481(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__334508667f33fe5d26ff2e39e3bcbaaea618391e439f25094004fab0d75eb718(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b38bdb75b51870401d0b83754078af02e3e6886d97a64481c3733b63a5a4c814(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ad5fbf78cb34accb172520e561c08795fbca80280af2dcc78243ceb84841d07(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnExtension.ParameterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e6cc683bfd791a6ddfdc2295e58057279b3a19bc4adc7a11fbff993fe64fe37(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58317247cdf8a690d14849381527f22c6a038c04470bb6ed420b3ade323b7e43(
+    *,
+    name: builtins.str,
+    uri: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__683bc731900456f8d594ddc90d3c7fc1fcdc884942410401537639fad3d02ed1(
+    *,
+    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    description: typing.Optional[builtins.str] = None,
+    dynamic: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2e5a069dff64a93330fdfc39cee819956ed46cafa89dc1aee558b0c288de8af(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    extension_identifier: typing.Optional[builtins.str] = None,
+    extension_version_number: typing.Optional[jsii.Number] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__209622600665bfa16663cc19d0b91c8caf5c5d29f4cc7cb09fd6fba67bcb1739(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0a9f34459bdf3e807e0362d7767352a597304250be35f36b98afb6b8d6ca733(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd635cb248fd501f641536d553e5645fb6dd03b8db84e4059ddc6af591a307e8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4aa600ead50aeb1f2d5f5f5fe334e3e11a16eccfa413e5de0742f763f7938a43(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc72677d37ba0fe5b56dcbee5b8705c9e4e30a75b5d3b051bc792305dfd3deda(
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ff48a7c10c5007769564f0b18da5363288efbb9ca805f7bb5a7fd93e791ec3d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d31c336e3843162aab44371392cbb25a2b62fcd270c6fc472b3f2819a21b9ea1(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f2dc9ae7157f5223a79cf8ea4a7355ec285dbe0fda348428c6e0e6cdabbb60b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_id: builtins.str,
+    configuration_profile_id: builtins.str,
+    content: builtins.str,
+    content_type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    latest_version_number: typing.Optional[jsii.Number] = None,
+    version_label: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__287f244644cef79eb3704756fc9fd6f98e693a42df76727f726091d3190ab82c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__694959938824dc357bd7ac9b60be653c213df7cdcc44905d59d6e7d7e1182171(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97e3d21e204bcf08a8dceb763729bfb70936f6d97ed550af3dfe101fac0f4331(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4193469efc98930e2e72ffffb47c40bb1631526d907d8eaab051ac721dce3631(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac0de9d6bf3585fb47f9ad3fbb1d23a9a11447de5c02a24b6971d67ab3a7fa70(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb880ec8c47eca7663501403482ddb505ffe759b4792fa0a7236d31e1313d7fe(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d43da3f82c30824ce1a2d29683403d6e68cb792341046055e7df42a980951259(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14797876de335768bb8254a37ba88bf3300df4a568a8174a333380741acaa4b8(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__384487882c55b43a28f4a742590e489e653df19c023a94fbfacb65cdf0cf00e2(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15897,7 +16887,7 @@ def _typecheckingstub__8e7eecc550d3d689f07534db869c7be67f00e08dcbf880bbb2656d019
     id: builtins.str,
     *,
     content: ConfigurationContent,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     latest_version_number: typing.Optional[jsii.Number] = None,
     version_label: typing.Optional[builtins.str] = None,
     application: IApplication,

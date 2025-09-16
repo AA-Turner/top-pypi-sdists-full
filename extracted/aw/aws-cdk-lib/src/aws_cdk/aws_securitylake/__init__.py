@@ -79,156 +79,69 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAwsLogSource(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_securitylake.CfnAwsLogSource",
-):
-    '''Adds a natively supported AWS service as an AWS source.
-
-    Enables source types for member accounts in required AWS Regions, based on the parameters you specify. You can choose any source type in any Region for either accounts that are part of a trusted organization or standalone accounts. Once you add an AWS service as a source, Security Lake starts collecting logs and events from it.
-    .. epigraph::
-
-       If you want to create multiple sources using ``AWS::SecurityLake::AwsLogSource`` , you must use the ``DependsOn`` attribute to create the sources sequentially. With the ``DependsOn`` attribute you can specify that the creation of a specific ``AWSLogSource`` follows another. When you add a ``DependsOn`` attribute to a resource, that resource is created only after the creation of the resource specified in the ``DependsOn`` attribute. For an example, see `Add AWS log sources <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-awslogsource.html#aws-resource-securitylake-awslogsource--examples>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-awslogsource.html
-    :cloudformationResource: AWS::SecurityLake::AwsLogSource
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_securitylake as securitylake
-        
-        cfn_aws_log_source = securitylake.CfnAwsLogSource(self, "MyCfnAwsLogSource",
-            data_lake_arn="dataLakeArn",
-            source_name="sourceName",
-            source_version="sourceVersion",
-        
-            # the properties below are optional
-            accounts=["accounts"]
-        )
-    '''
-
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.AwsLogSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"source_name": "sourceName", "source_version": "sourceVersion"},
+)
+class AwsLogSourceReference:
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
         *,
-        data_lake_arn: builtins.str,
         source_name: builtins.str,
         source_version: builtins.str,
-        accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param data_lake_arn: The Amazon Resource Name (ARN) used to create the data lake.
-        :param source_name: The name for a AWS source. This must be a Regionally unique value. For the list of sources supported by Amazon Security Lake see `Collecting data from AWS services <https://docs.aws.amazon.com//security-lake/latest/userguide/internal-sources.html>`_ in the Amazon Security Lake User Guide.
-        :param source_version: The version for a AWS source. For more details about source versions supported by Amazon Security Lake see `OCSF source identification <https://docs.aws.amazon.com//security-lake/latest/userguide/open-cybersecurity-schema-framework.html#ocsf-source-identification>`_ in the Amazon Security Lake User Guide. This must be a Regionally unique value.
-        :param accounts: Specify the AWS account information where you want to enable Security Lake.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c67fc1d68d61ef9dead7d443499c1a142da192386efc06474b3758994937de6b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAwsLogSourceProps(
-            data_lake_arn=data_lake_arn,
-            source_name=source_name,
-            source_version=source_version,
-            accounts=accounts,
-        )
+        '''A reference to a AwsLogSource resource.
 
-        jsii.create(self.__class__, self, [scope, id, props])
+        :param source_name: The SourceName of the AwsLogSource resource.
+        :param source_version: The SourceVersion of the AwsLogSource resource.
 
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+        :exampleMetadata: fixture=_generated
 
-        :param inspector: tree inspector to collect and process attributes.
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            aws_log_source_reference = securitylake.AwsLogSourceReference(
+                source_name="sourceName",
+                source_version="sourceVersion"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f493097d98865e82cabeeb80dd31577169140709170903a313d3bc579da5bcb)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4b08275c623e99b1c0cca9f7d97a78cf719804d590ae90e5af151255c42753a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+            type_hints = typing.get_type_hints(_typecheckingstub__ef4476cf81a70054b77e8443b1a1881a6bbfc578fada98ef15c4213f6e9ba0e6)
+            check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
+            check_type(argname="argument source_version", value=source_version, expected_type=type_hints["source_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_name": source_name,
+            "source_version": source_version,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dataLakeArn")
-    def data_lake_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) used to create the data lake.'''
-        return typing.cast(builtins.str, jsii.get(self, "dataLakeArn"))
-
-    @data_lake_arn.setter
-    def data_lake_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed09f296c9b906f7011ea796fce3b42122e1c0490eb544e941f5953a5b0f8403)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataLakeArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceName")
     def source_name(self) -> builtins.str:
-        '''The name for a AWS source.'''
-        return typing.cast(builtins.str, jsii.get(self, "sourceName"))
-
-    @source_name.setter
-    def source_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__786699bc5ed670115ad16fc2d5cab658ddb4c20d9afccc0010adb67c796143ba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceName", value) # pyright: ignore[reportArgumentType]
+        '''The SourceName of the AwsLogSource resource.'''
+        result = self._values.get("source_name")
+        assert result is not None, "Required property 'source_name' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    @jsii.member(jsii_name="sourceVersion")
     def source_version(self) -> builtins.str:
-        '''The version for a AWS source.'''
-        return typing.cast(builtins.str, jsii.get(self, "sourceVersion"))
+        '''The SourceVersion of the AwsLogSource resource.'''
+        result = self._values.get("source_version")
+        assert result is not None, "Required property 'source_version' is missing"
+        return typing.cast(builtins.str, result)
 
-    @source_version.setter
-    def source_version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2369f0ca541c99625731d8a7db77fa2a9f1346eab63190644c2695d471ddda46)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceVersion", value) # pyright: ignore[reportArgumentType]
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-    @builtins.property
-    @jsii.member(jsii_name="accounts")
-    def accounts(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specify the AWS account information where you want to enable Security Lake.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "accounts"))
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-    @accounts.setter
-    def accounts(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1f564a49d096390f47538b02cc909d2927202e7d6b998b761aaf21810dcf11c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accounts", value) # pyright: ignore[reportArgumentType]
+    def __repr__(self) -> str:
+        return "AwsLogSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -344,7 +257,901 @@ class CfnAwsLogSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.CfnDataLakeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "encryption_configuration": "encryptionConfiguration",
+        "lifecycle_configuration": "lifecycleConfiguration",
+        "meta_store_manager_role_arn": "metaStoreManagerRoleArn",
+        "replication_configuration": "replicationConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDataLakeProps:
+    def __init__(
+        self,
+        *,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLake.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLake.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        meta_store_manager_role_arn: typing.Optional[builtins.str] = None,
+        replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLake.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataLake``.
+
+        :param encryption_configuration: Provides encryption details of the Amazon Security Lake object.
+        :param lifecycle_configuration: You can customize Security Lake to store data in your preferred AWS Regions for your preferred amount of time. Lifecycle management can help you comply with different compliance requirements. For more details, see `Lifecycle management <https://docs.aws.amazon.com//security-lake/latest/userguide/lifecycle-management.html>`_ in the Amazon Security Lake User Guide.
+        :param meta_store_manager_role_arn: The Amazon Resource Name (ARN) used to create and update the AWS Glue table. This table contains partitions generated by the ingestion and normalization of AWS log sources and custom sources.
+        :param replication_configuration: Provides replication details of Amazon Security Lake object.
+        :param tags: An array of objects, one for each tag to associate with the data lake configuration. For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            cfn_data_lake_props = securitylake.CfnDataLakeProps(
+                encryption_configuration=securitylake.CfnDataLake.EncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+                lifecycle_configuration=securitylake.CfnDataLake.LifecycleConfigurationProperty(
+                    expiration=securitylake.CfnDataLake.ExpirationProperty(
+                        days=123
+                    ),
+                    transitions=[securitylake.CfnDataLake.TransitionsProperty(
+                        days=123,
+                        storage_class="storageClass"
+                    )]
+                ),
+                meta_store_manager_role_arn="metaStoreManagerRoleArn",
+                replication_configuration=securitylake.CfnDataLake.ReplicationConfigurationProperty(
+                    regions=["regions"],
+                    role_arn="roleArn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f98044af937b493e98dc654fc28cbeccbd1ee2f339cd00c1cc59056847b8fb37)
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument meta_store_manager_role_arn", value=meta_store_manager_role_arn, expected_type=type_hints["meta_store_manager_role_arn"])
+            check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if lifecycle_configuration is not None:
+            self._values["lifecycle_configuration"] = lifecycle_configuration
+        if meta_store_manager_role_arn is not None:
+            self._values["meta_store_manager_role_arn"] = meta_store_manager_role_arn
+        if replication_configuration is not None:
+            self._values["replication_configuration"] = replication_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.EncryptionConfigurationProperty"]]:
+        '''Provides encryption details of the Amazon Security Lake object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def lifecycle_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.LifecycleConfigurationProperty"]]:
+        '''You can customize Security Lake to store data in your preferred AWS Regions for your preferred amount of time.
+
+        Lifecycle management can help you comply with different compliance requirements. For more details, see `Lifecycle management <https://docs.aws.amazon.com//security-lake/latest/userguide/lifecycle-management.html>`_ in the Amazon Security Lake User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-lifecycleconfiguration
+        '''
+        result = self._values.get("lifecycle_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.LifecycleConfigurationProperty"]], result)
+
+    @builtins.property
+    def meta_store_manager_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) used to create and update the AWS Glue table.
+
+        This table contains partitions generated by the ingestion and normalization of AWS log sources and custom sources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-metastoremanagerrolearn
+        '''
+        result = self._values.get("meta_store_manager_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.ReplicationConfigurationProperty"]]:
+        '''Provides replication details of Amazon Security Lake object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-replicationconfiguration
+        '''
+        result = self._values.get("replication_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataLake.ReplicationConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects, one for each tag to associate with the data lake configuration.
+
+        For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataLakeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.CfnSubscriberNotificationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "notification_configuration": "notificationConfiguration",
+        "subscriber_arn": "subscriberArn",
+    },
+)
+class CfnSubscriberNotificationProps:
+    def __init__(
+        self,
+        *,
+        notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSubscriberNotification.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        subscriber_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnSubscriberNotification``.
+
+        :param notification_configuration: Specify the configurations you want to use for subscriber notification. The subscriber is notified when new data is written to the data lake for sources that the subscriber consumes in Security Lake .
+        :param subscriber_arn: The Amazon Resource Name (ARN) of the Security Lake subscriber.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            # sqs_notification_configuration: Any
+            
+            cfn_subscriber_notification_props = securitylake.CfnSubscriberNotificationProps(
+                notification_configuration=securitylake.CfnSubscriberNotification.NotificationConfigurationProperty(
+                    https_notification_configuration=securitylake.CfnSubscriberNotification.HttpsNotificationConfigurationProperty(
+                        endpoint="endpoint",
+                        target_role_arn="targetRoleArn",
+            
+                        # the properties below are optional
+                        authorization_api_key_name="authorizationApiKeyName",
+                        authorization_api_key_value="authorizationApiKeyValue",
+                        http_method="httpMethod"
+                    ),
+                    sqs_notification_configuration=sqs_notification_configuration
+                ),
+                subscriber_arn="subscriberArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__605e5ae993fc9297bdd697c853feff49b4a8fdf8c1ff96de11276f50e21c6a34)
+            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
+            check_type(argname="argument subscriber_arn", value=subscriber_arn, expected_type=type_hints["subscriber_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notification_configuration": notification_configuration,
+            "subscriber_arn": subscriber_arn,
+        }
+
+    @builtins.property
+    def notification_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSubscriberNotification.NotificationConfigurationProperty"]:
+        '''Specify the configurations you want to use for subscriber notification.
+
+        The subscriber is notified when new data is written to the data lake for sources that the subscriber consumes in Security Lake .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html#cfn-securitylake-subscribernotification-notificationconfiguration
+        '''
+        result = self._values.get("notification_configuration")
+        assert result is not None, "Required property 'notification_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSubscriberNotification.NotificationConfigurationProperty"], result)
+
+    @builtins.property
+    def subscriber_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Security Lake subscriber.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html#cfn-securitylake-subscribernotification-subscriberarn
+        '''
+        result = self._values.get("subscriber_arn")
+        assert result is not None, "Required property 'subscriber_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubscriberNotificationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.CfnSubscriberProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_types": "accessTypes",
+        "data_lake_arn": "dataLakeArn",
+        "sources": "sources",
+        "subscriber_identity": "subscriberIdentity",
+        "subscriber_name": "subscriberName",
+        "subscriber_description": "subscriberDescription",
+        "tags": "tags",
+    },
+)
+class CfnSubscriberProps:
+    def __init__(
+        self,
+        *,
+        access_types: typing.Sequence[builtins.str],
+        data_lake_arn: builtins.str,
+        sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSubscriber.SourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        subscriber_identity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSubscriber.SubscriberIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
+        subscriber_name: builtins.str,
+        subscriber_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSubscriber``.
+
+        :param access_types: You can choose to notify subscribers of new objects with an Amazon Simple Queue Service (Amazon SQS) queue or through messaging to an HTTPS endpoint provided by the subscriber. Subscribers can consume data by directly querying AWS Lake Formation tables in your Amazon S3 bucket through services like Amazon Athena. This subscription type is defined as ``LAKEFORMATION`` .
+        :param data_lake_arn: The Amazon Resource Name (ARN) used to create the data lake.
+        :param sources: Amazon Security Lake supports log and event collection for natively supported AWS services . For more information, see the `Amazon Security Lake User Guide <https://docs.aws.amazon.com//security-lake/latest/userguide/source-management.html>`_ .
+        :param subscriber_identity: The AWS identity used to access your data.
+        :param subscriber_name: The name of your Amazon Security Lake subscriber account.
+        :param subscriber_description: The subscriber descriptions for a subscriber account. The description for a subscriber includes ``subscriberName`` , ``accountID`` , ``externalID`` , and ``subscriberId`` .
+        :param tags: An array of objects, one for each tag to associate with the subscriber. For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            cfn_subscriber_props = securitylake.CfnSubscriberProps(
+                access_types=["accessTypes"],
+                data_lake_arn="dataLakeArn",
+                sources=[securitylake.CfnSubscriber.SourceProperty(
+                    aws_log_source=securitylake.CfnSubscriber.AwsLogSourceProperty(
+                        source_name="sourceName",
+                        source_version="sourceVersion"
+                    ),
+                    custom_log_source=securitylake.CfnSubscriber.CustomLogSourceProperty(
+                        source_name="sourceName",
+                        source_version="sourceVersion"
+                    )
+                )],
+                subscriber_identity=securitylake.CfnSubscriber.SubscriberIdentityProperty(
+                    external_id="externalId",
+                    principal="principal"
+                ),
+                subscriber_name="subscriberName",
+            
+                # the properties below are optional
+                subscriber_description="subscriberDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48b4dffc39d9aeba296ada6ed3b12f7273758033f731faa94da735c639fb2f10)
+            check_type(argname="argument access_types", value=access_types, expected_type=type_hints["access_types"])
+            check_type(argname="argument data_lake_arn", value=data_lake_arn, expected_type=type_hints["data_lake_arn"])
+            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            check_type(argname="argument subscriber_identity", value=subscriber_identity, expected_type=type_hints["subscriber_identity"])
+            check_type(argname="argument subscriber_name", value=subscriber_name, expected_type=type_hints["subscriber_name"])
+            check_type(argname="argument subscriber_description", value=subscriber_description, expected_type=type_hints["subscriber_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_types": access_types,
+            "data_lake_arn": data_lake_arn,
+            "sources": sources,
+            "subscriber_identity": subscriber_identity,
+            "subscriber_name": subscriber_name,
+        }
+        if subscriber_description is not None:
+            self._values["subscriber_description"] = subscriber_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_types(self) -> typing.List[builtins.str]:
+        '''You can choose to notify subscribers of new objects with an Amazon Simple Queue Service (Amazon SQS) queue or through messaging to an HTTPS endpoint provided by the subscriber.
+
+        Subscribers can consume data by directly querying AWS Lake Formation tables in your Amazon S3 bucket through services like Amazon Athena. This subscription type is defined as ``LAKEFORMATION`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-accesstypes
+        '''
+        result = self._values.get("access_types")
+        assert result is not None, "Required property 'access_types' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def data_lake_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) used to create the data lake.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-datalakearn
+        '''
+        result = self._values.get("data_lake_arn")
+        assert result is not None, "Required property 'data_lake_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sources(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSubscriber.SourceProperty"]]]:
+        '''Amazon Security Lake supports log and event collection for natively supported AWS services .
+
+        For more information, see the `Amazon Security Lake User Guide <https://docs.aws.amazon.com//security-lake/latest/userguide/source-management.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-sources
+        '''
+        result = self._values.get("sources")
+        assert result is not None, "Required property 'sources' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSubscriber.SourceProperty"]]], result)
+
+    @builtins.property
+    def subscriber_identity(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSubscriber.SubscriberIdentityProperty"]:
+        '''The AWS identity used to access your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscriberidentity
+        '''
+        result = self._values.get("subscriber_identity")
+        assert result is not None, "Required property 'subscriber_identity' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSubscriber.SubscriberIdentityProperty"], result)
+
+    @builtins.property
+    def subscriber_name(self) -> builtins.str:
+        '''The name of your Amazon Security Lake subscriber account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscribername
+        '''
+        result = self._values.get("subscriber_name")
+        assert result is not None, "Required property 'subscriber_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subscriber_description(self) -> typing.Optional[builtins.str]:
+        '''The subscriber descriptions for a subscriber account.
+
+        The description for a subscriber includes ``subscriberName`` , ``accountID`` , ``externalID`` , and ``subscriberId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscriberdescription
+        '''
+        result = self._values.get("subscriber_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects, one for each tag to associate with the subscriber.
+
+        For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubscriberProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.DataLakeReference",
+    jsii_struct_bases=[],
+    name_mapping={"data_lake_arn": "dataLakeArn"},
+)
+class DataLakeReference:
+    def __init__(self, *, data_lake_arn: builtins.str) -> None:
+        '''A reference to a DataLake resource.
+
+        :param data_lake_arn: The Arn of the DataLake resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            data_lake_reference = securitylake.DataLakeReference(
+                data_lake_arn="dataLakeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9aea5857a4bb4c23833908aa56f3d4989431cd2aad76a6edf67920965009fa7e)
+            check_type(argname="argument data_lake_arn", value=data_lake_arn, expected_type=type_hints["data_lake_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_lake_arn": data_lake_arn,
+        }
+
+    @builtins.property
+    def data_lake_arn(self) -> builtins.str:
+        '''The Arn of the DataLake resource.'''
+        result = self._values.get("data_lake_arn")
+        assert result is not None, "Required property 'data_lake_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataLakeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securitylake.IAwsLogSourceRef")
+class IAwsLogSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AwsLogSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="awsLogSourceRef")
+    def aws_log_source_ref(self) -> AwsLogSourceReference:
+        '''(experimental) A reference to a AwsLogSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAwsLogSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AwsLogSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securitylake.IAwsLogSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="awsLogSourceRef")
+    def aws_log_source_ref(self) -> AwsLogSourceReference:
+        '''(experimental) A reference to a AwsLogSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AwsLogSourceReference, jsii.get(self, "awsLogSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAwsLogSourceRef).__jsii_proxy_class__ = lambda : _IAwsLogSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securitylake.IDataLakeRef")
+class IDataLakeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataLake.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeRef")
+    def data_lake_ref(self) -> DataLakeReference:
+        '''(experimental) A reference to a DataLake resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataLakeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataLake.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securitylake.IDataLakeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeRef")
+    def data_lake_ref(self) -> DataLakeReference:
+        '''(experimental) A reference to a DataLake resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataLakeReference, jsii.get(self, "dataLakeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataLakeRef).__jsii_proxy_class__ = lambda : _IDataLakeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securitylake.ISubscriberNotificationRef")
+class ISubscriberNotificationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriberNotification.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberNotificationRef")
+    def subscriber_notification_ref(self) -> "SubscriberNotificationReference":
+        '''(experimental) A reference to a SubscriberNotification resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubscriberNotificationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubscriberNotification.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securitylake.ISubscriberNotificationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberNotificationRef")
+    def subscriber_notification_ref(self) -> "SubscriberNotificationReference":
+        '''(experimental) A reference to a SubscriberNotification resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubscriberNotificationReference", jsii.get(self, "subscriberNotificationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubscriberNotificationRef).__jsii_proxy_class__ = lambda : _ISubscriberNotificationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securitylake.ISubscriberRef")
+class ISubscriberRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Subscriber.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberRef")
+    def subscriber_ref(self) -> "SubscriberReference":
+        '''(experimental) A reference to a Subscriber resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubscriberRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Subscriber.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securitylake.ISubscriberRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberRef")
+    def subscriber_ref(self) -> "SubscriberReference":
+        '''(experimental) A reference to a Subscriber resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubscriberReference", jsii.get(self, "subscriberRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubscriberRef).__jsii_proxy_class__ = lambda : _ISubscriberRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.SubscriberNotificationReference",
+    jsii_struct_bases=[],
+    name_mapping={"subscriber_arn": "subscriberArn"},
+)
+class SubscriberNotificationReference:
+    def __init__(self, *, subscriber_arn: builtins.str) -> None:
+        '''A reference to a SubscriberNotification resource.
+
+        :param subscriber_arn: The SubscriberArn of the SubscriberNotification resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            subscriber_notification_reference = securitylake.SubscriberNotificationReference(
+                subscriber_arn="subscriberArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d75a3b135c562da54c3c4ff16fa7ebc4cf68e71b7446fa00ba2219d6c98300c1)
+            check_type(argname="argument subscriber_arn", value=subscriber_arn, expected_type=type_hints["subscriber_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscriber_arn": subscriber_arn,
+        }
+
+    @builtins.property
+    def subscriber_arn(self) -> builtins.str:
+        '''The SubscriberArn of the SubscriberNotification resource.'''
+        result = self._values.get("subscriber_arn")
+        assert result is not None, "Required property 'subscriber_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubscriberNotificationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securitylake.SubscriberReference",
+    jsii_struct_bases=[],
+    name_mapping={"subscriber_arn": "subscriberArn"},
+)
+class SubscriberReference:
+    def __init__(self, *, subscriber_arn: builtins.str) -> None:
+        '''A reference to a Subscriber resource.
+
+        :param subscriber_arn: The SubscriberArn of the Subscriber resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securitylake as securitylake
+            
+            subscriber_reference = securitylake.SubscriberReference(
+                subscriber_arn="subscriberArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4f10c71dfe7986b16d6cc4fc41f0de570f0dbea16c5d5cce84fdfb4108883a8)
+            check_type(argname="argument subscriber_arn", value=subscriber_arn, expected_type=type_hints["subscriber_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subscriber_arn": subscriber_arn,
+        }
+
+    @builtins.property
+    def subscriber_arn(self) -> builtins.str:
+        '''The SubscriberArn of the Subscriber resource.'''
+        result = self._values.get("subscriber_arn")
+        assert result is not None, "Required property 'subscriber_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubscriberReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAwsLogSourceRef)
+class CfnAwsLogSource(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securitylake.CfnAwsLogSource",
+):
+    '''Adds a natively supported AWS service as an AWS source.
+
+    Enables source types for member accounts in required AWS Regions, based on the parameters you specify. You can choose any source type in any Region for either accounts that are part of a trusted organization or standalone accounts. Once you add an AWS service as a source, Security Lake starts collecting logs and events from it.
+    .. epigraph::
+
+       If you want to create multiple sources using ``AWS::SecurityLake::AwsLogSource`` , you must use the ``DependsOn`` attribute to create the sources sequentially. With the ``DependsOn`` attribute you can specify that the creation of a specific ``AWSLogSource`` follows another. When you add a ``DependsOn`` attribute to a resource, that resource is created only after the creation of the resource specified in the ``DependsOn`` attribute. For an example, see `Add AWS log sources <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-awslogsource.html#aws-resource-securitylake-awslogsource--examples>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-awslogsource.html
+    :cloudformationResource: AWS::SecurityLake::AwsLogSource
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securitylake as securitylake
+        
+        cfn_aws_log_source = securitylake.CfnAwsLogSource(self, "MyCfnAwsLogSource",
+            data_lake_arn="dataLakeArn",
+            source_name="sourceName",
+            source_version="sourceVersion",
+        
+            # the properties below are optional
+            accounts=["accounts"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        data_lake_arn: builtins.str,
+        source_name: builtins.str,
+        source_version: builtins.str,
+        accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data_lake_arn: The Amazon Resource Name (ARN) used to create the data lake.
+        :param source_name: The name for a AWS source. This must be a Regionally unique value. For the list of sources supported by Amazon Security Lake see `Collecting data from AWS services <https://docs.aws.amazon.com//security-lake/latest/userguide/internal-sources.html>`_ in the Amazon Security Lake User Guide.
+        :param source_version: The version for a AWS source. For more details about source versions supported by Amazon Security Lake see `OCSF source identification <https://docs.aws.amazon.com//security-lake/latest/userguide/open-cybersecurity-schema-framework.html#ocsf-source-identification>`_ in the Amazon Security Lake User Guide. This must be a Regionally unique value.
+        :param accounts: Specify the AWS account information where you want to enable Security Lake.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c67fc1d68d61ef9dead7d443499c1a142da192386efc06474b3758994937de6b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAwsLogSourceProps(
+            data_lake_arn=data_lake_arn,
+            source_name=source_name,
+            source_version=source_version,
+            accounts=accounts,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f493097d98865e82cabeeb80dd31577169140709170903a313d3bc579da5bcb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4b08275c623e99b1c0cca9f7d97a78cf719804d590ae90e5af151255c42753a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="awsLogSourceRef")
+    def aws_log_source_ref(self) -> AwsLogSourceReference:
+        '''A reference to a AwsLogSource resource.'''
+        return typing.cast(AwsLogSourceReference, jsii.get(self, "awsLogSourceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeArn")
+    def data_lake_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) used to create the data lake.'''
+        return typing.cast(builtins.str, jsii.get(self, "dataLakeArn"))
+
+    @data_lake_arn.setter
+    def data_lake_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed09f296c9b906f7011ea796fce3b42122e1c0490eb544e941f5953a5b0f8403)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataLakeArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceName")
+    def source_name(self) -> builtins.str:
+        '''The name for a AWS source.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceName"))
+
+    @source_name.setter
+    def source_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__786699bc5ed670115ad16fc2d5cab658ddb4c20d9afccc0010adb67c796143ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceVersion")
+    def source_version(self) -> builtins.str:
+        '''The version for a AWS source.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceVersion"))
+
+    @source_version.setter
+    def source_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2369f0ca541c99625731d8a7db77fa2a9f1346eab63190644c2695d471ddda46)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="accounts")
+    def accounts(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specify the AWS account information where you want to enable Security Lake.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "accounts"))
+
+    @accounts.setter
+    def accounts(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1f564a49d096390f47538b02cc909d2927202e7d6b998b761aaf21810dcf11c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accounts", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IDataLakeRef, _ITaggableV2_4e6798f8)
 class CfnDataLake(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -486,6 +1293,12 @@ class CfnDataLake(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeRef")
+    def data_lake_ref(self) -> DataLakeReference:
+        '''A reference to a DataLake resource.'''
+        return typing.cast(DataLakeReference, jsii.get(self, "dataLakeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -912,157 +1725,7 @@ class CfnDataLake(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securitylake.CfnDataLakeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "encryption_configuration": "encryptionConfiguration",
-        "lifecycle_configuration": "lifecycleConfiguration",
-        "meta_store_manager_role_arn": "metaStoreManagerRoleArn",
-        "replication_configuration": "replicationConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnDataLakeProps:
-    def __init__(
-        self,
-        *,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        meta_store_manager_role_arn: typing.Optional[builtins.str] = None,
-        replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataLake``.
-
-        :param encryption_configuration: Provides encryption details of the Amazon Security Lake object.
-        :param lifecycle_configuration: You can customize Security Lake to store data in your preferred AWS Regions for your preferred amount of time. Lifecycle management can help you comply with different compliance requirements. For more details, see `Lifecycle management <https://docs.aws.amazon.com//security-lake/latest/userguide/lifecycle-management.html>`_ in the Amazon Security Lake User Guide.
-        :param meta_store_manager_role_arn: The Amazon Resource Name (ARN) used to create and update the AWS Glue table. This table contains partitions generated by the ingestion and normalization of AWS log sources and custom sources.
-        :param replication_configuration: Provides replication details of Amazon Security Lake object.
-        :param tags: An array of objects, one for each tag to associate with the data lake configuration. For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securitylake as securitylake
-            
-            cfn_data_lake_props = securitylake.CfnDataLakeProps(
-                encryption_configuration=securitylake.CfnDataLake.EncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-                lifecycle_configuration=securitylake.CfnDataLake.LifecycleConfigurationProperty(
-                    expiration=securitylake.CfnDataLake.ExpirationProperty(
-                        days=123
-                    ),
-                    transitions=[securitylake.CfnDataLake.TransitionsProperty(
-                        days=123,
-                        storage_class="storageClass"
-                    )]
-                ),
-                meta_store_manager_role_arn="metaStoreManagerRoleArn",
-                replication_configuration=securitylake.CfnDataLake.ReplicationConfigurationProperty(
-                    regions=["regions"],
-                    role_arn="roleArn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f98044af937b493e98dc654fc28cbeccbd1ee2f339cd00c1cc59056847b8fb37)
-            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
-            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
-            check_type(argname="argument meta_store_manager_role_arn", value=meta_store_manager_role_arn, expected_type=type_hints["meta_store_manager_role_arn"])
-            check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if encryption_configuration is not None:
-            self._values["encryption_configuration"] = encryption_configuration
-        if lifecycle_configuration is not None:
-            self._values["lifecycle_configuration"] = lifecycle_configuration
-        if meta_store_manager_role_arn is not None:
-            self._values["meta_store_manager_role_arn"] = meta_store_manager_role_arn
-        if replication_configuration is not None:
-            self._values["replication_configuration"] = replication_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.EncryptionConfigurationProperty]]:
-        '''Provides encryption details of the Amazon Security Lake object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-encryptionconfiguration
-        '''
-        result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.EncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def lifecycle_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.LifecycleConfigurationProperty]]:
-        '''You can customize Security Lake to store data in your preferred AWS Regions for your preferred amount of time.
-
-        Lifecycle management can help you comply with different compliance requirements. For more details, see `Lifecycle management <https://docs.aws.amazon.com//security-lake/latest/userguide/lifecycle-management.html>`_ in the Amazon Security Lake User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-lifecycleconfiguration
-        '''
-        result = self._values.get("lifecycle_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.LifecycleConfigurationProperty]], result)
-
-    @builtins.property
-    def meta_store_manager_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) used to create and update the AWS Glue table.
-
-        This table contains partitions generated by the ingestion and normalization of AWS log sources and custom sources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-metastoremanagerrolearn
-        '''
-        result = self._values.get("meta_store_manager_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.ReplicationConfigurationProperty]]:
-        '''Provides replication details of Amazon Security Lake object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-replicationconfiguration
-        '''
-        result = self._values.get("replication_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataLake.ReplicationConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of objects, one for each tag to associate with the data lake configuration.
-
-        For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-datalake.html#cfn-securitylake-datalake-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataLakeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISubscriberRef, _ITaggableV2_4e6798f8)
 class CfnSubscriber(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1235,6 +1898,12 @@ class CfnSubscriber(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberRef")
+    def subscriber_ref(self) -> SubscriberReference:
+        '''A reference to a Subscriber resource.'''
+        return typing.cast(SubscriberReference, jsii.get(self, "subscriberRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accessTypes")
@@ -1642,7 +2311,7 @@ class CfnSubscriber(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISubscriberNotificationRef)
 class CfnSubscriberNotification(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1749,6 +2418,12 @@ class CfnSubscriberNotification(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="subscriberNotificationRef")
+    def subscriber_notification_ref(self) -> SubscriberNotificationReference:
+        '''A reference to a SubscriberNotification resource.'''
+        return typing.cast(SubscriberNotificationReference, jsii.get(self, "subscriberNotificationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationConfiguration")
@@ -1999,283 +2674,8 @@ class CfnSubscriberNotification(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securitylake.CfnSubscriberNotificationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "notification_configuration": "notificationConfiguration",
-        "subscriber_arn": "subscriberArn",
-    },
-)
-class CfnSubscriberNotificationProps:
-    def __init__(
-        self,
-        *,
-        notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriberNotification.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        subscriber_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnSubscriberNotification``.
-
-        :param notification_configuration: Specify the configurations you want to use for subscriber notification. The subscriber is notified when new data is written to the data lake for sources that the subscriber consumes in Security Lake .
-        :param subscriber_arn: The Amazon Resource Name (ARN) of the Security Lake subscriber.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securitylake as securitylake
-            
-            # sqs_notification_configuration: Any
-            
-            cfn_subscriber_notification_props = securitylake.CfnSubscriberNotificationProps(
-                notification_configuration=securitylake.CfnSubscriberNotification.NotificationConfigurationProperty(
-                    https_notification_configuration=securitylake.CfnSubscriberNotification.HttpsNotificationConfigurationProperty(
-                        endpoint="endpoint",
-                        target_role_arn="targetRoleArn",
-            
-                        # the properties below are optional
-                        authorization_api_key_name="authorizationApiKeyName",
-                        authorization_api_key_value="authorizationApiKeyValue",
-                        http_method="httpMethod"
-                    ),
-                    sqs_notification_configuration=sqs_notification_configuration
-                ),
-                subscriber_arn="subscriberArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605e5ae993fc9297bdd697c853feff49b4a8fdf8c1ff96de11276f50e21c6a34)
-            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
-            check_type(argname="argument subscriber_arn", value=subscriber_arn, expected_type=type_hints["subscriber_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "notification_configuration": notification_configuration,
-            "subscriber_arn": subscriber_arn,
-        }
-
-    @builtins.property
-    def notification_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSubscriberNotification.NotificationConfigurationProperty]:
-        '''Specify the configurations you want to use for subscriber notification.
-
-        The subscriber is notified when new data is written to the data lake for sources that the subscriber consumes in Security Lake .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html#cfn-securitylake-subscribernotification-notificationconfiguration
-        '''
-        result = self._values.get("notification_configuration")
-        assert result is not None, "Required property 'notification_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSubscriberNotification.NotificationConfigurationProperty], result)
-
-    @builtins.property
-    def subscriber_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Security Lake subscriber.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscribernotification.html#cfn-securitylake-subscribernotification-subscriberarn
-        '''
-        result = self._values.get("subscriber_arn")
-        assert result is not None, "Required property 'subscriber_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubscriberNotificationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securitylake.CfnSubscriberProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_types": "accessTypes",
-        "data_lake_arn": "dataLakeArn",
-        "sources": "sources",
-        "subscriber_identity": "subscriberIdentity",
-        "subscriber_name": "subscriberName",
-        "subscriber_description": "subscriberDescription",
-        "tags": "tags",
-    },
-)
-class CfnSubscriberProps:
-    def __init__(
-        self,
-        *,
-        access_types: typing.Sequence[builtins.str],
-        data_lake_arn: builtins.str,
-        sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        subscriber_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SubscriberIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
-        subscriber_name: builtins.str,
-        subscriber_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSubscriber``.
-
-        :param access_types: You can choose to notify subscribers of new objects with an Amazon Simple Queue Service (Amazon SQS) queue or through messaging to an HTTPS endpoint provided by the subscriber. Subscribers can consume data by directly querying AWS Lake Formation tables in your Amazon S3 bucket through services like Amazon Athena. This subscription type is defined as ``LAKEFORMATION`` .
-        :param data_lake_arn: The Amazon Resource Name (ARN) used to create the data lake.
-        :param sources: Amazon Security Lake supports log and event collection for natively supported AWS services . For more information, see the `Amazon Security Lake User Guide <https://docs.aws.amazon.com//security-lake/latest/userguide/source-management.html>`_ .
-        :param subscriber_identity: The AWS identity used to access your data.
-        :param subscriber_name: The name of your Amazon Security Lake subscriber account.
-        :param subscriber_description: The subscriber descriptions for a subscriber account. The description for a subscriber includes ``subscriberName`` , ``accountID`` , ``externalID`` , and ``subscriberId`` .
-        :param tags: An array of objects, one for each tag to associate with the subscriber. For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securitylake as securitylake
-            
-            cfn_subscriber_props = securitylake.CfnSubscriberProps(
-                access_types=["accessTypes"],
-                data_lake_arn="dataLakeArn",
-                sources=[securitylake.CfnSubscriber.SourceProperty(
-                    aws_log_source=securitylake.CfnSubscriber.AwsLogSourceProperty(
-                        source_name="sourceName",
-                        source_version="sourceVersion"
-                    ),
-                    custom_log_source=securitylake.CfnSubscriber.CustomLogSourceProperty(
-                        source_name="sourceName",
-                        source_version="sourceVersion"
-                    )
-                )],
-                subscriber_identity=securitylake.CfnSubscriber.SubscriberIdentityProperty(
-                    external_id="externalId",
-                    principal="principal"
-                ),
-                subscriber_name="subscriberName",
-            
-                # the properties below are optional
-                subscriber_description="subscriberDescription",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48b4dffc39d9aeba296ada6ed3b12f7273758033f731faa94da735c639fb2f10)
-            check_type(argname="argument access_types", value=access_types, expected_type=type_hints["access_types"])
-            check_type(argname="argument data_lake_arn", value=data_lake_arn, expected_type=type_hints["data_lake_arn"])
-            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
-            check_type(argname="argument subscriber_identity", value=subscriber_identity, expected_type=type_hints["subscriber_identity"])
-            check_type(argname="argument subscriber_name", value=subscriber_name, expected_type=type_hints["subscriber_name"])
-            check_type(argname="argument subscriber_description", value=subscriber_description, expected_type=type_hints["subscriber_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_types": access_types,
-            "data_lake_arn": data_lake_arn,
-            "sources": sources,
-            "subscriber_identity": subscriber_identity,
-            "subscriber_name": subscriber_name,
-        }
-        if subscriber_description is not None:
-            self._values["subscriber_description"] = subscriber_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_types(self) -> typing.List[builtins.str]:
-        '''You can choose to notify subscribers of new objects with an Amazon Simple Queue Service (Amazon SQS) queue or through messaging to an HTTPS endpoint provided by the subscriber.
-
-        Subscribers can consume data by directly querying AWS Lake Formation tables in your Amazon S3 bucket through services like Amazon Athena. This subscription type is defined as ``LAKEFORMATION`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-accesstypes
-        '''
-        result = self._values.get("access_types")
-        assert result is not None, "Required property 'access_types' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def data_lake_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) used to create the data lake.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-datalakearn
-        '''
-        result = self._values.get("data_lake_arn")
-        assert result is not None, "Required property 'data_lake_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sources(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSubscriber.SourceProperty]]]:
-        '''Amazon Security Lake supports log and event collection for natively supported AWS services .
-
-        For more information, see the `Amazon Security Lake User Guide <https://docs.aws.amazon.com//security-lake/latest/userguide/source-management.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-sources
-        '''
-        result = self._values.get("sources")
-        assert result is not None, "Required property 'sources' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSubscriber.SourceProperty]]], result)
-
-    @builtins.property
-    def subscriber_identity(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSubscriber.SubscriberIdentityProperty]:
-        '''The AWS identity used to access your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscriberidentity
-        '''
-        result = self._values.get("subscriber_identity")
-        assert result is not None, "Required property 'subscriber_identity' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSubscriber.SubscriberIdentityProperty], result)
-
-    @builtins.property
-    def subscriber_name(self) -> builtins.str:
-        '''The name of your Amazon Security Lake subscriber account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscribername
-        '''
-        result = self._values.get("subscriber_name")
-        assert result is not None, "Required property 'subscriber_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subscriber_description(self) -> typing.Optional[builtins.str]:
-        '''The subscriber descriptions for a subscriber account.
-
-        The description for a subscriber includes ``subscriberName`` , ``accountID`` , ``externalID`` , and ``subscriberId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-subscriberdescription
-        '''
-        result = self._values.get("subscriber_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of objects, one for each tag to associate with the subscriber.
-
-        For each tag, you must specify both a tag key and a tag value. A tag value cannot be null, but it can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securitylake-subscriber.html#cfn-securitylake-subscriber-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubscriberProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AwsLogSourceReference",
     "CfnAwsLogSource",
     "CfnAwsLogSourceProps",
     "CfnDataLake",
@@ -2284,9 +2684,87 @@ __all__ = [
     "CfnSubscriberNotification",
     "CfnSubscriberNotificationProps",
     "CfnSubscriberProps",
+    "DataLakeReference",
+    "IAwsLogSourceRef",
+    "IDataLakeRef",
+    "ISubscriberNotificationRef",
+    "ISubscriberRef",
+    "SubscriberNotificationReference",
+    "SubscriberReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ef4476cf81a70054b77e8443b1a1881a6bbfc578fada98ef15c4213f6e9ba0e6(
+    *,
+    source_name: builtins.str,
+    source_version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56ae11383caeefb7587043503a4fd999d42e30184765bd5e736dcae60c5b3b94(
+    *,
+    data_lake_arn: builtins.str,
+    source_name: builtins.str,
+    source_version: builtins.str,
+    accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f98044af937b493e98dc654fc28cbeccbd1ee2f339cd00c1cc59056847b8fb37(
+    *,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    meta_store_manager_role_arn: typing.Optional[builtins.str] = None,
+    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__605e5ae993fc9297bdd697c853feff49b4a8fdf8c1ff96de11276f50e21c6a34(
+    *,
+    notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriberNotification.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    subscriber_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48b4dffc39d9aeba296ada6ed3b12f7273758033f731faa94da735c639fb2f10(
+    *,
+    access_types: typing.Sequence[builtins.str],
+    data_lake_arn: builtins.str,
+    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    subscriber_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SubscriberIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
+    subscriber_name: builtins.str,
+    subscriber_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9aea5857a4bb4c23833908aa56f3d4989431cd2aad76a6edf67920965009fa7e(
+    *,
+    data_lake_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d75a3b135c562da54c3c4ff16fa7ebc4cf68e71b7446fa00ba2219d6c98300c1(
+    *,
+    subscriber_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4f10c71dfe7986b16d6cc4fc41f0de570f0dbea16c5d5cce84fdfb4108883a8(
+    *,
+    subscriber_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c67fc1d68d61ef9dead7d443499c1a142da192386efc06474b3758994937de6b(
     scope: _constructs_77d1e7e8.Construct,
@@ -2332,16 +2810,6 @@ def _typecheckingstub__2369f0ca541c99625731d8a7db77fa2a9f1346eab63190644c2695d47
 
 def _typecheckingstub__a1f564a49d096390f47538b02cc909d2927202e7d6b998b761aaf21810dcf11c(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__56ae11383caeefb7587043503a4fd999d42e30184765bd5e736dcae60c5b3b94(
-    *,
-    data_lake_arn: builtins.str,
-    source_name: builtins.str,
-    source_version: builtins.str,
-    accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2435,17 +2903,6 @@ def _typecheckingstub__aaac67133f980ed118f75aa7447b8e2c8f6a4e8d8fce97491e407d04b
     *,
     days: typing.Optional[jsii.Number] = None,
     storage_class: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f98044af937b493e98dc654fc28cbeccbd1ee2f339cd00c1cc59056847b8fb37(
-    *,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    meta_store_manager_role_arn: typing.Optional[builtins.str] = None,
-    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLake.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2600,27 +3057,6 @@ def _typecheckingstub__eda053f3e120e20df5120b1a8032bb559c0c4d069b5d67b0576d442df
     *,
     https_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriberNotification.HttpsNotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sqs_notification_configuration: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__605e5ae993fc9297bdd697c853feff49b4a8fdf8c1ff96de11276f50e21c6a34(
-    *,
-    notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriberNotification.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    subscriber_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__48b4dffc39d9aeba296ada6ed3b12f7273758033f731faa94da735c639fb2f10(
-    *,
-    access_types: typing.Sequence[builtins.str],
-    data_lake_arn: builtins.str,
-    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    subscriber_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSubscriber.SubscriberIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
-    subscriber_name: builtins.str,
-    subscriber_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

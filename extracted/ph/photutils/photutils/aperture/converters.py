@@ -1,7 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module defines tools to convert `regions.Region` objects to
-Aperture objects.
+Define tools to convert between `regions.Region` and Aperture objects
+and between `shapely.geometry.Polygon` and `regions.PolygonRegion`
+objects.
 """
 
 import astropy.units as u
@@ -113,7 +114,8 @@ def region_to_aperture(region):
                          RectangleSkyRegion, Region)
 
     if not isinstance(region, Region):
-        raise TypeError('Input region must be a Region object')
+        msg = 'Input region must be a Region object'
+        raise TypeError(msg)
 
     if isinstance(region, CirclePixelRegion):
         aperture = CircularAperture(region.center.xy, region.radius)
@@ -178,8 +180,9 @@ def region_to_aperture(region):
             theta=(region.angle - (90 * u.deg)))
 
     else:
-        raise TypeError(f'Cannot convert {region.__class__.__name__!r} to '
-                        'an Aperture object')
+        msg = (f'Cannot convert {region.__class__.__name__!r} to an '
+               'Aperture object')
+        raise TypeError(msg)
 
     return aperture
 
@@ -268,7 +271,8 @@ def aperture_to_region(aperture):
     from regions import Regions
 
     if not isinstance(aperture, Aperture):
-        raise TypeError('Input aperture must be an Aperture object')
+        msg = 'Input aperture must be an Aperture object'
+        raise TypeError(msg)
 
     if aperture.shape == ():
         return _scalar_aperture_to_region(aperture)
@@ -303,7 +307,7 @@ def _scalar_aperture_to_region(aperture):
                          RectangleSkyRegion)
 
     if aperture.shape != ():
-        msg = 'Only scalar (single-position) apertures are supported.'
+        msg = 'Only scalar (single-position) apertures are supported'
         raise ValueError(msg)
 
     if isinstance(aperture, CircularAperture):
@@ -369,36 +373,41 @@ def _scalar_aperture_to_region(aperture):
             angle=(aperture.theta + (90 * u.deg)))
 
     else:  # pragma: no cover
-        raise TypeError('Cannot convert input aperture to a Region object')
+        msg = 'Cannot convert input aperture to a Region object'
+        raise TypeError(msg)
 
     return region
 
 
-def _shapely_polygon_to_region(polygon):
+def _shapely_polygon_to_region(polygon, label=None):
     """
     Convert a `shapely.geometry.polygon.Polygon` object to a
     `regions.PolygonPixelRegion` object.
 
     Parameters
     ----------
-    polygon : `shapely.geometry.polygon.Polygon`
-        A `shapely.geometry.polygon.Polygon` object.
+    polygon : `shapely.geometry.polygon.Polygon` \
+            or `shapely.geometry.MultiPolygon`
+        A Shapely Polygon or MultiPolygon object.
+
+    label : str or `None`, optional
+        A label for the region. If provided, it will be stored in the
+        meta attribute of the returned `regions.PolygonPixelRegion`
+        objects.
 
     Returns
     -------
-    region : `regions.PolygonPixelRegion`
-        An equivalent `regions.PolygonPixelRegion` object.
-
-    Raises
-    ------
-    `TypeError`
-        The given ``polygon`` is not a `shapely.geometry.polygon.Polygon`
-        object.
+    result : list of `regions.PolygonPixelRegion` or `regions.Regions`
+        If the polygon is a `shapely.geometry.polygon.Polygon`,
+        then a `regions.PolygonPixelRegion` object is returned. If
+        the polygon is a `shapely.geometry.MultiPolygon`, then a
+        `regions.Regions` object is returned containing one or more
+        `regions.PolygonPixelRegion` objects.
 
     Notes
     -----
-    The `regions.PolygonPixelRegion` does not include the last
-    Shapely vertex, which is the same as the first vertex. The
+    The `regions.PolygonPixelRegion` object does not include the
+    last Shapely vertex, which is the same as the first vertex. The
     `regions.PolygonPixelRegion` does not need to include the last
     vertex to close the polygon.
 
@@ -411,11 +420,20 @@ def _shapely_polygon_to_region(polygon):
     >>> region
     <PolygonPixelRegion(vertices=PixCoord(x=[1. 3. 2. 1.], y=[1. 1. 4. 2.]))>
     """
-    from regions import PixCoord, PolygonPixelRegion
-    from shapely.geometry import Polygon
+    from regions import PixCoord, PolygonPixelRegion, Regions
+    from shapely.geometry import MultiPolygon, Polygon
 
-    if not isinstance(polygon, Polygon):
-        raise TypeError('Input polygon must be a shapely Polygon object')
+    meta = {'label': label} if label is not None else None
 
-    x, y = np.transpose(polygon.exterior.coords[:-1])
-    return PolygonPixelRegion(vertices=PixCoord(x=x, y=y))
+    if isinstance(polygon, Polygon):
+        x, y = np.transpose(polygon.exterior.coords[:-1])
+        return PolygonPixelRegion(vertices=PixCoord(x=x, y=y), meta=meta)
+    if isinstance(polygon, MultiPolygon):
+        geoms = []
+        for poly in polygon.geoms:
+            x, y = np.transpose(poly.exterior.coords[:-1])
+            geoms.append(PolygonPixelRegion(vertices=PixCoord(x=x, y=y),
+                                            meta=meta))
+        return Regions(geoms)
+    msg = 'Input must be a Polygon or MultiPolygon object'
+    raise TypeError(msg)

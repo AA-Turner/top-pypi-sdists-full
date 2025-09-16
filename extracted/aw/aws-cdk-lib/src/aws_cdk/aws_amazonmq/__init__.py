@@ -68,7 +68,1007 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.BrokerReference",
+    jsii_struct_bases=[],
+    name_mapping={"broker_arn": "brokerArn", "broker_id": "brokerId"},
+)
+class BrokerReference:
+    def __init__(self, *, broker_arn: builtins.str, broker_id: builtins.str) -> None:
+        '''A reference to a Broker resource.
+
+        :param broker_arn: The ARN of the Broker resource.
+        :param broker_id: The Id of the Broker resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            broker_reference = amazonmq.BrokerReference(
+                broker_arn="brokerArn",
+                broker_id="brokerId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ab3a994cb93297dc35dfbba1f61a21153b201714aa73d617a07da805c4a27f0)
+            check_type(argname="argument broker_arn", value=broker_arn, expected_type=type_hints["broker_arn"])
+            check_type(argname="argument broker_id", value=broker_id, expected_type=type_hints["broker_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "broker_arn": broker_arn,
+            "broker_id": broker_id,
+        }
+
+    @builtins.property
+    def broker_arn(self) -> builtins.str:
+        '''The ARN of the Broker resource.'''
+        result = self._values.get("broker_arn")
+        assert result is not None, "Required property 'broker_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def broker_id(self) -> builtins.str:
+        '''The Id of the Broker resource.'''
+        result = self._values.get("broker_id")
+        assert result is not None, "Required property 'broker_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BrokerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.CfnBrokerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "broker_name": "brokerName",
+        "deployment_mode": "deploymentMode",
+        "engine_type": "engineType",
+        "host_instance_type": "hostInstanceType",
+        "publicly_accessible": "publiclyAccessible",
+        "users": "users",
+        "authentication_strategy": "authenticationStrategy",
+        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
+        "configuration": "configuration",
+        "data_replication_mode": "dataReplicationMode",
+        "data_replication_primary_broker_arn": "dataReplicationPrimaryBrokerArn",
+        "encryption_options": "encryptionOptions",
+        "engine_version": "engineVersion",
+        "ldap_server_metadata": "ldapServerMetadata",
+        "logs": "logs",
+        "maintenance_window_start_time": "maintenanceWindowStartTime",
+        "security_groups": "securityGroups",
+        "storage_type": "storageType",
+        "subnet_ids": "subnetIds",
+        "tags": "tags",
+    },
+)
+class CfnBrokerProps:
+    def __init__(
+        self,
+        *,
+        broker_name: builtins.str,
+        deployment_mode: builtins.str,
+        engine_type: builtins.str,
+        host_instance_type: builtins.str,
+        publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        users: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.UserProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        authentication_strategy: typing.Optional[builtins.str] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_replication_mode: typing.Optional[builtins.str] = None,
+        data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
+        encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.EncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.LdapServerMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.LogListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        storage_type: typing.Optional[builtins.str] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnBroker.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBroker``.
+
+        :param broker_name: The name of the broker. This value must be unique in your AWS account , 1-50 characters long, must contain only letters, numbers, dashes, and underscores, and must not contain white spaces, brackets, wildcard characters, or special characters. .. epigraph:: Do not add personally identifiable information (PII) or other confidential or sensitive information in broker names. Broker names are accessible to other AWS services, including C CloudWatch Logs . Broker names are not intended to be used for private or sensitive data.
+        :param deployment_mode: The deployment mode of the broker. Available values:. - ``SINGLE_INSTANCE`` - ``ACTIVE_STANDBY_MULTI_AZ`` - ``CLUSTER_MULTI_AZ``
+        :param engine_type: The type of broker engine. Currently, Amazon MQ supports ``ACTIVEMQ`` and ``RABBITMQ`` .
+        :param host_instance_type: The broker's instance type.
+        :param publicly_accessible: Enables connections from applications outside of the VPC that hosts the broker's subnets.
+        :param users: The list of broker users (persons or applications) who can access queues and topics. For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent RabbitMQ users are created by via the RabbitMQ web console or by using the RabbitMQ management API.
+        :param authentication_strategy: Optional. The authentication strategy used to secure the broker. The default is ``SIMPLE`` .
+        :param auto_minor_version_upgrade: Enables automatic upgrades to new minor versions for brokers, as new broker engine versions are released and supported by Amazon MQ. Automatic upgrades occur during the scheduled maintenance window of the broker or after a manual broker reboot.
+        :param configuration: A list of information about the configuration. Does not apply to RabbitMQ brokers.
+        :param data_replication_mode: Defines whether this broker is a part of a data replication pair.
+        :param data_replication_primary_broker_arn: The Amazon Resource Name (ARN) of the primary broker that is used to replicate data from in a data replication pair, and is applied to the replica broker. Must be set when dataReplicationMode is set to CRDR.
+        :param encryption_options: Encryption options for the broker. Does not apply to RabbitMQ brokers.
+        :param engine_version: The version of the broker engine. For a list of supported engine versions, see `Engine <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_ in the *Amazon MQ Developer Guide* .
+        :param ldap_server_metadata: Optional. The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
+        :param logs: Enables Amazon CloudWatch logging for brokers.
+        :param maintenance_window_start_time: The scheduled time period relative to UTC during which Amazon MQ begins to apply pending updates or patches to the broker.
+        :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
+        :param storage_type: The broker's storage type.
+        :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment (ACTIVEMQ) requires two subnets. A CLUSTER_MULTI_AZ deployment (RABBITMQ) has no subnet requirements when deployed with public accessibility, deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a shared VPC for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC enpoints in VPCs that are not owned by your AWS account .
+        :param tags: An array of key-value pairs. For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            cfn_broker_props = amazonmq.CfnBrokerProps(
+                broker_name="brokerName",
+                deployment_mode="deploymentMode",
+                engine_type="engineType",
+                host_instance_type="hostInstanceType",
+                publicly_accessible=False,
+                users=[amazonmq.CfnBroker.UserProperty(
+                    password="password",
+                    username="username",
+            
+                    # the properties below are optional
+                    console_access=False,
+                    groups=["groups"],
+                    replication_user=False
+                )],
+            
+                # the properties below are optional
+                authentication_strategy="authenticationStrategy",
+                auto_minor_version_upgrade=False,
+                configuration=amazonmq.CfnBroker.ConfigurationIdProperty(
+                    id="id",
+                    revision=123
+                ),
+                data_replication_mode="dataReplicationMode",
+                data_replication_primary_broker_arn="dataReplicationPrimaryBrokerArn",
+                encryption_options=amazonmq.CfnBroker.EncryptionOptionsProperty(
+                    use_aws_owned_key=False,
+            
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                ),
+                engine_version="engineVersion",
+                ldap_server_metadata=amazonmq.CfnBroker.LdapServerMetadataProperty(
+                    hosts=["hosts"],
+                    role_base="roleBase",
+                    role_search_matching="roleSearchMatching",
+                    service_account_password="serviceAccountPassword",
+                    service_account_username="serviceAccountUsername",
+                    user_base="userBase",
+                    user_search_matching="userSearchMatching",
+            
+                    # the properties below are optional
+                    role_name="roleName",
+                    role_search_subtree=False,
+                    user_role_name="userRoleName",
+                    user_search_subtree=False
+                ),
+                logs=amazonmq.CfnBroker.LogListProperty(
+                    audit=False,
+                    general=False
+                ),
+                maintenance_window_start_time=amazonmq.CfnBroker.MaintenanceWindowProperty(
+                    day_of_week="dayOfWeek",
+                    time_of_day="timeOfDay",
+                    time_zone="timeZone"
+                ),
+                security_groups=["securityGroups"],
+                storage_type="storageType",
+                subnet_ids=["subnetIds"],
+                tags=[amazonmq.CfnBroker.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c)
+            check_type(argname="argument broker_name", value=broker_name, expected_type=type_hints["broker_name"])
+            check_type(argname="argument deployment_mode", value=deployment_mode, expected_type=type_hints["deployment_mode"])
+            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
+            check_type(argname="argument host_instance_type", value=host_instance_type, expected_type=type_hints["host_instance_type"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument users", value=users, expected_type=type_hints["users"])
+            check_type(argname="argument authentication_strategy", value=authentication_strategy, expected_type=type_hints["authentication_strategy"])
+            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument data_replication_mode", value=data_replication_mode, expected_type=type_hints["data_replication_mode"])
+            check_type(argname="argument data_replication_primary_broker_arn", value=data_replication_primary_broker_arn, expected_type=type_hints["data_replication_primary_broker_arn"])
+            check_type(argname="argument encryption_options", value=encryption_options, expected_type=type_hints["encryption_options"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument ldap_server_metadata", value=ldap_server_metadata, expected_type=type_hints["ldap_server_metadata"])
+            check_type(argname="argument logs", value=logs, expected_type=type_hints["logs"])
+            check_type(argname="argument maintenance_window_start_time", value=maintenance_window_start_time, expected_type=type_hints["maintenance_window_start_time"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "broker_name": broker_name,
+            "deployment_mode": deployment_mode,
+            "engine_type": engine_type,
+            "host_instance_type": host_instance_type,
+            "publicly_accessible": publicly_accessible,
+            "users": users,
+        }
+        if authentication_strategy is not None:
+            self._values["authentication_strategy"] = authentication_strategy
+        if auto_minor_version_upgrade is not None:
+            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
+        if configuration is not None:
+            self._values["configuration"] = configuration
+        if data_replication_mode is not None:
+            self._values["data_replication_mode"] = data_replication_mode
+        if data_replication_primary_broker_arn is not None:
+            self._values["data_replication_primary_broker_arn"] = data_replication_primary_broker_arn
+        if encryption_options is not None:
+            self._values["encryption_options"] = encryption_options
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if ldap_server_metadata is not None:
+            self._values["ldap_server_metadata"] = ldap_server_metadata
+        if logs is not None:
+            self._values["logs"] = logs
+        if maintenance_window_start_time is not None:
+            self._values["maintenance_window_start_time"] = maintenance_window_start_time
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if storage_type is not None:
+            self._values["storage_type"] = storage_type
+        if subnet_ids is not None:
+            self._values["subnet_ids"] = subnet_ids
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def broker_name(self) -> builtins.str:
+        '''The name of the broker.
+
+        This value must be unique in your AWS account , 1-50 characters long, must contain only letters, numbers, dashes, and underscores, and must not contain white spaces, brackets, wildcard characters, or special characters.
+        .. epigraph::
+
+           Do not add personally identifiable information (PII) or other confidential or sensitive information in broker names. Broker names are accessible to other AWS services, including C CloudWatch Logs . Broker names are not intended to be used for private or sensitive data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-brokername
+        '''
+        result = self._values.get("broker_name")
+        assert result is not None, "Required property 'broker_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def deployment_mode(self) -> builtins.str:
+        '''The deployment mode of the broker. Available values:.
+
+        - ``SINGLE_INSTANCE``
+        - ``ACTIVE_STANDBY_MULTI_AZ``
+        - ``CLUSTER_MULTI_AZ``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-deploymentmode
+        '''
+        result = self._values.get("deployment_mode")
+        assert result is not None, "Required property 'deployment_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def engine_type(self) -> builtins.str:
+        '''The type of broker engine.
+
+        Currently, Amazon MQ supports ``ACTIVEMQ`` and ``RABBITMQ`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-enginetype
+        '''
+        result = self._values.get("engine_type")
+        assert result is not None, "Required property 'engine_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def host_instance_type(self) -> builtins.str:
+        '''The broker's instance type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-hostinstancetype
+        '''
+        result = self._values.get("host_instance_type")
+        assert result is not None, "Required property 'host_instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def publicly_accessible(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Enables connections from applications outside of the VPC that hosts the broker's subnets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        assert result is not None, "Required property 'publicly_accessible' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def users(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBroker.UserProperty"]]]:
+        '''The list of broker users (persons or applications) who can access queues and topics.
+
+        For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent RabbitMQ users are created by via the RabbitMQ web console or by using the RabbitMQ management API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-users
+        '''
+        result = self._values.get("users")
+        assert result is not None, "Required property 'users' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBroker.UserProperty"]]], result)
+
+    @builtins.property
+    def authentication_strategy(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        The authentication strategy used to secure the broker. The default is ``SIMPLE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-authenticationstrategy
+        '''
+        result = self._values.get("authentication_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_minor_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables automatic upgrades to new minor versions for brokers, as new broker engine versions are released and supported by Amazon MQ.
+
+        Automatic upgrades occur during the scheduled maintenance window of the broker or after a manual broker reboot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-autominorversionupgrade
+        '''
+        result = self._values.get("auto_minor_version_upgrade")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.ConfigurationIdProperty"]]:
+        '''A list of information about the configuration.
+
+        Does not apply to RabbitMQ brokers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-configuration
+        '''
+        result = self._values.get("configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.ConfigurationIdProperty"]], result)
+
+    @builtins.property
+    def data_replication_mode(self) -> typing.Optional[builtins.str]:
+        '''Defines whether this broker is a part of a data replication pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-datareplicationmode
+        '''
+        result = self._values.get("data_replication_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_replication_primary_broker_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the primary broker that is used to replicate data from in a data replication pair, and is applied to the replica broker.
+
+        Must be set when dataReplicationMode is set to CRDR.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-datareplicationprimarybrokerarn
+        '''
+        result = self._values.get("data_replication_primary_broker_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.EncryptionOptionsProperty"]]:
+        '''Encryption options for the broker.
+
+        Does not apply to RabbitMQ brokers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-encryptionoptions
+        '''
+        result = self._values.get("encryption_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.EncryptionOptionsProperty"]], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the broker engine.
+
+        For a list of supported engine versions, see `Engine <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_ in the *Amazon MQ Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ldap_server_metadata(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.LdapServerMetadataProperty"]]:
+        '''Optional.
+
+        The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-ldapservermetadata
+        '''
+        result = self._values.get("ldap_server_metadata")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.LdapServerMetadataProperty"]], result)
+
+    @builtins.property
+    def logs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.LogListProperty"]]:
+        '''Enables Amazon CloudWatch logging for brokers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-logs
+        '''
+        result = self._values.get("logs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.LogListProperty"]], result)
+
+    @builtins.property
+    def maintenance_window_start_time(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.MaintenanceWindowProperty"]]:
+        '''The scheduled time period relative to UTC during which Amazon MQ begins to apply pending updates or patches to the broker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-maintenancewindowstarttime
+        '''
+        result = self._values.get("maintenance_window_start_time")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBroker.MaintenanceWindowProperty"]], result)
+
+    @builtins.property
+    def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-securitygroups
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def storage_type(self) -> typing.Optional[builtins.str]:
+        '''The broker's storage type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-storagetype
+        '''
+        result = self._values.get("storage_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones.
+
+        If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment (ACTIVEMQ) requires two subnets. A CLUSTER_MULTI_AZ deployment (RABBITMQ) has no subnet requirements when deployed with public accessibility, deployment without public accessibility requires at least one subnet.
+        .. epigraph::
+
+           If you specify subnets in a shared VPC for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC enpoints in VPCs that are not owned by your AWS account .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnBroker.TagsEntryProperty"]]:
+        '''An array of key-value pairs.
+
+        For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnBroker.TagsEntryProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBrokerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfigurationAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"broker": "broker", "configuration": "configuration"},
+)
+class CfnConfigurationAssociationProps:
+    def __init__(
+        self,
+        *,
+        broker: builtins.str,
+        configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationAssociation.ConfigurationIdProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationAssociation``.
+
+        :param broker: The broker to associate with a configuration.
+        :param configuration: The configuration to associate with a broker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            cfn_configuration_association_props = amazonmq.CfnConfigurationAssociationProps(
+                broker="broker",
+                configuration=amazonmq.CfnConfigurationAssociation.ConfigurationIdProperty(
+                    id="id",
+                    revision=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8)
+            check_type(argname="argument broker", value=broker, expected_type=type_hints["broker"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "broker": broker,
+            "configuration": configuration,
+        }
+
+    @builtins.property
+    def broker(self) -> builtins.str:
+        '''The broker to associate with a configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html#cfn-amazonmq-configurationassociation-broker
+        '''
+        result = self._values.get("broker")
+        assert result is not None, "Required property 'broker' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConfigurationAssociation.ConfigurationIdProperty"]:
+        '''The configuration to associate with a broker.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html#cfn-amazonmq-configurationassociation-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConfigurationAssociation.ConfigurationIdProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engine_type": "engineType",
+        "name": "name",
+        "authentication_strategy": "authenticationStrategy",
+        "data": "data",
+        "description": "description",
+        "engine_version": "engineVersion",
+        "tags": "tags",
+    },
+)
+class CfnConfigurationProps:
+    def __init__(
+        self,
+        *,
+        engine_type: builtins.str,
+        name: builtins.str,
+        authentication_strategy: typing.Optional[builtins.str] = None,
+        data: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnConfiguration.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfiguration``.
+
+        :param engine_type: The type of broker engine. Note: Currently, Amazon MQ only supports ACTIVEMQ for creating and editing broker configurations.
+        :param name: The name of the configuration. This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 1-150 characters long.
+        :param authentication_strategy: Optional. The authentication strategy associated with the configuration. The default is ``SIMPLE`` .
+        :param data: The base64-encoded XML configuration.
+        :param description: The description of the configuration.
+        :param engine_version: The version of the broker engine. For a list of supported engine versions, see ` <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_
+        :param tags: Create tags when creating the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            cfn_configuration_props = amazonmq.CfnConfigurationProps(
+                engine_type="engineType",
+                name="name",
+            
+                # the properties below are optional
+                authentication_strategy="authenticationStrategy",
+                data="data",
+                description="description",
+                engine_version="engineVersion",
+                tags=[amazonmq.CfnConfiguration.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc)
+            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument authentication_strategy", value=authentication_strategy, expected_type=type_hints["authentication_strategy"])
+            check_type(argname="argument data", value=data, expected_type=type_hints["data"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "engine_type": engine_type,
+            "name": name,
+        }
+        if authentication_strategy is not None:
+            self._values["authentication_strategy"] = authentication_strategy
+        if data is not None:
+            self._values["data"] = data
+        if description is not None:
+            self._values["description"] = description
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def engine_type(self) -> builtins.str:
+        '''The type of broker engine.
+
+        Note: Currently, Amazon MQ only supports ACTIVEMQ for creating and editing broker configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-enginetype
+        '''
+        result = self._values.get("engine_type")
+        assert result is not None, "Required property 'engine_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the configuration.
+
+        This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 1-150 characters long.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authentication_strategy(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        The authentication strategy associated with the configuration. The default is ``SIMPLE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-authenticationstrategy
+        '''
+        result = self._values.get("authentication_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data(self) -> typing.Optional[builtins.str]:
+        '''The base64-encoded XML configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-data
+        '''
+        result = self._values.get("data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the broker engine.
+
+        For a list of supported engine versions, see ` <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnConfiguration.TagsEntryProperty"]]:
+        '''Create tags when creating the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnConfiguration.TagsEntryProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.ConfigurationAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"configuration_association_id": "configurationAssociationId"},
+)
+class ConfigurationAssociationReference:
+    def __init__(self, *, configuration_association_id: builtins.str) -> None:
+        '''A reference to a ConfigurationAssociation resource.
+
+        :param configuration_association_id: The Id of the ConfigurationAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            configuration_association_reference = amazonmq.ConfigurationAssociationReference(
+                configuration_association_id="configurationAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fd48d56880f0de77e5a70fbb8888561406c26281f30e1808b11abbeb9e2c886)
+            check_type(argname="argument configuration_association_id", value=configuration_association_id, expected_type=type_hints["configuration_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_association_id": configuration_association_id,
+        }
+
+    @builtins.property
+    def configuration_association_id(self) -> builtins.str:
+        '''The Id of the ConfigurationAssociation resource.'''
+        result = self._values.get("configuration_association_id")
+        assert result is not None, "Required property 'configuration_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amazonmq.ConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_arn": "configurationArn",
+        "configuration_id": "configurationId",
+    },
+)
+class ConfigurationReference:
+    def __init__(
+        self,
+        *,
+        configuration_arn: builtins.str,
+        configuration_id: builtins.str,
+    ) -> None:
+        '''A reference to a Configuration resource.
+
+        :param configuration_arn: The ARN of the Configuration resource.
+        :param configuration_id: The Id of the Configuration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amazonmq as amazonmq
+            
+            configuration_reference = amazonmq.ConfigurationReference(
+                configuration_arn="configurationArn",
+                configuration_id="configurationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58f1fdcf5bb74ede70c5f5dc036781cb51f4c32512620610a38f263bc78d4fe2)
+            check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
+            check_type(argname="argument configuration_id", value=configuration_id, expected_type=type_hints["configuration_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_arn": configuration_arn,
+            "configuration_id": configuration_id,
+        }
+
+    @builtins.property
+    def configuration_arn(self) -> builtins.str:
+        '''The ARN of the Configuration resource.'''
+        result = self._values.get("configuration_arn")
+        assert result is not None, "Required property 'configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_id(self) -> builtins.str:
+        '''The Id of the Configuration resource.'''
+        result = self._values.get("configuration_id")
+        assert result is not None, "Required property 'configuration_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amazonmq.IBrokerRef")
+class IBrokerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Broker.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="brokerRef")
+    def broker_ref(self) -> BrokerReference:
+        '''(experimental) A reference to a Broker resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBrokerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Broker.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amazonmq.IBrokerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="brokerRef")
+    def broker_ref(self) -> BrokerReference:
+        '''(experimental) A reference to a Broker resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BrokerReference, jsii.get(self, "brokerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBrokerRef).__jsii_proxy_class__ = lambda : _IBrokerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amazonmq.IConfigurationAssociationRef")
+class IConfigurationAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationAssociationRef")
+    def configuration_association_ref(self) -> ConfigurationAssociationReference:
+        '''(experimental) A reference to a ConfigurationAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amazonmq.IConfigurationAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationAssociationRef")
+    def configuration_association_ref(self) -> ConfigurationAssociationReference:
+        '''(experimental) A reference to a ConfigurationAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationAssociationReference, jsii.get(self, "configurationAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationAssociationRef).__jsii_proxy_class__ = lambda : _IConfigurationAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amazonmq.IConfigurationRef")
+class IConfigurationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amazonmq.IConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationReference, jsii.get(self, "configurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationRef).__jsii_proxy_class__ = lambda : _IConfigurationRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IBrokerRef, _ITaggable_36806126)
 class CfnBroker(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -401,6 +1401,12 @@ class CfnBroker(
         :cloudformationAttribute: WssEndpoints
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrWssEndpoints"))
+
+    @builtins.property
+    @jsii.member(jsii_name="brokerRef")
+    def broker_ref(self) -> BrokerReference:
+        '''A reference to a Broker resource.'''
+        return typing.cast(BrokerReference, jsii.get(self, "brokerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1500,460 +2506,7 @@ class CfnBroker(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amazonmq.CfnBrokerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "broker_name": "brokerName",
-        "deployment_mode": "deploymentMode",
-        "engine_type": "engineType",
-        "host_instance_type": "hostInstanceType",
-        "publicly_accessible": "publiclyAccessible",
-        "users": "users",
-        "authentication_strategy": "authenticationStrategy",
-        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
-        "configuration": "configuration",
-        "data_replication_mode": "dataReplicationMode",
-        "data_replication_primary_broker_arn": "dataReplicationPrimaryBrokerArn",
-        "encryption_options": "encryptionOptions",
-        "engine_version": "engineVersion",
-        "ldap_server_metadata": "ldapServerMetadata",
-        "logs": "logs",
-        "maintenance_window_start_time": "maintenanceWindowStartTime",
-        "security_groups": "securityGroups",
-        "storage_type": "storageType",
-        "subnet_ids": "subnetIds",
-        "tags": "tags",
-    },
-)
-class CfnBrokerProps:
-    def __init__(
-        self,
-        *,
-        broker_name: builtins.str,
-        deployment_mode: builtins.str,
-        engine_type: builtins.str,
-        host_instance_type: builtins.str,
-        publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        users: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        authentication_strategy: typing.Optional[builtins.str] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_replication_mode: typing.Optional[builtins.str] = None,
-        data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-        encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        storage_type: typing.Optional[builtins.str] = None,
-        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBroker``.
-
-        :param broker_name: The name of the broker. This value must be unique in your AWS account , 1-50 characters long, must contain only letters, numbers, dashes, and underscores, and must not contain white spaces, brackets, wildcard characters, or special characters. .. epigraph:: Do not add personally identifiable information (PII) or other confidential or sensitive information in broker names. Broker names are accessible to other AWS services, including C CloudWatch Logs . Broker names are not intended to be used for private or sensitive data.
-        :param deployment_mode: The deployment mode of the broker. Available values:. - ``SINGLE_INSTANCE`` - ``ACTIVE_STANDBY_MULTI_AZ`` - ``CLUSTER_MULTI_AZ``
-        :param engine_type: The type of broker engine. Currently, Amazon MQ supports ``ACTIVEMQ`` and ``RABBITMQ`` .
-        :param host_instance_type: The broker's instance type.
-        :param publicly_accessible: Enables connections from applications outside of the VPC that hosts the broker's subnets.
-        :param users: The list of broker users (persons or applications) who can access queues and topics. For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent RabbitMQ users are created by via the RabbitMQ web console or by using the RabbitMQ management API.
-        :param authentication_strategy: Optional. The authentication strategy used to secure the broker. The default is ``SIMPLE`` .
-        :param auto_minor_version_upgrade: Enables automatic upgrades to new minor versions for brokers, as new broker engine versions are released and supported by Amazon MQ. Automatic upgrades occur during the scheduled maintenance window of the broker or after a manual broker reboot.
-        :param configuration: A list of information about the configuration. Does not apply to RabbitMQ brokers.
-        :param data_replication_mode: Defines whether this broker is a part of a data replication pair.
-        :param data_replication_primary_broker_arn: The Amazon Resource Name (ARN) of the primary broker that is used to replicate data from in a data replication pair, and is applied to the replica broker. Must be set when dataReplicationMode is set to CRDR.
-        :param encryption_options: Encryption options for the broker. Does not apply to RabbitMQ brokers.
-        :param engine_version: The version of the broker engine. For a list of supported engine versions, see `Engine <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_ in the *Amazon MQ Developer Guide* .
-        :param ldap_server_metadata: Optional. The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
-        :param logs: Enables Amazon CloudWatch logging for brokers.
-        :param maintenance_window_start_time: The scheduled time period relative to UTC during which Amazon MQ begins to apply pending updates or patches to the broker.
-        :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
-        :param storage_type: The broker's storage type.
-        :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment (ACTIVEMQ) requires two subnets. A CLUSTER_MULTI_AZ deployment (RABBITMQ) has no subnet requirements when deployed with public accessibility, deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a shared VPC for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC enpoints in VPCs that are not owned by your AWS account .
-        :param tags: An array of key-value pairs. For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amazonmq as amazonmq
-            
-            cfn_broker_props = amazonmq.CfnBrokerProps(
-                broker_name="brokerName",
-                deployment_mode="deploymentMode",
-                engine_type="engineType",
-                host_instance_type="hostInstanceType",
-                publicly_accessible=False,
-                users=[amazonmq.CfnBroker.UserProperty(
-                    password="password",
-                    username="username",
-            
-                    # the properties below are optional
-                    console_access=False,
-                    groups=["groups"],
-                    replication_user=False
-                )],
-            
-                # the properties below are optional
-                authentication_strategy="authenticationStrategy",
-                auto_minor_version_upgrade=False,
-                configuration=amazonmq.CfnBroker.ConfigurationIdProperty(
-                    id="id",
-                    revision=123
-                ),
-                data_replication_mode="dataReplicationMode",
-                data_replication_primary_broker_arn="dataReplicationPrimaryBrokerArn",
-                encryption_options=amazonmq.CfnBroker.EncryptionOptionsProperty(
-                    use_aws_owned_key=False,
-            
-                    # the properties below are optional
-                    kms_key_id="kmsKeyId"
-                ),
-                engine_version="engineVersion",
-                ldap_server_metadata=amazonmq.CfnBroker.LdapServerMetadataProperty(
-                    hosts=["hosts"],
-                    role_base="roleBase",
-                    role_search_matching="roleSearchMatching",
-                    service_account_password="serviceAccountPassword",
-                    service_account_username="serviceAccountUsername",
-                    user_base="userBase",
-                    user_search_matching="userSearchMatching",
-            
-                    # the properties below are optional
-                    role_name="roleName",
-                    role_search_subtree=False,
-                    user_role_name="userRoleName",
-                    user_search_subtree=False
-                ),
-                logs=amazonmq.CfnBroker.LogListProperty(
-                    audit=False,
-                    general=False
-                ),
-                maintenance_window_start_time=amazonmq.CfnBroker.MaintenanceWindowProperty(
-                    day_of_week="dayOfWeek",
-                    time_of_day="timeOfDay",
-                    time_zone="timeZone"
-                ),
-                security_groups=["securityGroups"],
-                storage_type="storageType",
-                subnet_ids=["subnetIds"],
-                tags=[amazonmq.CfnBroker.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c)
-            check_type(argname="argument broker_name", value=broker_name, expected_type=type_hints["broker_name"])
-            check_type(argname="argument deployment_mode", value=deployment_mode, expected_type=type_hints["deployment_mode"])
-            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
-            check_type(argname="argument host_instance_type", value=host_instance_type, expected_type=type_hints["host_instance_type"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument users", value=users, expected_type=type_hints["users"])
-            check_type(argname="argument authentication_strategy", value=authentication_strategy, expected_type=type_hints["authentication_strategy"])
-            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument data_replication_mode", value=data_replication_mode, expected_type=type_hints["data_replication_mode"])
-            check_type(argname="argument data_replication_primary_broker_arn", value=data_replication_primary_broker_arn, expected_type=type_hints["data_replication_primary_broker_arn"])
-            check_type(argname="argument encryption_options", value=encryption_options, expected_type=type_hints["encryption_options"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument ldap_server_metadata", value=ldap_server_metadata, expected_type=type_hints["ldap_server_metadata"])
-            check_type(argname="argument logs", value=logs, expected_type=type_hints["logs"])
-            check_type(argname="argument maintenance_window_start_time", value=maintenance_window_start_time, expected_type=type_hints["maintenance_window_start_time"])
-            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "broker_name": broker_name,
-            "deployment_mode": deployment_mode,
-            "engine_type": engine_type,
-            "host_instance_type": host_instance_type,
-            "publicly_accessible": publicly_accessible,
-            "users": users,
-        }
-        if authentication_strategy is not None:
-            self._values["authentication_strategy"] = authentication_strategy
-        if auto_minor_version_upgrade is not None:
-            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
-        if configuration is not None:
-            self._values["configuration"] = configuration
-        if data_replication_mode is not None:
-            self._values["data_replication_mode"] = data_replication_mode
-        if data_replication_primary_broker_arn is not None:
-            self._values["data_replication_primary_broker_arn"] = data_replication_primary_broker_arn
-        if encryption_options is not None:
-            self._values["encryption_options"] = encryption_options
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if ldap_server_metadata is not None:
-            self._values["ldap_server_metadata"] = ldap_server_metadata
-        if logs is not None:
-            self._values["logs"] = logs
-        if maintenance_window_start_time is not None:
-            self._values["maintenance_window_start_time"] = maintenance_window_start_time
-        if security_groups is not None:
-            self._values["security_groups"] = security_groups
-        if storage_type is not None:
-            self._values["storage_type"] = storage_type
-        if subnet_ids is not None:
-            self._values["subnet_ids"] = subnet_ids
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def broker_name(self) -> builtins.str:
-        '''The name of the broker.
-
-        This value must be unique in your AWS account , 1-50 characters long, must contain only letters, numbers, dashes, and underscores, and must not contain white spaces, brackets, wildcard characters, or special characters.
-        .. epigraph::
-
-           Do not add personally identifiable information (PII) or other confidential or sensitive information in broker names. Broker names are accessible to other AWS services, including C CloudWatch Logs . Broker names are not intended to be used for private or sensitive data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-brokername
-        '''
-        result = self._values.get("broker_name")
-        assert result is not None, "Required property 'broker_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def deployment_mode(self) -> builtins.str:
-        '''The deployment mode of the broker. Available values:.
-
-        - ``SINGLE_INSTANCE``
-        - ``ACTIVE_STANDBY_MULTI_AZ``
-        - ``CLUSTER_MULTI_AZ``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-deploymentmode
-        '''
-        result = self._values.get("deployment_mode")
-        assert result is not None, "Required property 'deployment_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def engine_type(self) -> builtins.str:
-        '''The type of broker engine.
-
-        Currently, Amazon MQ supports ``ACTIVEMQ`` and ``RABBITMQ`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-enginetype
-        '''
-        result = self._values.get("engine_type")
-        assert result is not None, "Required property 'engine_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def host_instance_type(self) -> builtins.str:
-        '''The broker's instance type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-hostinstancetype
-        '''
-        result = self._values.get("host_instance_type")
-        assert result is not None, "Required property 'host_instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def publicly_accessible(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Enables connections from applications outside of the VPC that hosts the broker's subnets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        assert result is not None, "Required property 'publicly_accessible' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def users(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBroker.UserProperty]]]:
-        '''The list of broker users (persons or applications) who can access queues and topics.
-
-        For Amazon MQ for RabbitMQ brokers, one and only one administrative user is accepted and created when a broker is first provisioned. All subsequent RabbitMQ users are created by via the RabbitMQ web console or by using the RabbitMQ management API.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-users
-        '''
-        result = self._values.get("users")
-        assert result is not None, "Required property 'users' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBroker.UserProperty]]], result)
-
-    @builtins.property
-    def authentication_strategy(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        The authentication strategy used to secure the broker. The default is ``SIMPLE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-authenticationstrategy
-        '''
-        result = self._values.get("authentication_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_minor_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables automatic upgrades to new minor versions for brokers, as new broker engine versions are released and supported by Amazon MQ.
-
-        Automatic upgrades occur during the scheduled maintenance window of the broker or after a manual broker reboot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-autominorversionupgrade
-        '''
-        result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.ConfigurationIdProperty]]:
-        '''A list of information about the configuration.
-
-        Does not apply to RabbitMQ brokers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-configuration
-        '''
-        result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.ConfigurationIdProperty]], result)
-
-    @builtins.property
-    def data_replication_mode(self) -> typing.Optional[builtins.str]:
-        '''Defines whether this broker is a part of a data replication pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-datareplicationmode
-        '''
-        result = self._values.get("data_replication_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_replication_primary_broker_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the primary broker that is used to replicate data from in a data replication pair, and is applied to the replica broker.
-
-        Must be set when dataReplicationMode is set to CRDR.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-datareplicationprimarybrokerarn
-        '''
-        result = self._values.get("data_replication_primary_broker_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.EncryptionOptionsProperty]]:
-        '''Encryption options for the broker.
-
-        Does not apply to RabbitMQ brokers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-encryptionoptions
-        '''
-        result = self._values.get("encryption_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.EncryptionOptionsProperty]], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the broker engine.
-
-        For a list of supported engine versions, see `Engine <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_ in the *Amazon MQ Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ldap_server_metadata(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LdapServerMetadataProperty]]:
-        '''Optional.
-
-        The metadata of the LDAP server used to authenticate and authorize connections to the broker. Does not apply to RabbitMQ brokers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-ldapservermetadata
-        '''
-        result = self._values.get("ldap_server_metadata")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LdapServerMetadataProperty]], result)
-
-    @builtins.property
-    def logs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LogListProperty]]:
-        '''Enables Amazon CloudWatch logging for brokers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-logs
-        '''
-        result = self._values.get("logs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.LogListProperty]], result)
-
-    @builtins.property
-    def maintenance_window_start_time(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.MaintenanceWindowProperty]]:
-        '''The scheduled time period relative to UTC during which Amazon MQ begins to apply pending updates or patches to the broker.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-maintenancewindowstarttime
-        '''
-        result = self._values.get("maintenance_window_start_time")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBroker.MaintenanceWindowProperty]], result)
-
-    @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-securitygroups
-        '''
-        result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def storage_type(self) -> typing.Optional[builtins.str]:
-        '''The broker's storage type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-storagetype
-        '''
-        result = self._values.get("storage_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones.
-
-        If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ deployment (ACTIVEMQ) requires two subnets. A CLUSTER_MULTI_AZ deployment (RABBITMQ) has no subnet requirements when deployed with public accessibility, deployment without public accessibility requires at least one subnet.
-        .. epigraph::
-
-           If you specify subnets in a shared VPC for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC enpoints in VPCs that are not owned by your AWS account .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnBroker.TagsEntryProperty]]:
-        '''An array of key-value pairs.
-
-        For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnBroker.TagsEntryProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBrokerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IConfigurationRef, _ITaggable_36806126)
 class CfnConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2099,6 +2652,12 @@ class CfnConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''A reference to a Configuration resource.'''
+        return typing.cast(ConfigurationReference, jsii.get(self, "configurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2269,7 +2828,7 @@ class CfnConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IConfigurationAssociationRef)
 class CfnConfigurationAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2370,6 +2929,12 @@ class CfnConfigurationAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="configurationAssociationRef")
+    def configuration_association_ref(self) -> ConfigurationAssociationReference:
+        '''A reference to a ConfigurationAssociation resource.'''
+        return typing.cast(ConfigurationAssociationReference, jsii.get(self, "configurationAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="broker")
     def broker(self) -> builtins.str:
         '''The broker to associate with a configuration.'''
@@ -2467,261 +3032,92 @@ class CfnConfigurationAssociation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfigurationAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"broker": "broker", "configuration": "configuration"},
-)
-class CfnConfigurationAssociationProps:
-    def __init__(
-        self,
-        *,
-        broker: builtins.str,
-        configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationAssociation``.
-
-        :param broker: The broker to associate with a configuration.
-        :param configuration: The configuration to associate with a broker.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amazonmq as amazonmq
-            
-            cfn_configuration_association_props = amazonmq.CfnConfigurationAssociationProps(
-                broker="broker",
-                configuration=amazonmq.CfnConfigurationAssociation.ConfigurationIdProperty(
-                    id="id",
-                    revision=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8)
-            check_type(argname="argument broker", value=broker, expected_type=type_hints["broker"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "broker": broker,
-            "configuration": configuration,
-        }
-
-    @builtins.property
-    def broker(self) -> builtins.str:
-        '''The broker to associate with a configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html#cfn-amazonmq-configurationassociation-broker
-        '''
-        result = self._values.get("broker")
-        assert result is not None, "Required property 'broker' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConfigurationAssociation.ConfigurationIdProperty]:
-        '''The configuration to associate with a broker.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configurationassociation.html#cfn-amazonmq-configurationassociation-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConfigurationAssociation.ConfigurationIdProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amazonmq.CfnConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engine_type": "engineType",
-        "name": "name",
-        "authentication_strategy": "authenticationStrategy",
-        "data": "data",
-        "description": "description",
-        "engine_version": "engineVersion",
-        "tags": "tags",
-    },
-)
-class CfnConfigurationProps:
-    def __init__(
-        self,
-        *,
-        engine_type: builtins.str,
-        name: builtins.str,
-        authentication_strategy: typing.Optional[builtins.str] = None,
-        data: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnConfiguration.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfiguration``.
-
-        :param engine_type: The type of broker engine. Note: Currently, Amazon MQ only supports ACTIVEMQ for creating and editing broker configurations.
-        :param name: The name of the configuration. This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 1-150 characters long.
-        :param authentication_strategy: Optional. The authentication strategy associated with the configuration. The default is ``SIMPLE`` .
-        :param data: The base64-encoded XML configuration.
-        :param description: The description of the configuration.
-        :param engine_version: The version of the broker engine. For a list of supported engine versions, see ` <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_
-        :param tags: Create tags when creating the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amazonmq as amazonmq
-            
-            cfn_configuration_props = amazonmq.CfnConfigurationProps(
-                engine_type="engineType",
-                name="name",
-            
-                # the properties below are optional
-                authentication_strategy="authenticationStrategy",
-                data="data",
-                description="description",
-                engine_version="engineVersion",
-                tags=[amazonmq.CfnConfiguration.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc)
-            check_type(argname="argument engine_type", value=engine_type, expected_type=type_hints["engine_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument authentication_strategy", value=authentication_strategy, expected_type=type_hints["authentication_strategy"])
-            check_type(argname="argument data", value=data, expected_type=type_hints["data"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "engine_type": engine_type,
-            "name": name,
-        }
-        if authentication_strategy is not None:
-            self._values["authentication_strategy"] = authentication_strategy
-        if data is not None:
-            self._values["data"] = data
-        if description is not None:
-            self._values["description"] = description
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def engine_type(self) -> builtins.str:
-        '''The type of broker engine.
-
-        Note: Currently, Amazon MQ only supports ACTIVEMQ for creating and editing broker configurations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-enginetype
-        '''
-        result = self._values.get("engine_type")
-        assert result is not None, "Required property 'engine_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the configuration.
-
-        This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 1-150 characters long.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def authentication_strategy(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        The authentication strategy associated with the configuration. The default is ``SIMPLE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-authenticationstrategy
-        '''
-        result = self._values.get("authentication_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data(self) -> typing.Optional[builtins.str]:
-        '''The base64-encoded XML configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-data
-        '''
-        result = self._values.get("data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the broker engine.
-
-        For a list of supported engine versions, see ` <https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/broker-engine.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnConfiguration.TagsEntryProperty]]:
-        '''Create tags when creating the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-configuration.html#cfn-amazonmq-configuration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnConfiguration.TagsEntryProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BrokerReference",
     "CfnBroker",
     "CfnBrokerProps",
     "CfnConfiguration",
     "CfnConfigurationAssociation",
     "CfnConfigurationAssociationProps",
     "CfnConfigurationProps",
+    "ConfigurationAssociationReference",
+    "ConfigurationReference",
+    "IBrokerRef",
+    "IConfigurationAssociationRef",
+    "IConfigurationRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__7ab3a994cb93297dc35dfbba1f61a21153b201714aa73d617a07da805c4a27f0(
+    *,
+    broker_arn: builtins.str,
+    broker_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c(
+    *,
+    broker_name: builtins.str,
+    deployment_mode: builtins.str,
+    engine_type: builtins.str,
+    host_instance_type: builtins.str,
+    publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    users: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    authentication_strategy: typing.Optional[builtins.str] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_replication_mode: typing.Optional[builtins.str] = None,
+    data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
+    encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    storage_type: typing.Optional[builtins.str] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8(
+    *,
+    broker: builtins.str,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc(
+    *,
+    engine_type: builtins.str,
+    name: builtins.str,
+    authentication_strategy: typing.Optional[builtins.str] = None,
+    data: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnConfiguration.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fd48d56880f0de77e5a70fbb8888561406c26281f30e1808b11abbeb9e2c886(
+    *,
+    configuration_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58f1fdcf5bb74ede70c5f5dc036781cb51f4c32512620610a38f263bc78d4fe2(
+    *,
+    configuration_arn: builtins.str,
+    configuration_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce87535c69cb7(
     scope: _constructs_77d1e7e8.Construct,
@@ -2952,32 +3348,6 @@ def _typecheckingstub__8a458786a0cd0d4269adef0bf3c85862386851ab69649004d5d3dcba4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fad831a1c(
-    *,
-    broker_name: builtins.str,
-    deployment_mode: builtins.str,
-    engine_type: builtins.str,
-    host_instance_type: builtins.str,
-    publicly_accessible: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    users: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.UserProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    authentication_strategy: typing.Optional[builtins.str] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_replication_mode: typing.Optional[builtins.str] = None,
-    data_replication_primary_broker_arn: typing.Optional[builtins.str] = None,
-    encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.EncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    ldap_server_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LdapServerMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.LogListProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    maintenance_window_start_time: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    storage_type: typing.Optional[builtins.str] = None,
-    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e5d8c71c30a8f2bd8b3e455320ae87cc2204a9546d3ee226605a9575372df4fc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3093,27 +3463,6 @@ def _typecheckingstub__08e92a82af3e279f734ea3e7cb4083780249c19e2dd02ec38e2bacb5b
     *,
     id: builtins.str,
     revision: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__75f4d3d98205a43f8d3d0c512582ddb9b38aec2162a51f98f40a83656ca93ec8(
-    *,
-    broker: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationAssociation.ConfigurationIdProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de9d7705a9b711c2e53aeb7eaf29e3a459350a0552e89619099efdb9d14d28cc(
-    *,
-    engine_type: builtins.str,
-    name: builtins.str,
-    authentication_strategy: typing.Optional[builtins.str] = None,
-    data: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnConfiguration.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

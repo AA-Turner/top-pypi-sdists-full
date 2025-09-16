@@ -2,13 +2,13 @@ use std::borrow::Cow;
 
 use itertools::Itertools;
 use tombi_ast::GetHeaderSchemarAccessors;
-use tombi_comment_directive::value::{TableCommonLintRules, TableFormatRules};
+use tombi_comment_directive::value::{TableCommonFormatRules, TableCommonLintRules};
 use tombi_comment_directive_serde::get_comment_directive_content;
 use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::Accessor;
 
-use crate::{edit::get_schema, rule::table_keys_order};
+use crate::{edit::get_value_schema, rule::table_keys_order};
 
 impl crate::Edit for tombi_ast::Table {
     fn edit<'a: 'b, 'b>(
@@ -29,7 +29,7 @@ impl crate::Edit for tombi_ast::Table {
             };
 
             let comment_directive = get_comment_directive_content::<
-                TableFormatRules,
+                TableCommonFormatRules,
                 TableCommonLintRules,
             >(self.comment_directives());
 
@@ -40,7 +40,7 @@ impl crate::Edit for tombi_ast::Table {
             );
 
             let current_schema = if let Some(current_schema) = current_schema {
-                get_schema(value, &header_accessors, current_schema, schema_context)
+                get_value_schema(value, &header_accessors, current_schema, schema_context)
                     .await
                     .map(|value_schema| tombi_schema_store::CurrentSchema {
                         value_schema: Cow::Owned(value_schema),
@@ -72,12 +72,7 @@ impl crate::Edit for tombi_ast::Table {
             for key_value in self.key_values() {
                 changes.extend(
                     key_value
-                        .edit(
-                            &header_accessors,
-                            source_path,
-                            current_schema.as_ref(),
-                            schema_context,
-                        )
+                        .edit(&[], source_path, current_schema.as_ref(), schema_context)
                         .await,
                 );
             }

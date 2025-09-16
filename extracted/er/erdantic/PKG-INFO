@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: erdantic
-Version: 1.1.1
+Version: 1.2.0
 Summary: Entity relationship diagrams for Python data model classes like Pydantic.
 Project-URL: Repository, https://github.com/drivendataorg/erdantic
 Project-URL: Documentation, https://erdantic.drivendata.org/
@@ -53,6 +53,8 @@ Description-Content-Type: text/markdown
 - [attrs](https://www.attrs.org/en/stable/)
 - [msgspec](https://jcristharif.com/msgspec/)
 - [dataclasses](https://docs.python.org/3/library/dataclasses.html) from the Python standard library
+
+We also support [D2](https://d2lang.com/) as an alternative output format.
 
 You can use erdantic either as a convenient CLI or as a Python library. Great for adding a simple and clean data model reference to your documentation.
 

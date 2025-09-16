@@ -308,3 +308,50 @@ class BuildTest(CliTestCase):
             }, payload)
 
         self.assertEqual(read_build(), self.build_name)
+
+    @responses.activate
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_build_with_links(self):
+        # Invalid kind
+        result = self.cli(
+            "record",
+            "build",
+            "--no-commit-collection",
+            "--link",
+            "UNKNOWN_KIND|PR=https://github.com/launchableinc/cli/pull/1",
+            "--name",
+            self.build_name)
+        self.assertIn("Invalid kind 'UNKNOWN_KIND' passed to --link option", result.output)
+
+        # Invalid URL
+        result = self.cli(
+            "record",
+            "build",
+            "--no-commit-collection",
+            "--link",
+            "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/1/files",
+            "--name",
+            self.build_name)
+        self.assertIn("Invalid url 'https://github.com/launchableinc/cli/pull/1/files' passed to --link option", result.output)
+
+        # Infer kind
+        result = self.cli(
+            "record",
+            "build",
+            "--no-commit-collection",
+            "--link",
+            "PR=https://github.com/launchableinc/cli/pull/1",
+            "--name",
+            self.build_name)
+        self.assert_success(result)
+
+        # Explicit kind
+        result = self.cli(
+            "record",
+            "build",
+            "--no-commit-collection",
+            "--link",
+            "GITHUB_PULL_REQUEST|PR=https://github.com/launchableinc/cli/pull/1",
+            "--name",
+            self.build_name)
+        self.assert_success(result)

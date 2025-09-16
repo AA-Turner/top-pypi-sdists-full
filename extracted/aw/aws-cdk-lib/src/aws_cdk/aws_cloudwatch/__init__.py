@@ -1212,6 +1212,66 @@ class AlarmActionConfig:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.AlarmReference",
+    jsii_struct_bases=[],
+    name_mapping={"alarm_arn": "alarmArn", "alarm_name": "alarmName"},
+)
+class AlarmReference:
+    def __init__(self, *, alarm_arn: builtins.str, alarm_name: builtins.str) -> None:
+        '''A reference to a Alarm resource.
+
+        :param alarm_arn: The ARN of the Alarm resource.
+        :param alarm_name: The AlarmName of the Alarm resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            alarm_reference = cloudwatch.AlarmReference(
+                alarm_arn="alarmArn",
+                alarm_name="alarmName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b143c8b7c6d5c781b25e97f70155714e829ecb3f1fdf65fef4d7bc8506fd430)
+            check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_arn": alarm_arn,
+            "alarm_name": alarm_name,
+        }
+
+    @builtins.property
+    def alarm_arn(self) -> builtins.str:
+        '''The ARN of the Alarm resource.'''
+        result = self._values.get("alarm_arn")
+        assert result is not None, "Required property 'alarm_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alarm_name(self) -> builtins.str:
+        '''The AlarmName of the Alarm resource.'''
+        result = self._values.get("alarm_name")
+        assert result is not None, "Required property 'alarm_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlarmReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class AlarmRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.AlarmRule",
@@ -1789,1026 +1849,53 @@ class AnomalyDetectionAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnAlarm(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm",
-):
-    '''The ``AWS::CloudWatch::Alarm`` type specifies an alarm and associates it with the specified metric or metric math expression.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.AnomalyDetectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"anomaly_detector_id": "anomalyDetectorId"},
+)
+class AnomalyDetectorReference:
+    def __init__(self, *, anomaly_detector_id: builtins.str) -> None:
+        '''A reference to a AnomalyDetector resource.
 
-    When this operation creates an alarm, the alarm state is immediately set to ``INSUFFICIENT_DATA`` . The alarm is then evaluated and its state is set appropriately. Any actions associated with the new state are then executed.
+        :param anomaly_detector_id: The Id of the AnomalyDetector resource.
 
-    When you update an existing alarm, its state is left unchanged, but the update completely overwrites the previous configuration of the alarm.
+        :exampleMetadata: fixture=_generated
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html
-    :cloudformationResource: AWS::CloudWatch::Alarm
-    :exampleMetadata: fixture=_generated
+        Example::
 
-    Example::
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            anomaly_detector_reference = cloudwatch.AnomalyDetectorReference(
+                anomaly_detector_id="anomalyDetectorId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a40cc94483591122d60497c173b571766e26628212843f5342f68bf471860b0)
+            check_type(argname="argument anomaly_detector_id", value=anomaly_detector_id, expected_type=type_hints["anomaly_detector_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "anomaly_detector_id": anomaly_detector_id,
+        }
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_alarm = cloudwatch.CfnAlarm(self, "MyCfnAlarm",
-            comparison_operator="comparisonOperator",
-            evaluation_periods=123,
-        
-            # the properties below are optional
-            actions_enabled=False,
-            alarm_actions=["alarmActions"],
-            alarm_description="alarmDescription",
-            alarm_name="alarmName",
-            datapoints_to_alarm=123,
-            dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
-                name="name",
-                value="value"
-            )],
-            evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
-            extended_statistic="extendedStatistic",
-            insufficient_data_actions=["insufficientDataActions"],
-            metric_name="metricName",
-            metrics=[cloudwatch.CfnAlarm.MetricDataQueryProperty(
-                id="id",
-        
-                # the properties below are optional
-                account_id="accountId",
-                expression="expression",
-                label="label",
-                metric_stat=cloudwatch.CfnAlarm.MetricStatProperty(
-                    metric=cloudwatch.CfnAlarm.MetricProperty(
-                        dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        metric_name="metricName",
-                        namespace="namespace"
-                    ),
-                    period=123,
-                    stat="stat",
-        
-                    # the properties below are optional
-                    unit="unit"
-                ),
-                period=123,
-                return_data=False
-            )],
-            namespace="namespace",
-            ok_actions=["okActions"],
-            period=123,
-            statistic="statistic",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            threshold=123,
-            threshold_metric_id="thresholdMetricId",
-            treat_missing_data="treatMissingData",
-            unit="unit"
+    @builtins.property
+    def anomaly_detector_id(self) -> builtins.str:
+        '''The Id of the AnomalyDetector resource.'''
+        result = self._values.get("anomaly_detector_id")
+        assert result is not None, "Required property 'anomaly_detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AnomalyDetectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        comparison_operator: builtins.str,
-        evaluation_periods: jsii.Number,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        alarm_description: typing.Optional[builtins.str] = None,
-        alarm_name: typing.Optional[builtins.str] = None,
-        datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-        extended_statistic: typing.Optional[builtins.str] = None,
-        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        metric_name: typing.Optional[builtins.str] = None,
-        metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        namespace: typing.Optional[builtins.str] = None,
-        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        period: typing.Optional[jsii.Number] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        threshold: typing.Optional[jsii.Number] = None,
-        threshold_metric_id: typing.Optional[builtins.str] = None,
-        treat_missing_data: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
-        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
-        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
-        :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
-        :param alarm_description: The description of the alarm.
-        :param alarm_name: The name of the alarm. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the alarm name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
-        :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
-        :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
-        :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
-        :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
-        :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
-        :param metrics: An array that enables you to create an alarm based on the result of a metric math expression. Each item in the array either retrieves a metric or performs a math expression. If you specify the ``Metrics`` parameter, you cannot specify ``MetricName`` , ``Dimensions`` , ``Period`` , ``Namespace`` , ``Statistic`` , ``ExtendedStatistic`` , or ``Unit`` .
-        :param namespace: The namespace of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you can't specify ``Namespace`` and you use ``Metrics`` instead. For a list of namespaces for metrics from AWS services, see `AWS Services That Publish CloudWatch Metrics. <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-services-cloudwatch-metrics.html>`_
-        :param ok_actions: The actions to execute when this alarm transitions to the ``OK`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
-        :param period: The period, in seconds, over which the statistic is applied. This is required for an alarm based on a metric. Valid values are 10, 20, 30, 60, and any multiple of 60. For an alarm based on a math expression, you can't specify ``Period`` , and instead you use the ``Metrics`` parameter. *Minimum:* 10
-        :param statistic: The statistic for the metric associated with the alarm, other than percentile. For percentile statistics, use ``ExtendedStatistic`` . For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``Statistic`` . Instead, you use ``Metrics`` .
-        :param tags: A list of key-value pairs to associate with the alarm. You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-        :param threshold: The value to compare with the specified statistic.
-        :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
-        :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
-        :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAlarmProps(
-            comparison_operator=comparison_operator,
-            evaluation_periods=evaluation_periods,
-            actions_enabled=actions_enabled,
-            alarm_actions=alarm_actions,
-            alarm_description=alarm_description,
-            alarm_name=alarm_name,
-            datapoints_to_alarm=datapoints_to_alarm,
-            dimensions=dimensions,
-            evaluate_low_sample_count_percentile=evaluate_low_sample_count_percentile,
-            extended_statistic=extended_statistic,
-            insufficient_data_actions=insufficient_data_actions,
-            metric_name=metric_name,
-            metrics=metrics,
-            namespace=namespace,
-            ok_actions=ok_actions,
-            period=period,
-            statistic=statistic,
-            tags=tags,
-            threshold=threshold,
-            threshold_metric_id=threshold_metric_id,
-            treat_missing_data=treat_missing_data,
-            unit=unit,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the CloudWatch alarm, such as ``arn:aws:cloudwatch:us-west-2:123456789012:alarm:myCloudWatchAlarm-CPUAlarm-UXMMZK36R55Z`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="comparisonOperator")
-    def comparison_operator(self) -> builtins.str:
-        '''The arithmetic operation to use when comparing the specified statistic and threshold.'''
-        return typing.cast(builtins.str, jsii.get(self, "comparisonOperator"))
-
-    @comparison_operator.setter
-    def comparison_operator(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="evaluationPeriods")
-    def evaluation_periods(self) -> jsii.Number:
-        '''The number of periods over which data is compared to the specified threshold.'''
-        return typing.cast(jsii.Number, jsii.get(self, "evaluationPeriods"))
-
-    @evaluation_periods.setter
-    def evaluation_periods(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="actionsEnabled")
-    def actions_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether actions should be executed during any changes to the alarm state.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "actionsEnabled"))
-
-    @actions_enabled.setter
-    def actions_enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmActions")
-    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of actions to execute when this alarm transitions into an ALARM state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alarmActions"))
-
-    @alarm_actions.setter
-    def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmDescription")
-    def alarm_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmDescription"))
-
-    @alarm_description.setter
-    def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmName")
-    def alarm_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmName"))
-
-    @alarm_name.setter
-    def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="datapointsToAlarm")
-    def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
-        '''The number of datapoints that must be breaching to trigger the alarm.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "datapointsToAlarm"))
-
-    @datapoints_to_alarm.setter
-    def datapoints_to_alarm(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datapointsToAlarm", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dimensions")
-    def dimensions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]]:
-        '''The dimensions for the metric associated with the alarm.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]], jsii.get(self, "dimensions"))
-
-    @dimensions.setter
-    def dimensions(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="evaluateLowSampleCountPercentile")
-    def evaluate_low_sample_count_percentile(self) -> typing.Optional[builtins.str]:
-        '''Used only for alarms based on percentiles.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "evaluateLowSampleCountPercentile"))
-
-    @evaluate_low_sample_count_percentile.setter
-    def evaluate_low_sample_count_percentile(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="extendedStatistic")
-    def extended_statistic(self) -> typing.Optional[builtins.str]:
-        '''The percentile statistic for the metric associated with the alarm.
-
-        Specify a value between p0.0 and p100.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "extendedStatistic"))
-
-    @extended_statistic.setter
-    def extended_statistic(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extendedStatistic", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="insufficientDataActions")
-    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "insufficientDataActions"))
-
-    @insufficient_data_actions.setter
-    def insufficient_data_actions(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="metricName")
-    def metric_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the metric associated with the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metricName"))
-
-    @metric_name.setter
-    def metric_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="metrics")
-    def metrics(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]]:
-        '''An array that enables you to create an alarm based on the result of a metric math expression.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]], jsii.get(self, "metrics"))
-
-    @metrics.setter
-    def metrics(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metrics", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="namespace")
-    def namespace(self) -> typing.Optional[builtins.str]:
-        '''The namespace of the metric associated with the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespace"))
-
-    @namespace.setter
-    def namespace(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="okActions")
-    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The actions to execute when this alarm transitions to the ``OK`` state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "okActions"))
-
-    @ok_actions.setter
-    def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="period")
-    def period(self) -> typing.Optional[jsii.Number]:
-        '''The period, in seconds, over which the statistic is applied.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "period"))
-
-    @period.setter
-    def period(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "period", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="statistic")
-    def statistic(self) -> typing.Optional[builtins.str]:
-        '''The statistic for the metric associated with the alarm, other than percentile.
-
-        For percentile statistics, use ``ExtendedStatistic`` .
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statistic"))
-
-    @statistic.setter
-    def statistic(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statistic", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the alarm.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="threshold")
-    def threshold(self) -> typing.Optional[jsii.Number]:
-        '''The value to compare with the specified statistic.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "threshold"))
-
-    @threshold.setter
-    def threshold(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="thresholdMetricId")
-    def threshold_metric_id(self) -> typing.Optional[builtins.str]:
-        '''In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "thresholdMetricId"))
-
-    @threshold_metric_id.setter
-    def threshold_metric_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thresholdMetricId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="treatMissingData")
-    def treat_missing_data(self) -> typing.Optional[builtins.str]:
-        '''Sets how this alarm is to handle missing data points.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "treatMissingData"))
-
-    @treat_missing_data.setter
-    def treat_missing_data(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="unit")
-    def unit(self) -> typing.Optional[builtins.str]:
-        '''The unit of the metric associated with the alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "unit"))
-
-    @unit.setter
-    def unit(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.DimensionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name", "value": "value"},
-    )
-    class DimensionProperty:
-        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
-            '''Dimension is an embedded property of the ``AWS::CloudWatch::Alarm`` type.
-
-            Dimensions are name/value pairs that can be associated with a CloudWatch metric. You can specify a maximum of 30 dimensions for a given metric.
-
-            :param name: The name of the dimension, from 1–255 characters in length. This dimension name must have been included when the metric was published.
-            :param value: The value for the dimension, from 1–255 characters in length.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                dimension_property = cloudwatch.CfnAlarm.DimensionProperty(
-                    name="name",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-                "value": value,
-            }
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the dimension, from 1–255 characters in length.
-
-            This dimension name must have been included when the metric was published.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html#cfn-cloudwatch-alarm-dimension-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The value for the dimension, from 1–255 characters in length.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html#cfn-cloudwatch-alarm-dimension-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DimensionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricDataQueryProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "id": "id",
-            "account_id": "accountId",
-            "expression": "expression",
-            "label": "label",
-            "metric_stat": "metricStat",
-            "period": "period",
-            "return_data": "returnData",
-        },
-    )
-    class MetricDataQueryProperty:
-        def __init__(
-            self,
-            *,
-            id: builtins.str,
-            account_id: typing.Optional[builtins.str] = None,
-            expression: typing.Optional[builtins.str] = None,
-            label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            period: typing.Optional[jsii.Number] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data.
-
-            Any expression used must return a single time series. For more information, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
-
-            :param id: A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
-            :param account_id: The ID of the account where the metrics are located, if this is a cross-account alarm.
-            :param expression: The math expression to be performed on the returned data, if this object is performing a math expression. This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* . Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-            :param label: A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If ``Label`` is omitted, CloudWatch generates a default.
-            :param metric_stat: The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data. Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
-            :param return_data: This option indicates whether to return the timestamps and raw data values of this metric. When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm. This field is required.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_data_query_property = cloudwatch.CfnAlarm.MetricDataQueryProperty(
-                    id="id",
-                
-                    # the properties below are optional
-                    account_id="accountId",
-                    expression="expression",
-                    label="label",
-                    metric_stat=cloudwatch.CfnAlarm.MetricStatProperty(
-                        metric=cloudwatch.CfnAlarm.MetricProperty(
-                            dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            metric_name="metricName",
-                            namespace="namespace"
-                        ),
-                        period=123,
-                        stat="stat",
-                
-                        # the properties below are optional
-                        unit="unit"
-                    ),
-                    period=123,
-                    return_data=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f)
-                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
-                check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
-                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-                check_type(argname="argument return_data", value=return_data, expected_type=type_hints["return_data"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "id": id,
-            }
-            if account_id is not None:
-                self._values["account_id"] = account_id
-            if expression is not None:
-                self._values["expression"] = expression
-            if label is not None:
-                self._values["label"] = label
-            if metric_stat is not None:
-                self._values["metric_stat"] = metric_stat
-            if period is not None:
-                self._values["period"] = period
-            if return_data is not None:
-                self._values["return_data"] = return_data
-
-        @builtins.property
-        def id(self) -> builtins.str:
-            '''A short name used to tie this object to the results in the response.
-
-            This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-id
-            '''
-            result = self._values.get("id")
-            assert result is not None, "Required property 'id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def account_id(self) -> typing.Optional[builtins.str]:
-            '''The ID of the account where the metrics are located, if this is a cross-account alarm.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-accountid
-            '''
-            result = self._values.get("account_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def expression(self) -> typing.Optional[builtins.str]:
-            '''The math expression to be performed on the returned data, if this object is performing a math expression.
-
-            This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
-
-            Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-expression
-            '''
-            result = self._values.get("expression")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def label(self) -> typing.Optional[builtins.str]:
-            '''A human-readable label for this metric or expression.
-
-            This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If ``Label`` is omitted, CloudWatch generates a default.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-label
-            '''
-            result = self._values.get("label")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def metric_stat(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricStatProperty"]]:
-            '''The metric to be returned, along with statistics, period, and units.
-
-            Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
-
-            Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-metricstat
-            '''
-            result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricStatProperty"]], result)
-
-        @builtins.property
-        def period(self) -> typing.Optional[jsii.Number]:
-            '''The granularity, in seconds, of the returned data points.
-
-            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-period
-            '''
-            result = self._values.get("period")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def return_data(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''This option indicates whether to return the timestamps and raw data values of this metric.
-
-            When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm.
-
-            This field is required.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-returndata
-            '''
-            result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricDataQueryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "dimensions": "dimensions",
-            "metric_name": "metricName",
-            "namespace": "namespace",
-        },
-    )
-    class MetricProperty:
-        def __init__(
-            self,
-            *,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            metric_name: typing.Optional[builtins.str] = None,
-            namespace: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The ``Metric`` property type represents a specific metric.
-
-            ``Metric`` is a property of the `MetricStat <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html>`_ property type.
-
-            :param dimensions: The metric dimensions that you want to be used for the metric that the alarm will watch.
-            :param metric_name: The name of the metric that you want the alarm to watch. This is a required field.
-            :param namespace: The namespace of the metric that the alarm will watch.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_property = cloudwatch.CfnAlarm.MetricProperty(
-                    dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
-                        name="name",
-                        value="value"
-                    )],
-                    metric_name="metricName",
-                    namespace="namespace"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf)
-                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if dimensions is not None:
-                self._values["dimensions"] = dimensions
-            if metric_name is not None:
-                self._values["metric_name"] = metric_name
-            if namespace is not None:
-                self._values["namespace"] = namespace
-
-        @builtins.property
-        def dimensions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]]:
-            '''The metric dimensions that you want to be used for the metric that the alarm will watch.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-dimensions
-            '''
-            result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]], result)
-
-        @builtins.property
-        def metric_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the metric that you want the alarm to watch.
-
-            This is a required field.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-metricname
-            '''
-            result = self._values.get("metric_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def namespace(self) -> typing.Optional[builtins.str]:
-            '''The namespace of the metric that the alarm will watch.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-namespace
-            '''
-            result = self._values.get("namespace")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricStatProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "metric": "metric",
-            "period": "period",
-            "stat": "stat",
-            "unit": "unit",
-        },
-    )
-    class MetricStatProperty:
-        def __init__(
-            self,
-            *,
-            metric: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
-            period: jsii.Number,
-            stat: builtins.str,
-            unit: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''This structure defines the metric to be returned, along with the statistics, period, and units.
-
-            ``MetricStat`` is a property of the `MetricDataQuery <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html>`_ property type.
-
-            :param metric: The metric to return, including the metric name, namespace, and dimensions.
-            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second. If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned: - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute). - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes). - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
-            :param stat: The statistic to return. It can include any CloudWatch statistic or extended statistic. For a list of valid values, see the table in `Statistics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic>`_ in the *Amazon CloudWatch User Guide* .
-            :param unit: The unit to use for the returned data points. Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_stat_property = cloudwatch.CfnAlarm.MetricStatProperty(
-                    metric=cloudwatch.CfnAlarm.MetricProperty(
-                        dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        metric_name="metricName",
-                        namespace="namespace"
-                    ),
-                    period=123,
-                    stat="stat",
-                
-                    # the properties below are optional
-                    unit="unit"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe)
-                check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
-                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
-                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric": metric,
-                "period": period,
-                "stat": stat,
-            }
-            if unit is not None:
-                self._values["unit"] = unit
-
-        @builtins.property
-        def metric(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricProperty"]:
-            '''The metric to return, including the metric name, namespace, and dimensions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-metric
-            '''
-            result = self._values.get("metric")
-            assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricProperty"], result)
-
-        @builtins.property
-        def period(self) -> jsii.Number:
-            '''The granularity, in seconds, of the returned data points.
-
-            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second.
-
-            If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned:
-
-            - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute).
-            - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes).
-            - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-period
-            '''
-            result = self._values.get("period")
-            assert result is not None, "Required property 'period' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def stat(self) -> builtins.str:
-            '''The statistic to return.
-
-            It can include any CloudWatch statistic or extended statistic. For a list of valid values, see the table in `Statistics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic>`_ in the *Amazon CloudWatch User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-stat
-            '''
-            result = self._values.get("stat")
-            assert result is not None, "Required property 'stat' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def unit(self) -> typing.Optional[builtins.str]:
-            '''The unit to use for the returned data points.
-
-            Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-unit
-            '''
-            result = self._values.get("unit")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricStatProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -2850,12 +1937,12 @@ class CfnAlarmProps:
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         metric_name: typing.Optional[builtins.str] = None,
-        metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         namespace: typing.Optional[builtins.str] = None,
         ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         period: typing.Optional[jsii.Number] = None,
@@ -3117,7 +2204,7 @@ class CfnAlarmProps:
     @builtins.property
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.DimensionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]]:
         '''The dimensions for the metric associated with the alarm.
 
         For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
@@ -3125,7 +2212,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-dimensions
         '''
         result = self._values.get("dimensions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.DimensionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]], result)
 
     @builtins.property
     def evaluate_low_sample_count_percentile(self) -> typing.Optional[builtins.str]:
@@ -3176,7 +2263,7 @@ class CfnAlarmProps:
     @builtins.property
     def metrics(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.MetricDataQueryProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]]:
         '''An array that enables you to create an alarm based on the result of a metric math expression.
 
         Each item in the array either retrieves a metric or performs a math expression.
@@ -3186,7 +2273,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-metrics
         '''
         result = self._values.get("metrics")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.MetricDataQueryProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
@@ -3309,1250 +2396,6 @@ class CfnAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAnomalyDetector(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector",
-):
-    '''The ``AWS::CloudWatch::AnomalyDetector`` type specifies an anomaly detection band for a certain metric and statistic.
-
-    The band represents the expected "normal" range for the metric values. Anomaly detection bands can be used for visualization of a metric's expected values, and for alarms.
-
-    For more information see `Using CloudWatch anomaly detection. <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Anomaly_Detection.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html
-    :cloudformationResource: AWS::CloudWatch::AnomalyDetector
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_anomaly_detector = cloudwatch.CfnAnomalyDetector(self, "MyCfnAnomalyDetector",
-            configuration=cloudwatch.CfnAnomalyDetector.ConfigurationProperty(
-                excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
-                    end_time="endTime",
-                    start_time="startTime"
-                )],
-                metric_time_zone="metricTimeZone"
-            ),
-            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                name="name",
-                value="value"
-            )],
-            metric_characteristics=cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty(
-                periodic_spikes=False
-            ),
-            metric_math_anomaly_detector=cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty(
-                metric_data_queries=[cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
-                    id="id",
-        
-                    # the properties below are optional
-                    account_id="accountId",
-                    expression="expression",
-                    label="label",
-                    metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
-                        metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
-                            metric_name="metricName",
-                            namespace="namespace",
-        
-                            # the properties below are optional
-                            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                                name="name",
-                                value="value"
-                            )]
-                        ),
-                        period=123,
-                        stat="stat",
-        
-                        # the properties below are optional
-                        unit="unit"
-                    ),
-                    period=123,
-                    return_data=False
-                )]
-            ),
-            metric_name="metricName",
-            namespace="namespace",
-            single_metric_anomaly_detector=cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty(
-                account_id="accountId",
-                dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                    name="name",
-                    value="value"
-                )],
-                metric_name="metricName",
-                namespace="namespace",
-                stat="stat"
-            ),
-            stat="stat"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_name: typing.Optional[builtins.str] = None,
-        namespace: typing.Optional[builtins.str] = None,
-        single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stat: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param configuration: Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model. The configuration can also include the time zone to use for the metric.
-        :param dimensions: The dimensions of the metric associated with the anomaly detection band.
-        :param metric_characteristics: Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models. Currently, it includes the ``PeriodicSpikes`` parameter.
-        :param metric_math_anomaly_detector: The CloudWatch metric math expression for this anomaly detector.
-        :param metric_name: The name of the metric associated with the anomaly detection band.
-        :param namespace: The namespace of the metric associated with the anomaly detection band.
-        :param single_metric_anomaly_detector: The CloudWatch metric and statistic for this anomaly detector.
-        :param stat: The statistic of the metric associated with the anomaly detection band.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAnomalyDetectorProps(
-            configuration=configuration,
-            dimensions=dimensions,
-            metric_characteristics=metric_characteristics,
-            metric_math_anomaly_detector=metric_math_anomaly_detector,
-            metric_name=metric_name,
-            namespace=namespace,
-            single_metric_anomaly_detector=single_metric_anomaly_detector,
-            stat=stat,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="configuration")
-    def configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]]:
-        '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]], jsii.get(self, "configuration"))
-
-    @configuration.setter
-    def configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dimensions")
-    def dimensions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
-        '''The dimensions of the metric associated with the anomaly detection band.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], jsii.get(self, "dimensions"))
-
-    @dimensions.setter
-    def dimensions(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="metricCharacteristics")
-    def metric_characteristics(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
-        '''Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]], jsii.get(self, "metricCharacteristics"))
-
-    @metric_characteristics.setter
-    def metric_characteristics(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricCharacteristics", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="metricMathAnomalyDetector")
-    def metric_math_anomaly_detector(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
-        '''The CloudWatch metric math expression for this anomaly detector.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], jsii.get(self, "metricMathAnomalyDetector"))
-
-    @metric_math_anomaly_detector.setter
-    def metric_math_anomaly_detector(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricMathAnomalyDetector", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="metricName")
-    def metric_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the metric associated with the anomaly detection band.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metricName"))
-
-    @metric_name.setter
-    def metric_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="namespace")
-    def namespace(self) -> typing.Optional[builtins.str]:
-        '''The namespace of the metric associated with the anomaly detection band.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespace"))
-
-    @namespace.setter
-    def namespace(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="singleMetricAnomalyDetector")
-    def single_metric_anomaly_detector(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
-        '''The CloudWatch metric and statistic for this anomaly detector.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], jsii.get(self, "singleMetricAnomalyDetector"))
-
-    @single_metric_anomaly_detector.setter
-    def single_metric_anomaly_detector(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "singleMetricAnomalyDetector", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stat")
-    def stat(self) -> typing.Optional[builtins.str]:
-        '''The statistic of the metric associated with the anomaly detection band.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stat"))
-
-    @stat.setter
-    def stat(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stat", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.ConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "excluded_time_ranges": "excludedTimeRanges",
-            "metric_time_zone": "metricTimeZone",
-        },
-    )
-    class ConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            excluded_time_ranges: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            metric_time_zone: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.
-
-            The configuration can also include the time zone to use for the metric.
-
-            :param excluded_time_ranges: Specifies an array of time ranges to exclude from use when the anomaly detection model is trained and updated. Use this to make sure that events that could cause unusual values for the metric, such as deployments, aren't used when CloudWatch creates or updates the model.
-            :param metric_time_zone: The time zone to use for the metric. This is useful to enable the model to automatically account for daylight savings time changes if the metric is sensitive to such time changes. To specify a time zone, use the name of the time zone as specified in the standard tz database. For more information, see `tz database <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Tz_database>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                configuration_property = cloudwatch.CfnAnomalyDetector.ConfigurationProperty(
-                    excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
-                        end_time="endTime",
-                        start_time="startTime"
-                    )],
-                    metric_time_zone="metricTimeZone"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121)
-                check_type(argname="argument excluded_time_ranges", value=excluded_time_ranges, expected_type=type_hints["excluded_time_ranges"])
-                check_type(argname="argument metric_time_zone", value=metric_time_zone, expected_type=type_hints["metric_time_zone"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if excluded_time_ranges is not None:
-                self._values["excluded_time_ranges"] = excluded_time_ranges
-            if metric_time_zone is not None:
-                self._values["metric_time_zone"] = metric_time_zone
-
-        @builtins.property
-        def excluded_time_ranges(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.RangeProperty"]]]]:
-            '''Specifies an array of time ranges to exclude from use when the anomaly detection model is trained and updated.
-
-            Use this to make sure that events that could cause unusual values for the metric, such as deployments, aren't used when CloudWatch creates or updates the model.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html#cfn-cloudwatch-anomalydetector-configuration-excludedtimeranges
-            '''
-            result = self._values.get("excluded_time_ranges")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.RangeProperty"]]]], result)
-
-        @builtins.property
-        def metric_time_zone(self) -> typing.Optional[builtins.str]:
-            '''The time zone to use for the metric.
-
-            This is useful to enable the model to automatically account for daylight savings time changes if the metric is sensitive to such time changes.
-
-            To specify a time zone, use the name of the time zone as specified in the standard tz database. For more information, see `tz database <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Tz_database>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html#cfn-cloudwatch-anomalydetector-configuration-metrictimezone
-            '''
-            result = self._values.get("metric_time_zone")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.DimensionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"name": "name", "value": "value"},
-    )
-    class DimensionProperty:
-        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
-            '''A dimension is a name/value pair that is part of the identity of a metric.
-
-            Because dimensions are part of the unique identifier for a metric, whenever you add a unique name/value pair to one of your metrics, you are creating a new variation of that metric. For example, many Amazon EC2 metrics publish ``InstanceId`` as a dimension name, and the actual instance ID as the value for that dimension.
-
-            You can assign up to 30 dimensions to a metric.
-
-            :param name: The name of the dimension.
-            :param value: The value of the dimension. Dimension values must contain only ASCII characters and must include at least one non-whitespace character. ASCII control characters are not supported as part of dimension values.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                dimension_property = cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                    name="name",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9)
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "name": name,
-                "value": value,
-            }
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the dimension.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html#cfn-cloudwatch-anomalydetector-dimension-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The value of the dimension.
-
-            Dimension values must contain only ASCII characters and must include at least one non-whitespace character. ASCII control characters are not supported as part of dimension values.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html#cfn-cloudwatch-anomalydetector-dimension-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DimensionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"periodic_spikes": "periodicSpikes"},
-    )
-    class MetricCharacteristicsProperty:
-        def __init__(
-            self,
-            *,
-            periodic_spikes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''This object includes parameters that you can use to provide information to CloudWatch to help it build more accurate anomaly detection models.
-
-            :param periodic_spikes: Set this parameter to true if values for this metric consistently include spikes that should not be considered to be anomalies. With this set to true, CloudWatch will expect to see spikes that occurred consistently during the model training period, and won't flag future similar spikes as anomalies.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metriccharacteristics.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_characteristics_property = cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty(
-                    periodic_spikes=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b)
-                check_type(argname="argument periodic_spikes", value=periodic_spikes, expected_type=type_hints["periodic_spikes"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if periodic_spikes is not None:
-                self._values["periodic_spikes"] = periodic_spikes
-
-        @builtins.property
-        def periodic_spikes(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Set this parameter to true if values for this metric consistently include spikes that should not be considered to be anomalies.
-
-            With this set to true, CloudWatch will expect to see spikes that occurred consistently during the model training period, and won't flag future similar spikes as anomalies.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metriccharacteristics.html#cfn-cloudwatch-anomalydetector-metriccharacteristics-periodicspikes
-            '''
-            result = self._values.get("periodic_spikes")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricCharacteristicsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "id": "id",
-            "account_id": "accountId",
-            "expression": "expression",
-            "label": "label",
-            "metric_stat": "metricStat",
-            "period": "period",
-            "return_data": "returnData",
-        },
-    )
-    class MetricDataQueryProperty:
-        def __init__(
-            self,
-            *,
-            id: builtins.str,
-            account_id: typing.Optional[builtins.str] = None,
-            expression: typing.Optional[builtins.str] = None,
-            label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            period: typing.Optional[jsii.Number] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''This structure is used in both ``GetMetricData`` and ``PutMetricAlarm`` .
-
-            The supported use of this structure is different for those two operations.
-
-            When used in ``GetMetricData`` , it indicates the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a Metrics Insights query or a math expression. A single ``GetMetricData`` call can include up to 500 ``MetricDataQuery`` structures.
-
-            When used in ``PutMetricAlarm`` , it enables you to create an alarm based on a metric math expression. Each ``MetricDataQuery`` in the array specifies either a metric to retrieve, or a math expression to be performed on retrieved metrics. A single ``PutMetricAlarm`` call can include up to 20 ``MetricDataQuery`` structures in the array. The 20 structures can include as many as 10 structures that contain a ``MetricStat`` parameter to retrieve a metric, and as many as 10 structures that contain the ``Expression`` parameter to perform a math expression. Of those ``Expression`` structures, one must have ``true`` as the value for ``ReturnData`` . The result of this expression is the value the alarm watches.
-
-            Any expression used in a ``PutMetricAlarm`` operation must return a single time series. For more information, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
-
-            Some of the parameters of this structure also have different uses whether you are using this structure in a ``GetMetricData`` operation or a ``PutMetricAlarm`` operation. These differences are explained in the following parameter list.
-
-            :param id: A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
-            :param account_id: The ID of the account where the metrics are located. If you are performing a ``GetMetricData`` operation in a monitoring account, use this to specify which account to retrieve this metric from. If you are performing a ``PutMetricAlarm`` operation, use this to specify which account contains the metric that the alarm is watching.
-            :param expression: This field can contain either a Metrics Insights query, or a metric math expression to be performed on the returned data. For more information about Metrics Insights queries, see `Metrics Insights query components and syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-querylanguage>`_ in the *Amazon CloudWatch User Guide* . A math expression can use the ``Id`` of the other metrics or queries to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* . Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-            :param label: A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If Label is omitted, CloudWatch generates a default. You can put dynamic expressions into a label, so that it is more descriptive. For more information, see `Using Dynamic Labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ .
-            :param metric_stat: The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data. Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
-            :param return_data: When used in ``GetMetricData`` , this option indicates whether to return the timestamps and raw data values of this metric. If you are performing this call just to do math expressions and do not also need the raw data returned, you can specify ``false`` . If you omit this, the default of ``true`` is used. When used in ``PutMetricAlarm`` , specify ``true`` for the one expression result to use as the alarm. For all other metrics and expressions in the same ``PutMetricAlarm`` operation, specify ``ReturnData`` as False.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_data_query_property = cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
-                    id="id",
-                
-                    # the properties below are optional
-                    account_id="accountId",
-                    expression="expression",
-                    label="label",
-                    metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
-                        metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
-                            metric_name="metricName",
-                            namespace="namespace",
-                
-                            # the properties below are optional
-                            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                                name="name",
-                                value="value"
-                            )]
-                        ),
-                        period=123,
-                        stat="stat",
-                
-                        # the properties below are optional
-                        unit="unit"
-                    ),
-                    period=123,
-                    return_data=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721)
-                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
-                check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
-                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-                check_type(argname="argument return_data", value=return_data, expected_type=type_hints["return_data"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "id": id,
-            }
-            if account_id is not None:
-                self._values["account_id"] = account_id
-            if expression is not None:
-                self._values["expression"] = expression
-            if label is not None:
-                self._values["label"] = label
-            if metric_stat is not None:
-                self._values["metric_stat"] = metric_stat
-            if period is not None:
-                self._values["period"] = period
-            if return_data is not None:
-                self._values["return_data"] = return_data
-
-        @builtins.property
-        def id(self) -> builtins.str:
-            '''A short name used to tie this object to the results in the response.
-
-            This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-id
-            '''
-            result = self._values.get("id")
-            assert result is not None, "Required property 'id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def account_id(self) -> typing.Optional[builtins.str]:
-            '''The ID of the account where the metrics are located.
-
-            If you are performing a ``GetMetricData`` operation in a monitoring account, use this to specify which account to retrieve this metric from.
-
-            If you are performing a ``PutMetricAlarm`` operation, use this to specify which account contains the metric that the alarm is watching.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-accountid
-            '''
-            result = self._values.get("account_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def expression(self) -> typing.Optional[builtins.str]:
-            '''This field can contain either a Metrics Insights query, or a metric math expression to be performed on the returned data.
-
-            For more information about Metrics Insights queries, see `Metrics Insights query components and syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-querylanguage>`_ in the *Amazon CloudWatch User Guide* .
-
-            A math expression can use the ``Id`` of the other metrics or queries to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
-
-            Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-expression
-            '''
-            result = self._values.get("expression")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def label(self) -> typing.Optional[builtins.str]:
-            '''A human-readable label for this metric or expression.
-
-            This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If Label is omitted, CloudWatch generates a default.
-
-            You can put dynamic expressions into a label, so that it is more descriptive. For more information, see `Using Dynamic Labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-label
-            '''
-            result = self._values.get("label")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def metric_stat(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricStatProperty"]]:
-            '''The metric to be returned, along with statistics, period, and units.
-
-            Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
-
-            Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-metricstat
-            '''
-            result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricStatProperty"]], result)
-
-        @builtins.property
-        def period(self) -> typing.Optional[jsii.Number]:
-            '''The granularity, in seconds, of the returned data points.
-
-            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-period
-            '''
-            result = self._values.get("period")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def return_data(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''When used in ``GetMetricData`` , this option indicates whether to return the timestamps and raw data values of this metric.
-
-            If you are performing this call just to do math expressions and do not also need the raw data returned, you can specify ``false`` . If you omit this, the default of ``true`` is used.
-
-            When used in ``PutMetricAlarm`` , specify ``true`` for the one expression result to use as the alarm. For all other metrics and expressions in the same ``PutMetricAlarm`` operation, specify ``ReturnData`` as False.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-returndata
-            '''
-            result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricDataQueryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty",
-        jsii_struct_bases=[],
-        name_mapping={"metric_data_queries": "metricDataQueries"},
-    )
-    class MetricMathAnomalyDetectorProperty:
-        def __init__(
-            self,
-            *,
-            metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''Indicates the CloudWatch math expression that provides the time series the anomaly detector uses as input.
-
-            The designated math expression must return a single time series.
-
-            :param metric_data_queries: An array of metric data query structures that enables you to create an anomaly detector based on the result of a metric math expression. Each item in ``MetricDataQueries`` gets a metric or performs a math expression. One item in ``MetricDataQueries`` is the expression that provides the time series that the anomaly detector uses as input. Designate the expression by setting ``ReturnData`` to ``true`` for this object in the array. For all other expressions and metrics, set ``ReturnData`` to ``false`` . The designated expression must return a single time series.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricmathanomalydetector.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_math_anomaly_detector_property = cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty(
-                    metric_data_queries=[cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
-                        id="id",
-                
-                        # the properties below are optional
-                        account_id="accountId",
-                        expression="expression",
-                        label="label",
-                        metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
-                            metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
-                                metric_name="metricName",
-                                namespace="namespace",
-                
-                                # the properties below are optional
-                                dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                                    name="name",
-                                    value="value"
-                                )]
-                            ),
-                            period=123,
-                            stat="stat",
-                
-                            # the properties below are optional
-                            unit="unit"
-                        ),
-                        period=123,
-                        return_data=False
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb)
-                check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if metric_data_queries is not None:
-                self._values["metric_data_queries"] = metric_data_queries
-
-        @builtins.property
-        def metric_data_queries(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricDataQueryProperty"]]]]:
-            '''An array of metric data query structures that enables you to create an anomaly detector based on the result of a metric math expression.
-
-            Each item in ``MetricDataQueries`` gets a metric or performs a math expression. One item in ``MetricDataQueries`` is the expression that provides the time series that the anomaly detector uses as input. Designate the expression by setting ``ReturnData`` to ``true`` for this object in the array. For all other expressions and metrics, set ``ReturnData`` to ``false`` . The designated expression must return a single time series.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricmathanomalydetector.html#cfn-cloudwatch-anomalydetector-metricmathanomalydetector-metricdataqueries
-            '''
-            result = self._values.get("metric_data_queries")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricDataQueryProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricMathAnomalyDetectorProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "metric_name": "metricName",
-            "namespace": "namespace",
-            "dimensions": "dimensions",
-        },
-    )
-    class MetricProperty:
-        def __init__(
-            self,
-            *,
-            metric_name: builtins.str,
-            namespace: builtins.str,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ) -> None:
-            '''Represents a specific metric.
-
-            :param metric_name: The name of the metric. This is a required field.
-            :param namespace: The namespace of the metric.
-            :param dimensions: The dimensions for the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_property = cloudwatch.CfnAnomalyDetector.MetricProperty(
-                    metric_name="metricName",
-                    namespace="namespace",
-                
-                    # the properties below are optional
-                    dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                        name="name",
-                        value="value"
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392)
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric_name": metric_name,
-                "namespace": namespace,
-            }
-            if dimensions is not None:
-                self._values["dimensions"] = dimensions
-
-        @builtins.property
-        def metric_name(self) -> builtins.str:
-            '''The name of the metric.
-
-            This is a required field.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-metricname
-            '''
-            result = self._values.get("metric_name")
-            assert result is not None, "Required property 'metric_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def namespace(self) -> builtins.str:
-            '''The namespace of the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-namespace
-            '''
-            result = self._values.get("namespace")
-            assert result is not None, "Required property 'namespace' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def dimensions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
-            '''The dimensions for the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-dimensions
-            '''
-            result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricStatProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "metric": "metric",
-            "period": "period",
-            "stat": "stat",
-            "unit": "unit",
-        },
-    )
-    class MetricStatProperty:
-        def __init__(
-            self,
-            *,
-            metric: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
-            period: jsii.Number,
-            stat: builtins.str,
-            unit: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''This structure defines the metric to be returned, along with the statistics, period, and units.
-
-            :param metric: The metric to return, including the metric name, namespace, and dimensions.
-            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second. If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned: - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute). - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes). - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
-            :param stat: The statistic to return. It can include any CloudWatch statistic or extended statistic.
-            :param unit: When you are using a ``Put`` operation, this defines what unit you want to use when storing the metric. In a ``Get`` operation, if you omit ``Unit`` then all data that was collected with any unit is returned, along with the corresponding units that were specified when the data was reported to CloudWatch. If you specify a unit, the operation returns only data that was collected with that unit specified. If you specify a unit that does not match the data collected, the results of the operation are null. CloudWatch does not perform unit conversions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_stat_property = cloudwatch.CfnAnomalyDetector.MetricStatProperty(
-                    metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
-                        metric_name="metricName",
-                        namespace="namespace",
-                
-                        # the properties below are optional
-                        dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                            name="name",
-                            value="value"
-                        )]
-                    ),
-                    period=123,
-                    stat="stat",
-                
-                    # the properties below are optional
-                    unit="unit"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c)
-                check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
-                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
-                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric": metric,
-                "period": period,
-                "stat": stat,
-            }
-            if unit is not None:
-                self._values["unit"] = unit
-
-        @builtins.property
-        def metric(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricProperty"]:
-            '''The metric to return, including the metric name, namespace, and dimensions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-metric
-            '''
-            result = self._values.get("metric")
-            assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricProperty"], result)
-
-        @builtins.property
-        def period(self) -> jsii.Number:
-            '''The granularity, in seconds, of the returned data points.
-
-            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second.
-
-            If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned:
-
-            - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute).
-            - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes).
-            - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-period
-            '''
-            result = self._values.get("period")
-            assert result is not None, "Required property 'period' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def stat(self) -> builtins.str:
-            '''The statistic to return.
-
-            It can include any CloudWatch statistic or extended statistic.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-stat
-            '''
-            result = self._values.get("stat")
-            assert result is not None, "Required property 'stat' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def unit(self) -> typing.Optional[builtins.str]:
-            '''When you are using a ``Put`` operation, this defines what unit you want to use when storing the metric.
-
-            In a ``Get`` operation, if you omit ``Unit`` then all data that was collected with any unit is returned, along with the corresponding units that were specified when the data was reported to CloudWatch. If you specify a unit, the operation returns only data that was collected with that unit specified. If you specify a unit that does not match the data collected, the results of the operation are null. CloudWatch does not perform unit conversions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-unit
-            '''
-            result = self._values.get("unit")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricStatProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.RangeProperty",
-        jsii_struct_bases=[],
-        name_mapping={"end_time": "endTime", "start_time": "startTime"},
-    )
-    class RangeProperty:
-        def __init__(self, *, end_time: builtins.str, start_time: builtins.str) -> None:
-            '''Each ``Range`` specifies one range of days or times to exclude from use for training or updating an anomaly detection model.
-
-            :param end_time: The end time of the range to exclude. The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
-            :param start_time: The start time of the range to exclude. The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                range_property = cloudwatch.CfnAnomalyDetector.RangeProperty(
-                    end_time="endTime",
-                    start_time="startTime"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b)
-                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
-                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "end_time": end_time,
-                "start_time": start_time,
-            }
-
-        @builtins.property
-        def end_time(self) -> builtins.str:
-            '''The end time of the range to exclude.
-
-            The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html#cfn-cloudwatch-anomalydetector-range-endtime
-            '''
-            result = self._values.get("end_time")
-            assert result is not None, "Required property 'end_time' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def start_time(self) -> builtins.str:
-            '''The start time of the range to exclude.
-
-            The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html#cfn-cloudwatch-anomalydetector-range-starttime
-            '''
-            result = self._values.get("start_time")
-            assert result is not None, "Required property 'start_time' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RangeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "account_id": "accountId",
-            "dimensions": "dimensions",
-            "metric_name": "metricName",
-            "namespace": "namespace",
-            "stat": "stat",
-        },
-    )
-    class SingleMetricAnomalyDetectorProperty:
-        def __init__(
-            self,
-            *,
-            account_id: typing.Optional[builtins.str] = None,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            metric_name: typing.Optional[builtins.str] = None,
-            namespace: typing.Optional[builtins.str] = None,
-            stat: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Designates the CloudWatch metric and statistic that provides the time series the anomaly detector uses as input.
-
-            If you have enabled unified cross-account observability, and this account is a monitoring account, the metric can be in the same account or a source account.
-
-            :param account_id: If the CloudWatch metric that provides the time series that the anomaly detector uses as input is in another account, specify that account ID here. If you omit this parameter, the current account is used.
-            :param dimensions: The metric dimensions to create the anomaly detection model for.
-            :param metric_name: The name of the metric to create the anomaly detection model for.
-            :param namespace: The namespace of the metric to create the anomaly detection model for.
-            :param stat: The statistic to use for the metric and anomaly detection model.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                single_metric_anomaly_detector_property = cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty(
-                    account_id="accountId",
-                    dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
-                        name="name",
-                        value="value"
-                    )],
-                    metric_name="metricName",
-                    namespace="namespace",
-                    stat="stat"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0)
-                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if account_id is not None:
-                self._values["account_id"] = account_id
-            if dimensions is not None:
-                self._values["dimensions"] = dimensions
-            if metric_name is not None:
-                self._values["metric_name"] = metric_name
-            if namespace is not None:
-                self._values["namespace"] = namespace
-            if stat is not None:
-                self._values["stat"] = stat
-
-        @builtins.property
-        def account_id(self) -> typing.Optional[builtins.str]:
-            '''If the CloudWatch metric that provides the time series that the anomaly detector uses as input is in another account, specify that account ID here.
-
-            If you omit this parameter, the current account is used.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-accountid
-            '''
-            result = self._values.get("account_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def dimensions(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
-            '''The metric dimensions to create the anomaly detection model for.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-dimensions
-            '''
-            result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], result)
-
-        @builtins.property
-        def metric_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the metric to create the anomaly detection model for.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-metricname
-            '''
-            result = self._values.get("metric_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def namespace(self) -> typing.Optional[builtins.str]:
-            '''The namespace of the metric to create the anomaly detection model for.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-namespace
-            '''
-            result = self._values.get("namespace")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def stat(self) -> typing.Optional[builtins.str]:
-            '''The statistic to use for the metric and anomaly detection model.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-stat
-            '''
-            result = self._values.get("stat")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SingleMetricAnomalyDetectorProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetectorProps",
     jsii_struct_bases=[],
@@ -4571,13 +2414,13 @@ class CfnAnomalyDetectorProps:
     def __init__(
         self,
         *,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
-        single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stat: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnAnomalyDetector``.
@@ -4690,7 +2533,7 @@ class CfnAnomalyDetectorProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.ConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]]:
         '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.
 
         The configuration can also include the time zone to use for the metric.
@@ -4698,23 +2541,23 @@ class CfnAnomalyDetectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-configuration
         '''
         result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.ConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]], result)
 
     @builtins.property
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.DimensionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
         '''The dimensions of the metric associated with the anomaly detection band.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-dimensions
         '''
         result = self._values.get("dimensions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.DimensionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], result)
 
     @builtins.property
     def metric_characteristics(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricCharacteristicsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
         '''Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models.
 
         Currently, it includes the ``PeriodicSpikes`` parameter.
@@ -4722,18 +2565,18 @@ class CfnAnomalyDetectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-metriccharacteristics
         '''
         result = self._values.get("metric_characteristics")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricCharacteristicsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]], result)
 
     @builtins.property
     def metric_math_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
         '''The CloudWatch metric math expression for this anomaly detector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-metricmathanomalydetector
         '''
         result = self._values.get("metric_math_anomaly_detector")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], result)
 
     @builtins.property
     def metric_name(self) -> typing.Optional[builtins.str]:
@@ -4756,13 +2599,13 @@ class CfnAnomalyDetectorProps:
     @builtins.property
     def single_metric_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
         '''The CloudWatch metric and statistic for this anomaly detector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector
         '''
         result = self._values.get("single_metric_anomaly_detector")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], result)
 
     @builtins.property
     def stat(self) -> typing.Optional[builtins.str]:
@@ -4783,314 +2626,6 @@ class CfnAnomalyDetectorProps:
         return "CfnAnomalyDetectorProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnCompositeAlarm(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnCompositeAlarm",
-):
-    '''The ``AWS::CloudWatch::CompositeAlarm`` type creates or updates a composite alarm.
-
-    When you create a composite alarm, you specify a rule expression for the alarm that takes into account the alarm states of other alarms that you have created. The composite alarm goes into ALARM state only if all conditions of the rule are met.
-
-    The alarms specified in a composite alarm's rule expression can include metric alarms and other composite alarms.
-
-    Using composite alarms can reduce alarm noise. You can create multiple metric alarms, and also create a composite alarm and set up alerts only for the composite alarm. For example, you could create a composite alarm that goes into ALARM state only when more than one of the underlying metric alarms are in ALARM state.
-
-    When this operation creates an alarm, the alarm state is immediately set to INSUFFICIENT_DATA. The alarm is then evaluated and its state is set appropriately. Any actions associated with the new state are then executed. For a composite alarm, this initial time after creation is the only time that the alarm can be in INSUFFICIENT_DATA state.
-
-    When you update an existing alarm, its state is left unchanged, but the update completely overwrites the previous configuration of the alarm.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html
-    :cloudformationResource: AWS::CloudWatch::CompositeAlarm
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_composite_alarm = cloudwatch.CfnCompositeAlarm(self, "MyCfnCompositeAlarm",
-            alarm_rule="alarmRule",
-        
-            # the properties below are optional
-            actions_enabled=False,
-            actions_suppressor="actionsSuppressor",
-            actions_suppressor_extension_period=123,
-            actions_suppressor_wait_period=123,
-            alarm_actions=["alarmActions"],
-            alarm_description="alarmDescription",
-            alarm_name="alarmName",
-            insufficient_data_actions=["insufficientDataActions"],
-            ok_actions=["okActions"],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        alarm_rule: builtins.str,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        actions_suppressor: typing.Optional[builtins.str] = None,
-        actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
-        actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        alarm_description: typing.Optional[builtins.str] = None,
-        alarm_name: typing.Optional[builtins.str] = None,
-        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param alarm_rule: An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state. For each alarm that you reference, you designate a function that specifies whether that alarm needs to be in ALARM state, OK state, or INSUFFICIENT_DATA state. You can use operators (AND, OR and NOT) to combine multiple functions in a single expression. You can use parenthesis to logically group the functions in your expression. You can use either alarm names or ARNs to reference the other alarms that are to be evaluated. Functions can include the following: - ALARM("alarm-name or alarm-ARN") is TRUE if the named alarm is in ALARM state. - OK("alarm-name or alarm-ARN") is TRUE if the named alarm is in OK state. - INSUFFICIENT_DATA("alarm-name or alarm-ARN") is TRUE if the named alarm is in INSUFFICIENT_DATA state. - TRUE always evaluates to TRUE. - FALSE always evaluates to FALSE. TRUE and FALSE are useful for testing a complex AlarmRule structure, and for testing your alarm actions. For more information about ``AlarmRule`` syntax, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
-        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state of the composite alarm. The default is TRUE.
-        :param actions_suppressor: Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state. ``ActionsSuppressor`` can be an AlarmName or an Amazon Resource Name (ARN) from an existing alarm.
-        :param actions_suppressor_extension_period: The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``ExtensionPeriod`` is required only when ``ActionsSuppressor`` is specified.
-        :param actions_suppressor_wait_period: The maximum time in seconds that the composite alarm waits for the suppressor alarm to go into the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``WaitPeriod`` is required only when ``ActionsSuppressor`` is specified.
-        :param alarm_actions: The actions to execute when this alarm transitions to the ALARM state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
-        :param alarm_description: The description for the composite alarm.
-        :param alarm_name: The name for the composite alarm. This name must be unique within your AWS account.
-        :param insufficient_data_actions: The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
-        :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
-        :param tags: A list of key-value pairs to associate with the alarm. You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCompositeAlarmProps(
-            alarm_rule=alarm_rule,
-            actions_enabled=actions_enabled,
-            actions_suppressor=actions_suppressor,
-            actions_suppressor_extension_period=actions_suppressor_extension_period,
-            actions_suppressor_wait_period=actions_suppressor_wait_period,
-            alarm_actions=alarm_actions,
-            alarm_description=alarm_description,
-            alarm_name=alarm_name,
-            insufficient_data_actions=insufficient_data_actions,
-            ok_actions=ok_actions,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the composite alarm, such as ``arn:aws:cloudwatch:us-west-2:123456789012:alarm/CompositeAlarmName`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmRule")
-    def alarm_rule(self) -> builtins.str:
-        '''An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state.'''
-        return typing.cast(builtins.str, jsii.get(self, "alarmRule"))
-
-    @alarm_rule.setter
-    def alarm_rule(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="actionsEnabled")
-    def actions_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether actions should be executed during any changes to the alarm state of the composite alarm.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "actionsEnabled"))
-
-    @actions_enabled.setter
-    def actions_enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="actionsSuppressor")
-    def actions_suppressor(self) -> typing.Optional[builtins.str]:
-        '''Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "actionsSuppressor"))
-
-    @actions_suppressor.setter
-    def actions_suppressor(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressor", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="actionsSuppressorExtensionPeriod")
-    def actions_suppressor_extension_period(self) -> typing.Optional[jsii.Number]:
-        '''The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "actionsSuppressorExtensionPeriod"))
-
-    @actions_suppressor_extension_period.setter
-    def actions_suppressor_extension_period(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressorExtensionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="actionsSuppressorWaitPeriod")
-    def actions_suppressor_wait_period(self) -> typing.Optional[jsii.Number]:
-        '''The maximum time in seconds that the composite alarm waits for the suppressor alarm to go into the ``ALARM`` state.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "actionsSuppressorWaitPeriod"))
-
-    @actions_suppressor_wait_period.setter
-    def actions_suppressor_wait_period(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressorWaitPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmActions")
-    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The actions to execute when this alarm transitions to the ALARM state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alarmActions"))
-
-    @alarm_actions.setter
-    def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmDescription")
-    def alarm_description(self) -> typing.Optional[builtins.str]:
-        '''The description for the composite alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmDescription"))
-
-    @alarm_description.setter
-    def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="alarmName")
-    def alarm_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the composite alarm.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmName"))
-
-    @alarm_name.setter
-    def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="insufficientDataActions")
-    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "insufficientDataActions"))
-
-    @insufficient_data_actions.setter
-    def insufficient_data_actions(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="okActions")
-    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The actions to execute when this alarm transitions to the OK state from any other state.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "okActions"))
-
-    @ok_actions.setter
-    def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the alarm.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5361,122 +2896,6 @@ class CfnCompositeAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnDashboard(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDashboard",
-):
-    '''The ``AWS::CloudWatch::Dashboard`` resource specifies an Amazon CloudWatch dashboard.
-
-    A dashboard is a customizable home page in the CloudWatch console that you can use to monitor your AWS resources in a single view.
-
-    All dashboards in your account are global, not region-specific.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html
-    :cloudformationResource: AWS::CloudWatch::Dashboard
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_dashboard = cloudwatch.CfnDashboard(self, "MyCfnDashboard",
-            dashboard_body="dashboardBody",
-        
-            # the properties below are optional
-            dashboard_name="dashboardName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        dashboard_body: builtins.str,
-        dashboard_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param dashboard_body: The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard. This parameter is required. For more information about the syntax, see `Dashboard Body Structure and Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html>`_ .
-        :param dashboard_name: The name of the dashboard. The name must be between 1 and 255 characters. If you do not specify a name, one will be generated automatically.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDashboardProps(
-            dashboard_body=dashboard_body, dashboard_name=dashboard_name
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dashboardBody")
-    def dashboard_body(self) -> builtins.str:
-        '''The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard.'''
-        return typing.cast(builtins.str, jsii.get(self, "dashboardBody"))
-
-    @dashboard_body.setter
-    def dashboard_body(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dashboardBody", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dashboardName")
-    def dashboard_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the dashboard.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dashboardName"))
-
-    @dashboard_name.setter
-    def dashboard_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dashboardName", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDashboardProps",
     jsii_struct_bases=[],
@@ -5558,212 +2977,6 @@ class CfnDashboardProps:
         return "CfnDashboardProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnInsightRule(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnInsightRule",
-):
-    '''Creates or updates a Contributor Insights rule.
-
-    Rules evaluate log events in a CloudWatch Logs log group, enabling you to find contributor data for the log events in that log group. For more information, see `Using Contributor Insights to Analyze High-Cardinality Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights.html>`_ in the *Amazon CloudWatch User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html
-    :cloudformationResource: AWS::CloudWatch::InsightRule
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_insight_rule = cloudwatch.CfnInsightRule(self, "MyCfnInsightRule",
-            rule_body="ruleBody",
-            rule_name="ruleName",
-            rule_state="ruleState",
-        
-            # the properties below are optional
-            apply_on_transformed_logs=False,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        rule_body: builtins.str,
-        rule_name: builtins.str,
-        rule_state: builtins.str,
-        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
-        :param rule_name: The name of the rule.
-        :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
-        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
-        :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnInsightRuleProps(
-            rule_body=rule_body,
-            rule_name=rule_name,
-            rule_state=rule_state,
-            apply_on_transformed_logs=apply_on_transformed_logs,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the Contributor Insights rule, such as ``arn:aws:cloudwatch:us-west-2:123456789012:insight-rule/MyInsightRuleName`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRuleName")
-    def attr_rule_name(self) -> builtins.str:
-        '''The name of the Contributor Insights rule.
-
-        :cloudformationAttribute: RuleName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRuleName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleBody")
-    def rule_body(self) -> builtins.str:
-        '''The definition of the rule, as a JSON object.'''
-        return typing.cast(builtins.str, jsii.get(self, "ruleBody"))
-
-    @rule_body.setter
-    def rule_body(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleBody", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleName")
-    def rule_name(self) -> builtins.str:
-        '''The name of the rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
-
-    @rule_name.setter
-    def rule_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleState")
-    def rule_state(self) -> builtins.str:
-        '''The current state of the rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "ruleState"))
-
-    @rule_state.setter
-    def rule_state(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleState", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="applyOnTransformedLogs")
-    def apply_on_transformed_logs(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Determines whether the rules is evaluated on transformed versions of logs.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "applyOnTransformedLogs"))
-
-    @apply_on_transformed_logs.setter
-    def apply_on_transformed_logs(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applyOnTransformedLogs", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the Contributor Insights rule.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5908,566 +3121,6 @@ class CfnInsightRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnMetricStream(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream",
-):
-    '''Creates or updates a metric stream.
-
-    Metrics streams can automatically stream CloudWatch metrics to AWS destinations including Amazon S3 and to many third-party solutions. For more information, see `Metric streams <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Metric-Streams.html>`_ .
-
-    To create a metric stream, you must be logged on to an account that has the ``iam:PassRole`` permission and either the *CloudWatchFullAccess* policy or the ``cloudwatch:PutMetricStream`` permission.
-
-    When you create or update a metric stream, you choose one of the following:
-
-    - Stream metrics from all metric namespaces in the account.
-    - Stream metrics from all metric namespaces in the account, except for the namespaces that you list in ``ExcludeFilters`` .
-    - Stream metrics from only the metric namespaces that you list in ``IncludeFilters`` .
-
-    When you create a metric stream, the stream is created in the ``running`` state. If you update an existing metric stream, the state does not change.
-
-    If you create a metric stream in an account that has been set up as a monitoring account in CloudWatch cross-account observability, you can choose whether to include metrics from linked source accounts in the metric stream.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html
-    :cloudformationResource: AWS::CloudWatch::MetricStream
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_cloudwatch as cloudwatch
-        
-        cfn_metric_stream = cloudwatch.CfnMetricStream(self, "MyCfnMetricStream",
-            firehose_arn="firehoseArn",
-            output_format="outputFormat",
-            role_arn="roleArn",
-        
-            # the properties below are optional
-            exclude_filters=[cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
-                namespace="namespace",
-        
-                # the properties below are optional
-                metric_names=["metricNames"]
-            )],
-            include_filters=[cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
-                namespace="namespace",
-        
-                # the properties below are optional
-                metric_names=["metricNames"]
-            )],
-            include_linked_accounts_metrics=False,
-            name="name",
-            statistics_configurations=[cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty(
-                additional_statistics=["additionalStatistics"],
-                include_metrics=[cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
-                    metric_name="metricName",
-                    namespace="namespace"
-                )]
-            )],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        firehose_arn: builtins.str,
-        output_format: builtins.str,
-        role_arn: builtins.str,
-        exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        name: typing.Optional[builtins.str] = None,
-        statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param firehose_arn: The ARN of the Amazon Kinesis Firehose delivery stream to use for this metric stream. This Amazon Kinesis Firehose delivery stream must already exist and must be in the same account as the metric stream.
-        :param output_format: The output format for the stream. Valid values are ``json`` , ``opentelemetry1.0`` and ``opentelemetry0.7`` For more information about metric stream output formats, see `Metric streams output formats <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-metric-streams-formats.html>`_ . This parameter is required.
-        :param role_arn: The ARN of an IAM role that this metric stream will use to access Amazon Kinesis Firehose resources. This IAM role must already exist and must be in the same account as the metric stream. This IAM role must include the ``firehose:PutRecord`` and ``firehose:PutRecordBatch`` permissions.
-        :param exclude_filters: If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here. You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream. When you modify the ``IncludeFilters`` or ``ExcludeFilters`` of an existing metric stream in any way, the metric stream is effectively restarted, so after such a change you will get only the datapoints that have a timestamp after the time of the update.
-        :param include_filters: If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here. You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream. When you modify the ``IncludeFilters`` or ``ExcludeFilters`` of an existing metric stream in any way, the metric stream is effectively restarted, so after such a change you will get only the datapoints that have a timestamp after the time of the update.
-        :param include_linked_accounts_metrics: If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream. The default is ``false`` . For more information about linking accounts, see `CloudWatch cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html>`_
-        :param name: If you are creating a new metric stream, this is the name for the new stream. The name must be different than the names of other metric streams in this account and Region. If you are updating a metric stream, specify the name of that stream here.
-        :param statistics_configurations: By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed. You can use this parameter to have the metric stream also send additional statistics in the stream. This array can have up to 100 members. For each entry in this array, you specify one or more metrics and the list of additional statistics to stream for those metrics. The additional statistics that you can stream depend on the stream's ``OutputFormat`` . If the ``OutputFormat`` is ``json`` , you can stream any additional statistic that is supported by CloudWatch , listed in `CloudWatch statistics definitions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Statistics-definitions.html>`_ . If the ``OutputFormat`` is OpenTelemetry, you can stream percentile statistics.
-        :param tags: An array of key-value pairs to apply to the metric stream. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnMetricStreamProps(
-            firehose_arn=firehose_arn,
-            output_format=output_format,
-            role_arn=role_arn,
-            exclude_filters=exclude_filters,
-            include_filters=include_filters,
-            include_linked_accounts_metrics=include_linked_accounts_metrics,
-            name=name,
-            statistics_configurations=statistics_configurations,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the metric stream.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationDate")
-    def attr_creation_date(self) -> builtins.str:
-        '''The date that the metric stream was originally created.
-
-        :cloudformationAttribute: CreationDate
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLastUpdateDate")
-    def attr_last_update_date(self) -> builtins.str:
-        '''The date that the metric stream was most recently updated.
-
-        :cloudformationAttribute: LastUpdateDate
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdateDate"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''The state of the metric stream, either ``running`` or ``stopped`` .
-
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="firehoseArn")
-    def firehose_arn(self) -> builtins.str:
-        '''The ARN of the Amazon Kinesis Firehose delivery stream to use for this metric stream.'''
-        return typing.cast(builtins.str, jsii.get(self, "firehoseArn"))
-
-    @firehose_arn.setter
-    def firehose_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firehoseArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="outputFormat")
-    def output_format(self) -> builtins.str:
-        '''The output format for the stream.'''
-        return typing.cast(builtins.str, jsii.get(self, "outputFormat"))
-
-    @output_format.setter
-    def output_format(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputFormat", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The ARN of an IAM role that this metric stream will use to access Amazon Kinesis Firehose resources.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="excludeFilters")
-    def exclude_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
-        '''If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "excludeFilters"))
-
-    @exclude_filters.setter
-    def exclude_filters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="includeFilters")
-    def include_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
-        '''If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "includeFilters"))
-
-    @include_filters.setter
-    def include_filters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="includeLinkedAccountsMetrics")
-    def include_linked_accounts_metrics(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "includeLinkedAccountsMetrics"))
-
-    @include_linked_accounts_metrics.setter
-    def include_linked_accounts_metrics(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeLinkedAccountsMetrics", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''If you are creating a new metric stream, this is the name for the new stream.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="statisticsConfigurations")
-    def statistics_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
-        '''By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], jsii.get(self, "statisticsConfigurations"))
-
-    @statistics_configurations.setter
-    def statistics_configurations(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statisticsConfigurations", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the metric stream.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamFilterProperty",
-        jsii_struct_bases=[],
-        name_mapping={"namespace": "namespace", "metric_names": "metricNames"},
-    )
-    class MetricStreamFilterProperty:
-        def __init__(
-            self,
-            *,
-            namespace: builtins.str,
-            metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''This structure contains a metric namespace and optionally, a list of metric names, to either include in a metric ' stream or exclude from a metric stream.
-
-            A metric stream's filters can include up to 1000 total names. This limit applies to the sum of namespace names and metric names in the filters. For example, this could include 10 metric namespace filters with 99 metrics each, or 20 namespace filters with 49 metrics specified in each filter.
-
-            :param namespace: The name of the metric namespace in the filter. The namespace can contain only ASCII printable characters (ASCII range 32 through 126). It must contain at least one non-whitespace character.
-            :param metric_names: The names of the metrics to either include or exclude from the metric stream. If you omit this parameter, all metrics in the namespace are included or excluded, depending on whether this filter is specified as an exclude filter or an include filter. Each metric name can contain only ASCII printable characters (ASCII range 32 through 126). Each metric name must contain at least one non-whitespace character.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_stream_filter_property = cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
-                    namespace="namespace",
-                
-                    # the properties below are optional
-                    metric_names=["metricNames"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025)
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-                check_type(argname="argument metric_names", value=metric_names, expected_type=type_hints["metric_names"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "namespace": namespace,
-            }
-            if metric_names is not None:
-                self._values["metric_names"] = metric_names
-
-        @builtins.property
-        def namespace(self) -> builtins.str:
-            '''The name of the metric namespace in the filter.
-
-            The namespace can contain only ASCII printable characters (ASCII range 32 through 126). It must contain at least one non-whitespace character.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html#cfn-cloudwatch-metricstream-metricstreamfilter-namespace
-            '''
-            result = self._values.get("namespace")
-            assert result is not None, "Required property 'namespace' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def metric_names(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The names of the metrics to either include or exclude from the metric stream.
-
-            If you omit this parameter, all metrics in the namespace are included or excluded, depending on whether this filter is specified as an exclude filter or an include filter.
-
-            Each metric name can contain only ASCII printable characters (ASCII range 32 through 126). Each metric name must contain at least one non-whitespace character.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html#cfn-cloudwatch-metricstream-metricstreamfilter-metricnames
-            '''
-            result = self._values.get("metric_names")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricStreamFilterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "additional_statistics": "additionalStatistics",
-            "include_metrics": "includeMetrics",
-        },
-    )
-    class MetricStreamStatisticsConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            additional_statistics: typing.Sequence[builtins.str],
-            include_metrics: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamStatisticsMetricProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        ) -> None:
-            '''This structure specifies a list of additional statistics to stream, and the metrics to stream those additional statistics for.
-
-            All metrics that match the combination of metric name and namespace will be streamed with the additional statistics, no matter their dimensions.
-
-            :param additional_statistics: The additional statistics to stream for the metrics listed in ``IncludeMetrics`` .
-            :param include_metrics: An array that defines the metrics that are to have additional statistics streamed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_stream_statistics_configuration_property = cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty(
-                    additional_statistics=["additionalStatistics"],
-                    include_metrics=[cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
-                        metric_name="metricName",
-                        namespace="namespace"
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9)
-                check_type(argname="argument additional_statistics", value=additional_statistics, expected_type=type_hints["additional_statistics"])
-                check_type(argname="argument include_metrics", value=include_metrics, expected_type=type_hints["include_metrics"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "additional_statistics": additional_statistics,
-                "include_metrics": include_metrics,
-            }
-
-        @builtins.property
-        def additional_statistics(self) -> typing.List[builtins.str]:
-            '''The additional statistics to stream for the metrics listed in ``IncludeMetrics`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html#cfn-cloudwatch-metricstream-metricstreamstatisticsconfiguration-additionalstatistics
-            '''
-            result = self._values.get("additional_statistics")
-            assert result is not None, "Required property 'additional_statistics' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def include_metrics(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]]:
-            '''An array that defines the metrics that are to have additional statistics streamed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html#cfn-cloudwatch-metricstream-metricstreamstatisticsconfiguration-includemetrics
-            '''
-            result = self._values.get("include_metrics")
-            assert result is not None, "Required property 'include_metrics' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricStreamStatisticsConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty",
-        jsii_struct_bases=[],
-        name_mapping={"metric_name": "metricName", "namespace": "namespace"},
-    )
-    class MetricStreamStatisticsMetricProperty:
-        def __init__(
-            self,
-            *,
-            metric_name: builtins.str,
-            namespace: builtins.str,
-        ) -> None:
-            '''A structure that specifies the metric name and namespace for one metric that is going to have additional statistics included in the stream.
-
-            :param metric_name: The name of the metric.
-            :param namespace: The namespace of the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_cloudwatch as cloudwatch
-                
-                metric_stream_statistics_metric_property = cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
-                    metric_name="metricName",
-                    namespace="namespace"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b)
-                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "metric_name": metric_name,
-                "namespace": namespace,
-            }
-
-        @builtins.property
-        def metric_name(self) -> builtins.str:
-            '''The name of the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html#cfn-cloudwatch-metricstream-metricstreamstatisticsmetric-metricname
-            '''
-            result = self._values.get("metric_name")
-            assert result is not None, "Required property 'metric_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def namespace(self) -> builtins.str:
-            '''The namespace of the metric.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html#cfn-cloudwatch-metricstream-metricstreamstatisticsmetric-namespace
-            '''
-            result = self._values.get("namespace")
-            assert result is not None, "Required property 'namespace' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MetricStreamStatisticsMetricProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStreamProps",
     jsii_struct_bases=[],
@@ -6490,11 +3143,11 @@ class CfnMetricStreamProps:
         firehose_arn: builtins.str,
         output_format: builtins.str,
         role_arn: builtins.str,
-        exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         name: typing.Optional[builtins.str] = None,
-        statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMetricStream``.
@@ -6621,7 +3274,7 @@ class CfnMetricStreamProps:
     @builtins.property
     def exclude_filters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here.
 
         You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream.
@@ -6631,12 +3284,12 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-excludefilters
         '''
         result = self._values.get("exclude_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
 
     @builtins.property
     def include_filters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here.
 
         You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream.
@@ -6646,7 +3299,7 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-includefilters
         '''
         result = self._values.get("include_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
 
     @builtins.property
     def include_linked_accounts_metrics(
@@ -6679,7 +3332,7 @@ class CfnMetricStreamProps:
     @builtins.property
     def statistics_configurations(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
         '''By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed.
 
         You can use this parameter to have the metric stream also send additional statistics in the stream. This array can have up to 100 members.
@@ -6689,7 +3342,7 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-statisticsconfigurations
         '''
         result = self._values.get("statistics_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -7266,6 +3919,74 @@ class CompositeAlarmProps:
 
     def __repr__(self) -> str:
         return "CompositeAlarmProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CompositeAlarmReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alarm_name": "alarmName",
+        "composite_alarm_arn": "compositeAlarmArn",
+    },
+)
+class CompositeAlarmReference:
+    def __init__(
+        self,
+        *,
+        alarm_name: builtins.str,
+        composite_alarm_arn: builtins.str,
+    ) -> None:
+        '''A reference to a CompositeAlarm resource.
+
+        :param alarm_name: The AlarmName of the CompositeAlarm resource.
+        :param composite_alarm_arn: The ARN of the CompositeAlarm resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            composite_alarm_reference = cloudwatch.CompositeAlarmReference(
+                alarm_name="alarmName",
+                composite_alarm_arn="compositeAlarmArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec52654d063b4ff2145bb529420eeb67026a17ef796011d8720097deb1491e66)
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            check_type(argname="argument composite_alarm_arn", value=composite_alarm_arn, expected_type=type_hints["composite_alarm_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_name": alarm_name,
+            "composite_alarm_arn": composite_alarm_arn,
+        }
+
+    @builtins.property
+    def alarm_name(self) -> builtins.str:
+        '''The AlarmName of the CompositeAlarm resource.'''
+        result = self._values.get("alarm_name")
+        assert result is not None, "Required property 'alarm_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def composite_alarm_arn(self) -> builtins.str:
+        '''The ARN of the CompositeAlarm resource.'''
+        result = self._values.get("composite_alarm_arn")
+        assert result is not None, "Required property 'composite_alarm_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CompositeAlarmReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7920,6 +4641,55 @@ class DashboardProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.DashboardReference",
+    jsii_struct_bases=[],
+    name_mapping={"dashboard_name": "dashboardName"},
+)
+class DashboardReference:
+    def __init__(self, *, dashboard_name: builtins.str) -> None:
+        '''A reference to a Dashboard resource.
+
+        :param dashboard_name: The DashboardName of the Dashboard resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            dashboard_reference = cloudwatch.DashboardReference(
+                dashboard_name="dashboardName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fafc67b42901d054db822d071fb9ae602acf2c9d590fe4f81ba28414ada8fa4f)
+            check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dashboard_name": dashboard_name,
+        }
+
+    @builtins.property
+    def dashboard_name(self) -> builtins.str:
+        '''The DashboardName of the Dashboard resource.'''
+        result = self._values.get("dashboard_name")
+        assert result is not None, "Required property 'dashboard_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DashboardReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cloudwatch.DashboardVariableOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -8397,6 +5167,46 @@ class _IAlarmActionProxy:
 typing.cast(typing.Any, IAlarmAction).__jsii_proxy_class__ = lambda : _IAlarmActionProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IAlarmRef")
+class IAlarmRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Alarm.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmRef")
+    def alarm_ref(self) -> AlarmReference:
+        '''(experimental) A reference to a Alarm resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAlarmRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alarm.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.IAlarmRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmRef")
+    def alarm_ref(self) -> AlarmReference:
+        '''(experimental) A reference to a Alarm resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AlarmReference, jsii.get(self, "alarmRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlarmRef).__jsii_proxy_class__ = lambda : _IAlarmRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IAlarmRule")
 class IAlarmRule(typing_extensions.Protocol):
     '''Interface for Alarm Rule.'''
@@ -8419,6 +5229,166 @@ class _IAlarmRuleProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAlarmRule).__jsii_proxy_class__ = lambda : _IAlarmRuleProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IAnomalyDetectorRef")
+class IAnomalyDetectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''(experimental) A reference to a AnomalyDetector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAnomalyDetectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.IAnomalyDetectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''(experimental) A reference to a AnomalyDetector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AnomalyDetectorReference, jsii.get(self, "anomalyDetectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAnomalyDetectorRef).__jsii_proxy_class__ = lambda : _IAnomalyDetectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.ICompositeAlarmRef")
+class ICompositeAlarmRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CompositeAlarm.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="compositeAlarmRef")
+    def composite_alarm_ref(self) -> CompositeAlarmReference:
+        '''(experimental) A reference to a CompositeAlarm resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICompositeAlarmRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CompositeAlarm.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.ICompositeAlarmRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="compositeAlarmRef")
+    def composite_alarm_ref(self) -> CompositeAlarmReference:
+        '''(experimental) A reference to a CompositeAlarm resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CompositeAlarmReference, jsii.get(self, "compositeAlarmRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICompositeAlarmRef).__jsii_proxy_class__ = lambda : _ICompositeAlarmRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IDashboardRef")
+class IDashboardRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDashboardRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.IDashboardRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboardRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IInsightRuleRef")
+class IInsightRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a InsightRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRuleRef")
+    def insight_rule_ref(self) -> "InsightRuleReference":
+        '''(experimental) A reference to a InsightRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInsightRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InsightRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.IInsightRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRuleRef")
+    def insight_rule_ref(self) -> "InsightRuleReference":
+        '''(experimental) A reference to a InsightRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InsightRuleReference", jsii.get(self, "insightRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInsightRuleRef).__jsii_proxy_class__ = lambda : _IInsightRuleRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IMetric")
@@ -8499,6 +5469,46 @@ class _IMetricProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IMetric).__jsii_proxy_class__ = lambda : _IMetricProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IMetricStreamRef")
+class IMetricStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MetricStream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="metricStreamRef")
+    def metric_stream_ref(self) -> "MetricStreamReference":
+        '''(experimental) A reference to a MetricStream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMetricStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MetricStream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudwatch.IMetricStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="metricStreamRef")
+    def metric_stream_ref(self) -> "MetricStreamReference":
+        '''(experimental) A reference to a MetricStream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MetricStreamReference", jsii.get(self, "metricStreamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMetricStreamRef).__jsii_proxy_class__ = lambda : _IMetricStreamRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IVariable")
@@ -8631,6 +5641,74 @@ class _IWidgetProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IWidget).__jsii_proxy_class__ = lambda : _IWidgetProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.InsightRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "insight_rule_arn": "insightRuleArn",
+        "insight_rule_id": "insightRuleId",
+    },
+)
+class InsightRuleReference:
+    def __init__(
+        self,
+        *,
+        insight_rule_arn: builtins.str,
+        insight_rule_id: builtins.str,
+    ) -> None:
+        '''A reference to a InsightRule resource.
+
+        :param insight_rule_arn: The ARN of the InsightRule resource.
+        :param insight_rule_id: The Id of the InsightRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            insight_rule_reference = cloudwatch.InsightRuleReference(
+                insight_rule_arn="insightRuleArn",
+                insight_rule_id="insightRuleId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__add43460be2c65eb96f96cb4a0985965da7f04ccbaab61561d7641e6f93e4935)
+            check_type(argname="argument insight_rule_arn", value=insight_rule_arn, expected_type=type_hints["insight_rule_arn"])
+            check_type(argname="argument insight_rule_id", value=insight_rule_id, expected_type=type_hints["insight_rule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "insight_rule_arn": insight_rule_arn,
+            "insight_rule_id": insight_rule_id,
+        }
+
+    @builtins.property
+    def insight_rule_arn(self) -> builtins.str:
+        '''The ARN of the InsightRule resource.'''
+        result = self._values.get("insight_rule_arn")
+        assert result is not None, "Required property 'insight_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def insight_rule_id(self) -> builtins.str:
+        '''The Id of the InsightRule resource.'''
+        result = self._values.get("insight_rule_id")
+        assert result is not None, "Required property 'insight_rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InsightRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cloudwatch.LegendPosition")
@@ -10941,6 +8019,74 @@ class MetricStatConfig:
 
     def __repr__(self) -> str:
         return "MetricStatConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.MetricStreamReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_stream_arn": "metricStreamArn",
+        "metric_stream_name": "metricStreamName",
+    },
+)
+class MetricStreamReference:
+    def __init__(
+        self,
+        *,
+        metric_stream_arn: builtins.str,
+        metric_stream_name: builtins.str,
+    ) -> None:
+        '''A reference to a MetricStream resource.
+
+        :param metric_stream_arn: The ARN of the MetricStream resource.
+        :param metric_stream_name: The Name of the MetricStream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            metric_stream_reference = cloudwatch.MetricStreamReference(
+                metric_stream_arn="metricStreamArn",
+                metric_stream_name="metricStreamName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ce27dc1867ea9f52a979f268f5b8ba7bbb744fb1ba42e6292d6152c389dd175)
+            check_type(argname="argument metric_stream_arn", value=metric_stream_arn, expected_type=type_hints["metric_stream_arn"])
+            check_type(argname="argument metric_stream_name", value=metric_stream_name, expected_type=type_hints["metric_stream_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_stream_arn": metric_stream_arn,
+            "metric_stream_name": metric_stream_name,
+        }
+
+    @builtins.property
+    def metric_stream_arn(self) -> builtins.str:
+        '''The ARN of the MetricStream resource.'''
+        result = self._values.get("metric_stream_arn")
+        assert result is not None, "Required property 'metric_stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def metric_stream_name(self) -> builtins.str:
+        '''The Name of the MetricStream resource.'''
+        result = self._values.get("metric_stream_name")
+        assert result is not None, "Required property 'metric_stream_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MetricStreamReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -14417,6 +11563,3498 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         )
 
 
+@jsii.implements(_IInspectable_c2943556, IAlarmRef, _ITaggableV2_4e6798f8)
+class CfnAlarm(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm",
+):
+    '''The ``AWS::CloudWatch::Alarm`` type specifies an alarm and associates it with the specified metric or metric math expression.
+
+    When this operation creates an alarm, the alarm state is immediately set to ``INSUFFICIENT_DATA`` . The alarm is then evaluated and its state is set appropriately. Any actions associated with the new state are then executed.
+
+    When you update an existing alarm, its state is left unchanged, but the update completely overwrites the previous configuration of the alarm.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html
+    :cloudformationResource: AWS::CloudWatch::Alarm
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_alarm = cloudwatch.CfnAlarm(self, "MyCfnAlarm",
+            comparison_operator="comparisonOperator",
+            evaluation_periods=123,
+        
+            # the properties below are optional
+            actions_enabled=False,
+            alarm_actions=["alarmActions"],
+            alarm_description="alarmDescription",
+            alarm_name="alarmName",
+            datapoints_to_alarm=123,
+            dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
+                name="name",
+                value="value"
+            )],
+            evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
+            extended_statistic="extendedStatistic",
+            insufficient_data_actions=["insufficientDataActions"],
+            metric_name="metricName",
+            metrics=[cloudwatch.CfnAlarm.MetricDataQueryProperty(
+                id="id",
+        
+                # the properties below are optional
+                account_id="accountId",
+                expression="expression",
+                label="label",
+                metric_stat=cloudwatch.CfnAlarm.MetricStatProperty(
+                    metric=cloudwatch.CfnAlarm.MetricProperty(
+                        dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        metric_name="metricName",
+                        namespace="namespace"
+                    ),
+                    period=123,
+                    stat="stat",
+        
+                    # the properties below are optional
+                    unit="unit"
+                ),
+                period=123,
+                return_data=False
+            )],
+            namespace="namespace",
+            ok_actions=["okActions"],
+            period=123,
+            statistic="statistic",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            threshold=123,
+            threshold_metric_id="thresholdMetricId",
+            treat_missing_data="treatMissingData",
+            unit="unit"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        comparison_operator: builtins.str,
+        evaluation_periods: jsii.Number,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        datapoints_to_alarm: typing.Optional[jsii.Number] = None,
+        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+        extended_statistic: typing.Optional[builtins.str] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        metric_name: typing.Optional[builtins.str] = None,
+        metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        namespace: typing.Optional[builtins.str] = None,
+        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        period: typing.Optional[jsii.Number] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        threshold: typing.Optional[jsii.Number] = None,
+        threshold_metric_id: typing.Optional[builtins.str] = None,
+        treat_missing_data: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
+        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
+        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
+        :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param alarm_description: The description of the alarm.
+        :param alarm_name: The name of the alarm. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the alarm name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
+        :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
+        :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
+        :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
+        :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
+        :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
+        :param metrics: An array that enables you to create an alarm based on the result of a metric math expression. Each item in the array either retrieves a metric or performs a math expression. If you specify the ``Metrics`` parameter, you cannot specify ``MetricName`` , ``Dimensions`` , ``Period`` , ``Namespace`` , ``Statistic`` , ``ExtendedStatistic`` , or ``Unit`` .
+        :param namespace: The namespace of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you can't specify ``Namespace`` and you use ``Metrics`` instead. For a list of namespaces for metrics from AWS services, see `AWS Services That Publish CloudWatch Metrics. <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-services-cloudwatch-metrics.html>`_
+        :param ok_actions: The actions to execute when this alarm transitions to the ``OK`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
+        :param period: The period, in seconds, over which the statistic is applied. This is required for an alarm based on a metric. Valid values are 10, 20, 30, 60, and any multiple of 60. For an alarm based on a math expression, you can't specify ``Period`` , and instead you use the ``Metrics`` parameter. *Minimum:* 10
+        :param statistic: The statistic for the metric associated with the alarm, other than percentile. For percentile statistics, use ``ExtendedStatistic`` . For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``Statistic`` . Instead, you use ``Metrics`` .
+        :param tags: A list of key-value pairs to associate with the alarm. You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+        :param threshold: The value to compare with the specified statistic.
+        :param threshold_metric_id: In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.
+        :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are ``breaching`` , ``notBreaching`` , ``ignore`` , and ``missing`` . For more information, see `Configuring How CloudWatch Alarms Treat Missing Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-missing-data>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, the default behavior of ``missing`` is used.
+        :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAlarmProps(
+            comparison_operator=comparison_operator,
+            evaluation_periods=evaluation_periods,
+            actions_enabled=actions_enabled,
+            alarm_actions=alarm_actions,
+            alarm_description=alarm_description,
+            alarm_name=alarm_name,
+            datapoints_to_alarm=datapoints_to_alarm,
+            dimensions=dimensions,
+            evaluate_low_sample_count_percentile=evaluate_low_sample_count_percentile,
+            extended_statistic=extended_statistic,
+            insufficient_data_actions=insufficient_data_actions,
+            metric_name=metric_name,
+            metrics=metrics,
+            namespace=namespace,
+            ok_actions=ok_actions,
+            period=period,
+            statistic=statistic,
+            tags=tags,
+            threshold=threshold,
+            threshold_metric_id=threshold_metric_id,
+            treat_missing_data=treat_missing_data,
+            unit=unit,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmRef")
+    def alarm_ref(self) -> AlarmReference:
+        '''A reference to a Alarm resource.'''
+        return typing.cast(AlarmReference, jsii.get(self, "alarmRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the CloudWatch alarm, such as ``arn:aws:cloudwatch:us-west-2:123456789012:alarm:myCloudWatchAlarm-CPUAlarm-UXMMZK36R55Z`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="comparisonOperator")
+    def comparison_operator(self) -> builtins.str:
+        '''The arithmetic operation to use when comparing the specified statistic and threshold.'''
+        return typing.cast(builtins.str, jsii.get(self, "comparisonOperator"))
+
+    @comparison_operator.setter
+    def comparison_operator(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationPeriods")
+    def evaluation_periods(self) -> jsii.Number:
+        '''The number of periods over which data is compared to the specified threshold.'''
+        return typing.cast(jsii.Number, jsii.get(self, "evaluationPeriods"))
+
+    @evaluation_periods.setter
+    def evaluation_periods(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsEnabled")
+    def actions_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether actions should be executed during any changes to the alarm state.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "actionsEnabled"))
+
+    @actions_enabled.setter
+    def actions_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmActions")
+    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of actions to execute when this alarm transitions into an ALARM state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alarmActions"))
+
+    @alarm_actions.setter
+    def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmDescription")
+    def alarm_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmDescription"))
+
+    @alarm_description.setter
+    def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmName")
+    def alarm_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmName"))
+
+    @alarm_name.setter
+    def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="datapointsToAlarm")
+    def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
+        '''The number of datapoints that must be breaching to trigger the alarm.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "datapointsToAlarm"))
+
+    @datapoints_to_alarm.setter
+    def datapoints_to_alarm(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "datapointsToAlarm", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensions")
+    def dimensions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]]:
+        '''The dimensions for the metric associated with the alarm.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]], jsii.get(self, "dimensions"))
+
+    @dimensions.setter
+    def dimensions(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluateLowSampleCountPercentile")
+    def evaluate_low_sample_count_percentile(self) -> typing.Optional[builtins.str]:
+        '''Used only for alarms based on percentiles.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "evaluateLowSampleCountPercentile"))
+
+    @evaluate_low_sample_count_percentile.setter
+    def evaluate_low_sample_count_percentile(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="extendedStatistic")
+    def extended_statistic(self) -> typing.Optional[builtins.str]:
+        '''The percentile statistic for the metric associated with the alarm.
+
+        Specify a value between p0.0 and p100.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "extendedStatistic"))
+
+    @extended_statistic.setter
+    def extended_statistic(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "extendedStatistic", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="insufficientDataActions")
+    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "insufficientDataActions"))
+
+    @insufficient_data_actions.setter
+    def insufficient_data_actions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricName")
+    def metric_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the metric associated with the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metricName"))
+
+    @metric_name.setter
+    def metric_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metrics")
+    def metrics(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]]:
+        '''An array that enables you to create an alarm based on the result of a metric math expression.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]], jsii.get(self, "metrics"))
+
+    @metrics.setter
+    def metrics(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricDataQueryProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metrics", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespace")
+    def namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace of the metric associated with the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespace"))
+
+    @namespace.setter
+    def namespace(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="okActions")
+    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the ``OK`` state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "okActions"))
+
+    @ok_actions.setter
+    def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="period")
+    def period(self) -> typing.Optional[jsii.Number]:
+        '''The period, in seconds, over which the statistic is applied.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "period"))
+
+    @period.setter
+    def period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "period", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="statistic")
+    def statistic(self) -> typing.Optional[builtins.str]:
+        '''The statistic for the metric associated with the alarm, other than percentile.
+
+        For percentile statistics, use ``ExtendedStatistic`` .
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statistic"))
+
+    @statistic.setter
+    def statistic(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "statistic", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs to associate with the alarm.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="threshold")
+    def threshold(self) -> typing.Optional[jsii.Number]:
+        '''The value to compare with the specified statistic.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "threshold"))
+
+    @threshold.setter
+    def threshold(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="thresholdMetricId")
+    def threshold_metric_id(self) -> typing.Optional[builtins.str]:
+        '''In an alarm based on an anomaly detection model, this is the ID of the ``ANOMALY_DETECTION_BAND`` function used as the threshold for the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "thresholdMetricId"))
+
+    @threshold_metric_id.setter
+    def threshold_metric_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "thresholdMetricId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="treatMissingData")
+    def treat_missing_data(self) -> typing.Optional[builtins.str]:
+        '''Sets how this alarm is to handle missing data points.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "treatMissingData"))
+
+    @treat_missing_data.setter
+    def treat_missing_data(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="unit")
+    def unit(self) -> typing.Optional[builtins.str]:
+        '''The unit of the metric associated with the alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "unit"))
+
+    @unit.setter
+    def unit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.DimensionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class DimensionProperty:
+        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+            '''Dimension is an embedded property of the ``AWS::CloudWatch::Alarm`` type.
+
+            Dimensions are name/value pairs that can be associated with a CloudWatch metric. You can specify a maximum of 30 dimensions for a given metric.
+
+            :param name: The name of the dimension, from 1–255 characters in length. This dimension name must have been included when the metric was published.
+            :param value: The value for the dimension, from 1–255 characters in length.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                dimension_property = cloudwatch.CfnAlarm.DimensionProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value": value,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the dimension, from 1–255 characters in length.
+
+            This dimension name must have been included when the metric was published.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html#cfn-cloudwatch-alarm-dimension-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the dimension, from 1–255 characters in length.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html#cfn-cloudwatch-alarm-dimension-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricDataQueryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "id": "id",
+            "account_id": "accountId",
+            "expression": "expression",
+            "label": "label",
+            "metric_stat": "metricStat",
+            "period": "period",
+            "return_data": "returnData",
+        },
+    )
+    class MetricDataQueryProperty:
+        def __init__(
+            self,
+            *,
+            id: builtins.str,
+            account_id: typing.Optional[builtins.str] = None,
+            expression: typing.Optional[builtins.str] = None,
+            label: typing.Optional[builtins.str] = None,
+            metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            period: typing.Optional[jsii.Number] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data.
+
+            Any expression used must return a single time series. For more information, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
+
+            :param id: A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
+            :param account_id: The ID of the account where the metrics are located, if this is a cross-account alarm.
+            :param expression: The math expression to be performed on the returned data, if this object is performing a math expression. This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* . Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+            :param label: A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If ``Label`` is omitted, CloudWatch generates a default.
+            :param metric_stat: The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data. Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
+            :param return_data: This option indicates whether to return the timestamps and raw data values of this metric. When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm. This field is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_data_query_property = cloudwatch.CfnAlarm.MetricDataQueryProperty(
+                    id="id",
+                
+                    # the properties below are optional
+                    account_id="accountId",
+                    expression="expression",
+                    label="label",
+                    metric_stat=cloudwatch.CfnAlarm.MetricStatProperty(
+                        metric=cloudwatch.CfnAlarm.MetricProperty(
+                            dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            metric_name="metricName",
+                            namespace="namespace"
+                        ),
+                        period=123,
+                        stat="stat",
+                
+                        # the properties below are optional
+                        unit="unit"
+                    ),
+                    period=123,
+                    return_data=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+                check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
+                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+                check_type(argname="argument return_data", value=return_data, expected_type=type_hints["return_data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
+            if account_id is not None:
+                self._values["account_id"] = account_id
+            if expression is not None:
+                self._values["expression"] = expression
+            if label is not None:
+                self._values["label"] = label
+            if metric_stat is not None:
+                self._values["metric_stat"] = metric_stat
+            if period is not None:
+                self._values["period"] = period
+            if return_data is not None:
+                self._values["return_data"] = return_data
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''A short name used to tie this object to the results in the response.
+
+            This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def account_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the account where the metrics are located, if this is a cross-account alarm.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-accountid
+            '''
+            result = self._values.get("account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def expression(self) -> typing.Optional[builtins.str]:
+            '''The math expression to be performed on the returned data, if this object is performing a math expression.
+
+            This expression can use the ``Id`` of the other metrics to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
+
+            Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-expression
+            '''
+            result = self._values.get("expression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def label(self) -> typing.Optional[builtins.str]:
+            '''A human-readable label for this metric or expression.
+
+            This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If ``Label`` is omitted, CloudWatch generates a default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-label
+            '''
+            result = self._values.get("label")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_stat(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricStatProperty"]]:
+            '''The metric to be returned, along with statistics, period, and units.
+
+            Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
+
+            Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-metricstat
+            '''
+            result = self._values.get("metric_stat")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricStatProperty"]], result)
+
+        @builtins.property
+        def period(self) -> typing.Optional[jsii.Number]:
+            '''The granularity, in seconds, of the returned data points.
+
+            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-period
+            '''
+            result = self._values.get("period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def return_data(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''This option indicates whether to return the timestamps and raw data values of this metric.
+
+            When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm.
+
+            This field is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-returndata
+            '''
+            result = self._values.get("return_data")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricDataQueryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dimensions": "dimensions",
+            "metric_name": "metricName",
+            "namespace": "namespace",
+        },
+    )
+    class MetricProperty:
+        def __init__(
+            self,
+            *,
+            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_name: typing.Optional[builtins.str] = None,
+            namespace: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The ``Metric`` property type represents a specific metric.
+
+            ``Metric`` is a property of the `MetricStat <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html>`_ property type.
+
+            :param dimensions: The metric dimensions that you want to be used for the metric that the alarm will watch.
+            :param metric_name: The name of the metric that you want the alarm to watch. This is a required field.
+            :param namespace: The namespace of the metric that the alarm will watch.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_property = cloudwatch.CfnAlarm.MetricProperty(
+                    dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    metric_name="metricName",
+                    namespace="namespace"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf)
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dimensions is not None:
+                self._values["dimensions"] = dimensions
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
+            if namespace is not None:
+                self._values["namespace"] = namespace
+
+        @builtins.property
+        def dimensions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]]:
+            '''The metric dimensions that you want to be used for the metric that the alarm will watch.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-dimensions
+            '''
+            result = self._values.get("dimensions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAlarm.DimensionProperty"]]]], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the metric that you want the alarm to watch.
+
+            This is a required field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def namespace(self) -> typing.Optional[builtins.str]:
+            '''The namespace of the metric that the alarm will watch.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-namespace
+            '''
+            result = self._values.get("namespace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.MetricStatProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric": "metric",
+            "period": "period",
+            "stat": "stat",
+            "unit": "unit",
+        },
+    )
+    class MetricStatProperty:
+        def __init__(
+            self,
+            *,
+            metric: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarm.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            period: jsii.Number,
+            stat: builtins.str,
+            unit: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''This structure defines the metric to be returned, along with the statistics, period, and units.
+
+            ``MetricStat`` is a property of the `MetricDataQuery <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html>`_ property type.
+
+            :param metric: The metric to return, including the metric name, namespace, and dimensions.
+            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second. If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned: - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute). - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes). - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
+            :param stat: The statistic to return. It can include any CloudWatch statistic or extended statistic. For a list of valid values, see the table in `Statistics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic>`_ in the *Amazon CloudWatch User Guide* .
+            :param unit: The unit to use for the returned data points. Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_stat_property = cloudwatch.CfnAlarm.MetricStatProperty(
+                    metric=cloudwatch.CfnAlarm.MetricProperty(
+                        dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        metric_name="metricName",
+                        namespace="namespace"
+                    ),
+                    period=123,
+                    stat="stat",
+                
+                    # the properties below are optional
+                    unit="unit"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe)
+                check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
+                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
+                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric": metric,
+                "period": period,
+                "stat": stat,
+            }
+            if unit is not None:
+                self._values["unit"] = unit
+
+        @builtins.property
+        def metric(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricProperty"]:
+            '''The metric to return, including the metric name, namespace, and dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-metric
+            '''
+            result = self._values.get("metric")
+            assert result is not None, "Required property 'metric' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAlarm.MetricProperty"], result)
+
+        @builtins.property
+        def period(self) -> jsii.Number:
+            '''The granularity, in seconds, of the returned data points.
+
+            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second.
+
+            If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned:
+
+            - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute).
+            - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes).
+            - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-period
+            '''
+            result = self._values.get("period")
+            assert result is not None, "Required property 'period' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def stat(self) -> builtins.str:
+            '''The statistic to return.
+
+            It can include any CloudWatch statistic or extended statistic. For a list of valid values, see the table in `Statistics <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic>`_ in the *Amazon CloudWatch User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-stat
+            '''
+            result = self._values.get("stat")
+            assert result is not None, "Required property 'stat' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def unit(self) -> typing.Optional[builtins.str]:
+            '''The unit to use for the returned data points.
+
+            Valid values are: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-unit
+            '''
+            result = self._values.get("unit")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricStatProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IAnomalyDetectorRef)
+class CfnAnomalyDetector(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector",
+):
+    '''The ``AWS::CloudWatch::AnomalyDetector`` type specifies an anomaly detection band for a certain metric and statistic.
+
+    The band represents the expected "normal" range for the metric values. Anomaly detection bands can be used for visualization of a metric's expected values, and for alarms.
+
+    For more information see `Using CloudWatch anomaly detection. <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Anomaly_Detection.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html
+    :cloudformationResource: AWS::CloudWatch::AnomalyDetector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_anomaly_detector = cloudwatch.CfnAnomalyDetector(self, "MyCfnAnomalyDetector",
+            configuration=cloudwatch.CfnAnomalyDetector.ConfigurationProperty(
+                excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
+                    end_time="endTime",
+                    start_time="startTime"
+                )],
+                metric_time_zone="metricTimeZone"
+            ),
+            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                name="name",
+                value="value"
+            )],
+            metric_characteristics=cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty(
+                periodic_spikes=False
+            ),
+            metric_math_anomaly_detector=cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty(
+                metric_data_queries=[cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
+                    id="id",
+        
+                    # the properties below are optional
+                    account_id="accountId",
+                    expression="expression",
+                    label="label",
+                    metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
+                        metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
+                            metric_name="metricName",
+                            namespace="namespace",
+        
+                            # the properties below are optional
+                            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                                name="name",
+                                value="value"
+                            )]
+                        ),
+                        period=123,
+                        stat="stat",
+        
+                        # the properties below are optional
+                        unit="unit"
+                    ),
+                    period=123,
+                    return_data=False
+                )]
+            ),
+            metric_name="metricName",
+            namespace="namespace",
+            single_metric_anomaly_detector=cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty(
+                account_id="accountId",
+                dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                    name="name",
+                    value="value"
+                )],
+                metric_name="metricName",
+                namespace="namespace",
+                stat="stat"
+            ),
+            stat="stat"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_name: typing.Optional[builtins.str] = None,
+        namespace: typing.Optional[builtins.str] = None,
+        single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stat: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model. The configuration can also include the time zone to use for the metric.
+        :param dimensions: The dimensions of the metric associated with the anomaly detection band.
+        :param metric_characteristics: Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models. Currently, it includes the ``PeriodicSpikes`` parameter.
+        :param metric_math_anomaly_detector: The CloudWatch metric math expression for this anomaly detector.
+        :param metric_name: The name of the metric associated with the anomaly detection band.
+        :param namespace: The namespace of the metric associated with the anomaly detection band.
+        :param single_metric_anomaly_detector: The CloudWatch metric and statistic for this anomaly detector.
+        :param stat: The statistic of the metric associated with the anomaly detection band.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAnomalyDetectorProps(
+            configuration=configuration,
+            dimensions=dimensions,
+            metric_characteristics=metric_characteristics,
+            metric_math_anomaly_detector=metric_math_anomaly_detector,
+            metric_name=metric_name,
+            namespace=namespace,
+            single_metric_anomaly_detector=single_metric_anomaly_detector,
+            stat=stat,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''A reference to a AnomalyDetector resource.'''
+        return typing.cast(AnomalyDetectorReference, jsii.get(self, "anomalyDetectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]]:
+        '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.ConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensions")
+    def dimensions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
+        '''The dimensions of the metric associated with the anomaly detection band.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], jsii.get(self, "dimensions"))
+
+    @dimensions.setter
+    def dimensions(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricCharacteristics")
+    def metric_characteristics(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
+        '''Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]], jsii.get(self, "metricCharacteristics"))
+
+    @metric_characteristics.setter
+    def metric_characteristics(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricCharacteristicsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricCharacteristics", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricMathAnomalyDetector")
+    def metric_math_anomaly_detector(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
+        '''The CloudWatch metric math expression for this anomaly detector.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], jsii.get(self, "metricMathAnomalyDetector"))
+
+    @metric_math_anomaly_detector.setter
+    def metric_math_anomaly_detector(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricMathAnomalyDetector", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricName")
+    def metric_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the metric associated with the anomaly detection band.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "metricName"))
+
+    @metric_name.setter
+    def metric_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespace")
+    def namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace of the metric associated with the anomaly detection band.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespace"))
+
+    @namespace.setter
+    def namespace(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="singleMetricAnomalyDetector")
+    def single_metric_anomaly_detector(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
+        '''The CloudWatch metric and statistic for this anomaly detector.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], jsii.get(self, "singleMetricAnomalyDetector"))
+
+    @single_metric_anomaly_detector.setter
+    def single_metric_anomaly_detector(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "singleMetricAnomalyDetector", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stat")
+    def stat(self) -> typing.Optional[builtins.str]:
+        '''The statistic of the metric associated with the anomaly detection band.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stat"))
+
+    @stat.setter
+    def stat(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stat", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "excluded_time_ranges": "excludedTimeRanges",
+            "metric_time_zone": "metricTimeZone",
+        },
+    )
+    class ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            excluded_time_ranges: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_time_zone: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.
+
+            The configuration can also include the time zone to use for the metric.
+
+            :param excluded_time_ranges: Specifies an array of time ranges to exclude from use when the anomaly detection model is trained and updated. Use this to make sure that events that could cause unusual values for the metric, such as deployments, aren't used when CloudWatch creates or updates the model.
+            :param metric_time_zone: The time zone to use for the metric. This is useful to enable the model to automatically account for daylight savings time changes if the metric is sensitive to such time changes. To specify a time zone, use the name of the time zone as specified in the standard tz database. For more information, see `tz database <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Tz_database>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                configuration_property = cloudwatch.CfnAnomalyDetector.ConfigurationProperty(
+                    excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
+                        end_time="endTime",
+                        start_time="startTime"
+                    )],
+                    metric_time_zone="metricTimeZone"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121)
+                check_type(argname="argument excluded_time_ranges", value=excluded_time_ranges, expected_type=type_hints["excluded_time_ranges"])
+                check_type(argname="argument metric_time_zone", value=metric_time_zone, expected_type=type_hints["metric_time_zone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excluded_time_ranges is not None:
+                self._values["excluded_time_ranges"] = excluded_time_ranges
+            if metric_time_zone is not None:
+                self._values["metric_time_zone"] = metric_time_zone
+
+        @builtins.property
+        def excluded_time_ranges(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.RangeProperty"]]]]:
+            '''Specifies an array of time ranges to exclude from use when the anomaly detection model is trained and updated.
+
+            Use this to make sure that events that could cause unusual values for the metric, such as deployments, aren't used when CloudWatch creates or updates the model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html#cfn-cloudwatch-anomalydetector-configuration-excludedtimeranges
+            '''
+            result = self._values.get("excluded_time_ranges")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.RangeProperty"]]]], result)
+
+        @builtins.property
+        def metric_time_zone(self) -> typing.Optional[builtins.str]:
+            '''The time zone to use for the metric.
+
+            This is useful to enable the model to automatically account for daylight savings time changes if the metric is sensitive to such time changes.
+
+            To specify a time zone, use the name of the time zone as specified in the standard tz database. For more information, see `tz database <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Tz_database>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html#cfn-cloudwatch-anomalydetector-configuration-metrictimezone
+            '''
+            result = self._values.get("metric_time_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.DimensionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class DimensionProperty:
+        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+            '''A dimension is a name/value pair that is part of the identity of a metric.
+
+            Because dimensions are part of the unique identifier for a metric, whenever you add a unique name/value pair to one of your metrics, you are creating a new variation of that metric. For example, many Amazon EC2 metrics publish ``InstanceId`` as a dimension name, and the actual instance ID as the value for that dimension.
+
+            You can assign up to 30 dimensions to a metric.
+
+            :param name: The name of the dimension.
+            :param value: The value of the dimension. Dimension values must contain only ASCII characters and must include at least one non-whitespace character. ASCII control characters are not supported as part of dimension values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                dimension_property = cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value": value,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the dimension.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html#cfn-cloudwatch-anomalydetector-dimension-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value of the dimension.
+
+            Dimension values must contain only ASCII characters and must include at least one non-whitespace character. ASCII control characters are not supported as part of dimension values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-dimension.html#cfn-cloudwatch-anomalydetector-dimension-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DimensionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"periodic_spikes": "periodicSpikes"},
+    )
+    class MetricCharacteristicsProperty:
+        def __init__(
+            self,
+            *,
+            periodic_spikes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''This object includes parameters that you can use to provide information to CloudWatch to help it build more accurate anomaly detection models.
+
+            :param periodic_spikes: Set this parameter to true if values for this metric consistently include spikes that should not be considered to be anomalies. With this set to true, CloudWatch will expect to see spikes that occurred consistently during the model training period, and won't flag future similar spikes as anomalies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metriccharacteristics.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_characteristics_property = cloudwatch.CfnAnomalyDetector.MetricCharacteristicsProperty(
+                    periodic_spikes=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b)
+                check_type(argname="argument periodic_spikes", value=periodic_spikes, expected_type=type_hints["periodic_spikes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if periodic_spikes is not None:
+                self._values["periodic_spikes"] = periodic_spikes
+
+        @builtins.property
+        def periodic_spikes(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Set this parameter to true if values for this metric consistently include spikes that should not be considered to be anomalies.
+
+            With this set to true, CloudWatch will expect to see spikes that occurred consistently during the model training period, and won't flag future similar spikes as anomalies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metriccharacteristics.html#cfn-cloudwatch-anomalydetector-metriccharacteristics-periodicspikes
+            '''
+            result = self._values.get("periodic_spikes")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricCharacteristicsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "id": "id",
+            "account_id": "accountId",
+            "expression": "expression",
+            "label": "label",
+            "metric_stat": "metricStat",
+            "period": "period",
+            "return_data": "returnData",
+        },
+    )
+    class MetricDataQueryProperty:
+        def __init__(
+            self,
+            *,
+            id: builtins.str,
+            account_id: typing.Optional[builtins.str] = None,
+            expression: typing.Optional[builtins.str] = None,
+            label: typing.Optional[builtins.str] = None,
+            metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            period: typing.Optional[jsii.Number] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''This structure is used in both ``GetMetricData`` and ``PutMetricAlarm`` .
+
+            The supported use of this structure is different for those two operations.
+
+            When used in ``GetMetricData`` , it indicates the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a Metrics Insights query or a math expression. A single ``GetMetricData`` call can include up to 500 ``MetricDataQuery`` structures.
+
+            When used in ``PutMetricAlarm`` , it enables you to create an alarm based on a metric math expression. Each ``MetricDataQuery`` in the array specifies either a metric to retrieve, or a math expression to be performed on retrieved metrics. A single ``PutMetricAlarm`` call can include up to 20 ``MetricDataQuery`` structures in the array. The 20 structures can include as many as 10 structures that contain a ``MetricStat`` parameter to retrieve a metric, and as many as 10 structures that contain the ``Expression`` parameter to perform a math expression. Of those ``Expression`` structures, one must have ``true`` as the value for ``ReturnData`` . The result of this expression is the value the alarm watches.
+
+            Any expression used in a ``PutMetricAlarm`` operation must return a single time series. For more information, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
+
+            Some of the parameters of this structure also have different uses whether you are using this structure in a ``GetMetricData`` operation or a ``PutMetricAlarm`` operation. These differences are explained in the following parameter list.
+
+            :param id: A short name used to tie this object to the results in the response. This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
+            :param account_id: The ID of the account where the metrics are located. If you are performing a ``GetMetricData`` operation in a monitoring account, use this to specify which account to retrieve this metric from. If you are performing a ``PutMetricAlarm`` operation, use this to specify which account contains the metric that the alarm is watching.
+            :param expression: This field can contain either a Metrics Insights query, or a metric math expression to be performed on the returned data. For more information about Metrics Insights queries, see `Metrics Insights query components and syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-querylanguage>`_ in the *Amazon CloudWatch User Guide* . A math expression can use the ``Id`` of the other metrics or queries to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* . Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+            :param label: A human-readable label for this metric or expression. This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If Label is omitted, CloudWatch generates a default. You can put dynamic expressions into a label, so that it is more descriptive. For more information, see `Using Dynamic Labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ .
+            :param metric_stat: The metric to be returned, along with statistics, period, and units. Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data. Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
+            :param return_data: When used in ``GetMetricData`` , this option indicates whether to return the timestamps and raw data values of this metric. If you are performing this call just to do math expressions and do not also need the raw data returned, you can specify ``false`` . If you omit this, the default of ``true`` is used. When used in ``PutMetricAlarm`` , specify ``true`` for the one expression result to use as the alarm. For all other metrics and expressions in the same ``PutMetricAlarm`` operation, specify ``ReturnData`` as False.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_data_query_property = cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
+                    id="id",
+                
+                    # the properties below are optional
+                    account_id="accountId",
+                    expression="expression",
+                    label="label",
+                    metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
+                        metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
+                            metric_name="metricName",
+                            namespace="namespace",
+                
+                            # the properties below are optional
+                            dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                                name="name",
+                                value="value"
+                            )]
+                        ),
+                        period=123,
+                        stat="stat",
+                
+                        # the properties below are optional
+                        unit="unit"
+                    ),
+                    period=123,
+                    return_data=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+                check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
+                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+                check_type(argname="argument return_data", value=return_data, expected_type=type_hints["return_data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
+            if account_id is not None:
+                self._values["account_id"] = account_id
+            if expression is not None:
+                self._values["expression"] = expression
+            if label is not None:
+                self._values["label"] = label
+            if metric_stat is not None:
+                self._values["metric_stat"] = metric_stat
+            if period is not None:
+                self._values["period"] = period
+            if return_data is not None:
+                self._values["return_data"] = return_data
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''A short name used to tie this object to the results in the response.
+
+            This name must be unique within a single call to ``GetMetricData`` . If you are performing math expressions on this set of data, this name represents that data and can serve as a variable in the mathematical expression. The valid characters are letters, numbers, and underscore. The first character must be a lowercase letter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def account_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the account where the metrics are located.
+
+            If you are performing a ``GetMetricData`` operation in a monitoring account, use this to specify which account to retrieve this metric from.
+
+            If you are performing a ``PutMetricAlarm`` operation, use this to specify which account contains the metric that the alarm is watching.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-accountid
+            '''
+            result = self._values.get("account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def expression(self) -> typing.Optional[builtins.str]:
+            '''This field can contain either a Metrics Insights query, or a metric math expression to be performed on the returned data.
+
+            For more information about Metrics Insights queries, see `Metrics Insights query components and syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-metrics-insights-querylanguage>`_ in the *Amazon CloudWatch User Guide* .
+
+            A math expression can use the ``Id`` of the other metrics or queries to refer to those metrics, and can also use the ``Id`` of other expressions to use the result of those expressions. For more information about metric math expressions, see `Metric Math Syntax and Functions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax>`_ in the *Amazon CloudWatch User Guide* .
+
+            Within each MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-expression
+            '''
+            result = self._values.get("expression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def label(self) -> typing.Optional[builtins.str]:
+            '''A human-readable label for this metric or expression.
+
+            This is especially useful if this is an expression, so that you know what the value represents. If the metric or expression is shown in a CloudWatch dashboard widget, the label is shown. If Label is omitted, CloudWatch generates a default.
+
+            You can put dynamic expressions into a label, so that it is more descriptive. For more information, see `Using Dynamic Labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-label
+            '''
+            result = self._values.get("label")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def metric_stat(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricStatProperty"]]:
+            '''The metric to be returned, along with statistics, period, and units.
+
+            Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
+
+            Within one MetricDataQuery object, you must specify either ``Expression`` or ``MetricStat`` but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-metricstat
+            '''
+            result = self._values.get("metric_stat")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricStatProperty"]], result)
+
+        @builtins.property
+        def period(self) -> typing.Optional[jsii.Number]:
+            '''The granularity, in seconds, of the returned data points.
+
+            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` operation that includes a ``StorageResolution of 1 second`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-period
+            '''
+            result = self._values.get("period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def return_data(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''When used in ``GetMetricData`` , this option indicates whether to return the timestamps and raw data values of this metric.
+
+            If you are performing this call just to do math expressions and do not also need the raw data returned, you can specify ``false`` . If you omit this, the default of ``true`` is used.
+
+            When used in ``PutMetricAlarm`` , specify ``true`` for the one expression result to use as the alarm. For all other metrics and expressions in the same ``PutMetricAlarm`` operation, specify ``ReturnData`` as False.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-returndata
+            '''
+            result = self._values.get("return_data")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricDataQueryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metric_data_queries": "metricDataQueries"},
+    )
+    class MetricMathAnomalyDetectorProperty:
+        def __init__(
+            self,
+            *,
+            metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Indicates the CloudWatch math expression that provides the time series the anomaly detector uses as input.
+
+            The designated math expression must return a single time series.
+
+            :param metric_data_queries: An array of metric data query structures that enables you to create an anomaly detector based on the result of a metric math expression. Each item in ``MetricDataQueries`` gets a metric or performs a math expression. One item in ``MetricDataQueries`` is the expression that provides the time series that the anomaly detector uses as input. Designate the expression by setting ``ReturnData`` to ``true`` for this object in the array. For all other expressions and metrics, set ``ReturnData`` to ``false`` . The designated expression must return a single time series.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricmathanomalydetector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_math_anomaly_detector_property = cloudwatch.CfnAnomalyDetector.MetricMathAnomalyDetectorProperty(
+                    metric_data_queries=[cloudwatch.CfnAnomalyDetector.MetricDataQueryProperty(
+                        id="id",
+                
+                        # the properties below are optional
+                        account_id="accountId",
+                        expression="expression",
+                        label="label",
+                        metric_stat=cloudwatch.CfnAnomalyDetector.MetricStatProperty(
+                            metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
+                                metric_name="metricName",
+                                namespace="namespace",
+                
+                                # the properties below are optional
+                                dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                                    name="name",
+                                    value="value"
+                                )]
+                            ),
+                            period=123,
+                            stat="stat",
+                
+                            # the properties below are optional
+                            unit="unit"
+                        ),
+                        period=123,
+                        return_data=False
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb)
+                check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if metric_data_queries is not None:
+                self._values["metric_data_queries"] = metric_data_queries
+
+        @builtins.property
+        def metric_data_queries(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricDataQueryProperty"]]]]:
+            '''An array of metric data query structures that enables you to create an anomaly detector based on the result of a metric math expression.
+
+            Each item in ``MetricDataQueries`` gets a metric or performs a math expression. One item in ``MetricDataQueries`` is the expression that provides the time series that the anomaly detector uses as input. Designate the expression by setting ``ReturnData`` to ``true`` for this object in the array. For all other expressions and metrics, set ``ReturnData`` to ``false`` . The designated expression must return a single time series.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricmathanomalydetector.html#cfn-cloudwatch-anomalydetector-metricmathanomalydetector-metricdataqueries
+            '''
+            result = self._values.get("metric_data_queries")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricDataQueryProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricMathAnomalyDetectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric_name": "metricName",
+            "namespace": "namespace",
+            "dimensions": "dimensions",
+        },
+    )
+    class MetricProperty:
+        def __init__(
+            self,
+            *,
+            metric_name: builtins.str,
+            namespace: builtins.str,
+            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Represents a specific metric.
+
+            :param metric_name: The name of the metric. This is a required field.
+            :param namespace: The namespace of the metric.
+            :param dimensions: The dimensions for the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_property = cloudwatch.CfnAnomalyDetector.MetricProperty(
+                    metric_name="metricName",
+                    namespace="namespace",
+                
+                    # the properties below are optional
+                    dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                        name="name",
+                        value="value"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392)
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_name": metric_name,
+                "namespace": namespace,
+            }
+            if dimensions is not None:
+                self._values["dimensions"] = dimensions
+
+        @builtins.property
+        def metric_name(self) -> builtins.str:
+            '''The name of the metric.
+
+            This is a required field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-metricname
+            '''
+            result = self._values.get("metric_name")
+            assert result is not None, "Required property 'metric_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The namespace of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dimensions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
+            '''The dimensions for the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-dimensions
+            '''
+            result = self._values.get("dimensions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricStatProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "metric": "metric",
+            "period": "period",
+            "stat": "stat",
+            "unit": "unit",
+        },
+    )
+    class MetricStatProperty:
+        def __init__(
+            self,
+            *,
+            metric: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            period: jsii.Number,
+            stat: builtins.str,
+            unit: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''This structure defines the metric to be returned, along with the statistics, period, and units.
+
+            :param metric: The metric to return, including the metric name, namespace, and dimensions.
+            :param period: The granularity, in seconds, of the returned data points. For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second. If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned: - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute). - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes). - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
+            :param stat: The statistic to return. It can include any CloudWatch statistic or extended statistic.
+            :param unit: When you are using a ``Put`` operation, this defines what unit you want to use when storing the metric. In a ``Get`` operation, if you omit ``Unit`` then all data that was collected with any unit is returned, along with the corresponding units that were specified when the data was reported to CloudWatch. If you specify a unit, the operation returns only data that was collected with that unit specified. If you specify a unit that does not match the data collected, the results of the operation are null. CloudWatch does not perform unit conversions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_stat_property = cloudwatch.CfnAnomalyDetector.MetricStatProperty(
+                    metric=cloudwatch.CfnAnomalyDetector.MetricProperty(
+                        metric_name="metricName",
+                        namespace="namespace",
+                
+                        # the properties below are optional
+                        dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                            name="name",
+                            value="value"
+                        )]
+                    ),
+                    period=123,
+                    stat="stat",
+                
+                    # the properties below are optional
+                    unit="unit"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c)
+                check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
+                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
+                check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric": metric,
+                "period": period,
+                "stat": stat,
+            }
+            if unit is not None:
+                self._values["unit"] = unit
+
+        @builtins.property
+        def metric(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricProperty"]:
+            '''The metric to return, including the metric name, namespace, and dimensions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-metric
+            '''
+            result = self._values.get("metric")
+            assert result is not None, "Required property 'metric' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricProperty"], result)
+
+        @builtins.property
+        def period(self) -> jsii.Number:
+            '''The granularity, in seconds, of the returned data points.
+
+            For metrics with regular resolution, a period can be as short as one minute (60 seconds) and must be a multiple of 60. For high-resolution metrics that are collected at intervals of less than one minute, the period can be 1, 5, 10, 20, 30, 60, or any multiple of 60. High-resolution metrics are those metrics stored by a ``PutMetricData`` call that includes a ``StorageResolution`` of 1 second.
+
+            If the ``StartTime`` parameter specifies a time stamp that is greater than 3 hours ago, you must specify the period as follows or no data points in that time range is returned:
+
+            - Start time between 3 hours and 15 days ago - Use a multiple of 60 seconds (1 minute).
+            - Start time between 15 and 63 days ago - Use a multiple of 300 seconds (5 minutes).
+            - Start time greater than 63 days ago - Use a multiple of 3600 seconds (1 hour).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-period
+            '''
+            result = self._values.get("period")
+            assert result is not None, "Required property 'period' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def stat(self) -> builtins.str:
+            '''The statistic to return.
+
+            It can include any CloudWatch statistic or extended statistic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-stat
+            '''
+            result = self._values.get("stat")
+            assert result is not None, "Required property 'stat' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def unit(self) -> typing.Optional[builtins.str]:
+            '''When you are using a ``Put`` operation, this defines what unit you want to use when storing the metric.
+
+            In a ``Get`` operation, if you omit ``Unit`` then all data that was collected with any unit is returned, along with the corresponding units that were specified when the data was reported to CloudWatch. If you specify a unit, the operation returns only data that was collected with that unit specified. If you specify a unit that does not match the data collected, the results of the operation are null. CloudWatch does not perform unit conversions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-unit
+            '''
+            result = self._values.get("unit")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricStatProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.RangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"end_time": "endTime", "start_time": "startTime"},
+    )
+    class RangeProperty:
+        def __init__(self, *, end_time: builtins.str, start_time: builtins.str) -> None:
+            '''Each ``Range`` specifies one range of days or times to exclude from use for training or updating an anomaly detection model.
+
+            :param end_time: The end time of the range to exclude. The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
+            :param start_time: The start time of the range to exclude. The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                range_property = cloudwatch.CfnAnomalyDetector.RangeProperty(
+                    end_time="endTime",
+                    start_time="startTime"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b)
+                check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
+                check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end_time": end_time,
+                "start_time": start_time,
+            }
+
+        @builtins.property
+        def end_time(self) -> builtins.str:
+            '''The end time of the range to exclude.
+
+            The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html#cfn-cloudwatch-anomalydetector-range-endtime
+            '''
+            result = self._values.get("end_time")
+            assert result is not None, "Required property 'end_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def start_time(self) -> builtins.str:
+            '''The start time of the range to exclude.
+
+            The format is ``yyyy-MM-dd'T'HH:mm:ss`` . For example, ``2019-07-01T23:59:59`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-range.html#cfn-cloudwatch-anomalydetector-range-starttime
+            '''
+            result = self._values.get("start_time")
+            assert result is not None, "Required property 'start_time' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "account_id": "accountId",
+            "dimensions": "dimensions",
+            "metric_name": "metricName",
+            "namespace": "namespace",
+            "stat": "stat",
+        },
+    )
+    class SingleMetricAnomalyDetectorProperty:
+        def __init__(
+            self,
+            *,
+            account_id: typing.Optional[builtins.str] = None,
+            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_name: typing.Optional[builtins.str] = None,
+            namespace: typing.Optional[builtins.str] = None,
+            stat: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Designates the CloudWatch metric and statistic that provides the time series the anomaly detector uses as input.
+
+            If you have enabled unified cross-account observability, and this account is a monitoring account, the metric can be in the same account or a source account.
+
+            :param account_id: If the CloudWatch metric that provides the time series that the anomaly detector uses as input is in another account, specify that account ID here. If you omit this parameter, the current account is used.
+            :param dimensions: The metric dimensions to create the anomaly detection model for.
+            :param metric_name: The name of the metric to create the anomaly detection model for.
+            :param namespace: The namespace of the metric to create the anomaly detection model for.
+            :param stat: The statistic to use for the metric and anomaly detection model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                single_metric_anomaly_detector_property = cloudwatch.CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty(
+                    account_id="accountId",
+                    dimensions=[cloudwatch.CfnAnomalyDetector.DimensionProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    metric_name="metricName",
+                    namespace="namespace",
+                    stat="stat"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0)
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if account_id is not None:
+                self._values["account_id"] = account_id
+            if dimensions is not None:
+                self._values["dimensions"] = dimensions
+            if metric_name is not None:
+                self._values["metric_name"] = metric_name
+            if namespace is not None:
+                self._values["namespace"] = namespace
+            if stat is not None:
+                self._values["stat"] = stat
+
+        @builtins.property
+        def account_id(self) -> typing.Optional[builtins.str]:
+            '''If the CloudWatch metric that provides the time series that the anomaly detector uses as input is in another account, specify that account ID here.
+
+            If you omit this parameter, the current account is used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-accountid
+            '''
+            result = self._values.get("account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dimensions(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]]:
+            '''The metric dimensions to create the anomaly detection model for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-dimensions
+            '''
+            result = self._values.get("dimensions")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.DimensionProperty"]]]], result)
+
+        @builtins.property
+        def metric_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the metric to create the anomaly detection model for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-metricname
+            '''
+            result = self._values.get("metric_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def namespace(self) -> typing.Optional[builtins.str]:
+            '''The namespace of the metric to create the anomaly detection model for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-namespace
+            '''
+            result = self._values.get("namespace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def stat(self) -> typing.Optional[builtins.str]:
+            '''The statistic to use for the metric and anomaly detection model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-stat
+            '''
+            result = self._values.get("stat")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SingleMetricAnomalyDetectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ICompositeAlarmRef, _ITaggableV2_4e6798f8)
+class CfnCompositeAlarm(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnCompositeAlarm",
+):
+    '''The ``AWS::CloudWatch::CompositeAlarm`` type creates or updates a composite alarm.
+
+    When you create a composite alarm, you specify a rule expression for the alarm that takes into account the alarm states of other alarms that you have created. The composite alarm goes into ALARM state only if all conditions of the rule are met.
+
+    The alarms specified in a composite alarm's rule expression can include metric alarms and other composite alarms.
+
+    Using composite alarms can reduce alarm noise. You can create multiple metric alarms, and also create a composite alarm and set up alerts only for the composite alarm. For example, you could create a composite alarm that goes into ALARM state only when more than one of the underlying metric alarms are in ALARM state.
+
+    When this operation creates an alarm, the alarm state is immediately set to INSUFFICIENT_DATA. The alarm is then evaluated and its state is set appropriately. Any actions associated with the new state are then executed. For a composite alarm, this initial time after creation is the only time that the alarm can be in INSUFFICIENT_DATA state.
+
+    When you update an existing alarm, its state is left unchanged, but the update completely overwrites the previous configuration of the alarm.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html
+    :cloudformationResource: AWS::CloudWatch::CompositeAlarm
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_composite_alarm = cloudwatch.CfnCompositeAlarm(self, "MyCfnCompositeAlarm",
+            alarm_rule="alarmRule",
+        
+            # the properties below are optional
+            actions_enabled=False,
+            actions_suppressor="actionsSuppressor",
+            actions_suppressor_extension_period=123,
+            actions_suppressor_wait_period=123,
+            alarm_actions=["alarmActions"],
+            alarm_description="alarmDescription",
+            alarm_name="alarmName",
+            insufficient_data_actions=["insufficientDataActions"],
+            ok_actions=["okActions"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        alarm_rule: builtins.str,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        actions_suppressor: typing.Optional[builtins.str] = None,
+        actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
+        actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
+        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param alarm_rule: An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state. For each alarm that you reference, you designate a function that specifies whether that alarm needs to be in ALARM state, OK state, or INSUFFICIENT_DATA state. You can use operators (AND, OR and NOT) to combine multiple functions in a single expression. You can use parenthesis to logically group the functions in your expression. You can use either alarm names or ARNs to reference the other alarms that are to be evaluated. Functions can include the following: - ALARM("alarm-name or alarm-ARN") is TRUE if the named alarm is in ALARM state. - OK("alarm-name or alarm-ARN") is TRUE if the named alarm is in OK state. - INSUFFICIENT_DATA("alarm-name or alarm-ARN") is TRUE if the named alarm is in INSUFFICIENT_DATA state. - TRUE always evaluates to TRUE. - FALSE always evaluates to FALSE. TRUE and FALSE are useful for testing a complex AlarmRule structure, and for testing your alarm actions. For more information about ``AlarmRule`` syntax, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state of the composite alarm. The default is TRUE.
+        :param actions_suppressor: Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state. ``ActionsSuppressor`` can be an AlarmName or an Amazon Resource Name (ARN) from an existing alarm.
+        :param actions_suppressor_extension_period: The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``ExtensionPeriod`` is required only when ``ActionsSuppressor`` is specified.
+        :param actions_suppressor_wait_period: The maximum time in seconds that the composite alarm waits for the suppressor alarm to go into the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``WaitPeriod`` is required only when ``ActionsSuppressor`` is specified.
+        :param alarm_actions: The actions to execute when this alarm transitions to the ALARM state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param alarm_description: The description for the composite alarm.
+        :param alarm_name: The name for the composite alarm. This name must be unique within your AWS account.
+        :param insufficient_data_actions: The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state. Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param tags: A list of key-value pairs to associate with the alarm. You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCompositeAlarmProps(
+            alarm_rule=alarm_rule,
+            actions_enabled=actions_enabled,
+            actions_suppressor=actions_suppressor,
+            actions_suppressor_extension_period=actions_suppressor_extension_period,
+            actions_suppressor_wait_period=actions_suppressor_wait_period,
+            alarm_actions=alarm_actions,
+            alarm_description=alarm_description,
+            alarm_name=alarm_name,
+            insufficient_data_actions=insufficient_data_actions,
+            ok_actions=ok_actions,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the composite alarm, such as ``arn:aws:cloudwatch:us-west-2:123456789012:alarm/CompositeAlarmName`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="compositeAlarmRef")
+    def composite_alarm_ref(self) -> CompositeAlarmReference:
+        '''A reference to a CompositeAlarm resource.'''
+        return typing.cast(CompositeAlarmReference, jsii.get(self, "compositeAlarmRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmRule")
+    def alarm_rule(self) -> builtins.str:
+        '''An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state.'''
+        return typing.cast(builtins.str, jsii.get(self, "alarmRule"))
+
+    @alarm_rule.setter
+    def alarm_rule(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsEnabled")
+    def actions_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether actions should be executed during any changes to the alarm state of the composite alarm.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "actionsEnabled"))
+
+    @actions_enabled.setter
+    def actions_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsSuppressor")
+    def actions_suppressor(self) -> typing.Optional[builtins.str]:
+        '''Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "actionsSuppressor"))
+
+    @actions_suppressor.setter
+    def actions_suppressor(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsSuppressor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsSuppressorExtensionPeriod")
+    def actions_suppressor_extension_period(self) -> typing.Optional[jsii.Number]:
+        '''The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "actionsSuppressorExtensionPeriod"))
+
+    @actions_suppressor_extension_period.setter
+    def actions_suppressor_extension_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsSuppressorExtensionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsSuppressorWaitPeriod")
+    def actions_suppressor_wait_period(self) -> typing.Optional[jsii.Number]:
+        '''The maximum time in seconds that the composite alarm waits for the suppressor alarm to go into the ``ALARM`` state.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "actionsSuppressorWaitPeriod"))
+
+    @actions_suppressor_wait_period.setter
+    def actions_suppressor_wait_period(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsSuppressorWaitPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmActions")
+    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the ALARM state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alarmActions"))
+
+    @alarm_actions.setter
+    def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmDescription")
+    def alarm_description(self) -> typing.Optional[builtins.str]:
+        '''The description for the composite alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmDescription"))
+
+    @alarm_description.setter
+    def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmName")
+    def alarm_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the composite alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmName"))
+
+    @alarm_name.setter
+    def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="insufficientDataActions")
+    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "insufficientDataActions"))
+
+    @insufficient_data_actions.setter
+    def insufficient_data_actions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="okActions")
+    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the OK state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "okActions"))
+
+    @ok_actions.setter
+    def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs to associate with the alarm.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IDashboardRef)
+class CfnDashboard(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDashboard",
+):
+    '''The ``AWS::CloudWatch::Dashboard`` resource specifies an Amazon CloudWatch dashboard.
+
+    A dashboard is a customizable home page in the CloudWatch console that you can use to monitor your AWS resources in a single view.
+
+    All dashboards in your account are global, not region-specific.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html
+    :cloudformationResource: AWS::CloudWatch::Dashboard
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_dashboard = cloudwatch.CfnDashboard(self, "MyCfnDashboard",
+            dashboard_body="dashboardBody",
+        
+            # the properties below are optional
+            dashboard_name="dashboardName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        dashboard_body: builtins.str,
+        dashboard_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param dashboard_body: The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard. This parameter is required. For more information about the syntax, see `Dashboard Body Structure and Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/CloudWatch-Dashboard-Body-Structure.html>`_ .
+        :param dashboard_name: The name of the dashboard. The name must be between 1 and 255 characters. If you do not specify a name, one will be generated automatically.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDashboardProps(
+            dashboard_body=dashboard_body, dashboard_name=dashboard_name
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''A reference to a Dashboard resource.'''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardBody")
+    def dashboard_body(self) -> builtins.str:
+        '''The detailed information about the dashboard in JSON format, including the widgets to include and their location on the dashboard.'''
+        return typing.cast(builtins.str, jsii.get(self, "dashboardBody"))
+
+    @dashboard_body.setter
+    def dashboard_body(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dashboardBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardName")
+    def dashboard_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the dashboard.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dashboardName"))
+
+    @dashboard_name.setter
+    def dashboard_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dashboardName", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IInsightRuleRef, _ITaggable_36806126)
+class CfnInsightRule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnInsightRule",
+):
+    '''Creates or updates a Contributor Insights rule.
+
+    Rules evaluate log events in a CloudWatch Logs log group, enabling you to find contributor data for the log events in that log group. For more information, see `Using Contributor Insights to Analyze High-Cardinality Data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights.html>`_ in the *Amazon CloudWatch User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html
+    :cloudformationResource: AWS::CloudWatch::InsightRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_insight_rule = cloudwatch.CfnInsightRule(self, "MyCfnInsightRule",
+            rule_body="ruleBody",
+            rule_name="ruleName",
+            rule_state="ruleState",
+        
+            # the properties below are optional
+            apply_on_transformed_logs=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        rule_body: builtins.str,
+        rule_name: builtins.str,
+        rule_state: builtins.str,
+        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
+        :param rule_name: The name of the rule.
+        :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
+        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
+        :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInsightRuleProps(
+            rule_body=rule_body,
+            rule_name=rule_name,
+            rule_state=rule_state,
+            apply_on_transformed_logs=apply_on_transformed_logs,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the Contributor Insights rule, such as ``arn:aws:cloudwatch:us-west-2:123456789012:insight-rule/MyInsightRuleName`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuleName")
+    def attr_rule_name(self) -> builtins.str:
+        '''The name of the Contributor Insights rule.
+
+        :cloudformationAttribute: RuleName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRuleRef")
+    def insight_rule_ref(self) -> InsightRuleReference:
+        '''A reference to a InsightRule resource.'''
+        return typing.cast(InsightRuleReference, jsii.get(self, "insightRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleBody")
+    def rule_body(self) -> builtins.str:
+        '''The definition of the rule, as a JSON object.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleBody"))
+
+    @rule_body.setter
+    def rule_body(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
+
+    @rule_name.setter
+    def rule_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleState")
+    def rule_state(self) -> builtins.str:
+        '''The current state of the rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleState"))
+
+    @rule_state.setter
+    def rule_state(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ruleState", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="applyOnTransformedLogs")
+    def apply_on_transformed_logs(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Determines whether the rules is evaluated on transformed versions of logs.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "applyOnTransformedLogs"))
+
+    @apply_on_transformed_logs.setter
+    def apply_on_transformed_logs(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applyOnTransformedLogs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs to associate with the Contributor Insights rule.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IMetricStreamRef, _ITaggable_36806126)
+class CfnMetricStream(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream",
+):
+    '''Creates or updates a metric stream.
+
+    Metrics streams can automatically stream CloudWatch metrics to AWS destinations including Amazon S3 and to many third-party solutions. For more information, see `Metric streams <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Metric-Streams.html>`_ .
+
+    To create a metric stream, you must be logged on to an account that has the ``iam:PassRole`` permission and either the *CloudWatchFullAccess* policy or the ``cloudwatch:PutMetricStream`` permission.
+
+    When you create or update a metric stream, you choose one of the following:
+
+    - Stream metrics from all metric namespaces in the account.
+    - Stream metrics from all metric namespaces in the account, except for the namespaces that you list in ``ExcludeFilters`` .
+    - Stream metrics from only the metric namespaces that you list in ``IncludeFilters`` .
+
+    When you create a metric stream, the stream is created in the ``running`` state. If you update an existing metric stream, the state does not change.
+
+    If you create a metric stream in an account that has been set up as a monitoring account in CloudWatch cross-account observability, you can choose whether to include metrics from linked source accounts in the metric stream.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html
+    :cloudformationResource: AWS::CloudWatch::MetricStream
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_metric_stream = cloudwatch.CfnMetricStream(self, "MyCfnMetricStream",
+            firehose_arn="firehoseArn",
+            output_format="outputFormat",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            exclude_filters=[cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
+                namespace="namespace",
+        
+                # the properties below are optional
+                metric_names=["metricNames"]
+            )],
+            include_filters=[cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
+                namespace="namespace",
+        
+                # the properties below are optional
+                metric_names=["metricNames"]
+            )],
+            include_linked_accounts_metrics=False,
+            name="name",
+            statistics_configurations=[cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty(
+                additional_statistics=["additionalStatistics"],
+                include_metrics=[cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
+                    metric_name="metricName",
+                    namespace="namespace"
+                )]
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        firehose_arn: builtins.str,
+        output_format: builtins.str,
+        role_arn: builtins.str,
+        exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        name: typing.Optional[builtins.str] = None,
+        statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param firehose_arn: The ARN of the Amazon Kinesis Firehose delivery stream to use for this metric stream. This Amazon Kinesis Firehose delivery stream must already exist and must be in the same account as the metric stream.
+        :param output_format: The output format for the stream. Valid values are ``json`` , ``opentelemetry1.0`` and ``opentelemetry0.7`` For more information about metric stream output formats, see `Metric streams output formats <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-metric-streams-formats.html>`_ . This parameter is required.
+        :param role_arn: The ARN of an IAM role that this metric stream will use to access Amazon Kinesis Firehose resources. This IAM role must already exist and must be in the same account as the metric stream. This IAM role must include the ``firehose:PutRecord`` and ``firehose:PutRecordBatch`` permissions.
+        :param exclude_filters: If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here. You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream. When you modify the ``IncludeFilters`` or ``ExcludeFilters`` of an existing metric stream in any way, the metric stream is effectively restarted, so after such a change you will get only the datapoints that have a timestamp after the time of the update.
+        :param include_filters: If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here. You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream. When you modify the ``IncludeFilters`` or ``ExcludeFilters`` of an existing metric stream in any way, the metric stream is effectively restarted, so after such a change you will get only the datapoints that have a timestamp after the time of the update.
+        :param include_linked_accounts_metrics: If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream. The default is ``false`` . For more information about linking accounts, see `CloudWatch cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html>`_
+        :param name: If you are creating a new metric stream, this is the name for the new stream. The name must be different than the names of other metric streams in this account and Region. If you are updating a metric stream, specify the name of that stream here.
+        :param statistics_configurations: By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed. You can use this parameter to have the metric stream also send additional statistics in the stream. This array can have up to 100 members. For each entry in this array, you specify one or more metrics and the list of additional statistics to stream for those metrics. The additional statistics that you can stream depend on the stream's ``OutputFormat`` . If the ``OutputFormat`` is ``json`` , you can stream any additional statistic that is supported by CloudWatch , listed in `CloudWatch statistics definitions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Statistics-definitions.html>`_ . If the ``OutputFormat`` is OpenTelemetry, you can stream percentile statistics.
+        :param tags: An array of key-value pairs to apply to the metric stream. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMetricStreamProps(
+            firehose_arn=firehose_arn,
+            output_format=output_format,
+            role_arn=role_arn,
+            exclude_filters=exclude_filters,
+            include_filters=include_filters,
+            include_linked_accounts_metrics=include_linked_accounts_metrics,
+            name=name,
+            statistics_configurations=statistics_configurations,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the metric stream.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDate")
+    def attr_creation_date(self) -> builtins.str:
+        '''The date that the metric stream was originally created.
+
+        :cloudformationAttribute: CreationDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdateDate")
+    def attr_last_update_date(self) -> builtins.str:
+        '''The date that the metric stream was most recently updated.
+
+        :cloudformationAttribute: LastUpdateDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdateDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the metric stream, either ``running`` or ``stopped`` .
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="metricStreamRef")
+    def metric_stream_ref(self) -> MetricStreamReference:
+        '''A reference to a MetricStream resource.'''
+        return typing.cast(MetricStreamReference, jsii.get(self, "metricStreamRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="firehoseArn")
+    def firehose_arn(self) -> builtins.str:
+        '''The ARN of the Amazon Kinesis Firehose delivery stream to use for this metric stream.'''
+        return typing.cast(builtins.str, jsii.get(self, "firehoseArn"))
+
+    @firehose_arn.setter
+    def firehose_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "firehoseArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputFormat")
+    def output_format(self) -> builtins.str:
+        '''The output format for the stream.'''
+        return typing.cast(builtins.str, jsii.get(self, "outputFormat"))
+
+    @output_format.setter
+    def output_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The ARN of an IAM role that this metric stream will use to access Amazon Kinesis Firehose resources.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeFilters")
+    def exclude_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+        '''If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "excludeFilters"))
+
+    @exclude_filters.setter
+    def exclude_filters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="includeFilters")
+    def include_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+        '''If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "includeFilters"))
+
+    @include_filters.setter
+    def include_filters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamFilterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="includeLinkedAccountsMetrics")
+    def include_linked_accounts_metrics(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "includeLinkedAccountsMetrics"))
+
+    @include_linked_accounts_metrics.setter
+    def include_linked_accounts_metrics(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "includeLinkedAccountsMetrics", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''If you are creating a new metric stream, this is the name for the new stream.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="statisticsConfigurations")
+    def statistics_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
+        '''By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], jsii.get(self, "statisticsConfigurations"))
+
+    @statistics_configurations.setter
+    def statistics_configurations(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "statisticsConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to the metric stream.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"namespace": "namespace", "metric_names": "metricNames"},
+    )
+    class MetricStreamFilterProperty:
+        def __init__(
+            self,
+            *,
+            namespace: builtins.str,
+            metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''This structure contains a metric namespace and optionally, a list of metric names, to either include in a metric ' stream or exclude from a metric stream.
+
+            A metric stream's filters can include up to 1000 total names. This limit applies to the sum of namespace names and metric names in the filters. For example, this could include 10 metric namespace filters with 99 metrics each, or 20 namespace filters with 49 metrics specified in each filter.
+
+            :param namespace: The name of the metric namespace in the filter. The namespace can contain only ASCII printable characters (ASCII range 32 through 126). It must contain at least one non-whitespace character.
+            :param metric_names: The names of the metrics to either include or exclude from the metric stream. If you omit this parameter, all metrics in the namespace are included or excluded, depending on whether this filter is specified as an exclude filter or an include filter. Each metric name can contain only ASCII printable characters (ASCII range 32 through 126). Each metric name must contain at least one non-whitespace character.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_stream_filter_property = cloudwatch.CfnMetricStream.MetricStreamFilterProperty(
+                    namespace="namespace",
+                
+                    # the properties below are optional
+                    metric_names=["metricNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025)
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument metric_names", value=metric_names, expected_type=type_hints["metric_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "namespace": namespace,
+            }
+            if metric_names is not None:
+                self._values["metric_names"] = metric_names
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The name of the metric namespace in the filter.
+
+            The namespace can contain only ASCII printable characters (ASCII range 32 through 126). It must contain at least one non-whitespace character.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html#cfn-cloudwatch-metricstream-metricstreamfilter-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def metric_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The names of the metrics to either include or exclude from the metric stream.
+
+            If you omit this parameter, all metrics in the namespace are included or excluded, depending on whether this filter is specified as an exclude filter or an include filter.
+
+            Each metric name can contain only ASCII printable characters (ASCII range 32 through 126). Each metric name must contain at least one non-whitespace character.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamfilter.html#cfn-cloudwatch-metricstream-metricstreamfilter-metricnames
+            '''
+            result = self._values.get("metric_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricStreamFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "additional_statistics": "additionalStatistics",
+            "include_metrics": "includeMetrics",
+        },
+    )
+    class MetricStreamStatisticsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            additional_statistics: typing.Sequence[builtins.str],
+            include_metrics: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMetricStream.MetricStreamStatisticsMetricProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''This structure specifies a list of additional statistics to stream, and the metrics to stream those additional statistics for.
+
+            All metrics that match the combination of metric name and namespace will be streamed with the additional statistics, no matter their dimensions.
+
+            :param additional_statistics: The additional statistics to stream for the metrics listed in ``IncludeMetrics`` .
+            :param include_metrics: An array that defines the metrics that are to have additional statistics streamed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_stream_statistics_configuration_property = cloudwatch.CfnMetricStream.MetricStreamStatisticsConfigurationProperty(
+                    additional_statistics=["additionalStatistics"],
+                    include_metrics=[cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
+                        metric_name="metricName",
+                        namespace="namespace"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9)
+                check_type(argname="argument additional_statistics", value=additional_statistics, expected_type=type_hints["additional_statistics"])
+                check_type(argname="argument include_metrics", value=include_metrics, expected_type=type_hints["include_metrics"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "additional_statistics": additional_statistics,
+                "include_metrics": include_metrics,
+            }
+
+        @builtins.property
+        def additional_statistics(self) -> typing.List[builtins.str]:
+            '''The additional statistics to stream for the metrics listed in ``IncludeMetrics`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html#cfn-cloudwatch-metricstream-metricstreamstatisticsconfiguration-additionalstatistics
+            '''
+            result = self._values.get("additional_statistics")
+            assert result is not None, "Required property 'additional_statistics' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def include_metrics(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]]:
+            '''An array that defines the metrics that are to have additional statistics streamed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html#cfn-cloudwatch-metricstream-metricstreamstatisticsconfiguration-includemetrics
+            '''
+            result = self._values.get("include_metrics")
+            assert result is not None, "Required property 'include_metrics' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricStreamStatisticsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metric_name": "metricName", "namespace": "namespace"},
+    )
+    class MetricStreamStatisticsMetricProperty:
+        def __init__(
+            self,
+            *,
+            metric_name: builtins.str,
+            namespace: builtins.str,
+        ) -> None:
+            '''A structure that specifies the metric name and namespace for one metric that is going to have additional statistics included in the stream.
+
+            :param metric_name: The name of the metric.
+            :param namespace: The namespace of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_stream_statistics_metric_property = cloudwatch.CfnMetricStream.MetricStreamStatisticsMetricProperty(
+                    metric_name="metricName",
+                    namespace="namespace"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b)
+                check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "metric_name": metric_name,
+                "namespace": namespace,
+            }
+
+        @builtins.property
+        def metric_name(self) -> builtins.str:
+            '''The name of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html#cfn-cloudwatch-metricstream-metricstreamstatisticsmetric-metricname
+            '''
+            result = self._values.get("metric_name")
+            assert result is not None, "Required property 'metric_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def namespace(self) -> builtins.str:
+            '''The namespace of the metric.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsmetric.html#cfn-cloudwatch-metricstream-metricstreamstatisticsmetric-namespace
+            '''
+            result = self._values.get("namespace")
+            assert result is not None, "Required property 'namespace' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricStreamStatisticsMetricProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 @jsii.implements(IWidget)
 class Column(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Column"):
     '''A widget that contains other widgets in a vertical column.
@@ -16784,6 +17422,7 @@ __all__ = [
     "AlarmActionConfig",
     "AlarmBase",
     "AlarmProps",
+    "AlarmReference",
     "AlarmRule",
     "AlarmState",
     "AlarmStatusWidget",
@@ -16794,6 +17433,7 @@ __all__ = [
     "AnomalyDetectionAlarm",
     "AnomalyDetectionAlarmProps",
     "AnomalyDetectionMetricOptions",
+    "AnomalyDetectorReference",
     "CfnAlarm",
     "CfnAlarmProps",
     "CfnAnomalyDetector",
@@ -16812,12 +17452,14 @@ __all__ = [
     "ComparisonOperator",
     "CompositeAlarm",
     "CompositeAlarmProps",
+    "CompositeAlarmReference",
     "ConcreteWidget",
     "CreateAlarmOptions",
     "CustomWidget",
     "CustomWidgetProps",
     "Dashboard",
     "DashboardProps",
+    "DashboardReference",
     "DashboardVariable",
     "DashboardVariableOptions",
     "DefaultValue",
@@ -16830,10 +17472,17 @@ __all__ = [
     "HorizontalAnnotation",
     "IAlarm",
     "IAlarmAction",
+    "IAlarmRef",
     "IAlarmRule",
+    "IAnomalyDetectorRef",
+    "ICompositeAlarmRef",
+    "IDashboardRef",
+    "IInsightRuleRef",
     "IMetric",
+    "IMetricStreamRef",
     "IVariable",
     "IWidget",
+    "InsightRuleReference",
     "LegendPosition",
     "LogQueryLanguage",
     "LogQueryVisualizationType",
@@ -16848,6 +17497,7 @@ __all__ = [
     "MetricOptions",
     "MetricProps",
     "MetricStatConfig",
+    "MetricStreamReference",
     "MetricWidgetProps",
     "PeriodOverride",
     "Row",
@@ -16887,6 +17537,14 @@ publication.publish()
 def _typecheckingstub__1f1ff7030413de3d64c1ba15be58b5993bda266f09d078a54ade9ac8b5a2c478(
     *,
     alarm_action_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b143c8b7c6d5c781b25e97f70155714e829ecb3f1fdf65fef4d7bc8506fd430(
+    *,
+    alarm_arn: builtins.str,
+    alarm_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16958,216 +17616,9 @@ def _typecheckingstub__d770d314ce70d6c9f6003c8d6c5aa5cc35a2de931e79a5b71b5612d03
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
+def _typecheckingstub__5a40cc94483591122d60497c173b571766e26628212843f5342f68bf471860b0(
     *,
-    comparison_operator: builtins.str,
-    evaluation_periods: jsii.Number,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    alarm_description: typing.Optional[builtins.str] = None,
-    alarm_name: typing.Optional[builtins.str] = None,
-    datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-    extended_statistic: typing.Optional[builtins.str] = None,
-    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    metric_name: typing.Optional[builtins.str] = None,
-    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    namespace: typing.Optional[builtins.str] = None,
-    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    period: typing.Optional[jsii.Number] = None,
-    statistic: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    threshold: typing.Optional[jsii.Number] = None,
-    threshold_metric_id: typing.Optional[builtins.str] = None,
-    treat_missing_data: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.DimensionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.MetricDataQueryProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b(
-    *,
-    name: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f(
-    *,
-    id: builtins.str,
-    account_id: typing.Optional[builtins.str] = None,
-    expression: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    period: typing.Optional[jsii.Number] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf(
-    *,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_name: typing.Optional[builtins.str] = None,
-    namespace: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe(
-    *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
-    period: jsii.Number,
-    stat: builtins.str,
-    unit: typing.Optional[builtins.str] = None,
+    anomaly_detector_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17200,163 +17651,6 @@ def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_name: typing.Optional[builtins.str] = None,
-    namespace: typing.Optional[builtins.str] = None,
-    single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stat: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.ConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.DimensionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricCharacteristicsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121(
-    *,
-    excluded_time_ranges: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_time_zone: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9(
-    *,
-    name: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b(
-    *,
-    periodic_spikes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721(
-    *,
-    id: builtins.str,
-    account_id: typing.Optional[builtins.str] = None,
-    expression: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    period: typing.Optional[jsii.Number] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb(
-    *,
-    metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392(
-    *,
-    metric_name: builtins.str,
-    namespace: builtins.str,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c(
-    *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
-    period: jsii.Number,
-    stat: builtins.str,
-    unit: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b(
-    *,
-    end_time: builtins.str,
-    start_time: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0(
-    *,
-    account_id: typing.Optional[builtins.str] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_name: typing.Optional[builtins.str] = None,
-    namespace: typing.Optional[builtins.str] = None,
-    stat: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__929a09b64f3cc2009ffca4b74d148c42dfbbc7531a49bc66cb58443f8870fba2(
     *,
     configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -17367,103 +17661,6 @@ def _typecheckingstub__929a09b64f3cc2009ffca4b74d148c42dfbbc7531a49bc66cb58443f8
     namespace: typing.Optional[builtins.str] = None,
     single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stat: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    alarm_rule: builtins.str,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    actions_suppressor: typing.Optional[builtins.str] = None,
-    actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
-    actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    alarm_description: typing.Optional[builtins.str] = None,
-    alarm_name: typing.Optional[builtins.str] = None,
-    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17485,99 +17682,10 @@ def _typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    dashboard_body: builtins.str,
-    dashboard_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47caee4ca(
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    rule_body: builtins.str,
-    rule_name: builtins.str,
-    rule_state: builtins.str,
-    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17589,113 +17697,6 @@ def _typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce45
     rule_state: builtins.str,
     apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    firehose_arn: builtins.str,
-    output_format: builtins.str,
-    role_arn: builtins.str,
-    exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    name: typing.Optional[builtins.str] = None,
-    statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025(
-    *,
-    namespace: builtins.str,
-    metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9(
-    *,
-    additional_statistics: typing.Sequence[builtins.str],
-    include_metrics: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsMetricProperty, typing.Dict[builtins.str, typing.Any]]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b(
-    *,
-    metric_name: builtins.str,
-    namespace: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17742,6 +17743,14 @@ def _typecheckingstub__ac3983e61925a8b50987e3b6213e939907d0c4bb41a5682e1321634d8
     actions_suppressor_wait_period: typing.Optional[_Duration_4839e8c3] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     composite_alarm_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec52654d063b4ff2145bb529420eeb67026a17ef796011d8720097deb1491e66(
+    *,
+    alarm_name: builtins.str,
+    composite_alarm_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17815,6 +17824,13 @@ def _typecheckingstub__c41d6a8494d12ab7a95fc9ee6638b207cc78fd0aa3e36ceec570a3945
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fafc67b42901d054db822d071fb9ae602acf2c9d590fe4f81ba28414ada8fa4f(
+    *,
+    dashboard_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4da4c2a317eff8c9083c9e23732734166969be3616c35a7f51e21115e260cba6(
     *,
     id: builtins.str,
@@ -17864,6 +17880,14 @@ def _typecheckingstub__19a88cc904e70d7841abfa1406b71edcf34c316b173c37c2881e75702
 def _typecheckingstub__f09026a4cce4261b0c1f425d42f625c9bd8f0ba4495e11743f621a2cd44b00f8(
     x: jsii.Number,
     y: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__add43460be2c65eb96f96cb4a0985965da7f04ccbaab61561d7641e6f93e4935(
+    *,
+    insight_rule_arn: builtins.str,
+    insight_rule_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18025,6 +18049,14 @@ def _typecheckingstub__b4491ad5e5a4b9301258f50e45d0278fe9bbf165c840e3c65f8feab63
     region: typing.Optional[builtins.str] = None,
     region_override: typing.Optional[builtins.str] = None,
     unit_filter: typing.Optional[Unit] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ce27dc1867ea9f52a979f268f5b8ba7bbb744fb1ba42e6292d6152c389dd175(
+    *,
+    metric_stream_arn: builtins.str,
+    metric_stream_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18351,6 +18383,670 @@ def _typecheckingstub__c5ab1cfa142c158cb621ab2339ccaa469bd13773cd7f760d978164625
     search_region: typing.Optional[builtins.str] = None,
     metric: IMetric,
     std_devs: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    comparison_operator: builtins.str,
+    evaluation_periods: jsii.Number,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    datapoints_to_alarm: typing.Optional[jsii.Number] = None,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+    extended_statistic: typing.Optional[builtins.str] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    namespace: typing.Optional[builtins.str] = None,
+    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    period: typing.Optional[jsii.Number] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    threshold: typing.Optional[jsii.Number] = None,
+    threshold_metric_id: typing.Optional[builtins.str] = None,
+    treat_missing_data: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.DimensionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.MetricDataQueryProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f(
+    *,
+    id: builtins.str,
+    account_id: typing.Optional[builtins.str] = None,
+    expression: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    period: typing.Optional[jsii.Number] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf(
+    *,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    namespace: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe(
+    *,
+    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    period: jsii.Number,
+    stat: builtins.str,
+    unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    namespace: typing.Optional[builtins.str] = None,
+    single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stat: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.ConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.DimensionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricCharacteristicsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121(
+    *,
+    excluded_time_ranges: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_time_zone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b(
+    *,
+    periodic_spikes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721(
+    *,
+    id: builtins.str,
+    account_id: typing.Optional[builtins.str] = None,
+    expression: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    period: typing.Optional[jsii.Number] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb(
+    *,
+    metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392(
+    *,
+    metric_name: builtins.str,
+    namespace: builtins.str,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c(
+    *,
+    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    period: jsii.Number,
+    stat: builtins.str,
+    unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b(
+    *,
+    end_time: builtins.str,
+    start_time: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0(
+    *,
+    account_id: typing.Optional[builtins.str] = None,
+    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    namespace: typing.Optional[builtins.str] = None,
+    stat: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    alarm_rule: builtins.str,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    actions_suppressor: typing.Optional[builtins.str] = None,
+    actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
+    actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
+    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    dashboard_body: builtins.str,
+    dashboard_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    rule_body: builtins.str,
+    rule_name: builtins.str,
+    rule_state: builtins.str,
+    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    firehose_arn: builtins.str,
+    output_format: builtins.str,
+    role_arn: builtins.str,
+    exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    name: typing.Optional[builtins.str] = None,
+    statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025(
+    *,
+    namespace: builtins.str,
+    metric_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9(
+    *,
+    additional_statistics: typing.Sequence[builtins.str],
+    include_metrics: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsMetricProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b(
+    *,
+    metric_name: builtins.str,
+    namespace: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

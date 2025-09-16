@@ -262,7 +262,7 @@ class TelegramNotifier:
     async def _replace_chat_id(
         self, old_id: int, new_id: int, session: sqlalchemy.orm.Session
     ) -> None:
-        upd_usernames, upd_fullnames, upd_groups = await self._get_bot_updates()
+        _upd_usernames, _upd_fullnames, upd_groups = await self._get_bot_updates()
         for group in upd_groups:
             grp = upd_groups.get(group)
             if grp.id == new_id:

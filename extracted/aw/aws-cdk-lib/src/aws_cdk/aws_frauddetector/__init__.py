@@ -69,7 +69,1686 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnDetectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_id": "detectorId",
+        "event_type": "eventType",
+        "rules": "rules",
+        "associated_models": "associatedModels",
+        "description": "description",
+        "detector_version_status": "detectorVersionStatus",
+        "rule_execution_mode": "ruleExecutionMode",
+        "tags": "tags",
+    },
+)
+class CfnDetectorProps:
+    def __init__(
+        self,
+        *,
+        detector_id: builtins.str,
+        event_type: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetector.EventTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetector.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        associated_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetector.ModelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        detector_version_status: typing.Optional[builtins.str] = None,
+        rule_execution_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDetector``.
+
+        :param detector_id: The name of the detector.
+        :param event_type: The event type associated with this detector.
+        :param rules: The rules to include in the detector version.
+        :param associated_models: The models to associate with this detector. You must provide the ARNs of all the models you want to associate.
+        :param description: The detector description.
+        :param detector_version_status: The status of the detector version. If a value is not provided for this property, AWS CloudFormation assumes ``DRAFT`` status. Valid values: ``ACTIVE | DRAFT``
+        :param rule_execution_mode: The rule execution mode for the rules included in the detector version. Valid values: ``FIRST_MATCHED | ALL_MATCHED`` Default value: ``FIRST_MATCHED`` You can define and edit the rule mode at the detector version level, when it is in draft status. If you specify ``FIRST_MATCHED`` , Amazon Fraud Detector evaluates rules sequentially, first to last, stopping at the first matched rule. Amazon Fraud dectector then provides the outcomes for that single rule. If you specifiy ``ALL_MATCHED`` , Amazon Fraud Detector evaluates all rules and returns the outcomes for all matched rules.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_detector_props = frauddetector.CfnDetectorProps(
+                detector_id="detectorId",
+                event_type=frauddetector.CfnDetector.EventTypeProperty(
+                    arn="arn",
+                    created_time="createdTime",
+                    description="description",
+                    entity_types=[frauddetector.CfnDetector.EntityTypeProperty(
+                        arn="arn",
+                        created_time="createdTime",
+                        description="description",
+                        inline=False,
+                        last_updated_time="lastUpdatedTime",
+                        name="name",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    event_variables=[frauddetector.CfnDetector.EventVariableProperty(
+                        arn="arn",
+                        created_time="createdTime",
+                        data_source="dataSource",
+                        data_type="dataType",
+                        default_value="defaultValue",
+                        description="description",
+                        inline=False,
+                        last_updated_time="lastUpdatedTime",
+                        name="name",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        variable_type="variableType"
+                    )],
+                    inline=False,
+                    labels=[frauddetector.CfnDetector.LabelProperty(
+                        arn="arn",
+                        created_time="createdTime",
+                        description="description",
+                        inline=False,
+                        last_updated_time="lastUpdatedTime",
+                        name="name",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    last_updated_time="lastUpdatedTime",
+                    name="name",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                rules=[frauddetector.CfnDetector.RuleProperty(
+                    arn="arn",
+                    created_time="createdTime",
+                    description="description",
+                    detector_id="detectorId",
+                    expression="expression",
+                    language="language",
+                    last_updated_time="lastUpdatedTime",
+                    outcomes=[frauddetector.CfnDetector.OutcomeProperty(
+                        arn="arn",
+                        created_time="createdTime",
+                        description="description",
+                        inline=False,
+                        last_updated_time="lastUpdatedTime",
+                        name="name",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    rule_id="ruleId",
+                    rule_version="ruleVersion",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+            
+                # the properties below are optional
+                associated_models=[frauddetector.CfnDetector.ModelProperty(
+                    arn="arn"
+                )],
+                description="description",
+                detector_version_status="detectorVersionStatus",
+                rule_execution_mode="ruleExecutionMode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b26e6685891f22272eaba159af0e6c7023d53e7080f932711c9d37ff7d04a215)
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument associated_models", value=associated_models, expected_type=type_hints["associated_models"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument detector_version_status", value=detector_version_status, expected_type=type_hints["detector_version_status"])
+            check_type(argname="argument rule_execution_mode", value=rule_execution_mode, expected_type=type_hints["rule_execution_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_id": detector_id,
+            "event_type": event_type,
+            "rules": rules,
+        }
+        if associated_models is not None:
+            self._values["associated_models"] = associated_models
+        if description is not None:
+            self._values["description"] = description
+        if detector_version_status is not None:
+            self._values["detector_version_status"] = detector_version_status
+        if rule_execution_mode is not None:
+            self._values["rule_execution_mode"] = rule_execution_mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def detector_id(self) -> builtins.str:
+        '''The name of the detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-detectorid
+        '''
+        result = self._values.get("detector_id")
+        assert result is not None, "Required property 'detector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_type(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDetector.EventTypeProperty"]:
+        '''The event type associated with this detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-eventtype
+        '''
+        result = self._values.get("event_type")
+        assert result is not None, "Required property 'event_type' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDetector.EventTypeProperty"], result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.RuleProperty"]]]:
+        '''The rules to include in the detector version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.RuleProperty"]]], result)
+
+    @builtins.property
+    def associated_models(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.ModelProperty"]]]]:
+        '''The models to associate with this detector.
+
+        You must provide the ARNs of all the models you want to associate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-associatedmodels
+        '''
+        result = self._values.get("associated_models")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDetector.ModelProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The detector description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def detector_version_status(self) -> typing.Optional[builtins.str]:
+        '''The status of the detector version.
+
+        If a value is not provided for this property, AWS CloudFormation assumes ``DRAFT`` status.
+
+        Valid values: ``ACTIVE | DRAFT``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-detectorversionstatus
+        '''
+        result = self._values.get("detector_version_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_execution_mode(self) -> typing.Optional[builtins.str]:
+        '''The rule execution mode for the rules included in the detector version.
+
+        Valid values: ``FIRST_MATCHED | ALL_MATCHED`` Default value: ``FIRST_MATCHED``
+
+        You can define and edit the rule mode at the detector version level, when it is in draft status.
+
+        If you specify ``FIRST_MATCHED`` , Amazon Fraud Detector evaluates rules sequentially, first to last, stopping at the first matched rule. Amazon Fraud dectector then provides the outcomes for that single rule.
+
+        If you specifiy ``ALL_MATCHED`` , Amazon Fraud Detector evaluates all rules and returns the outcomes for all matched rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-ruleexecutionmode
+        '''
+        result = self._values.get("rule_execution_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDetectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnEntityTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnEntityTypeProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEntityType``.
+
+        :param name: The entity type name. Pattern: ``^[0-9a-z_-]+$``
+        :param description: The entity type description.
+        :param tags: A key and value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_entity_type_props = frauddetector.CfnEntityTypeProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0af61baf6c2e5424876fd48cdd930b1c05c66d9e45088e51b8c3775c6a209dfc)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The entity type name.
+
+        Pattern: ``^[0-9a-z_-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The entity type description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key and value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEntityTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnEventTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "entity_types": "entityTypes",
+        "event_variables": "eventVariables",
+        "labels": "labels",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnEventTypeProps:
+    def __init__(
+        self,
+        *,
+        entity_types: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventType.EntityTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        event_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventType.EventVariableProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        labels: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventType.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventType``.
+
+        :param entity_types: The event type entity types.
+        :param event_variables: The event type event variables.
+        :param labels: The event type labels.
+        :param name: The event type name. Pattern : ``^[0-9a-z_-]+$``
+        :param description: The event type description.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_event_type_props = frauddetector.CfnEventTypeProps(
+                entity_types=[frauddetector.CfnEventType.EntityTypeProperty(
+                    arn="arn",
+                    created_time="createdTime",
+                    description="description",
+                    inline=False,
+                    last_updated_time="lastUpdatedTime",
+                    name="name",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+                event_variables=[frauddetector.CfnEventType.EventVariableProperty(
+                    arn="arn",
+                    created_time="createdTime",
+                    data_source="dataSource",
+                    data_type="dataType",
+                    default_value="defaultValue",
+                    description="description",
+                    inline=False,
+                    last_updated_time="lastUpdatedTime",
+                    name="name",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    variable_type="variableType"
+                )],
+                labels=[frauddetector.CfnEventType.LabelProperty(
+                    arn="arn",
+                    created_time="createdTime",
+                    description="description",
+                    inline=False,
+                    last_updated_time="lastUpdatedTime",
+                    name="name",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e56a177c70c9bd1f38e708e145e3e6914e7a4d5bd3fed7466de6c3948aadabb7)
+            check_type(argname="argument entity_types", value=entity_types, expected_type=type_hints["entity_types"])
+            check_type(argname="argument event_variables", value=event_variables, expected_type=type_hints["event_variables"])
+            check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entity_types": entity_types,
+            "event_variables": event_variables,
+            "labels": labels,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def entity_types(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.EntityTypeProperty"]]]:
+        '''The event type entity types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-entitytypes
+        '''
+        result = self._values.get("entity_types")
+        assert result is not None, "Required property 'entity_types' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.EntityTypeProperty"]]], result)
+
+    @builtins.property
+    def event_variables(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.EventVariableProperty"]]]:
+        '''The event type event variables.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-eventvariables
+        '''
+        result = self._values.get("event_variables")
+        assert result is not None, "Required property 'event_variables' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.EventVariableProperty"]]], result)
+
+    @builtins.property
+    def labels(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.LabelProperty"]]]:
+        '''The event type labels.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-labels
+        '''
+        result = self._values.get("labels")
+        assert result is not None, "Required property 'labels' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventType.LabelProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The event type name.
+
+        Pattern : ``^[0-9a-z_-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The event type description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnLabelProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnLabelProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLabel``.
+
+        :param name: The label name. Pattern: ``^[0-9a-z_-]+$``
+        :param description: The label description.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_label_props = frauddetector.CfnLabelProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e644e14f734aefd7f5a6a211ec9822cd9accb53cdd0c619b609b777f094ef91)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The label name.
+
+        Pattern: ``^[0-9a-z_-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The label description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLabelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnListProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "elements": "elements",
+        "tags": "tags",
+        "variable_type": "variableType",
+    },
+)
+class CfnListProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        elements: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        variable_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnList``.
+
+        :param name: The name of the list.
+        :param description: The description of the list.
+        :param elements: The elements in the list.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param variable_type: The variable type of the list. For more information, see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/variables.html#variable-types>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_list_props = frauddetector.CfnListProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                elements=["elements"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                variable_type="variableType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43236150e9a7db410fb7d326444e41492d6a4cb6de67f0733a004a6b84845a0b)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument elements", value=elements, expected_type=type_hints["elements"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument variable_type", value=variable_type, expected_type=type_hints["variable_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if elements is not None:
+            self._values["elements"] = elements
+        if tags is not None:
+            self._values["tags"] = tags
+        if variable_type is not None:
+            self._values["variable_type"] = variable_type
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def elements(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The elements in the list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-elements
+        '''
+        result = self._values.get("elements")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def variable_type(self) -> typing.Optional[builtins.str]:
+        '''The variable type of the list.
+
+        For more information, see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/variables.html#variable-types>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-variabletype
+        '''
+        result = self._values.get("variable_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnOutcomeProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnOutcomeProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOutcome``.
+
+        :param name: The outcome name.
+        :param description: The outcome description.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_outcome_props = frauddetector.CfnOutcomeProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53a02d43cb404eb2c8d53e3055c34f9c1368865e6086ba4b2f2506978110870f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The outcome name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The outcome description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOutcomeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.CfnVariableProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source": "dataSource",
+        "data_type": "dataType",
+        "default_value": "defaultValue",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+        "variable_type": "variableType",
+    },
+)
+class CfnVariableProps:
+    def __init__(
+        self,
+        *,
+        data_source: builtins.str,
+        data_type: builtins.str,
+        default_value: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        variable_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVariable``.
+
+        :param data_source: The data source of the variable. Valid values: ``EVENT | EXTERNAL_MODEL_SCORE`` When defining a variable within a detector, you can only use the ``EVENT`` value for DataSource when the *Inline* property is set to true. If the *Inline* property is set false, you can use either ``EVENT`` or ``MODEL_SCORE`` for DataSource.
+        :param data_type: The data type of the variable. Valid data types: ``STRING | INTEGER | BOOLEAN | FLOAT``
+        :param default_value: The default value of the variable.
+        :param name: The name of the variable. Pattern: ``^[0-9a-z_-]+$``
+        :param description: The description of the variable.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param variable_type: The type of the variable. For more information see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/create-a-variable.html#variable-types>`_ . Valid Values: ``AUTH_CODE | AVS | BILLING_ADDRESS_L1 | BILLING_ADDRESS_L2 | BILLING_CITY | BILLING_COUNTRY | BILLING_NAME | BILLING_PHONE | BILLING_STATE | BILLING_ZIP | CARD_BIN | CATEGORICAL | CURRENCY_CODE | EMAIL_ADDRESS | FINGERPRINT | FRAUD_LABEL | FREE_FORM_TEXT | IP_ADDRESS | NUMERIC | ORDER_ID | PAYMENT_TYPE | PHONE_NUMBER | PRICE | PRODUCT_CATEGORY | SHIPPING_ADDRESS_L1 | SHIPPING_ADDRESS_L2 | SHIPPING_CITY | SHIPPING_COUNTRY | SHIPPING_NAME | SHIPPING_PHONE | SHIPPING_STATE | SHIPPING_ZIP | USERAGENT``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            cfn_variable_props = frauddetector.CfnVariableProps(
+                data_source="dataSource",
+                data_type="dataType",
+                default_value="defaultValue",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                variable_type="variableType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e971889a72633f798e1c1ab65a7e842476bacc0ab6a37b199a03406565283072)
+            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
+            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument variable_type", value=variable_type, expected_type=type_hints["variable_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source": data_source,
+            "data_type": data_type,
+            "default_value": default_value,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if variable_type is not None:
+            self._values["variable_type"] = variable_type
+
+    @builtins.property
+    def data_source(self) -> builtins.str:
+        '''The data source of the variable.
+
+        Valid values: ``EVENT | EXTERNAL_MODEL_SCORE``
+
+        When defining a variable within a detector, you can only use the ``EVENT`` value for DataSource when the *Inline* property is set to true. If the *Inline* property is set false, you can use either ``EVENT`` or ``MODEL_SCORE`` for DataSource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-datasource
+        '''
+        result = self._values.get("data_source")
+        assert result is not None, "Required property 'data_source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_type(self) -> builtins.str:
+        '''The data type of the variable.
+
+        Valid data types: ``STRING | INTEGER | BOOLEAN | FLOAT``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-datatype
+        '''
+        result = self._values.get("data_type")
+        assert result is not None, "Required property 'data_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_value(self) -> builtins.str:
+        '''The default value of the variable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-defaultvalue
+        '''
+        result = self._values.get("default_value")
+        assert result is not None, "Required property 'default_value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the variable.
+
+        Pattern: ``^[0-9a-z_-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the variable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def variable_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the variable. For more information see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/create-a-variable.html#variable-types>`_ .
+
+        Valid Values: ``AUTH_CODE | AVS | BILLING_ADDRESS_L1 | BILLING_ADDRESS_L2 | BILLING_CITY | BILLING_COUNTRY | BILLING_NAME | BILLING_PHONE | BILLING_STATE | BILLING_ZIP | CARD_BIN | CATEGORICAL | CURRENCY_CODE | EMAIL_ADDRESS | FINGERPRINT | FRAUD_LABEL | FREE_FORM_TEXT | IP_ADDRESS | NUMERIC | ORDER_ID | PAYMENT_TYPE | PHONE_NUMBER | PRICE | PRODUCT_CATEGORY | SHIPPING_ADDRESS_L1 | SHIPPING_ADDRESS_L2 | SHIPPING_CITY | SHIPPING_COUNTRY | SHIPPING_NAME | SHIPPING_PHONE | SHIPPING_STATE | SHIPPING_ZIP | USERAGENT``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-variabletype
+        '''
+        result = self._values.get("variable_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVariableProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.DetectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_arn": "detectorArn"},
+)
+class DetectorReference:
+    def __init__(self, *, detector_arn: builtins.str) -> None:
+        '''A reference to a Detector resource.
+
+        :param detector_arn: The Arn of the Detector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            detector_reference = frauddetector.DetectorReference(
+                detector_arn="detectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78d85756ca495750ca2efacde7f5324f18c3cb36253ec4031a420563b454843a)
+            check_type(argname="argument detector_arn", value=detector_arn, expected_type=type_hints["detector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_arn": detector_arn,
+        }
+
+    @builtins.property
+    def detector_arn(self) -> builtins.str:
+        '''The Arn of the Detector resource.'''
+        result = self._values.get("detector_arn")
+        assert result is not None, "Required property 'detector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DetectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.EntityTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={"entity_type_arn": "entityTypeArn"},
+)
+class EntityTypeReference:
+    def __init__(self, *, entity_type_arn: builtins.str) -> None:
+        '''A reference to a EntityType resource.
+
+        :param entity_type_arn: The Arn of the EntityType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            entity_type_reference = frauddetector.EntityTypeReference(
+                entity_type_arn="entityTypeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc7019b4aa03bae298e28dba403112717a533a16ae9a22dafae19a98859328d6)
+            check_type(argname="argument entity_type_arn", value=entity_type_arn, expected_type=type_hints["entity_type_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entity_type_arn": entity_type_arn,
+        }
+
+    @builtins.property
+    def entity_type_arn(self) -> builtins.str:
+        '''The Arn of the EntityType resource.'''
+        result = self._values.get("entity_type_arn")
+        assert result is not None, "Required property 'entity_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EntityTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.EventTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_type_arn": "eventTypeArn"},
+)
+class EventTypeReference:
+    def __init__(self, *, event_type_arn: builtins.str) -> None:
+        '''A reference to a EventType resource.
+
+        :param event_type_arn: The Arn of the EventType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            event_type_reference = frauddetector.EventTypeReference(
+                event_type_arn="eventTypeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9de3409e6ff7a4697003033932ac51120c3b289f7b903be5a9ab56486bdd8b5e)
+            check_type(argname="argument event_type_arn", value=event_type_arn, expected_type=type_hints["event_type_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_type_arn": event_type_arn,
+        }
+
+    @builtins.property
+    def event_type_arn(self) -> builtins.str:
+        '''The Arn of the EventType resource.'''
+        result = self._values.get("event_type_arn")
+        assert result is not None, "Required property 'event_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IDetectorRef")
+class IDetectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Detector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''(experimental) A reference to a Detector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDetectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Detector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IDetectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''(experimental) A reference to a Detector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DetectorReference, jsii.get(self, "detectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDetectorRef).__jsii_proxy_class__ = lambda : _IDetectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IEntityTypeRef")
+class IEntityTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EntityType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="entityTypeRef")
+    def entity_type_ref(self) -> EntityTypeReference:
+        '''(experimental) A reference to a EntityType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEntityTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EntityType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IEntityTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="entityTypeRef")
+    def entity_type_ref(self) -> EntityTypeReference:
+        '''(experimental) A reference to a EntityType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EntityTypeReference, jsii.get(self, "entityTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEntityTypeRef).__jsii_proxy_class__ = lambda : _IEntityTypeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IEventTypeRef")
+class IEventTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EventType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventTypeRef")
+    def event_type_ref(self) -> EventTypeReference:
+        '''(experimental) A reference to a EventType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IEventTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventTypeRef")
+    def event_type_ref(self) -> EventTypeReference:
+        '''(experimental) A reference to a EventType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventTypeReference, jsii.get(self, "eventTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventTypeRef).__jsii_proxy_class__ = lambda : _IEventTypeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.ILabelRef")
+class ILabelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Label.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="labelRef")
+    def label_ref(self) -> "LabelReference":
+        '''(experimental) A reference to a Label resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILabelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Label.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.ILabelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="labelRef")
+    def label_ref(self) -> "LabelReference":
+        '''(experimental) A reference to a Label resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LabelReference", jsii.get(self, "labelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILabelRef).__jsii_proxy_class__ = lambda : _ILabelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IListRef")
+class IListRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a List.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="listRef")
+    def list_ref(self) -> "ListReference":
+        '''(experimental) A reference to a List resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IListRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a List.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IListRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="listRef")
+    def list_ref(self) -> "ListReference":
+        '''(experimental) A reference to a List resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ListReference", jsii.get(self, "listRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IListRef).__jsii_proxy_class__ = lambda : _IListRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IOutcomeRef")
+class IOutcomeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Outcome.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="outcomeRef")
+    def outcome_ref(self) -> "OutcomeReference":
+        '''(experimental) A reference to a Outcome resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOutcomeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Outcome.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IOutcomeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="outcomeRef")
+    def outcome_ref(self) -> "OutcomeReference":
+        '''(experimental) A reference to a Outcome resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OutcomeReference", jsii.get(self, "outcomeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOutcomeRef).__jsii_proxy_class__ = lambda : _IOutcomeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_frauddetector.IVariableRef")
+class IVariableRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Variable.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="variableRef")
+    def variable_ref(self) -> "VariableReference":
+        '''(experimental) A reference to a Variable resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVariableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Variable.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_frauddetector.IVariableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="variableRef")
+    def variable_ref(self) -> "VariableReference":
+        '''(experimental) A reference to a Variable resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VariableReference", jsii.get(self, "variableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVariableRef).__jsii_proxy_class__ = lambda : _IVariableRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.LabelReference",
+    jsii_struct_bases=[],
+    name_mapping={"label_arn": "labelArn"},
+)
+class LabelReference:
+    def __init__(self, *, label_arn: builtins.str) -> None:
+        '''A reference to a Label resource.
+
+        :param label_arn: The Arn of the Label resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            label_reference = frauddetector.LabelReference(
+                label_arn="labelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57ea22e7cc70210719fd3f8960e3d8ed1596a1d27ee04c71fa84207077265647)
+            check_type(argname="argument label_arn", value=label_arn, expected_type=type_hints["label_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "label_arn": label_arn,
+        }
+
+    @builtins.property
+    def label_arn(self) -> builtins.str:
+        '''The Arn of the Label resource.'''
+        result = self._values.get("label_arn")
+        assert result is not None, "Required property 'label_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LabelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.ListReference",
+    jsii_struct_bases=[],
+    name_mapping={"list_arn": "listArn"},
+)
+class ListReference:
+    def __init__(self, *, list_arn: builtins.str) -> None:
+        '''A reference to a List resource.
+
+        :param list_arn: The Arn of the List resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            list_reference = frauddetector.ListReference(
+                list_arn="listArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16d55b0ac9226a45a92a54d3118a6bf61f6029c8c9f8bf3f6644c2fc73f86835)
+            check_type(argname="argument list_arn", value=list_arn, expected_type=type_hints["list_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "list_arn": list_arn,
+        }
+
+    @builtins.property
+    def list_arn(self) -> builtins.str:
+        '''The Arn of the List resource.'''
+        result = self._values.get("list_arn")
+        assert result is not None, "Required property 'list_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.OutcomeReference",
+    jsii_struct_bases=[],
+    name_mapping={"outcome_arn": "outcomeArn"},
+)
+class OutcomeReference:
+    def __init__(self, *, outcome_arn: builtins.str) -> None:
+        '''A reference to a Outcome resource.
+
+        :param outcome_arn: The Arn of the Outcome resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            outcome_reference = frauddetector.OutcomeReference(
+                outcome_arn="outcomeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63be9eb1afa8b131d46d1b7f5630eb17f30b8feb74ad95020c0a73c09a01a17a)
+            check_type(argname="argument outcome_arn", value=outcome_arn, expected_type=type_hints["outcome_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "outcome_arn": outcome_arn,
+        }
+
+    @builtins.property
+    def outcome_arn(self) -> builtins.str:
+        '''The Arn of the Outcome resource.'''
+        result = self._values.get("outcome_arn")
+        assert result is not None, "Required property 'outcome_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OutcomeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_frauddetector.VariableReference",
+    jsii_struct_bases=[],
+    name_mapping={"variable_arn": "variableArn"},
+)
+class VariableReference:
+    def __init__(self, *, variable_arn: builtins.str) -> None:
+        '''A reference to a Variable resource.
+
+        :param variable_arn: The Arn of the Variable resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_frauddetector as frauddetector
+            
+            variable_reference = frauddetector.VariableReference(
+                variable_arn="variableArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9777dfc0adbcfefbc73cbbe38a4bd1266c9561f7119bf0234856738dd249f2a)
+            check_type(argname="argument variable_arn", value=variable_arn, expected_type=type_hints["variable_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "variable_arn": variable_arn,
+        }
+
+    @builtins.property
+    def variable_arn(self) -> builtins.str:
+        '''The Arn of the Variable resource.'''
+        result = self._values.get("variable_arn")
+        assert result is not None, "Required property 'variable_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VariableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDetectorRef, _ITaggable_36806126)
 class CfnDetector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -323,6 +2002,12 @@ class CfnDetector(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorRef")
+    def detector_ref(self) -> DetectorReference:
+        '''A reference to a Detector resource.'''
+        return typing.cast(DetectorReference, jsii.get(self, "detectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1725,284 +3410,7 @@ class CfnDetector(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnDetectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "detector_id": "detectorId",
-        "event_type": "eventType",
-        "rules": "rules",
-        "associated_models": "associatedModels",
-        "description": "description",
-        "detector_version_status": "detectorVersionStatus",
-        "rule_execution_mode": "ruleExecutionMode",
-        "tags": "tags",
-    },
-)
-class CfnDetectorProps:
-    def __init__(
-        self,
-        *,
-        detector_id: builtins.str,
-        event_type: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.EventTypeProperty, typing.Dict[builtins.str, typing.Any]]],
-        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        associated_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.ModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        detector_version_status: typing.Optional[builtins.str] = None,
-        rule_execution_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDetector``.
-
-        :param detector_id: The name of the detector.
-        :param event_type: The event type associated with this detector.
-        :param rules: The rules to include in the detector version.
-        :param associated_models: The models to associate with this detector. You must provide the ARNs of all the models you want to associate.
-        :param description: The detector description.
-        :param detector_version_status: The status of the detector version. If a value is not provided for this property, AWS CloudFormation assumes ``DRAFT`` status. Valid values: ``ACTIVE | DRAFT``
-        :param rule_execution_mode: The rule execution mode for the rules included in the detector version. Valid values: ``FIRST_MATCHED | ALL_MATCHED`` Default value: ``FIRST_MATCHED`` You can define and edit the rule mode at the detector version level, when it is in draft status. If you specify ``FIRST_MATCHED`` , Amazon Fraud Detector evaluates rules sequentially, first to last, stopping at the first matched rule. Amazon Fraud dectector then provides the outcomes for that single rule. If you specifiy ``ALL_MATCHED`` , Amazon Fraud Detector evaluates all rules and returns the outcomes for all matched rules.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_detector_props = frauddetector.CfnDetectorProps(
-                detector_id="detectorId",
-                event_type=frauddetector.CfnDetector.EventTypeProperty(
-                    arn="arn",
-                    created_time="createdTime",
-                    description="description",
-                    entity_types=[frauddetector.CfnDetector.EntityTypeProperty(
-                        arn="arn",
-                        created_time="createdTime",
-                        description="description",
-                        inline=False,
-                        last_updated_time="lastUpdatedTime",
-                        name="name",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    event_variables=[frauddetector.CfnDetector.EventVariableProperty(
-                        arn="arn",
-                        created_time="createdTime",
-                        data_source="dataSource",
-                        data_type="dataType",
-                        default_value="defaultValue",
-                        description="description",
-                        inline=False,
-                        last_updated_time="lastUpdatedTime",
-                        name="name",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        variable_type="variableType"
-                    )],
-                    inline=False,
-                    labels=[frauddetector.CfnDetector.LabelProperty(
-                        arn="arn",
-                        created_time="createdTime",
-                        description="description",
-                        inline=False,
-                        last_updated_time="lastUpdatedTime",
-                        name="name",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    last_updated_time="lastUpdatedTime",
-                    name="name",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                rules=[frauddetector.CfnDetector.RuleProperty(
-                    arn="arn",
-                    created_time="createdTime",
-                    description="description",
-                    detector_id="detectorId",
-                    expression="expression",
-                    language="language",
-                    last_updated_time="lastUpdatedTime",
-                    outcomes=[frauddetector.CfnDetector.OutcomeProperty(
-                        arn="arn",
-                        created_time="createdTime",
-                        description="description",
-                        inline=False,
-                        last_updated_time="lastUpdatedTime",
-                        name="name",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    rule_id="ruleId",
-                    rule_version="ruleVersion",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                )],
-            
-                # the properties below are optional
-                associated_models=[frauddetector.CfnDetector.ModelProperty(
-                    arn="arn"
-                )],
-                description="description",
-                detector_version_status="detectorVersionStatus",
-                rule_execution_mode="ruleExecutionMode",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b26e6685891f22272eaba159af0e6c7023d53e7080f932711c9d37ff7d04a215)
-            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
-            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument associated_models", value=associated_models, expected_type=type_hints["associated_models"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument detector_version_status", value=detector_version_status, expected_type=type_hints["detector_version_status"])
-            check_type(argname="argument rule_execution_mode", value=rule_execution_mode, expected_type=type_hints["rule_execution_mode"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "detector_id": detector_id,
-            "event_type": event_type,
-            "rules": rules,
-        }
-        if associated_models is not None:
-            self._values["associated_models"] = associated_models
-        if description is not None:
-            self._values["description"] = description
-        if detector_version_status is not None:
-            self._values["detector_version_status"] = detector_version_status
-        if rule_execution_mode is not None:
-            self._values["rule_execution_mode"] = rule_execution_mode
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def detector_id(self) -> builtins.str:
-        '''The name of the detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-detectorid
-        '''
-        result = self._values.get("detector_id")
-        assert result is not None, "Required property 'detector_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_type(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDetector.EventTypeProperty]:
-        '''The event type associated with this detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-eventtype
-        '''
-        result = self._values.get("event_type")
-        assert result is not None, "Required property 'event_type' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDetector.EventTypeProperty], result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.RuleProperty]]]:
-        '''The rules to include in the detector version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-rules
-        '''
-        result = self._values.get("rules")
-        assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.RuleProperty]]], result)
-
-    @builtins.property
-    def associated_models(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.ModelProperty]]]]:
-        '''The models to associate with this detector.
-
-        You must provide the ARNs of all the models you want to associate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-associatedmodels
-        '''
-        result = self._values.get("associated_models")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDetector.ModelProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The detector description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def detector_version_status(self) -> typing.Optional[builtins.str]:
-        '''The status of the detector version.
-
-        If a value is not provided for this property, AWS CloudFormation assumes ``DRAFT`` status.
-
-        Valid values: ``ACTIVE | DRAFT``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-detectorversionstatus
-        '''
-        result = self._values.get("detector_version_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rule_execution_mode(self) -> typing.Optional[builtins.str]:
-        '''The rule execution mode for the rules included in the detector version.
-
-        Valid values: ``FIRST_MATCHED | ALL_MATCHED`` Default value: ``FIRST_MATCHED``
-
-        You can define and edit the rule mode at the detector version level, when it is in draft status.
-
-        If you specify ``FIRST_MATCHED`` , Amazon Fraud Detector evaluates rules sequentially, first to last, stopping at the first matched rule. Amazon Fraud dectector then provides the outcomes for that single rule.
-
-        If you specifiy ``ALL_MATCHED`` , Amazon Fraud Detector evaluates all rules and returns the outcomes for all matched rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-ruleexecutionmode
-        '''
-        result = self._values.get("rule_execution_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-detector.html#cfn-frauddetector-detector-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDetectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEntityTypeRef, _ITaggable_36806126)
 class CfnEntityType(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2121,6 +3529,12 @@ class CfnEntityType(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="entityTypeRef")
+    def entity_type_ref(self) -> EntityTypeReference:
+        '''A reference to a EntityType resource.'''
+        return typing.cast(EntityTypeReference, jsii.get(self, "entityTypeRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -2166,101 +3580,7 @@ class CfnEntityType(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnEntityTypeProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description", "tags": "tags"},
-)
-class CfnEntityTypeProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEntityType``.
-
-        :param name: The entity type name. Pattern: ``^[0-9a-z_-]+$``
-        :param description: The entity type description.
-        :param tags: A key and value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_entity_type_props = frauddetector.CfnEntityTypeProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0af61baf6c2e5424876fd48cdd930b1c05c66d9e45088e51b8c3775c6a209dfc)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The entity type name.
-
-        Pattern: ``^[0-9a-z_-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The entity type description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key and value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-entitytype.html#cfn-frauddetector-entitytype-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEntityTypeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEventTypeRef, _ITaggable_36806126)
 class CfnEventType(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2430,6 +3750,12 @@ class CfnEventType(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventTypeRef")
+    def event_type_ref(self) -> EventTypeReference:
+        '''A reference to a EventType resource.'''
+        return typing.cast(EventTypeReference, jsii.get(self, "eventTypeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3097,198 +4423,7 @@ class CfnEventType(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnEventTypeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "entity_types": "entityTypes",
-        "event_variables": "eventVariables",
-        "labels": "labels",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnEventTypeProps:
-    def __init__(
-        self,
-        *,
-        entity_types: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EntityTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        event_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EventVariableProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        labels: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.LabelProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventType``.
-
-        :param entity_types: The event type entity types.
-        :param event_variables: The event type event variables.
-        :param labels: The event type labels.
-        :param name: The event type name. Pattern : ``^[0-9a-z_-]+$``
-        :param description: The event type description.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_event_type_props = frauddetector.CfnEventTypeProps(
-                entity_types=[frauddetector.CfnEventType.EntityTypeProperty(
-                    arn="arn",
-                    created_time="createdTime",
-                    description="description",
-                    inline=False,
-                    last_updated_time="lastUpdatedTime",
-                    name="name",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                )],
-                event_variables=[frauddetector.CfnEventType.EventVariableProperty(
-                    arn="arn",
-                    created_time="createdTime",
-                    data_source="dataSource",
-                    data_type="dataType",
-                    default_value="defaultValue",
-                    description="description",
-                    inline=False,
-                    last_updated_time="lastUpdatedTime",
-                    name="name",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )],
-                    variable_type="variableType"
-                )],
-                labels=[frauddetector.CfnEventType.LabelProperty(
-                    arn="arn",
-                    created_time="createdTime",
-                    description="description",
-                    inline=False,
-                    last_updated_time="lastUpdatedTime",
-                    name="name",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                )],
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e56a177c70c9bd1f38e708e145e3e6914e7a4d5bd3fed7466de6c3948aadabb7)
-            check_type(argname="argument entity_types", value=entity_types, expected_type=type_hints["entity_types"])
-            check_type(argname="argument event_variables", value=event_variables, expected_type=type_hints["event_variables"])
-            check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "entity_types": entity_types,
-            "event_variables": event_variables,
-            "labels": labels,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def entity_types(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.EntityTypeProperty]]]:
-        '''The event type entity types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-entitytypes
-        '''
-        result = self._values.get("entity_types")
-        assert result is not None, "Required property 'entity_types' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.EntityTypeProperty]]], result)
-
-    @builtins.property
-    def event_variables(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.EventVariableProperty]]]:
-        '''The event type event variables.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-eventvariables
-        '''
-        result = self._values.get("event_variables")
-        assert result is not None, "Required property 'event_variables' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.EventVariableProperty]]], result)
-
-    @builtins.property
-    def labels(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.LabelProperty]]]:
-        '''The event type labels.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-labels
-        '''
-        result = self._values.get("labels")
-        assert result is not None, "Required property 'labels' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventType.LabelProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The event type name.
-
-        Pattern : ``^[0-9a-z_-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The event type description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-eventtype.html#cfn-frauddetector-eventtype-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventTypeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ILabelRef, _ITaggable_36806126)
 class CfnLabel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3407,6 +4542,12 @@ class CfnLabel(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="labelRef")
+    def label_ref(self) -> LabelReference:
+        '''A reference to a Label resource.'''
+        return typing.cast(LabelReference, jsii.get(self, "labelRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -3452,103 +4593,7 @@ class CfnLabel(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnLabelProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description", "tags": "tags"},
-)
-class CfnLabelProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLabel``.
-
-        :param name: The label name. Pattern: ``^[0-9a-z_-]+$``
-        :param description: The label description.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_label_props = frauddetector.CfnLabelProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e644e14f734aefd7f5a6a211ec9822cd9accb53cdd0c619b609b777f094ef91)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The label name.
-
-        Pattern: ``^[0-9a-z_-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The label description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-label.html#cfn-frauddetector-label-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLabelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IListRef, _ITaggable_36806126)
 class CfnList(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3679,6 +4724,12 @@ class CfnList(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="listRef")
+    def list_ref(self) -> ListReference:
+        '''A reference to a List resource.'''
+        return typing.cast(ListReference, jsii.get(self, "listRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -3750,139 +4801,7 @@ class CfnList(
         jsii.set(self, "variableType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnListProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "elements": "elements",
-        "tags": "tags",
-        "variable_type": "variableType",
-    },
-)
-class CfnListProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        elements: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        variable_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnList``.
-
-        :param name: The name of the list.
-        :param description: The description of the list.
-        :param elements: The elements in the list.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param variable_type: The variable type of the list. For more information, see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/variables.html#variable-types>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_list_props = frauddetector.CfnListProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                elements=["elements"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                variable_type="variableType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43236150e9a7db410fb7d326444e41492d6a4cb6de67f0733a004a6b84845a0b)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument elements", value=elements, expected_type=type_hints["elements"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument variable_type", value=variable_type, expected_type=type_hints["variable_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if elements is not None:
-            self._values["elements"] = elements
-        if tags is not None:
-            self._values["tags"] = tags
-        if variable_type is not None:
-            self._values["variable_type"] = variable_type
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def elements(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The elements in the list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-elements
-        '''
-        result = self._values.get("elements")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def variable_type(self) -> typing.Optional[builtins.str]:
-        '''The variable type of the list.
-
-        For more information, see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/variables.html#variable-types>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-list.html#cfn-frauddetector-list-variabletype
-        '''
-        result = self._values.get("variable_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnListProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IOutcomeRef, _ITaggable_36806126)
 class CfnOutcome(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3999,6 +4918,12 @@ class CfnOutcome(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="outcomeRef")
+    def outcome_ref(self) -> OutcomeReference:
+        '''A reference to a Outcome resource.'''
+        return typing.cast(OutcomeReference, jsii.get(self, "outcomeRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4044,101 +4969,7 @@ class CfnOutcome(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnOutcomeProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description", "tags": "tags"},
-)
-class CfnOutcomeProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOutcome``.
-
-        :param name: The outcome name.
-        :param description: The outcome description.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_outcome_props = frauddetector.CfnOutcomeProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53a02d43cb404eb2c8d53e3055c34f9c1368865e6086ba4b2f2506978110870f)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The outcome name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The outcome description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-outcome.html#cfn-frauddetector-outcome-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOutcomeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IVariableRef, _ITaggable_36806126)
 class CfnVariable(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4281,6 +5112,12 @@ class CfnVariable(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="variableRef")
+    def variable_ref(self) -> VariableReference:
+        '''A reference to a Variable resource.'''
+        return typing.cast(VariableReference, jsii.get(self, "variableRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="dataSource")
     def data_source(self) -> builtins.str:
         '''The data source of the variable.'''
@@ -4375,178 +5212,6 @@ class CfnVariable(
         jsii.set(self, "variableType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_frauddetector.CfnVariableProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_source": "dataSource",
-        "data_type": "dataType",
-        "default_value": "defaultValue",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-        "variable_type": "variableType",
-    },
-)
-class CfnVariableProps:
-    def __init__(
-        self,
-        *,
-        data_source: builtins.str,
-        data_type: builtins.str,
-        default_value: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        variable_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVariable``.
-
-        :param data_source: The data source of the variable. Valid values: ``EVENT | EXTERNAL_MODEL_SCORE`` When defining a variable within a detector, you can only use the ``EVENT`` value for DataSource when the *Inline* property is set to true. If the *Inline* property is set false, you can use either ``EVENT`` or ``MODEL_SCORE`` for DataSource.
-        :param data_type: The data type of the variable. Valid data types: ``STRING | INTEGER | BOOLEAN | FLOAT``
-        :param default_value: The default value of the variable.
-        :param name: The name of the variable. Pattern: ``^[0-9a-z_-]+$``
-        :param description: The description of the variable.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param variable_type: The type of the variable. For more information see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/create-a-variable.html#variable-types>`_ . Valid Values: ``AUTH_CODE | AVS | BILLING_ADDRESS_L1 | BILLING_ADDRESS_L2 | BILLING_CITY | BILLING_COUNTRY | BILLING_NAME | BILLING_PHONE | BILLING_STATE | BILLING_ZIP | CARD_BIN | CATEGORICAL | CURRENCY_CODE | EMAIL_ADDRESS | FINGERPRINT | FRAUD_LABEL | FREE_FORM_TEXT | IP_ADDRESS | NUMERIC | ORDER_ID | PAYMENT_TYPE | PHONE_NUMBER | PRICE | PRODUCT_CATEGORY | SHIPPING_ADDRESS_L1 | SHIPPING_ADDRESS_L2 | SHIPPING_CITY | SHIPPING_COUNTRY | SHIPPING_NAME | SHIPPING_PHONE | SHIPPING_STATE | SHIPPING_ZIP | USERAGENT``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_frauddetector as frauddetector
-            
-            cfn_variable_props = frauddetector.CfnVariableProps(
-                data_source="dataSource",
-                data_type="dataType",
-                default_value="defaultValue",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                variable_type="variableType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e971889a72633f798e1c1ab65a7e842476bacc0ab6a37b199a03406565283072)
-            check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
-            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
-            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument variable_type", value=variable_type, expected_type=type_hints["variable_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_source": data_source,
-            "data_type": data_type,
-            "default_value": default_value,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if variable_type is not None:
-            self._values["variable_type"] = variable_type
-
-    @builtins.property
-    def data_source(self) -> builtins.str:
-        '''The data source of the variable.
-
-        Valid values: ``EVENT | EXTERNAL_MODEL_SCORE``
-
-        When defining a variable within a detector, you can only use the ``EVENT`` value for DataSource when the *Inline* property is set to true. If the *Inline* property is set false, you can use either ``EVENT`` or ``MODEL_SCORE`` for DataSource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-datasource
-        '''
-        result = self._values.get("data_source")
-        assert result is not None, "Required property 'data_source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_type(self) -> builtins.str:
-        '''The data type of the variable.
-
-        Valid data types: ``STRING | INTEGER | BOOLEAN | FLOAT``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-datatype
-        '''
-        result = self._values.get("data_type")
-        assert result is not None, "Required property 'data_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_value(self) -> builtins.str:
-        '''The default value of the variable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-defaultvalue
-        '''
-        result = self._values.get("default_value")
-        assert result is not None, "Required property 'default_value' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the variable.
-
-        Pattern: ``^[0-9a-z_-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the variable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def variable_type(self) -> typing.Optional[builtins.str]:
-        '''The type of the variable. For more information see `Variable types <https://docs.aws.amazon.com/frauddetector/latest/ug/create-a-variable.html#variable-types>`_ .
-
-        Valid Values: ``AUTH_CODE | AVS | BILLING_ADDRESS_L1 | BILLING_ADDRESS_L2 | BILLING_CITY | BILLING_COUNTRY | BILLING_NAME | BILLING_PHONE | BILLING_STATE | BILLING_ZIP | CARD_BIN | CATEGORICAL | CURRENCY_CODE | EMAIL_ADDRESS | FINGERPRINT | FRAUD_LABEL | FREE_FORM_TEXT | IP_ADDRESS | NUMERIC | ORDER_ID | PAYMENT_TYPE | PHONE_NUMBER | PRICE | PRODUCT_CATEGORY | SHIPPING_ADDRESS_L1 | SHIPPING_ADDRESS_L2 | SHIPPING_CITY | SHIPPING_COUNTRY | SHIPPING_NAME | SHIPPING_PHONE | SHIPPING_STATE | SHIPPING_ZIP | USERAGENT``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-frauddetector-variable.html#cfn-frauddetector-variable-variabletype
-        '''
-        result = self._values.get("variable_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVariableProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDetector",
     "CfnDetectorProps",
@@ -4562,9 +5227,149 @@ __all__ = [
     "CfnOutcomeProps",
     "CfnVariable",
     "CfnVariableProps",
+    "DetectorReference",
+    "EntityTypeReference",
+    "EventTypeReference",
+    "IDetectorRef",
+    "IEntityTypeRef",
+    "IEventTypeRef",
+    "ILabelRef",
+    "IListRef",
+    "IOutcomeRef",
+    "IVariableRef",
+    "LabelReference",
+    "ListReference",
+    "OutcomeReference",
+    "VariableReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__b26e6685891f22272eaba159af0e6c7023d53e7080f932711c9d37ff7d04a215(
+    *,
+    detector_id: builtins.str,
+    event_type: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.EventTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    associated_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.ModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    detector_version_status: typing.Optional[builtins.str] = None,
+    rule_execution_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0af61baf6c2e5424876fd48cdd930b1c05c66d9e45088e51b8c3775c6a209dfc(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e56a177c70c9bd1f38e708e145e3e6914e7a4d5bd3fed7466de6c3948aadabb7(
+    *,
+    entity_types: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EntityTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    event_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EventVariableProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    labels: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.LabelProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e644e14f734aefd7f5a6a211ec9822cd9accb53cdd0c619b609b777f094ef91(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43236150e9a7db410fb7d326444e41492d6a4cb6de67f0733a004a6b84845a0b(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    elements: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    variable_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53a02d43cb404eb2c8d53e3055c34f9c1368865e6086ba4b2f2506978110870f(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e971889a72633f798e1c1ab65a7e842476bacc0ab6a37b199a03406565283072(
+    *,
+    data_source: builtins.str,
+    data_type: builtins.str,
+    default_value: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    variable_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78d85756ca495750ca2efacde7f5324f18c3cb36253ec4031a420563b454843a(
+    *,
+    detector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc7019b4aa03bae298e28dba403112717a533a16ae9a22dafae19a98859328d6(
+    *,
+    entity_type_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9de3409e6ff7a4697003033932ac51120c3b289f7b903be5a9ab56486bdd8b5e(
+    *,
+    event_type_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57ea22e7cc70210719fd3f8960e3d8ed1596a1d27ee04c71fa84207077265647(
+    *,
+    label_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16d55b0ac9226a45a92a54d3118a6bf61f6029c8c9f8bf3f6644c2fc73f86835(
+    *,
+    list_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63be9eb1afa8b131d46d1b7f5630eb17f30b8feb74ad95020c0a73c09a01a17a(
+    *,
+    outcome_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9777dfc0adbcfefbc73cbbe38a4bd1266c9561f7119bf0234856738dd249f2a(
+    *,
+    variable_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__34f177b06bae06cc28a84eadedbeeac967db23fde60544e18b48e387ec5e98f8(
     scope: _constructs_77d1e7e8.Construct,
@@ -4738,20 +5543,6 @@ def _typecheckingstub__96e64cb156d83b6e85aee19c2adb7af17ac591c47655e3b1f70943483
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b26e6685891f22272eaba159af0e6c7023d53e7080f932711c9d37ff7d04a215(
-    *,
-    detector_id: builtins.str,
-    event_type: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.EventTypeProperty, typing.Dict[builtins.str, typing.Any]]],
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    associated_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetector.ModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    detector_version_status: typing.Optional[builtins.str] = None,
-    rule_execution_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b8bdfff4b2494486b1323350204c3429d0cd5e0c80cabaf21c7bf35893425d91(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4789,15 +5580,6 @@ def _typecheckingstub__d4d2cecbe3561f37b9476c54f24e4f9ac5facd631897c1b90a00416d9
 
 def _typecheckingstub__1c909dc2ea7c1434dc4017053808f37d5041edd5e473826f0152aff8c19dd4d5(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0af61baf6c2e5424876fd48cdd930b1c05c66d9e45088e51b8c3775c6a209dfc(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4907,18 +5689,6 @@ def _typecheckingstub__8e8447a99b85327953986a476104b222d330a3ac72c6452bc91cb9a36
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e56a177c70c9bd1f38e708e145e3e6914e7a4d5bd3fed7466de6c3948aadabb7(
-    *,
-    entity_types: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EntityTypeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    event_variables: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.EventVariableProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    labels: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventType.LabelProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c0a39e2a13e05950403b56b1af577d5a68139a2ca929eeb8d317f4d63405fde3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4956,15 +5726,6 @@ def _typecheckingstub__1c12115fd0f9077627c47abee3df17f7273449232e8f344399b245e1d
 
 def _typecheckingstub__cefa25d3e293c90a44bfae875532dea0458ac7bfc5ab23042df6edd882e48f79(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e644e14f734aefd7f5a6a211ec9822cd9accb53cdd0c619b609b777f094ef91(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5024,17 +5785,6 @@ def _typecheckingstub__91e5fa5718fdf5ec2d6742206ed24709286db5ad5b416c1ef4d6f2f51
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__43236150e9a7db410fb7d326444e41492d6a4cb6de67f0733a004a6b84845a0b(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    elements: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    variable_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7609b23ac956162d8ea875a7c98b19bff4324c5b4f1ec8d395317e4dc7378837(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5072,15 +5822,6 @@ def _typecheckingstub__20fb944d46994af61daf79479ed1b7f09f72ba6b18ba4ea3e4c283f36
 
 def _typecheckingstub__2200712d63dfe736298ba3b837b2fedad3adac205c754484072f872ecb6a50c3(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__53a02d43cb404eb2c8d53e3055c34f9c1368865e6086ba4b2f2506978110870f(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5150,19 +5891,6 @@ def _typecheckingstub__79501842c44e1a5fd839a7c5b83f896477c1ba415b083913c0ab0b8ab
 
 def _typecheckingstub__da235edb54f22d36e180719c9e70ea051788681cc9d40e391de1778f7858c879(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e971889a72633f798e1c1ab65a7e842476bacc0ab6a37b199a03406565283072(
-    *,
-    data_source: builtins.str,
-    data_type: builtins.str,
-    default_value: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    variable_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

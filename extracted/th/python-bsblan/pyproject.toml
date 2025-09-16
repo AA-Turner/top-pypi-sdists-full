@@ -1,6 +1,6 @@
 [project]
 name = "python-bsblan"
-version = "3.0.0"
+version = "3.1.0"
 description = "Asynchronous Python client for BSBLAN API"
 authors = [
     {name = "Willem-Jan van Rootselaar", email = "liudgervr@gmail.com"}
@@ -46,11 +46,24 @@ packages = ["src/bsblan"]
 
 [tool.coverage.run]
 plugins = ["covdefaults"]
-source = ["bsblan"]
+source = ["src/bsblan"]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test_*",
+    "*test*"
+]
 
 [tool.coverage.report]
 show_missing = true
 fail_under = 53
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
 
 [tool.mypy]
 # Specify the target platform details in config, so your developers are
@@ -165,26 +178,26 @@ dev = [
     "aresponses==3.0.0",
     "bandit==1.8.6",
     "black==25.1.0",
-    "blacken-docs==1.19.1",
+    "blacken-docs==1.20.0",
     "codespell==2.4.1",
     "covdefaults==2.3.0",
-    "coverage==7.10.3",
+    "coverage==7.10.6",
     "darglint==1.8.1",
     "flake8==7.3.0",
     "flake8-simplify==0.22.0",
     # hatch is required to support type hinting and proper packaging of the py.typed file.
     "hatch>=1.14.1",
     "isort==6.0.1",
-    "mypy==1.17.1",
+    "mypy==1.18.1",
     "pre-commit==4.3.0",
     "pre-commit-hooks==6.0.0",
     "pylint==3.3.8",
     "pytest>=8.3.5",
     "pytest-asyncio==1.1.0",
-    "pytest-cov==6.2.1",
+    "pytest-cov==6.3.0",
     "pyupgrade==3.20.0",
-    "ruff==0.12.8",
-    "safety==3.6.0",
+    "ruff==0.13.0",
+    "safety==3.6.1",
     "vulture==2.14",
     "yamllint==1.37.1",
 ]

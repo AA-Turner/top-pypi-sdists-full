@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pymisp
-Version: 2.5.17
+Version: 2.5.17.1
 Summary: Python API for MISP.
-License: BSD-2-Clause
+License-Expression: BSD-2-Clause
+License-File: LICENSE
 Author: Raphaël Vinot
 Author-email: raphael.vinot@circl.lu
 Requires-Python: >=3.9.2,<4.0
@@ -11,13 +12,13 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Telecommunications Industry
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Security
 Provides-Extra: brotli
@@ -29,11 +30,11 @@ Provides-Extra: pdfexport
 Provides-Extra: url
 Provides-Extra: virustotal
 Requires-Dist: RTFDE (>=0.1.2.1) ; (python_version <= "3.9") and (extra == "email")
-Requires-Dist: beautifulsoup4 (>=4.13.4) ; extra == "openioc"
+Requires-Dist: beautifulsoup4 (>=4.13.5) ; extra == "openioc"
 Requires-Dist: deprecated (>=1.2.18)
 Requires-Dist: docutils (<0.22) ; (python_version >= "3.11") and (extra == "docs")
-Requires-Dist: extract_msg (>=0.54.1) ; extra == "email"
-Requires-Dist: lief (>=0.16.6) ; extra == "fileobjects"
+Requires-Dist: extract_msg (>=0.55.0) ; extra == "email"
+Requires-Dist: lief (>=0.17.0) ; extra == "fileobjects"
 Requires-Dist: myst-parser (>=4.0.1) ; (python_version >= "3.11") and (extra == "docs")
 Requires-Dist: oletools (>=0.60.2) ; extra == "email"
 Requires-Dist: pydeep2 (>=0.5.1) ; extra == "fileobjects"
@@ -41,7 +42,7 @@ Requires-Dist: pyfaup (>=1.2) ; extra == "url"
 Requires-Dist: python-dateutil (>=2.9.0.post0)
 Requires-Dist: python-magic (>=0.4.27) ; extra == "fileobjects"
 Requires-Dist: reportlab (>=4.4.3) ; extra == "pdfexport"
-Requires-Dist: requests (>=2.32.4)
+Requires-Dist: requests (>=2.32.5)
 Requires-Dist: sphinx (>=8.2.3) ; (python_version >= "3.11") and (extra == "docs")
 Requires-Dist: sphinx-autodoc-typehints (>=3.2.0) ; (python_version >= "3.11") and (extra == "docs")
 Requires-Dist: urllib3 (>=2.5.0) ; extra == "brotli"

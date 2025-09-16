@@ -1,19 +1,23 @@
-from __future__ import absolute_import
+from typing import Any
 
 import netaddr
-import six
 
-from ._util import packed_net_bytes_to_int
-
+from ..codecs import CodecBase
+from ..exceptions import BinaryParseError
 
 SIZE = 32
 IS_PATH = False
 
 
-def to_bytes(proto, string):
-    return netaddr.IPAddress(string, version=4).packed
+class Codec(CodecBase):
+    SIZE = SIZE
+    IS_PATH = IS_PATH
 
+    def to_bytes(self, proto: Any, string: str) -> bytes:
+        return netaddr.IPAddress(string, version=4).packed
 
-def to_string(proto, buf):
-    ip_addr = netaddr.IPAddress(packed_net_bytes_to_int(buf), version=4)
-    return six.text_type(ip_addr)
+    def to_string(self, proto: Any, buf: bytes) -> str:
+        try:
+            return str(netaddr.IPAddress(int.from_bytes(buf, byteorder="big"), version=4))
+        except (ValueError, netaddr.AddrFormatError):
+            raise BinaryParseError("Invalid IPv4 address bytes", buf, "ip4")

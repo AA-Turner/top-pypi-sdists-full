@@ -79,7 +79,1508 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CfnCloudAutonomousVmClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "autonomous_data_storage_size_in_t_bs": "autonomousDataStorageSizeInTBs",
+        "cloud_exadata_infrastructure_id": "cloudExadataInfrastructureId",
+        "cpu_core_count_per_node": "cpuCoreCountPerNode",
+        "db_servers": "dbServers",
+        "description": "description",
+        "display_name": "displayName",
+        "is_mtls_enabled_vm_cluster": "isMtlsEnabledVmCluster",
+        "license_model": "licenseModel",
+        "maintenance_window": "maintenanceWindow",
+        "memory_per_oracle_compute_unit_in_g_bs": "memoryPerOracleComputeUnitInGBs",
+        "odb_network_id": "odbNetworkId",
+        "scan_listener_port_non_tls": "scanListenerPortNonTls",
+        "scan_listener_port_tls": "scanListenerPortTls",
+        "tags": "tags",
+        "time_zone": "timeZone",
+        "total_container_databases": "totalContainerDatabases",
+    },
+)
+class CfnCloudAutonomousVmClusterProps:
+    def __init__(
+        self,
+        *,
+        autonomous_data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
+        cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
+        cpu_core_count_per_node: typing.Optional[jsii.Number] = None,
+        db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        license_model: typing.Optional[builtins.str] = None,
+        maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
+        odb_network_id: typing.Optional[builtins.str] = None,
+        scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
+        scan_listener_port_tls: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_zone: typing.Optional[builtins.str] = None,
+        total_container_databases: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudAutonomousVmCluster``.
+
+        :param autonomous_data_storage_size_in_t_bs: The data storage size allocated for Autonomous Databases in the Autonomous VM cluster, in TB. Required when creating an Autonomous VM cluster.
+        :param cloud_exadata_infrastructure_id: The unique identifier of the Cloud Exadata Infrastructure containing this Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param cpu_core_count_per_node: The number of CPU cores enabled per node in the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param db_servers: The list of database servers associated with the Autonomous VM cluster.
+        :param description: The user-provided description of the Autonomous VM cluster.
+        :param display_name: The display name of the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param is_mtls_enabled_vm_cluster: Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
+        :param license_model: The Oracle license model that applies to the Autonomous VM cluster. Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
+        :param maintenance_window: The scheduling details for the maintenance window. Patching and system updates take place during the maintenance window.
+        :param memory_per_oracle_compute_unit_in_g_bs: The amount of memory allocated per Oracle Compute Unit, in GB. Required when creating an Autonomous VM cluster.
+        :param odb_network_id: The unique identifier of the ODB network associated with this Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param scan_listener_port_non_tls: The SCAN listener port for non-TLS (TCP) protocol. The default is 1521.
+        :param scan_listener_port_tls: The SCAN listener port for TLS (TCP) protocol. The default is 2484.
+        :param tags: Tags to assign to the Autonomous Vm Cluster.
+        :param time_zone: The time zone of the Autonomous VM cluster.
+        :param total_container_databases: The total number of Autonomous Container Databases that can be created with the allocated local storage. Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cfn_cloud_autonomous_vm_cluster_props = odb.CfnCloudAutonomousVmClusterProps(
+                autonomous_data_storage_size_in_tBs=123,
+                cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
+                cpu_core_count_per_node=123,
+                db_servers=["dbServers"],
+                description="description",
+                display_name="displayName",
+                is_mtls_enabled_vm_cluster=False,
+                license_model="licenseModel",
+                maintenance_window=odb.CfnCloudAutonomousVmCluster.MaintenanceWindowProperty(
+                    days_of_week=["daysOfWeek"],
+                    hours_of_day=[123],
+                    lead_time_in_weeks=123,
+                    months=["months"],
+                    preference="preference",
+                    weeks_of_month=[123]
+                ),
+                memory_per_oracle_compute_unit_in_gBs=123,
+                odb_network_id="odbNetworkId",
+                scan_listener_port_non_tls=123,
+                scan_listener_port_tls=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                time_zone="timeZone",
+                total_container_databases=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b)
+            check_type(argname="argument autonomous_data_storage_size_in_t_bs", value=autonomous_data_storage_size_in_t_bs, expected_type=type_hints["autonomous_data_storage_size_in_t_bs"])
+            check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
+            check_type(argname="argument cpu_core_count_per_node", value=cpu_core_count_per_node, expected_type=type_hints["cpu_core_count_per_node"])
+            check_type(argname="argument db_servers", value=db_servers, expected_type=type_hints["db_servers"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument is_mtls_enabled_vm_cluster", value=is_mtls_enabled_vm_cluster, expected_type=type_hints["is_mtls_enabled_vm_cluster"])
+            check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
+            check_type(argname="argument maintenance_window", value=maintenance_window, expected_type=type_hints["maintenance_window"])
+            check_type(argname="argument memory_per_oracle_compute_unit_in_g_bs", value=memory_per_oracle_compute_unit_in_g_bs, expected_type=type_hints["memory_per_oracle_compute_unit_in_g_bs"])
+            check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
+            check_type(argname="argument scan_listener_port_non_tls", value=scan_listener_port_non_tls, expected_type=type_hints["scan_listener_port_non_tls"])
+            check_type(argname="argument scan_listener_port_tls", value=scan_listener_port_tls, expected_type=type_hints["scan_listener_port_tls"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+            check_type(argname="argument total_container_databases", value=total_container_databases, expected_type=type_hints["total_container_databases"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if autonomous_data_storage_size_in_t_bs is not None:
+            self._values["autonomous_data_storage_size_in_t_bs"] = autonomous_data_storage_size_in_t_bs
+        if cloud_exadata_infrastructure_id is not None:
+            self._values["cloud_exadata_infrastructure_id"] = cloud_exadata_infrastructure_id
+        if cpu_core_count_per_node is not None:
+            self._values["cpu_core_count_per_node"] = cpu_core_count_per_node
+        if db_servers is not None:
+            self._values["db_servers"] = db_servers
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if is_mtls_enabled_vm_cluster is not None:
+            self._values["is_mtls_enabled_vm_cluster"] = is_mtls_enabled_vm_cluster
+        if license_model is not None:
+            self._values["license_model"] = license_model
+        if maintenance_window is not None:
+            self._values["maintenance_window"] = maintenance_window
+        if memory_per_oracle_compute_unit_in_g_bs is not None:
+            self._values["memory_per_oracle_compute_unit_in_g_bs"] = memory_per_oracle_compute_unit_in_g_bs
+        if odb_network_id is not None:
+            self._values["odb_network_id"] = odb_network_id
+        if scan_listener_port_non_tls is not None:
+            self._values["scan_listener_port_non_tls"] = scan_listener_port_non_tls
+        if scan_listener_port_tls is not None:
+            self._values["scan_listener_port_tls"] = scan_listener_port_tls
+        if tags is not None:
+            self._values["tags"] = tags
+        if time_zone is not None:
+            self._values["time_zone"] = time_zone
+        if total_container_databases is not None:
+            self._values["total_container_databases"] = total_container_databases
+
+    @builtins.property
+    def autonomous_data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
+        '''The data storage size allocated for Autonomous Databases in the Autonomous VM cluster, in TB.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-autonomousdatastoragesizeintbs
+        '''
+        result = self._values.get("autonomous_data_storage_size_in_t_bs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def cloud_exadata_infrastructure_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the Cloud Exadata Infrastructure containing this Autonomous VM cluster.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-cloudexadatainfrastructureid
+        '''
+        result = self._values.get("cloud_exadata_infrastructure_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cpu_core_count_per_node(self) -> typing.Optional[jsii.Number]:
+        '''The number of CPU cores enabled per node in the Autonomous VM cluster.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-cpucorecountpernode
+        '''
+        result = self._values.get("cpu_core_count_per_node")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def db_servers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of database servers associated with the Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-dbservers
+        '''
+        result = self._values.get("db_servers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The user-provided description of the Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the Autonomous VM cluster.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def is_mtls_enabled_vm_cluster(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-ismtlsenabledvmcluster
+        '''
+        result = self._values.get("is_mtls_enabled_vm_cluster")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def license_model(self) -> typing.Optional[builtins.str]:
+        '''The Oracle license model that applies to the Autonomous VM cluster.
+
+        Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-licensemodel
+        '''
+        result = self._values.get("license_model")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def maintenance_window(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]]:
+        '''The scheduling details for the maintenance window.
+
+        Patching and system updates take place during the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-maintenancewindow
+        '''
+        result = self._values.get("maintenance_window")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudAutonomousVmCluster.MaintenanceWindowProperty"]], result)
+
+    @builtins.property
+    def memory_per_oracle_compute_unit_in_g_bs(self) -> typing.Optional[jsii.Number]:
+        '''The amount of memory allocated per Oracle Compute Unit, in GB.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-memoryperoraclecomputeunitingbs
+        '''
+        result = self._values.get("memory_per_oracle_compute_unit_in_g_bs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def odb_network_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the ODB network associated with this Autonomous VM cluster.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-odbnetworkid
+        '''
+        result = self._values.get("odb_network_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scan_listener_port_non_tls(self) -> typing.Optional[jsii.Number]:
+        '''The SCAN listener port for non-TLS (TCP) protocol.
+
+        The default is 1521.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-scanlistenerportnontls
+        '''
+        result = self._values.get("scan_listener_port_non_tls")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def scan_listener_port_tls(self) -> typing.Optional[jsii.Number]:
+        '''The SCAN listener port for TLS (TCP) protocol.
+
+        The default is 2484.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-scanlistenerporttls
+        '''
+        result = self._values.get("scan_listener_port_tls")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to assign to the Autonomous Vm Cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def time_zone(self) -> typing.Optional[builtins.str]:
+        '''The time zone of the Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-timezone
+        '''
+        result = self._values.get("time_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def total_container_databases(self) -> typing.Optional[jsii.Number]:
+        '''The total number of Autonomous Container Databases that can be created with the allocated local storage.
+
+        Required when creating an Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-totalcontainerdatabases
+        '''
+        result = self._values.get("total_container_databases")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudAutonomousVmClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CfnCloudExadataInfrastructureProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone": "availabilityZone",
+        "availability_zone_id": "availabilityZoneId",
+        "compute_count": "computeCount",
+        "customer_contacts_to_send_to_oci": "customerContactsToSendToOci",
+        "database_server_type": "databaseServerType",
+        "display_name": "displayName",
+        "shape": "shape",
+        "storage_count": "storageCount",
+        "storage_server_type": "storageServerType",
+        "tags": "tags",
+    },
+)
+class CfnCloudExadataInfrastructureProps:
+    def __init__(
+        self,
+        *,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_id: typing.Optional[builtins.str] = None,
+        compute_count: typing.Optional[jsii.Number] = None,
+        customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudExadataInfrastructure.CustomerContactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        database_server_type: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        shape: typing.Optional[builtins.str] = None,
+        storage_count: typing.Optional[jsii.Number] = None,
+        storage_server_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudExadataInfrastructure``.
+
+        :param availability_zone: The name of the Availability Zone (AZ) where the Exadata infrastructure is located. Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
+        :param availability_zone_id: The AZ ID of the AZ where the Exadata infrastructure is located. Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
+        :param compute_count: The number of database servers for the Exadata infrastructure. Required when creating an Exadata infrastructure.
+        :param customer_contacts_to_send_to_oci: The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.
+        :param database_server_type: The database server model type of the Exadata infrastructure. For the list of valid model names, use the ``ListDbSystemShapes`` operation.
+        :param display_name: The user-friendly name for the Exadata infrastructure. Required when creating an Exadata infrastructure.
+        :param shape: The model name of the Exadata infrastructure. Required when creating an Exadata infrastructure.
+        :param storage_count: The number of storage servers that are activated for the Exadata infrastructure. Required when creating an Exadata infrastructure.
+        :param storage_server_type: The storage server model type of the Exadata infrastructure. For the list of valid model names, use the ``ListDbSystemShapes`` operation.
+        :param tags: Tags to assign to the Exadata Infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cfn_cloud_exadata_infrastructure_props = odb.CfnCloudExadataInfrastructureProps(
+                availability_zone="availabilityZone",
+                availability_zone_id="availabilityZoneId",
+                compute_count=123,
+                customer_contacts_to_send_to_oci=[odb.CfnCloudExadataInfrastructure.CustomerContactProperty(
+                    email="email"
+                )],
+                database_server_type="databaseServerType",
+                display_name="displayName",
+                shape="shape",
+                storage_count=123,
+                storage_server_type="storageServerType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081)
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
+            check_type(argname="argument compute_count", value=compute_count, expected_type=type_hints["compute_count"])
+            check_type(argname="argument customer_contacts_to_send_to_oci", value=customer_contacts_to_send_to_oci, expected_type=type_hints["customer_contacts_to_send_to_oci"])
+            check_type(argname="argument database_server_type", value=database_server_type, expected_type=type_hints["database_server_type"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument shape", value=shape, expected_type=type_hints["shape"])
+            check_type(argname="argument storage_count", value=storage_count, expected_type=type_hints["storage_count"])
+            check_type(argname="argument storage_server_type", value=storage_server_type, expected_type=type_hints["storage_server_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if availability_zone_id is not None:
+            self._values["availability_zone_id"] = availability_zone_id
+        if compute_count is not None:
+            self._values["compute_count"] = compute_count
+        if customer_contacts_to_send_to_oci is not None:
+            self._values["customer_contacts_to_send_to_oci"] = customer_contacts_to_send_to_oci
+        if database_server_type is not None:
+            self._values["database_server_type"] = database_server_type
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if shape is not None:
+            self._values["shape"] = shape
+        if storage_count is not None:
+            self._values["storage_count"] = storage_count
+        if storage_server_type is not None:
+            self._values["storage_server_type"] = storage_server_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The name of the Availability Zone (AZ) where the Exadata infrastructure is located.
+
+        Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone_id(self) -> typing.Optional[builtins.str]:
+        '''The AZ ID of the AZ where the Exadata infrastructure is located.
+
+        Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-availabilityzoneid
+        '''
+        result = self._values.get("availability_zone_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def compute_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of database servers for the Exadata infrastructure.
+
+        Required when creating an Exadata infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-computecount
+        '''
+        result = self._values.get("compute_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def customer_contacts_to_send_to_oci(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]]:
+        '''The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-customercontactstosendtooci
+        '''
+        result = self._values.get("customer_contacts_to_send_to_oci")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudExadataInfrastructure.CustomerContactProperty"]]]], result)
+
+    @builtins.property
+    def database_server_type(self) -> typing.Optional[builtins.str]:
+        '''The database server model type of the Exadata infrastructure.
+
+        For the list of valid model names, use the ``ListDbSystemShapes`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-databaseservertype
+        '''
+        result = self._values.get("database_server_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name for the Exadata infrastructure.
+
+        Required when creating an Exadata infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shape(self) -> typing.Optional[builtins.str]:
+        '''The model name of the Exadata infrastructure.
+
+        Required when creating an Exadata infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-shape
+        '''
+        result = self._values.get("shape")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of storage servers that are activated for the Exadata infrastructure.
+
+        Required when creating an Exadata infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-storagecount
+        '''
+        result = self._values.get("storage_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def storage_server_type(self) -> typing.Optional[builtins.str]:
+        '''The storage server model type of the Exadata infrastructure.
+
+        For the list of valid model names, use the ``ListDbSystemShapes`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-storageservertype
+        '''
+        result = self._values.get("storage_server_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to assign to the Exadata Infrastructure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudExadataInfrastructureProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CfnCloudVmClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cloud_exadata_infrastructure_id": "cloudExadataInfrastructureId",
+        "cluster_name": "clusterName",
+        "cpu_core_count": "cpuCoreCount",
+        "data_collection_options": "dataCollectionOptions",
+        "data_storage_size_in_t_bs": "dataStorageSizeInTBs",
+        "db_node_storage_size_in_g_bs": "dbNodeStorageSizeInGBs",
+        "db_servers": "dbServers",
+        "display_name": "displayName",
+        "gi_version": "giVersion",
+        "hostname": "hostname",
+        "is_local_backup_enabled": "isLocalBackupEnabled",
+        "is_sparse_diskgroup_enabled": "isSparseDiskgroupEnabled",
+        "license_model": "licenseModel",
+        "memory_size_in_g_bs": "memorySizeInGBs",
+        "odb_network_id": "odbNetworkId",
+        "scan_listener_port_tcp": "scanListenerPortTcp",
+        "ssh_public_keys": "sshPublicKeys",
+        "system_version": "systemVersion",
+        "tags": "tags",
+        "time_zone": "timeZone",
+    },
+)
+class CfnCloudVmClusterProps:
+    def __init__(
+        self,
+        *,
+        cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        cpu_core_count: typing.Optional[jsii.Number] = None,
+        data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudVmCluster.DataCollectionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
+        db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
+        db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        gi_version: typing.Optional[builtins.str] = None,
+        hostname: typing.Optional[builtins.str] = None,
+        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        license_model: typing.Optional[builtins.str] = None,
+        memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
+        odb_network_id: typing.Optional[builtins.str] = None,
+        scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
+        ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        system_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_zone: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudVmCluster``.
+
+        :param cloud_exadata_infrastructure_id: The unique identifier of the Exadata infrastructure that this VM cluster belongs to. Required when creating a VM cluster.
+        :param cluster_name: The name of the Grid Infrastructure (GI) cluster.
+        :param cpu_core_count: The number of CPU cores enabled on the VM cluster. Required when creating a VM cluster.
+        :param data_collection_options: The set of diagnostic collection options enabled for the VM cluster.
+        :param data_storage_size_in_t_bs: The size of the data disk group, in terabytes (TB), that's allocated for the VM cluster.
+        :param db_node_storage_size_in_g_bs: The amount of local node storage, in gigabytes (GB), that's allocated for the VM cluster.
+        :param db_servers: The list of database servers for the VM cluster.
+        :param display_name: The user-friendly name for the VM cluster. Required when creating a VM cluster.
+        :param gi_version: The software version of the Oracle Grid Infrastructure (GI) for the VM cluster. Required when creating a VM cluster.
+        :param hostname: The host name for the VM cluster. Required when creating a VM cluster.
+        :param is_local_backup_enabled: Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
+        :param is_sparse_diskgroup_enabled: Specifies whether the VM cluster is configured with a sparse disk group.
+        :param license_model: The Oracle license model applied to the VM cluster.
+        :param memory_size_in_g_bs: The amount of memory, in gigabytes (GB), that's allocated for the VM cluster.
+        :param odb_network_id: The unique identifier of the ODB network for the VM cluster. Required when creating a VM cluster.
+        :param scan_listener_port_tcp: The port number for TCP connections to the single client access name (SCAN) listener. Valid values: ``1024–8999`` with the following exceptions: ``2484`` , ``6100`` , ``6200`` , ``7060`` , ``7070`` , ``7085`` , and ``7879`` Default: ``1521``
+        :param ssh_public_keys: The public key portion of one or more key pairs used for SSH access to the VM cluster. Required when creating a VM cluster.
+        :param system_version: The operating system version of the image chosen for the VM cluster.
+        :param tags: Tags to assign to the Vm Cluster.
+        :param time_zone: The time zone of the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cfn_cloud_vm_cluster_props = odb.CfnCloudVmClusterProps(
+                cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
+                cluster_name="clusterName",
+                cpu_core_count=123,
+                data_collection_options=odb.CfnCloudVmCluster.DataCollectionOptionsProperty(
+                    is_diagnostics_events_enabled=False,
+                    is_health_monitoring_enabled=False,
+                    is_incident_logs_enabled=False
+                ),
+                data_storage_size_in_tBs=123,
+                db_node_storage_size_in_gBs=123,
+                db_servers=["dbServers"],
+                display_name="displayName",
+                gi_version="giVersion",
+                hostname="hostname",
+                is_local_backup_enabled=False,
+                is_sparse_diskgroup_enabled=False,
+                license_model="licenseModel",
+                memory_size_in_gBs=123,
+                odb_network_id="odbNetworkId",
+                scan_listener_port_tcp=123,
+                ssh_public_keys=["sshPublicKeys"],
+                system_version="systemVersion",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                time_zone="timeZone"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a)
+            check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument cpu_core_count", value=cpu_core_count, expected_type=type_hints["cpu_core_count"])
+            check_type(argname="argument data_collection_options", value=data_collection_options, expected_type=type_hints["data_collection_options"])
+            check_type(argname="argument data_storage_size_in_t_bs", value=data_storage_size_in_t_bs, expected_type=type_hints["data_storage_size_in_t_bs"])
+            check_type(argname="argument db_node_storage_size_in_g_bs", value=db_node_storage_size_in_g_bs, expected_type=type_hints["db_node_storage_size_in_g_bs"])
+            check_type(argname="argument db_servers", value=db_servers, expected_type=type_hints["db_servers"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument gi_version", value=gi_version, expected_type=type_hints["gi_version"])
+            check_type(argname="argument hostname", value=hostname, expected_type=type_hints["hostname"])
+            check_type(argname="argument is_local_backup_enabled", value=is_local_backup_enabled, expected_type=type_hints["is_local_backup_enabled"])
+            check_type(argname="argument is_sparse_diskgroup_enabled", value=is_sparse_diskgroup_enabled, expected_type=type_hints["is_sparse_diskgroup_enabled"])
+            check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
+            check_type(argname="argument memory_size_in_g_bs", value=memory_size_in_g_bs, expected_type=type_hints["memory_size_in_g_bs"])
+            check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
+            check_type(argname="argument scan_listener_port_tcp", value=scan_listener_port_tcp, expected_type=type_hints["scan_listener_port_tcp"])
+            check_type(argname="argument ssh_public_keys", value=ssh_public_keys, expected_type=type_hints["ssh_public_keys"])
+            check_type(argname="argument system_version", value=system_version, expected_type=type_hints["system_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cloud_exadata_infrastructure_id is not None:
+            self._values["cloud_exadata_infrastructure_id"] = cloud_exadata_infrastructure_id
+        if cluster_name is not None:
+            self._values["cluster_name"] = cluster_name
+        if cpu_core_count is not None:
+            self._values["cpu_core_count"] = cpu_core_count
+        if data_collection_options is not None:
+            self._values["data_collection_options"] = data_collection_options
+        if data_storage_size_in_t_bs is not None:
+            self._values["data_storage_size_in_t_bs"] = data_storage_size_in_t_bs
+        if db_node_storage_size_in_g_bs is not None:
+            self._values["db_node_storage_size_in_g_bs"] = db_node_storage_size_in_g_bs
+        if db_servers is not None:
+            self._values["db_servers"] = db_servers
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if gi_version is not None:
+            self._values["gi_version"] = gi_version
+        if hostname is not None:
+            self._values["hostname"] = hostname
+        if is_local_backup_enabled is not None:
+            self._values["is_local_backup_enabled"] = is_local_backup_enabled
+        if is_sparse_diskgroup_enabled is not None:
+            self._values["is_sparse_diskgroup_enabled"] = is_sparse_diskgroup_enabled
+        if license_model is not None:
+            self._values["license_model"] = license_model
+        if memory_size_in_g_bs is not None:
+            self._values["memory_size_in_g_bs"] = memory_size_in_g_bs
+        if odb_network_id is not None:
+            self._values["odb_network_id"] = odb_network_id
+        if scan_listener_port_tcp is not None:
+            self._values["scan_listener_port_tcp"] = scan_listener_port_tcp
+        if ssh_public_keys is not None:
+            self._values["ssh_public_keys"] = ssh_public_keys
+        if system_version is not None:
+            self._values["system_version"] = system_version
+        if tags is not None:
+            self._values["tags"] = tags
+        if time_zone is not None:
+            self._values["time_zone"] = time_zone
+
+    @builtins.property
+    def cloud_exadata_infrastructure_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the Exadata infrastructure that this VM cluster belongs to.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-cloudexadatainfrastructureid
+        '''
+        result = self._values.get("cloud_exadata_infrastructure_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cluster_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Grid Infrastructure (GI) cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-clustername
+        '''
+        result = self._values.get("cluster_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cpu_core_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of CPU cores enabled on the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-cpucorecount
+        '''
+        result = self._values.get("cpu_core_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def data_collection_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudVmCluster.DataCollectionOptionsProperty"]]:
+        '''The set of diagnostic collection options enabled for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-datacollectionoptions
+        '''
+        result = self._values.get("data_collection_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudVmCluster.DataCollectionOptionsProperty"]], result)
+
+    @builtins.property
+    def data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
+        '''The size of the data disk group, in terabytes (TB), that's allocated for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-datastoragesizeintbs
+        '''
+        result = self._values.get("data_storage_size_in_t_bs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def db_node_storage_size_in_g_bs(self) -> typing.Optional[jsii.Number]:
+        '''The amount of local node storage, in gigabytes (GB), that's allocated for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-dbnodestoragesizeingbs
+        '''
+        result = self._values.get("db_node_storage_size_in_g_bs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def db_servers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of database servers for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-dbservers
+        '''
+        result = self._values.get("db_servers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name for the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def gi_version(self) -> typing.Optional[builtins.str]:
+        '''The software version of the Oracle Grid Infrastructure (GI) for the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-giversion
+        '''
+        result = self._values.get("gi_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hostname(self) -> typing.Optional[builtins.str]:
+        '''The host name for the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-hostname
+        '''
+        result = self._values.get("hostname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def is_local_backup_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-islocalbackupenabled
+        '''
+        result = self._values.get("is_local_backup_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def is_sparse_diskgroup_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the VM cluster is configured with a sparse disk group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-issparsediskgroupenabled
+        '''
+        result = self._values.get("is_sparse_diskgroup_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def license_model(self) -> typing.Optional[builtins.str]:
+        '''The Oracle license model applied to the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-licensemodel
+        '''
+        result = self._values.get("license_model")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def memory_size_in_g_bs(self) -> typing.Optional[jsii.Number]:
+        '''The amount of memory, in gigabytes (GB), that's allocated for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-memorysizeingbs
+        '''
+        result = self._values.get("memory_size_in_g_bs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def odb_network_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the ODB network for the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-odbnetworkid
+        '''
+        result = self._values.get("odb_network_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scan_listener_port_tcp(self) -> typing.Optional[jsii.Number]:
+        '''The port number for TCP connections to the single client access name (SCAN) listener.
+
+        Valid values: ``1024–8999`` with the following exceptions: ``2484`` , ``6100`` , ``6200`` , ``7060`` , ``7070`` , ``7085`` , and ``7879``
+
+        Default: ``1521``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-scanlistenerporttcp
+        '''
+        result = self._values.get("scan_listener_port_tcp")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ssh_public_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The public key portion of one or more key pairs used for SSH access to the VM cluster.
+
+        Required when creating a VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-sshpublickeys
+        '''
+        result = self._values.get("ssh_public_keys")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def system_version(self) -> typing.Optional[builtins.str]:
+        '''The operating system version of the image chosen for the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-systemversion
+        '''
+        result = self._values.get("system_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to assign to the Vm Cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def time_zone(self) -> typing.Optional[builtins.str]:
+        '''The time zone of the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-timezone
+        '''
+        result = self._values.get("time_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudVmClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetworkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone": "availabilityZone",
+        "availability_zone_id": "availabilityZoneId",
+        "backup_subnet_cidr": "backupSubnetCidr",
+        "client_subnet_cidr": "clientSubnetCidr",
+        "default_dns_prefix": "defaultDnsPrefix",
+        "delete_associated_resources": "deleteAssociatedResources",
+        "display_name": "displayName",
+        "tags": "tags",
+    },
+)
+class CfnOdbNetworkProps:
+    def __init__(
+        self,
+        *,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_id: typing.Optional[builtins.str] = None,
+        backup_subnet_cidr: typing.Optional[builtins.str] = None,
+        client_subnet_cidr: typing.Optional[builtins.str] = None,
+        default_dns_prefix: typing.Optional[builtins.str] = None,
+        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOdbNetwork``.
+
+        :param availability_zone: The Availability Zone (AZ) where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
+        :param availability_zone_id: The AZ ID of the AZ where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
+        :param backup_subnet_cidr: The CIDR range of the backup subnet in the ODB network.
+        :param client_subnet_cidr: The CIDR range of the client subnet in the ODB network. Required when creating an ODB network.
+        :param default_dns_prefix: The DNS prefix to the default DNS domain name. The default DNS domain name is oraclevcn.com.
+        :param delete_associated_resources: Specifies whether to delete associated OCI networking resources along with the ODB network. Required when creating an ODB network.
+        :param display_name: The user-friendly name of the ODB network. Required when creating an ODB network.
+        :param tags: Tags to assign to the Odb Network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cfn_odb_network_props = odb.CfnOdbNetworkProps(
+                availability_zone="availabilityZone",
+                availability_zone_id="availabilityZoneId",
+                backup_subnet_cidr="backupSubnetCidr",
+                client_subnet_cidr="clientSubnetCidr",
+                default_dns_prefix="defaultDnsPrefix",
+                delete_associated_resources=False,
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8)
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
+            check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
+            check_type(argname="argument client_subnet_cidr", value=client_subnet_cidr, expected_type=type_hints["client_subnet_cidr"])
+            check_type(argname="argument default_dns_prefix", value=default_dns_prefix, expected_type=type_hints["default_dns_prefix"])
+            check_type(argname="argument delete_associated_resources", value=delete_associated_resources, expected_type=type_hints["delete_associated_resources"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if availability_zone_id is not None:
+            self._values["availability_zone_id"] = availability_zone_id
+        if backup_subnet_cidr is not None:
+            self._values["backup_subnet_cidr"] = backup_subnet_cidr
+        if client_subnet_cidr is not None:
+            self._values["client_subnet_cidr"] = client_subnet_cidr
+        if default_dns_prefix is not None:
+            self._values["default_dns_prefix"] = default_dns_prefix
+        if delete_associated_resources is not None:
+            self._values["delete_associated_resources"] = delete_associated_resources
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Availability Zone (AZ) where the ODB network is located.
+
+        Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone_id(self) -> typing.Optional[builtins.str]:
+        '''The AZ ID of the AZ where the ODB network is located.
+
+        Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-availabilityzoneid
+        '''
+        result = self._values.get("availability_zone_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def backup_subnet_cidr(self) -> typing.Optional[builtins.str]:
+        '''The CIDR range of the backup subnet in the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-backupsubnetcidr
+        '''
+        result = self._values.get("backup_subnet_cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def client_subnet_cidr(self) -> typing.Optional[builtins.str]:
+        '''The CIDR range of the client subnet in the ODB network.
+
+        Required when creating an ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-clientsubnetcidr
+        '''
+        result = self._values.get("client_subnet_cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_dns_prefix(self) -> typing.Optional[builtins.str]:
+        '''The DNS prefix to the default DNS domain name.
+
+        The default DNS domain name is oraclevcn.com.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-defaultdnsprefix
+        '''
+        result = self._values.get("default_dns_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_associated_resources(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to delete associated OCI networking resources along with the ODB network.
+
+        Required when creating an ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-deleteassociatedresources
+        '''
+        result = self._values.get("delete_associated_resources")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name of the ODB network.
+
+        Required when creating an ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to assign to the Odb Network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOdbNetworkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CloudAutonomousVmClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_autonomous_vm_cluster_arn": "cloudAutonomousVmClusterArn"},
+)
+class CloudAutonomousVmClusterReference:
+    def __init__(self, *, cloud_autonomous_vm_cluster_arn: builtins.str) -> None:
+        '''A reference to a CloudAutonomousVmCluster resource.
+
+        :param cloud_autonomous_vm_cluster_arn: The CloudAutonomousVmClusterArn of the CloudAutonomousVmCluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cloud_autonomous_vm_cluster_reference = odb.CloudAutonomousVmClusterReference(
+                cloud_autonomous_vm_cluster_arn="cloudAutonomousVmClusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__482e7b9ab03a0a9ae815737658461a62fbf1af9a9c213d0f75e1bc62181cb167)
+            check_type(argname="argument cloud_autonomous_vm_cluster_arn", value=cloud_autonomous_vm_cluster_arn, expected_type=type_hints["cloud_autonomous_vm_cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_autonomous_vm_cluster_arn": cloud_autonomous_vm_cluster_arn,
+        }
+
+    @builtins.property
+    def cloud_autonomous_vm_cluster_arn(self) -> builtins.str:
+        '''The CloudAutonomousVmClusterArn of the CloudAutonomousVmCluster resource.'''
+        result = self._values.get("cloud_autonomous_vm_cluster_arn")
+        assert result is not None, "Required property 'cloud_autonomous_vm_cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudAutonomousVmClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CloudExadataInfrastructureReference",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_exadata_infrastructure_arn": "cloudExadataInfrastructureArn"},
+)
+class CloudExadataInfrastructureReference:
+    def __init__(self, *, cloud_exadata_infrastructure_arn: builtins.str) -> None:
+        '''A reference to a CloudExadataInfrastructure resource.
+
+        :param cloud_exadata_infrastructure_arn: The CloudExadataInfrastructureArn of the CloudExadataInfrastructure resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cloud_exadata_infrastructure_reference = odb.CloudExadataInfrastructureReference(
+                cloud_exadata_infrastructure_arn="cloudExadataInfrastructureArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__280af8526bdd4b711d3bdc39e0759132c90991cb93b9405c7415b245beb2b099)
+            check_type(argname="argument cloud_exadata_infrastructure_arn", value=cloud_exadata_infrastructure_arn, expected_type=type_hints["cloud_exadata_infrastructure_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_exadata_infrastructure_arn": cloud_exadata_infrastructure_arn,
+        }
+
+    @builtins.property
+    def cloud_exadata_infrastructure_arn(self) -> builtins.str:
+        '''The CloudExadataInfrastructureArn of the CloudExadataInfrastructure resource.'''
+        result = self._values.get("cloud_exadata_infrastructure_arn")
+        assert result is not None, "Required property 'cloud_exadata_infrastructure_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudExadataInfrastructureReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.CloudVmClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_vm_cluster_arn": "cloudVmClusterArn"},
+)
+class CloudVmClusterReference:
+    def __init__(self, *, cloud_vm_cluster_arn: builtins.str) -> None:
+        '''A reference to a CloudVmCluster resource.
+
+        :param cloud_vm_cluster_arn: The CloudVmClusterArn of the CloudVmCluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            cloud_vm_cluster_reference = odb.CloudVmClusterReference(
+                cloud_vm_cluster_arn="cloudVmClusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bc919a1bccca98db2c7d732fc322b3e0c085d92103fd456faa8d62647d8e30d)
+            check_type(argname="argument cloud_vm_cluster_arn", value=cloud_vm_cluster_arn, expected_type=type_hints["cloud_vm_cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_vm_cluster_arn": cloud_vm_cluster_arn,
+        }
+
+    @builtins.property
+    def cloud_vm_cluster_arn(self) -> builtins.str:
+        '''The CloudVmClusterArn of the CloudVmCluster resource.'''
+        result = self._values.get("cloud_vm_cluster_arn")
+        assert result is not None, "Required property 'cloud_vm_cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudVmClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_odb.ICloudAutonomousVmClusterRef")
+class ICloudAutonomousVmClusterRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudAutonomousVmCluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudAutonomousVmClusterRef")
+    def cloud_autonomous_vm_cluster_ref(self) -> CloudAutonomousVmClusterReference:
+        '''(experimental) A reference to a CloudAutonomousVmCluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudAutonomousVmClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudAutonomousVmCluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_odb.ICloudAutonomousVmClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudAutonomousVmClusterRef")
+    def cloud_autonomous_vm_cluster_ref(self) -> CloudAutonomousVmClusterReference:
+        '''(experimental) A reference to a CloudAutonomousVmCluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CloudAutonomousVmClusterReference, jsii.get(self, "cloudAutonomousVmClusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudAutonomousVmClusterRef).__jsii_proxy_class__ = lambda : _ICloudAutonomousVmClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_odb.ICloudExadataInfrastructureRef")
+class ICloudExadataInfrastructureRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudExadataInfrastructure.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudExadataInfrastructureRef")
+    def cloud_exadata_infrastructure_ref(self) -> CloudExadataInfrastructureReference:
+        '''(experimental) A reference to a CloudExadataInfrastructure resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudExadataInfrastructureRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudExadataInfrastructure.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_odb.ICloudExadataInfrastructureRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudExadataInfrastructureRef")
+    def cloud_exadata_infrastructure_ref(self) -> CloudExadataInfrastructureReference:
+        '''(experimental) A reference to a CloudExadataInfrastructure resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CloudExadataInfrastructureReference, jsii.get(self, "cloudExadataInfrastructureRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudExadataInfrastructureRef).__jsii_proxy_class__ = lambda : _ICloudExadataInfrastructureRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_odb.ICloudVmClusterRef")
+class ICloudVmClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CloudVmCluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudVmClusterRef")
+    def cloud_vm_cluster_ref(self) -> CloudVmClusterReference:
+        '''(experimental) A reference to a CloudVmCluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudVmClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudVmCluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_odb.ICloudVmClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudVmClusterRef")
+    def cloud_vm_cluster_ref(self) -> CloudVmClusterReference:
+        '''(experimental) A reference to a CloudVmCluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CloudVmClusterReference, jsii.get(self, "cloudVmClusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudVmClusterRef).__jsii_proxy_class__ = lambda : _ICloudVmClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_odb.IOdbNetworkRef")
+class IOdbNetworkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a OdbNetwork.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="odbNetworkRef")
+    def odb_network_ref(self) -> "OdbNetworkReference":
+        '''(experimental) A reference to a OdbNetwork resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOdbNetworkRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OdbNetwork.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_odb.IOdbNetworkRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="odbNetworkRef")
+    def odb_network_ref(self) -> "OdbNetworkReference":
+        '''(experimental) A reference to a OdbNetwork resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OdbNetworkReference", jsii.get(self, "odbNetworkRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOdbNetworkRef).__jsii_proxy_class__ = lambda : _IOdbNetworkRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_odb.OdbNetworkReference",
+    jsii_struct_bases=[],
+    name_mapping={"odb_network_arn": "odbNetworkArn"},
+)
+class OdbNetworkReference:
+    def __init__(self, *, odb_network_arn: builtins.str) -> None:
+        '''A reference to a OdbNetwork resource.
+
+        :param odb_network_arn: The OdbNetworkArn of the OdbNetwork resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_odb as odb
+            
+            odb_network_reference = odb.OdbNetworkReference(
+                odb_network_arn="odbNetworkArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b71b7117720de959ffe8ba50b9add7b418e7681ed203043975d7154ad0306c23)
+            check_type(argname="argument odb_network_arn", value=odb_network_arn, expected_type=type_hints["odb_network_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "odb_network_arn": odb_network_arn,
+        }
+
+    @builtins.property
+    def odb_network_arn(self) -> builtins.str:
+        '''The OdbNetworkArn of the OdbNetwork resource.'''
+        result = self._values.get("odb_network_arn")
+        assert result is not None, "Required property 'odb_network_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OdbNetworkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ICloudAutonomousVmClusterRef, _ITaggableV2_4e6798f8)
 class CfnCloudAutonomousVmCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -492,6 +1993,12 @@ class CfnCloudAutonomousVmCluster(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cloudAutonomousVmClusterRef")
+    def cloud_autonomous_vm_cluster_ref(self) -> CloudAutonomousVmClusterReference:
+        '''A reference to a CloudAutonomousVmCluster resource.'''
+        return typing.cast(CloudAutonomousVmClusterReference, jsii.get(self, "cloudAutonomousVmClusterRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="autonomousDataStorageSizeInTBs")
     def autonomous_data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
         '''The data storage size allocated for Autonomous Databases in the Autonomous VM cluster, in TB.'''
@@ -862,341 +2369,7 @@ class CfnCloudAutonomousVmCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_odb.CfnCloudAutonomousVmClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "autonomous_data_storage_size_in_t_bs": "autonomousDataStorageSizeInTBs",
-        "cloud_exadata_infrastructure_id": "cloudExadataInfrastructureId",
-        "cpu_core_count_per_node": "cpuCoreCountPerNode",
-        "db_servers": "dbServers",
-        "description": "description",
-        "display_name": "displayName",
-        "is_mtls_enabled_vm_cluster": "isMtlsEnabledVmCluster",
-        "license_model": "licenseModel",
-        "maintenance_window": "maintenanceWindow",
-        "memory_per_oracle_compute_unit_in_g_bs": "memoryPerOracleComputeUnitInGBs",
-        "odb_network_id": "odbNetworkId",
-        "scan_listener_port_non_tls": "scanListenerPortNonTls",
-        "scan_listener_port_tls": "scanListenerPortTls",
-        "tags": "tags",
-        "time_zone": "timeZone",
-        "total_container_databases": "totalContainerDatabases",
-    },
-)
-class CfnCloudAutonomousVmClusterProps:
-    def __init__(
-        self,
-        *,
-        autonomous_data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-        cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
-        cpu_core_count_per_node: typing.Optional[jsii.Number] = None,
-        db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        license_model: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
-        odb_network_id: typing.Optional[builtins.str] = None,
-        scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
-        scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_zone: typing.Optional[builtins.str] = None,
-        total_container_databases: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCloudAutonomousVmCluster``.
-
-        :param autonomous_data_storage_size_in_t_bs: The data storage size allocated for Autonomous Databases in the Autonomous VM cluster, in TB. Required when creating an Autonomous VM cluster.
-        :param cloud_exadata_infrastructure_id: The unique identifier of the Cloud Exadata Infrastructure containing this Autonomous VM cluster. Required when creating an Autonomous VM cluster.
-        :param cpu_core_count_per_node: The number of CPU cores enabled per node in the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
-        :param db_servers: The list of database servers associated with the Autonomous VM cluster.
-        :param description: The user-provided description of the Autonomous VM cluster.
-        :param display_name: The display name of the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
-        :param is_mtls_enabled_vm_cluster: Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
-        :param license_model: The Oracle license model that applies to the Autonomous VM cluster. Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
-        :param maintenance_window: The scheduling details for the maintenance window. Patching and system updates take place during the maintenance window.
-        :param memory_per_oracle_compute_unit_in_g_bs: The amount of memory allocated per Oracle Compute Unit, in GB. Required when creating an Autonomous VM cluster.
-        :param odb_network_id: The unique identifier of the ODB network associated with this Autonomous VM cluster. Required when creating an Autonomous VM cluster.
-        :param scan_listener_port_non_tls: The SCAN listener port for non-TLS (TCP) protocol. The default is 1521.
-        :param scan_listener_port_tls: The SCAN listener port for TLS (TCP) protocol. The default is 2484.
-        :param tags: Tags to assign to the Autonomous Vm Cluster.
-        :param time_zone: The time zone of the Autonomous VM cluster.
-        :param total_container_databases: The total number of Autonomous Container Databases that can be created with the allocated local storage. Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_odb as odb
-            
-            cfn_cloud_autonomous_vm_cluster_props = odb.CfnCloudAutonomousVmClusterProps(
-                autonomous_data_storage_size_in_tBs=123,
-                cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
-                cpu_core_count_per_node=123,
-                db_servers=["dbServers"],
-                description="description",
-                display_name="displayName",
-                is_mtls_enabled_vm_cluster=False,
-                license_model="licenseModel",
-                maintenance_window=odb.CfnCloudAutonomousVmCluster.MaintenanceWindowProperty(
-                    days_of_week=["daysOfWeek"],
-                    hours_of_day=[123],
-                    lead_time_in_weeks=123,
-                    months=["months"],
-                    preference="preference",
-                    weeks_of_month=[123]
-                ),
-                memory_per_oracle_compute_unit_in_gBs=123,
-                odb_network_id="odbNetworkId",
-                scan_listener_port_non_tls=123,
-                scan_listener_port_tls=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                time_zone="timeZone",
-                total_container_databases=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b)
-            check_type(argname="argument autonomous_data_storage_size_in_t_bs", value=autonomous_data_storage_size_in_t_bs, expected_type=type_hints["autonomous_data_storage_size_in_t_bs"])
-            check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
-            check_type(argname="argument cpu_core_count_per_node", value=cpu_core_count_per_node, expected_type=type_hints["cpu_core_count_per_node"])
-            check_type(argname="argument db_servers", value=db_servers, expected_type=type_hints["db_servers"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument is_mtls_enabled_vm_cluster", value=is_mtls_enabled_vm_cluster, expected_type=type_hints["is_mtls_enabled_vm_cluster"])
-            check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
-            check_type(argname="argument maintenance_window", value=maintenance_window, expected_type=type_hints["maintenance_window"])
-            check_type(argname="argument memory_per_oracle_compute_unit_in_g_bs", value=memory_per_oracle_compute_unit_in_g_bs, expected_type=type_hints["memory_per_oracle_compute_unit_in_g_bs"])
-            check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
-            check_type(argname="argument scan_listener_port_non_tls", value=scan_listener_port_non_tls, expected_type=type_hints["scan_listener_port_non_tls"])
-            check_type(argname="argument scan_listener_port_tls", value=scan_listener_port_tls, expected_type=type_hints["scan_listener_port_tls"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-            check_type(argname="argument total_container_databases", value=total_container_databases, expected_type=type_hints["total_container_databases"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if autonomous_data_storage_size_in_t_bs is not None:
-            self._values["autonomous_data_storage_size_in_t_bs"] = autonomous_data_storage_size_in_t_bs
-        if cloud_exadata_infrastructure_id is not None:
-            self._values["cloud_exadata_infrastructure_id"] = cloud_exadata_infrastructure_id
-        if cpu_core_count_per_node is not None:
-            self._values["cpu_core_count_per_node"] = cpu_core_count_per_node
-        if db_servers is not None:
-            self._values["db_servers"] = db_servers
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if is_mtls_enabled_vm_cluster is not None:
-            self._values["is_mtls_enabled_vm_cluster"] = is_mtls_enabled_vm_cluster
-        if license_model is not None:
-            self._values["license_model"] = license_model
-        if maintenance_window is not None:
-            self._values["maintenance_window"] = maintenance_window
-        if memory_per_oracle_compute_unit_in_g_bs is not None:
-            self._values["memory_per_oracle_compute_unit_in_g_bs"] = memory_per_oracle_compute_unit_in_g_bs
-        if odb_network_id is not None:
-            self._values["odb_network_id"] = odb_network_id
-        if scan_listener_port_non_tls is not None:
-            self._values["scan_listener_port_non_tls"] = scan_listener_port_non_tls
-        if scan_listener_port_tls is not None:
-            self._values["scan_listener_port_tls"] = scan_listener_port_tls
-        if tags is not None:
-            self._values["tags"] = tags
-        if time_zone is not None:
-            self._values["time_zone"] = time_zone
-        if total_container_databases is not None:
-            self._values["total_container_databases"] = total_container_databases
-
-    @builtins.property
-    def autonomous_data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
-        '''The data storage size allocated for Autonomous Databases in the Autonomous VM cluster, in TB.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-autonomousdatastoragesizeintbs
-        '''
-        result = self._values.get("autonomous_data_storage_size_in_t_bs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def cloud_exadata_infrastructure_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the Cloud Exadata Infrastructure containing this Autonomous VM cluster.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-cloudexadatainfrastructureid
-        '''
-        result = self._values.get("cloud_exadata_infrastructure_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cpu_core_count_per_node(self) -> typing.Optional[jsii.Number]:
-        '''The number of CPU cores enabled per node in the Autonomous VM cluster.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-cpucorecountpernode
-        '''
-        result = self._values.get("cpu_core_count_per_node")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def db_servers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of database servers associated with the Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-dbservers
-        '''
-        result = self._values.get("db_servers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The user-provided description of the Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the Autonomous VM cluster.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def is_mtls_enabled_vm_cluster(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-ismtlsenabledvmcluster
-        '''
-        result = self._values.get("is_mtls_enabled_vm_cluster")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def license_model(self) -> typing.Optional[builtins.str]:
-        '''The Oracle license model that applies to the Autonomous VM cluster.
-
-        Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-licensemodel
-        '''
-        result = self._values.get("license_model")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maintenance_window(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudAutonomousVmCluster.MaintenanceWindowProperty]]:
-        '''The scheduling details for the maintenance window.
-
-        Patching and system updates take place during the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-maintenancewindow
-        '''
-        result = self._values.get("maintenance_window")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudAutonomousVmCluster.MaintenanceWindowProperty]], result)
-
-    @builtins.property
-    def memory_per_oracle_compute_unit_in_g_bs(self) -> typing.Optional[jsii.Number]:
-        '''The amount of memory allocated per Oracle Compute Unit, in GB.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-memoryperoraclecomputeunitingbs
-        '''
-        result = self._values.get("memory_per_oracle_compute_unit_in_g_bs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def odb_network_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the ODB network associated with this Autonomous VM cluster.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-odbnetworkid
-        '''
-        result = self._values.get("odb_network_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scan_listener_port_non_tls(self) -> typing.Optional[jsii.Number]:
-        '''The SCAN listener port for non-TLS (TCP) protocol.
-
-        The default is 1521.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-scanlistenerportnontls
-        '''
-        result = self._values.get("scan_listener_port_non_tls")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def scan_listener_port_tls(self) -> typing.Optional[jsii.Number]:
-        '''The SCAN listener port for TLS (TCP) protocol.
-
-        The default is 2484.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-scanlistenerporttls
-        '''
-        result = self._values.get("scan_listener_port_tls")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to assign to the Autonomous Vm Cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def time_zone(self) -> typing.Optional[builtins.str]:
-        '''The time zone of the Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-timezone
-        '''
-        result = self._values.get("time_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def total_container_databases(self) -> typing.Optional[jsii.Number]:
-        '''The total number of Autonomous Container Databases that can be created with the allocated local storage.
-
-        Required when creating an Autonomous VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-totalcontainerdatabases
-        '''
-        result = self._values.get("total_container_databases")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCloudAutonomousVmClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ICloudExadataInfrastructureRef, _ITaggableV2_4e6798f8)
 class CfnCloudExadataInfrastructure(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1517,6 +2690,12 @@ class CfnCloudExadataInfrastructure(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="cloudExadataInfrastructureRef")
+    def cloud_exadata_infrastructure_ref(self) -> CloudExadataInfrastructureReference:
+        '''A reference to a CloudExadataInfrastructure resource.'''
+        return typing.cast(CloudExadataInfrastructureReference, jsii.get(self, "cloudExadataInfrastructureRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="availabilityZone")
     def availability_zone(self) -> typing.Optional[builtins.str]:
         '''The name of the Availability Zone (AZ) where the Exadata infrastructure is located.'''
@@ -1703,232 +2882,7 @@ class CfnCloudExadataInfrastructure(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_odb.CfnCloudExadataInfrastructureProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zone": "availabilityZone",
-        "availability_zone_id": "availabilityZoneId",
-        "compute_count": "computeCount",
-        "customer_contacts_to_send_to_oci": "customerContactsToSendToOci",
-        "database_server_type": "databaseServerType",
-        "display_name": "displayName",
-        "shape": "shape",
-        "storage_count": "storageCount",
-        "storage_server_type": "storageServerType",
-        "tags": "tags",
-    },
-)
-class CfnCloudExadataInfrastructureProps:
-    def __init__(
-        self,
-        *,
-        availability_zone: typing.Optional[builtins.str] = None,
-        availability_zone_id: typing.Optional[builtins.str] = None,
-        compute_count: typing.Optional[jsii.Number] = None,
-        customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        database_server_type: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        shape: typing.Optional[builtins.str] = None,
-        storage_count: typing.Optional[jsii.Number] = None,
-        storage_server_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCloudExadataInfrastructure``.
-
-        :param availability_zone: The name of the Availability Zone (AZ) where the Exadata infrastructure is located. Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
-        :param availability_zone_id: The AZ ID of the AZ where the Exadata infrastructure is located. Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
-        :param compute_count: The number of database servers for the Exadata infrastructure. Required when creating an Exadata infrastructure.
-        :param customer_contacts_to_send_to_oci: The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.
-        :param database_server_type: The database server model type of the Exadata infrastructure. For the list of valid model names, use the ``ListDbSystemShapes`` operation.
-        :param display_name: The user-friendly name for the Exadata infrastructure. Required when creating an Exadata infrastructure.
-        :param shape: The model name of the Exadata infrastructure. Required when creating an Exadata infrastructure.
-        :param storage_count: The number of storage servers that are activated for the Exadata infrastructure. Required when creating an Exadata infrastructure.
-        :param storage_server_type: The storage server model type of the Exadata infrastructure. For the list of valid model names, use the ``ListDbSystemShapes`` operation.
-        :param tags: Tags to assign to the Exadata Infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_odb as odb
-            
-            cfn_cloud_exadata_infrastructure_props = odb.CfnCloudExadataInfrastructureProps(
-                availability_zone="availabilityZone",
-                availability_zone_id="availabilityZoneId",
-                compute_count=123,
-                customer_contacts_to_send_to_oci=[odb.CfnCloudExadataInfrastructure.CustomerContactProperty(
-                    email="email"
-                )],
-                database_server_type="databaseServerType",
-                display_name="displayName",
-                shape="shape",
-                storage_count=123,
-                storage_server_type="storageServerType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081)
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
-            check_type(argname="argument compute_count", value=compute_count, expected_type=type_hints["compute_count"])
-            check_type(argname="argument customer_contacts_to_send_to_oci", value=customer_contacts_to_send_to_oci, expected_type=type_hints["customer_contacts_to_send_to_oci"])
-            check_type(argname="argument database_server_type", value=database_server_type, expected_type=type_hints["database_server_type"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument shape", value=shape, expected_type=type_hints["shape"])
-            check_type(argname="argument storage_count", value=storage_count, expected_type=type_hints["storage_count"])
-            check_type(argname="argument storage_server_type", value=storage_server_type, expected_type=type_hints["storage_server_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if availability_zone_id is not None:
-            self._values["availability_zone_id"] = availability_zone_id
-        if compute_count is not None:
-            self._values["compute_count"] = compute_count
-        if customer_contacts_to_send_to_oci is not None:
-            self._values["customer_contacts_to_send_to_oci"] = customer_contacts_to_send_to_oci
-        if database_server_type is not None:
-            self._values["database_server_type"] = database_server_type
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if shape is not None:
-            self._values["shape"] = shape
-        if storage_count is not None:
-            self._values["storage_count"] = storage_count
-        if storage_server_type is not None:
-            self._values["storage_server_type"] = storage_server_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The name of the Availability Zone (AZ) where the Exadata infrastructure is located.
-
-        Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def availability_zone_id(self) -> typing.Optional[builtins.str]:
-        '''The AZ ID of the AZ where the Exadata infrastructure is located.
-
-        Required when creating an Exadata infrastructure. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-availabilityzoneid
-        '''
-        result = self._values.get("availability_zone_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def compute_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of database servers for the Exadata infrastructure.
-
-        Required when creating an Exadata infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-computecount
-        '''
-        result = self._values.get("compute_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def customer_contacts_to_send_to_oci(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudExadataInfrastructure.CustomerContactProperty]]]]:
-        '''The email addresses of contacts to receive notification from Oracle about maintenance updates for the Exadata infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-customercontactstosendtooci
-        '''
-        result = self._values.get("customer_contacts_to_send_to_oci")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudExadataInfrastructure.CustomerContactProperty]]]], result)
-
-    @builtins.property
-    def database_server_type(self) -> typing.Optional[builtins.str]:
-        '''The database server model type of the Exadata infrastructure.
-
-        For the list of valid model names, use the ``ListDbSystemShapes`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-databaseservertype
-        '''
-        result = self._values.get("database_server_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name for the Exadata infrastructure.
-
-        Required when creating an Exadata infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def shape(self) -> typing.Optional[builtins.str]:
-        '''The model name of the Exadata infrastructure.
-
-        Required when creating an Exadata infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-shape
-        '''
-        result = self._values.get("shape")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def storage_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of storage servers that are activated for the Exadata infrastructure.
-
-        Required when creating an Exadata infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-storagecount
-        '''
-        result = self._values.get("storage_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def storage_server_type(self) -> typing.Optional[builtins.str]:
-        '''The storage server model type of the Exadata infrastructure.
-
-        For the list of valid model names, use the ``ListDbSystemShapes`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-storageservertype
-        '''
-        result = self._values.get("storage_server_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to assign to the Exadata Infrastructure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudexadatainfrastructure.html#cfn-odb-cloudexadatainfrastructure-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCloudExadataInfrastructureProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ICloudVmClusterRef, _ITaggableV2_4e6798f8)
 class CfnCloudVmCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2239,6 +3193,12 @@ class CfnCloudVmCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudVmClusterRef")
+    def cloud_vm_cluster_ref(self) -> CloudVmClusterReference:
+        '''A reference to a CloudVmCluster resource.'''
+        return typing.cast(CloudVmClusterReference, jsii.get(self, "cloudVmClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudExadataInfrastructureId")
@@ -2617,400 +3577,7 @@ class CfnCloudVmCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_odb.CfnCloudVmClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cloud_exadata_infrastructure_id": "cloudExadataInfrastructureId",
-        "cluster_name": "clusterName",
-        "cpu_core_count": "cpuCoreCount",
-        "data_collection_options": "dataCollectionOptions",
-        "data_storage_size_in_t_bs": "dataStorageSizeInTBs",
-        "db_node_storage_size_in_g_bs": "dbNodeStorageSizeInGBs",
-        "db_servers": "dbServers",
-        "display_name": "displayName",
-        "gi_version": "giVersion",
-        "hostname": "hostname",
-        "is_local_backup_enabled": "isLocalBackupEnabled",
-        "is_sparse_diskgroup_enabled": "isSparseDiskgroupEnabled",
-        "license_model": "licenseModel",
-        "memory_size_in_g_bs": "memorySizeInGBs",
-        "odb_network_id": "odbNetworkId",
-        "scan_listener_port_tcp": "scanListenerPortTcp",
-        "ssh_public_keys": "sshPublicKeys",
-        "system_version": "systemVersion",
-        "tags": "tags",
-        "time_zone": "timeZone",
-    },
-)
-class CfnCloudVmClusterProps:
-    def __init__(
-        self,
-        *,
-        cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
-        cluster_name: typing.Optional[builtins.str] = None,
-        cpu_core_count: typing.Optional[jsii.Number] = None,
-        data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-        db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
-        db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        gi_version: typing.Optional[builtins.str] = None,
-        hostname: typing.Optional[builtins.str] = None,
-        is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        license_model: typing.Optional[builtins.str] = None,
-        memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
-        odb_network_id: typing.Optional[builtins.str] = None,
-        scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
-        ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
-        system_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_zone: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCloudVmCluster``.
-
-        :param cloud_exadata_infrastructure_id: The unique identifier of the Exadata infrastructure that this VM cluster belongs to. Required when creating a VM cluster.
-        :param cluster_name: The name of the Grid Infrastructure (GI) cluster.
-        :param cpu_core_count: The number of CPU cores enabled on the VM cluster. Required when creating a VM cluster.
-        :param data_collection_options: The set of diagnostic collection options enabled for the VM cluster.
-        :param data_storage_size_in_t_bs: The size of the data disk group, in terabytes (TB), that's allocated for the VM cluster.
-        :param db_node_storage_size_in_g_bs: The amount of local node storage, in gigabytes (GB), that's allocated for the VM cluster.
-        :param db_servers: The list of database servers for the VM cluster.
-        :param display_name: The user-friendly name for the VM cluster. Required when creating a VM cluster.
-        :param gi_version: The software version of the Oracle Grid Infrastructure (GI) for the VM cluster. Required when creating a VM cluster.
-        :param hostname: The host name for the VM cluster. Required when creating a VM cluster.
-        :param is_local_backup_enabled: Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
-        :param is_sparse_diskgroup_enabled: Specifies whether the VM cluster is configured with a sparse disk group.
-        :param license_model: The Oracle license model applied to the VM cluster.
-        :param memory_size_in_g_bs: The amount of memory, in gigabytes (GB), that's allocated for the VM cluster.
-        :param odb_network_id: The unique identifier of the ODB network for the VM cluster. Required when creating a VM cluster.
-        :param scan_listener_port_tcp: The port number for TCP connections to the single client access name (SCAN) listener. Valid values: ``1024–8999`` with the following exceptions: ``2484`` , ``6100`` , ``6200`` , ``7060`` , ``7070`` , ``7085`` , and ``7879`` Default: ``1521``
-        :param ssh_public_keys: The public key portion of one or more key pairs used for SSH access to the VM cluster. Required when creating a VM cluster.
-        :param system_version: The operating system version of the image chosen for the VM cluster.
-        :param tags: Tags to assign to the Vm Cluster.
-        :param time_zone: The time zone of the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_odb as odb
-            
-            cfn_cloud_vm_cluster_props = odb.CfnCloudVmClusterProps(
-                cloud_exadata_infrastructure_id="cloudExadataInfrastructureId",
-                cluster_name="clusterName",
-                cpu_core_count=123,
-                data_collection_options=odb.CfnCloudVmCluster.DataCollectionOptionsProperty(
-                    is_diagnostics_events_enabled=False,
-                    is_health_monitoring_enabled=False,
-                    is_incident_logs_enabled=False
-                ),
-                data_storage_size_in_tBs=123,
-                db_node_storage_size_in_gBs=123,
-                db_servers=["dbServers"],
-                display_name="displayName",
-                gi_version="giVersion",
-                hostname="hostname",
-                is_local_backup_enabled=False,
-                is_sparse_diskgroup_enabled=False,
-                license_model="licenseModel",
-                memory_size_in_gBs=123,
-                odb_network_id="odbNetworkId",
-                scan_listener_port_tcp=123,
-                ssh_public_keys=["sshPublicKeys"],
-                system_version="systemVersion",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                time_zone="timeZone"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a)
-            check_type(argname="argument cloud_exadata_infrastructure_id", value=cloud_exadata_infrastructure_id, expected_type=type_hints["cloud_exadata_infrastructure_id"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-            check_type(argname="argument cpu_core_count", value=cpu_core_count, expected_type=type_hints["cpu_core_count"])
-            check_type(argname="argument data_collection_options", value=data_collection_options, expected_type=type_hints["data_collection_options"])
-            check_type(argname="argument data_storage_size_in_t_bs", value=data_storage_size_in_t_bs, expected_type=type_hints["data_storage_size_in_t_bs"])
-            check_type(argname="argument db_node_storage_size_in_g_bs", value=db_node_storage_size_in_g_bs, expected_type=type_hints["db_node_storage_size_in_g_bs"])
-            check_type(argname="argument db_servers", value=db_servers, expected_type=type_hints["db_servers"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument gi_version", value=gi_version, expected_type=type_hints["gi_version"])
-            check_type(argname="argument hostname", value=hostname, expected_type=type_hints["hostname"])
-            check_type(argname="argument is_local_backup_enabled", value=is_local_backup_enabled, expected_type=type_hints["is_local_backup_enabled"])
-            check_type(argname="argument is_sparse_diskgroup_enabled", value=is_sparse_diskgroup_enabled, expected_type=type_hints["is_sparse_diskgroup_enabled"])
-            check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
-            check_type(argname="argument memory_size_in_g_bs", value=memory_size_in_g_bs, expected_type=type_hints["memory_size_in_g_bs"])
-            check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
-            check_type(argname="argument scan_listener_port_tcp", value=scan_listener_port_tcp, expected_type=type_hints["scan_listener_port_tcp"])
-            check_type(argname="argument ssh_public_keys", value=ssh_public_keys, expected_type=type_hints["ssh_public_keys"])
-            check_type(argname="argument system_version", value=system_version, expected_type=type_hints["system_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cloud_exadata_infrastructure_id is not None:
-            self._values["cloud_exadata_infrastructure_id"] = cloud_exadata_infrastructure_id
-        if cluster_name is not None:
-            self._values["cluster_name"] = cluster_name
-        if cpu_core_count is not None:
-            self._values["cpu_core_count"] = cpu_core_count
-        if data_collection_options is not None:
-            self._values["data_collection_options"] = data_collection_options
-        if data_storage_size_in_t_bs is not None:
-            self._values["data_storage_size_in_t_bs"] = data_storage_size_in_t_bs
-        if db_node_storage_size_in_g_bs is not None:
-            self._values["db_node_storage_size_in_g_bs"] = db_node_storage_size_in_g_bs
-        if db_servers is not None:
-            self._values["db_servers"] = db_servers
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if gi_version is not None:
-            self._values["gi_version"] = gi_version
-        if hostname is not None:
-            self._values["hostname"] = hostname
-        if is_local_backup_enabled is not None:
-            self._values["is_local_backup_enabled"] = is_local_backup_enabled
-        if is_sparse_diskgroup_enabled is not None:
-            self._values["is_sparse_diskgroup_enabled"] = is_sparse_diskgroup_enabled
-        if license_model is not None:
-            self._values["license_model"] = license_model
-        if memory_size_in_g_bs is not None:
-            self._values["memory_size_in_g_bs"] = memory_size_in_g_bs
-        if odb_network_id is not None:
-            self._values["odb_network_id"] = odb_network_id
-        if scan_listener_port_tcp is not None:
-            self._values["scan_listener_port_tcp"] = scan_listener_port_tcp
-        if ssh_public_keys is not None:
-            self._values["ssh_public_keys"] = ssh_public_keys
-        if system_version is not None:
-            self._values["system_version"] = system_version
-        if tags is not None:
-            self._values["tags"] = tags
-        if time_zone is not None:
-            self._values["time_zone"] = time_zone
-
-    @builtins.property
-    def cloud_exadata_infrastructure_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the Exadata infrastructure that this VM cluster belongs to.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-cloudexadatainfrastructureid
-        '''
-        result = self._values.get("cloud_exadata_infrastructure_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cluster_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Grid Infrastructure (GI) cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-clustername
-        '''
-        result = self._values.get("cluster_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cpu_core_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of CPU cores enabled on the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-cpucorecount
-        '''
-        result = self._values.get("cpu_core_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def data_collection_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.DataCollectionOptionsProperty]]:
-        '''The set of diagnostic collection options enabled for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-datacollectionoptions
-        '''
-        result = self._values.get("data_collection_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.DataCollectionOptionsProperty]], result)
-
-    @builtins.property
-    def data_storage_size_in_t_bs(self) -> typing.Optional[jsii.Number]:
-        '''The size of the data disk group, in terabytes (TB), that's allocated for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-datastoragesizeintbs
-        '''
-        result = self._values.get("data_storage_size_in_t_bs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def db_node_storage_size_in_g_bs(self) -> typing.Optional[jsii.Number]:
-        '''The amount of local node storage, in gigabytes (GB), that's allocated for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-dbnodestoragesizeingbs
-        '''
-        result = self._values.get("db_node_storage_size_in_g_bs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def db_servers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of database servers for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-dbservers
-        '''
-        result = self._values.get("db_servers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name for the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def gi_version(self) -> typing.Optional[builtins.str]:
-        '''The software version of the Oracle Grid Infrastructure (GI) for the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-giversion
-        '''
-        result = self._values.get("gi_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hostname(self) -> typing.Optional[builtins.str]:
-        '''The host name for the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-hostname
-        '''
-        result = self._values.get("hostname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def is_local_backup_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-islocalbackupenabled
-        '''
-        result = self._values.get("is_local_backup_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def is_sparse_diskgroup_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the VM cluster is configured with a sparse disk group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-issparsediskgroupenabled
-        '''
-        result = self._values.get("is_sparse_diskgroup_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def license_model(self) -> typing.Optional[builtins.str]:
-        '''The Oracle license model applied to the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-licensemodel
-        '''
-        result = self._values.get("license_model")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def memory_size_in_g_bs(self) -> typing.Optional[jsii.Number]:
-        '''The amount of memory, in gigabytes (GB), that's allocated for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-memorysizeingbs
-        '''
-        result = self._values.get("memory_size_in_g_bs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def odb_network_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of the ODB network for the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-odbnetworkid
-        '''
-        result = self._values.get("odb_network_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scan_listener_port_tcp(self) -> typing.Optional[jsii.Number]:
-        '''The port number for TCP connections to the single client access name (SCAN) listener.
-
-        Valid values: ``1024–8999`` with the following exceptions: ``2484`` , ``6100`` , ``6200`` , ``7060`` , ``7070`` , ``7085`` , and ``7879``
-
-        Default: ``1521``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-scanlistenerporttcp
-        '''
-        result = self._values.get("scan_listener_port_tcp")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def ssh_public_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The public key portion of one or more key pairs used for SSH access to the VM cluster.
-
-        Required when creating a VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-sshpublickeys
-        '''
-        result = self._values.get("ssh_public_keys")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def system_version(self) -> typing.Optional[builtins.str]:
-        '''The operating system version of the image chosen for the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-systemversion
-        '''
-        result = self._values.get("system_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to assign to the Vm Cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def time_zone(self) -> typing.Optional[builtins.str]:
-        '''The time zone of the VM cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-timezone
-        '''
-        result = self._values.get("time_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCloudVmClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IOdbNetworkRef, _ITaggableV2_4e6798f8)
 class CfnOdbNetwork(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3175,6 +3742,12 @@ class CfnOdbNetwork(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="odbNetworkRef")
+    def odb_network_ref(self) -> OdbNetworkReference:
+        '''A reference to a OdbNetwork resource.'''
+        return typing.cast(OdbNetworkReference, jsii.get(self, "odbNetworkRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="availabilityZone")
     def availability_zone(self) -> typing.Optional[builtins.str]:
         '''The Availability Zone (AZ) where the ODB network is located.'''
@@ -3284,193 +3857,6 @@ class CfnOdbNetwork(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetworkProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zone": "availabilityZone",
-        "availability_zone_id": "availabilityZoneId",
-        "backup_subnet_cidr": "backupSubnetCidr",
-        "client_subnet_cidr": "clientSubnetCidr",
-        "default_dns_prefix": "defaultDnsPrefix",
-        "delete_associated_resources": "deleteAssociatedResources",
-        "display_name": "displayName",
-        "tags": "tags",
-    },
-)
-class CfnOdbNetworkProps:
-    def __init__(
-        self,
-        *,
-        availability_zone: typing.Optional[builtins.str] = None,
-        availability_zone_id: typing.Optional[builtins.str] = None,
-        backup_subnet_cidr: typing.Optional[builtins.str] = None,
-        client_subnet_cidr: typing.Optional[builtins.str] = None,
-        default_dns_prefix: typing.Optional[builtins.str] = None,
-        delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOdbNetwork``.
-
-        :param availability_zone: The Availability Zone (AZ) where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
-        :param availability_zone_id: The AZ ID of the AZ where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
-        :param backup_subnet_cidr: The CIDR range of the backup subnet in the ODB network.
-        :param client_subnet_cidr: The CIDR range of the client subnet in the ODB network. Required when creating an ODB network.
-        :param default_dns_prefix: The DNS prefix to the default DNS domain name. The default DNS domain name is oraclevcn.com.
-        :param delete_associated_resources: Specifies whether to delete associated OCI networking resources along with the ODB network. Required when creating an ODB network.
-        :param display_name: The user-friendly name of the ODB network. Required when creating an ODB network.
-        :param tags: Tags to assign to the Odb Network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_odb as odb
-            
-            cfn_odb_network_props = odb.CfnOdbNetworkProps(
-                availability_zone="availabilityZone",
-                availability_zone_id="availabilityZoneId",
-                backup_subnet_cidr="backupSubnetCidr",
-                client_subnet_cidr="clientSubnetCidr",
-                default_dns_prefix="defaultDnsPrefix",
-                delete_associated_resources=False,
-                display_name="displayName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8)
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
-            check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
-            check_type(argname="argument client_subnet_cidr", value=client_subnet_cidr, expected_type=type_hints["client_subnet_cidr"])
-            check_type(argname="argument default_dns_prefix", value=default_dns_prefix, expected_type=type_hints["default_dns_prefix"])
-            check_type(argname="argument delete_associated_resources", value=delete_associated_resources, expected_type=type_hints["delete_associated_resources"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if availability_zone_id is not None:
-            self._values["availability_zone_id"] = availability_zone_id
-        if backup_subnet_cidr is not None:
-            self._values["backup_subnet_cidr"] = backup_subnet_cidr
-        if client_subnet_cidr is not None:
-            self._values["client_subnet_cidr"] = client_subnet_cidr
-        if default_dns_prefix is not None:
-            self._values["default_dns_prefix"] = default_dns_prefix
-        if delete_associated_resources is not None:
-            self._values["delete_associated_resources"] = delete_associated_resources
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone (AZ) where the ODB network is located.
-
-        Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def availability_zone_id(self) -> typing.Optional[builtins.str]:
-        '''The AZ ID of the AZ where the ODB network is located.
-
-        Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-availabilityzoneid
-        '''
-        result = self._values.get("availability_zone_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def backup_subnet_cidr(self) -> typing.Optional[builtins.str]:
-        '''The CIDR range of the backup subnet in the ODB network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-backupsubnetcidr
-        '''
-        result = self._values.get("backup_subnet_cidr")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def client_subnet_cidr(self) -> typing.Optional[builtins.str]:
-        '''The CIDR range of the client subnet in the ODB network.
-
-        Required when creating an ODB network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-clientsubnetcidr
-        '''
-        result = self._values.get("client_subnet_cidr")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_dns_prefix(self) -> typing.Optional[builtins.str]:
-        '''The DNS prefix to the default DNS domain name.
-
-        The default DNS domain name is oraclevcn.com.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-defaultdnsprefix
-        '''
-        result = self._values.get("default_dns_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def delete_associated_resources(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to delete associated OCI networking resources along with the ODB network.
-
-        Required when creating an ODB network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-deleteassociatedresources
-        '''
-        result = self._values.get("delete_associated_resources")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name of the ODB network.
-
-        Required when creating an ODB network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to assign to the Odb Network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOdbNetworkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnCloudAutonomousVmCluster",
     "CfnCloudAutonomousVmClusterProps",
@@ -3480,9 +3866,123 @@ __all__ = [
     "CfnCloudVmClusterProps",
     "CfnOdbNetwork",
     "CfnOdbNetworkProps",
+    "CloudAutonomousVmClusterReference",
+    "CloudExadataInfrastructureReference",
+    "CloudVmClusterReference",
+    "ICloudAutonomousVmClusterRef",
+    "ICloudExadataInfrastructureRef",
+    "ICloudVmClusterRef",
+    "IOdbNetworkRef",
+    "OdbNetworkReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b(
+    *,
+    autonomous_data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
+    cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
+    cpu_core_count_per_node: typing.Optional[jsii.Number] = None,
+    db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    license_model: typing.Optional[builtins.str] = None,
+    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
+    odb_network_id: typing.Optional[builtins.str] = None,
+    scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
+    scan_listener_port_tls: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_zone: typing.Optional[builtins.str] = None,
+    total_container_databases: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_id: typing.Optional[builtins.str] = None,
+    compute_count: typing.Optional[jsii.Number] = None,
+    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    database_server_type: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    shape: typing.Optional[builtins.str] = None,
+    storage_count: typing.Optional[jsii.Number] = None,
+    storage_server_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a(
+    *,
+    cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
+    cluster_name: typing.Optional[builtins.str] = None,
+    cpu_core_count: typing.Optional[jsii.Number] = None,
+    data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
+    db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
+    db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    gi_version: typing.Optional[builtins.str] = None,
+    hostname: typing.Optional[builtins.str] = None,
+    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    license_model: typing.Optional[builtins.str] = None,
+    memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
+    odb_network_id: typing.Optional[builtins.str] = None,
+    scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
+    ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    system_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_zone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_id: typing.Optional[builtins.str] = None,
+    backup_subnet_cidr: typing.Optional[builtins.str] = None,
+    client_subnet_cidr: typing.Optional[builtins.str] = None,
+    default_dns_prefix: typing.Optional[builtins.str] = None,
+    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__482e7b9ab03a0a9ae815737658461a62fbf1af9a9c213d0f75e1bc62181cb167(
+    *,
+    cloud_autonomous_vm_cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__280af8526bdd4b711d3bdc39e0759132c90991cb93b9405c7415b245beb2b099(
+    *,
+    cloud_exadata_infrastructure_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bc919a1bccca98db2c7d732fc322b3e0c085d92103fd456faa8d62647d8e30d(
+    *,
+    cloud_vm_cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b71b7117720de959ffe8ba50b9add7b418e7681ed203043975d7154ad0306c23(
+    *,
+    odb_network_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d622fe4b7(
     scope: _constructs_77d1e7e8.Construct,
@@ -3628,28 +4128,6 @@ def _typecheckingstub__bec420fa64b103170ca1fde88b7f5526381889811659e8a32ae9356ee
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a007d48b(
-    *,
-    autonomous_data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-    cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
-    cpu_core_count_per_node: typing.Optional[jsii.Number] = None,
-    db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    license_model: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    memory_per_oracle_compute_unit_in_g_bs: typing.Optional[jsii.Number] = None,
-    odb_network_id: typing.Optional[builtins.str] = None,
-    scan_listener_port_non_tls: typing.Optional[jsii.Number] = None,
-    scan_listener_port_tls: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_zone: typing.Optional[builtins.str] = None,
-    total_container_databases: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fd782f736e7ad827f171e15d160c54071c1fbef5443d136721533cbfdcdb7012(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3743,22 +4221,6 @@ def _typecheckingstub__9909f2504aae00efa9d8adaf040cb71163078ccb5d88b84ca3af82a80
 def _typecheckingstub__643c0e64847e961d0058c2280408d7c853e987c242dc2bdfb33b5b65dcc6c0f3(
     *,
     email: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b021189fda911f5f9c01459f93a1cc1991300050c373d976ffb11c43e7ef9081(
-    *,
-    availability_zone: typing.Optional[builtins.str] = None,
-    availability_zone_id: typing.Optional[builtins.str] = None,
-    compute_count: typing.Optional[jsii.Number] = None,
-    customer_contacts_to_send_to_oci: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudExadataInfrastructure.CustomerContactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    database_server_type: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    shape: typing.Optional[builtins.str] = None,
-    storage_count: typing.Optional[jsii.Number] = None,
-    storage_server_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3932,32 +4394,6 @@ def _typecheckingstub__0be5e048213b0ee63e4c9703a3c1b37da85fb4dc37d9458571be7e678
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a(
-    *,
-    cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
-    cluster_name: typing.Optional[builtins.str] = None,
-    cpu_core_count: typing.Optional[jsii.Number] = None,
-    data_collection_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.DataCollectionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_storage_size_in_t_bs: typing.Optional[jsii.Number] = None,
-    db_node_storage_size_in_g_bs: typing.Optional[jsii.Number] = None,
-    db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    gi_version: typing.Optional[builtins.str] = None,
-    hostname: typing.Optional[builtins.str] = None,
-    is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    license_model: typing.Optional[builtins.str] = None,
-    memory_size_in_g_bs: typing.Optional[jsii.Number] = None,
-    odb_network_id: typing.Optional[builtins.str] = None,
-    scan_listener_port_tcp: typing.Optional[jsii.Number] = None,
-    ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
-    system_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_zone: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3cd0f5d6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4030,20 +4466,6 @@ def _typecheckingstub__6f9a4c06370e66400707daa4ab73fb37a67d67c8422f10b57fa0ee6b1
 
 def _typecheckingstub__2a78f63e76d627d52015eb8e2a0dc2ab1a80a0926480a2a40fc93da33d803ce3(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7feb6ea8(
-    *,
-    availability_zone: typing.Optional[builtins.str] = None,
-    availability_zone_id: typing.Optional[builtins.str] = None,
-    backup_subnet_cidr: typing.Optional[builtins.str] = None,
-    client_subnet_cidr: typing.Optional[builtins.str] = None,
-    default_dns_prefix: typing.Optional[builtins.str] = None,
-    delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

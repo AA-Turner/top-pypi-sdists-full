@@ -52,7 +52,8 @@ class MCPComponent(Component):
                 "name": "serena",
                 "description": "Semantic code analysis and intelligent editing",
                 "install_method": "uv",
-                "install_command": "uvx --from git+https://github.com/oraios/serena",
+                "install_command": "uv tool install --from git+https://github.com/oraios/serena serena-agent",
+                "run_command": "serena start-mcp-server --context ide-assistant --project $(pwd)",
                 "required": False
             },
             "morphllm": {
@@ -63,7 +64,6 @@ class MCPComponent(Component):
                 "api_key_env": "MORPH_API_KEY",
                 "api_key_description": "Morph API key for Fast Apply"
             }
-
         }
     
     def get_metadata(self) -> Dict[str, str]:
@@ -169,9 +169,13 @@ class MCPComponent(Component):
         """Install a single MCP server using uv"""
         server_name = server_info["name"]
         install_command = server_info.get("install_command")
+        run_command = server_info.get("run_command")
 
         if not install_command:
             self.logger.error(f"No install_command found for uv-based server {server_name}")
+            return False
+        if not run_command:
+            self.logger.error(f"No run_command found for uv-based server {server_name}")
             return False
 
         try:
@@ -183,11 +187,11 @@ class MCPComponent(Component):
 
             if config.get("dry_run"):
                 self.logger.info(f"Would install MCP server (user scope): {install_command}")
+                self.logger.info(f"Would register MCP server run command: {run_command}")
                 return True
 
+            # Run install command
             self.logger.debug(f"Running: {install_command}")
-
-
             cmd_parts = shlex.split(install_command)
             result = subprocess.run(
                 cmd_parts,
@@ -199,12 +203,10 @@ class MCPComponent(Component):
 
             if result.returncode == 0:
                 self.logger.success(f"Successfully installed MCP server (user scope): {server_name}")
-                run_command = install_command
 
                 self.logger.info(f"Registering {server_name} with Claude CLI. Run command: {run_command}")
-
                 reg_result = subprocess.run(
-                    ["claude", "mcp", "add", "-s", "user", "--", server_name] + run_command.split(),
+                    ["claude", "mcp", "add", "-s", "user", "--", server_name] + shlex.split(run_command),
                     capture_output=True,
                     text=True,
                     timeout=120,
@@ -429,6 +431,7 @@ class MCPComponent(Component):
         return self._post_install()
 
     def _post_install(self) -> bool:
+        """Post-installation tasks"""
         # Update metadata
         try:
             metadata_mods = self.get_metadata_modifications()
@@ -442,12 +445,10 @@ class MCPComponent(Component):
             })
 
             self.logger.info("Updated metadata with MCP component registration")
+            return True
         except Exception as e:
             self.logger.error(f"Failed to update metadata: {e}")
             return False
-
-        return True
-
     
     def uninstall(self) -> bool:
         """Uninstall MCP component"""
@@ -606,4 +607,4 @@ class MCPComponent(Component):
             "estimated_size": self.get_size_estimate(),
             "dependencies": self.get_dependencies(),
             "required_tools": ["node", "npm", "claude"]
-        }
+            }

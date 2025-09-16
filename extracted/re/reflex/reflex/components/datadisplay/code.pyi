@@ -926,7 +926,9 @@ class CodeBlock(Component, MarkdownComponentMap):
         starting_line_number: Var[int] | int | None = None,
         wrap_long_lines: Var[bool] | bool | None = None,
         custom_style: dict[str, str | Var | Color] | None = None,
-        code_tag_props: Var[dict[str, str]] | dict[str, str] | None = None,
+        code_tag_props: Var[dict[str, dict[str, str] | str]]
+        | dict[str, dict[str, str] | str]
+        | None = None,
         can_copy: bool | None = None,
         copy_button: Component | bool | None = None,
         style: Sequence[Mapping[str, Any]]
@@ -1562,7 +1564,9 @@ class CodeblockNamespace(ComponentNamespace):
         starting_line_number: Var[int] | int | None = None,
         wrap_long_lines: Var[bool] | bool | None = None,
         custom_style: dict[str, str | Var | Color] | None = None,
-        code_tag_props: Var[dict[str, str]] | dict[str, str] | None = None,
+        code_tag_props: Var[dict[str, dict[str, str] | str]]
+        | dict[str, dict[str, str] | str]
+        | None = None,
         can_copy: bool | None = None,
         copy_button: Component | bool | None = None,
         style: Sequence[Mapping[str, Any]]

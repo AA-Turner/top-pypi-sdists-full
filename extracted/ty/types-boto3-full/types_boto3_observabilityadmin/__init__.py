@@ -12,6 +12,7 @@ Usage::
     from types_boto3_observabilityadmin import (
         Client,
         CloudWatchObservabilityAdminServiceClient,
+        ListCentralizationRulesForOrganizationPaginator,
         ListResourceTelemetryForOrganizationPaginator,
         ListResourceTelemetryPaginator,
         ListTelemetryRulesForOrganizationPaginator,
@@ -21,6 +22,7 @@ Usage::
     session = Session()
     client: CloudWatchObservabilityAdminServiceClient = session.client("observabilityadmin")
 
+    list_centralization_rules_for_organization_paginator: ListCentralizationRulesForOrganizationPaginator = client.get_paginator("list_centralization_rules_for_organization")
     list_resource_telemetry_for_organization_paginator: ListResourceTelemetryForOrganizationPaginator = client.get_paginator("list_resource_telemetry_for_organization")
     list_resource_telemetry_paginator: ListResourceTelemetryPaginator = client.get_paginator("list_resource_telemetry")
     list_telemetry_rules_for_organization_paginator: ListTelemetryRulesForOrganizationPaginator = client.get_paginator("list_telemetry_rules_for_organization")
@@ -30,6 +32,7 @@ Usage::
 
 from .client import CloudWatchObservabilityAdminServiceClient
 from .paginator import (
+    ListCentralizationRulesForOrganizationPaginator,
     ListResourceTelemetryForOrganizationPaginator,
     ListResourceTelemetryPaginator,
     ListTelemetryRulesForOrganizationPaginator,
@@ -42,6 +45,7 @@ Client = CloudWatchObservabilityAdminServiceClient
 __all__ = (
     "Client",
     "CloudWatchObservabilityAdminServiceClient",
+    "ListCentralizationRulesForOrganizationPaginator",
     "ListResourceTelemetryForOrganizationPaginator",
     "ListResourceTelemetryPaginator",
     "ListTelemetryRulesForOrganizationPaginator",

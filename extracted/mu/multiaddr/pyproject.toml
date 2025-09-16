@@ -1,0 +1,206 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multiaddr"
+version = "0.0.11"
+description = "Python implementation of jbenet's multiaddr"
+readme = "README.rst"
+authors = [{ name = "Steven Buss", email = "steven.buss@gmail.com" }]
+maintainers = [
+    { name = "pacrob", email = "pacrob@protonmail.com" },
+    { name = "acul71" },
+    { name = "Manu Sheel Gupta", email = "manu@seeta.in" },
+]
+license = { text = "MIT License" }
+keywords = ["multiaddr"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.10, <4.0"
+dependencies = [
+    "base58",
+    "dnspython>=2.7.0",
+    "idna",
+    "netaddr",
+    "psutil",
+    "py-cid >= 0.3.1",
+    "py-multicodec >= 0.2.0",
+    "trio-typing>=0.0.4",
+    "trio>=0.26.0",
+    "varint",
+]
+
+[project.urls]
+Homepage = "https://github.com/multiformats/py-multiaddr"
+Download = "https://github.com/multiformats/py-multiaddr/tarball/0.0.11"
+
+[project.optional-dependencies]
+dev = [
+    "Sphinx>=5.0.0",
+    "build>=0.9.0",
+    "bump_my_version>=1.2.0",
+    "coverage>=6.5.0",
+    "mypy",
+    "pre-commit",
+    "pyrefly",
+    "pyright",
+    "pytest",
+    "pytest-cov",
+    "pytest-runner",
+    "pytest-trio>=0.5.2",
+    "ruff",
+    "towncrier>=24,<25",
+    "tox>=4.10.0",
+    "twine",
+    "types-netaddr",
+    "types-psutil",
+    "watchdog>=3.0.0",
+    "wheel>=0.31.0",
+]
+
+[tool.setuptools]
+# packages = ["multiaddr"]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["multiaddr*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.towncrier]
+# Read https://github.com/multiformats/py-multiaddr/blob/master/newsfragments/README.md for instructions
+directory = "newsfragments"
+filename = "HISTORY.rst"
+issue_format = "`#{issue} <https://github.com/multiformats/py-multiaddr/issues/{issue}>`__"
+package = "multiaddr"
+title_format = "py-multiaddr v{version} ({project_date})"
+underlines = ["-", "~", "^"]
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bugfixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "docs"
+name = "Improved Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "internal"
+name = "Internal Changes - for py-multiaddr Contributors"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneous Changes"
+showcontent = false
+
+[[tool.towncrier.type]]
+directory = "performance"
+name = "Performance Improvements"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals"
+showcontent = true
+
+[tool.bumpversion]
+current_version = "0.0.11"
+parse = """
+    (?P<major>\\d+)
+    \\.(?P<minor>\\d+)
+    \\.(?P<patch>\\d+)
+		(-
+			(?P<stage>[^.]*)
+			\\.(?P<devnum>\\d+)
+		)?
+"""
+serialize = [
+	"{major}.{minor}.{patch}-{stage}.{devnum}",
+	"{major}.{minor}.{patch}",
+]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = true
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+
+[tool.bumpversion.parts.stage]
+optional_value = "stable"
+first_value = "stable"
+values = [
+	"alpha",
+	"beta",
+	"stable",
+]
+
+[tool.bumpversion.part.devnum]
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "multiaddr/__init__.py"
+search = "__version__ = \"{current_version}\""
+replace = "__version__ = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "Download = \"https://github.com/multiformats/py-multiaddr/tarball/{current_version}\""
+replace = "Download = \"https://github.com/multiformats/py-multiaddr/tarball/{new_version}\""
+
+[tool.mypy]
+python_version = "3.10"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = false
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+incremental = false
+strict_equality = true
+strict_optional = true
+warn_redundant_casts = true
+warn_return_any = false
+warn_unused_configs = true
+warn_unused_ignores = false

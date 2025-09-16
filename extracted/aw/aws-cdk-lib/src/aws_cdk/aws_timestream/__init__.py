@@ -70,7 +70,1366 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnDatabaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_name": "databaseName",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnDatabaseProps:
+    def __init__(
+        self,
+        *,
+        database_name: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatabase``.
+
+        :param database_name: The name of the Timestream database. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+        :param kms_key_id: The identifier of the AWS KMS key used to encrypt the data stored in the database.
+        :param tags: The tags to add to the database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            cfn_database_props = timestream.CfnDatabaseProps(
+                database_name="databaseName",
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6fb3f295c)
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if database_name is not None:
+            self._values["database_name"] = database_name
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def database_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Timestream database.
+
+        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-databasename
+        '''
+        result = self._values.get("database_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS key used to encrypt the data stored in the database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatabaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allocated_storage": "allocatedStorage",
+        "bucket": "bucket",
+        "db_instance_type": "dbInstanceType",
+        "db_parameter_group_identifier": "dbParameterGroupIdentifier",
+        "db_storage_type": "dbStorageType",
+        "deployment_type": "deploymentType",
+        "log_delivery_configuration": "logDeliveryConfiguration",
+        "name": "name",
+        "network_type": "networkType",
+        "organization": "organization",
+        "password": "password",
+        "port": "port",
+        "publicly_accessible": "publiclyAccessible",
+        "tags": "tags",
+        "username": "username",
+        "vpc_security_group_ids": "vpcSecurityGroupIds",
+        "vpc_subnet_ids": "vpcSubnetIds",
+    },
+)
+class CfnInfluxDBInstanceProps:
+    def __init__(
+        self,
+        *,
+        allocated_storage: typing.Optional[jsii.Number] = None,
+        bucket: typing.Optional[builtins.str] = None,
+        db_instance_type: typing.Optional[builtins.str] = None,
+        db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+        db_storage_type: typing.Optional[builtins.str] = None,
+        deployment_type: typing.Optional[builtins.str] = None,
+        log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInfluxDBInstance.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        organization: typing.Optional[builtins.str] = None,
+        password: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        username: typing.Optional[builtins.str] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInfluxDBInstance``.
+
+        :param allocated_storage: The amount of storage to allocate for your DB storage type in GiB (gibibytes).
+        :param bucket: The name of the initial InfluxDB bucket. All InfluxDB data is stored in a bucket. A bucket combines the concept of a database and a retention period (the duration of time that each data point persists). A bucket belongs to an organization.
+        :param db_instance_type: The Timestream for InfluxDB DB instance type to run on.
+        :param db_parameter_group_identifier: The name or id of the DB parameter group to assign to your DB instance. DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
+        :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
+        :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
+        :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
+        :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
+        :param network_type: Network type of the InfluxDB Instance.
+        :param organization: The name of the initial organization for the initial admin user in InfluxDB. An InfluxDB organization is a workspace for a group of users.
+        :param password: The password of the initial admin user created in InfluxDB. This password will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon SecretManager in your account.
+        :param port: The port number on which InfluxDB accepts connections.
+        :param publicly_accessible: Configures the DB instance with a public IP to facilitate access. Default: - false
+        :param tags: A list of key-value pairs to associate with the DB instance.
+        :param username: The username of the initial admin user created in InfluxDB. Must start with a letter and can't end with a hyphen or contain two consecutive hyphens. For example, my-user1. This username will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon Secrets Manager in your account.
+        :param vpc_security_group_ids: A list of VPC security group IDs to associate with the DB instance.
+        :param vpc_subnet_ids: A list of VPC subnet IDs to associate with the DB instance. Provide at least two VPC subnet IDs in different availability zones when deploying with a Multi-AZ standby.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            cfn_influx_dBInstance_props = timestream.CfnInfluxDBInstanceProps(
+                allocated_storage=123,
+                bucket="bucket",
+                db_instance_type="dbInstanceType",
+                db_parameter_group_identifier="dbParameterGroupIdentifier",
+                db_storage_type="dbStorageType",
+                deployment_type="deploymentType",
+                log_delivery_configuration=timestream.CfnInfluxDBInstance.LogDeliveryConfigurationProperty(
+                    s3_configuration=timestream.CfnInfluxDBInstance.S3ConfigurationProperty(
+                        bucket_name="bucketName",
+                        enabled=False
+                    )
+                ),
+                name="name",
+                network_type="networkType",
+                organization="organization",
+                password="password",
+                port=123,
+                publicly_accessible=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                username="username",
+                vpc_security_group_ids=["vpcSecurityGroupIds"],
+                vpc_subnet_ids=["vpcSubnetIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f2972e9d)
+            check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument db_instance_type", value=db_instance_type, expected_type=type_hints["db_instance_type"])
+            check_type(argname="argument db_parameter_group_identifier", value=db_parameter_group_identifier, expected_type=type_hints["db_parameter_group_identifier"])
+            check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
+            check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
+            check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+            check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allocated_storage is not None:
+            self._values["allocated_storage"] = allocated_storage
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if db_instance_type is not None:
+            self._values["db_instance_type"] = db_instance_type
+        if db_parameter_group_identifier is not None:
+            self._values["db_parameter_group_identifier"] = db_parameter_group_identifier
+        if db_storage_type is not None:
+            self._values["db_storage_type"] = db_storage_type
+        if deployment_type is not None:
+            self._values["deployment_type"] = deployment_type
+        if log_delivery_configuration is not None:
+            self._values["log_delivery_configuration"] = log_delivery_configuration
+        if name is not None:
+            self._values["name"] = name
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if organization is not None:
+            self._values["organization"] = organization
+        if password is not None:
+            self._values["password"] = password
+        if port is not None:
+            self._values["port"] = port
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if tags is not None:
+            self._values["tags"] = tags
+        if username is not None:
+            self._values["username"] = username
+        if vpc_security_group_ids is not None:
+            self._values["vpc_security_group_ids"] = vpc_security_group_ids
+        if vpc_subnet_ids is not None:
+            self._values["vpc_subnet_ids"] = vpc_subnet_ids
+
+    @builtins.property
+    def allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The amount of storage to allocate for your DB storage type in GiB (gibibytes).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-allocatedstorage
+        '''
+        result = self._values.get("allocated_storage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[builtins.str]:
+        '''The name of the initial InfluxDB bucket.
+
+        All InfluxDB data is stored in a bucket. A bucket combines the concept of a database and a retention period (the duration of time that each data point persists). A bucket belongs to an organization.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-bucket
+        '''
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_instance_type(self) -> typing.Optional[builtins.str]:
+        '''The Timestream for InfluxDB DB instance type to run on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbinstancetype
+        '''
+        result = self._values.get("db_instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_parameter_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name or id of the DB parameter group to assign to your DB instance.
+
+        DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbparametergroupidentifier
+        '''
+        result = self._values.get("db_parameter_group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_storage_type(self) -> typing.Optional[builtins.str]:
+        '''The Timestream for InfluxDB DB storage type to read and write InfluxDB data.
+
+        You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements:
+
+        - Influx IO Included 3000 IOPS
+        - Influx IO Included 12000 IOPS
+        - Influx IO Included 16000 IOPS
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbstoragetype
+        '''
+        result = self._values.get("db_storage_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-deploymenttype
+        '''
+        result = self._values.get("deployment_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_delivery_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfluxDBInstance.LogDeliveryConfigurationProperty"]]:
+        '''Configuration for sending InfluxDB engine logs to a specified S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-logdeliveryconfiguration
+        '''
+        result = self._values.get("log_delivery_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInfluxDBInstance.LogDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands.
+
+        This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''Network type of the InfluxDB Instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def organization(self) -> typing.Optional[builtins.str]:
+        '''The name of the initial organization for the initial admin user in InfluxDB.
+
+        An InfluxDB organization is a workspace for a group of users.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-organization
+        '''
+        result = self._values.get("organization")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The password of the initial admin user created in InfluxDB.
+
+        This password will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon SecretManager in your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port number on which InfluxDB accepts connections.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Configures the DB instance with a public IP to facilitate access.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs to associate with the DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def username(self) -> typing.Optional[builtins.str]:
+        '''The username of the initial admin user created in InfluxDB.
+
+        Must start with a letter and can't end with a hyphen or contain two consecutive hyphens. For example, my-user1. This username will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon Secrets Manager in your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-username
+        '''
+        result = self._values.get("username")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of VPC security group IDs to associate with the DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-vpcsecuritygroupids
+        '''
+        result = self._values.get("vpc_security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def vpc_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of VPC subnet IDs to associate with the DB instance.
+
+        Provide at least two VPC subnet IDs in different availability zones when deploying with a Multi-AZ standby.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-vpcsubnetids
+        '''
+        result = self._values.get("vpc_subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInfluxDBInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnScheduledQueryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "error_report_configuration": "errorReportConfiguration",
+        "notification_configuration": "notificationConfiguration",
+        "query_string": "queryString",
+        "schedule_configuration": "scheduleConfiguration",
+        "scheduled_query_execution_role_arn": "scheduledQueryExecutionRoleArn",
+        "client_token": "clientToken",
+        "kms_key_id": "kmsKeyId",
+        "scheduled_query_name": "scheduledQueryName",
+        "tags": "tags",
+        "target_configuration": "targetConfiguration",
+    },
+)
+class CfnScheduledQueryProps:
+    def __init__(
+        self,
+        *,
+        error_report_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledQuery.ErrorReportConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledQuery.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        query_string: builtins.str,
+        schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledQuery.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        scheduled_query_execution_role_arn: builtins.str,
+        client_token: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        scheduled_query_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScheduledQuery.TargetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScheduledQuery``.
+
+        :param error_report_configuration: Configuration for error reporting. Error reports will be generated when a problem is encountered when writing the query results.
+        :param notification_configuration: Notification configuration for the scheduled query. A notification is sent by Timestream when a query run finishes, when the state is updated or when you delete it.
+        :param query_string: The query string to run. Parameter names can be specified in the query string ``@`` character followed by an identifier. The named Parameter ``@scheduled_runtime`` is reserved and can be used in the query to get the time at which the query is scheduled to run. The timestamp calculated according to the ScheduleConfiguration parameter, will be the value of ``@scheduled_runtime`` paramater for each query run. For example, consider an instance of a scheduled query executing on 2021-12-01 00:00:00. For this instance, the ``@scheduled_runtime`` parameter is initialized to the timestamp 2021-12-01 00:00:00 when invoking the query.
+        :param schedule_configuration: Schedule configuration.
+        :param scheduled_query_execution_role_arn: The ARN for the IAM role that Timestream will assume when running the scheduled query.
+        :param client_token: Using a ClientToken makes the call to CreateScheduledQuery idempotent, in other words, making the same request repeatedly will produce the same result. Making multiple identical CreateScheduledQuery requests has the same effect as making a single request. - If CreateScheduledQuery is called without a ``ClientToken`` , the Query SDK generates a ``ClientToken`` on your behalf. - After 8 hours, any request with the same ``ClientToken`` is treated as a new request.
+        :param kms_key_id: The Amazon KMS key used to encrypt the scheduled query resource, at-rest. If the Amazon KMS key is not specified, the scheduled query resource will be encrypted with a Timestream owned Amazon KMS key. To specify a KMS key, use the key ID, key ARN, alias name, or alias ARN. When using an alias name, prefix the name with *alias/* If ErrorReportConfiguration uses ``SSE_KMS`` as encryption type, the same KmsKeyId is used to encrypt the error report at rest.
+        :param scheduled_query_name: A name for the query. Scheduled query names must be unique within each Region.
+        :param tags: A list of key-value pairs to label the scheduled query.
+        :param target_configuration: Scheduled query target store configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            cfn_scheduled_query_props = timestream.CfnScheduledQueryProps(
+                error_report_configuration=timestream.CfnScheduledQuery.ErrorReportConfigurationProperty(
+                    s3_configuration=timestream.CfnScheduledQuery.S3ConfigurationProperty(
+                        bucket_name="bucketName",
+            
+                        # the properties below are optional
+                        encryption_option="encryptionOption",
+                        object_key_prefix="objectKeyPrefix"
+                    )
+                ),
+                notification_configuration=timestream.CfnScheduledQuery.NotificationConfigurationProperty(
+                    sns_configuration=timestream.CfnScheduledQuery.SnsConfigurationProperty(
+                        topic_arn="topicArn"
+                    )
+                ),
+                query_string="queryString",
+                schedule_configuration=timestream.CfnScheduledQuery.ScheduleConfigurationProperty(
+                    schedule_expression="scheduleExpression"
+                ),
+                scheduled_query_execution_role_arn="scheduledQueryExecutionRoleArn",
+            
+                # the properties below are optional
+                client_token="clientToken",
+                kms_key_id="kmsKeyId",
+                scheduled_query_name="scheduledQueryName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_configuration=timestream.CfnScheduledQuery.TargetConfigurationProperty(
+                    timestream_configuration=timestream.CfnScheduledQuery.TimestreamConfigurationProperty(
+                        database_name="databaseName",
+                        dimension_mappings=[timestream.CfnScheduledQuery.DimensionMappingProperty(
+                            dimension_value_type="dimensionValueType",
+                            name="name"
+                        )],
+                        table_name="tableName",
+                        time_column="timeColumn",
+            
+                        # the properties below are optional
+                        measure_name_column="measureNameColumn",
+                        mixed_measure_mappings=[timestream.CfnScheduledQuery.MixedMeasureMappingProperty(
+                            measure_value_type="measureValueType",
+            
+                            # the properties below are optional
+                            measure_name="measureName",
+                            multi_measure_attribute_mappings=[timestream.CfnScheduledQuery.MultiMeasureAttributeMappingProperty(
+                                measure_value_type="measureValueType",
+                                source_column="sourceColumn",
+            
+                                # the properties below are optional
+                                target_multi_measure_attribute_name="targetMultiMeasureAttributeName"
+                            )],
+                            source_column="sourceColumn",
+                            target_measure_name="targetMeasureName"
+                        )],
+                        multi_measure_mappings=timestream.CfnScheduledQuery.MultiMeasureMappingsProperty(
+                            multi_measure_attribute_mappings=[timestream.CfnScheduledQuery.MultiMeasureAttributeMappingProperty(
+                                measure_value_type="measureValueType",
+                                source_column="sourceColumn",
+            
+                                # the properties below are optional
+                                target_multi_measure_attribute_name="targetMultiMeasureAttributeName"
+                            )],
+            
+                            # the properties below are optional
+                            target_multi_measure_name="targetMultiMeasureName"
+                        )
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2caf5d9713b0dd130de3eaf553fcdda6f169bfdde6f8f293349239a734d19010)
+            check_type(argname="argument error_report_configuration", value=error_report_configuration, expected_type=type_hints["error_report_configuration"])
+            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
+            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+            check_type(argname="argument schedule_configuration", value=schedule_configuration, expected_type=type_hints["schedule_configuration"])
+            check_type(argname="argument scheduled_query_execution_role_arn", value=scheduled_query_execution_role_arn, expected_type=type_hints["scheduled_query_execution_role_arn"])
+            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument scheduled_query_name", value=scheduled_query_name, expected_type=type_hints["scheduled_query_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_configuration", value=target_configuration, expected_type=type_hints["target_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "error_report_configuration": error_report_configuration,
+            "notification_configuration": notification_configuration,
+            "query_string": query_string,
+            "schedule_configuration": schedule_configuration,
+            "scheduled_query_execution_role_arn": scheduled_query_execution_role_arn,
+        }
+        if client_token is not None:
+            self._values["client_token"] = client_token
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if scheduled_query_name is not None:
+            self._values["scheduled_query_name"] = scheduled_query_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_configuration is not None:
+            self._values["target_configuration"] = target_configuration
+
+    @builtins.property
+    def error_report_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.ErrorReportConfigurationProperty"]:
+        '''Configuration for error reporting.
+
+        Error reports will be generated when a problem is encountered when writing the query results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-errorreportconfiguration
+        '''
+        result = self._values.get("error_report_configuration")
+        assert result is not None, "Required property 'error_report_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.ErrorReportConfigurationProperty"], result)
+
+    @builtins.property
+    def notification_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.NotificationConfigurationProperty"]:
+        '''Notification configuration for the scheduled query.
+
+        A notification is sent by Timestream when a query run finishes, when the state is updated or when you delete it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-notificationconfiguration
+        '''
+        result = self._values.get("notification_configuration")
+        assert result is not None, "Required property 'notification_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.NotificationConfigurationProperty"], result)
+
+    @builtins.property
+    def query_string(self) -> builtins.str:
+        '''The query string to run.
+
+        Parameter names can be specified in the query string ``@`` character followed by an identifier. The named Parameter ``@scheduled_runtime`` is reserved and can be used in the query to get the time at which the query is scheduled to run.
+
+        The timestamp calculated according to the ScheduleConfiguration parameter, will be the value of ``@scheduled_runtime`` paramater for each query run. For example, consider an instance of a scheduled query executing on 2021-12-01 00:00:00. For this instance, the ``@scheduled_runtime`` parameter is initialized to the timestamp 2021-12-01 00:00:00 when invoking the query.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-querystring
+        '''
+        result = self._values.get("query_string")
+        assert result is not None, "Required property 'query_string' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.ScheduleConfigurationProperty"]:
+        '''Schedule configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduleconfiguration
+        '''
+        result = self._values.get("schedule_configuration")
+        assert result is not None, "Required property 'schedule_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.ScheduleConfigurationProperty"], result)
+
+    @builtins.property
+    def scheduled_query_execution_role_arn(self) -> builtins.str:
+        '''The ARN for the IAM role that Timestream will assume when running the scheduled query.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduledqueryexecutionrolearn
+        '''
+        result = self._values.get("scheduled_query_execution_role_arn")
+        assert result is not None, "Required property 'scheduled_query_execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_token(self) -> typing.Optional[builtins.str]:
+        '''Using a ClientToken makes the call to CreateScheduledQuery idempotent, in other words, making the same request repeatedly will produce the same result.
+
+        Making multiple identical CreateScheduledQuery requests has the same effect as making a single request.
+
+        - If CreateScheduledQuery is called without a ``ClientToken`` , the Query SDK generates a ``ClientToken`` on your behalf.
+        - After 8 hours, any request with the same ``ClientToken`` is treated as a new request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-clienttoken
+        '''
+        result = self._values.get("client_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The Amazon KMS key used to encrypt the scheduled query resource, at-rest.
+
+        If the Amazon KMS key is not specified, the scheduled query resource will be encrypted with a Timestream owned Amazon KMS key. To specify a KMS key, use the key ID, key ARN, alias name, or alias ARN. When using an alias name, prefix the name with *alias/*
+
+        If ErrorReportConfiguration uses ``SSE_KMS`` as encryption type, the same KmsKeyId is used to encrypt the error report at rest.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scheduled_query_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the query.
+
+        Scheduled query names must be unique within each Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduledqueryname
+        '''
+        result = self._values.get("scheduled_query_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs to label the scheduled query.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def target_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.TargetConfigurationProperty"]]:
+        '''Scheduled query target store configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-targetconfiguration
+        '''
+        result = self._values.get("target_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScheduledQuery.TargetConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduledQueryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnTableProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_name": "databaseName",
+        "magnetic_store_write_properties": "magneticStoreWriteProperties",
+        "retention_properties": "retentionProperties",
+        "schema": "schema",
+        "table_name": "tableName",
+        "tags": "tags",
+    },
+)
+class CfnTableProps:
+    def __init__(
+        self,
+        *,
+        database_name: builtins.str,
+        magnetic_store_write_properties: typing.Any = None,
+        retention_properties: typing.Any = None,
+        schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.SchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTable``.
+
+        :param database_name: The name of the Timestream database that contains this table. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store writes. This object has the following attributes: - *EnableMagneticStoreWrites* : A ``boolean`` flag to enable magnetic store writes. - *MagneticStoreRejectedDataLocation* : The location to write error reports for records rejected, asynchronously, during magnetic store writes. Only ``S3Configuration`` objects are allowed. The ``S3Configuration`` object has the following attributes: - *BucketName* : The name of the S3 bucket. - *EncryptionOption* : The encryption option for the S3 location. Valid values are S3 server-side encryption with an S3 managed key ( ``SSE_S3`` ) or AWS managed key ( ``SSE_KMS`` ). - *KmsKeyId* : The AWS KMS key ID to use when encrypting with an AWS managed key. - *ObjectKeyPrefix* : The prefix to use option for the objects stored in S3. Both ``BucketName`` and ``EncryptionOption`` are *required* when ``S3Configuration`` is specified. If you specify ``SSE_KMS`` as your ``EncryptionOption`` then ``KmsKeyId`` is *required* . ``EnableMagneticStoreWrites`` attribute is *required* when ``MagneticStoreWriteProperties`` is specified. ``MagneticStoreRejectedDataLocation`` attribute is *required* when ``EnableMagneticStoreWrites`` is set to ``true`` . See the following examples: *JSON:: { "Type" : AWS::Timestream::Table", "Properties":{ "DatabaseName":"TestDatabase", "TableName":"TestTable", "MagneticStoreWriteProperties":{ "EnableMagneticStoreWrites":true, "MagneticStoreRejectedDataLocation":{ "S3Configuration":{ "BucketName":" amzn-s3-demo-bucket ", "EncryptionOption":"SSE_KMS", "KmsKeyId":"1234abcd-12ab-34cd-56ef-1234567890ab", "ObjectKeyPrefix":"prefix" } } } } } *YAML:: Type: AWS::Timestream::Table DependsOn: TestDatabase Properties: TableName: "TestTable" DatabaseName: "TestDatabase" MagneticStoreWriteProperties: EnableMagneticStoreWrites: true MagneticStoreRejectedDataLocation: S3Configuration: BucketName: " amzn-s3-demo-bucket " EncryptionOption: "SSE_KMS" KmsKeyId: "1234abcd-12ab-34cd-56ef-1234567890ab" ObjectKeyPrefix: "prefix"
+        :param retention_properties: The retention duration for the memory store and magnetic store. This object has the following attributes:. - *MemoryStoreRetentionPeriodInHours* : Retention duration for memory store, in hours. - *MagneticStoreRetentionPeriodInDays* : Retention duration for magnetic store, in days. Both attributes are of type ``string`` . Both attributes are *required* when ``RetentionProperties`` is specified. See the following examples: *JSON* ``{ "Type" : AWS::Timestream::Table", "Properties" : { "DatabaseName" : "TestDatabase", "TableName" : "TestTable", "RetentionProperties" : { "MemoryStoreRetentionPeriodInHours": "24", "MagneticStoreRetentionPeriodInDays": "7" } } }`` *YAML:: Type: AWS::Timestream::Table DependsOn: TestDatabase Properties: TableName: "TestTable" DatabaseName: "TestDatabase" RetentionProperties: MemoryStoreRetentionPeriodInHours: "24" MagneticStoreRetentionPeriodInDays: "7"
+        :param schema: The schema of the table.
+        :param table_name: The name of the Timestream table. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+        :param tags: The tags to add to the table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            # magnetic_store_write_properties: Any
+            # retention_properties: Any
+            
+            cfn_table_props = timestream.CfnTableProps(
+                database_name="databaseName",
+            
+                # the properties below are optional
+                magnetic_store_write_properties=magnetic_store_write_properties,
+                retention_properties=retention_properties,
+                schema=timestream.CfnTable.SchemaProperty(
+                    composite_partition_key=[timestream.CfnTable.PartitionKeyProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        enforcement_in_record="enforcementInRecord",
+                        name="name"
+                    )]
+                ),
+                table_name="tableName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9edb9a2aaa51342f4db373e24edd938478a52c96340bde2bc89fe7b86eb4431)
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument magnetic_store_write_properties", value=magnetic_store_write_properties, expected_type=type_hints["magnetic_store_write_properties"])
+            check_type(argname="argument retention_properties", value=retention_properties, expected_type=type_hints["retention_properties"])
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_name": database_name,
+        }
+        if magnetic_store_write_properties is not None:
+            self._values["magnetic_store_write_properties"] = magnetic_store_write_properties
+        if retention_properties is not None:
+            self._values["retention_properties"] = retention_properties
+        if schema is not None:
+            self._values["schema"] = schema
+        if table_name is not None:
+            self._values["table_name"] = table_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The name of the Timestream database that contains this table.
+
+        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-databasename
+        '''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def magnetic_store_write_properties(self) -> typing.Any:
+        '''Contains properties to set on the table when enabling magnetic store writes.
+
+        This object has the following attributes:
+
+        - *EnableMagneticStoreWrites* : A ``boolean`` flag to enable magnetic store writes.
+        - *MagneticStoreRejectedDataLocation* : The location to write error reports for records rejected, asynchronously, during magnetic store writes. Only ``S3Configuration`` objects are allowed. The ``S3Configuration`` object has the following attributes:
+        - *BucketName* : The name of the S3 bucket.
+        - *EncryptionOption* : The encryption option for the S3 location. Valid values are S3 server-side encryption with an S3 managed key ( ``SSE_S3`` ) or AWS managed key ( ``SSE_KMS`` ).
+        - *KmsKeyId* : The AWS KMS key ID to use when encrypting with an AWS managed key.
+        - *ObjectKeyPrefix* : The prefix to use option for the objects stored in S3.
+
+        Both ``BucketName`` and ``EncryptionOption`` are *required* when ``S3Configuration`` is specified. If you specify ``SSE_KMS`` as your ``EncryptionOption`` then ``KmsKeyId`` is *required* .
+
+        ``EnableMagneticStoreWrites`` attribute is *required* when ``MagneticStoreWriteProperties`` is specified. ``MagneticStoreRejectedDataLocation`` attribute is *required* when ``EnableMagneticStoreWrites`` is set to ``true`` .
+
+        See the following examples:
+
+        *JSON::
+
+           { "Type" : AWS::Timestream::Table", "Properties":{ "DatabaseName":"TestDatabase", "TableName":"TestTable", "MagneticStoreWriteProperties":{ "EnableMagneticStoreWrites":true, "MagneticStoreRejectedDataLocation":{ "S3Configuration":{ "BucketName":" amzn-s3-demo-bucket ", "EncryptionOption":"SSE_KMS", "KmsKeyId":"1234abcd-12ab-34cd-56ef-1234567890ab", "ObjectKeyPrefix":"prefix" } } } }
+           }
+
+        *YAML::
+
+           Type: AWS::Timestream::Table
+           DependsOn: TestDatabase
+           Properties: TableName: "TestTable" DatabaseName: "TestDatabase" MagneticStoreWriteProperties: EnableMagneticStoreWrites: true MagneticStoreRejectedDataLocation: S3Configuration: BucketName: " amzn-s3-demo-bucket " EncryptionOption: "SSE_KMS" KmsKeyId: "1234abcd-12ab-34cd-56ef-1234567890ab" ObjectKeyPrefix: "prefix"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-magneticstorewriteproperties
+        '''
+        result = self._values.get("magnetic_store_write_properties")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def retention_properties(self) -> typing.Any:
+        '''The retention duration for the memory store and magnetic store. This object has the following attributes:.
+
+        - *MemoryStoreRetentionPeriodInHours* : Retention duration for memory store, in hours.
+        - *MagneticStoreRetentionPeriodInDays* : Retention duration for magnetic store, in days.
+
+        Both attributes are of type ``string`` . Both attributes are *required* when ``RetentionProperties`` is specified.
+
+        See the following examples:
+
+        *JSON*
+
+        ``{ "Type" : AWS::Timestream::Table", "Properties" : { "DatabaseName" : "TestDatabase", "TableName" : "TestTable", "RetentionProperties" : { "MemoryStoreRetentionPeriodInHours": "24", "MagneticStoreRetentionPeriodInDays": "7" } } }``
+
+        *YAML::
+
+           Type: AWS::Timestream::Table
+           DependsOn: TestDatabase
+           Properties: TableName: "TestTable" DatabaseName: "TestDatabase" RetentionProperties: MemoryStoreRetentionPeriodInHours: "24" MagneticStoreRetentionPeriodInDays: "7"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-retentionproperties
+        '''
+        result = self._values.get("retention_properties")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def schema(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SchemaProperty"]]:
+        '''The schema of the table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-schema
+        '''
+        result = self._values.get("schema")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SchemaProperty"]], result)
+
+    @builtins.property
+    def table_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Timestream table.
+
+        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-tablename
+        '''
+        result = self._values.get("table_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTableProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.DatabaseReference",
+    jsii_struct_bases=[],
+    name_mapping={"database_arn": "databaseArn", "database_name": "databaseName"},
+)
+class DatabaseReference:
+    def __init__(
+        self,
+        *,
+        database_arn: builtins.str,
+        database_name: builtins.str,
+    ) -> None:
+        '''A reference to a Database resource.
+
+        :param database_arn: The ARN of the Database resource.
+        :param database_name: The DatabaseName of the Database resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            database_reference = timestream.DatabaseReference(
+                database_arn="databaseArn",
+                database_name="databaseName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96ab559e26734f98e40ab3e9fd5da9b5177ddb01ba9d2eb948cc028a78780239)
+            check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_arn": database_arn,
+            "database_name": database_name,
+        }
+
+    @builtins.property
+    def database_arn(self) -> builtins.str:
+        '''The ARN of the Database resource.'''
+        result = self._values.get("database_arn")
+        assert result is not None, "Required property 'database_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The DatabaseName of the Database resource.'''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatabaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_timestream.IDatabaseRef")
+class IDatabaseRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Database.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseRef")
+    def database_ref(self) -> DatabaseReference:
+        '''(experimental) A reference to a Database resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatabaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Database.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_timestream.IDatabaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseRef")
+    def database_ref(self) -> DatabaseReference:
+        '''(experimental) A reference to a Database resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatabaseReference, jsii.get(self, "databaseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatabaseRef).__jsii_proxy_class__ = lambda : _IDatabaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_timestream.IInfluxDBInstanceRef")
+class IInfluxDBInstanceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a InfluxDBInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbInstanceRef")
+    def influx_db_instance_ref(self) -> "InfluxDBInstanceReference":
+        '''(experimental) A reference to a InfluxDBInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInfluxDBInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InfluxDBInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_timestream.IInfluxDBInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbInstanceRef")
+    def influx_db_instance_ref(self) -> "InfluxDBInstanceReference":
+        '''(experimental) A reference to a InfluxDBInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InfluxDBInstanceReference", jsii.get(self, "influxDbInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInfluxDBInstanceRef).__jsii_proxy_class__ = lambda : _IInfluxDBInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_timestream.IScheduledQueryRef")
+class IScheduledQueryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledQuery.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> "ScheduledQueryReference":
+        '''(experimental) A reference to a ScheduledQuery resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduledQueryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledQuery.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_timestream.IScheduledQueryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> "ScheduledQueryReference":
+        '''(experimental) A reference to a ScheduledQuery resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduledQueryReference", jsii.get(self, "scheduledQueryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduledQueryRef).__jsii_proxy_class__ = lambda : _IScheduledQueryRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_timestream.ITableRef")
+class ITableRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Table.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> "TableReference":
+        '''(experimental) A reference to a Table resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Table.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_timestream.ITableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> "TableReference":
+        '''(experimental) A reference to a Table resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TableReference", jsii.get(self, "tableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITableRef).__jsii_proxy_class__ = lambda : _ITableRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.InfluxDBInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "influx_db_instance_arn": "influxDbInstanceArn",
+        "influx_db_instance_id": "influxDbInstanceId",
+    },
+)
+class InfluxDBInstanceReference:
+    def __init__(
+        self,
+        *,
+        influx_db_instance_arn: builtins.str,
+        influx_db_instance_id: builtins.str,
+    ) -> None:
+        '''A reference to a InfluxDBInstance resource.
+
+        :param influx_db_instance_arn: The ARN of the InfluxDBInstance resource.
+        :param influx_db_instance_id: The Id of the InfluxDBInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            influx_dBInstance_reference = timestream.InfluxDBInstanceReference(
+                influx_db_instance_arn="influxDbInstanceArn",
+                influx_db_instance_id="influxDbInstanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2723da7c0158e0ff6eb9aae781cec6a3ec6946912eb1ffe550977d4ebe3d432)
+            check_type(argname="argument influx_db_instance_arn", value=influx_db_instance_arn, expected_type=type_hints["influx_db_instance_arn"])
+            check_type(argname="argument influx_db_instance_id", value=influx_db_instance_id, expected_type=type_hints["influx_db_instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "influx_db_instance_arn": influx_db_instance_arn,
+            "influx_db_instance_id": influx_db_instance_id,
+        }
+
+    @builtins.property
+    def influx_db_instance_arn(self) -> builtins.str:
+        '''The ARN of the InfluxDBInstance resource.'''
+        result = self._values.get("influx_db_instance_arn")
+        assert result is not None, "Required property 'influx_db_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def influx_db_instance_id(self) -> builtins.str:
+        '''The Id of the InfluxDBInstance resource.'''
+        result = self._values.get("influx_db_instance_id")
+        assert result is not None, "Required property 'influx_db_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InfluxDBInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.ScheduledQueryReference",
+    jsii_struct_bases=[],
+    name_mapping={"scheduled_query_arn": "scheduledQueryArn"},
+)
+class ScheduledQueryReference:
+    def __init__(self, *, scheduled_query_arn: builtins.str) -> None:
+        '''A reference to a ScheduledQuery resource.
+
+        :param scheduled_query_arn: The Arn of the ScheduledQuery resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            scheduled_query_reference = timestream.ScheduledQueryReference(
+                scheduled_query_arn="scheduledQueryArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c41a4fe77039f0bfc795e545de24dc047d5341c90cfd004aa494aaeb7d6809fb)
+            check_type(argname="argument scheduled_query_arn", value=scheduled_query_arn, expected_type=type_hints["scheduled_query_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scheduled_query_arn": scheduled_query_arn,
+        }
+
+    @builtins.property
+    def scheduled_query_arn(self) -> builtins.str:
+        '''The Arn of the ScheduledQuery resource.'''
+        result = self._values.get("scheduled_query_arn")
+        assert result is not None, "Required property 'scheduled_query_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduledQueryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.TableReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_name": "databaseName",
+        "table_arn": "tableArn",
+        "table_name": "tableName",
+    },
+)
+class TableReference:
+    def __init__(
+        self,
+        *,
+        database_name: builtins.str,
+        table_arn: builtins.str,
+        table_name: builtins.str,
+    ) -> None:
+        '''A reference to a Table resource.
+
+        :param database_name: The DatabaseName of the Table resource.
+        :param table_arn: The ARN of the Table resource.
+        :param table_name: The TableName of the Table resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            table_reference = timestream.TableReference(
+                database_name="databaseName",
+                table_arn="tableArn",
+                table_name="tableName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2df21840e64bb76ac128e34506dd6600def178e4e6262ccf5822a70bc9710d65)
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_name": database_name,
+            "table_arn": table_arn,
+            "table_name": table_name,
+        }
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The DatabaseName of the Table resource.'''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_arn(self) -> builtins.str:
+        '''The ARN of the Table resource.'''
+        result = self._values.get("table_arn")
+        assert result is not None, "Required property 'table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the Table resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDatabaseRef, _ITaggable_36806126)
 class CfnDatabase(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -171,6 +1530,12 @@ class CfnDatabase(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="databaseRef")
+    def database_ref(self) -> DatabaseReference:
+        '''A reference to a Database resource.'''
+        return typing.cast(DatabaseReference, jsii.get(self, "databaseRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -216,102 +1581,7 @@ class CfnDatabase(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_timestream.CfnDatabaseProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "database_name": "databaseName",
-        "kms_key_id": "kmsKeyId",
-        "tags": "tags",
-    },
-)
-class CfnDatabaseProps:
-    def __init__(
-        self,
-        *,
-        database_name: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDatabase``.
-
-        :param database_name: The name of the Timestream database. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-        :param kms_key_id: The identifier of the AWS KMS key used to encrypt the data stored in the database.
-        :param tags: The tags to add to the database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_timestream as timestream
-            
-            cfn_database_props = timestream.CfnDatabaseProps(
-                database_name="databaseName",
-                kms_key_id="kmsKeyId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6fb3f295c)
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if database_name is not None:
-            self._values["database_name"] = database_name
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def database_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Timestream database.
-
-        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-databasename
-        '''
-        result = self._values.get("database_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS KMS key used to encrypt the data stored in the database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-database.html#cfn-timestream-database-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatabaseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IInfluxDBInstanceRef, _ITaggableV2_4e6798f8)
 class CfnInfluxDBInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -539,6 +1809,12 @@ class CfnInfluxDBInstance(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbInstanceRef")
+    def influx_db_instance_ref(self) -> InfluxDBInstanceReference:
+        '''A reference to a InfluxDBInstance resource.'''
+        return typing.cast(InfluxDBInstanceReference, jsii.get(self, "influxDbInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="allocatedStorage")
@@ -910,355 +2186,7 @@ class CfnInfluxDBInstance(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "allocated_storage": "allocatedStorage",
-        "bucket": "bucket",
-        "db_instance_type": "dbInstanceType",
-        "db_parameter_group_identifier": "dbParameterGroupIdentifier",
-        "db_storage_type": "dbStorageType",
-        "deployment_type": "deploymentType",
-        "log_delivery_configuration": "logDeliveryConfiguration",
-        "name": "name",
-        "network_type": "networkType",
-        "organization": "organization",
-        "password": "password",
-        "port": "port",
-        "publicly_accessible": "publiclyAccessible",
-        "tags": "tags",
-        "username": "username",
-        "vpc_security_group_ids": "vpcSecurityGroupIds",
-        "vpc_subnet_ids": "vpcSubnetIds",
-    },
-)
-class CfnInfluxDBInstanceProps:
-    def __init__(
-        self,
-        *,
-        allocated_storage: typing.Optional[jsii.Number] = None,
-        bucket: typing.Optional[builtins.str] = None,
-        db_instance_type: typing.Optional[builtins.str] = None,
-        db_parameter_group_identifier: typing.Optional[builtins.str] = None,
-        db_storage_type: typing.Optional[builtins.str] = None,
-        deployment_type: typing.Optional[builtins.str] = None,
-        log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        organization: typing.Optional[builtins.str] = None,
-        password: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        username: typing.Optional[builtins.str] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInfluxDBInstance``.
-
-        :param allocated_storage: The amount of storage to allocate for your DB storage type in GiB (gibibytes).
-        :param bucket: The name of the initial InfluxDB bucket. All InfluxDB data is stored in a bucket. A bucket combines the concept of a database and a retention period (the duration of time that each data point persists). A bucket belongs to an organization.
-        :param db_instance_type: The Timestream for InfluxDB DB instance type to run on.
-        :param db_parameter_group_identifier: The name or id of the DB parameter group to assign to your DB instance. DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
-        :param db_storage_type: The Timestream for InfluxDB DB storage type to read and write InfluxDB data. You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements: - Influx IO Included 3000 IOPS - Influx IO Included 12000 IOPS - Influx IO Included 16000 IOPS
-        :param deployment_type: Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
-        :param log_delivery_configuration: Configuration for sending InfluxDB engine logs to a specified S3 bucket.
-        :param name: The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
-        :param network_type: Network type of the InfluxDB Instance.
-        :param organization: The name of the initial organization for the initial admin user in InfluxDB. An InfluxDB organization is a workspace for a group of users.
-        :param password: The password of the initial admin user created in InfluxDB. This password will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon SecretManager in your account.
-        :param port: The port number on which InfluxDB accepts connections.
-        :param publicly_accessible: Configures the DB instance with a public IP to facilitate access. Default: - false
-        :param tags: A list of key-value pairs to associate with the DB instance.
-        :param username: The username of the initial admin user created in InfluxDB. Must start with a letter and can't end with a hyphen or contain two consecutive hyphens. For example, my-user1. This username will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon Secrets Manager in your account.
-        :param vpc_security_group_ids: A list of VPC security group IDs to associate with the DB instance.
-        :param vpc_subnet_ids: A list of VPC subnet IDs to associate with the DB instance. Provide at least two VPC subnet IDs in different availability zones when deploying with a Multi-AZ standby.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_timestream as timestream
-            
-            cfn_influx_dBInstance_props = timestream.CfnInfluxDBInstanceProps(
-                allocated_storage=123,
-                bucket="bucket",
-                db_instance_type="dbInstanceType",
-                db_parameter_group_identifier="dbParameterGroupIdentifier",
-                db_storage_type="dbStorageType",
-                deployment_type="deploymentType",
-                log_delivery_configuration=timestream.CfnInfluxDBInstance.LogDeliveryConfigurationProperty(
-                    s3_configuration=timestream.CfnInfluxDBInstance.S3ConfigurationProperty(
-                        bucket_name="bucketName",
-                        enabled=False
-                    )
-                ),
-                name="name",
-                network_type="networkType",
-                organization="organization",
-                password="password",
-                port=123,
-                publicly_accessible=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                username="username",
-                vpc_security_group_ids=["vpcSecurityGroupIds"],
-                vpc_subnet_ids=["vpcSubnetIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f2972e9d)
-            check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument db_instance_type", value=db_instance_type, expected_type=type_hints["db_instance_type"])
-            check_type(argname="argument db_parameter_group_identifier", value=db_parameter_group_identifier, expected_type=type_hints["db_parameter_group_identifier"])
-            check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
-            check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
-            check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
-            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
-            check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if allocated_storage is not None:
-            self._values["allocated_storage"] = allocated_storage
-        if bucket is not None:
-            self._values["bucket"] = bucket
-        if db_instance_type is not None:
-            self._values["db_instance_type"] = db_instance_type
-        if db_parameter_group_identifier is not None:
-            self._values["db_parameter_group_identifier"] = db_parameter_group_identifier
-        if db_storage_type is not None:
-            self._values["db_storage_type"] = db_storage_type
-        if deployment_type is not None:
-            self._values["deployment_type"] = deployment_type
-        if log_delivery_configuration is not None:
-            self._values["log_delivery_configuration"] = log_delivery_configuration
-        if name is not None:
-            self._values["name"] = name
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if organization is not None:
-            self._values["organization"] = organization
-        if password is not None:
-            self._values["password"] = password
-        if port is not None:
-            self._values["port"] = port
-        if publicly_accessible is not None:
-            self._values["publicly_accessible"] = publicly_accessible
-        if tags is not None:
-            self._values["tags"] = tags
-        if username is not None:
-            self._values["username"] = username
-        if vpc_security_group_ids is not None:
-            self._values["vpc_security_group_ids"] = vpc_security_group_ids
-        if vpc_subnet_ids is not None:
-            self._values["vpc_subnet_ids"] = vpc_subnet_ids
-
-    @builtins.property
-    def allocated_storage(self) -> typing.Optional[jsii.Number]:
-        '''The amount of storage to allocate for your DB storage type in GiB (gibibytes).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-allocatedstorage
-        '''
-        result = self._values.get("allocated_storage")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def bucket(self) -> typing.Optional[builtins.str]:
-        '''The name of the initial InfluxDB bucket.
-
-        All InfluxDB data is stored in a bucket. A bucket combines the concept of a database and a retention period (the duration of time that each data point persists). A bucket belongs to an organization.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-bucket
-        '''
-        result = self._values.get("bucket")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def db_instance_type(self) -> typing.Optional[builtins.str]:
-        '''The Timestream for InfluxDB DB instance type to run on.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbinstancetype
-        '''
-        result = self._values.get("db_instance_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def db_parameter_group_identifier(self) -> typing.Optional[builtins.str]:
-        '''The name or id of the DB parameter group to assign to your DB instance.
-
-        DB parameter groups specify how the database is configured. For example, DB parameter groups can specify the limit for query concurrency.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbparametergroupidentifier
-        '''
-        result = self._values.get("db_parameter_group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def db_storage_type(self) -> typing.Optional[builtins.str]:
-        '''The Timestream for InfluxDB DB storage type to read and write InfluxDB data.
-
-        You can choose between 3 different types of provisioned Influx IOPS included storage according to your workloads requirements:
-
-        - Influx IO Included 3000 IOPS
-        - Influx IO Included 12000 IOPS
-        - Influx IO Included 16000 IOPS
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-dbstoragetype
-        '''
-        result = self._values.get("db_storage_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def deployment_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether the Timestream for InfluxDB is deployed as Single-AZ or with a MultiAZ Standby for High availability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-deploymenttype
-        '''
-        result = self._values.get("deployment_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_delivery_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfluxDBInstance.LogDeliveryConfigurationProperty]]:
-        '''Configuration for sending InfluxDB engine logs to a specified S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-logdeliveryconfiguration
-        '''
-        result = self._values.get("log_delivery_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfluxDBInstance.LogDeliveryConfigurationProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands.
-
-        This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''Network type of the InfluxDB Instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def organization(self) -> typing.Optional[builtins.str]:
-        '''The name of the initial organization for the initial admin user in InfluxDB.
-
-        An InfluxDB organization is a workspace for a group of users.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-organization
-        '''
-        result = self._values.get("organization")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''The password of the initial admin user created in InfluxDB.
-
-        This password will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon SecretManager in your account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port number on which InfluxDB accepts connections.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Configures the DB instance with a public IP to facilitate access.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the DB instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def username(self) -> typing.Optional[builtins.str]:
-        '''The username of the initial admin user created in InfluxDB.
-
-        Must start with a letter and can't end with a hyphen or contain two consecutive hyphens. For example, my-user1. This username will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon Secrets Manager in your account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-username
-        '''
-        result = self._values.get("username")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of VPC security group IDs to associate with the DB instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-vpcsecuritygroupids
-        '''
-        result = self._values.get("vpc_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def vpc_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of VPC subnet IDs to associate with the DB instance.
-
-        Provide at least two VPC subnet IDs in different availability zones when deploying with a Multi-AZ standby.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbinstance.html#cfn-timestream-influxdbinstance-vpcsubnetids
-        '''
-        result = self._values.get("vpc_subnet_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInfluxDBInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IScheduledQueryRef, _ITaggable_36806126)
 class CfnScheduledQuery(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1515,6 +2443,12 @@ class CfnScheduledQuery(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> ScheduledQueryReference:
+        '''A reference to a ScheduledQuery resource.'''
+        return typing.cast(ScheduledQueryReference, jsii.get(self, "scheduledQueryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2690,296 +3624,7 @@ class CfnScheduledQuery(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_timestream.CfnScheduledQueryProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "error_report_configuration": "errorReportConfiguration",
-        "notification_configuration": "notificationConfiguration",
-        "query_string": "queryString",
-        "schedule_configuration": "scheduleConfiguration",
-        "scheduled_query_execution_role_arn": "scheduledQueryExecutionRoleArn",
-        "client_token": "clientToken",
-        "kms_key_id": "kmsKeyId",
-        "scheduled_query_name": "scheduledQueryName",
-        "tags": "tags",
-        "target_configuration": "targetConfiguration",
-    },
-)
-class CfnScheduledQueryProps:
-    def __init__(
-        self,
-        *,
-        error_report_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ErrorReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        query_string: builtins.str,
-        schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        scheduled_query_execution_role_arn: builtins.str,
-        client_token: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        scheduled_query_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.TargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScheduledQuery``.
-
-        :param error_report_configuration: Configuration for error reporting. Error reports will be generated when a problem is encountered when writing the query results.
-        :param notification_configuration: Notification configuration for the scheduled query. A notification is sent by Timestream when a query run finishes, when the state is updated or when you delete it.
-        :param query_string: The query string to run. Parameter names can be specified in the query string ``@`` character followed by an identifier. The named Parameter ``@scheduled_runtime`` is reserved and can be used in the query to get the time at which the query is scheduled to run. The timestamp calculated according to the ScheduleConfiguration parameter, will be the value of ``@scheduled_runtime`` paramater for each query run. For example, consider an instance of a scheduled query executing on 2021-12-01 00:00:00. For this instance, the ``@scheduled_runtime`` parameter is initialized to the timestamp 2021-12-01 00:00:00 when invoking the query.
-        :param schedule_configuration: Schedule configuration.
-        :param scheduled_query_execution_role_arn: The ARN for the IAM role that Timestream will assume when running the scheduled query.
-        :param client_token: Using a ClientToken makes the call to CreateScheduledQuery idempotent, in other words, making the same request repeatedly will produce the same result. Making multiple identical CreateScheduledQuery requests has the same effect as making a single request. - If CreateScheduledQuery is called without a ``ClientToken`` , the Query SDK generates a ``ClientToken`` on your behalf. - After 8 hours, any request with the same ``ClientToken`` is treated as a new request.
-        :param kms_key_id: The Amazon KMS key used to encrypt the scheduled query resource, at-rest. If the Amazon KMS key is not specified, the scheduled query resource will be encrypted with a Timestream owned Amazon KMS key. To specify a KMS key, use the key ID, key ARN, alias name, or alias ARN. When using an alias name, prefix the name with *alias/* If ErrorReportConfiguration uses ``SSE_KMS`` as encryption type, the same KmsKeyId is used to encrypt the error report at rest.
-        :param scheduled_query_name: A name for the query. Scheduled query names must be unique within each Region.
-        :param tags: A list of key-value pairs to label the scheduled query.
-        :param target_configuration: Scheduled query target store configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_timestream as timestream
-            
-            cfn_scheduled_query_props = timestream.CfnScheduledQueryProps(
-                error_report_configuration=timestream.CfnScheduledQuery.ErrorReportConfigurationProperty(
-                    s3_configuration=timestream.CfnScheduledQuery.S3ConfigurationProperty(
-                        bucket_name="bucketName",
-            
-                        # the properties below are optional
-                        encryption_option="encryptionOption",
-                        object_key_prefix="objectKeyPrefix"
-                    )
-                ),
-                notification_configuration=timestream.CfnScheduledQuery.NotificationConfigurationProperty(
-                    sns_configuration=timestream.CfnScheduledQuery.SnsConfigurationProperty(
-                        topic_arn="topicArn"
-                    )
-                ),
-                query_string="queryString",
-                schedule_configuration=timestream.CfnScheduledQuery.ScheduleConfigurationProperty(
-                    schedule_expression="scheduleExpression"
-                ),
-                scheduled_query_execution_role_arn="scheduledQueryExecutionRoleArn",
-            
-                # the properties below are optional
-                client_token="clientToken",
-                kms_key_id="kmsKeyId",
-                scheduled_query_name="scheduledQueryName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_configuration=timestream.CfnScheduledQuery.TargetConfigurationProperty(
-                    timestream_configuration=timestream.CfnScheduledQuery.TimestreamConfigurationProperty(
-                        database_name="databaseName",
-                        dimension_mappings=[timestream.CfnScheduledQuery.DimensionMappingProperty(
-                            dimension_value_type="dimensionValueType",
-                            name="name"
-                        )],
-                        table_name="tableName",
-                        time_column="timeColumn",
-            
-                        # the properties below are optional
-                        measure_name_column="measureNameColumn",
-                        mixed_measure_mappings=[timestream.CfnScheduledQuery.MixedMeasureMappingProperty(
-                            measure_value_type="measureValueType",
-            
-                            # the properties below are optional
-                            measure_name="measureName",
-                            multi_measure_attribute_mappings=[timestream.CfnScheduledQuery.MultiMeasureAttributeMappingProperty(
-                                measure_value_type="measureValueType",
-                                source_column="sourceColumn",
-            
-                                # the properties below are optional
-                                target_multi_measure_attribute_name="targetMultiMeasureAttributeName"
-                            )],
-                            source_column="sourceColumn",
-                            target_measure_name="targetMeasureName"
-                        )],
-                        multi_measure_mappings=timestream.CfnScheduledQuery.MultiMeasureMappingsProperty(
-                            multi_measure_attribute_mappings=[timestream.CfnScheduledQuery.MultiMeasureAttributeMappingProperty(
-                                measure_value_type="measureValueType",
-                                source_column="sourceColumn",
-            
-                                # the properties below are optional
-                                target_multi_measure_attribute_name="targetMultiMeasureAttributeName"
-                            )],
-            
-                            # the properties below are optional
-                            target_multi_measure_name="targetMultiMeasureName"
-                        )
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2caf5d9713b0dd130de3eaf553fcdda6f169bfdde6f8f293349239a734d19010)
-            check_type(argname="argument error_report_configuration", value=error_report_configuration, expected_type=type_hints["error_report_configuration"])
-            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
-            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
-            check_type(argname="argument schedule_configuration", value=schedule_configuration, expected_type=type_hints["schedule_configuration"])
-            check_type(argname="argument scheduled_query_execution_role_arn", value=scheduled_query_execution_role_arn, expected_type=type_hints["scheduled_query_execution_role_arn"])
-            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument scheduled_query_name", value=scheduled_query_name, expected_type=type_hints["scheduled_query_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_configuration", value=target_configuration, expected_type=type_hints["target_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "error_report_configuration": error_report_configuration,
-            "notification_configuration": notification_configuration,
-            "query_string": query_string,
-            "schedule_configuration": schedule_configuration,
-            "scheduled_query_execution_role_arn": scheduled_query_execution_role_arn,
-        }
-        if client_token is not None:
-            self._values["client_token"] = client_token
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if scheduled_query_name is not None:
-            self._values["scheduled_query_name"] = scheduled_query_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_configuration is not None:
-            self._values["target_configuration"] = target_configuration
-
-    @builtins.property
-    def error_report_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.ErrorReportConfigurationProperty]:
-        '''Configuration for error reporting.
-
-        Error reports will be generated when a problem is encountered when writing the query results.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-errorreportconfiguration
-        '''
-        result = self._values.get("error_report_configuration")
-        assert result is not None, "Required property 'error_report_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.ErrorReportConfigurationProperty], result)
-
-    @builtins.property
-    def notification_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.NotificationConfigurationProperty]:
-        '''Notification configuration for the scheduled query.
-
-        A notification is sent by Timestream when a query run finishes, when the state is updated or when you delete it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-notificationconfiguration
-        '''
-        result = self._values.get("notification_configuration")
-        assert result is not None, "Required property 'notification_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.NotificationConfigurationProperty], result)
-
-    @builtins.property
-    def query_string(self) -> builtins.str:
-        '''The query string to run.
-
-        Parameter names can be specified in the query string ``@`` character followed by an identifier. The named Parameter ``@scheduled_runtime`` is reserved and can be used in the query to get the time at which the query is scheduled to run.
-
-        The timestamp calculated according to the ScheduleConfiguration parameter, will be the value of ``@scheduled_runtime`` paramater for each query run. For example, consider an instance of a scheduled query executing on 2021-12-01 00:00:00. For this instance, the ``@scheduled_runtime`` parameter is initialized to the timestamp 2021-12-01 00:00:00 when invoking the query.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-querystring
-        '''
-        result = self._values.get("query_string")
-        assert result is not None, "Required property 'query_string' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.ScheduleConfigurationProperty]:
-        '''Schedule configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduleconfiguration
-        '''
-        result = self._values.get("schedule_configuration")
-        assert result is not None, "Required property 'schedule_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.ScheduleConfigurationProperty], result)
-
-    @builtins.property
-    def scheduled_query_execution_role_arn(self) -> builtins.str:
-        '''The ARN for the IAM role that Timestream will assume when running the scheduled query.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduledqueryexecutionrolearn
-        '''
-        result = self._values.get("scheduled_query_execution_role_arn")
-        assert result is not None, "Required property 'scheduled_query_execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_token(self) -> typing.Optional[builtins.str]:
-        '''Using a ClientToken makes the call to CreateScheduledQuery idempotent, in other words, making the same request repeatedly will produce the same result.
-
-        Making multiple identical CreateScheduledQuery requests has the same effect as making a single request.
-
-        - If CreateScheduledQuery is called without a ``ClientToken`` , the Query SDK generates a ``ClientToken`` on your behalf.
-        - After 8 hours, any request with the same ``ClientToken`` is treated as a new request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-clienttoken
-        '''
-        result = self._values.get("client_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The Amazon KMS key used to encrypt the scheduled query resource, at-rest.
-
-        If the Amazon KMS key is not specified, the scheduled query resource will be encrypted with a Timestream owned Amazon KMS key. To specify a KMS key, use the key ID, key ARN, alias name, or alias ARN. When using an alias name, prefix the name with *alias/*
-
-        If ErrorReportConfiguration uses ``SSE_KMS`` as encryption type, the same KmsKeyId is used to encrypt the error report at rest.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scheduled_query_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the query.
-
-        Scheduled query names must be unique within each Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-scheduledqueryname
-        '''
-        result = self._values.get("scheduled_query_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to label the scheduled query.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.TargetConfigurationProperty]]:
-        '''Scheduled query target store configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-scheduledquery.html#cfn-timestream-scheduledquery-targetconfiguration
-        '''
-        result = self._values.get("target_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.TargetConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduledQueryProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ITableRef, _ITaggable_36806126)
 class CfnTable(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3114,6 +3759,12 @@ class CfnTable(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> TableReference:
+        '''A reference to a Table resource.'''
+        return typing.cast(TableReference, jsii.get(self, "tableRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3711,210 +4362,6 @@ class CfnTable(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_timestream.CfnTableProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "database_name": "databaseName",
-        "magnetic_store_write_properties": "magneticStoreWriteProperties",
-        "retention_properties": "retentionProperties",
-        "schema": "schema",
-        "table_name": "tableName",
-        "tags": "tags",
-    },
-)
-class CfnTableProps:
-    def __init__(
-        self,
-        *,
-        database_name: builtins.str,
-        magnetic_store_write_properties: typing.Any = None,
-        retention_properties: typing.Any = None,
-        schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        table_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTable``.
-
-        :param database_name: The name of the Timestream database that contains this table. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-        :param magnetic_store_write_properties: Contains properties to set on the table when enabling magnetic store writes. This object has the following attributes: - *EnableMagneticStoreWrites* : A ``boolean`` flag to enable magnetic store writes. - *MagneticStoreRejectedDataLocation* : The location to write error reports for records rejected, asynchronously, during magnetic store writes. Only ``S3Configuration`` objects are allowed. The ``S3Configuration`` object has the following attributes: - *BucketName* : The name of the S3 bucket. - *EncryptionOption* : The encryption option for the S3 location. Valid values are S3 server-side encryption with an S3 managed key ( ``SSE_S3`` ) or AWS managed key ( ``SSE_KMS`` ). - *KmsKeyId* : The AWS KMS key ID to use when encrypting with an AWS managed key. - *ObjectKeyPrefix* : The prefix to use option for the objects stored in S3. Both ``BucketName`` and ``EncryptionOption`` are *required* when ``S3Configuration`` is specified. If you specify ``SSE_KMS`` as your ``EncryptionOption`` then ``KmsKeyId`` is *required* . ``EnableMagneticStoreWrites`` attribute is *required* when ``MagneticStoreWriteProperties`` is specified. ``MagneticStoreRejectedDataLocation`` attribute is *required* when ``EnableMagneticStoreWrites`` is set to ``true`` . See the following examples: *JSON:: { "Type" : AWS::Timestream::Table", "Properties":{ "DatabaseName":"TestDatabase", "TableName":"TestTable", "MagneticStoreWriteProperties":{ "EnableMagneticStoreWrites":true, "MagneticStoreRejectedDataLocation":{ "S3Configuration":{ "BucketName":" amzn-s3-demo-bucket ", "EncryptionOption":"SSE_KMS", "KmsKeyId":"1234abcd-12ab-34cd-56ef-1234567890ab", "ObjectKeyPrefix":"prefix" } } } } } *YAML:: Type: AWS::Timestream::Table DependsOn: TestDatabase Properties: TableName: "TestTable" DatabaseName: "TestDatabase" MagneticStoreWriteProperties: EnableMagneticStoreWrites: true MagneticStoreRejectedDataLocation: S3Configuration: BucketName: " amzn-s3-demo-bucket " EncryptionOption: "SSE_KMS" KmsKeyId: "1234abcd-12ab-34cd-56ef-1234567890ab" ObjectKeyPrefix: "prefix"
-        :param retention_properties: The retention duration for the memory store and magnetic store. This object has the following attributes:. - *MemoryStoreRetentionPeriodInHours* : Retention duration for memory store, in hours. - *MagneticStoreRetentionPeriodInDays* : Retention duration for magnetic store, in days. Both attributes are of type ``string`` . Both attributes are *required* when ``RetentionProperties`` is specified. See the following examples: *JSON* ``{ "Type" : AWS::Timestream::Table", "Properties" : { "DatabaseName" : "TestDatabase", "TableName" : "TestTable", "RetentionProperties" : { "MemoryStoreRetentionPeriodInHours": "24", "MagneticStoreRetentionPeriodInDays": "7" } } }`` *YAML:: Type: AWS::Timestream::Table DependsOn: TestDatabase Properties: TableName: "TestTable" DatabaseName: "TestDatabase" RetentionProperties: MemoryStoreRetentionPeriodInHours: "24" MagneticStoreRetentionPeriodInDays: "7"
-        :param schema: The schema of the table.
-        :param table_name: The name of the Timestream table. *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-        :param tags: The tags to add to the table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_timestream as timestream
-            
-            # magnetic_store_write_properties: Any
-            # retention_properties: Any
-            
-            cfn_table_props = timestream.CfnTableProps(
-                database_name="databaseName",
-            
-                # the properties below are optional
-                magnetic_store_write_properties=magnetic_store_write_properties,
-                retention_properties=retention_properties,
-                schema=timestream.CfnTable.SchemaProperty(
-                    composite_partition_key=[timestream.CfnTable.PartitionKeyProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        enforcement_in_record="enforcementInRecord",
-                        name="name"
-                    )]
-                ),
-                table_name="tableName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9edb9a2aaa51342f4db373e24edd938478a52c96340bde2bc89fe7b86eb4431)
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument magnetic_store_write_properties", value=magnetic_store_write_properties, expected_type=type_hints["magnetic_store_write_properties"])
-            check_type(argname="argument retention_properties", value=retention_properties, expected_type=type_hints["retention_properties"])
-            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "database_name": database_name,
-        }
-        if magnetic_store_write_properties is not None:
-            self._values["magnetic_store_write_properties"] = magnetic_store_write_properties
-        if retention_properties is not None:
-            self._values["retention_properties"] = retention_properties
-        if schema is not None:
-            self._values["schema"] = schema
-        if table_name is not None:
-            self._values["table_name"] = table_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def database_name(self) -> builtins.str:
-        '''The name of the Timestream database that contains this table.
-
-        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-databasename
-        '''
-        result = self._values.get("database_name")
-        assert result is not None, "Required property 'database_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def magnetic_store_write_properties(self) -> typing.Any:
-        '''Contains properties to set on the table when enabling magnetic store writes.
-
-        This object has the following attributes:
-
-        - *EnableMagneticStoreWrites* : A ``boolean`` flag to enable magnetic store writes.
-        - *MagneticStoreRejectedDataLocation* : The location to write error reports for records rejected, asynchronously, during magnetic store writes. Only ``S3Configuration`` objects are allowed. The ``S3Configuration`` object has the following attributes:
-        - *BucketName* : The name of the S3 bucket.
-        - *EncryptionOption* : The encryption option for the S3 location. Valid values are S3 server-side encryption with an S3 managed key ( ``SSE_S3`` ) or AWS managed key ( ``SSE_KMS`` ).
-        - *KmsKeyId* : The AWS KMS key ID to use when encrypting with an AWS managed key.
-        - *ObjectKeyPrefix* : The prefix to use option for the objects stored in S3.
-
-        Both ``BucketName`` and ``EncryptionOption`` are *required* when ``S3Configuration`` is specified. If you specify ``SSE_KMS`` as your ``EncryptionOption`` then ``KmsKeyId`` is *required* .
-
-        ``EnableMagneticStoreWrites`` attribute is *required* when ``MagneticStoreWriteProperties`` is specified. ``MagneticStoreRejectedDataLocation`` attribute is *required* when ``EnableMagneticStoreWrites`` is set to ``true`` .
-
-        See the following examples:
-
-        *JSON::
-
-           { "Type" : AWS::Timestream::Table", "Properties":{ "DatabaseName":"TestDatabase", "TableName":"TestTable", "MagneticStoreWriteProperties":{ "EnableMagneticStoreWrites":true, "MagneticStoreRejectedDataLocation":{ "S3Configuration":{ "BucketName":" amzn-s3-demo-bucket ", "EncryptionOption":"SSE_KMS", "KmsKeyId":"1234abcd-12ab-34cd-56ef-1234567890ab", "ObjectKeyPrefix":"prefix" } } } }
-           }
-
-        *YAML::
-
-           Type: AWS::Timestream::Table
-           DependsOn: TestDatabase
-           Properties: TableName: "TestTable" DatabaseName: "TestDatabase" MagneticStoreWriteProperties: EnableMagneticStoreWrites: true MagneticStoreRejectedDataLocation: S3Configuration: BucketName: " amzn-s3-demo-bucket " EncryptionOption: "SSE_KMS" KmsKeyId: "1234abcd-12ab-34cd-56ef-1234567890ab" ObjectKeyPrefix: "prefix"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-magneticstorewriteproperties
-        '''
-        result = self._values.get("magnetic_store_write_properties")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def retention_properties(self) -> typing.Any:
-        '''The retention duration for the memory store and magnetic store. This object has the following attributes:.
-
-        - *MemoryStoreRetentionPeriodInHours* : Retention duration for memory store, in hours.
-        - *MagneticStoreRetentionPeriodInDays* : Retention duration for magnetic store, in days.
-
-        Both attributes are of type ``string`` . Both attributes are *required* when ``RetentionProperties`` is specified.
-
-        See the following examples:
-
-        *JSON*
-
-        ``{ "Type" : AWS::Timestream::Table", "Properties" : { "DatabaseName" : "TestDatabase", "TableName" : "TestTable", "RetentionProperties" : { "MemoryStoreRetentionPeriodInHours": "24", "MagneticStoreRetentionPeriodInDays": "7" } } }``
-
-        *YAML::
-
-           Type: AWS::Timestream::Table
-           DependsOn: TestDatabase
-           Properties: TableName: "TestTable" DatabaseName: "TestDatabase" RetentionProperties: MemoryStoreRetentionPeriodInHours: "24" MagneticStoreRetentionPeriodInDays: "7"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-retentionproperties
-        '''
-        result = self._values.get("retention_properties")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def schema(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SchemaProperty]]:
-        '''The schema of the table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-schema
-        '''
-        result = self._values.get("schema")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SchemaProperty]], result)
-
-    @builtins.property
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Timestream table.
-
-        *Length Constraints* : Minimum length of 3 bytes. Maximum length of 256 bytes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-tablename
-        '''
-        result = self._values.get("table_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html#cfn-timestream-table-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTableProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDatabase",
     "CfnDatabaseProps",
@@ -3924,9 +4371,109 @@ __all__ = [
     "CfnScheduledQueryProps",
     "CfnTable",
     "CfnTableProps",
+    "DatabaseReference",
+    "IDatabaseRef",
+    "IInfluxDBInstanceRef",
+    "IScheduledQueryRef",
+    "ITableRef",
+    "InfluxDBInstanceReference",
+    "ScheduledQueryReference",
+    "TableReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6fb3f295c(
+    *,
+    database_name: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f2972e9d(
+    *,
+    allocated_storage: typing.Optional[jsii.Number] = None,
+    bucket: typing.Optional[builtins.str] = None,
+    db_instance_type: typing.Optional[builtins.str] = None,
+    db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+    db_storage_type: typing.Optional[builtins.str] = None,
+    deployment_type: typing.Optional[builtins.str] = None,
+    log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    organization: typing.Optional[builtins.str] = None,
+    password: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username: typing.Optional[builtins.str] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2caf5d9713b0dd130de3eaf553fcdda6f169bfdde6f8f293349239a734d19010(
+    *,
+    error_report_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ErrorReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    query_string: builtins.str,
+    schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    scheduled_query_execution_role_arn: builtins.str,
+    client_token: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    scheduled_query_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.TargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9edb9a2aaa51342f4db373e24edd938478a52c96340bde2bc89fe7b86eb4431(
+    *,
+    database_name: builtins.str,
+    magnetic_store_write_properties: typing.Any = None,
+    retention_properties: typing.Any = None,
+    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96ab559e26734f98e40ab3e9fd5da9b5177ddb01ba9d2eb948cc028a78780239(
+    *,
+    database_arn: builtins.str,
+    database_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2723da7c0158e0ff6eb9aae781cec6a3ec6946912eb1ffe550977d4ebe3d432(
+    *,
+    influx_db_instance_arn: builtins.str,
+    influx_db_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c41a4fe77039f0bfc795e545de24dc047d5341c90cfd004aa494aaeb7d6809fb(
+    *,
+    scheduled_query_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2df21840e64bb76ac128e34506dd6600def178e4e6262ccf5822a70bc9710d65(
+    *,
+    database_name: builtins.str,
+    table_arn: builtins.str,
+    table_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__df267d6c98734bb503e076f315371b3537a6654cdfd5246386d41db61b38fa31(
     scope: _constructs_77d1e7e8.Construct,
@@ -3965,15 +4512,6 @@ def _typecheckingstub__a88a8e589058995e4c9588f4cb113f823707014eb42119b90c9719e50
 
 def _typecheckingstub__c161fd44298031bcce0863494a5d3a09a73703fe8c50ee977b03cbe4cab5d4a2(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6fb3f295c(
-    *,
-    database_name: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4128,29 +4666,6 @@ def _typecheckingstub__4aa0f60598bf7475cc8515647f29b3aaeaf36db24c7f9bfb5c8b0ae93
     *,
     bucket_name: builtins.str,
     enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0e1a256f4abdadd4b29eda8fd45f16d71b49061c796d179f90eb728f2972e9d(
-    *,
-    allocated_storage: typing.Optional[jsii.Number] = None,
-    bucket: typing.Optional[builtins.str] = None,
-    db_instance_type: typing.Optional[builtins.str] = None,
-    db_parameter_group_identifier: typing.Optional[builtins.str] = None,
-    db_storage_type: typing.Optional[builtins.str] = None,
-    deployment_type: typing.Optional[builtins.str] = None,
-    log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBInstance.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    organization: typing.Optional[builtins.str] = None,
-    password: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    username: typing.Optional[builtins.str] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4338,22 +4853,6 @@ def _typecheckingstub__49a5caa804573ad68d3177dfcc603fd8d8930af6649634eb4f6d1c6c7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2caf5d9713b0dd130de3eaf553fcdda6f169bfdde6f8f293349239a734d19010(
-    *,
-    error_report_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ErrorReportConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    notification_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    query_string: builtins.str,
-    schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    scheduled_query_execution_role_arn: builtins.str,
-    client_token: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    scheduled_query_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.TargetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aad96eaee00841ee49968da22b6ed13b3777f265d71c1981b2f1b217cf0db5fd(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4461,18 +4960,6 @@ def _typecheckingstub__b50e041ecb4eab9fe02a29c9d1c8c5a1325b090b4a8e835dd2f0242b6
 def _typecheckingstub__09067b1978c488643c66537ddae08f743cfe6b4aac79c820f90d9c083c9bf6a7(
     *,
     composite_partition_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.PartitionKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a9edb9a2aaa51342f4db373e24edd938478a52c96340bde2bc89fe7b86eb4431(
-    *,
-    database_name: builtins.str,
-    magnetic_store_write_properties: typing.Any = None,
-    retention_properties: typing.Any = None,
-    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

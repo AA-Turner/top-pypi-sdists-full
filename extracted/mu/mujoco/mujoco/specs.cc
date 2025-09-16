@@ -176,6 +176,45 @@ py::list FindAllImpl(raw::MjsBody& body, mjtObj objtype, bool recursive) {
   return list;  // list of pointers, so they can be copied
 }
 
+static std::string addSuffixBeforeExtension(const std::string& original_path,
+                                            const std::string& suffix_to_add) {
+  // Find the position of the last dot
+  size_t dot_pos = original_path.rfind('.');
+
+  // Check if a dot was found
+  if (dot_pos != std::string::npos) {
+    std::string new_path = original_path;
+    new_path.insert(dot_pos, suffix_to_add);
+    return new_path;
+  } else {
+    // No extension found, just append
+    return original_path + suffix_to_add;
+  }
+}
+
+static std::string addPrefixToFileName(const std::string& original_path,
+                                       const std::string& prefix_to_add) {
+  // Find the position of the last slash
+  size_t slash_pos = original_path.find_last_of("/\\");
+
+  // Check if a slash was found
+  if (slash_pos != std::string::npos) {
+    std::string new_path = original_path;
+    new_path.insert(slash_pos + 1, prefix_to_add);
+    return new_path;
+  } else {
+    // No slash found, just prepend
+    return prefix_to_add + original_path;
+  }
+}
+
+static std::string addPrefixAndSuffix(const std::string& original_path,
+                                      const std::string& prefix_to_add,
+                                      const std::string& suffix_to_add) {
+  std::string prefixed_path = addPrefixToFileName(original_path, prefix_to_add);
+  return addSuffixBeforeExtension(prefixed_path, suffix_to_add);
+}
+
 PYBIND11_MODULE(_specs, m) {
   auto structs_m = py::module::import("mujoco._structs");
   py::function mjmodel_from_raw_ptr =
@@ -471,13 +510,60 @@ PYBIND11_MODULE(_specs, m) {
             throw pybind11::value_error(mjs_getError(self.ptr));
           }
         }
+        // add prefix and suffix to the assets keys
+        std::string pre(p);
+        std::string suf(s);
         for (const auto& asset : child.assets) {
-          if (self.assets.contains(asset.first) && !self.override_assets) {
+          std::string asset_name =
+              addPrefixAndSuffix(asset.first.cast<std::string>(), pre, suf);
+          if (self.assets.contains(asset_name) && !self.override_assets) {
             throw pybind11::value_error("Asset " +
                                         asset.first.cast<std::string>() +
                                         " already exists in parent spec.");
           }
-          self.assets[asset.first] = asset.second;
+          self.assets[py::str(asset_name)] = asset.second;
+        }
+        raw::MjsElement* mesh = mjs_firstElement(child.ptr, mjOBJ_MESH);
+        raw::MjsElement* tex = mjs_firstElement(child.ptr, mjOBJ_TEXTURE);
+        raw::MjsElement* parent_mesh = mjs_firstElement(self.ptr, mjOBJ_MESH);
+        raw::MjsElement* parent_tex = mjs_firstElement(self.ptr, mjOBJ_TEXTURE);
+        bool child_has_assets = mesh || tex;
+        bool parent_has_assets = parent_mesh || parent_tex;
+        bool child_use_asset_dict = !child.assets.empty();
+        bool parent_use_asset_dict = !self.assets.empty();
+        if (!child_use_asset_dict && child_has_assets &&
+            parent_use_asset_dict) {
+          PyErr_WarnEx(
+              PyExc_Warning,
+              "Attaching a child without asset dict to a parent with an "
+              "asset dict might result in missing assets when attaching again.",
+              1);
+        }
+        if (!parent_use_asset_dict && parent_has_assets &&
+            child_use_asset_dict) {
+          PyErr_WarnEx(
+              PyExc_Warning,
+              "Attaching a child with asset dict to a parent without an "
+              "asset dict might result in missing assets when attaching again.",
+              1);
+        }
+        if (child_use_asset_dict) {
+          while (mesh) {
+            std::string file = mjs_getString(mjs_asMesh(mesh)->file);
+            if (!file.empty()) {
+              std::string mesh_file = addPrefixAndSuffix(file, pre, suf);
+              mjs_setString(mjs_asMesh(mesh)->file, mesh_file.c_str());
+            }
+            mesh = mjs_nextElement(child.ptr, mesh);
+          }
+          while (tex) {
+            std::string file = mjs_getString(mjs_asTexture(tex)->file);
+            if (!file.empty()) {
+              std::string tex_file = addPrefixAndSuffix(file, pre, suf);
+              mjs_setString(mjs_asTexture(tex)->file, tex_file.c_str());
+            }
+            tex = mjs_nextElement(child.ptr, tex);
+          }
         }
         child.parent = &self;
         return mjs_asFrame(attached_frame);

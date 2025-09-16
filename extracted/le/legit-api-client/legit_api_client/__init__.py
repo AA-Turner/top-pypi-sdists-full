@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4236"
+__version__ = "1.1.4244"
 
 # Define package exports
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "ComplianceApi",
     "ContainerImagesApi",
     "CustomFieldsApi",
+    "DependenciesV2Api",
     "IntegrationsApi",
     "IssuesApi",
     "IssuesV2Api",
@@ -105,6 +106,8 @@ __all__ = [
     "CustomFieldNumberTypeDto",
     "CustomFieldTextTypeDto",
     "CustomFieldType",
+    "CustomerFacingDependencyDto",
+    "CustomerFacingDependencyLicense",
     "CustomerFacingIssueActionDto",
     "CustomerFacingIssueDto",
     "CustomerFacingIssueToActionHistoryDto",
@@ -119,6 +122,8 @@ __all__ = [
     "CveSeverity",
     "DastConfidenceLevel",
     "DastDataDto",
+    "DependencyCategory",
+    "DependencyDeclaration",
     "DependencyFixType",
     "DependencyVulnerabilityDataDto",
     "DetailedSdlcAssetInformationDto",
@@ -163,6 +168,8 @@ __all__ = [
     "ListSortDirection",
     "ManualCheckDto",
     "OriginType",
+    "PackageSource",
+    "PackageType",
     "PatchLegitIssueAssigneeDto",
     "PatchLegitIssueStatusDto",
     "PatchLegitIssueUnifiedStatusDto",
@@ -184,6 +191,7 @@ __all__ = [
     "ProductUnitEnvironment",
     "ProductUnitNameDto",
     "ProductUnitType",
+    "ProgrammingLanguage",
     "RepositoriesToContainersOperationDto",
     "RepositoryControlDto",
     "RepositoryDirectory",
@@ -227,6 +235,7 @@ from legit_api_client.api.collaborators_api import CollaboratorsApi as Collabora
 from legit_api_client.api.compliance_api import ComplianceApi as ComplianceApi
 from legit_api_client.api.container_images_api import ContainerImagesApi as ContainerImagesApi
 from legit_api_client.api.custom_fields_api import CustomFieldsApi as CustomFieldsApi
+from legit_api_client.api.dependencies_v2_api import DependenciesV2Api as DependenciesV2Api
 from legit_api_client.api.integrations_api import IntegrationsApi as IntegrationsApi
 from legit_api_client.api.issues_api import IssuesApi as IssuesApi
 from legit_api_client.api.issues_v2_api import IssuesV2Api as IssuesV2Api
@@ -310,6 +319,8 @@ from legit_api_client.models.custom_field_identity_type_dto import CustomFieldId
 from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumberTypeDto as CustomFieldNumberTypeDto
 from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto as CustomFieldTextTypeDto
 from legit_api_client.models.custom_field_type import CustomFieldType as CustomFieldType
+from legit_api_client.models.customer_facing_dependency_dto import CustomerFacingDependencyDto as CustomerFacingDependencyDto
+from legit_api_client.models.customer_facing_dependency_license import CustomerFacingDependencyLicense as CustomerFacingDependencyLicense
 from legit_api_client.models.customer_facing_issue_action_dto import CustomerFacingIssueActionDto as CustomerFacingIssueActionDto
 from legit_api_client.models.customer_facing_issue_dto import CustomerFacingIssueDto as CustomerFacingIssueDto
 from legit_api_client.models.customer_facing_issue_to_action_history_dto import CustomerFacingIssueToActionHistoryDto as CustomerFacingIssueToActionHistoryDto
@@ -324,6 +335,8 @@ from legit_api_client.models.customer_facing_issues_page_dto import CustomerFaci
 from legit_api_client.models.cve_severity import CveSeverity as CveSeverity
 from legit_api_client.models.dast_confidence_level import DastConfidenceLevel as DastConfidenceLevel
 from legit_api_client.models.dast_data_dto import DastDataDto as DastDataDto
+from legit_api_client.models.dependency_category import DependencyCategory as DependencyCategory
+from legit_api_client.models.dependency_declaration import DependencyDeclaration as DependencyDeclaration
 from legit_api_client.models.dependency_fix_type import DependencyFixType as DependencyFixType
 from legit_api_client.models.dependency_vulnerability_data_dto import DependencyVulnerabilityDataDto as DependencyVulnerabilityDataDto
 from legit_api_client.models.detailed_sdlc_asset_information_dto import DetailedSdlcAssetInformationDto as DetailedSdlcAssetInformationDto
@@ -368,6 +381,8 @@ from legit_api_client.models.legit_score_requirement_type import LegitScoreRequi
 from legit_api_client.models.list_sort_direction import ListSortDirection as ListSortDirection
 from legit_api_client.models.manual_check_dto import ManualCheckDto as ManualCheckDto
 from legit_api_client.models.origin_type import OriginType as OriginType
+from legit_api_client.models.package_source import PackageSource as PackageSource
+from legit_api_client.models.package_type import PackageType as PackageType
 from legit_api_client.models.patch_legit_issue_assignee_dto import PatchLegitIssueAssigneeDto as PatchLegitIssueAssigneeDto
 from legit_api_client.models.patch_legit_issue_status_dto import PatchLegitIssueStatusDto as PatchLegitIssueStatusDto
 from legit_api_client.models.patch_legit_issue_unified_status_dto import PatchLegitIssueUnifiedStatusDto as PatchLegitIssueUnifiedStatusDto
@@ -389,6 +404,7 @@ from legit_api_client.models.product_unit_dto_custom_fields_value import Product
 from legit_api_client.models.product_unit_environment import ProductUnitEnvironment as ProductUnitEnvironment
 from legit_api_client.models.product_unit_name_dto import ProductUnitNameDto as ProductUnitNameDto
 from legit_api_client.models.product_unit_type import ProductUnitType as ProductUnitType
+from legit_api_client.models.programming_language import ProgrammingLanguage as ProgrammingLanguage
 from legit_api_client.models.repositories_to_containers_operation_dto import RepositoriesToContainersOperationDto as RepositoriesToContainersOperationDto
 from legit_api_client.models.repository_control_dto import RepositoryControlDto as RepositoryControlDto
 from legit_api_client.models.repository_directory import RepositoryDirectory as RepositoryDirectory

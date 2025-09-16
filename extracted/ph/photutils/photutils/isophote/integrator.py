@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides tools for pixel integration.
+Define tools for integrating over pixels.
 """
 
 import math
@@ -350,5 +350,5 @@ INTEGRATORS = {
     NEAREST_NEIGHBOR: _NearestNeighborIntegrator,
     BILINEAR: _BiLinearIntegrator,
     MEAN: _MeanIntegrator,
-    MEDIAN: _MedianIntegrator
+    MEDIAN: _MedianIntegrator,
 }

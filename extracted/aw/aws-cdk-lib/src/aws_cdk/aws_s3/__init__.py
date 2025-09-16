@@ -1093,6 +1093,259 @@ from ..aws_iam import (
 from ..aws_kms import IKey as _IKey_5f11635f
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.AccessGrantReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_grant_arn": "accessGrantArn",
+        "access_grant_id": "accessGrantId",
+    },
+)
+class AccessGrantReference:
+    def __init__(
+        self,
+        *,
+        access_grant_arn: builtins.str,
+        access_grant_id: builtins.str,
+    ) -> None:
+        '''A reference to a AccessGrant resource.
+
+        :param access_grant_arn: The ARN of the AccessGrant resource.
+        :param access_grant_id: The AccessGrantId of the AccessGrant resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            access_grant_reference = s3.AccessGrantReference(
+                access_grant_arn="accessGrantArn",
+                access_grant_id="accessGrantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa94ec9cd9ee0007622ff8d0972b010b299eb9c7fde6df796e54df281c7c9ca6)
+            check_type(argname="argument access_grant_arn", value=access_grant_arn, expected_type=type_hints["access_grant_arn"])
+            check_type(argname="argument access_grant_id", value=access_grant_id, expected_type=type_hints["access_grant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_grant_arn": access_grant_arn,
+            "access_grant_id": access_grant_id,
+        }
+
+    @builtins.property
+    def access_grant_arn(self) -> builtins.str:
+        '''The ARN of the AccessGrant resource.'''
+        result = self._values.get("access_grant_arn")
+        assert result is not None, "Required property 'access_grant_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_grant_id(self) -> builtins.str:
+        '''The AccessGrantId of the AccessGrant resource.'''
+        result = self._values.get("access_grant_id")
+        assert result is not None, "Required property 'access_grant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessGrantReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.AccessGrantsInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"access_grants_instance_arn": "accessGrantsInstanceArn"},
+)
+class AccessGrantsInstanceReference:
+    def __init__(self, *, access_grants_instance_arn: builtins.str) -> None:
+        '''A reference to a AccessGrantsInstance resource.
+
+        :param access_grants_instance_arn: The AccessGrantsInstanceArn of the AccessGrantsInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            access_grants_instance_reference = s3.AccessGrantsInstanceReference(
+                access_grants_instance_arn="accessGrantsInstanceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df976e97867f75d16c7386359e80e4326881452e73771ce94a0b6a4419ebeadc)
+            check_type(argname="argument access_grants_instance_arn", value=access_grants_instance_arn, expected_type=type_hints["access_grants_instance_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_grants_instance_arn": access_grants_instance_arn,
+        }
+
+    @builtins.property
+    def access_grants_instance_arn(self) -> builtins.str:
+        '''The AccessGrantsInstanceArn of the AccessGrantsInstance resource.'''
+        result = self._values.get("access_grants_instance_arn")
+        assert result is not None, "Required property 'access_grants_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessGrantsInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.AccessGrantsLocationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_grants_location_arn": "accessGrantsLocationArn",
+        "access_grants_location_id": "accessGrantsLocationId",
+    },
+)
+class AccessGrantsLocationReference:
+    def __init__(
+        self,
+        *,
+        access_grants_location_arn: builtins.str,
+        access_grants_location_id: builtins.str,
+    ) -> None:
+        '''A reference to a AccessGrantsLocation resource.
+
+        :param access_grants_location_arn: The ARN of the AccessGrantsLocation resource.
+        :param access_grants_location_id: The AccessGrantsLocationId of the AccessGrantsLocation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            access_grants_location_reference = s3.AccessGrantsLocationReference(
+                access_grants_location_arn="accessGrantsLocationArn",
+                access_grants_location_id="accessGrantsLocationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4abb5f879af7600b277cc9a86c5bf5874078b7eb92605e3baf86feb06cf247b2)
+            check_type(argname="argument access_grants_location_arn", value=access_grants_location_arn, expected_type=type_hints["access_grants_location_arn"])
+            check_type(argname="argument access_grants_location_id", value=access_grants_location_id, expected_type=type_hints["access_grants_location_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_grants_location_arn": access_grants_location_arn,
+            "access_grants_location_id": access_grants_location_id,
+        }
+
+    @builtins.property
+    def access_grants_location_arn(self) -> builtins.str:
+        '''The ARN of the AccessGrantsLocation resource.'''
+        result = self._values.get("access_grants_location_arn")
+        assert result is not None, "Required property 'access_grants_location_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_grants_location_id(self) -> builtins.str:
+        '''The AccessGrantsLocationId of the AccessGrantsLocation resource.'''
+        result = self._values.get("access_grants_location_id")
+        assert result is not None, "Required property 'access_grants_location_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessGrantsLocationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.AccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_point_arn": "accessPointArn",
+        "access_point_name": "accessPointName",
+    },
+)
+class AccessPointReference:
+    def __init__(
+        self,
+        *,
+        access_point_arn: builtins.str,
+        access_point_name: builtins.str,
+    ) -> None:
+        '''A reference to a AccessPoint resource.
+
+        :param access_point_arn: The ARN of the AccessPoint resource.
+        :param access_point_name: The Name of the AccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            access_point_reference = s3.AccessPointReference(
+                access_point_arn="accessPointArn",
+                access_point_name="accessPointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__092ba63292f78503cb2a073b6f7747c2cce15e136f76c6c05715a6affe93e81c)
+            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+            check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_point_arn": access_point_arn,
+            "access_point_name": access_point_name,
+        }
+
+    @builtins.property
+    def access_point_arn(self) -> builtins.str:
+        '''The ARN of the AccessPoint resource.'''
+        result = self._values.get("access_point_arn")
+        assert result is not None, "Required property 'access_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_point_name(self) -> builtins.str:
+        '''The Name of the AccessPoint resource.'''
+        result = self._values.get("access_point_name")
+        assert result is not None, "Required property 'access_point_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class BlockPublicAccess(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3.BlockPublicAccess",
@@ -1854,145 +2107,6 @@ class BucketNotificationDestinationType(enum.Enum):
     TOPIC = "TOPIC"
 
 
-class BucketPolicy(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_s3.BucketPolicy",
-):
-    '''The bucket policy for an Amazon S3 bucket.
-
-    Policies define the operations that are allowed on this resource.
-
-    You almost never need to define this construct directly.
-
-    All AWS resources that support resource policies have a method called
-    ``addToResourcePolicy()``, which will automatically create a new resource
-    policy if one doesn't exist yet, otherwise it will add to the existing
-    policy.
-
-    The bucket policy method is implemented differently than ``addToResourcePolicy()``
-    as ``BucketPolicy()`` creates a new policy without knowing one earlier existed.
-    e.g. if during Bucket creation, if ``autoDeleteObject:true``, these policies are
-    added to the bucket policy:
-    ["s3:DeleteObject*", "s3:GetBucket*", "s3:List*", "s3:PutBucketPolicy"],
-    and when you add a new BucketPolicy with ["s3:GetObject", "s3:ListBucket"] on
-    this existing bucket, invoking ``BucketPolicy()`` will create a new Policy
-    without knowing one earlier exists already, so it creates a new one.
-    In this case, the custom resource handler will not have access to
-    ``s3:GetBucketTagging`` action which will cause failure during deletion of stack.
-
-    Hence its strongly recommended to use ``addToResourcePolicy()`` method to add
-    new permissions to existing policy.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        bucket_name = "amzn-s3-demo-bucket"
-        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
-            bucket_name=bucket_name
-        )
-        
-        bucket_policy = s3.CfnBucketPolicy(self, "BucketPolicy",
-            bucket=bucket_name,
-            policy_document={
-                "Statement": [{
-                    "Action": "s3:*",
-                    "Effect": "Deny",
-                    "Principal": {
-                        "AWS": "*"
-                    },
-                    "Resource": [access_logs_bucket.bucket_arn, f"{accessLogsBucket.bucketArn}/*"
-                    ]
-                }
-                ],
-                "Version": "2012-10-17"
-            }
-        )
-        
-        # Wrap L1 Construct with L2 Bucket Policy Construct. Subsequent
-        # generated bucket policy to allow access log delivery would append
-        # to the current policy.
-        s3.BucketPolicy.from_cfn_bucket_policy(bucket_policy)
-        
-        bucket = s3.Bucket(self, "MyBucket",
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix="logs"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        bucket: "IBucket",
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param bucket: The Amazon S3 bucket that the policy applies to.
-        :param removal_policy: Policy to apply when the policy is removed from this stack. Default: - RemovalPolicy.DESTROY.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__910b3df1208e67cb52dad0b0b8c5feb43c7bddb0ced50eaf6c953477298a840e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = BucketPolicyProps(bucket=bucket, removal_policy=removal_policy)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromCfnBucketPolicy")
-    @builtins.classmethod
-    def from_cfn_bucket_policy(
-        cls,
-        cfn_bucket_policy: "CfnBucketPolicy",
-    ) -> "BucketPolicy":
-        '''Create a mutable ``BucketPolicy`` from a ``CfnBucketPolicy``.
-
-        :param cfn_bucket_policy: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd3f50341cadbb894f48d7873cd17f90805868eb52fe95025e4a60567b5529f1)
-            check_type(argname="argument cfn_bucket_policy", value=cfn_bucket_policy, expected_type=type_hints["cfn_bucket_policy"])
-        return typing.cast("BucketPolicy", jsii.sinvoke(cls, "fromCfnBucketPolicy", [cfn_bucket_policy]))
-
-    @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, removal_policy: _RemovalPolicy_9f93c814) -> None:
-        '''Sets the removal policy for the BucketPolicy.
-
-        :param removal_policy: the RemovalPolicy to set.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70ab6602f43f75a64ae8e8349b5d140cdfefe9af2e4d2352ec6279ed1b544fca)
-            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
-        return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [removal_policy]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="bucket")
-    def bucket(self) -> "IBucket":
-        '''The Bucket this Policy applies to.'''
-        return typing.cast("IBucket", jsii.get(self, "bucket"))
-
-    @builtins.property
-    @jsii.member(jsii_name="document")
-    def document(self) -> _PolicyDocument_3ac34393:
-        '''A policy document containing permissions to add to the specified bucket.
-
-        For more information, see Access Policy Language Overview in the Amazon
-        Simple Storage Service Developer Guide.
-        '''
-        return typing.cast(_PolicyDocument_3ac34393, jsii.get(self, "document"))
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_s3.BucketPolicyProps",
     jsii_struct_bases=[],
@@ -2061,6 +2175,55 @@ class BucketPolicyProps:
 
     def __repr__(self) -> str:
         return "BucketPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.BucketPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket"},
+)
+class BucketPolicyReference:
+    def __init__(self, *, bucket: builtins.str) -> None:
+        '''A reference to a BucketPolicy resource.
+
+        :param bucket: The Bucket of the BucketPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            bucket_policy_reference = s3.BucketPolicyReference(
+                bucket="bucket"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01ced09519691ca37ae0567bb0801ed5daa2aceab1c87f5d2394c6e90397c2ed)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The Bucket of the BucketPolicy resource.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketPolicyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2709,7 +2872,5752 @@ class BucketProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.BucketReference",
+    jsii_struct_bases=[],
+    name_mapping={"bucket_arn": "bucketArn", "bucket_name": "bucketName"},
+)
+class BucketReference:
+    def __init__(self, *, bucket_arn: builtins.str, bucket_name: builtins.str) -> None:
+        '''A reference to a Bucket resource.
+
+        :param bucket_arn: The ARN of the Bucket resource.
+        :param bucket_name: The BucketName of the Bucket resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            bucket_reference = s3.BucketReference(
+                bucket_arn="bucketArn",
+                bucket_name="bucketName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a86cfbb4f4eba9bf41ace37d4d3693e8e2de937adefed5f9af44fa17698bcdf3)
+            check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_arn": bucket_arn,
+            "bucket_name": bucket_name,
+        }
+
+    @builtins.property
+    def bucket_arn(self) -> builtins.str:
+        '''The ARN of the Bucket resource.'''
+        result = self._values.get("bucket_arn")
+        assert result is not None, "Required property 'bucket_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''The BucketName of the Bucket resource.'''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_grants_location_id": "accessGrantsLocationId",
+        "grantee": "grantee",
+        "permission": "permission",
+        "access_grants_location_configuration": "accessGrantsLocationConfiguration",
+        "application_arn": "applicationArn",
+        "s3_prefix_type": "s3PrefixType",
+        "tags": "tags",
+    },
+)
+class CfnAccessGrantProps:
+    def __init__(
+        self,
+        *,
+        access_grants_location_id: builtins.str,
+        grantee: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessGrant.GranteeProperty", typing.Dict[builtins.str, typing.Any]]],
+        permission: builtins.str,
+        access_grants_location_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessGrant.AccessGrantsLocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_arn: typing.Optional[builtins.str] = None,
+        s3_prefix_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessGrant``.
+
+        :param access_grants_location_id: The ID of the registered location to which you are granting access. S3 Access Grants assigns this ID when you register the location. S3 Access Grants assigns the ID ``default`` to the default location ``s3://`` and assigns an auto-generated ID to other locations that you register.
+        :param grantee: The user, group, or role to which you are granting access. You can grant access to an IAM user or role. If you have added your corporate directory to AWS IAM Identity Center and associated your Identity Center instance with your S3 Access Grants instance, the grantee can also be a corporate directory user or group.
+        :param permission: The type of access that you are granting to your S3 data, which can be set to one of the following values: - ``READ`` – Grant read-only access to the S3 data. - ``WRITE`` – Grant write-only access to the S3 data. - ``READWRITE`` – Grant both read and write access to the S3 data.
+        :param access_grants_location_configuration: The configuration options of the grant location. The grant location is the S3 path to the data to which you are granting access. It contains the ``S3SubPrefix`` field. The grant scope is the result of appending the subprefix to the location scope of the registered location.
+        :param application_arn: The Amazon Resource Name (ARN) of an AWS IAM Identity Center application associated with your Identity Center instance. If the grant includes an application ARN, the grantee can only access the S3 data through this application.
+        :param s3_prefix_type: The type of ``S3SubPrefix`` . The only possible value is ``Object`` . Pass this value if the access grant scope is an object. Do not pass this value if the access grant scope is a bucket or a bucket and a prefix.
+        :param tags: The AWS resource tags that you are adding to the access grant. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cfn_access_grant_props = s3.CfnAccessGrantProps(
+                access_grants_location_id="accessGrantsLocationId",
+                grantee=s3.CfnAccessGrant.GranteeProperty(
+                    grantee_identifier="granteeIdentifier",
+                    grantee_type="granteeType"
+                ),
+                permission="permission",
+            
+                # the properties below are optional
+                access_grants_location_configuration=s3.CfnAccessGrant.AccessGrantsLocationConfigurationProperty(
+                    s3_sub_prefix="s3SubPrefix"
+                ),
+                application_arn="applicationArn",
+                s3_prefix_type="s3PrefixType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6693824092437048ff69d9ab00d31c023baa833a8fec5c0bcd4d8fabe7901ca7)
+            check_type(argname="argument access_grants_location_id", value=access_grants_location_id, expected_type=type_hints["access_grants_location_id"])
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
+            check_type(argname="argument access_grants_location_configuration", value=access_grants_location_configuration, expected_type=type_hints["access_grants_location_configuration"])
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument s3_prefix_type", value=s3_prefix_type, expected_type=type_hints["s3_prefix_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_grants_location_id": access_grants_location_id,
+            "grantee": grantee,
+            "permission": permission,
+        }
+        if access_grants_location_configuration is not None:
+            self._values["access_grants_location_configuration"] = access_grants_location_configuration
+        if application_arn is not None:
+            self._values["application_arn"] = application_arn
+        if s3_prefix_type is not None:
+            self._values["s3_prefix_type"] = s3_prefix_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_grants_location_id(self) -> builtins.str:
+        '''The ID of the registered location to which you are granting access.
+
+        S3 Access Grants assigns this ID when you register the location. S3 Access Grants assigns the ID ``default`` to the default location ``s3://`` and assigns an auto-generated ID to other locations that you register.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-accessgrantslocationid
+        '''
+        result = self._values.get("access_grants_location_id")
+        assert result is not None, "Required property 'access_grants_location_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def grantee(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccessGrant.GranteeProperty"]:
+        '''The user, group, or role to which you are granting access.
+
+        You can grant access to an IAM user or role. If you have added your corporate directory to AWS IAM Identity Center and associated your Identity Center instance with your S3 Access Grants instance, the grantee can also be a corporate directory user or group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-grantee
+        '''
+        result = self._values.get("grantee")
+        assert result is not None, "Required property 'grantee' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccessGrant.GranteeProperty"], result)
+
+    @builtins.property
+    def permission(self) -> builtins.str:
+        '''The type of access that you are granting to your S3 data, which can be set to one of the following values:  - ``READ`` – Grant read-only access to the S3 data.
+
+        - ``WRITE`` – Grant write-only access to the S3 data.
+        - ``READWRITE`` – Grant both read and write access to the S3 data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-permission
+        '''
+        result = self._values.get("permission")
+        assert result is not None, "Required property 'permission' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_grants_location_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessGrant.AccessGrantsLocationConfigurationProperty"]]:
+        '''The configuration options of the grant location.
+
+        The grant location is the S3 path to the data to which you are granting access. It contains the ``S3SubPrefix`` field. The grant scope is the result of appending the subprefix to the location scope of the registered location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-accessgrantslocationconfiguration
+        '''
+        result = self._values.get("access_grants_location_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessGrant.AccessGrantsLocationConfigurationProperty"]], result)
+
+    @builtins.property
+    def application_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an AWS IAM Identity Center application associated with your Identity Center instance.
+
+        If the grant includes an application ARN, the grantee can only access the S3 data through this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-applicationarn
+        '''
+        result = self._values.get("application_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_prefix_type(self) -> typing.Optional[builtins.str]:
+        '''The type of ``S3SubPrefix`` .
+
+        The only possible value is ``Object`` . Pass this value if the access grant scope is an object. Do not pass this value if the access grant scope is a bucket or a bucket and a prefix.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-s3prefixtype
+        '''
+        result = self._values.get("s3_prefix_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The AWS resource tags that you are adding to the access grant.
+
+        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessGrantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantsInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={"identity_center_arn": "identityCenterArn", "tags": "tags"},
+)
+class CfnAccessGrantsInstanceProps:
+    def __init__(
+        self,
+        *,
+        identity_center_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessGrantsInstance``.
+
+        :param identity_center_arn: If you would like to associate your S3 Access Grants instance with an AWS IAM Identity Center instance, use this field to pass the Amazon Resource Name (ARN) of the AWS IAM Identity Center instance that you are associating with your S3 Access Grants instance. An IAM Identity Center instance is your corporate identity directory that you added to the IAM Identity Center.
+        :param tags: The AWS resource tags that you are adding to the S3 Access Grants instance. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cfn_access_grants_instance_props = s3.CfnAccessGrantsInstanceProps(
+                identity_center_arn="identityCenterArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60225afff484a18da279540c306f31ca28ba21d38e2e53a434a570988d4050e2)
+            check_type(argname="argument identity_center_arn", value=identity_center_arn, expected_type=type_hints["identity_center_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if identity_center_arn is not None:
+            self._values["identity_center_arn"] = identity_center_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def identity_center_arn(self) -> typing.Optional[builtins.str]:
+        '''If you would like to associate your S3 Access Grants instance with an AWS IAM Identity Center instance, use this field to pass the Amazon Resource Name (ARN) of the AWS IAM Identity Center instance that you are associating with your S3 Access Grants instance.
+
+        An IAM Identity Center instance is your corporate identity directory that you added to the IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html#cfn-s3-accessgrantsinstance-identitycenterarn
+        '''
+        result = self._values.get("identity_center_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The AWS resource tags that you are adding to the S3 Access Grants instance.
+
+        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html#cfn-s3-accessgrantsinstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessGrantsInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantsLocationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "iam_role_arn": "iamRoleArn",
+        "location_scope": "locationScope",
+        "tags": "tags",
+    },
+)
+class CfnAccessGrantsLocationProps:
+    def __init__(
+        self,
+        *,
+        iam_role_arn: typing.Optional[builtins.str] = None,
+        location_scope: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessGrantsLocation``.
+
+        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role for the registered location. S3 Access Grants assumes this role to manage access to the registered location.
+        :param location_scope: The S3 URI path to the location that you are registering. The location scope can be the default S3 location ``s3://`` , the S3 path to a bucket, or the S3 path to a bucket and prefix. A prefix in S3 is a string of characters at the beginning of an object key name used to organize the objects that you store in your S3 buckets. For example, object key names that start with the ``engineering/`` prefix or object key names that start with the ``marketing/campaigns/`` prefix.
+        :param tags: The AWS resource tags that you are adding to the S3 Access Grants location. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cfn_access_grants_location_props = s3.CfnAccessGrantsLocationProps(
+                iam_role_arn="iamRoleArn",
+                location_scope="locationScope",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f891152429263f2b2cdf0641e18212de422d1b020ebb0f7ffbac1e255090f5d)
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument location_scope", value=location_scope, expected_type=type_hints["location_scope"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if iam_role_arn is not None:
+            self._values["iam_role_arn"] = iam_role_arn
+        if location_scope is not None:
+            self._values["location_scope"] = location_scope
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def iam_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role for the registered location.
+
+        S3 Access Grants assumes this role to manage access to the registered location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def location_scope(self) -> typing.Optional[builtins.str]:
+        '''The S3 URI path to the location that you are registering.
+
+        The location scope can be the default S3 location ``s3://`` , the S3 path to a bucket, or the S3 path to a bucket and prefix. A prefix in S3 is a string of characters at the beginning of an object key name used to organize the objects that you store in your S3 buckets. For example, object key names that start with the ``engineering/`` prefix or object key names that start with the ``marketing/campaigns/`` prefix.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-locationscope
+        '''
+        result = self._values.get("location_scope")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The AWS resource tags that you are adding to the S3 Access Grants location.
+
+        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessGrantsLocationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket": "bucket",
+        "bucket_account_id": "bucketAccountId",
+        "name": "name",
+        "policy": "policy",
+        "public_access_block_configuration": "publicAccessBlockConfiguration",
+        "tags": "tags",
+        "vpc_configuration": "vpcConfiguration",
+    },
+)
+class CfnAccessPointProps:
+    def __init__(
+        self,
+        *,
+        bucket: builtins.str,
+        bucket_account_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        policy: typing.Any = None,
+        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPoint``.
+
+        :param bucket: The name of the bucket associated with this access point.
+        :param bucket_account_id: The AWS account ID associated with the S3 bucket associated with this access point.
+        :param name: The name of this access point. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
+        :param policy: The access point policy associated with this access point.
+        :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket. You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+        :param vpc_configuration: The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            # policy: Any
+            
+            cfn_access_point_props = s3.CfnAccessPointProps(
+                bucket="bucket",
+            
+                # the properties below are optional
+                bucket_account_id="bucketAccountId",
+                name="name",
+                policy=policy,
+                public_access_block_configuration=s3.CfnAccessPoint.PublicAccessBlockConfigurationProperty(
+                    block_public_acls=False,
+                    block_public_policy=False,
+                    ignore_public_acls=False,
+                    restrict_public_buckets=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_configuration=s3.CfnAccessPoint.VpcConfigurationProperty(
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78747b8f8c95f80def774b788cce8b1ff46ec71c89a1b75527040106602da5b3)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument bucket_account_id", value=bucket_account_id, expected_type=type_hints["bucket_account_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if bucket_account_id is not None:
+            self._values["bucket_account_id"] = bucket_account_id
+        if name is not None:
+            self._values["name"] = name
+        if policy is not None:
+            self._values["policy"] = policy
+        if public_access_block_configuration is not None:
+            self._values["public_access_block_configuration"] = public_access_block_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_configuration is not None:
+            self._values["vpc_configuration"] = vpc_configuration
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The name of the bucket associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bucket_account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID associated with the S3 bucket associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-bucketaccountid
+        '''
+        result = self._values.get("bucket_account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of this access point.
+
+        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def public_access_block_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.PublicAccessBlockConfigurationProperty"]]:
+        '''The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket.
+
+        You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-publicaccessblockconfiguration
+        '''
+        result = self._values.get("public_access_block_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.PublicAccessBlockConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to access points.
+
+        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"]]:
+        '''The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-vpcconfiguration
+        '''
+        result = self._values.get("vpc_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnBucketPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
+)
+class CfnBucketPolicyProps:
+    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
+        '''Properties for defining a ``CfnBucketPolicy``.
+
+        :param bucket: The name of the Amazon S3 bucket to which the policy applies.
+        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html
+        :exampleMetadata: infused
+
+        Example::
+
+            bucket_name = "amzn-s3-demo-bucket"
+            access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
+                object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+                bucket_name=bucket_name
+            )
+            
+            # Creating a bucket policy using L1
+            bucket_policy = s3.CfnBucketPolicy(self, "BucketPolicy",
+                bucket=bucket_name,
+                policy_document={
+                    "Statement": [{
+                        "Action": "s3:*",
+                        "Effect": "Deny",
+                        "Principal": {
+                            "AWS": "*"
+                        },
+                        "Resource": [access_logs_bucket.bucket_arn, f"{accessLogsBucket.bucketArn}/*"
+                        ]
+                    }
+                    ],
+                    "Version": "2012-10-17"
+                }
+            )
+            
+            # 'serverAccessLogsBucket' will create a new L2 bucket policy
+            # to allow log delivery and overwrite the L1 bucket policy.
+            bucket = s3.Bucket(self, "MyBucket",
+                server_access_logs_bucket=access_logs_bucket,
+                server_access_logs_prefix="logs"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e45362293c11bec4f214faabdb065f61ae05bd217411f39deaf7c82ac79ccf0)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+            "policy_document": policy_document,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The name of the Amazon S3 bucket to which the policy applies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html#cfn-s3-bucketpolicy-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''A policy document containing permissions to add to the specified bucket.
+
+        In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html#cfn-s3-bucketpolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBucketPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnBucketProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "accelerate_configuration": "accelerateConfiguration",
+        "access_control": "accessControl",
+        "analytics_configurations": "analyticsConfigurations",
+        "bucket_encryption": "bucketEncryption",
+        "bucket_name": "bucketName",
+        "cors_configuration": "corsConfiguration",
+        "intelligent_tiering_configurations": "intelligentTieringConfigurations",
+        "inventory_configurations": "inventoryConfigurations",
+        "lifecycle_configuration": "lifecycleConfiguration",
+        "logging_configuration": "loggingConfiguration",
+        "metadata_configuration": "metadataConfiguration",
+        "metadata_table_configuration": "metadataTableConfiguration",
+        "metrics_configurations": "metricsConfigurations",
+        "notification_configuration": "notificationConfiguration",
+        "object_lock_configuration": "objectLockConfiguration",
+        "object_lock_enabled": "objectLockEnabled",
+        "ownership_controls": "ownershipControls",
+        "public_access_block_configuration": "publicAccessBlockConfiguration",
+        "replication_configuration": "replicationConfiguration",
+        "tags": "tags",
+        "versioning_configuration": "versioningConfiguration",
+        "website_configuration": "websiteConfiguration",
+    },
+)
+class CfnBucketProps:
+    def __init__(
+        self,
+        *,
+        accelerate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.AccelerateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        access_control: typing.Optional[builtins.str] = None,
+        analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bucket_name: typing.Optional[builtins.str] = None,
+        cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.CorsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.IntelligentTieringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.InventoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.MetadataTableConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.NotificationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        object_lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.ObjectLockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        object_lock_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ownership_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.OwnershipControlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.VersioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        website_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBucket.WebsiteConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBucket``.
+
+        :param accelerate_configuration: Configures the transfer acceleration state for an Amazon S3 bucket. For more information, see `Amazon S3 Transfer Acceleration <https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html>`_ in the *Amazon S3 User Guide* .
+        :param access_control: .. epigraph:: This is a legacy property, and it is not recommended for most use cases. A majority of modern use cases in Amazon S3 no longer require the use of ACLs, and we recommend that you keep ACLs disabled. For more information, see `Controlling object ownership <https://docs.aws.amazon.com//AmazonS3/latest/userguide/about-object-ownership.html>`_ in the *Amazon S3 User Guide* . A canned access control list (ACL) that grants predefined permissions to the bucket. For more information about canned ACLs, see `Canned ACL <https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl>`_ in the *Amazon S3 User Guide* . S3 buckets are created with ACLs disabled by default. Therefore, unless you explicitly set the `AWS::S3::OwnershipControls <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-ownershipcontrols.html>`_ property to enable ACLs, your resource will fail to deploy with any value other than Private. Use cases requiring ACLs are uncommon. The majority of access control configurations can be successfully and more easily achieved with bucket policies. For more information, see `AWS::S3::BucketPolicy <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html>`_ . For examples of common policy configurations, including S3 Server Access Logs buckets and more, see `Bucket policy examples <https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html>`_ in the *Amazon S3 User Guide* .
+        :param analytics_configurations: Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
+        :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS). For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
+        :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
+        :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
+        :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
+        :param lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
+        :param logging_configuration: Settings that define where logs are stored.
+        :param metadata_configuration: The S3 Metadata configuration for a general purpose bucket.
+        :param metadata_table_configuration: The metadata table configuration of an Amazon S3 general purpose bucket.
+        :param metrics_configurations: Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see `PutBucketMetricsConfiguration <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html>`_ .
+        :param notification_configuration: Configuration that defines how Amazon S3 handles bucket notifications.
+        :param object_lock_configuration: .. epigraph:: This operation is not supported for directory buckets. Places an Object Lock configuration on the specified bucket. The rule specified in the Object Lock configuration will be applied by default to every new object placed in the specified bucket. For more information, see `Locking Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html>`_ . .. epigraph:: - The ``DefaultRetention`` settings require both a mode and a period. - The ``DefaultRetention`` period can be either ``Days`` or ``Years`` but you must select one. You cannot specify ``Days`` and ``Years`` at the same time. - You can enable Object Lock for new or existing buckets. For more information, see `Configuring Object Lock <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html>`_ . > You must URL encode any signed header values that contain spaces. For example, if your header value is ``my file.txt`` , containing two spaces after ``my`` , you must URL encode this value to ``my%20%20file.txt`` .
+        :param object_lock_enabled: Indicates whether this bucket has an Object Lock configuration enabled. Enable ``ObjectLockEnabled`` when you apply ``ObjectLockConfiguration`` to a bucket.
+        :param ownership_controls: Configuration that defines how Amazon S3 handles Object Ownership rules.
+        :param public_access_block_configuration: Configuration that defines how Amazon S3 handles public access.
+        :param replication_configuration: Configuration for replicating objects in an S3 bucket. To enable replication, you must also enable versioning by using the ``VersioningConfiguration`` property. Amazon S3 can store replicated objects in a single destination bucket or multiple destination buckets. The destination bucket or buckets must already exist.
+        :param tags: An arbitrary set of tags (key-value pairs) for this S3 bucket.
+        :param versioning_configuration: Enables multiple versions of all objects in this bucket. You might enable versioning to prevent objects from being deleted or overwritten by mistake or to archive objects so that you can retrieve previous versions of them. .. epigraph:: When you enable versioning on a bucket for the first time, it might take a short amount of time for the change to be fully propagated. We recommend that you wait for 15 minutes after enabling versioning before issuing write operations ( ``PUT`` or ``DELETE`` ) on objects in the bucket.
+        :param website_configuration: Information used to configure the bucket as a static website. For more information, see `Hosting Websites on Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html
+        :exampleMetadata: infused
+
+        Example::
+
+            raw_bucket = s3.CfnBucket(self, "Bucket")
+            # -or-
+            raw_bucket_alt = my_bucket.node.default_child
+            
+            # then
+            raw_bucket.cfn_options.condition = CfnCondition(self, "EnableBucket")
+            raw_bucket.cfn_options.metadata = {
+                "metadata_key": "MetadataValue"
+            }
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__658a4165ec8804b9770871bbb27764713f55dc53e9c9e990dca120e7713b6fd8)
+            check_type(argname="argument accelerate_configuration", value=accelerate_configuration, expected_type=type_hints["accelerate_configuration"])
+            check_type(argname="argument access_control", value=access_control, expected_type=type_hints["access_control"])
+            check_type(argname="argument analytics_configurations", value=analytics_configurations, expected_type=type_hints["analytics_configurations"])
+            check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument cors_configuration", value=cors_configuration, expected_type=type_hints["cors_configuration"])
+            check_type(argname="argument intelligent_tiering_configurations", value=intelligent_tiering_configurations, expected_type=type_hints["intelligent_tiering_configurations"])
+            check_type(argname="argument inventory_configurations", value=inventory_configurations, expected_type=type_hints["inventory_configurations"])
+            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
+            check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+            check_type(argname="argument metadata_table_configuration", value=metadata_table_configuration, expected_type=type_hints["metadata_table_configuration"])
+            check_type(argname="argument metrics_configurations", value=metrics_configurations, expected_type=type_hints["metrics_configurations"])
+            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
+            check_type(argname="argument object_lock_configuration", value=object_lock_configuration, expected_type=type_hints["object_lock_configuration"])
+            check_type(argname="argument object_lock_enabled", value=object_lock_enabled, expected_type=type_hints["object_lock_enabled"])
+            check_type(argname="argument ownership_controls", value=ownership_controls, expected_type=type_hints["ownership_controls"])
+            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
+            check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument versioning_configuration", value=versioning_configuration, expected_type=type_hints["versioning_configuration"])
+            check_type(argname="argument website_configuration", value=website_configuration, expected_type=type_hints["website_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if accelerate_configuration is not None:
+            self._values["accelerate_configuration"] = accelerate_configuration
+        if access_control is not None:
+            self._values["access_control"] = access_control
+        if analytics_configurations is not None:
+            self._values["analytics_configurations"] = analytics_configurations
+        if bucket_encryption is not None:
+            self._values["bucket_encryption"] = bucket_encryption
+        if bucket_name is not None:
+            self._values["bucket_name"] = bucket_name
+        if cors_configuration is not None:
+            self._values["cors_configuration"] = cors_configuration
+        if intelligent_tiering_configurations is not None:
+            self._values["intelligent_tiering_configurations"] = intelligent_tiering_configurations
+        if inventory_configurations is not None:
+            self._values["inventory_configurations"] = inventory_configurations
+        if lifecycle_configuration is not None:
+            self._values["lifecycle_configuration"] = lifecycle_configuration
+        if logging_configuration is not None:
+            self._values["logging_configuration"] = logging_configuration
+        if metadata_configuration is not None:
+            self._values["metadata_configuration"] = metadata_configuration
+        if metadata_table_configuration is not None:
+            self._values["metadata_table_configuration"] = metadata_table_configuration
+        if metrics_configurations is not None:
+            self._values["metrics_configurations"] = metrics_configurations
+        if notification_configuration is not None:
+            self._values["notification_configuration"] = notification_configuration
+        if object_lock_configuration is not None:
+            self._values["object_lock_configuration"] = object_lock_configuration
+        if object_lock_enabled is not None:
+            self._values["object_lock_enabled"] = object_lock_enabled
+        if ownership_controls is not None:
+            self._values["ownership_controls"] = ownership_controls
+        if public_access_block_configuration is not None:
+            self._values["public_access_block_configuration"] = public_access_block_configuration
+        if replication_configuration is not None:
+            self._values["replication_configuration"] = replication_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if versioning_configuration is not None:
+            self._values["versioning_configuration"] = versioning_configuration
+        if website_configuration is not None:
+            self._values["website_configuration"] = website_configuration
+
+    @builtins.property
+    def accelerate_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.AccelerateConfigurationProperty"]]:
+        '''Configures the transfer acceleration state for an Amazon S3 bucket.
+
+        For more information, see `Amazon S3 Transfer Acceleration <https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-accelerateconfiguration
+        '''
+        result = self._values.get("accelerate_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.AccelerateConfigurationProperty"]], result)
+
+    @builtins.property
+    def access_control(self) -> typing.Optional[builtins.str]:
+        '''.. epigraph::
+
+   This is a legacy property, and it is not recommended for most use cases.
+
+        A majority of modern use cases in Amazon S3 no longer require the use of ACLs, and we recommend that you keep ACLs disabled. For more information, see `Controlling object ownership <https://docs.aws.amazon.com//AmazonS3/latest/userguide/about-object-ownership.html>`_ in the *Amazon S3 User Guide* .
+
+        A canned access control list (ACL) that grants predefined permissions to the bucket. For more information about canned ACLs, see `Canned ACL <https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl>`_ in the *Amazon S3 User Guide* .
+
+        S3 buckets are created with ACLs disabled by default. Therefore, unless you explicitly set the `AWS::S3::OwnershipControls <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-ownershipcontrols.html>`_ property to enable ACLs, your resource will fail to deploy with any value other than Private. Use cases requiring ACLs are uncommon.
+
+        The majority of access control configurations can be successfully and more easily achieved with bucket policies. For more information, see `AWS::S3::BucketPolicy <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html>`_ . For examples of common policy configurations, including S3 Server Access Logs buckets and more, see `Bucket policy examples <https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-accesscontrol
+        '''
+        result = self._values.get("access_control")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def analytics_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.AnalyticsConfigurationProperty"]]]]:
+        '''Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-analyticsconfigurations
+        '''
+        result = self._values.get("analytics_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.AnalyticsConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def bucket_encryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.BucketEncryptionProperty"]]:
+        '''Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS).
+
+        For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketencryption
+        '''
+        result = self._values.get("bucket_encryption")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.BucketEncryptionProperty"]], result)
+
+    @builtins.property
+    def bucket_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the bucket.
+
+        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* .
+        .. epigraph::
+
+           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cors_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.CorsConfigurationProperty"]]:
+        '''Describes the cross-origin access configuration for objects in an Amazon S3 bucket.
+
+        For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-corsconfiguration
+        '''
+        result = self._values.get("cors_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.CorsConfigurationProperty"]], result)
+
+    @builtins.property
+    def intelligent_tiering_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.IntelligentTieringConfigurationProperty"]]]]:
+        '''Defines how Amazon S3 handles Intelligent-Tiering storage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-intelligenttieringconfigurations
+        '''
+        result = self._values.get("intelligent_tiering_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.IntelligentTieringConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def inventory_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.InventoryConfigurationProperty"]]]]:
+        '''Specifies the S3 Inventory configuration for an Amazon S3 bucket.
+
+        For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-inventoryconfigurations
+        '''
+        result = self._values.get("inventory_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.InventoryConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def lifecycle_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LifecycleConfigurationProperty"]]:
+        '''Specifies the lifecycle configuration for objects in an Amazon S3 bucket.
+
+        For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-lifecycleconfiguration
+        '''
+        result = self._values.get("lifecycle_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LifecycleConfigurationProperty"]], result)
+
+    @builtins.property
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LoggingConfigurationProperty"]]:
+        '''Settings that define where logs are stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-loggingconfiguration
+        '''
+        result = self._values.get("logging_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.LoggingConfigurationProperty"]], result)
+
+    @builtins.property
+    def metadata_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetadataConfigurationProperty"]]:
+        '''The S3 Metadata configuration for a general purpose bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metadataconfiguration
+        '''
+        result = self._values.get("metadata_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetadataConfigurationProperty"]], result)
+
+    @builtins.property
+    def metadata_table_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetadataTableConfigurationProperty"]]:
+        '''The metadata table configuration of an Amazon S3 general purpose bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metadatatableconfiguration
+        '''
+        result = self._values.get("metadata_table_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetadataTableConfigurationProperty"]], result)
+
+    @builtins.property
+    def metrics_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetricsConfigurationProperty"]]]]:
+        '''Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket.
+
+        If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see `PutBucketMetricsConfiguration <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metricsconfigurations
+        '''
+        result = self._values.get("metrics_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.MetricsConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def notification_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.NotificationConfigurationProperty"]]:
+        '''Configuration that defines how Amazon S3 handles bucket notifications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-notificationconfiguration
+        '''
+        result = self._values.get("notification_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.NotificationConfigurationProperty"]], result)
+
+    @builtins.property
+    def object_lock_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.ObjectLockConfigurationProperty"]]:
+        '''.. epigraph::
+
+   This operation is not supported for directory buckets.
+
+        Places an Object Lock configuration on the specified bucket. The rule specified in the Object Lock configuration will be applied by default to every new object placed in the specified bucket. For more information, see `Locking Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html>`_ .
+        .. epigraph::
+
+           - The ``DefaultRetention`` settings require both a mode and a period.
+           - The ``DefaultRetention`` period can be either ``Days`` or ``Years`` but you must select one. You cannot specify ``Days`` and ``Years`` at the same time.
+           - You can enable Object Lock for new or existing buckets. For more information, see `Configuring Object Lock <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html>`_ . > You must URL encode any signed header values that contain spaces. For example, if your header value is ``my file.txt`` , containing two spaces after ``my`` , you must URL encode this value to ``my%20%20file.txt`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-objectlockconfiguration
+        '''
+        result = self._values.get("object_lock_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.ObjectLockConfigurationProperty"]], result)
+
+    @builtins.property
+    def object_lock_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether this bucket has an Object Lock configuration enabled.
+
+        Enable ``ObjectLockEnabled`` when you apply ``ObjectLockConfiguration`` to a bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-objectlockenabled
+        '''
+        result = self._values.get("object_lock_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def ownership_controls(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.OwnershipControlsProperty"]]:
+        '''Configuration that defines how Amazon S3 handles Object Ownership rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-ownershipcontrols
+        '''
+        result = self._values.get("ownership_controls")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.OwnershipControlsProperty"]], result)
+
+    @builtins.property
+    def public_access_block_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.PublicAccessBlockConfigurationProperty"]]:
+        '''Configuration that defines how Amazon S3 handles public access.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-publicaccessblockconfiguration
+        '''
+        result = self._values.get("public_access_block_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.PublicAccessBlockConfigurationProperty"]], result)
+
+    @builtins.property
+    def replication_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.ReplicationConfigurationProperty"]]:
+        '''Configuration for replicating objects in an S3 bucket.
+
+        To enable replication, you must also enable versioning by using the ``VersioningConfiguration`` property.
+
+        Amazon S3 can store replicated objects in a single destination bucket or multiple destination buckets. The destination bucket or buckets must already exist.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-replicationconfiguration
+        '''
+        result = self._values.get("replication_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.ReplicationConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key-value pairs) for this S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def versioning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.VersioningConfigurationProperty"]]:
+        '''Enables multiple versions of all objects in this bucket.
+
+        You might enable versioning to prevent objects from being deleted or overwritten by mistake or to archive objects so that you can retrieve previous versions of them.
+        .. epigraph::
+
+           When you enable versioning on a bucket for the first time, it might take a short amount of time for the change to be fully propagated. We recommend that you wait for 15 minutes after enabling versioning before issuing write operations ( ``PUT`` or ``DELETE`` ) on objects in the bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-versioningconfiguration
+        '''
+        result = self._values.get("versioning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.VersioningConfigurationProperty"]], result)
+
+    @builtins.property
+    def website_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.WebsiteConfigurationProperty"]]:
+        '''Information used to configure the bucket as a static website.
+
+        For more information, see `Hosting Websites on Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-websiteconfiguration
+        '''
+        result = self._values.get("website_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBucket.WebsiteConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBucketProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnMultiRegionAccessPointPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"mrap_name": "mrapName", "policy": "policy"},
+)
+class CfnMultiRegionAccessPointPolicyProps:
+    def __init__(self, *, mrap_name: builtins.str, policy: typing.Any) -> None:
+        '''Properties for defining a ``CfnMultiRegionAccessPointPolicy``.
+
+        :param mrap_name: The name of the Multi-Region Access Point.
+        :param policy: The access policy associated with the Multi-Region Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            # policy: Any
+            
+            cfn_multi_region_access_point_policy_props = s3.CfnMultiRegionAccessPointPolicyProps(
+                mrap_name="mrapName",
+                policy=policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83dff8fea1cc4bc1e3a8051ab8dcc73809271fe45f045b7a620578ab1e838fb0)
+            check_type(argname="argument mrap_name", value=mrap_name, expected_type=type_hints["mrap_name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mrap_name": mrap_name,
+            "policy": policy,
+        }
+
+    @builtins.property
+    def mrap_name(self) -> builtins.str:
+        '''The name of the Multi-Region Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html#cfn-s3-multiregionaccesspointpolicy-mrapname
+        '''
+        result = self._values.get("mrap_name")
+        assert result is not None, "Required property 'mrap_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The access policy associated with the Multi-Region Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html#cfn-s3-multiregionaccesspointpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiRegionAccessPointPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnMultiRegionAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "regions": "regions",
+        "name": "name",
+        "public_access_block_configuration": "publicAccessBlockConfiguration",
+    },
+)
+class CfnMultiRegionAccessPointProps:
+    def __init__(
+        self,
+        *,
+        regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiRegionAccessPoint.RegionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: typing.Optional[builtins.str] = None,
+        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMultiRegionAccessPoint``.
+
+        :param regions: A collection of the Regions and buckets associated with the Multi-Region Access Point.
+        :param name: The name of the Multi-Region Access Point.
+        :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Multi-Region Access Point. You can enable the configuration options in any combination. For more information about when Amazon S3 considers an object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cfn_multi_region_access_point_props = s3.CfnMultiRegionAccessPointProps(
+                regions=[s3.CfnMultiRegionAccessPoint.RegionProperty(
+                    bucket="bucket",
+            
+                    # the properties below are optional
+                    bucket_account_id="bucketAccountId"
+                )],
+            
+                # the properties below are optional
+                name="name",
+                public_access_block_configuration=s3.CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty(
+                    block_public_acls=False,
+                    block_public_policy=False,
+                    ignore_public_acls=False,
+                    restrict_public_buckets=False
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9c34c742822cb3c6e1b5ff82e1cd9701cccdd13b6eca90aaa41af8e2b2160fb)
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "regions": regions,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if public_access_block_configuration is not None:
+            self._values["public_access_block_configuration"] = public_access_block_configuration
+
+    @builtins.property
+    def regions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiRegionAccessPoint.RegionProperty"]]]:
+        '''A collection of the Regions and buckets associated with the Multi-Region Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-regions
+        '''
+        result = self._values.get("regions")
+        assert result is not None, "Required property 'regions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiRegionAccessPoint.RegionProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Multi-Region Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def public_access_block_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty"]]:
+        '''The PublicAccessBlock configuration that you want to apply to this Multi-Region Access Point.
+
+        You can enable the configuration options in any combination. For more information about when Amazon S3 considers an object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-publicaccessblockconfiguration
+        '''
+        result = self._values.get("public_access_block_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiRegionAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnStorageLensGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"filter": "filter", "name": "name", "tags": "tags"},
+)
+class CfnStorageLensGroupProps:
+    def __init__(
+        self,
+        *,
+        filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnStorageLensGroup.FilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStorageLensGroup``.
+
+        :param filter: This property contains the criteria for the Storage Lens group data that is displayed.
+        :param name: This property contains the Storage Lens group name.
+        :param tags: This property contains the AWS resource tags that you're adding to your Storage Lens group. This parameter is optional.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cfn_storage_lens_group_props = s3.CfnStorageLensGroupProps(
+                filter=s3.CfnStorageLensGroup.FilterProperty(
+                    and=s3.CfnStorageLensGroup.AndProperty(
+                        match_any_prefix=["matchAnyPrefix"],
+                        match_any_suffix=["matchAnySuffix"],
+                        match_any_tag=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
+                            days_greater_than=123,
+                            days_less_than=123
+                        ),
+                        match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
+                            bytes_greater_than=123,
+                            bytes_less_than=123
+                        )
+                    ),
+                    match_any_prefix=["matchAnyPrefix"],
+                    match_any_suffix=["matchAnySuffix"],
+                    match_any_tag=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
+                        days_greater_than=123,
+                        days_less_than=123
+                    ),
+                    match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
+                        bytes_greater_than=123,
+                        bytes_less_than=123
+                    ),
+                    or=s3.CfnStorageLensGroup.OrProperty(
+                        match_any_prefix=["matchAnyPrefix"],
+                        match_any_suffix=["matchAnySuffix"],
+                        match_any_tag=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
+                            days_greater_than=123,
+                            days_less_than=123
+                        ),
+                        match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
+                            bytes_greater_than=123,
+                            bytes_less_than=123
+                        )
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1507fb63678d3f602a3355afdc02627a401fd48b97ef9ac2aec6c8dbfb25cfc)
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filter": filter,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def filter(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnStorageLensGroup.FilterProperty"]:
+        '''This property contains the criteria for the Storage Lens group data that is displayed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-filter
+        '''
+        result = self._values.get("filter")
+        assert result is not None, "Required property 'filter' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnStorageLensGroup.FilterProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''This property contains the Storage Lens group name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''This property contains the AWS resource tags that you're adding to your Storage Lens group.
+
+        This parameter is optional.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStorageLensGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CfnStorageLensProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "storage_lens_configuration": "storageLensConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnStorageLensProps:
+    def __init__(
+        self,
+        *,
+        storage_lens_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnStorageLens.StorageLensConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStorageLens``.
+
+        :param storage_lens_configuration: This resource contains the details Amazon S3 Storage Lens configuration.
+        :param tags: A set of tags (key–value pairs) to associate with the Storage Lens configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            # sses3: Any
+            
+            cfn_storage_lens_props = s3.CfnStorageLensProps(
+                storage_lens_configuration=s3.CfnStorageLens.StorageLensConfigurationProperty(
+                    account_level=s3.CfnStorageLens.AccountLevelProperty(
+                        bucket_level=s3.CfnStorageLens.BucketLevelProperty(
+                            activity_metrics=s3.CfnStorageLens.ActivityMetricsProperty(
+                                is_enabled=False
+                            ),
+                            advanced_cost_optimization_metrics=s3.CfnStorageLens.AdvancedCostOptimizationMetricsProperty(
+                                is_enabled=False
+                            ),
+                            advanced_data_protection_metrics=s3.CfnStorageLens.AdvancedDataProtectionMetricsProperty(
+                                is_enabled=False
+                            ),
+                            detailed_status_codes_metrics=s3.CfnStorageLens.DetailedStatusCodesMetricsProperty(
+                                is_enabled=False
+                            ),
+                            prefix_level=s3.CfnStorageLens.PrefixLevelProperty(
+                                storage_metrics=s3.CfnStorageLens.PrefixLevelStorageMetricsProperty(
+                                    is_enabled=False,
+                                    selection_criteria=s3.CfnStorageLens.SelectionCriteriaProperty(
+                                        delimiter="delimiter",
+                                        max_depth=123,
+                                        min_storage_bytes_percentage=123
+                                    )
+                                )
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        activity_metrics=s3.CfnStorageLens.ActivityMetricsProperty(
+                            is_enabled=False
+                        ),
+                        advanced_cost_optimization_metrics=s3.CfnStorageLens.AdvancedCostOptimizationMetricsProperty(
+                            is_enabled=False
+                        ),
+                        advanced_data_protection_metrics=s3.CfnStorageLens.AdvancedDataProtectionMetricsProperty(
+                            is_enabled=False
+                        ),
+                        detailed_status_codes_metrics=s3.CfnStorageLens.DetailedStatusCodesMetricsProperty(
+                            is_enabled=False
+                        ),
+                        storage_lens_group_level=s3.CfnStorageLens.StorageLensGroupLevelProperty(
+                            storage_lens_group_selection_criteria=s3.CfnStorageLens.StorageLensGroupSelectionCriteriaProperty(
+                                exclude=["exclude"],
+                                include=["include"]
+                            )
+                        )
+                    ),
+                    id="id",
+                    is_enabled=False,
+            
+                    # the properties below are optional
+                    aws_org=s3.CfnStorageLens.AwsOrgProperty(
+                        arn="arn"
+                    ),
+                    data_export=s3.CfnStorageLens.DataExportProperty(
+                        cloud_watch_metrics=s3.CfnStorageLens.CloudWatchMetricsProperty(
+                            is_enabled=False
+                        ),
+                        s3_bucket_destination=s3.CfnStorageLens.S3BucketDestinationProperty(
+                            account_id="accountId",
+                            arn="arn",
+                            format="format",
+                            output_schema_version="outputSchemaVersion",
+            
+                            # the properties below are optional
+                            encryption=s3.CfnStorageLens.EncryptionProperty(
+                                ssekms=s3.CfnStorageLens.SSEKMSProperty(
+                                    key_id="keyId"
+                                ),
+                                sses3=sses3
+                            ),
+                            prefix="prefix"
+                        )
+                    ),
+                    exclude=s3.CfnStorageLens.BucketsAndRegionsProperty(
+                        buckets=["buckets"],
+                        regions=["regions"]
+                    ),
+                    include=s3.CfnStorageLens.BucketsAndRegionsProperty(
+                        buckets=["buckets"],
+                        regions=["regions"]
+                    ),
+                    storage_lens_arn="storageLensArn"
+                ),
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4457e4bcc8248ede524c36517847e53317556018cc8b8eaa3a00e086f16cc74)
+            check_type(argname="argument storage_lens_configuration", value=storage_lens_configuration, expected_type=type_hints["storage_lens_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_lens_configuration": storage_lens_configuration,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def storage_lens_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnStorageLens.StorageLensConfigurationProperty"]:
+        '''This resource contains the details Amazon S3 Storage Lens configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html#cfn-s3-storagelens-storagelensconfiguration
+        '''
+        result = self._values.get("storage_lens_configuration")
+        assert result is not None, "Required property 'storage_lens_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnStorageLens.StorageLensConfigurationProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A set of tags (key–value pairs) to associate with the Storage Lens configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html#cfn-s3-storagelens-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStorageLensProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.CorsRule",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allowed_methods": "allowedMethods",
+        "allowed_origins": "allowedOrigins",
+        "allowed_headers": "allowedHeaders",
+        "exposed_headers": "exposedHeaders",
+        "id": "id",
+        "max_age": "maxAge",
+    },
+)
+class CorsRule:
+    def __init__(
+        self,
+        *,
+        allowed_methods: typing.Sequence["HttpMethods"],
+        allowed_origins: typing.Sequence[builtins.str],
+        allowed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        exposed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        max_age: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Specifies a cross-origin access rule for an Amazon S3 bucket.
+
+        :param allowed_methods: An HTTP method that you allow the origin to execute.
+        :param allowed_origins: One or more origins you want customers to be able to access the bucket from.
+        :param allowed_headers: Headers that are specified in the Access-Control-Request-Headers header. Default: - No headers allowed.
+        :param exposed_headers: One or more headers in the response that you want customers to be able to access from their applications. Default: - No headers exposed.
+        :param id: A unique identifier for this rule. Default: - No id specified.
+        :param max_age: The time in seconds that your browser is to cache the preflight response for the specified resource. Default: - No caching.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            cors_rule = s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET],
+                allowed_origins=["allowedOrigins"],
+            
+                # the properties below are optional
+                allowed_headers=["allowedHeaders"],
+                exposed_headers=["exposedHeaders"],
+                id="id",
+                max_age=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__beafb715fedc4fd96130b462f30e56792d8aa655173f4d4fa2e8dcd77a7539e7)
+            check_type(argname="argument allowed_methods", value=allowed_methods, expected_type=type_hints["allowed_methods"])
+            check_type(argname="argument allowed_origins", value=allowed_origins, expected_type=type_hints["allowed_origins"])
+            check_type(argname="argument allowed_headers", value=allowed_headers, expected_type=type_hints["allowed_headers"])
+            check_type(argname="argument exposed_headers", value=exposed_headers, expected_type=type_hints["exposed_headers"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument max_age", value=max_age, expected_type=type_hints["max_age"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "allowed_methods": allowed_methods,
+            "allowed_origins": allowed_origins,
+        }
+        if allowed_headers is not None:
+            self._values["allowed_headers"] = allowed_headers
+        if exposed_headers is not None:
+            self._values["exposed_headers"] = exposed_headers
+        if id is not None:
+            self._values["id"] = id
+        if max_age is not None:
+            self._values["max_age"] = max_age
+
+    @builtins.property
+    def allowed_methods(self) -> typing.List["HttpMethods"]:
+        '''An HTTP method that you allow the origin to execute.'''
+        result = self._values.get("allowed_methods")
+        assert result is not None, "Required property 'allowed_methods' is missing"
+        return typing.cast(typing.List["HttpMethods"], result)
+
+    @builtins.property
+    def allowed_origins(self) -> typing.List[builtins.str]:
+        '''One or more origins you want customers to be able to access the bucket from.'''
+        result = self._values.get("allowed_origins")
+        assert result is not None, "Required property 'allowed_origins' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Headers that are specified in the Access-Control-Request-Headers header.
+
+        :default: - No headers allowed.
+        '''
+        result = self._values.get("allowed_headers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def exposed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''One or more headers in the response that you want customers to be able to access from their applications.
+
+        :default: - No headers exposed.
+        '''
+        result = self._values.get("exposed_headers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for this rule.
+
+        :default: - No id specified.
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_age(self) -> typing.Optional[jsii.Number]:
+        '''The time in seconds that your browser is to cache the preflight response for the specified resource.
+
+        :default: - No caching.
+        '''
+        result = self._values.get("max_age")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CorsRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.EventType")
+class EventType(enum.Enum):
+    '''Notification event types.
+
+    :link: https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html#supported-notification-event-types
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_queue: sqs.Queue
+        
+        bucket = s3.Bucket(self, "MyBucket")
+        bucket.add_event_notification(s3.EventType.OBJECT_REMOVED, s3n.SqsDestination(my_queue),
+            prefix="foo/",
+            suffix=".jpg"
+        )
+    '''
+
+    OBJECT_CREATED = "OBJECT_CREATED"
+    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
+
+    Using
+    these event types, you can enable notification when an object is created
+    using a specific API, or you can use the s3:ObjectCreated:* event type to
+    request notification regardless of the API that was used to create an
+    object.
+    '''
+    OBJECT_CREATED_PUT = "OBJECT_CREATED_PUT"
+    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
+
+    Using
+    these event types, you can enable notification when an object is created
+    using a specific API, or you can use the s3:ObjectCreated:* event type to
+    request notification regardless of the API that was used to create an
+    object.
+    '''
+    OBJECT_CREATED_POST = "OBJECT_CREATED_POST"
+    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
+
+    Using
+    these event types, you can enable notification when an object is created
+    using a specific API, or you can use the s3:ObjectCreated:* event type to
+    request notification regardless of the API that was used to create an
+    object.
+    '''
+    OBJECT_CREATED_COPY = "OBJECT_CREATED_COPY"
+    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
+
+    Using
+    these event types, you can enable notification when an object is created
+    using a specific API, or you can use the s3:ObjectCreated:* event type to
+    request notification regardless of the API that was used to create an
+    object.
+    '''
+    OBJECT_CREATED_COMPLETE_MULTIPART_UPLOAD = "OBJECT_CREATED_COMPLETE_MULTIPART_UPLOAD"
+    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
+
+    Using
+    these event types, you can enable notification when an object is created
+    using a specific API, or you can use the s3:ObjectCreated:* event type to
+    request notification regardless of the API that was used to create an
+    object.
+    '''
+    OBJECT_REMOVED = "OBJECT_REMOVED"
+    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
+
+    You can request notification when an object is deleted or a versioned
+    object is permanently deleted by using the s3:ObjectRemoved:Delete event
+    type. Or you can request notification when a delete marker is created for
+    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
+    information about deleting versioned objects, see Deleting Object
+    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
+    notification anytime an object is deleted.
+
+    You will not receive event notifications from automatic deletes from
+    lifecycle policies or from failed operations.
+    '''
+    OBJECT_REMOVED_DELETE = "OBJECT_REMOVED_DELETE"
+    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
+
+    You can request notification when an object is deleted or a versioned
+    object is permanently deleted by using the s3:ObjectRemoved:Delete event
+    type. Or you can request notification when a delete marker is created for
+    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
+    information about deleting versioned objects, see Deleting Object
+    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
+    notification anytime an object is deleted.
+
+    You will not receive event notifications from automatic deletes from
+    lifecycle policies or from failed operations.
+    '''
+    OBJECT_REMOVED_DELETE_MARKER_CREATED = "OBJECT_REMOVED_DELETE_MARKER_CREATED"
+    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
+
+    You can request notification when an object is deleted or a versioned
+    object is permanently deleted by using the s3:ObjectRemoved:Delete event
+    type. Or you can request notification when a delete marker is created for
+    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
+    information about deleting versioned objects, see Deleting Object
+    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
+    notification anytime an object is deleted.
+
+    You will not receive event notifications from automatic deletes from
+    lifecycle policies or from failed operations.
+    '''
+    OBJECT_RESTORE_POST = "OBJECT_RESTORE_POST"
+    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
+
+    You use s3:ObjectRestore:Post to request notification of object restoration
+    initiation.
+    '''
+    OBJECT_RESTORE_COMPLETED = "OBJECT_RESTORE_COMPLETED"
+    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
+
+    You use s3:ObjectRestore:Completed to request notification of
+    restoration completion.
+    '''
+    OBJECT_RESTORE_DELETE = "OBJECT_RESTORE_DELETE"
+    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
+
+    You use s3:ObjectRestore:Delete to request notification of
+    restoration completion.
+    '''
+    REDUCED_REDUNDANCY_LOST_OBJECT = "REDUCED_REDUNDANCY_LOST_OBJECT"
+    '''You can use this event type to request Amazon S3 to send a notification message when Amazon S3 detects that an object of the RRS storage class is lost.'''
+    REPLICATION_OPERATION_FAILED_REPLICATION = "REPLICATION_OPERATION_FAILED_REPLICATION"
+    '''You receive this notification event when an object that was eligible for replication using Amazon S3 Replication Time Control failed to replicate.'''
+    REPLICATION_OPERATION_MISSED_THRESHOLD = "REPLICATION_OPERATION_MISSED_THRESHOLD"
+    '''You receive this notification event when an object that was eligible for replication using Amazon S3 Replication Time Control exceeded the 15-minute threshold for replication.'''
+    REPLICATION_OPERATION_REPLICATED_AFTER_THRESHOLD = "REPLICATION_OPERATION_REPLICATED_AFTER_THRESHOLD"
+    '''You receive this notification event for an object that was eligible for replication using the Amazon S3 Replication Time Control feature replicated after the 15-minute threshold.'''
+    REPLICATION_OPERATION_NOT_TRACKED = "REPLICATION_OPERATION_NOT_TRACKED"
+    '''You receive this notification event for an object that was eligible for replication using Amazon S3 Replication Time Control but is no longer tracked by replication metrics.'''
+    LIFECYCLE_EXPIRATION = "LIFECYCLE_EXPIRATION"
+    '''By using the LifecycleExpiration event types, you can receive a notification when Amazon S3 deletes an object based on your S3 Lifecycle configuration.'''
+    LIFECYCLE_EXPIRATION_DELETE = "LIFECYCLE_EXPIRATION_DELETE"
+    '''The s3:LifecycleExpiration:Delete event type notifies you when an object in an unversioned bucket is deleted.
+
+    It also notifies you when an object version is permanently deleted by an
+    S3 Lifecycle configuration.
+    '''
+    LIFECYCLE_EXPIRATION_DELETE_MARKER_CREATED = "LIFECYCLE_EXPIRATION_DELETE_MARKER_CREATED"
+    '''The s3:LifecycleExpiration:DeleteMarkerCreated event type notifies you when S3 Lifecycle creates a delete marker when a current version of an object in versioned bucket is deleted.'''
+    LIFECYCLE_TRANSITION = "LIFECYCLE_TRANSITION"
+    '''You receive this notification event when an object is transitioned to another Amazon S3 storage class by an S3 Lifecycle configuration.'''
+    INTELLIGENT_TIERING = "INTELLIGENT_TIERING"
+    '''You receive this notification event when an object within the S3 Intelligent-Tiering storage class moved to the Archive Access tier or Deep Archive Access tier.'''
+    OBJECT_TAGGING = "OBJECT_TAGGING"
+    '''By using the ObjectTagging event types, you can enable notification when an object tag is added or deleted from an object.'''
+    OBJECT_TAGGING_PUT = "OBJECT_TAGGING_PUT"
+    '''The s3:ObjectTagging:Put event type notifies you when a tag is PUT on an object or an existing tag is updated.'''
+    OBJECT_TAGGING_DELETE = "OBJECT_TAGGING_DELETE"
+    '''The s3:ObjectTagging:Delete event type notifies you when a tag is removed from an object.'''
+    OBJECT_ACL_PUT = "OBJECT_ACL_PUT"
+    '''You receive this notification event when an ACL is PUT on an object or when an existing ACL is changed.
+
+    An event is not generated when a request results in no change to an
+    object’s ACL.
+    '''
+    OBJECT_RESTORE = "OBJECT_RESTORE"
+    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
+
+    You use s3:ObjectRestore:* to request notification of
+    any restoration event.
+    '''
+    REPLICATION = "REPLICATION"
+    '''You receive this notification event for any object replication event.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.Filter",
+    jsii_struct_bases=[],
+    name_mapping={"prefix": "prefix", "tags": "tags"},
+)
+class Filter:
+    def __init__(
+        self,
+        *,
+        prefix: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''A filter that identifies the subset of objects to which the replication rule applies.
+
+        :param prefix: An object key name prefix that identifies the object or objects to which the rule applies. Default: - applies to all objects
+        :param tags: The tag array used for tag filters. The rule applies only to objects that have the tag in this set. Default: - applies to all objects
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # destination_bucket1: s3.IBucket
+            # destination_bucket2: s3.IBucket
+            # replication_role: iam.IRole
+            # encryption_key: kms.IKey
+            # destination_encryption_key: kms.IKey
+            
+            
+            source_bucket = s3.Bucket(self, "SourceBucket",
+                # Versioning must be enabled on both the source and destination bucket
+                versioned=True,
+                # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
+                encryption_key=encryption_key,
+                # Optional. If not specified, a new role will be created.
+                replication_role=replication_role,
+                replication_rules=[s3.ReplicationRule(
+                    # The destination bucket for the replication rule.
+                    destination=destination_bucket1,
+                    # The priority of the rule.
+                    # Amazon S3 will attempt to replicate objects according to all replication rules.
+                    # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
+                    # The higher the number, the higher the priority.
+                    # It is essential to specify priority explicitly when the replication configuration has multiple rules.
+                    priority=1
+                ), s3.ReplicationRule(
+                    destination=destination_bucket2,
+                    priority=2,
+                    # Whether to specify S3 Replication Time Control (S3 RTC).
+                    # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
+                    # and 99.99 percent of those objects within specified time.
+                    replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                    # Whether to enable replication metrics about S3 RTC.
+                    # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
+                    metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                    # The kms key to use for the destination bucket.
+                    kms_key=destination_encryption_key,
+                    # The storage class to use for the destination bucket.
+                    storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                    # Whether to replicate objects with SSE-KMS encryption.
+                    sse_kms_encrypted_objects=False,
+                    # Whether to replicate modifications on replicas.
+                    replica_modifications=True,
+                    # Whether to replicate delete markers.
+                    # This property cannot be enabled if the replication rule has a tag filter.
+                    delete_marker_replication=False,
+                    # The ID of the rule.
+                    id="full-settings-rule",
+                    # The object filter for the rule.
+                    filter=s3.Filter(
+                        # The prefix filter for the rule.
+                        prefix="prefix",
+                        # The tag filter for the rule.
+                        tags=[s3.Tag(
+                            key="tagKey",
+                            value="tagValue"
+                        )
+                        ]
+                    )
+                )
+                ]
+            )
+            
+            # Grant permissions to the replication role.
+            # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
+            source_bucket.grant_replication_permission(replication_role,
+                # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
+                source_decryption_key=encryption_key,
+                destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff4b8a813f6812ab1464fced92fa61b97e151767705973ce994c0970fde139df)
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if prefix is not None:
+            self._values["prefix"] = prefix
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''An object key name prefix that identifies the object or objects to which the rule applies.
+
+        :default: - applies to all objects
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
+        '''The tag array used for tag filters.
+
+        The rule applies only to objects that have the tag in this set.
+
+        :default: - applies to all objects
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Filter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.GrantReplicationPermissionDestinationProps",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "encryption_key": "encryptionKey"},
+)
+class GrantReplicationPermissionDestinationProps:
+    def __init__(
+        self,
+        *,
+        bucket: "IBucket",
+        encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    ) -> None:
+        '''The properties for the destination bucket for granting replication permission.
+
+        :param bucket: The destination bucket.
+        :param encryption_key: The KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key. Default: - no KMS key is used for replication.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kms as kms
+            from aws_cdk import aws_s3 as s3
+            
+            # bucket: s3.Bucket
+            # key: kms.Key
+            
+            grant_replication_permission_destination_props = s3.GrantReplicationPermissionDestinationProps(
+                bucket=bucket,
+            
+                # the properties below are optional
+                encryption_key=key
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c28989eb119121ac7809e78ba2038558e14755021078bf7d97f894b34bc3311a)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if encryption_key is not None:
+            self._values["encryption_key"] = encryption_key
+
+    @builtins.property
+    def bucket(self) -> "IBucket":
+        '''The destination bucket.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast("IBucket", result)
+
+    @builtins.property
+    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key.
+
+        :default: - no KMS key is used for replication.
+        '''
+        result = self._values.get("encryption_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GrantReplicationPermissionDestinationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.GrantReplicationPermissionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destinations": "destinations",
+        "source_decryption_key": "sourceDecryptionKey",
+    },
+)
+class GrantReplicationPermissionProps:
+    def __init__(
+        self,
+        *,
+        destinations: typing.Sequence[typing.Union[GrantReplicationPermissionDestinationProps, typing.Dict[builtins.str, typing.Any]]],
+        source_decryption_key: typing.Optional[_IKey_5f11635f] = None,
+    ) -> None:
+        '''The properties for the destination bucket for granting replication permission.
+
+        :param destinations: The destination buckets for replication. Specify the KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key. One or more destination buckets are required if replication configuration is enabled (i.e., ``replicationRole`` is specified). Default: - empty array (valid only if the ``replicationRole`` property is NOT specified)
+        :param source_decryption_key: The KMS key used to decrypt objects in the source bucket for replication. **Required if** the source bucket is encrypted with a customer-managed KMS key. Default: - it's assumed the source bucket is not encrypted with a customer-managed KMS key.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # destination_bucket1: s3.IBucket
+            # destination_bucket2: s3.IBucket
+            # replication_role: iam.IRole
+            # encryption_key: kms.IKey
+            # destination_encryption_key: kms.IKey
+            
+            
+            source_bucket = s3.Bucket(self, "SourceBucket",
+                # Versioning must be enabled on both the source and destination bucket
+                versioned=True,
+                # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
+                encryption_key=encryption_key,
+                # Optional. If not specified, a new role will be created.
+                replication_role=replication_role,
+                replication_rules=[s3.ReplicationRule(
+                    # The destination bucket for the replication rule.
+                    destination=destination_bucket1,
+                    # The priority of the rule.
+                    # Amazon S3 will attempt to replicate objects according to all replication rules.
+                    # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
+                    # The higher the number, the higher the priority.
+                    # It is essential to specify priority explicitly when the replication configuration has multiple rules.
+                    priority=1
+                ), s3.ReplicationRule(
+                    destination=destination_bucket2,
+                    priority=2,
+                    # Whether to specify S3 Replication Time Control (S3 RTC).
+                    # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
+                    # and 99.99 percent of those objects within specified time.
+                    replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                    # Whether to enable replication metrics about S3 RTC.
+                    # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
+                    metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                    # The kms key to use for the destination bucket.
+                    kms_key=destination_encryption_key,
+                    # The storage class to use for the destination bucket.
+                    storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                    # Whether to replicate objects with SSE-KMS encryption.
+                    sse_kms_encrypted_objects=False,
+                    # Whether to replicate modifications on replicas.
+                    replica_modifications=True,
+                    # Whether to replicate delete markers.
+                    # This property cannot be enabled if the replication rule has a tag filter.
+                    delete_marker_replication=False,
+                    # The ID of the rule.
+                    id="full-settings-rule",
+                    # The object filter for the rule.
+                    filter=s3.Filter(
+                        # The prefix filter for the rule.
+                        prefix="prefix",
+                        # The tag filter for the rule.
+                        tags=[s3.Tag(
+                            key="tagKey",
+                            value="tagValue"
+                        )
+                        ]
+                    )
+                )
+                ]
+            )
+            
+            # Grant permissions to the replication role.
+            # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
+            source_bucket.grant_replication_permission(replication_role,
+                # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
+                source_decryption_key=encryption_key,
+                destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__892523669f29c26ab296b743291f04387d44edf1630a2288ab68d906f972d8ff)
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument source_decryption_key", value=source_decryption_key, expected_type=type_hints["source_decryption_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destinations": destinations,
+        }
+        if source_decryption_key is not None:
+            self._values["source_decryption_key"] = source_decryption_key
+
+    @builtins.property
+    def destinations(self) -> typing.List[GrantReplicationPermissionDestinationProps]:
+        '''The destination buckets for replication.
+
+        Specify the KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key.
+        One or more destination buckets are required if replication configuration is enabled (i.e., ``replicationRole`` is specified).
+
+        :default: - empty array (valid only if the ``replicationRole`` property is NOT specified)
+        '''
+        result = self._values.get("destinations")
+        assert result is not None, "Required property 'destinations' is missing"
+        return typing.cast(typing.List[GrantReplicationPermissionDestinationProps], result)
+
+    @builtins.property
+    def source_decryption_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The KMS key used to decrypt objects in the source bucket for replication.
+
+        **Required if** the source bucket is encrypted with a customer-managed KMS key.
+
+        :default: - it's assumed the source bucket is not encrypted with a customer-managed KMS key.
+        '''
+        result = self._values.get("source_decryption_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GrantReplicationPermissionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.HttpMethods")
+class HttpMethods(enum.Enum):
+    '''All http request methods.'''
+
+    GET = "GET"
+    '''The GET method requests a representation of the specified resource.'''
+    PUT = "PUT"
+    '''The PUT method replaces all current representations of the target resource with the request payload.'''
+    HEAD = "HEAD"
+    '''The HEAD method asks for a response identical to that of a GET request, but without the response body.'''
+    POST = "POST"
+    '''The POST method is used to submit an entity to the specified resource, often causing a change in state or side effects on the server.'''
+    DELETE = "DELETE"
+    '''The DELETE method deletes the specified resource.'''
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IAccessGrantRef")
+class IAccessGrantRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> AccessGrantReference:
+        '''(experimental) A reference to a AccessGrant resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessGrantRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrant.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IAccessGrantRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> AccessGrantReference:
+        '''(experimental) A reference to a AccessGrant resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessGrantReference, jsii.get(self, "accessGrantRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessGrantRef).__jsii_proxy_class__ = lambda : _IAccessGrantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IAccessGrantsInstanceRef")
+class IAccessGrantsInstanceRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrantsInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantsInstanceRef")
+    def access_grants_instance_ref(self) -> AccessGrantsInstanceReference:
+        '''(experimental) A reference to a AccessGrantsInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessGrantsInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrantsInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IAccessGrantsInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantsInstanceRef")
+    def access_grants_instance_ref(self) -> AccessGrantsInstanceReference:
+        '''(experimental) A reference to a AccessGrantsInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessGrantsInstanceReference, jsii.get(self, "accessGrantsInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessGrantsInstanceRef).__jsii_proxy_class__ = lambda : _IAccessGrantsInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IAccessGrantsLocationRef")
+class IAccessGrantsLocationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrantsLocation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantsLocationRef")
+    def access_grants_location_ref(self) -> AccessGrantsLocationReference:
+        '''(experimental) A reference to a AccessGrantsLocation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessGrantsLocationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessGrantsLocation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IAccessGrantsLocationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantsLocationRef")
+    def access_grants_location_ref(self) -> AccessGrantsLocationReference:
+        '''(experimental) A reference to a AccessGrantsLocation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessGrantsLocationReference, jsii.get(self, "accessGrantsLocationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessGrantsLocationRef).__jsii_proxy_class__ = lambda : _IAccessGrantsLocationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IAccessPointRef")
+class IAccessPointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAccessPointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IBucketNotificationDestination")
+class IBucketNotificationDestination(typing_extensions.Protocol):
+    '''Implemented by constructs that can be used as bucket notification destinations.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        bucket: "IBucketRef",
+    ) -> BucketNotificationDestinationConfig:
+        '''Registers this resource to receive notifications for the specified bucket.
+
+        This method will only be called once for each destination/bucket
+        pair and the result will be cached, so there is no need to implement
+        idempotency in each destination.
+
+        :param scope: -
+        :param bucket: The bucket object to bind to.
+        '''
+        ...
+
+
+class _IBucketNotificationDestinationProxy:
+    '''Implemented by constructs that can be used as bucket notification destinations.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IBucketNotificationDestination"
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        bucket: "IBucketRef",
+    ) -> BucketNotificationDestinationConfig:
+        '''Registers this resource to receive notifications for the specified bucket.
+
+        This method will only be called once for each destination/bucket
+        pair and the result will be cached, so there is no need to implement
+        idempotency in each destination.
+
+        :param scope: -
+        :param bucket: The bucket object to bind to.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c383a5262868f93c81da67f9058929f12151009bdb49b69a87ed6e62b4fe28a9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        return typing.cast(BucketNotificationDestinationConfig, jsii.invoke(self, "bind", [scope, bucket]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketNotificationDestination).__jsii_proxy_class__ = lambda : _IBucketNotificationDestinationProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IBucketPolicyRef")
+class IBucketPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBucketPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IBucketPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketPolicyRef).__jsii_proxy_class__ = lambda : _IBucketPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IBucketRef")
+class IBucketRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Bucket.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''(experimental) A reference to a Bucket resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBucketRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Bucket.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IBucketRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''(experimental) A reference to a Bucket resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BucketReference, jsii.get(self, "bucketRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketRef).__jsii_proxy_class__ = lambda : _IBucketRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IMultiRegionAccessPointPolicyRef")
+class IMultiRegionAccessPointPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPointPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointPolicyRef")
+    def multi_region_access_point_policy_ref(
+        self,
+    ) -> "MultiRegionAccessPointPolicyReference":
+        '''(experimental) A reference to a MultiRegionAccessPointPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMultiRegionAccessPointPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPointPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IMultiRegionAccessPointPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointPolicyRef")
+    def multi_region_access_point_policy_ref(
+        self,
+    ) -> "MultiRegionAccessPointPolicyReference":
+        '''(experimental) A reference to a MultiRegionAccessPointPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MultiRegionAccessPointPolicyReference", jsii.get(self, "multiRegionAccessPointPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMultiRegionAccessPointPolicyRef).__jsii_proxy_class__ = lambda : _IMultiRegionAccessPointPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IMultiRegionAccessPointRef")
+class IMultiRegionAccessPointRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointRef")
+    def multi_region_access_point_ref(self) -> "MultiRegionAccessPointReference":
+        '''(experimental) A reference to a MultiRegionAccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMultiRegionAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionAccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IMultiRegionAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointRef")
+    def multi_region_access_point_ref(self) -> "MultiRegionAccessPointReference":
+        '''(experimental) A reference to a MultiRegionAccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MultiRegionAccessPointReference", jsii.get(self, "multiRegionAccessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMultiRegionAccessPointRef).__jsii_proxy_class__ = lambda : _IMultiRegionAccessPointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IStorageLensGroupRef")
+class IStorageLensGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StorageLensGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensGroupRef")
+    def storage_lens_group_ref(self) -> "StorageLensGroupReference":
+        '''(experimental) A reference to a StorageLensGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStorageLensGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StorageLensGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IStorageLensGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensGroupRef")
+    def storage_lens_group_ref(self) -> "StorageLensGroupReference":
+        '''(experimental) A reference to a StorageLensGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StorageLensGroupReference", jsii.get(self, "storageLensGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStorageLensGroupRef).__jsii_proxy_class__ = lambda : _IStorageLensGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IStorageLensRef")
+class IStorageLensRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StorageLens.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensRef")
+    def storage_lens_ref(self) -> "StorageLensReference":
+        '''(experimental) A reference to a StorageLens resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStorageLensRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StorageLens.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IStorageLensRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensRef")
+    def storage_lens_ref(self) -> "StorageLensReference":
+        '''(experimental) A reference to a StorageLens resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StorageLensReference", jsii.get(self, "storageLensRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStorageLensRef).__jsii_proxy_class__ = lambda : _IStorageLensRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.IntelligentTieringConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "archive_access_tier_time": "archiveAccessTierTime",
+        "deep_archive_access_tier_time": "deepArchiveAccessTierTime",
+        "prefix": "prefix",
+        "tags": "tags",
+    },
+)
+class IntelligentTieringConfiguration:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
+        deep_archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
+        prefix: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''The intelligent tiering configuration.
+
+        :param name: Configuration name.
+        :param archive_access_tier_time: When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 90 days to the Archive Access tier. Default: Objects will not move to Glacier
+        :param deep_archive_access_tier_time: When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 180 days to the Deep Archive Access tier. Default: Objects will not move to Glacier Deep Access
+        :param prefix: Add a filter to limit the scope of this configuration to a single prefix. Default: this configuration will apply to **all** objects in the bucket.
+        :param tags: You can limit the scope of this rule to the key value pairs added below. Default: No filtering will be performed on tags
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_s3 as s3
+            
+            intelligent_tiering_configuration = s3.IntelligentTieringConfiguration(
+                name="name",
+            
+                # the properties below are optional
+                archive_access_tier_time=cdk.Duration.minutes(30),
+                deep_archive_access_tier_time=cdk.Duration.minutes(30),
+                prefix="prefix",
+                tags=[s3.Tag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5a872b4e52f3fa296b07f8c2ef0ea3956aa019880ff4850ab95c5cd6bde38ae)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument archive_access_tier_time", value=archive_access_tier_time, expected_type=type_hints["archive_access_tier_time"])
+            check_type(argname="argument deep_archive_access_tier_time", value=deep_archive_access_tier_time, expected_type=type_hints["deep_archive_access_tier_time"])
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if archive_access_tier_time is not None:
+            self._values["archive_access_tier_time"] = archive_access_tier_time
+        if deep_archive_access_tier_time is not None:
+            self._values["deep_archive_access_tier_time"] = deep_archive_access_tier_time
+        if prefix is not None:
+            self._values["prefix"] = prefix
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Configuration name.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def archive_access_tier_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 90 days to the Archive Access tier.
+
+        :default: Objects will not move to Glacier
+        '''
+        result = self._values.get("archive_access_tier_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def deep_archive_access_tier_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 180 days to the Deep Archive Access tier.
+
+        :default: Objects will not move to Glacier Deep Access
+        '''
+        result = self._values.get("deep_archive_access_tier_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''Add a filter to limit the scope of this configuration to a single prefix.
+
+        :default: this configuration will apply to **all** objects in the bucket.
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
+        '''You can limit the scope of this rule to the key value pairs added below.
+
+        :default: No filtering will be performed on tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntelligentTieringConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.Inventory",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination": "destination",
+        "enabled": "enabled",
+        "format": "format",
+        "frequency": "frequency",
+        "include_object_versions": "includeObjectVersions",
+        "inventory_id": "inventoryId",
+        "objects_prefix": "objectsPrefix",
+        "optional_fields": "optionalFields",
+    },
+)
+class Inventory:
+    def __init__(
+        self,
+        *,
+        destination: typing.Union["InventoryDestination", typing.Dict[builtins.str, typing.Any]],
+        enabled: typing.Optional[builtins.bool] = None,
+        format: typing.Optional["InventoryFormat"] = None,
+        frequency: typing.Optional["InventoryFrequency"] = None,
+        include_object_versions: typing.Optional["InventoryObjectVersion"] = None,
+        inventory_id: typing.Optional[builtins.str] = None,
+        objects_prefix: typing.Optional[builtins.str] = None,
+        optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Specifies the inventory configuration of an S3 Bucket.
+
+        :param destination: The destination of the inventory.
+        :param enabled: Whether the inventory is enabled or disabled. Default: true
+        :param format: The format of the inventory. Default: InventoryFormat.CSV
+        :param frequency: Frequency at which the inventory should be generated. Default: InventoryFrequency.WEEKLY
+        :param include_object_versions: If the inventory should contain all the object versions or only the current one. Default: InventoryObjectVersion.ALL
+        :param inventory_id: The inventory configuration ID. Should be limited to 64 characters and can only contain letters, numbers, periods, dashes, and underscores. Default: - generated ID.
+        :param objects_prefix: The inventory will only include objects that meet the prefix filter criteria. Default: - No objects prefix
+        :param optional_fields: A list of optional fields to be included in the inventory result. Default: - No optional fields.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-inventory.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            # bucket: s3.Bucket
+            
+            inventory = s3.Inventory(
+                destination=s3.InventoryDestination(
+                    bucket=bucket,
+            
+                    # the properties below are optional
+                    bucket_owner="bucketOwner",
+                    prefix="prefix"
+                ),
+            
+                # the properties below are optional
+                enabled=False,
+                format=s3.InventoryFormat.CSV,
+                frequency=s3.InventoryFrequency.DAILY,
+                include_object_versions=s3.InventoryObjectVersion.ALL,
+                inventory_id="inventoryId",
+                objects_prefix="objectsPrefix",
+                optional_fields=["optionalFields"]
+            )
+        '''
+        if isinstance(destination, dict):
+            destination = InventoryDestination(**destination)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b50520ea10cd25b0243bc2814b1b5f3844d998374d49d7e51343bba962edb837)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
+            check_type(argname="argument include_object_versions", value=include_object_versions, expected_type=type_hints["include_object_versions"])
+            check_type(argname="argument inventory_id", value=inventory_id, expected_type=type_hints["inventory_id"])
+            check_type(argname="argument objects_prefix", value=objects_prefix, expected_type=type_hints["objects_prefix"])
+            check_type(argname="argument optional_fields", value=optional_fields, expected_type=type_hints["optional_fields"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if format is not None:
+            self._values["format"] = format
+        if frequency is not None:
+            self._values["frequency"] = frequency
+        if include_object_versions is not None:
+            self._values["include_object_versions"] = include_object_versions
+        if inventory_id is not None:
+            self._values["inventory_id"] = inventory_id
+        if objects_prefix is not None:
+            self._values["objects_prefix"] = objects_prefix
+        if optional_fields is not None:
+            self._values["optional_fields"] = optional_fields
+
+    @builtins.property
+    def destination(self) -> "InventoryDestination":
+        '''The destination of the inventory.'''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("InventoryDestination", result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether the inventory is enabled or disabled.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def format(self) -> typing.Optional["InventoryFormat"]:
+        '''The format of the inventory.
+
+        :default: InventoryFormat.CSV
+        '''
+        result = self._values.get("format")
+        return typing.cast(typing.Optional["InventoryFormat"], result)
+
+    @builtins.property
+    def frequency(self) -> typing.Optional["InventoryFrequency"]:
+        '''Frequency at which the inventory should be generated.
+
+        :default: InventoryFrequency.WEEKLY
+        '''
+        result = self._values.get("frequency")
+        return typing.cast(typing.Optional["InventoryFrequency"], result)
+
+    @builtins.property
+    def include_object_versions(self) -> typing.Optional["InventoryObjectVersion"]:
+        '''If the inventory should contain all the object versions or only the current one.
+
+        :default: InventoryObjectVersion.ALL
+        '''
+        result = self._values.get("include_object_versions")
+        return typing.cast(typing.Optional["InventoryObjectVersion"], result)
+
+    @builtins.property
+    def inventory_id(self) -> typing.Optional[builtins.str]:
+        '''The inventory configuration ID.
+
+        Should be limited to 64 characters and can only contain letters, numbers, periods, dashes, and underscores.
+
+        :default: - generated ID.
+        '''
+        result = self._values.get("inventory_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def objects_prefix(self) -> typing.Optional[builtins.str]:
+        '''The inventory will only include objects that meet the prefix filter criteria.
+
+        :default: - No objects prefix
+        '''
+        result = self._values.get("objects_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def optional_fields(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of optional fields to be included in the inventory result.
+
+        :default: - No optional fields.
+        '''
+        result = self._values.get("optional_fields")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Inventory(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.InventoryDestination",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket": "bucket",
+        "bucket_owner": "bucketOwner",
+        "prefix": "prefix",
+    },
+)
+class InventoryDestination:
+    def __init__(
+        self,
+        *,
+        bucket: "IBucket",
+        bucket_owner: typing.Optional[builtins.str] = None,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''The destination of the inventory.
+
+        :param bucket: Bucket where all inventories will be saved in.
+        :param bucket_owner: The account ID that owns the destination S3 bucket. If no account ID is provided, the owner is not validated before exporting data. It's recommended to set an account ID to prevent problems if the destination bucket ownership changes. Default: - No account ID.
+        :param prefix: The prefix to be used when saving the inventory. Default: - No prefix.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            inventory_bucket = s3.Bucket(self, "InventoryBucket")
+            
+            data_bucket = s3.Bucket(self, "DataBucket",
+                inventories=[s3.Inventory(
+                    frequency=s3.InventoryFrequency.DAILY,
+                    include_object_versions=s3.InventoryObjectVersion.CURRENT,
+                    destination=s3.InventoryDestination(
+                        bucket=inventory_bucket
+                    )
+                ), s3.Inventory(
+                    frequency=s3.InventoryFrequency.WEEKLY,
+                    include_object_versions=s3.InventoryObjectVersion.ALL,
+                    destination=s3.InventoryDestination(
+                        bucket=inventory_bucket,
+                        prefix="with-all-versions"
+                    )
+                )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44c25755abc9b158dc77d6a90064e0165cb0a20c5c7e20dc89fb38df2e7dded5)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if bucket_owner is not None:
+            self._values["bucket_owner"] = bucket_owner
+        if prefix is not None:
+            self._values["prefix"] = prefix
+
+    @builtins.property
+    def bucket(self) -> "IBucket":
+        '''Bucket where all inventories will be saved in.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast("IBucket", result)
+
+    @builtins.property
+    def bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The account ID that owns the destination S3 bucket.
+
+        If no account ID is provided, the owner is not validated before exporting data.
+        It's recommended to set an account ID to prevent problems if the destination bucket ownership changes.
+
+        :default: - No account ID.
+        '''
+        result = self._values.get("bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''The prefix to be used when saving the inventory.
+
+        :default: - No prefix.
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InventoryDestination(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryFormat")
+class InventoryFormat(enum.Enum):
+    '''All supported inventory list formats.'''
+
+    CSV = "CSV"
+    '''Generate the inventory list as CSV.'''
+    PARQUET = "PARQUET"
+    '''Generate the inventory list as Parquet.'''
+    ORC = "ORC"
+    '''Generate the inventory list as ORC.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryFrequency")
+class InventoryFrequency(enum.Enum):
+    '''All supported inventory frequencies.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        inventory_bucket = s3.Bucket(self, "InventoryBucket")
+        
+        data_bucket = s3.Bucket(self, "DataBucket",
+            inventories=[s3.Inventory(
+                frequency=s3.InventoryFrequency.DAILY,
+                include_object_versions=s3.InventoryObjectVersion.CURRENT,
+                destination=s3.InventoryDestination(
+                    bucket=inventory_bucket
+                )
+            ), s3.Inventory(
+                frequency=s3.InventoryFrequency.WEEKLY,
+                include_object_versions=s3.InventoryObjectVersion.ALL,
+                destination=s3.InventoryDestination(
+                    bucket=inventory_bucket,
+                    prefix="with-all-versions"
+                )
+            )
+            ]
+        )
+    '''
+
+    DAILY = "DAILY"
+    '''A report is generated every day.'''
+    WEEKLY = "WEEKLY"
+    '''A report is generated every Sunday (UTC timezone) after the initial report.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryObjectVersion")
+class InventoryObjectVersion(enum.Enum):
+    '''Inventory version support.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        inventory_bucket = s3.Bucket(self, "InventoryBucket")
+        
+        data_bucket = s3.Bucket(self, "DataBucket",
+            inventories=[s3.Inventory(
+                frequency=s3.InventoryFrequency.DAILY,
+                include_object_versions=s3.InventoryObjectVersion.CURRENT,
+                destination=s3.InventoryDestination(
+                    bucket=inventory_bucket
+                )
+            ), s3.Inventory(
+                frequency=s3.InventoryFrequency.WEEKLY,
+                include_object_versions=s3.InventoryObjectVersion.ALL,
+                destination=s3.InventoryDestination(
+                    bucket=inventory_bucket,
+                    prefix="with-all-versions"
+                )
+            )
+            ]
+        )
+    '''
+
+    ALL = "ALL"
+    '''Includes all versions of each object in the report.'''
+    CURRENT = "CURRENT"
+    '''Includes only the current version of each object in the report.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.LifecycleRule",
+    jsii_struct_bases=[],
+    name_mapping={
+        "abort_incomplete_multipart_upload_after": "abortIncompleteMultipartUploadAfter",
+        "enabled": "enabled",
+        "expiration": "expiration",
+        "expiration_date": "expirationDate",
+        "expired_object_delete_marker": "expiredObjectDeleteMarker",
+        "id": "id",
+        "noncurrent_version_expiration": "noncurrentVersionExpiration",
+        "noncurrent_versions_to_retain": "noncurrentVersionsToRetain",
+        "noncurrent_version_transitions": "noncurrentVersionTransitions",
+        "object_size_greater_than": "objectSizeGreaterThan",
+        "object_size_less_than": "objectSizeLessThan",
+        "prefix": "prefix",
+        "tag_filters": "tagFilters",
+        "transitions": "transitions",
+    },
+)
+class LifecycleRule:
+    def __init__(
+        self,
+        *,
+        abort_incomplete_multipart_upload_after: typing.Optional[_Duration_4839e8c3] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        expiration: typing.Optional[_Duration_4839e8c3] = None,
+        expiration_date: typing.Optional[datetime.datetime] = None,
+        expired_object_delete_marker: typing.Optional[builtins.bool] = None,
+        id: typing.Optional[builtins.str] = None,
+        noncurrent_version_expiration: typing.Optional[_Duration_4839e8c3] = None,
+        noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
+        noncurrent_version_transitions: typing.Optional[typing.Sequence[typing.Union["NoncurrentVersionTransition", typing.Dict[builtins.str, typing.Any]]]] = None,
+        object_size_greater_than: typing.Optional[jsii.Number] = None,
+        object_size_less_than: typing.Optional[jsii.Number] = None,
+        prefix: typing.Optional[builtins.str] = None,
+        tag_filters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        transitions: typing.Optional[typing.Sequence[typing.Union["Transition", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Declaration of a Life cycle rule.
+
+        :param abort_incomplete_multipart_upload_after: Specifies a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket. The AbortIncompleteMultipartUpload property type creates a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket. When Amazon S3 aborts a multipart upload, it deletes all parts associated with the multipart upload. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - Incomplete uploads are never aborted
+        :param enabled: Whether this rule is enabled. Default: true
+        :param expiration: Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon Glacier. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No expiration timeout
+        :param expiration_date: Indicates when objects are deleted from Amazon S3 and Amazon Glacier. The date value must be in ISO 8601 format. The time is always midnight UTC. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. Default: - No expiration date
+        :param expired_object_delete_marker: Indicates whether Amazon S3 will remove a delete marker with no noncurrent versions. If set to true, the delete marker will be expired. Default: false
+        :param id: A unique identifier for this rule. The value cannot be more than 255 characters.
+        :param noncurrent_version_expiration: Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire. For buckets with versioning enabled (or suspended), specifies the time, in days, between when a new version of the object is uploaded to the bucket and when old versions of the object expire. When object versions expire, Amazon S3 permanently deletes them. If you specify a transition and expiration time, the expiration time must be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No noncurrent version expiration
+        :param noncurrent_versions_to_retain: Indicates a maximum number of noncurrent versions to retain. If there are this many more noncurrent versions, Amazon S3 permanently deletes them. Default: - No noncurrent versions to retain
+        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
+        :param object_size_greater_than: Specifies the minimum object size in bytes for this rule to apply to. Objects must be larger than this value in bytes. Default: - No rule
+        :param object_size_less_than: Specifies the maximum object size in bytes for this rule to apply to. Objects must be smaller than this value in bytes. Default: - No rule
+        :param prefix: Object key prefix that identifies one or more objects to which this rule applies. Default: - Rule applies to all objects
+        :param tag_filters: The TagFilter property type specifies tags to use to identify a subset of objects for an Amazon S3 bucket. Default: - Rule applies to all objects
+        :param transitions: One or more transition rules that specify when an object transitions to a specified storage class. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. Default: - No transition rules
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_s3 as s3
+            
+            # storage_class: s3.StorageClass
+            # tag_filters: Any
+            
+            lifecycle_rule = s3.LifecycleRule(
+                abort_incomplete_multipart_upload_after=cdk.Duration.minutes(30),
+                enabled=False,
+                expiration=cdk.Duration.minutes(30),
+                expiration_date=Date(),
+                expired_object_delete_marker=False,
+                id="id",
+                noncurrent_version_expiration=cdk.Duration.minutes(30),
+                noncurrent_versions_to_retain=123,
+                noncurrent_version_transitions=[s3.NoncurrentVersionTransition(
+                    storage_class=storage_class,
+                    transition_after=cdk.Duration.minutes(30),
+            
+                    # the properties below are optional
+                    noncurrent_versions_to_retain=123
+                )],
+                object_size_greater_than=123,
+                object_size_less_than=123,
+                prefix="prefix",
+                tag_filters={
+                    "tag_filters_key": tag_filters
+                },
+                transitions=[s3.Transition(
+                    storage_class=storage_class,
+            
+                    # the properties below are optional
+                    transition_after=cdk.Duration.minutes(30),
+                    transition_date=Date()
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8e7ac9e486ca680ca8dffc9a76b32ed38369c97278548e908a0acbd3dcf2fc5)
+            check_type(argname="argument abort_incomplete_multipart_upload_after", value=abort_incomplete_multipart_upload_after, expected_type=type_hints["abort_incomplete_multipart_upload_after"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument expiration", value=expiration, expected_type=type_hints["expiration"])
+            check_type(argname="argument expiration_date", value=expiration_date, expected_type=type_hints["expiration_date"])
+            check_type(argname="argument expired_object_delete_marker", value=expired_object_delete_marker, expected_type=type_hints["expired_object_delete_marker"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument noncurrent_version_expiration", value=noncurrent_version_expiration, expected_type=type_hints["noncurrent_version_expiration"])
+            check_type(argname="argument noncurrent_versions_to_retain", value=noncurrent_versions_to_retain, expected_type=type_hints["noncurrent_versions_to_retain"])
+            check_type(argname="argument noncurrent_version_transitions", value=noncurrent_version_transitions, expected_type=type_hints["noncurrent_version_transitions"])
+            check_type(argname="argument object_size_greater_than", value=object_size_greater_than, expected_type=type_hints["object_size_greater_than"])
+            check_type(argname="argument object_size_less_than", value=object_size_less_than, expected_type=type_hints["object_size_less_than"])
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument tag_filters", value=tag_filters, expected_type=type_hints["tag_filters"])
+            check_type(argname="argument transitions", value=transitions, expected_type=type_hints["transitions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if abort_incomplete_multipart_upload_after is not None:
+            self._values["abort_incomplete_multipart_upload_after"] = abort_incomplete_multipart_upload_after
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if expiration is not None:
+            self._values["expiration"] = expiration
+        if expiration_date is not None:
+            self._values["expiration_date"] = expiration_date
+        if expired_object_delete_marker is not None:
+            self._values["expired_object_delete_marker"] = expired_object_delete_marker
+        if id is not None:
+            self._values["id"] = id
+        if noncurrent_version_expiration is not None:
+            self._values["noncurrent_version_expiration"] = noncurrent_version_expiration
+        if noncurrent_versions_to_retain is not None:
+            self._values["noncurrent_versions_to_retain"] = noncurrent_versions_to_retain
+        if noncurrent_version_transitions is not None:
+            self._values["noncurrent_version_transitions"] = noncurrent_version_transitions
+        if object_size_greater_than is not None:
+            self._values["object_size_greater_than"] = object_size_greater_than
+        if object_size_less_than is not None:
+            self._values["object_size_less_than"] = object_size_less_than
+        if prefix is not None:
+            self._values["prefix"] = prefix
+        if tag_filters is not None:
+            self._values["tag_filters"] = tag_filters
+        if transitions is not None:
+            self._values["transitions"] = transitions
+
+    @builtins.property
+    def abort_incomplete_multipart_upload_after(
+        self,
+    ) -> typing.Optional[_Duration_4839e8c3]:
+        '''Specifies a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket.
+
+        The AbortIncompleteMultipartUpload property type creates a lifecycle
+        rule that aborts incomplete multipart uploads to an Amazon S3 bucket.
+        When Amazon S3 aborts a multipart upload, it deletes all parts
+        associated with the multipart upload.
+
+        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
+        does not represent a whole number of days will result in a runtime or deployment error.
+
+        :default: - Incomplete uploads are never aborted
+        '''
+        result = self._values.get("abort_incomplete_multipart_upload_after")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether this rule is enabled.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def expiration(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon Glacier.
+
+        If you specify an expiration and transition time, you must use the same
+        time unit for both properties (either in days or by date). The
+        expiration time must also be later than the transition time.
+
+        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
+        does not represent a whole number of days will result in a runtime or deployment error.
+
+        :default: - No expiration timeout
+        '''
+        result = self._values.get("expiration")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def expiration_date(self) -> typing.Optional[datetime.datetime]:
+        '''Indicates when objects are deleted from Amazon S3 and Amazon Glacier.
+
+        The date value must be in ISO 8601 format. The time is always midnight UTC.
+
+        If you specify an expiration and transition time, you must use the same
+        time unit for both properties (either in days or by date). The
+        expiration time must also be later than the transition time.
+
+        :default: - No expiration date
+        '''
+        result = self._values.get("expiration_date")
+        return typing.cast(typing.Optional[datetime.datetime], result)
+
+    @builtins.property
+    def expired_object_delete_marker(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether Amazon S3 will remove a delete marker with no noncurrent versions.
+
+        If set to true, the delete marker will be expired.
+
+        :default: false
+        '''
+        result = self._values.get("expired_object_delete_marker")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for this rule.
+
+        The value cannot be more than 255 characters.
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def noncurrent_version_expiration(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire.
+
+        For buckets with versioning enabled (or suspended), specifies the time,
+        in days, between when a new version of the object is uploaded to the
+        bucket and when old versions of the object expire. When object versions
+        expire, Amazon S3 permanently deletes them. If you specify a transition
+        and expiration time, the expiration time must be later than the
+        transition time.
+
+        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
+        does not represent a whole number of days will result in a runtime or deployment error.
+
+        :default: - No noncurrent version expiration
+        '''
+        result = self._values.get("noncurrent_version_expiration")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def noncurrent_versions_to_retain(self) -> typing.Optional[jsii.Number]:
+        '''Indicates a maximum number of noncurrent versions to retain.
+
+        If there are this many more noncurrent versions,
+        Amazon S3 permanently deletes them.
+
+        :default: - No noncurrent versions to retain
+        '''
+        result = self._values.get("noncurrent_versions_to_retain")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def noncurrent_version_transitions(
+        self,
+    ) -> typing.Optional[typing.List["NoncurrentVersionTransition"]]:
+        '''One or more transition rules that specify when non-current objects transition to a specified storage class.
+
+        Only for buckets with versioning enabled (or suspended).
+
+        If you specify a transition and expiration time, the expiration time
+        must be later than the transition time.
+        '''
+        result = self._values.get("noncurrent_version_transitions")
+        return typing.cast(typing.Optional[typing.List["NoncurrentVersionTransition"]], result)
+
+    @builtins.property
+    def object_size_greater_than(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the minimum object size in bytes for this rule to apply to.
+
+        Objects must be larger than this value in bytes.
+
+        :default: - No rule
+        '''
+        result = self._values.get("object_size_greater_than")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def object_size_less_than(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the maximum object size in bytes for this rule to apply to.
+
+        Objects must be smaller than this value in bytes.
+
+        :default: - No rule
+        '''
+        result = self._values.get("object_size_less_than")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''Object key prefix that identifies one or more objects to which this rule applies.
+
+        :default: - Rule applies to all objects
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tag_filters(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The TagFilter property type specifies tags to use to identify a subset of objects for an Amazon S3 bucket.
+
+        :default: - Rule applies to all objects
+        '''
+        result = self._values.get("tag_filters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def transitions(self) -> typing.Optional[typing.List["Transition"]]:
+        '''One or more transition rules that specify when an object transitions to a specified storage class.
+
+        If you specify an expiration and transition time, you must use the same
+        time unit for both properties (either in days or by date). The
+        expiration time must also be later than the transition time.
+
+        :default: - No transition rules
+        '''
+        result = self._values.get("transitions")
+        return typing.cast(typing.Optional[typing.List["Transition"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LifecycleRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.Location",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_name": "bucketName",
+        "object_key": "objectKey",
+        "object_version": "objectVersion",
+    },
+)
+class Location:
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        object_key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''An interface that represents the location of a specific object in an S3 Bucket.
+
+        :param bucket_name: The name of the S3 Bucket the object is in.
+        :param object_key: The path inside the Bucket where the object is located at.
+        :param object_version: The S3 object version.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            start_query_execution_job = tasks.AthenaStartQueryExecution(self, "Start Athena Query",
+                query_string=sfn.JsonPath.string_at("$.queryString"),
+                query_execution_context=tasks.QueryExecutionContext(
+                    database_name="mydatabase"
+                ),
+                result_configuration=tasks.ResultConfiguration(
+                    encryption_configuration=tasks.EncryptionConfiguration(
+                        encryption_option=tasks.EncryptionOption.S3_MANAGED
+                    ),
+                    output_location=s3.Location(
+                        bucket_name="query-results-bucket",
+                        object_key="folder"
+                    )
+                ),
+                execution_parameters=["param1", "param2"],
+                result_reuse_configuration_max_age=Duration.minutes(100)
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d168957d45fdd37a3618738d958a758ca37ac6b118df34c7aaf08ac7f02853dc)
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_name": bucket_name,
+            "object_key": object_key,
+        }
+        if object_version is not None:
+            self._values["object_version"] = object_version
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''The name of the S3 Bucket the object is in.'''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_key(self) -> builtins.str:
+        '''The path inside the Bucket where the object is located at.'''
+        result = self._values.get("object_key")
+        assert result is not None, "Required property 'object_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_version(self) -> typing.Optional[builtins.str]:
+        '''The S3 object version.'''
+        result = self._values.get("object_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Location(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.MultiRegionAccessPointPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"mrap_name": "mrapName"},
+)
+class MultiRegionAccessPointPolicyReference:
+    def __init__(self, *, mrap_name: builtins.str) -> None:
+        '''A reference to a MultiRegionAccessPointPolicy resource.
+
+        :param mrap_name: The MrapName of the MultiRegionAccessPointPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            multi_region_access_point_policy_reference = s3.MultiRegionAccessPointPolicyReference(
+                mrap_name="mrapName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db5300ab524216e58d5efe0cac6f78b5be185877b4d20467f8eb68c4586dacd1)
+            check_type(argname="argument mrap_name", value=mrap_name, expected_type=type_hints["mrap_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mrap_name": mrap_name,
+        }
+
+    @builtins.property
+    def mrap_name(self) -> builtins.str:
+        '''The MrapName of the MultiRegionAccessPointPolicy resource.'''
+        result = self._values.get("mrap_name")
+        assert result is not None, "Required property 'mrap_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MultiRegionAccessPointPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.MultiRegionAccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={"multi_region_access_point_name": "multiRegionAccessPointName"},
+)
+class MultiRegionAccessPointReference:
+    def __init__(self, *, multi_region_access_point_name: builtins.str) -> None:
+        '''A reference to a MultiRegionAccessPoint resource.
+
+        :param multi_region_access_point_name: The Name of the MultiRegionAccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            multi_region_access_point_reference = s3.MultiRegionAccessPointReference(
+                multi_region_access_point_name="multiRegionAccessPointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ae04eb265ca1bc67d2394386f0d8e996192637319597e5e312f63d57787498a)
+            check_type(argname="argument multi_region_access_point_name", value=multi_region_access_point_name, expected_type=type_hints["multi_region_access_point_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "multi_region_access_point_name": multi_region_access_point_name,
+        }
+
+    @builtins.property
+    def multi_region_access_point_name(self) -> builtins.str:
+        '''The Name of the MultiRegionAccessPoint resource.'''
+        result = self._values.get("multi_region_access_point_name")
+        assert result is not None, "Required property 'multi_region_access_point_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MultiRegionAccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.NoncurrentVersionTransition",
+    jsii_struct_bases=[],
+    name_mapping={
+        "storage_class": "storageClass",
+        "transition_after": "transitionAfter",
+        "noncurrent_versions_to_retain": "noncurrentVersionsToRetain",
+    },
+)
+class NoncurrentVersionTransition:
+    def __init__(
+        self,
+        *,
+        storage_class: "StorageClass",
+        transition_after: _Duration_4839e8c3,
+        noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Describes when noncurrent versions transition to a specified storage class.
+
+        :param storage_class: The storage class to which you want the object to transition.
+        :param transition_after: Indicates the number of days after creation when objects are transitioned to the specified storage class. Default: - No transition count.
+        :param noncurrent_versions_to_retain: Indicates the number of noncurrent version objects to be retained. Can be up to 100 noncurrent versions retained. Default: - No noncurrent version retained.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_s3 as s3
+            
+            # storage_class: s3.StorageClass
+            
+            noncurrent_version_transition = s3.NoncurrentVersionTransition(
+                storage_class=storage_class,
+                transition_after=cdk.Duration.minutes(30),
+            
+                # the properties below are optional
+                noncurrent_versions_to_retain=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e172df32791e08b327adeead864822f0327108fef6d11b60a2847d5ac563835b)
+            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
+            check_type(argname="argument transition_after", value=transition_after, expected_type=type_hints["transition_after"])
+            check_type(argname="argument noncurrent_versions_to_retain", value=noncurrent_versions_to_retain, expected_type=type_hints["noncurrent_versions_to_retain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_class": storage_class,
+            "transition_after": transition_after,
+        }
+        if noncurrent_versions_to_retain is not None:
+            self._values["noncurrent_versions_to_retain"] = noncurrent_versions_to_retain
+
+    @builtins.property
+    def storage_class(self) -> "StorageClass":
+        '''The storage class to which you want the object to transition.'''
+        result = self._values.get("storage_class")
+        assert result is not None, "Required property 'storage_class' is missing"
+        return typing.cast("StorageClass", result)
+
+    @builtins.property
+    def transition_after(self) -> _Duration_4839e8c3:
+        '''Indicates the number of days after creation when objects are transitioned to the specified storage class.
+
+        :default: - No transition count.
+        '''
+        result = self._values.get("transition_after")
+        assert result is not None, "Required property 'transition_after' is missing"
+        return typing.cast(_Duration_4839e8c3, result)
+
+    @builtins.property
+    def noncurrent_versions_to_retain(self) -> typing.Optional[jsii.Number]:
+        '''Indicates the number of noncurrent version objects to be retained.
+
+        Can be up to 100 noncurrent versions retained.
+
+        :default: - No noncurrent version retained.
+        '''
+        result = self._values.get("noncurrent_versions_to_retain")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NoncurrentVersionTransition(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.NotificationKeyFilter",
+    jsii_struct_bases=[],
+    name_mapping={"prefix": "prefix", "suffix": "suffix"},
+)
+class NotificationKeyFilter:
+    def __init__(
+        self,
+        *,
+        prefix: typing.Optional[builtins.str] = None,
+        suffix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param prefix: S3 keys must have the specified prefix.
+        :param suffix: S3 keys must have the specified suffix.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_queue: sqs.Queue
+            
+            bucket = s3.Bucket(self, "MyBucket")
+            bucket.add_event_notification(s3.EventType.OBJECT_REMOVED, s3n.SqsDestination(my_queue),
+                prefix="foo/",
+                suffix=".jpg"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9027ccde47331a53dd5d5647e0ac8b2d59832c2e174d2a101438fbf22f7f4ab1)
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument suffix", value=suffix, expected_type=type_hints["suffix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if prefix is not None:
+            self._values["prefix"] = prefix
+        if suffix is not None:
+            self._values["suffix"] = suffix
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''S3 keys must have the specified prefix.'''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def suffix(self) -> typing.Optional[builtins.str]:
+        '''S3 keys must have the specified suffix.'''
+        result = self._values.get("suffix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NotificationKeyFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.ObjectLockMode")
+class ObjectLockMode(enum.Enum):
+    '''Modes in which S3 Object Lock retention can be configured.
+
+    :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html#object-lock-retention-modes
+    '''
+
+    GOVERNANCE = "GOVERNANCE"
+    '''The Governance retention mode.
+
+    With governance mode, you protect objects against being deleted by most users, but you can
+    still grant some users permission to alter the retention settings or delete the object if
+    necessary. You can also use governance mode to test retention-period settings before
+    creating a compliance-mode retention period.
+    '''
+    COMPLIANCE = "COMPLIANCE"
+    '''The Compliance retention mode.
+
+    When an object is locked in compliance mode, its retention mode can't be changed, and
+    its retention period can't be shortened. Compliance mode helps ensure that an object
+    version can't be overwritten or deleted for the duration of the retention period.
+    '''
+
+
+class ObjectLockRetention(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3.ObjectLockRetention",
+):
+    '''The default retention settings for an S3 Object Lock configuration.
+
+    :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html
+    :exampleMetadata: infused
+
+    Example::
+
+        # Configure for governance mode with a duration of 7 years
+        s3.Bucket(self, "Bucket1",
+            object_lock_default_retention=s3.ObjectLockRetention.governance(Duration.days(7 * 365))
+        )
+        
+        # Configure for compliance mode with a duration of 1 year
+        s3.Bucket(self, "Bucket2",
+            object_lock_default_retention=s3.ObjectLockRetention.compliance(Duration.days(365))
+        )
+    '''
+
+    @jsii.member(jsii_name="compliance")
+    @builtins.classmethod
+    def compliance(cls, duration: _Duration_4839e8c3) -> "ObjectLockRetention":
+        '''Configure for Compliance retention for a specified duration.
+
+        When an object is locked in compliance mode, its retention mode can't be changed, and
+        its retention period can't be shortened. Compliance mode helps ensure that an object
+        version can't be overwritten or deleted for the duration of the retention period.
+
+        :param duration: the length of time for which objects should be retained.
+
+        :return: the ObjectLockRetention configuration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9490d8de494d11f7d3c1e46f6134d99456eca2e34e831d1d5d2b26c700781adb)
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+        return typing.cast("ObjectLockRetention", jsii.sinvoke(cls, "compliance", [duration]))
+
+    @jsii.member(jsii_name="governance")
+    @builtins.classmethod
+    def governance(cls, duration: _Duration_4839e8c3) -> "ObjectLockRetention":
+        '''Configure for Governance retention for a specified duration.
+
+        With governance mode, you protect objects against being deleted by most users, but you can
+        still grant some users permission to alter the retention settings or delete the object if
+        necessary. You can also use governance mode to test retention-period settings before
+        creating a compliance-mode retention period.
+
+        :param duration: the length of time for which objects should retained.
+
+        :return: the ObjectLockRetention configuration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94e609b96749203cdf306d370e394200eb0c7ff96876338e53f416ce6dab46ab)
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+        return typing.cast("ObjectLockRetention", jsii.sinvoke(cls, "governance", [duration]))
+
+    @builtins.property
+    @jsii.member(jsii_name="duration")
+    def duration(self) -> _Duration_4839e8c3:
+        '''The default period for which objects should be retained.'''
+        return typing.cast(_Duration_4839e8c3, jsii.get(self, "duration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> ObjectLockMode:
+        '''The retention mode to use for the object lock configuration.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html#object-lock-retention-modes
+        '''
+        return typing.cast(ObjectLockMode, jsii.get(self, "mode"))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.ObjectOwnership")
+class ObjectOwnership(enum.Enum):
+    '''The ObjectOwnership of the bucket.
+
+    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/about-object-ownership.html
+    :exampleMetadata: infused
+
+    Example::
+
+        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
+            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
+        )
+        
+        access_logs_bucket.add_to_resource_policy(
+            iam.PolicyStatement(
+                actions=["s3:*"],
+                resources=[access_logs_bucket.bucket_arn, access_logs_bucket.arn_for_objects("*")],
+                principals=[iam.AnyPrincipal()]
+            ))
+        
+        bucket = s3.Bucket(self, "MyBucket",
+            server_access_logs_bucket=access_logs_bucket,
+            server_access_logs_prefix="logs"
+        )
+    '''
+
+    BUCKET_OWNER_ENFORCED = "BUCKET_OWNER_ENFORCED"
+    '''ACLs are disabled, and the bucket owner automatically owns and has full control over every object in the bucket.
+
+    ACLs no longer affect permissions to data in the S3 bucket.
+    The bucket uses policies to define access control.
+    '''
+    BUCKET_OWNER_PREFERRED = "BUCKET_OWNER_PREFERRED"
+    '''The bucket owner will own the object if the object is uploaded with the bucket-owner-full-control canned ACL.
+
+    Without this setting and
+    canned ACL, the object is uploaded and remains owned by the uploading account.
+    '''
+    OBJECT_WRITER = "OBJECT_WRITER"
+    '''The uploading account will own the object.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.OnCloudTrailBucketEventOptions",
+    jsii_struct_bases=[_OnEventOptions_8711b8b3],
+    name_mapping={
+        "cross_stack_scope": "crossStackScope",
+        "description": "description",
+        "event_pattern": "eventPattern",
+        "rule_name": "ruleName",
+        "target": "target",
+        "paths": "paths",
+    },
+)
+class OnCloudTrailBucketEventOptions(_OnEventOptions_8711b8b3):
+    def __init__(
+        self,
+        *,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+        target: typing.Optional[_IRuleTarget_7a91f454] = None,
+        paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Options for the onCloudTrailPutObject method.
+
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param paths: Only watch changes to these object paths. Default: - Watch changes to all objects
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            from aws_cdk import aws_s3 as s3
+            import constructs as constructs
+            
+            # construct: constructs.Construct
+            # detail: Any
+            # rule_target: events.IRuleTarget
+            
+            on_cloud_trail_bucket_event_options = s3.OnCloudTrailBucketEventOptions(
+                cross_stack_scope=construct,
+                description="description",
+                event_pattern=events.EventPattern(
+                    account=["account"],
+                    detail={
+                        "detail_key": detail
+                    },
+                    detail_type=["detailType"],
+                    id=["id"],
+                    region=["region"],
+                    resources=["resources"],
+                    source=["source"],
+                    time=["time"],
+                    version=["version"]
+                ),
+                paths=["paths"],
+                rule_name="ruleName",
+                target=rule_target
+            )
+        '''
+        if isinstance(event_pattern, dict):
+            event_pattern = _EventPattern_fe557901(**event_pattern)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fe95c165eac8b0551cdcadba23dd748dd8fc69fa5f9fa2d5b7c3313f764386a)
+            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cross_stack_scope is not None:
+            self._values["cross_stack_scope"] = cross_stack_scope
+        if description is not None:
+            self._values["description"] = description
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+        if target is not None:
+            self._values["target"] = target
+        if paths is not None:
+            self._values["paths"] = paths
+
+    @builtins.property
+    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
+        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
+
+        This helps dealing with cycles that often arise in these situations.
+
+        :default: - none (the main scope will be used, even for cross-stack Events)
+        '''
+        result = self._values.get("cross_stack_scope")
+        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the rule's purpose.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Optional[_EventPattern_fe557901]:
+        '''Additional restrictions for the event to route to the specified target.
+
+        The method that generates the rule probably imposes some type of event
+        filtering. The filtering implied by what you pass here is added
+        on top of that filtering.
+
+        :default: - No additional filtering based on an event pattern.
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Optional[_EventPattern_fe557901], result)
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the rule.
+
+        :default: AWS CloudFormation generates a unique physical ID.
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target(self) -> typing.Optional[_IRuleTarget_7a91f454]:
+        '''The target to register for the event.
+
+        :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        '''
+        result = self._values.get("target")
+        return typing.cast(typing.Optional[_IRuleTarget_7a91f454], result)
+
+    @builtins.property
+    def paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Only watch changes to these object paths.
+
+        :default: - Watch changes to all objects
+        '''
+        result = self._values.get("paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnCloudTrailBucketEventOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.PartitionDateSource")
+class PartitionDateSource(enum.Enum):
+    '''The date source for the partitioned prefix.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket")
+        
+        bucket = s3.Bucket(self, "MyBucket",
+            server_access_logs_bucket=access_logs_bucket,
+            server_access_logs_prefix="logs",
+            target_object_key_format=s3.TargetObjectKeyFormat.partitioned_prefix(s3.PartitionDateSource.EVENT_TIME)
+        )
+    '''
+
+    EVENT_TIME = "EVENT_TIME"
+    '''The year, month, and day will be based on the timestamp of the S3 event in the file that's been delivered.'''
+    DELIVERY_TIME = "DELIVERY_TIME"
+    '''The year, month, and day will be based on the time when the log file was delivered to S3.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.RedirectProtocol")
+class RedirectProtocol(enum.Enum):
+    '''All http request methods.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        bucket = s3.Bucket(self, "MyRedirectedBucket",
+            website_routing_rules=[s3.RoutingRule(
+                host_name="www.example.com",
+                http_redirect_code="302",
+                protocol=s3.RedirectProtocol.HTTPS,
+                replace_key=s3.ReplaceKey.prefix_with("test/"),
+                condition=s3.RoutingRuleCondition(
+                    http_error_code_returned_equals="200",
+                    key_prefix_equals="prefix"
+                )
+            )
+            ]
+        )
+    '''
+
+    HTTP = "HTTP"
+    HTTPS = "HTTPS"
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.RedirectTarget",
+    jsii_struct_bases=[],
+    name_mapping={"host_name": "hostName", "protocol": "protocol"},
+)
+class RedirectTarget:
+    def __init__(
+        self,
+        *,
+        host_name: builtins.str,
+        protocol: typing.Optional[RedirectProtocol] = None,
+    ) -> None:
+        '''Specifies a redirect behavior of all requests to a website endpoint of a bucket.
+
+        :param host_name: Name of the host where requests are redirected.
+        :param protocol: Protocol to use when redirecting requests. Default: - The protocol used in the original request.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            bucket = s3.Bucket(self, "MyRedirectedBucket",
+                website_redirect=s3.RedirectTarget(host_name="www.example.com")
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1720144bcc9a3e6ed5e09070dd4a288585844e0c282d63b4fc539bb068317132)
+            check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "host_name": host_name,
+        }
+        if protocol is not None:
+            self._values["protocol"] = protocol
+
+    @builtins.property
+    def host_name(self) -> builtins.str:
+        '''Name of the host where requests are redirected.'''
+        result = self._values.get("host_name")
+        assert result is not None, "Required property 'host_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protocol(self) -> typing.Optional[RedirectProtocol]:
+        '''Protocol to use when redirecting requests.
+
+        :default: - The protocol used in the original request.
+        '''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[RedirectProtocol], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RedirectTarget(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ReplaceKey(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_s3.ReplaceKey"):
+    '''
+    :exampleMetadata: infused
+
+    Example::
+
+        bucket = s3.Bucket(self, "MyRedirectedBucket",
+            website_routing_rules=[s3.RoutingRule(
+                host_name="www.example.com",
+                http_redirect_code="302",
+                protocol=s3.RedirectProtocol.HTTPS,
+                replace_key=s3.ReplaceKey.prefix_with("test/"),
+                condition=s3.RoutingRuleCondition(
+                    http_error_code_returned_equals="200",
+                    key_prefix_equals="prefix"
+                )
+            )
+            ]
+        )
+    '''
+
+    @jsii.member(jsii_name="prefixWith")
+    @builtins.classmethod
+    def prefix_with(cls, key_replacement: builtins.str) -> "ReplaceKey":
+        '''The object key prefix to use in the redirect request.
+
+        :param key_replacement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbf2b903ac331e0cb09af7793e6968cb8ab89d46fe2d2feac3442e87251fd3b2)
+            check_type(argname="argument key_replacement", value=key_replacement, expected_type=type_hints["key_replacement"])
+        return typing.cast("ReplaceKey", jsii.sinvoke(cls, "prefixWith", [key_replacement]))
+
+    @jsii.member(jsii_name="with")
+    @builtins.classmethod
+    def with_(cls, key_replacement: builtins.str) -> "ReplaceKey":
+        '''The specific object key to use in the redirect request.
+
+        :param key_replacement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__080e6df7f96363149eb8dfbb9c1dcddefe96fd0ba7c0bb0e46fdbcf1b10d51a9)
+            check_type(argname="argument key_replacement", value=key_replacement, expected_type=type_hints["key_replacement"])
+        return typing.cast("ReplaceKey", jsii.sinvoke(cls, "with", [key_replacement]))
+
+    @builtins.property
+    @jsii.member(jsii_name="prefixWithKey")
+    def prefix_with_key(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "prefixWithKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="withKey")
+    def with_key(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "withKey"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.ReplicationRule",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination": "destination",
+        "access_control_transition": "accessControlTransition",
+        "delete_marker_replication": "deleteMarkerReplication",
+        "filter": "filter",
+        "id": "id",
+        "kms_key": "kmsKey",
+        "metrics": "metrics",
+        "priority": "priority",
+        "replica_modifications": "replicaModifications",
+        "replication_time_control": "replicationTimeControl",
+        "sse_kms_encrypted_objects": "sseKmsEncryptedObjects",
+        "storage_class": "storageClass",
+    },
+)
+class ReplicationRule:
+    def __init__(
+        self,
+        *,
+        destination: "IBucket",
+        access_control_transition: typing.Optional[builtins.bool] = None,
+        delete_marker_replication: typing.Optional[builtins.bool] = None,
+        filter: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
+        id: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        metrics: typing.Optional["ReplicationTimeValue"] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        replica_modifications: typing.Optional[builtins.bool] = None,
+        replication_time_control: typing.Optional["ReplicationTimeValue"] = None,
+        sse_kms_encrypted_objects: typing.Optional[builtins.bool] = None,
+        storage_class: typing.Optional["StorageClass"] = None,
+    ) -> None:
+        '''Specifies which Amazon S3 objects to replicate and where to store the replicas.
+
+        :param destination: The destination bucket for the replicated objects. The destination can be either in the same AWS account or a cross account. If you want to configure cross-account replication, the destination bucket must have a policy that allows the source bucket to replicate objects to it.
+        :param access_control_transition: Whether to want to change replica ownership to the AWS account that owns the destination bucket. This can only be specified if the source bucket and the destination bucket are not in the same AWS account. Default: - The replicas are owned by same AWS account that owns the source object
+        :param delete_marker_replication: Specifies whether Amazon S3 replicates delete markers. Default: - delete markers in source bucket is not replicated to destination bucket
+        :param filter: A filter that identifies the subset of objects to which the replication rule applies. Default: - applies to all objects
+        :param id: A unique identifier for the rule. The maximum value is 255 characters. Default: - auto generated random ID
+        :param kms_key: The customer managed AWS KMS key stored in AWS Key Management Service (KMS) for the destination bucket. Amazon S3 uses this key to encrypt replica objects. Amazon S3 only supports symmetric encryption KMS keys. Default: - Amazon S3 uses the AWS managed KMS key for encryption
+        :param metrics: A container specifying replication metrics-related settings enabling replication metrics and events. When a value is set, metrics will be output to indicate whether the replication took longer than the specified time. Default: - Replication metrics are not enabled
+        :param priority: The priority indicates which rule has precedence whenever two or more replication rules conflict. Amazon S3 will attempt to replicate objects according to all replication rules. However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority. The higher the number, the higher the priority. It is essential to specify priority explicitly when the replication configuration has multiple rules. Default: 0
+        :param replica_modifications: Specifies whether Amazon S3 replicates modifications on replicas. Default: false
+        :param replication_time_control: Specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated. Default: - S3 Replication Time Control is not enabled
+        :param sse_kms_encrypted_objects: Specifies whether Amazon S3 replicates objects created with server-side encryption using an AWS KMS key stored in AWS Key Management Service. Default: false
+        :param storage_class: The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. Default: - The storage class of the source object
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kms as kms
+            from aws_cdk import aws_s3 as s3
+            
+            # bucket: s3.Bucket
+            # key: kms.Key
+            # replication_time_value: s3.ReplicationTimeValue
+            # storage_class: s3.StorageClass
+            
+            replication_rule = s3.ReplicationRule(
+                destination=bucket,
+            
+                # the properties below are optional
+                access_control_transition=False,
+                delete_marker_replication=False,
+                filter=s3.Filter(
+                    prefix="prefix",
+                    tags=[s3.Tag(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                id="id",
+                kms_key=key,
+                metrics=replication_time_value,
+                priority=123,
+                replica_modifications=False,
+                replication_time_control=replication_time_value,
+                sse_kms_encrypted_objects=False,
+                storage_class=storage_class
+            )
+        '''
+        if isinstance(filter, dict):
+            filter = Filter(**filter)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2eb99af4044ffb625b707ac7ff5de3796f00ec1217ed24e21f6c240e90e846f0)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument access_control_transition", value=access_control_transition, expected_type=type_hints["access_control_transition"])
+            check_type(argname="argument delete_marker_replication", value=delete_marker_replication, expected_type=type_hints["delete_marker_replication"])
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument replica_modifications", value=replica_modifications, expected_type=type_hints["replica_modifications"])
+            check_type(argname="argument replication_time_control", value=replication_time_control, expected_type=type_hints["replication_time_control"])
+            check_type(argname="argument sse_kms_encrypted_objects", value=sse_kms_encrypted_objects, expected_type=type_hints["sse_kms_encrypted_objects"])
+            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+        }
+        if access_control_transition is not None:
+            self._values["access_control_transition"] = access_control_transition
+        if delete_marker_replication is not None:
+            self._values["delete_marker_replication"] = delete_marker_replication
+        if filter is not None:
+            self._values["filter"] = filter
+        if id is not None:
+            self._values["id"] = id
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if metrics is not None:
+            self._values["metrics"] = metrics
+        if priority is not None:
+            self._values["priority"] = priority
+        if replica_modifications is not None:
+            self._values["replica_modifications"] = replica_modifications
+        if replication_time_control is not None:
+            self._values["replication_time_control"] = replication_time_control
+        if sse_kms_encrypted_objects is not None:
+            self._values["sse_kms_encrypted_objects"] = sse_kms_encrypted_objects
+        if storage_class is not None:
+            self._values["storage_class"] = storage_class
+
+    @builtins.property
+    def destination(self) -> "IBucket":
+        '''The destination bucket for the replicated objects.
+
+        The destination can be either in the same AWS account or a cross account.
+
+        If you want to configure cross-account replication,
+        the destination bucket must have a policy that allows the source bucket to replicate objects to it.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html
+        '''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast("IBucket", result)
+
+    @builtins.property
+    def access_control_transition(self) -> typing.Optional[builtins.bool]:
+        '''Whether to want to change replica ownership to the AWS account that owns the destination bucket.
+
+        This can only be specified if the source bucket and the destination bucket are not in the same AWS account.
+
+        :default: - The replicas are owned by same AWS account that owns the source object
+        '''
+        result = self._values.get("access_control_transition")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def delete_marker_replication(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether Amazon S3 replicates delete markers.
+
+        :default: - delete markers in source bucket is not replicated to destination bucket
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-marker-replication.html
+        '''
+        result = self._values.get("delete_marker_replication")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def filter(self) -> typing.Optional[Filter]:
+        '''A filter that identifies the subset of objects to which the replication rule applies.
+
+        :default: - applies to all objects
+        '''
+        result = self._values.get("filter")
+        return typing.cast(typing.Optional[Filter], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for the rule.
+
+        The maximum value is 255 characters.
+
+        :default: - auto generated random ID
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed AWS KMS key stored in AWS Key Management Service (KMS) for the destination bucket.
+
+        Amazon S3 uses this key to encrypt replica objects.
+
+        Amazon S3 only supports symmetric encryption KMS keys.
+
+        :default: - Amazon S3 uses the AWS managed KMS key for encryption
+
+        :see: https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    @builtins.property
+    def metrics(self) -> typing.Optional["ReplicationTimeValue"]:
+        '''A container specifying replication metrics-related settings enabling replication metrics and events.
+
+        When a value is set, metrics will be output to indicate whether the replication took longer than the specified time.
+
+        :default: - Replication metrics are not enabled
+        '''
+        result = self._values.get("metrics")
+        return typing.cast(typing.Optional["ReplicationTimeValue"], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority indicates which rule has precedence whenever two or more replication rules conflict.
+
+        Amazon S3 will attempt to replicate objects according to all replication rules.
+        However, if there are two or more rules with the same destination bucket,
+        then objects will be replicated according to the rule with the highest priority.
+
+        The higher the number, the higher the priority.
+
+        It is essential to specify priority explicitly when the replication configuration has multiple rules.
+
+        :default: 0
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def replica_modifications(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether Amazon S3 replicates modifications on replicas.
+
+        :default: false
+        '''
+        result = self._values.get("replica_modifications")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def replication_time_control(self) -> typing.Optional["ReplicationTimeValue"]:
+        '''Specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated.
+
+        :default: - S3 Replication Time Control is not enabled
+        '''
+        result = self._values.get("replication_time_control")
+        return typing.cast(typing.Optional["ReplicationTimeValue"], result)
+
+    @builtins.property
+    def sse_kms_encrypted_objects(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether Amazon S3 replicates objects created with server-side encryption using an AWS KMS key stored in AWS Key Management Service.
+
+        :default: false
+        '''
+        result = self._values.get("sse_kms_encrypted_objects")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def storage_class(self) -> typing.Optional["StorageClass"]:
+        '''The storage class to use when replicating objects, such as S3 Standard or reduced redundancy.
+
+        :default: - The storage class of the source object
+        '''
+        result = self._values.get("storage_class")
+        return typing.cast(typing.Optional["StorageClass"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReplicationRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ReplicationTimeValue(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3.ReplicationTimeValue",
+):
+    '''The replication time value used for S3 Replication Time Control (S3 RTC).
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # destination_bucket1: s3.IBucket
+        # destination_bucket2: s3.IBucket
+        # replication_role: iam.IRole
+        # encryption_key: kms.IKey
+        # destination_encryption_key: kms.IKey
+        
+        
+        source_bucket = s3.Bucket(self, "SourceBucket",
+            # Versioning must be enabled on both the source and destination bucket
+            versioned=True,
+            # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
+            encryption_key=encryption_key,
+            # Optional. If not specified, a new role will be created.
+            replication_role=replication_role,
+            replication_rules=[s3.ReplicationRule(
+                # The destination bucket for the replication rule.
+                destination=destination_bucket1,
+                # The priority of the rule.
+                # Amazon S3 will attempt to replicate objects according to all replication rules.
+                # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
+                # The higher the number, the higher the priority.
+                # It is essential to specify priority explicitly when the replication configuration has multiple rules.
+                priority=1
+            ), s3.ReplicationRule(
+                destination=destination_bucket2,
+                priority=2,
+                # Whether to specify S3 Replication Time Control (S3 RTC).
+                # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
+                # and 99.99 percent of those objects within specified time.
+                replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                # Whether to enable replication metrics about S3 RTC.
+                # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
+                metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
+                # The kms key to use for the destination bucket.
+                kms_key=destination_encryption_key,
+                # The storage class to use for the destination bucket.
+                storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                # Whether to replicate objects with SSE-KMS encryption.
+                sse_kms_encrypted_objects=False,
+                # Whether to replicate modifications on replicas.
+                replica_modifications=True,
+                # Whether to replicate delete markers.
+                # This property cannot be enabled if the replication rule has a tag filter.
+                delete_marker_replication=False,
+                # The ID of the rule.
+                id="full-settings-rule",
+                # The object filter for the rule.
+                filter=s3.Filter(
+                    # The prefix filter for the rule.
+                    prefix="prefix",
+                    # The tag filter for the rule.
+                    tags=[s3.Tag(
+                        key="tagKey",
+                        value="tagValue"
+                    )
+                    ]
+                )
+            )
+            ]
+        )
+        
+        # Grant permissions to the replication role.
+        # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
+        source_bucket.grant_replication_permission(replication_role,
+            # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
+            source_decryption_key=encryption_key,
+            destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
+            ]
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FIFTEEN_MINUTES")
+    def FIFTEEN_MINUTES(cls) -> "ReplicationTimeValue":
+        '''Fifteen minutes.'''
+        return typing.cast("ReplicationTimeValue", jsii.sget(cls, "FIFTEEN_MINUTES"))
+
+    @builtins.property
+    @jsii.member(jsii_name="minutes")
+    def minutes(self) -> jsii.Number:
+        '''the time in minutes.'''
+        return typing.cast(jsii.Number, jsii.get(self, "minutes"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.RoutingRule",
+    jsii_struct_bases=[],
+    name_mapping={
+        "condition": "condition",
+        "host_name": "hostName",
+        "http_redirect_code": "httpRedirectCode",
+        "protocol": "protocol",
+        "replace_key": "replaceKey",
+    },
+)
+class RoutingRule:
+    def __init__(
+        self,
+        *,
+        condition: typing.Optional[typing.Union["RoutingRuleCondition", typing.Dict[builtins.str, typing.Any]]] = None,
+        host_name: typing.Optional[builtins.str] = None,
+        http_redirect_code: typing.Optional[builtins.str] = None,
+        protocol: typing.Optional[RedirectProtocol] = None,
+        replace_key: typing.Optional[ReplaceKey] = None,
+    ) -> None:
+        '''Rule that define when a redirect is applied and the redirect behavior.
+
+        :param condition: Specifies a condition that must be met for the specified redirect to apply. Default: - No condition
+        :param host_name: The host name to use in the redirect request. Default: - The host name used in the original request.
+        :param http_redirect_code: The HTTP redirect code to use on the response. Default: "301" - Moved Permanently
+        :param protocol: Protocol to use when redirecting requests. Default: - The protocol used in the original request.
+        :param replace_key: Specifies the object key prefix to use in the redirect request. Default: - The key will not be replaced
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/how-to-page-redirect.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            # replace_key: s3.ReplaceKey
+            
+            routing_rule = s3.RoutingRule(
+                condition=s3.RoutingRuleCondition(
+                    http_error_code_returned_equals="httpErrorCodeReturnedEquals",
+                    key_prefix_equals="keyPrefixEquals"
+                ),
+                host_name="hostName",
+                http_redirect_code="httpRedirectCode",
+                protocol=s3.RedirectProtocol.HTTP,
+                replace_key=replace_key
+            )
+        '''
+        if isinstance(condition, dict):
+            condition = RoutingRuleCondition(**condition)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8752d303f1211901bb201082ccfac00227de7385764f326153a028696cc3c69)
+            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+            check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
+            check_type(argname="argument http_redirect_code", value=http_redirect_code, expected_type=type_hints["http_redirect_code"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument replace_key", value=replace_key, expected_type=type_hints["replace_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if condition is not None:
+            self._values["condition"] = condition
+        if host_name is not None:
+            self._values["host_name"] = host_name
+        if http_redirect_code is not None:
+            self._values["http_redirect_code"] = http_redirect_code
+        if protocol is not None:
+            self._values["protocol"] = protocol
+        if replace_key is not None:
+            self._values["replace_key"] = replace_key
+
+    @builtins.property
+    def condition(self) -> typing.Optional["RoutingRuleCondition"]:
+        '''Specifies a condition that must be met for the specified redirect to apply.
+
+        :default: - No condition
+        '''
+        result = self._values.get("condition")
+        return typing.cast(typing.Optional["RoutingRuleCondition"], result)
+
+    @builtins.property
+    def host_name(self) -> typing.Optional[builtins.str]:
+        '''The host name to use in the redirect request.
+
+        :default: - The host name used in the original request.
+        '''
+        result = self._values.get("host_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def http_redirect_code(self) -> typing.Optional[builtins.str]:
+        '''The HTTP redirect code to use on the response.
+
+        :default: "301" - Moved Permanently
+        '''
+        result = self._values.get("http_redirect_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def protocol(self) -> typing.Optional[RedirectProtocol]:
+        '''Protocol to use when redirecting requests.
+
+        :default: - The protocol used in the original request.
+        '''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[RedirectProtocol], result)
+
+    @builtins.property
+    def replace_key(self) -> typing.Optional[ReplaceKey]:
+        '''Specifies the object key prefix to use in the redirect request.
+
+        :default: - The key will not be replaced
+        '''
+        result = self._values.get("replace_key")
+        return typing.cast(typing.Optional[ReplaceKey], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RoutingRule(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.RoutingRuleCondition",
+    jsii_struct_bases=[],
+    name_mapping={
+        "http_error_code_returned_equals": "httpErrorCodeReturnedEquals",
+        "key_prefix_equals": "keyPrefixEquals",
+    },
+)
+class RoutingRuleCondition:
+    def __init__(
+        self,
+        *,
+        http_error_code_returned_equals: typing.Optional[builtins.str] = None,
+        key_prefix_equals: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param http_error_code_returned_equals: The HTTP error code when the redirect is applied. In the event of an error, if the error code equals this value, then the specified redirect is applied. If both condition properties are specified, both must be true for the redirect to be applied. Default: - The HTTP error code will not be verified
+        :param key_prefix_equals: The object key name prefix when the redirect is applied. If both condition properties are specified, both must be true for the redirect to be applied. Default: - The object key name will not be verified
+
+        :exampleMetadata: infused
+
+        Example::
+
+            bucket = s3.Bucket(self, "MyRedirectedBucket",
+                website_routing_rules=[s3.RoutingRule(
+                    host_name="www.example.com",
+                    http_redirect_code="302",
+                    protocol=s3.RedirectProtocol.HTTPS,
+                    replace_key=s3.ReplaceKey.prefix_with("test/"),
+                    condition=s3.RoutingRuleCondition(
+                        http_error_code_returned_equals="200",
+                        key_prefix_equals="prefix"
+                    )
+                )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38f74cc1f2be83f337aa00add0668c647a4c8cec3ab5a8888461c0232bc9cd52)
+            check_type(argname="argument http_error_code_returned_equals", value=http_error_code_returned_equals, expected_type=type_hints["http_error_code_returned_equals"])
+            check_type(argname="argument key_prefix_equals", value=key_prefix_equals, expected_type=type_hints["key_prefix_equals"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if http_error_code_returned_equals is not None:
+            self._values["http_error_code_returned_equals"] = http_error_code_returned_equals
+        if key_prefix_equals is not None:
+            self._values["key_prefix_equals"] = key_prefix_equals
+
+    @builtins.property
+    def http_error_code_returned_equals(self) -> typing.Optional[builtins.str]:
+        '''The HTTP error code when the redirect is applied.
+
+        In the event of an error, if the error code equals this value, then the specified redirect is applied.
+
+        If both condition properties are specified, both must be true for the redirect to be applied.
+
+        :default: - The HTTP error code will not be verified
+        '''
+        result = self._values.get("http_error_code_returned_equals")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key_prefix_equals(self) -> typing.Optional[builtins.str]:
+        '''The object key name prefix when the redirect is applied.
+
+        If both condition properties are specified, both must be true for the redirect to be applied.
+
+        :default: - The object key name will not be verified
+        '''
+        result = self._values.get("key_prefix_equals")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RoutingRuleCondition(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class StorageClass(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3.StorageClass",
+):
+    '''Storage class to move an object to.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        bucket = s3.Bucket(self, "MyBucket",
+            lifecycle_rules=[s3.LifecycleRule(
+                abort_incomplete_multipart_upload_after=Duration.minutes(30),
+                enabled=False,
+                expiration=Duration.days(30),
+                expiration_date=Date(),
+                expired_object_delete_marker=False,
+                id="id",
+                noncurrent_version_expiration=Duration.days(30),
+        
+                # the properties below are optional
+                noncurrent_versions_to_retain=123,
+                noncurrent_version_transitions=[s3.NoncurrentVersionTransition(
+                    storage_class=s3.StorageClass.GLACIER,
+                    transition_after=Duration.days(30),
+        
+                    # the properties below are optional
+                    noncurrent_versions_to_retain=123
+                )
+                ],
+                object_size_greater_than=500,
+                prefix="prefix",
+                object_size_less_than=10000,
+                transitions=[s3.Transition(
+                    storage_class=s3.StorageClass.GLACIER,
+        
+                    # exactly one of transitionAfter or transitionDate must be specified
+                    transition_after=Duration.days(30)
+                )
+                ]
+            )
+            ]
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d172840b868660ee39a22a52380b882acc3adf0baf3b1589cd0f0f5eb6c6fdf7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DEEP_ARCHIVE")
+    def DEEP_ARCHIVE(cls) -> "StorageClass":
+        '''Use for archiving data that rarely needs to be accessed.
+
+        Data stored in the
+        DEEP_ARCHIVE storage class has a minimum storage duration period of 180
+        days and a default retrieval time of 12 hours. If you delete an object
+        before the 180-day minimum, you are charged for 180 days. For pricing
+        information, see Amazon S3 Pricing.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "DEEP_ARCHIVE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GLACIER")
+    def GLACIER(cls) -> "StorageClass":
+        '''Storage class for long-term archival that can take between minutes and hours to access.
+
+        Use for archives where portions of the data might need to be retrieved in
+        minutes. Data stored in the GLACIER storage class has a minimum storage
+        duration period of 90 days and can be accessed in as little as 1-5 minutes
+        using expedited retrieval. If you delete an object before the 90-day
+        minimum, you are charged for 90 days.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "GLACIER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="GLACIER_INSTANT_RETRIEVAL")
+    def GLACIER_INSTANT_RETRIEVAL(cls) -> "StorageClass":
+        '''Storage class for long-term archival that can be accessed in a few milliseconds.
+
+        It is ideal for data that is accessed once or twice per quarter, and
+        that requires immediate access. Data stored in the GLACIER_IR storage class
+        has a minimum storage duration period of 90 days and can be accessed in
+        as milliseconds. If you delete an object before the 90-day minimum,
+        you are charged for 90 days.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "GLACIER_INSTANT_RETRIEVAL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="INFREQUENT_ACCESS")
+    def INFREQUENT_ACCESS(cls) -> "StorageClass":
+        '''Storage class for data that is accessed less frequently, but requires rapid access when needed.
+
+        Has lower availability than Standard storage.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "INFREQUENT_ACCESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="INTELLIGENT_TIERING")
+    def INTELLIGENT_TIERING(cls) -> "StorageClass":
+        '''The INTELLIGENT_TIERING storage class is designed to optimize storage costs by automatically moving data to the most cost-effective storage access tier, without performance impact or operational overhead.
+
+        INTELLIGENT_TIERING delivers automatic cost savings by moving data on a
+        granular object level between two access tiers, a frequent access tier and
+        a lower-cost infrequent access tier, when access patterns change. The
+        INTELLIGENT_TIERING storage class is ideal if you want to optimize storage
+        costs automatically for long-lived data when access patterns are unknown or
+        unpredictable.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "INTELLIGENT_TIERING"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ONE_ZONE_INFREQUENT_ACCESS")
+    def ONE_ZONE_INFREQUENT_ACCESS(cls) -> "StorageClass":
+        '''Infrequent Access that's only stored in one availability zone.
+
+        Has lower availability than standard InfrequentAccess.
+        '''
+        return typing.cast("StorageClass", jsii.sget(cls, "ONE_ZONE_INFREQUENT_ACCESS"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.StorageLensGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "storage_lens_group_arn": "storageLensGroupArn",
+        "storage_lens_group_name": "storageLensGroupName",
+    },
+)
+class StorageLensGroupReference:
+    def __init__(
+        self,
+        *,
+        storage_lens_group_arn: builtins.str,
+        storage_lens_group_name: builtins.str,
+    ) -> None:
+        '''A reference to a StorageLensGroup resource.
+
+        :param storage_lens_group_arn: The ARN of the StorageLensGroup resource.
+        :param storage_lens_group_name: The Name of the StorageLensGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            storage_lens_group_reference = s3.StorageLensGroupReference(
+                storage_lens_group_arn="storageLensGroupArn",
+                storage_lens_group_name="storageLensGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b63919b674fc43122b6a433f4bcd91bac627f1a7007b2c3e758988ff8c667dbd)
+            check_type(argname="argument storage_lens_group_arn", value=storage_lens_group_arn, expected_type=type_hints["storage_lens_group_arn"])
+            check_type(argname="argument storage_lens_group_name", value=storage_lens_group_name, expected_type=type_hints["storage_lens_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_lens_group_arn": storage_lens_group_arn,
+            "storage_lens_group_name": storage_lens_group_name,
+        }
+
+    @builtins.property
+    def storage_lens_group_arn(self) -> builtins.str:
+        '''The ARN of the StorageLensGroup resource.'''
+        result = self._values.get("storage_lens_group_arn")
+        assert result is not None, "Required property 'storage_lens_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def storage_lens_group_name(self) -> builtins.str:
+        '''The Name of the StorageLensGroup resource.'''
+        result = self._values.get("storage_lens_group_name")
+        assert result is not None, "Required property 'storage_lens_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StorageLensGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.StorageLensReference",
+    jsii_struct_bases=[],
+    name_mapping={"storage_lens_id": "storageLensId"},
+)
+class StorageLensReference:
+    def __init__(self, *, storage_lens_id: builtins.str) -> None:
+        '''A reference to a StorageLens resource.
+
+        :param storage_lens_id: The StorageLensConfiguration/Id of the StorageLens resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            storage_lens_reference = s3.StorageLensReference(
+                storage_lens_id="storageLensId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc54ff800dee061d4988bb5cc9e59ed84f5d9502fdb31f4185d3ede3a771716d)
+            check_type(argname="argument storage_lens_id", value=storage_lens_id, expected_type=type_hints["storage_lens_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_lens_id": storage_lens_id,
+        }
+
+    @builtins.property
+    def storage_lens_id(self) -> builtins.str:
+        '''The StorageLensConfiguration/Id of the StorageLens resource.'''
+        result = self._values.get("storage_lens_id")
+        assert result is not None, "Required property 'storage_lens_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StorageLensReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.Tag",
+    jsii_struct_bases=[],
+    name_mapping={"key": "key", "value": "value"},
+)
+class Tag:
+    def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+        '''Tag.
+
+        :param key: key to e tagged.
+        :param value: additional value.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            tag = s3.Tag(
+                key="key",
+                value="value"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e29e6574d43989cdd3e313cbe8bac874337698fa60c17542c191cd683a838e3)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key": key,
+            "value": value,
+        }
+
+    @builtins.property
+    def key(self) -> builtins.str:
+        '''key to e tagged.'''
+        result = self._values.get("key")
+        assert result is not None, "Required property 'key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''additional value.'''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Tag(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class TargetObjectKeyFormat(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_s3.TargetObjectKeyFormat",
+):
+    '''The key format for the log object.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket")
+        
+        bucket = s3.Bucket(self, "MyBucket",
+            server_access_logs_bucket=access_logs_bucket,
+            server_access_logs_prefix="logs",
+            # You can use a simple prefix with `TargetObjectKeyFormat.simplePrefix()`, but it is the same even if you do not specify `targetObjectKeyFormat` property.
+            target_object_key_format=s3.TargetObjectKeyFormat.simple_prefix()
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="partitionedPrefix")
+    @builtins.classmethod
+    def partitioned_prefix(
+        cls,
+        date_source: typing.Optional[PartitionDateSource] = None,
+    ) -> "TargetObjectKeyFormat":
+        '''Use partitioned prefix for log objects. If you do not specify the dateSource argument, the default is EventTime.
+
+        The partitioned prefix format as follow:
+        [DestinationPrefix][SourceAccountId]/​[SourceRegion]/​[SourceBucket]/​[YYYY]/​[MM]/​[DD]/​[YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString]
+
+        :param date_source: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__809ebd5650171e4a75fd330e81161995116c2e7e2f44d102273c44e5f588f820)
+            check_type(argname="argument date_source", value=date_source, expected_type=type_hints["date_source"])
+        return typing.cast("TargetObjectKeyFormat", jsii.sinvoke(cls, "partitionedPrefix", [date_source]))
+
+    @jsii.member(jsii_name="simplePrefix")
+    @builtins.classmethod
+    def simple_prefix(cls) -> "TargetObjectKeyFormat":
+        '''Use the simple prefix for log objects.
+
+        The simple prefix format as follow:
+        [DestinationPrefix][YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString]
+        '''
+        return typing.cast("TargetObjectKeyFormat", jsii.sinvoke(cls, "simplePrefix", []))
+
+
+class _TargetObjectKeyFormatProxy(TargetObjectKeyFormat):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, TargetObjectKeyFormat).__jsii_proxy_class__ = lambda : _TargetObjectKeyFormatProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.TransferAccelerationUrlOptions",
+    jsii_struct_bases=[],
+    name_mapping={"dual_stack": "dualStack"},
+)
+class TransferAccelerationUrlOptions:
+    def __init__(self, *, dual_stack: typing.Optional[builtins.bool] = None) -> None:
+        '''Options for creating a Transfer Acceleration URL.
+
+        :param dual_stack: Dual-stack support to connect to the bucket over IPv6. Default: - false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3 as s3
+            
+            transfer_acceleration_url_options = s3.TransferAccelerationUrlOptions(
+                dual_stack=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b7896c666f1ed607ff8c29acec3bda7e98b815485a75d7b49d5960890231a1d)
+            check_type(argname="argument dual_stack", value=dual_stack, expected_type=type_hints["dual_stack"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dual_stack is not None:
+            self._values["dual_stack"] = dual_stack
+
+    @builtins.property
+    def dual_stack(self) -> typing.Optional[builtins.bool]:
+        '''Dual-stack support to connect to the bucket over IPv6.
+
+        :default: - false
+        '''
+        result = self._values.get("dual_stack")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransferAccelerationUrlOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.Transition",
+    jsii_struct_bases=[],
+    name_mapping={
+        "storage_class": "storageClass",
+        "transition_after": "transitionAfter",
+        "transition_date": "transitionDate",
+    },
+)
+class Transition:
+    def __init__(
+        self,
+        *,
+        storage_class: StorageClass,
+        transition_after: typing.Optional[_Duration_4839e8c3] = None,
+        transition_date: typing.Optional[datetime.datetime] = None,
+    ) -> None:
+        '''Describes when an object transitions to a specified storage class.
+
+        :param storage_class: The storage class to which you want the object to transition.
+        :param transition_after: Indicates the number of days after creation when objects are transitioned to the specified storage class. Default: - No transition count.
+        :param transition_date: Indicates when objects are transitioned to the specified storage class. The date value must be in ISO 8601 format. The time is always midnight UTC. Default: - No transition date.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_s3 as s3
+            
+            # storage_class: s3.StorageClass
+            
+            transition = s3.Transition(
+                storage_class=storage_class,
+            
+                # the properties below are optional
+                transition_after=cdk.Duration.minutes(30),
+                transition_date=Date()
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10688c7a0b8de7c4b20db878cadbd12d272ce9b2cb302efe953046bf83489f0f)
+            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
+            check_type(argname="argument transition_after", value=transition_after, expected_type=type_hints["transition_after"])
+            check_type(argname="argument transition_date", value=transition_date, expected_type=type_hints["transition_date"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_class": storage_class,
+        }
+        if transition_after is not None:
+            self._values["transition_after"] = transition_after
+        if transition_date is not None:
+            self._values["transition_date"] = transition_date
+
+    @builtins.property
+    def storage_class(self) -> StorageClass:
+        '''The storage class to which you want the object to transition.'''
+        result = self._values.get("storage_class")
+        assert result is not None, "Required property 'storage_class' is missing"
+        return typing.cast(StorageClass, result)
+
+    @builtins.property
+    def transition_after(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''Indicates the number of days after creation when objects are transitioned to the specified storage class.
+
+        :default: - No transition count.
+        '''
+        result = self._values.get("transition_after")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def transition_date(self) -> typing.Optional[datetime.datetime]:
+        '''Indicates when objects are transitioned to the specified storage class.
+
+        The date value must be in ISO 8601 format. The time is always midnight UTC.
+
+        :default: - No transition date.
+        '''
+        result = self._values.get("transition_date")
+        return typing.cast(typing.Optional[datetime.datetime], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Transition(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.TransitionDefaultMinimumObjectSize")
+class TransitionDefaultMinimumObjectSize(enum.Enum):
+    '''The transition default minimum object size for lifecycle.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        s3.Bucket(self, "MyBucket",
+            transition_default_minimum_object_size=s3.TransitionDefaultMinimumObjectSize.VARIES_BY_STORAGE_CLASS,
+            lifecycle_rules=[s3.LifecycleRule(
+                transitions=[s3.Transition(
+                    storage_class=s3.StorageClass.DEEP_ARCHIVE,
+                    transition_after=Duration.days(30)
+                )]
+            ), s3.LifecycleRule(
+                object_size_less_than=300000,
+                object_size_greater_than=200000,
+                transitions=[s3.Transition(
+                    storage_class=s3.StorageClass.ONE_ZONE_INFREQUENT_ACCESS,
+                    transition_after=Duration.days(30)
+                )]
+            )
+            ]
+        )
+    '''
+
+    ALL_STORAGE_CLASSES_128_K = "ALL_STORAGE_CLASSES_128_K"
+    '''Objects smaller than 128 KB will not transition to any storage class by default.'''
+    VARIES_BY_STORAGE_CLASS = "VARIES_BY_STORAGE_CLASS"
+    '''Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes.
+
+    By default, all other storage classes will prevent transitions smaller than 128 KB.
+    '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3.VirtualHostedStyleUrlOptions",
+    jsii_struct_bases=[],
+    name_mapping={"regional": "regional"},
+)
+class VirtualHostedStyleUrlOptions:
+    def __init__(self, *, regional: typing.Optional[builtins.bool] = None) -> None:
+        '''Options for creating Virtual-Hosted style URL.
+
+        :param regional: Specifies the URL includes the region. Default: - true
+
+        :exampleMetadata: infused
+
+        Example::
+
+            bucket = s3.Bucket(self, "MyBucket")
+            bucket.url_for_object("objectname") # Path-Style URL
+            bucket.virtual_hosted_url_for_object("objectname") # Virtual Hosted-Style URL
+            bucket.virtual_hosted_url_for_object("objectname", regional=False)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__821852ae55e52ae1b92b181b16fc426016399b7271d4a8341cdb9da5c483e4b8)
+            check_type(argname="argument regional", value=regional, expected_type=type_hints["regional"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if regional is not None:
+            self._values["regional"] = regional
+
+    @builtins.property
+    def regional(self) -> typing.Optional[builtins.bool]:
+        '''Specifies the URL includes the region.
+
+        :default: - true
+        '''
+        result = self._values.get("regional")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VirtualHostedStyleUrlOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IBucketPolicyRef)
+class BucketPolicy(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3.BucketPolicy",
+):
+    '''The bucket policy for an Amazon S3 bucket.
+
+    Policies define the operations that are allowed on this resource.
+
+    You almost never need to define this construct directly.
+
+    All AWS resources that support resource policies have a method called
+    ``addToResourcePolicy()``, which will automatically create a new resource
+    policy if one doesn't exist yet, otherwise it will add to the existing
+    policy.
+
+    The bucket policy method is implemented differently than ``addToResourcePolicy()``
+    as ``BucketPolicy()`` creates a new policy without knowing one earlier existed.
+    e.g. if during Bucket creation, if ``autoDeleteObject:true``, these policies are
+    added to the bucket policy:
+    ["s3:DeleteObject*", "s3:GetBucket*", "s3:List*", "s3:PutBucketPolicy"],
+    and when you add a new BucketPolicy with ["s3:GetObject", "s3:ListBucket"] on
+    this existing bucket, invoking ``BucketPolicy()`` will create a new Policy
+    without knowing one earlier exists already, so it creates a new one.
+    In this case, the custom resource handler will not have access to
+    ``s3:GetBucketTagging`` action which will cause failure during deletion of stack.
+
+    Hence its strongly recommended to use ``addToResourcePolicy()`` method to add
+    new permissions to existing policy.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        bucket_name = "amzn-s3-demo-bucket"
+        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
+            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+            bucket_name=bucket_name
+        )
+        
+        bucket_policy = s3.CfnBucketPolicy(self, "BucketPolicy",
+            bucket=bucket_name,
+            policy_document={
+                "Statement": [{
+                    "Action": "s3:*",
+                    "Effect": "Deny",
+                    "Principal": {
+                        "AWS": "*"
+                    },
+                    "Resource": [access_logs_bucket.bucket_arn, f"{accessLogsBucket.bucketArn}/*"
+                    ]
+                }
+                ],
+                "Version": "2012-10-17"
+            }
+        )
+        
+        # Wrap L1 Construct with L2 Bucket Policy Construct. Subsequent
+        # generated bucket policy to allow access log delivery would append
+        # to the current policy.
+        s3.BucketPolicy.from_cfn_bucket_policy(bucket_policy)
+        
+        bucket = s3.Bucket(self, "MyBucket",
+            server_access_logs_bucket=access_logs_bucket,
+            server_access_logs_prefix="logs"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        bucket: "IBucket",
+        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param bucket: The Amazon S3 bucket that the policy applies to.
+        :param removal_policy: Policy to apply when the policy is removed from this stack. Default: - RemovalPolicy.DESTROY.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__910b3df1208e67cb52dad0b0b8c5feb43c7bddb0ced50eaf6c953477298a840e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = BucketPolicyProps(bucket=bucket, removal_policy=removal_policy)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromCfnBucketPolicy")
+    @builtins.classmethod
+    def from_cfn_bucket_policy(
+        cls,
+        cfn_bucket_policy: "CfnBucketPolicy",
+    ) -> "BucketPolicy":
+        '''Create a mutable ``BucketPolicy`` from a ``CfnBucketPolicy``.
+
+        :param cfn_bucket_policy: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd3f50341cadbb894f48d7873cd17f90805868eb52fe95025e4a60567b5529f1)
+            check_type(argname="argument cfn_bucket_policy", value=cfn_bucket_policy, expected_type=type_hints["cfn_bucket_policy"])
+        return typing.cast("BucketPolicy", jsii.sinvoke(cls, "fromCfnBucketPolicy", [cfn_bucket_policy]))
+
+    @jsii.member(jsii_name="applyRemovalPolicy")
+    def apply_removal_policy(self, removal_policy: _RemovalPolicy_9f93c814) -> None:
+        '''Sets the removal policy for the BucketPolicy.
+
+        :param removal_policy: the RemovalPolicy to set.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70ab6602f43f75a64ae8e8349b5d140cdfefe9af2e4d2352ec6279ed1b544fca)
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+        return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [removal_policy]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bucket")
+    def bucket(self) -> "IBucket":
+        '''The Bucket this Policy applies to.'''
+        return typing.cast("IBucket", jsii.get(self, "bucket"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''A reference to a BucketPolicy resource.'''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="document")
+    def document(self) -> _PolicyDocument_3ac34393:
+        '''A policy document containing permissions to add to the specified bucket.
+
+        For more information, see Access Policy Language Overview in the Amazon
+        Simple Storage Service Developer Guide.
+        '''
+        return typing.cast(_PolicyDocument_3ac34393, jsii.get(self, "document"))
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessGrantRef, _ITaggableV2_4e6798f8)
 class CfnAccessGrant(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2826,6 +8734,12 @@ class CfnAccessGrant(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessGrantRef")
+    def access_grant_ref(self) -> AccessGrantReference:
+        '''A reference to a AccessGrant resource.'''
+        return typing.cast(AccessGrantReference, jsii.get(self, "accessGrantRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccessGrantArn")
@@ -3111,191 +9025,7 @@ class CfnAccessGrant(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_grants_location_id": "accessGrantsLocationId",
-        "grantee": "grantee",
-        "permission": "permission",
-        "access_grants_location_configuration": "accessGrantsLocationConfiguration",
-        "application_arn": "applicationArn",
-        "s3_prefix_type": "s3PrefixType",
-        "tags": "tags",
-    },
-)
-class CfnAccessGrantProps:
-    def __init__(
-        self,
-        *,
-        access_grants_location_id: builtins.str,
-        grantee: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.GranteeProperty, typing.Dict[builtins.str, typing.Any]]],
-        permission: builtins.str,
-        access_grants_location_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.AccessGrantsLocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        application_arn: typing.Optional[builtins.str] = None,
-        s3_prefix_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessGrant``.
-
-        :param access_grants_location_id: The ID of the registered location to which you are granting access. S3 Access Grants assigns this ID when you register the location. S3 Access Grants assigns the ID ``default`` to the default location ``s3://`` and assigns an auto-generated ID to other locations that you register.
-        :param grantee: The user, group, or role to which you are granting access. You can grant access to an IAM user or role. If you have added your corporate directory to AWS IAM Identity Center and associated your Identity Center instance with your S3 Access Grants instance, the grantee can also be a corporate directory user or group.
-        :param permission: The type of access that you are granting to your S3 data, which can be set to one of the following values: - ``READ`` – Grant read-only access to the S3 data. - ``WRITE`` – Grant write-only access to the S3 data. - ``READWRITE`` – Grant both read and write access to the S3 data.
-        :param access_grants_location_configuration: The configuration options of the grant location. The grant location is the S3 path to the data to which you are granting access. It contains the ``S3SubPrefix`` field. The grant scope is the result of appending the subprefix to the location scope of the registered location.
-        :param application_arn: The Amazon Resource Name (ARN) of an AWS IAM Identity Center application associated with your Identity Center instance. If the grant includes an application ARN, the grantee can only access the S3 data through this application.
-        :param s3_prefix_type: The type of ``S3SubPrefix`` . The only possible value is ``Object`` . Pass this value if the access grant scope is an object. Do not pass this value if the access grant scope is a bucket or a bucket and a prefix.
-        :param tags: The AWS resource tags that you are adding to the access grant. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cfn_access_grant_props = s3.CfnAccessGrantProps(
-                access_grants_location_id="accessGrantsLocationId",
-                grantee=s3.CfnAccessGrant.GranteeProperty(
-                    grantee_identifier="granteeIdentifier",
-                    grantee_type="granteeType"
-                ),
-                permission="permission",
-            
-                # the properties below are optional
-                access_grants_location_configuration=s3.CfnAccessGrant.AccessGrantsLocationConfigurationProperty(
-                    s3_sub_prefix="s3SubPrefix"
-                ),
-                application_arn="applicationArn",
-                s3_prefix_type="s3PrefixType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6693824092437048ff69d9ab00d31c023baa833a8fec5c0bcd4d8fabe7901ca7)
-            check_type(argname="argument access_grants_location_id", value=access_grants_location_id, expected_type=type_hints["access_grants_location_id"])
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
-            check_type(argname="argument access_grants_location_configuration", value=access_grants_location_configuration, expected_type=type_hints["access_grants_location_configuration"])
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument s3_prefix_type", value=s3_prefix_type, expected_type=type_hints["s3_prefix_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_grants_location_id": access_grants_location_id,
-            "grantee": grantee,
-            "permission": permission,
-        }
-        if access_grants_location_configuration is not None:
-            self._values["access_grants_location_configuration"] = access_grants_location_configuration
-        if application_arn is not None:
-            self._values["application_arn"] = application_arn
-        if s3_prefix_type is not None:
-            self._values["s3_prefix_type"] = s3_prefix_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_grants_location_id(self) -> builtins.str:
-        '''The ID of the registered location to which you are granting access.
-
-        S3 Access Grants assigns this ID when you register the location. S3 Access Grants assigns the ID ``default`` to the default location ``s3://`` and assigns an auto-generated ID to other locations that you register.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-accessgrantslocationid
-        '''
-        result = self._values.get("access_grants_location_id")
-        assert result is not None, "Required property 'access_grants_location_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def grantee(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccessGrant.GranteeProperty]:
-        '''The user, group, or role to which you are granting access.
-
-        You can grant access to an IAM user or role. If you have added your corporate directory to AWS IAM Identity Center and associated your Identity Center instance with your S3 Access Grants instance, the grantee can also be a corporate directory user or group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-grantee
-        '''
-        result = self._values.get("grantee")
-        assert result is not None, "Required property 'grantee' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccessGrant.GranteeProperty], result)
-
-    @builtins.property
-    def permission(self) -> builtins.str:
-        '''The type of access that you are granting to your S3 data, which can be set to one of the following values:  - ``READ`` – Grant read-only access to the S3 data.
-
-        - ``WRITE`` – Grant write-only access to the S3 data.
-        - ``READWRITE`` – Grant both read and write access to the S3 data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-permission
-        '''
-        result = self._values.get("permission")
-        assert result is not None, "Required property 'permission' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_grants_location_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessGrant.AccessGrantsLocationConfigurationProperty]]:
-        '''The configuration options of the grant location.
-
-        The grant location is the S3 path to the data to which you are granting access. It contains the ``S3SubPrefix`` field. The grant scope is the result of appending the subprefix to the location scope of the registered location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-accessgrantslocationconfiguration
-        '''
-        result = self._values.get("access_grants_location_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessGrant.AccessGrantsLocationConfigurationProperty]], result)
-
-    @builtins.property
-    def application_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an AWS IAM Identity Center application associated with your Identity Center instance.
-
-        If the grant includes an application ARN, the grantee can only access the S3 data through this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-applicationarn
-        '''
-        result = self._values.get("application_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_prefix_type(self) -> typing.Optional[builtins.str]:
-        '''The type of ``S3SubPrefix`` .
-
-        The only possible value is ``Object`` . Pass this value if the access grant scope is an object. Do not pass this value if the access grant scope is a bucket or a bucket and a prefix.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-s3prefixtype
-        '''
-        result = self._values.get("s3_prefix_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The AWS resource tags that you are adding to the access grant.
-
-        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrant.html#cfn-s3-accessgrant-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessGrantProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAccessGrantsInstanceRef, _ITaggableV2_4e6798f8)
 class CfnAccessGrantsInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3382,6 +9112,12 @@ class CfnAccessGrantsInstance(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="accessGrantsInstanceRef")
+    def access_grants_instance_ref(self) -> AccessGrantsInstanceReference:
+        '''A reference to a AccessGrantsInstance resource.'''
+        return typing.cast(AccessGrantsInstanceReference, jsii.get(self, "accessGrantsInstanceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrAccessGrantsInstanceArn")
     def attr_access_grants_instance_arn(self) -> builtins.str:
         '''The ARN of the S3 Access Grants instance.
@@ -3439,85 +9175,7 @@ class CfnAccessGrantsInstance(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantsInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={"identity_center_arn": "identityCenterArn", "tags": "tags"},
-)
-class CfnAccessGrantsInstanceProps:
-    def __init__(
-        self,
-        *,
-        identity_center_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessGrantsInstance``.
-
-        :param identity_center_arn: If you would like to associate your S3 Access Grants instance with an AWS IAM Identity Center instance, use this field to pass the Amazon Resource Name (ARN) of the AWS IAM Identity Center instance that you are associating with your S3 Access Grants instance. An IAM Identity Center instance is your corporate identity directory that you added to the IAM Identity Center.
-        :param tags: The AWS resource tags that you are adding to the S3 Access Grants instance. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cfn_access_grants_instance_props = s3.CfnAccessGrantsInstanceProps(
-                identity_center_arn="identityCenterArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60225afff484a18da279540c306f31ca28ba21d38e2e53a434a570988d4050e2)
-            check_type(argname="argument identity_center_arn", value=identity_center_arn, expected_type=type_hints["identity_center_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if identity_center_arn is not None:
-            self._values["identity_center_arn"] = identity_center_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def identity_center_arn(self) -> typing.Optional[builtins.str]:
-        '''If you would like to associate your S3 Access Grants instance with an AWS IAM Identity Center instance, use this field to pass the Amazon Resource Name (ARN) of the AWS IAM Identity Center instance that you are associating with your S3 Access Grants instance.
-
-        An IAM Identity Center instance is your corporate identity directory that you added to the IAM Identity Center.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html#cfn-s3-accessgrantsinstance-identitycenterarn
-        '''
-        result = self._values.get("identity_center_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The AWS resource tags that you are adding to the S3 Access Grants instance.
-
-        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantsinstance.html#cfn-s3-accessgrantsinstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessGrantsInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAccessGrantsLocationRef, _ITaggableV2_4e6798f8)
 class CfnAccessGrantsLocation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3613,6 +9271,12 @@ class CfnAccessGrantsLocation(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="accessGrantsLocationRef")
+    def access_grants_location_ref(self) -> AccessGrantsLocationReference:
+        '''A reference to a AccessGrantsLocation resource.'''
+        return typing.cast(AccessGrantsLocationReference, jsii.get(self, "accessGrantsLocationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrAccessGrantsLocationArn")
     def attr_access_grants_location_arn(self) -> builtins.str:
         '''The ARN of the location you are registering.
@@ -3683,106 +9347,7 @@ class CfnAccessGrantsLocation(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnAccessGrantsLocationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "iam_role_arn": "iamRoleArn",
-        "location_scope": "locationScope",
-        "tags": "tags",
-    },
-)
-class CfnAccessGrantsLocationProps:
-    def __init__(
-        self,
-        *,
-        iam_role_arn: typing.Optional[builtins.str] = None,
-        location_scope: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessGrantsLocation``.
-
-        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role for the registered location. S3 Access Grants assumes this role to manage access to the registered location.
-        :param location_scope: The S3 URI path to the location that you are registering. The location scope can be the default S3 location ``s3://`` , the S3 path to a bucket, or the S3 path to a bucket and prefix. A prefix in S3 is a string of characters at the beginning of an object key name used to organize the objects that you store in your S3 buckets. For example, object key names that start with the ``engineering/`` prefix or object key names that start with the ``marketing/campaigns/`` prefix.
-        :param tags: The AWS resource tags that you are adding to the S3 Access Grants location. Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cfn_access_grants_location_props = s3.CfnAccessGrantsLocationProps(
-                iam_role_arn="iamRoleArn",
-                location_scope="locationScope",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f891152429263f2b2cdf0641e18212de422d1b020ebb0f7ffbac1e255090f5d)
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument location_scope", value=location_scope, expected_type=type_hints["location_scope"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if iam_role_arn is not None:
-            self._values["iam_role_arn"] = iam_role_arn
-        if location_scope is not None:
-            self._values["location_scope"] = location_scope
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role for the registered location.
-
-        S3 Access Grants assumes this role to manage access to the registered location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def location_scope(self) -> typing.Optional[builtins.str]:
-        '''The S3 URI path to the location that you are registering.
-
-        The location scope can be the default S3 location ``s3://`` , the S3 path to a bucket, or the S3 path to a bucket and prefix. A prefix in S3 is a string of characters at the beginning of an object key name used to organize the objects that you store in your S3 buckets. For example, object key names that start with the ``engineering/`` prefix or object key names that start with the ``marketing/campaigns/`` prefix.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-locationscope
-        '''
-        result = self._values.get("location_scope")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The AWS resource tags that you are adding to the S3 Access Grants location.
-
-        Each tag is a label consisting of a user-defined key and value. Tags can help you manage, identify, organize, search for, and filter resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accessgrantslocation.html#cfn-s3-accessgrantslocation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessGrantsLocationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAccessPointRef, _ITaggableV2_4e6798f8)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3894,6 +9459,12 @@ class CfnAccessPoint(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''A reference to a AccessPoint resource.'''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAlias")
@@ -4234,186 +9805,7 @@ class CfnAccessPoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnAccessPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket": "bucket",
-        "bucket_account_id": "bucketAccountId",
-        "name": "name",
-        "policy": "policy",
-        "public_access_block_configuration": "publicAccessBlockConfiguration",
-        "tags": "tags",
-        "vpc_configuration": "vpcConfiguration",
-    },
-)
-class CfnAccessPointProps:
-    def __init__(
-        self,
-        *,
-        bucket: builtins.str,
-        bucket_account_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        policy: typing.Any = None,
-        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPoint``.
-
-        :param bucket: The name of the bucket associated with this access point.
-        :param bucket_account_id: The AWS account ID associated with the S3 bucket associated with this access point.
-        :param name: The name of this access point. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
-        :param policy: The access point policy associated with this access point.
-        :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket. You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
-        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
-        :param vpc_configuration: The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            # policy: Any
-            
-            cfn_access_point_props = s3.CfnAccessPointProps(
-                bucket="bucket",
-            
-                # the properties below are optional
-                bucket_account_id="bucketAccountId",
-                name="name",
-                policy=policy,
-                public_access_block_configuration=s3.CfnAccessPoint.PublicAccessBlockConfigurationProperty(
-                    block_public_acls=False,
-                    block_public_policy=False,
-                    ignore_public_acls=False,
-                    restrict_public_buckets=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_configuration=s3.CfnAccessPoint.VpcConfigurationProperty(
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78747b8f8c95f80def774b788cce8b1ff46ec71c89a1b75527040106602da5b3)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument bucket_account_id", value=bucket_account_id, expected_type=type_hints["bucket_account_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-        }
-        if bucket_account_id is not None:
-            self._values["bucket_account_id"] = bucket_account_id
-        if name is not None:
-            self._values["name"] = name
-        if policy is not None:
-            self._values["policy"] = policy
-        if public_access_block_configuration is not None:
-            self._values["public_access_block_configuration"] = public_access_block_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_configuration is not None:
-            self._values["vpc_configuration"] = vpc_configuration
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The name of the bucket associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bucket_account_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID associated with the S3 bucket associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-bucketaccountid
-        '''
-        result = self._values.get("bucket_account_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of this access point.
-
-        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def public_access_block_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.PublicAccessBlockConfigurationProperty]]:
-        '''The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket.
-
-        You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-publicaccessblockconfiguration
-        '''
-        result = self._values.get("public_access_block_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.PublicAccessBlockConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of tags that you can apply to access points.
-
-        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]]:
-        '''The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-vpcconfiguration
-        '''
-        result = self._values.get("vpc_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IBucketRef, _ITaggable_36806126)
 class CfnBucket(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4697,6 +10089,12 @@ class CfnBucket(
         :cloudformationAttribute: WebsiteURL
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrWebsiteUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''A reference to a Bucket resource.'''
+        return typing.cast(BucketReference, jsii.get(self, "bucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -11681,7 +17079,7 @@ class CfnBucket(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBucketPolicyRef)
 class CfnBucketPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11801,6 +17199,12 @@ class CfnBucketPolicy(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''A reference to a BucketPolicy resource.'''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -11832,560 +17236,7 @@ class CfnBucketPolicy(
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnBucketPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
-)
-class CfnBucketPolicyProps:
-    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
-        '''Properties for defining a ``CfnBucketPolicy``.
-
-        :param bucket: The name of the Amazon S3 bucket to which the policy applies.
-        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html
-        :exampleMetadata: infused
-
-        Example::
-
-            bucket_name = "amzn-s3-demo-bucket"
-            access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
-                object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
-                bucket_name=bucket_name
-            )
-            
-            # Creating a bucket policy using L1
-            bucket_policy = s3.CfnBucketPolicy(self, "BucketPolicy",
-                bucket=bucket_name,
-                policy_document={
-                    "Statement": [{
-                        "Action": "s3:*",
-                        "Effect": "Deny",
-                        "Principal": {
-                            "AWS": "*"
-                        },
-                        "Resource": [access_logs_bucket.bucket_arn, f"{accessLogsBucket.bucketArn}/*"
-                        ]
-                    }
-                    ],
-                    "Version": "2012-10-17"
-                }
-            )
-            
-            # 'serverAccessLogsBucket' will create a new L2 bucket policy
-            # to allow log delivery and overwrite the L1 bucket policy.
-            bucket = s3.Bucket(self, "MyBucket",
-                server_access_logs_bucket=access_logs_bucket,
-                server_access_logs_prefix="logs"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e45362293c11bec4f214faabdb065f61ae05bd217411f39deaf7c82ac79ccf0)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-            "policy_document": policy_document,
-        }
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The name of the Amazon S3 bucket to which the policy applies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html#cfn-s3-bucketpolicy-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_document(self) -> typing.Any:
-        '''A policy document containing permissions to add to the specified bucket.
-
-        In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Access Policy Language Overview <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucketpolicy.html#cfn-s3-bucketpolicy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBucketPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnBucketProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "accelerate_configuration": "accelerateConfiguration",
-        "access_control": "accessControl",
-        "analytics_configurations": "analyticsConfigurations",
-        "bucket_encryption": "bucketEncryption",
-        "bucket_name": "bucketName",
-        "cors_configuration": "corsConfiguration",
-        "intelligent_tiering_configurations": "intelligentTieringConfigurations",
-        "inventory_configurations": "inventoryConfigurations",
-        "lifecycle_configuration": "lifecycleConfiguration",
-        "logging_configuration": "loggingConfiguration",
-        "metadata_configuration": "metadataConfiguration",
-        "metadata_table_configuration": "metadataTableConfiguration",
-        "metrics_configurations": "metricsConfigurations",
-        "notification_configuration": "notificationConfiguration",
-        "object_lock_configuration": "objectLockConfiguration",
-        "object_lock_enabled": "objectLockEnabled",
-        "ownership_controls": "ownershipControls",
-        "public_access_block_configuration": "publicAccessBlockConfiguration",
-        "replication_configuration": "replicationConfiguration",
-        "tags": "tags",
-        "versioning_configuration": "versioningConfiguration",
-        "website_configuration": "websiteConfiguration",
-    },
-)
-class CfnBucketProps:
-    def __init__(
-        self,
-        *,
-        accelerate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AccelerateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        access_control: typing.Optional[builtins.str] = None,
-        analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bucket_name: typing.Optional[builtins.str] = None,
-        cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.IntelligentTieringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metadata_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        object_lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ObjectLockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        object_lock_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ownership_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.OwnershipControlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        website_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.WebsiteConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBucket``.
-
-        :param accelerate_configuration: Configures the transfer acceleration state for an Amazon S3 bucket. For more information, see `Amazon S3 Transfer Acceleration <https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html>`_ in the *Amazon S3 User Guide* .
-        :param access_control: .. epigraph:: This is a legacy property, and it is not recommended for most use cases. A majority of modern use cases in Amazon S3 no longer require the use of ACLs, and we recommend that you keep ACLs disabled. For more information, see `Controlling object ownership <https://docs.aws.amazon.com//AmazonS3/latest/userguide/about-object-ownership.html>`_ in the *Amazon S3 User Guide* . A canned access control list (ACL) that grants predefined permissions to the bucket. For more information about canned ACLs, see `Canned ACL <https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl>`_ in the *Amazon S3 User Guide* . S3 buckets are created with ACLs disabled by default. Therefore, unless you explicitly set the `AWS::S3::OwnershipControls <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-ownershipcontrols.html>`_ property to enable ACLs, your resource will fail to deploy with any value other than Private. Use cases requiring ACLs are uncommon. The majority of access control configurations can be successfully and more easily achieved with bucket policies. For more information, see `AWS::S3::BucketPolicy <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html>`_ . For examples of common policy configurations, including S3 Server Access Logs buckets and more, see `Bucket policy examples <https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html>`_ in the *Amazon S3 User Guide* .
-        :param analytics_configurations: Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
-        :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS). For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
-        :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-        :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
-        :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
-        :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
-        :param lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
-        :param logging_configuration: Settings that define where logs are stored.
-        :param metadata_configuration: The S3 Metadata configuration for a general purpose bucket.
-        :param metadata_table_configuration: The metadata table configuration of an Amazon S3 general purpose bucket.
-        :param metrics_configurations: Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see `PutBucketMetricsConfiguration <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html>`_ .
-        :param notification_configuration: Configuration that defines how Amazon S3 handles bucket notifications.
-        :param object_lock_configuration: .. epigraph:: This operation is not supported for directory buckets. Places an Object Lock configuration on the specified bucket. The rule specified in the Object Lock configuration will be applied by default to every new object placed in the specified bucket. For more information, see `Locking Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html>`_ . .. epigraph:: - The ``DefaultRetention`` settings require both a mode and a period. - The ``DefaultRetention`` period can be either ``Days`` or ``Years`` but you must select one. You cannot specify ``Days`` and ``Years`` at the same time. - You can enable Object Lock for new or existing buckets. For more information, see `Configuring Object Lock <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html>`_ . > You must URL encode any signed header values that contain spaces. For example, if your header value is ``my file.txt`` , containing two spaces after ``my`` , you must URL encode this value to ``my%20%20file.txt`` .
-        :param object_lock_enabled: Indicates whether this bucket has an Object Lock configuration enabled. Enable ``ObjectLockEnabled`` when you apply ``ObjectLockConfiguration`` to a bucket.
-        :param ownership_controls: Configuration that defines how Amazon S3 handles Object Ownership rules.
-        :param public_access_block_configuration: Configuration that defines how Amazon S3 handles public access.
-        :param replication_configuration: Configuration for replicating objects in an S3 bucket. To enable replication, you must also enable versioning by using the ``VersioningConfiguration`` property. Amazon S3 can store replicated objects in a single destination bucket or multiple destination buckets. The destination bucket or buckets must already exist.
-        :param tags: An arbitrary set of tags (key-value pairs) for this S3 bucket.
-        :param versioning_configuration: Enables multiple versions of all objects in this bucket. You might enable versioning to prevent objects from being deleted or overwritten by mistake or to archive objects so that you can retrieve previous versions of them. .. epigraph:: When you enable versioning on a bucket for the first time, it might take a short amount of time for the change to be fully propagated. We recommend that you wait for 15 minutes after enabling versioning before issuing write operations ( ``PUT`` or ``DELETE`` ) on objects in the bucket.
-        :param website_configuration: Information used to configure the bucket as a static website. For more information, see `Hosting Websites on Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html
-        :exampleMetadata: infused
-
-        Example::
-
-            raw_bucket = s3.CfnBucket(self, "Bucket")
-            # -or-
-            raw_bucket_alt = my_bucket.node.default_child
-            
-            # then
-            raw_bucket.cfn_options.condition = CfnCondition(self, "EnableBucket")
-            raw_bucket.cfn_options.metadata = {
-                "metadata_key": "MetadataValue"
-            }
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__658a4165ec8804b9770871bbb27764713f55dc53e9c9e990dca120e7713b6fd8)
-            check_type(argname="argument accelerate_configuration", value=accelerate_configuration, expected_type=type_hints["accelerate_configuration"])
-            check_type(argname="argument access_control", value=access_control, expected_type=type_hints["access_control"])
-            check_type(argname="argument analytics_configurations", value=analytics_configurations, expected_type=type_hints["analytics_configurations"])
-            check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument cors_configuration", value=cors_configuration, expected_type=type_hints["cors_configuration"])
-            check_type(argname="argument intelligent_tiering_configurations", value=intelligent_tiering_configurations, expected_type=type_hints["intelligent_tiering_configurations"])
-            check_type(argname="argument inventory_configurations", value=inventory_configurations, expected_type=type_hints["inventory_configurations"])
-            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
-            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
-            check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
-            check_type(argname="argument metadata_table_configuration", value=metadata_table_configuration, expected_type=type_hints["metadata_table_configuration"])
-            check_type(argname="argument metrics_configurations", value=metrics_configurations, expected_type=type_hints["metrics_configurations"])
-            check_type(argname="argument notification_configuration", value=notification_configuration, expected_type=type_hints["notification_configuration"])
-            check_type(argname="argument object_lock_configuration", value=object_lock_configuration, expected_type=type_hints["object_lock_configuration"])
-            check_type(argname="argument object_lock_enabled", value=object_lock_enabled, expected_type=type_hints["object_lock_enabled"])
-            check_type(argname="argument ownership_controls", value=ownership_controls, expected_type=type_hints["ownership_controls"])
-            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
-            check_type(argname="argument replication_configuration", value=replication_configuration, expected_type=type_hints["replication_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument versioning_configuration", value=versioning_configuration, expected_type=type_hints["versioning_configuration"])
-            check_type(argname="argument website_configuration", value=website_configuration, expected_type=type_hints["website_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if accelerate_configuration is not None:
-            self._values["accelerate_configuration"] = accelerate_configuration
-        if access_control is not None:
-            self._values["access_control"] = access_control
-        if analytics_configurations is not None:
-            self._values["analytics_configurations"] = analytics_configurations
-        if bucket_encryption is not None:
-            self._values["bucket_encryption"] = bucket_encryption
-        if bucket_name is not None:
-            self._values["bucket_name"] = bucket_name
-        if cors_configuration is not None:
-            self._values["cors_configuration"] = cors_configuration
-        if intelligent_tiering_configurations is not None:
-            self._values["intelligent_tiering_configurations"] = intelligent_tiering_configurations
-        if inventory_configurations is not None:
-            self._values["inventory_configurations"] = inventory_configurations
-        if lifecycle_configuration is not None:
-            self._values["lifecycle_configuration"] = lifecycle_configuration
-        if logging_configuration is not None:
-            self._values["logging_configuration"] = logging_configuration
-        if metadata_configuration is not None:
-            self._values["metadata_configuration"] = metadata_configuration
-        if metadata_table_configuration is not None:
-            self._values["metadata_table_configuration"] = metadata_table_configuration
-        if metrics_configurations is not None:
-            self._values["metrics_configurations"] = metrics_configurations
-        if notification_configuration is not None:
-            self._values["notification_configuration"] = notification_configuration
-        if object_lock_configuration is not None:
-            self._values["object_lock_configuration"] = object_lock_configuration
-        if object_lock_enabled is not None:
-            self._values["object_lock_enabled"] = object_lock_enabled
-        if ownership_controls is not None:
-            self._values["ownership_controls"] = ownership_controls
-        if public_access_block_configuration is not None:
-            self._values["public_access_block_configuration"] = public_access_block_configuration
-        if replication_configuration is not None:
-            self._values["replication_configuration"] = replication_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if versioning_configuration is not None:
-            self._values["versioning_configuration"] = versioning_configuration
-        if website_configuration is not None:
-            self._values["website_configuration"] = website_configuration
-
-    @builtins.property
-    def accelerate_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.AccelerateConfigurationProperty]]:
-        '''Configures the transfer acceleration state for an Amazon S3 bucket.
-
-        For more information, see `Amazon S3 Transfer Acceleration <https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-accelerateconfiguration
-        '''
-        result = self._values.get("accelerate_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.AccelerateConfigurationProperty]], result)
-
-    @builtins.property
-    def access_control(self) -> typing.Optional[builtins.str]:
-        '''.. epigraph::
-
-   This is a legacy property, and it is not recommended for most use cases.
-
-        A majority of modern use cases in Amazon S3 no longer require the use of ACLs, and we recommend that you keep ACLs disabled. For more information, see `Controlling object ownership <https://docs.aws.amazon.com//AmazonS3/latest/userguide/about-object-ownership.html>`_ in the *Amazon S3 User Guide* .
-
-        A canned access control list (ACL) that grants predefined permissions to the bucket. For more information about canned ACLs, see `Canned ACL <https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl>`_ in the *Amazon S3 User Guide* .
-
-        S3 buckets are created with ACLs disabled by default. Therefore, unless you explicitly set the `AWS::S3::OwnershipControls <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-ownershipcontrols.html>`_ property to enable ACLs, your resource will fail to deploy with any value other than Private. Use cases requiring ACLs are uncommon.
-
-        The majority of access control configurations can be successfully and more easily achieved with bucket policies. For more information, see `AWS::S3::BucketPolicy <https://docs.aws.amazon.com//AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html>`_ . For examples of common policy configurations, including S3 Server Access Logs buckets and more, see `Bucket policy examples <https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-accesscontrol
-        '''
-        result = self._values.get("access_control")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def analytics_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.AnalyticsConfigurationProperty]]]]:
-        '''Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-analyticsconfigurations
-        '''
-        result = self._values.get("analytics_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.AnalyticsConfigurationProperty]]]], result)
-
-    @builtins.property
-    def bucket_encryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.BucketEncryptionProperty]]:
-        '''Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS).
-
-        For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketencryption
-        '''
-        result = self._values.get("bucket_encryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.BucketEncryptionProperty]], result)
-
-    @builtins.property
-    def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the bucket.
-
-        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* .
-        .. epigraph::
-
-           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cors_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.CorsConfigurationProperty]]:
-        '''Describes the cross-origin access configuration for objects in an Amazon S3 bucket.
-
-        For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-corsconfiguration
-        '''
-        result = self._values.get("cors_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.CorsConfigurationProperty]], result)
-
-    @builtins.property
-    def intelligent_tiering_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.IntelligentTieringConfigurationProperty]]]]:
-        '''Defines how Amazon S3 handles Intelligent-Tiering storage.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-intelligenttieringconfigurations
-        '''
-        result = self._values.get("intelligent_tiering_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.IntelligentTieringConfigurationProperty]]]], result)
-
-    @builtins.property
-    def inventory_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.InventoryConfigurationProperty]]]]:
-        '''Specifies the S3 Inventory configuration for an Amazon S3 bucket.
-
-        For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-inventoryconfigurations
-        '''
-        result = self._values.get("inventory_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.InventoryConfigurationProperty]]]], result)
-
-    @builtins.property
-    def lifecycle_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LifecycleConfigurationProperty]]:
-        '''Specifies the lifecycle configuration for objects in an Amazon S3 bucket.
-
-        For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-lifecycleconfiguration
-        '''
-        result = self._values.get("lifecycle_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LifecycleConfigurationProperty]], result)
-
-    @builtins.property
-    def logging_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LoggingConfigurationProperty]]:
-        '''Settings that define where logs are stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-loggingconfiguration
-        '''
-        result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.LoggingConfigurationProperty]], result)
-
-    @builtins.property
-    def metadata_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.MetadataConfigurationProperty]]:
-        '''The S3 Metadata configuration for a general purpose bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metadataconfiguration
-        '''
-        result = self._values.get("metadata_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.MetadataConfigurationProperty]], result)
-
-    @builtins.property
-    def metadata_table_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.MetadataTableConfigurationProperty]]:
-        '''The metadata table configuration of an Amazon S3 general purpose bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metadatatableconfiguration
-        '''
-        result = self._values.get("metadata_table_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.MetadataTableConfigurationProperty]], result)
-
-    @builtins.property
-    def metrics_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.MetricsConfigurationProperty]]]]:
-        '''Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket.
-
-        If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see `PutBucketMetricsConfiguration <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-metricsconfigurations
-        '''
-        result = self._values.get("metrics_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.MetricsConfigurationProperty]]]], result)
-
-    @builtins.property
-    def notification_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.NotificationConfigurationProperty]]:
-        '''Configuration that defines how Amazon S3 handles bucket notifications.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-notificationconfiguration
-        '''
-        result = self._values.get("notification_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.NotificationConfigurationProperty]], result)
-
-    @builtins.property
-    def object_lock_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.ObjectLockConfigurationProperty]]:
-        '''.. epigraph::
-
-   This operation is not supported for directory buckets.
-
-        Places an Object Lock configuration on the specified bucket. The rule specified in the Object Lock configuration will be applied by default to every new object placed in the specified bucket. For more information, see `Locking Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lock.html>`_ .
-        .. epigraph::
-
-           - The ``DefaultRetention`` settings require both a mode and a period.
-           - The ``DefaultRetention`` period can be either ``Days`` or ``Years`` but you must select one. You cannot specify ``Days`` and ``Years`` at the same time.
-           - You can enable Object Lock for new or existing buckets. For more information, see `Configuring Object Lock <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html>`_ . > You must URL encode any signed header values that contain spaces. For example, if your header value is ``my file.txt`` , containing two spaces after ``my`` , you must URL encode this value to ``my%20%20file.txt`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-objectlockconfiguration
-        '''
-        result = self._values.get("object_lock_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.ObjectLockConfigurationProperty]], result)
-
-    @builtins.property
-    def object_lock_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether this bucket has an Object Lock configuration enabled.
-
-        Enable ``ObjectLockEnabled`` when you apply ``ObjectLockConfiguration`` to a bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-objectlockenabled
-        '''
-        result = self._values.get("object_lock_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def ownership_controls(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.OwnershipControlsProperty]]:
-        '''Configuration that defines how Amazon S3 handles Object Ownership rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-ownershipcontrols
-        '''
-        result = self._values.get("ownership_controls")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.OwnershipControlsProperty]], result)
-
-    @builtins.property
-    def public_access_block_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.PublicAccessBlockConfigurationProperty]]:
-        '''Configuration that defines how Amazon S3 handles public access.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-publicaccessblockconfiguration
-        '''
-        result = self._values.get("public_access_block_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.PublicAccessBlockConfigurationProperty]], result)
-
-    @builtins.property
-    def replication_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.ReplicationConfigurationProperty]]:
-        '''Configuration for replicating objects in an S3 bucket.
-
-        To enable replication, you must also enable versioning by using the ``VersioningConfiguration`` property.
-
-        Amazon S3 can store replicated objects in a single destination bucket or multiple destination buckets. The destination bucket or buckets must already exist.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-replicationconfiguration
-        '''
-        result = self._values.get("replication_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.ReplicationConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key-value pairs) for this S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def versioning_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.VersioningConfigurationProperty]]:
-        '''Enables multiple versions of all objects in this bucket.
-
-        You might enable versioning to prevent objects from being deleted or overwritten by mistake or to archive objects so that you can retrieve previous versions of them.
-        .. epigraph::
-
-           When you enable versioning on a bucket for the first time, it might take a short amount of time for the change to be fully propagated. We recommend that you wait for 15 minutes after enabling versioning before issuing write operations ( ``PUT`` or ``DELETE`` ) on objects in the bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-versioningconfiguration
-        '''
-        result = self._values.get("versioning_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.VersioningConfigurationProperty]], result)
-
-    @builtins.property
-    def website_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.WebsiteConfigurationProperty]]:
-        '''Information used to configure the bucket as a static website.
-
-        For more information, see `Hosting Websites on Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-websiteconfiguration
-        '''
-        result = self._values.get("website_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBucket.WebsiteConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBucketProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMultiRegionAccessPointRef)
 class CfnMultiRegionAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12506,6 +17357,12 @@ class CfnMultiRegionAccessPoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointRef")
+    def multi_region_access_point_ref(self) -> MultiRegionAccessPointReference:
+        '''A reference to a MultiRegionAccessPoint resource.'''
+        return typing.cast(MultiRegionAccessPointReference, jsii.get(self, "multiRegionAccessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="regions")
@@ -12765,7 +17622,7 @@ class CfnMultiRegionAccessPoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMultiRegionAccessPointPolicyRef)
 class CfnMultiRegionAccessPointPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12871,6 +17728,14 @@ class CfnMultiRegionAccessPointPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="multiRegionAccessPointPolicyRef")
+    def multi_region_access_point_policy_ref(
+        self,
+    ) -> MultiRegionAccessPointPolicyReference:
+        '''A reference to a MultiRegionAccessPointPolicy resource.'''
+        return typing.cast(MultiRegionAccessPointPolicyReference, jsii.get(self, "multiRegionAccessPointPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="mrapName")
     def mrap_name(self) -> builtins.str:
         '''The name of the Multi-Region Access Point.'''
@@ -12951,185 +17816,7 @@ class CfnMultiRegionAccessPointPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnMultiRegionAccessPointPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"mrap_name": "mrapName", "policy": "policy"},
-)
-class CfnMultiRegionAccessPointPolicyProps:
-    def __init__(self, *, mrap_name: builtins.str, policy: typing.Any) -> None:
-        '''Properties for defining a ``CfnMultiRegionAccessPointPolicy``.
-
-        :param mrap_name: The name of the Multi-Region Access Point.
-        :param policy: The access policy associated with the Multi-Region Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            # policy: Any
-            
-            cfn_multi_region_access_point_policy_props = s3.CfnMultiRegionAccessPointPolicyProps(
-                mrap_name="mrapName",
-                policy=policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83dff8fea1cc4bc1e3a8051ab8dcc73809271fe45f045b7a620578ab1e838fb0)
-            check_type(argname="argument mrap_name", value=mrap_name, expected_type=type_hints["mrap_name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "mrap_name": mrap_name,
-            "policy": policy,
-        }
-
-    @builtins.property
-    def mrap_name(self) -> builtins.str:
-        '''The name of the Multi-Region Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html#cfn-s3-multiregionaccesspointpolicy-mrapname
-        '''
-        result = self._values.get("mrap_name")
-        assert result is not None, "Required property 'mrap_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The access policy associated with the Multi-Region Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspointpolicy.html#cfn-s3-multiregionaccesspointpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMultiRegionAccessPointPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnMultiRegionAccessPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "regions": "regions",
-        "name": "name",
-        "public_access_block_configuration": "publicAccessBlockConfiguration",
-    },
-)
-class CfnMultiRegionAccessPointProps:
-    def __init__(
-        self,
-        *,
-        regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.RegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: typing.Optional[builtins.str] = None,
-        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMultiRegionAccessPoint``.
-
-        :param regions: A collection of the Regions and buckets associated with the Multi-Region Access Point.
-        :param name: The name of the Multi-Region Access Point.
-        :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Multi-Region Access Point. You can enable the configuration options in any combination. For more information about when Amazon S3 considers an object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cfn_multi_region_access_point_props = s3.CfnMultiRegionAccessPointProps(
-                regions=[s3.CfnMultiRegionAccessPoint.RegionProperty(
-                    bucket="bucket",
-            
-                    # the properties below are optional
-                    bucket_account_id="bucketAccountId"
-                )],
-            
-                # the properties below are optional
-                name="name",
-                public_access_block_configuration=s3.CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty(
-                    block_public_acls=False,
-                    block_public_policy=False,
-                    ignore_public_acls=False,
-                    restrict_public_buckets=False
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9c34c742822cb3c6e1b5ff82e1cd9701cccdd13b6eca90aaa41af8e2b2160fb)
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regions": regions,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if public_access_block_configuration is not None:
-            self._values["public_access_block_configuration"] = public_access_block_configuration
-
-    @builtins.property
-    def regions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMultiRegionAccessPoint.RegionProperty]]]:
-        '''A collection of the Regions and buckets associated with the Multi-Region Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-regions
-        '''
-        result = self._values.get("regions")
-        assert result is not None, "Required property 'regions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMultiRegionAccessPoint.RegionProperty]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Multi-Region Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def public_access_block_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty]]:
-        '''The PublicAccessBlock configuration that you want to apply to this Multi-Region Access Point.
-
-        You can enable the configuration options in any combination. For more information about when Amazon S3 considers an object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-multiregionaccesspoint.html#cfn-s3-multiregionaccesspoint-publicaccessblockconfiguration
-        '''
-        result = self._values.get("public_access_block_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMultiRegionAccessPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStorageLensRef, _ITaggable_36806126)
 class CfnStorageLens(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13312,6 +17999,12 @@ class CfnStorageLens(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensRef")
+    def storage_lens_ref(self) -> StorageLensReference:
+        '''A reference to a StorageLens resource.'''
+        return typing.cast(StorageLensReference, jsii.get(self, "storageLensRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15120,7 +19813,7 @@ class CfnStorageLens(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IStorageLensGroupRef, _ITaggableV2_4e6798f8)
 class CfnStorageLensGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15272,6 +19965,12 @@ class CfnStorageLensGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="storageLensGroupRef")
+    def storage_lens_group_ref(self) -> StorageLensGroupReference:
+        '''A reference to a StorageLensGroup resource.'''
+        return typing.cast(StorageLensGroupReference, jsii.get(self, "storageLensGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="filter")
@@ -15970,984 +20669,8 @@ class CfnStorageLensGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnStorageLensGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"filter": "filter", "name": "name", "tags": "tags"},
-)
-class CfnStorageLensGroupProps:
-    def __init__(
-        self,
-        *,
-        filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLensGroup.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStorageLensGroup``.
-
-        :param filter: This property contains the criteria for the Storage Lens group data that is displayed.
-        :param name: This property contains the Storage Lens group name.
-        :param tags: This property contains the AWS resource tags that you're adding to your Storage Lens group. This parameter is optional.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cfn_storage_lens_group_props = s3.CfnStorageLensGroupProps(
-                filter=s3.CfnStorageLensGroup.FilterProperty(
-                    and=s3.CfnStorageLensGroup.AndProperty(
-                        match_any_prefix=["matchAnyPrefix"],
-                        match_any_suffix=["matchAnySuffix"],
-                        match_any_tag=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
-                            days_greater_than=123,
-                            days_less_than=123
-                        ),
-                        match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
-                            bytes_greater_than=123,
-                            bytes_less_than=123
-                        )
-                    ),
-                    match_any_prefix=["matchAnyPrefix"],
-                    match_any_suffix=["matchAnySuffix"],
-                    match_any_tag=[CfnTag(
-                        key="key",
-                        value="value"
-                    )],
-                    match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
-                        days_greater_than=123,
-                        days_less_than=123
-                    ),
-                    match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
-                        bytes_greater_than=123,
-                        bytes_less_than=123
-                    ),
-                    or=s3.CfnStorageLensGroup.OrProperty(
-                        match_any_prefix=["matchAnyPrefix"],
-                        match_any_suffix=["matchAnySuffix"],
-                        match_any_tag=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        match_object_age=s3.CfnStorageLensGroup.MatchObjectAgeProperty(
-                            days_greater_than=123,
-                            days_less_than=123
-                        ),
-                        match_object_size=s3.CfnStorageLensGroup.MatchObjectSizeProperty(
-                            bytes_greater_than=123,
-                            bytes_less_than=123
-                        )
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1507fb63678d3f602a3355afdc02627a401fd48b97ef9ac2aec6c8dbfb25cfc)
-            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "filter": filter,
-            "name": name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def filter(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnStorageLensGroup.FilterProperty]:
-        '''This property contains the criteria for the Storage Lens group data that is displayed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-filter
-        '''
-        result = self._values.get("filter")
-        assert result is not None, "Required property 'filter' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnStorageLensGroup.FilterProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''This property contains the Storage Lens group name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''This property contains the AWS resource tags that you're adding to your Storage Lens group.
-
-        This parameter is optional.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelensgroup.html#cfn-s3-storagelensgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStorageLensGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CfnStorageLensProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "storage_lens_configuration": "storageLensConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnStorageLensProps:
-    def __init__(
-        self,
-        *,
-        storage_lens_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLens.StorageLensConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStorageLens``.
-
-        :param storage_lens_configuration: This resource contains the details Amazon S3 Storage Lens configuration.
-        :param tags: A set of tags (key–value pairs) to associate with the Storage Lens configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            # sses3: Any
-            
-            cfn_storage_lens_props = s3.CfnStorageLensProps(
-                storage_lens_configuration=s3.CfnStorageLens.StorageLensConfigurationProperty(
-                    account_level=s3.CfnStorageLens.AccountLevelProperty(
-                        bucket_level=s3.CfnStorageLens.BucketLevelProperty(
-                            activity_metrics=s3.CfnStorageLens.ActivityMetricsProperty(
-                                is_enabled=False
-                            ),
-                            advanced_cost_optimization_metrics=s3.CfnStorageLens.AdvancedCostOptimizationMetricsProperty(
-                                is_enabled=False
-                            ),
-                            advanced_data_protection_metrics=s3.CfnStorageLens.AdvancedDataProtectionMetricsProperty(
-                                is_enabled=False
-                            ),
-                            detailed_status_codes_metrics=s3.CfnStorageLens.DetailedStatusCodesMetricsProperty(
-                                is_enabled=False
-                            ),
-                            prefix_level=s3.CfnStorageLens.PrefixLevelProperty(
-                                storage_metrics=s3.CfnStorageLens.PrefixLevelStorageMetricsProperty(
-                                    is_enabled=False,
-                                    selection_criteria=s3.CfnStorageLens.SelectionCriteriaProperty(
-                                        delimiter="delimiter",
-                                        max_depth=123,
-                                        min_storage_bytes_percentage=123
-                                    )
-                                )
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        activity_metrics=s3.CfnStorageLens.ActivityMetricsProperty(
-                            is_enabled=False
-                        ),
-                        advanced_cost_optimization_metrics=s3.CfnStorageLens.AdvancedCostOptimizationMetricsProperty(
-                            is_enabled=False
-                        ),
-                        advanced_data_protection_metrics=s3.CfnStorageLens.AdvancedDataProtectionMetricsProperty(
-                            is_enabled=False
-                        ),
-                        detailed_status_codes_metrics=s3.CfnStorageLens.DetailedStatusCodesMetricsProperty(
-                            is_enabled=False
-                        ),
-                        storage_lens_group_level=s3.CfnStorageLens.StorageLensGroupLevelProperty(
-                            storage_lens_group_selection_criteria=s3.CfnStorageLens.StorageLensGroupSelectionCriteriaProperty(
-                                exclude=["exclude"],
-                                include=["include"]
-                            )
-                        )
-                    ),
-                    id="id",
-                    is_enabled=False,
-            
-                    # the properties below are optional
-                    aws_org=s3.CfnStorageLens.AwsOrgProperty(
-                        arn="arn"
-                    ),
-                    data_export=s3.CfnStorageLens.DataExportProperty(
-                        cloud_watch_metrics=s3.CfnStorageLens.CloudWatchMetricsProperty(
-                            is_enabled=False
-                        ),
-                        s3_bucket_destination=s3.CfnStorageLens.S3BucketDestinationProperty(
-                            account_id="accountId",
-                            arn="arn",
-                            format="format",
-                            output_schema_version="outputSchemaVersion",
-            
-                            # the properties below are optional
-                            encryption=s3.CfnStorageLens.EncryptionProperty(
-                                ssekms=s3.CfnStorageLens.SSEKMSProperty(
-                                    key_id="keyId"
-                                ),
-                                sses3=sses3
-                            ),
-                            prefix="prefix"
-                        )
-                    ),
-                    exclude=s3.CfnStorageLens.BucketsAndRegionsProperty(
-                        buckets=["buckets"],
-                        regions=["regions"]
-                    ),
-                    include=s3.CfnStorageLens.BucketsAndRegionsProperty(
-                        buckets=["buckets"],
-                        regions=["regions"]
-                    ),
-                    storage_lens_arn="storageLensArn"
-                ),
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4457e4bcc8248ede524c36517847e53317556018cc8b8eaa3a00e086f16cc74)
-            check_type(argname="argument storage_lens_configuration", value=storage_lens_configuration, expected_type=type_hints["storage_lens_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "storage_lens_configuration": storage_lens_configuration,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def storage_lens_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnStorageLens.StorageLensConfigurationProperty]:
-        '''This resource contains the details Amazon S3 Storage Lens configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html#cfn-s3-storagelens-storagelensconfiguration
-        '''
-        result = self._values.get("storage_lens_configuration")
-        assert result is not None, "Required property 'storage_lens_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnStorageLens.StorageLensConfigurationProperty], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags (key–value pairs) to associate with the Storage Lens configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-storagelens.html#cfn-s3-storagelens-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStorageLensProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.CorsRule",
-    jsii_struct_bases=[],
-    name_mapping={
-        "allowed_methods": "allowedMethods",
-        "allowed_origins": "allowedOrigins",
-        "allowed_headers": "allowedHeaders",
-        "exposed_headers": "exposedHeaders",
-        "id": "id",
-        "max_age": "maxAge",
-    },
-)
-class CorsRule:
-    def __init__(
-        self,
-        *,
-        allowed_methods: typing.Sequence["HttpMethods"],
-        allowed_origins: typing.Sequence[builtins.str],
-        allowed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        exposed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        max_age: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Specifies a cross-origin access rule for an Amazon S3 bucket.
-
-        :param allowed_methods: An HTTP method that you allow the origin to execute.
-        :param allowed_origins: One or more origins you want customers to be able to access the bucket from.
-        :param allowed_headers: Headers that are specified in the Access-Control-Request-Headers header. Default: - No headers allowed.
-        :param exposed_headers: One or more headers in the response that you want customers to be able to access from their applications. Default: - No headers exposed.
-        :param id: A unique identifier for this rule. Default: - No id specified.
-        :param max_age: The time in seconds that your browser is to cache the preflight response for the specified resource. Default: - No caching.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            cors_rule = s3.CorsRule(
-                allowed_methods=[s3.HttpMethods.GET],
-                allowed_origins=["allowedOrigins"],
-            
-                # the properties below are optional
-                allowed_headers=["allowedHeaders"],
-                exposed_headers=["exposedHeaders"],
-                id="id",
-                max_age=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beafb715fedc4fd96130b462f30e56792d8aa655173f4d4fa2e8dcd77a7539e7)
-            check_type(argname="argument allowed_methods", value=allowed_methods, expected_type=type_hints["allowed_methods"])
-            check_type(argname="argument allowed_origins", value=allowed_origins, expected_type=type_hints["allowed_origins"])
-            check_type(argname="argument allowed_headers", value=allowed_headers, expected_type=type_hints["allowed_headers"])
-            check_type(argname="argument exposed_headers", value=exposed_headers, expected_type=type_hints["exposed_headers"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument max_age", value=max_age, expected_type=type_hints["max_age"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "allowed_methods": allowed_methods,
-            "allowed_origins": allowed_origins,
-        }
-        if allowed_headers is not None:
-            self._values["allowed_headers"] = allowed_headers
-        if exposed_headers is not None:
-            self._values["exposed_headers"] = exposed_headers
-        if id is not None:
-            self._values["id"] = id
-        if max_age is not None:
-            self._values["max_age"] = max_age
-
-    @builtins.property
-    def allowed_methods(self) -> typing.List["HttpMethods"]:
-        '''An HTTP method that you allow the origin to execute.'''
-        result = self._values.get("allowed_methods")
-        assert result is not None, "Required property 'allowed_methods' is missing"
-        return typing.cast(typing.List["HttpMethods"], result)
-
-    @builtins.property
-    def allowed_origins(self) -> typing.List[builtins.str]:
-        '''One or more origins you want customers to be able to access the bucket from.'''
-        result = self._values.get("allowed_origins")
-        assert result is not None, "Required property 'allowed_origins' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Headers that are specified in the Access-Control-Request-Headers header.
-
-        :default: - No headers allowed.
-        '''
-        result = self._values.get("allowed_headers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def exposed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''One or more headers in the response that you want customers to be able to access from their applications.
-
-        :default: - No headers exposed.
-        '''
-        result = self._values.get("exposed_headers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for this rule.
-
-        :default: - No id specified.
-        '''
-        result = self._values.get("id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_age(self) -> typing.Optional[jsii.Number]:
-        '''The time in seconds that your browser is to cache the preflight response for the specified resource.
-
-        :default: - No caching.
-        '''
-        result = self._values.get("max_age")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CorsRule(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.EventType")
-class EventType(enum.Enum):
-    '''Notification event types.
-
-    :link: https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html#supported-notification-event-types
-    :exampleMetadata: infused
-
-    Example::
-
-        # my_queue: sqs.Queue
-        
-        bucket = s3.Bucket(self, "MyBucket")
-        bucket.add_event_notification(s3.EventType.OBJECT_REMOVED, s3n.SqsDestination(my_queue),
-            prefix="foo/",
-            suffix=".jpg"
-        )
-    '''
-
-    OBJECT_CREATED = "OBJECT_CREATED"
-    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
-
-    Using
-    these event types, you can enable notification when an object is created
-    using a specific API, or you can use the s3:ObjectCreated:* event type to
-    request notification regardless of the API that was used to create an
-    object.
-    '''
-    OBJECT_CREATED_PUT = "OBJECT_CREATED_PUT"
-    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
-
-    Using
-    these event types, you can enable notification when an object is created
-    using a specific API, or you can use the s3:ObjectCreated:* event type to
-    request notification regardless of the API that was used to create an
-    object.
-    '''
-    OBJECT_CREATED_POST = "OBJECT_CREATED_POST"
-    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
-
-    Using
-    these event types, you can enable notification when an object is created
-    using a specific API, or you can use the s3:ObjectCreated:* event type to
-    request notification regardless of the API that was used to create an
-    object.
-    '''
-    OBJECT_CREATED_COPY = "OBJECT_CREATED_COPY"
-    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
-
-    Using
-    these event types, you can enable notification when an object is created
-    using a specific API, or you can use the s3:ObjectCreated:* event type to
-    request notification regardless of the API that was used to create an
-    object.
-    '''
-    OBJECT_CREATED_COMPLETE_MULTIPART_UPLOAD = "OBJECT_CREATED_COMPLETE_MULTIPART_UPLOAD"
-    '''Amazon S3 APIs such as PUT, POST, and COPY can create an object.
-
-    Using
-    these event types, you can enable notification when an object is created
-    using a specific API, or you can use the s3:ObjectCreated:* event type to
-    request notification regardless of the API that was used to create an
-    object.
-    '''
-    OBJECT_REMOVED = "OBJECT_REMOVED"
-    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
-
-    You can request notification when an object is deleted or a versioned
-    object is permanently deleted by using the s3:ObjectRemoved:Delete event
-    type. Or you can request notification when a delete marker is created for
-    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
-    information about deleting versioned objects, see Deleting Object
-    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
-    notification anytime an object is deleted.
-
-    You will not receive event notifications from automatic deletes from
-    lifecycle policies or from failed operations.
-    '''
-    OBJECT_REMOVED_DELETE = "OBJECT_REMOVED_DELETE"
-    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
-
-    You can request notification when an object is deleted or a versioned
-    object is permanently deleted by using the s3:ObjectRemoved:Delete event
-    type. Or you can request notification when a delete marker is created for
-    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
-    information about deleting versioned objects, see Deleting Object
-    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
-    notification anytime an object is deleted.
-
-    You will not receive event notifications from automatic deletes from
-    lifecycle policies or from failed operations.
-    '''
-    OBJECT_REMOVED_DELETE_MARKER_CREATED = "OBJECT_REMOVED_DELETE_MARKER_CREATED"
-    '''By using the ObjectRemoved event types, you can enable notification when an object or a batch of objects is removed from a bucket.
-
-    You can request notification when an object is deleted or a versioned
-    object is permanently deleted by using the s3:ObjectRemoved:Delete event
-    type. Or you can request notification when a delete marker is created for
-    a versioned object by using s3:ObjectRemoved:DeleteMarkerCreated. For
-    information about deleting versioned objects, see Deleting Object
-    Versions. You can also use a wildcard s3:ObjectRemoved:* to request
-    notification anytime an object is deleted.
-
-    You will not receive event notifications from automatic deletes from
-    lifecycle policies or from failed operations.
-    '''
-    OBJECT_RESTORE_POST = "OBJECT_RESTORE_POST"
-    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
-
-    You use s3:ObjectRestore:Post to request notification of object restoration
-    initiation.
-    '''
-    OBJECT_RESTORE_COMPLETED = "OBJECT_RESTORE_COMPLETED"
-    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
-
-    You use s3:ObjectRestore:Completed to request notification of
-    restoration completion.
-    '''
-    OBJECT_RESTORE_DELETE = "OBJECT_RESTORE_DELETE"
-    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
-
-    You use s3:ObjectRestore:Delete to request notification of
-    restoration completion.
-    '''
-    REDUCED_REDUNDANCY_LOST_OBJECT = "REDUCED_REDUNDANCY_LOST_OBJECT"
-    '''You can use this event type to request Amazon S3 to send a notification message when Amazon S3 detects that an object of the RRS storage class is lost.'''
-    REPLICATION_OPERATION_FAILED_REPLICATION = "REPLICATION_OPERATION_FAILED_REPLICATION"
-    '''You receive this notification event when an object that was eligible for replication using Amazon S3 Replication Time Control failed to replicate.'''
-    REPLICATION_OPERATION_MISSED_THRESHOLD = "REPLICATION_OPERATION_MISSED_THRESHOLD"
-    '''You receive this notification event when an object that was eligible for replication using Amazon S3 Replication Time Control exceeded the 15-minute threshold for replication.'''
-    REPLICATION_OPERATION_REPLICATED_AFTER_THRESHOLD = "REPLICATION_OPERATION_REPLICATED_AFTER_THRESHOLD"
-    '''You receive this notification event for an object that was eligible for replication using the Amazon S3 Replication Time Control feature replicated after the 15-minute threshold.'''
-    REPLICATION_OPERATION_NOT_TRACKED = "REPLICATION_OPERATION_NOT_TRACKED"
-    '''You receive this notification event for an object that was eligible for replication using Amazon S3 Replication Time Control but is no longer tracked by replication metrics.'''
-    LIFECYCLE_EXPIRATION = "LIFECYCLE_EXPIRATION"
-    '''By using the LifecycleExpiration event types, you can receive a notification when Amazon S3 deletes an object based on your S3 Lifecycle configuration.'''
-    LIFECYCLE_EXPIRATION_DELETE = "LIFECYCLE_EXPIRATION_DELETE"
-    '''The s3:LifecycleExpiration:Delete event type notifies you when an object in an unversioned bucket is deleted.
-
-    It also notifies you when an object version is permanently deleted by an
-    S3 Lifecycle configuration.
-    '''
-    LIFECYCLE_EXPIRATION_DELETE_MARKER_CREATED = "LIFECYCLE_EXPIRATION_DELETE_MARKER_CREATED"
-    '''The s3:LifecycleExpiration:DeleteMarkerCreated event type notifies you when S3 Lifecycle creates a delete marker when a current version of an object in versioned bucket is deleted.'''
-    LIFECYCLE_TRANSITION = "LIFECYCLE_TRANSITION"
-    '''You receive this notification event when an object is transitioned to another Amazon S3 storage class by an S3 Lifecycle configuration.'''
-    INTELLIGENT_TIERING = "INTELLIGENT_TIERING"
-    '''You receive this notification event when an object within the S3 Intelligent-Tiering storage class moved to the Archive Access tier or Deep Archive Access tier.'''
-    OBJECT_TAGGING = "OBJECT_TAGGING"
-    '''By using the ObjectTagging event types, you can enable notification when an object tag is added or deleted from an object.'''
-    OBJECT_TAGGING_PUT = "OBJECT_TAGGING_PUT"
-    '''The s3:ObjectTagging:Put event type notifies you when a tag is PUT on an object or an existing tag is updated.'''
-    OBJECT_TAGGING_DELETE = "OBJECT_TAGGING_DELETE"
-    '''The s3:ObjectTagging:Delete event type notifies you when a tag is removed from an object.'''
-    OBJECT_ACL_PUT = "OBJECT_ACL_PUT"
-    '''You receive this notification event when an ACL is PUT on an object or when an existing ACL is changed.
-
-    An event is not generated when a request results in no change to an
-    object’s ACL.
-    '''
-    OBJECT_RESTORE = "OBJECT_RESTORE"
-    '''Using restore object event types you can receive notifications for initiation and completion when restoring objects from the S3 Glacier storage class.
-
-    You use s3:ObjectRestore:* to request notification of
-    any restoration event.
-    '''
-    REPLICATION = "REPLICATION"
-    '''You receive this notification event for any object replication event.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.Filter",
-    jsii_struct_bases=[],
-    name_mapping={"prefix": "prefix", "tags": "tags"},
-)
-class Filter:
-    def __init__(
-        self,
-        *,
-        prefix: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''A filter that identifies the subset of objects to which the replication rule applies.
-
-        :param prefix: An object key name prefix that identifies the object or objects to which the rule applies. Default: - applies to all objects
-        :param tags: The tag array used for tag filters. The rule applies only to objects that have the tag in this set. Default: - applies to all objects
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # destination_bucket1: s3.IBucket
-            # destination_bucket2: s3.IBucket
-            # replication_role: iam.IRole
-            # encryption_key: kms.IKey
-            # destination_encryption_key: kms.IKey
-            
-            
-            source_bucket = s3.Bucket(self, "SourceBucket",
-                # Versioning must be enabled on both the source and destination bucket
-                versioned=True,
-                # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
-                encryption_key=encryption_key,
-                # Optional. If not specified, a new role will be created.
-                replication_role=replication_role,
-                replication_rules=[s3.ReplicationRule(
-                    # The destination bucket for the replication rule.
-                    destination=destination_bucket1,
-                    # The priority of the rule.
-                    # Amazon S3 will attempt to replicate objects according to all replication rules.
-                    # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
-                    # The higher the number, the higher the priority.
-                    # It is essential to specify priority explicitly when the replication configuration has multiple rules.
-                    priority=1
-                ), s3.ReplicationRule(
-                    destination=destination_bucket2,
-                    priority=2,
-                    # Whether to specify S3 Replication Time Control (S3 RTC).
-                    # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
-                    # and 99.99 percent of those objects within specified time.
-                    replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                    # Whether to enable replication metrics about S3 RTC.
-                    # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
-                    metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                    # The kms key to use for the destination bucket.
-                    kms_key=destination_encryption_key,
-                    # The storage class to use for the destination bucket.
-                    storage_class=s3.StorageClass.INFREQUENT_ACCESS,
-                    # Whether to replicate objects with SSE-KMS encryption.
-                    sse_kms_encrypted_objects=False,
-                    # Whether to replicate modifications on replicas.
-                    replica_modifications=True,
-                    # Whether to replicate delete markers.
-                    # This property cannot be enabled if the replication rule has a tag filter.
-                    delete_marker_replication=False,
-                    # The ID of the rule.
-                    id="full-settings-rule",
-                    # The object filter for the rule.
-                    filter=s3.Filter(
-                        # The prefix filter for the rule.
-                        prefix="prefix",
-                        # The tag filter for the rule.
-                        tags=[s3.Tag(
-                            key="tagKey",
-                            value="tagValue"
-                        )
-                        ]
-                    )
-                )
-                ]
-            )
-            
-            # Grant permissions to the replication role.
-            # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
-            source_bucket.grant_replication_permission(replication_role,
-                # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
-                source_decryption_key=encryption_key,
-                destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
-                ]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff4b8a813f6812ab1464fced92fa61b97e151767705973ce994c0970fde139df)
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if prefix is not None:
-            self._values["prefix"] = prefix
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''An object key name prefix that identifies the object or objects to which the rule applies.
-
-        :default: - applies to all objects
-        '''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List["Tag"]]:
-        '''The tag array used for tag filters.
-
-        The rule applies only to objects that have the tag in this set.
-
-        :default: - applies to all objects
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["Tag"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Filter(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.GrantReplicationPermissionDestinationProps",
-    jsii_struct_bases=[],
-    name_mapping={"bucket": "bucket", "encryption_key": "encryptionKey"},
-)
-class GrantReplicationPermissionDestinationProps:
-    def __init__(
-        self,
-        *,
-        bucket: "IBucket",
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    ) -> None:
-        '''The properties for the destination bucket for granting replication permission.
-
-        :param bucket: The destination bucket.
-        :param encryption_key: The KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key. Default: - no KMS key is used for replication.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kms as kms
-            from aws_cdk import aws_s3 as s3
-            
-            # bucket: s3.Bucket
-            # key: kms.Key
-            
-            grant_replication_permission_destination_props = s3.GrantReplicationPermissionDestinationProps(
-                bucket=bucket,
-            
-                # the properties below are optional
-                encryption_key=key
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c28989eb119121ac7809e78ba2038558e14755021078bf7d97f894b34bc3311a)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-        }
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
-
-    @builtins.property
-    def bucket(self) -> "IBucket":
-        '''The destination bucket.'''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast("IBucket", result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key.
-
-        :default: - no KMS key is used for replication.
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GrantReplicationPermissionDestinationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.GrantReplicationPermissionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destinations": "destinations",
-        "source_decryption_key": "sourceDecryptionKey",
-    },
-)
-class GrantReplicationPermissionProps:
-    def __init__(
-        self,
-        *,
-        destinations: typing.Sequence[typing.Union[GrantReplicationPermissionDestinationProps, typing.Dict[builtins.str, typing.Any]]],
-        source_decryption_key: typing.Optional[_IKey_5f11635f] = None,
-    ) -> None:
-        '''The properties for the destination bucket for granting replication permission.
-
-        :param destinations: The destination buckets for replication. Specify the KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key. One or more destination buckets are required if replication configuration is enabled (i.e., ``replicationRole`` is specified). Default: - empty array (valid only if the ``replicationRole`` property is NOT specified)
-        :param source_decryption_key: The KMS key used to decrypt objects in the source bucket for replication. **Required if** the source bucket is encrypted with a customer-managed KMS key. Default: - it's assumed the source bucket is not encrypted with a customer-managed KMS key.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # destination_bucket1: s3.IBucket
-            # destination_bucket2: s3.IBucket
-            # replication_role: iam.IRole
-            # encryption_key: kms.IKey
-            # destination_encryption_key: kms.IKey
-            
-            
-            source_bucket = s3.Bucket(self, "SourceBucket",
-                # Versioning must be enabled on both the source and destination bucket
-                versioned=True,
-                # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
-                encryption_key=encryption_key,
-                # Optional. If not specified, a new role will be created.
-                replication_role=replication_role,
-                replication_rules=[s3.ReplicationRule(
-                    # The destination bucket for the replication rule.
-                    destination=destination_bucket1,
-                    # The priority of the rule.
-                    # Amazon S3 will attempt to replicate objects according to all replication rules.
-                    # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
-                    # The higher the number, the higher the priority.
-                    # It is essential to specify priority explicitly when the replication configuration has multiple rules.
-                    priority=1
-                ), s3.ReplicationRule(
-                    destination=destination_bucket2,
-                    priority=2,
-                    # Whether to specify S3 Replication Time Control (S3 RTC).
-                    # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
-                    # and 99.99 percent of those objects within specified time.
-                    replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                    # Whether to enable replication metrics about S3 RTC.
-                    # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
-                    metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                    # The kms key to use for the destination bucket.
-                    kms_key=destination_encryption_key,
-                    # The storage class to use for the destination bucket.
-                    storage_class=s3.StorageClass.INFREQUENT_ACCESS,
-                    # Whether to replicate objects with SSE-KMS encryption.
-                    sse_kms_encrypted_objects=False,
-                    # Whether to replicate modifications on replicas.
-                    replica_modifications=True,
-                    # Whether to replicate delete markers.
-                    # This property cannot be enabled if the replication rule has a tag filter.
-                    delete_marker_replication=False,
-                    # The ID of the rule.
-                    id="full-settings-rule",
-                    # The object filter for the rule.
-                    filter=s3.Filter(
-                        # The prefix filter for the rule.
-                        prefix="prefix",
-                        # The tag filter for the rule.
-                        tags=[s3.Tag(
-                            key="tagKey",
-                            value="tagValue"
-                        )
-                        ]
-                    )
-                )
-                ]
-            )
-            
-            # Grant permissions to the replication role.
-            # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
-            source_bucket.grant_replication_permission(replication_role,
-                # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
-                source_decryption_key=encryption_key,
-                destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
-                ]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__892523669f29c26ab296b743291f04387d44edf1630a2288ab68d906f972d8ff)
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument source_decryption_key", value=source_decryption_key, expected_type=type_hints["source_decryption_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destinations": destinations,
-        }
-        if source_decryption_key is not None:
-            self._values["source_decryption_key"] = source_decryption_key
-
-    @builtins.property
-    def destinations(self) -> typing.List[GrantReplicationPermissionDestinationProps]:
-        '''The destination buckets for replication.
-
-        Specify the KMS key to use for encryption if a destination bucket needs to be encrypted with a customer-managed KMS key.
-        One or more destination buckets are required if replication configuration is enabled (i.e., ``replicationRole`` is specified).
-
-        :default: - empty array (valid only if the ``replicationRole`` property is NOT specified)
-        '''
-        result = self._values.get("destinations")
-        assert result is not None, "Required property 'destinations' is missing"
-        return typing.cast(typing.List[GrantReplicationPermissionDestinationProps], result)
-
-    @builtins.property
-    def source_decryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The KMS key used to decrypt objects in the source bucket for replication.
-
-        **Required if** the source bucket is encrypted with a customer-managed KMS key.
-
-        :default: - it's assumed the source bucket is not encrypted with a customer-managed KMS key.
-        '''
-        result = self._values.get("source_decryption_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GrantReplicationPermissionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.HttpMethods")
-class HttpMethods(enum.Enum):
-    '''All http request methods.'''
-
-    GET = "GET"
-    '''The GET method requests a representation of the specified resource.'''
-    PUT = "PUT"
-    '''The PUT method replaces all current representations of the target resource with the request payload.'''
-    HEAD = "HEAD"
-    '''The HEAD method asks for a response identical to that of a GET request, but without the response body.'''
-    POST = "POST"
-    '''The POST method is used to submit an entity to the specified resource, often causing a change in state or side effects on the server.'''
-    DELETE = "DELETE"
-    '''The DELETE method deletes the specified resource.'''
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IBucket")
-class IBucket(_IResource_c80c4260, typing_extensions.Protocol):
+class IBucket(_IResource_c80c4260, IBucketRef, typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="bucketArn")
     def bucket_arn(self) -> builtins.str:
@@ -17051,8 +20774,8 @@ class IBucket(_IResource_c80c4260, typing_extensions.Protocol):
     def add_event_notification(
         self,
         event: EventType,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Adds a bucket notification event destination.
 
@@ -17074,8 +20797,8 @@ class IBucket(_IResource_c80c4260, typing_extensions.Protocol):
     @jsii.member(jsii_name="addObjectCreatedNotification")
     def add_object_created_notification(
         self,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Subscribes a destination to receive notifications when an object is created in the bucket.
 
@@ -17090,8 +20813,8 @@ class IBucket(_IResource_c80c4260, typing_extensions.Protocol):
     @jsii.member(jsii_name="addObjectRemovedNotification")
     def add_object_removed_notification(
         self,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Subscribes a destination to receive notifications when an object is removed from the bucket.
 
@@ -17507,6 +21230,7 @@ class IBucket(_IResource_c80c4260, typing_extensions.Protocol):
 
 class _IBucketProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(IBucketRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IBucket"
 
@@ -17619,8 +21343,8 @@ class _IBucketProxy(
     def add_event_notification(
         self,
         event: EventType,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Adds a bucket notification event destination.
 
@@ -17647,8 +21371,8 @@ class _IBucketProxy(
     @jsii.member(jsii_name="addObjectCreatedNotification")
     def add_object_created_notification(
         self,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Subscribes a destination to receive notifications when an object is created in the bucket.
 
@@ -17667,8 +21391,8 @@ class _IBucketProxy(
     @jsii.member(jsii_name="addObjectRemovedNotification")
     def add_object_removed_notification(
         self,
-        dest: "IBucketNotificationDestination",
-        *filters: "NotificationKeyFilter",
+        dest: IBucketNotificationDestination,
+        *filters: NotificationKeyFilter,
     ) -> None:
         '''Subscribes a destination to receive notifications when an object is removed from the bucket.
 
@@ -18186,2667 +21910,6 @@ class _IBucketProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IBucket).__jsii_proxy_class__ = lambda : _IBucketProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_s3.IBucketNotificationDestination")
-class IBucketNotificationDestination(typing_extensions.Protocol):
-    '''Implemented by constructs that can be used as bucket notification destinations.'''
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        bucket: IBucket,
-    ) -> BucketNotificationDestinationConfig:
-        '''Registers this resource to receive notifications for the specified bucket.
-
-        This method will only be called once for each destination/bucket
-        pair and the result will be cached, so there is no need to implement
-        idempotency in each destination.
-
-        :param scope: -
-        :param bucket: The bucket object to bind to.
-        '''
-        ...
-
-
-class _IBucketNotificationDestinationProxy:
-    '''Implemented by constructs that can be used as bucket notification destinations.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3.IBucketNotificationDestination"
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        bucket: IBucket,
-    ) -> BucketNotificationDestinationConfig:
-        '''Registers this resource to receive notifications for the specified bucket.
-
-        This method will only be called once for each destination/bucket
-        pair and the result will be cached, so there is no need to implement
-        idempotency in each destination.
-
-        :param scope: -
-        :param bucket: The bucket object to bind to.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c383a5262868f93c81da67f9058929f12151009bdb49b69a87ed6e62b4fe28a9)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-        return typing.cast(BucketNotificationDestinationConfig, jsii.invoke(self, "bind", [scope, bucket]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBucketNotificationDestination).__jsii_proxy_class__ = lambda : _IBucketNotificationDestinationProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.IntelligentTieringConfiguration",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "archive_access_tier_time": "archiveAccessTierTime",
-        "deep_archive_access_tier_time": "deepArchiveAccessTierTime",
-        "prefix": "prefix",
-        "tags": "tags",
-    },
-)
-class IntelligentTieringConfiguration:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
-        deep_archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
-        prefix: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''The intelligent tiering configuration.
-
-        :param name: Configuration name.
-        :param archive_access_tier_time: When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 90 days to the Archive Access tier. Default: Objects will not move to Glacier
-        :param deep_archive_access_tier_time: When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 180 days to the Deep Archive Access tier. Default: Objects will not move to Glacier Deep Access
-        :param prefix: Add a filter to limit the scope of this configuration to a single prefix. Default: this configuration will apply to **all** objects in the bucket.
-        :param tags: You can limit the scope of this rule to the key value pairs added below. Default: No filtering will be performed on tags
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_s3 as s3
-            
-            intelligent_tiering_configuration = s3.IntelligentTieringConfiguration(
-                name="name",
-            
-                # the properties below are optional
-                archive_access_tier_time=cdk.Duration.minutes(30),
-                deep_archive_access_tier_time=cdk.Duration.minutes(30),
-                prefix="prefix",
-                tags=[s3.Tag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5a872b4e52f3fa296b07f8c2ef0ea3956aa019880ff4850ab95c5cd6bde38ae)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument archive_access_tier_time", value=archive_access_tier_time, expected_type=type_hints["archive_access_tier_time"])
-            check_type(argname="argument deep_archive_access_tier_time", value=deep_archive_access_tier_time, expected_type=type_hints["deep_archive_access_tier_time"])
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if archive_access_tier_time is not None:
-            self._values["archive_access_tier_time"] = archive_access_tier_time
-        if deep_archive_access_tier_time is not None:
-            self._values["deep_archive_access_tier_time"] = deep_archive_access_tier_time
-        if prefix is not None:
-            self._values["prefix"] = prefix
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Configuration name.'''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def archive_access_tier_time(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 90 days to the Archive Access tier.
-
-        :default: Objects will not move to Glacier
-        '''
-        result = self._values.get("archive_access_tier_time")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def deep_archive_access_tier_time(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''When enabled, Intelligent-Tiering will automatically move objects that haven’t been accessed for a minimum of 180 days to the Deep Archive Access tier.
-
-        :default: Objects will not move to Glacier Deep Access
-        '''
-        result = self._values.get("deep_archive_access_tier_time")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''Add a filter to limit the scope of this configuration to a single prefix.
-
-        :default: this configuration will apply to **all** objects in the bucket.
-        '''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List["Tag"]]:
-        '''You can limit the scope of this rule to the key value pairs added below.
-
-        :default: No filtering will be performed on tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["Tag"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IntelligentTieringConfiguration(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.Inventory",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination": "destination",
-        "enabled": "enabled",
-        "format": "format",
-        "frequency": "frequency",
-        "include_object_versions": "includeObjectVersions",
-        "inventory_id": "inventoryId",
-        "objects_prefix": "objectsPrefix",
-        "optional_fields": "optionalFields",
-    },
-)
-class Inventory:
-    def __init__(
-        self,
-        *,
-        destination: typing.Union["InventoryDestination", typing.Dict[builtins.str, typing.Any]],
-        enabled: typing.Optional[builtins.bool] = None,
-        format: typing.Optional["InventoryFormat"] = None,
-        frequency: typing.Optional["InventoryFrequency"] = None,
-        include_object_versions: typing.Optional["InventoryObjectVersion"] = None,
-        inventory_id: typing.Optional[builtins.str] = None,
-        objects_prefix: typing.Optional[builtins.str] = None,
-        optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Specifies the inventory configuration of an S3 Bucket.
-
-        :param destination: The destination of the inventory.
-        :param enabled: Whether the inventory is enabled or disabled. Default: true
-        :param format: The format of the inventory. Default: InventoryFormat.CSV
-        :param frequency: Frequency at which the inventory should be generated. Default: InventoryFrequency.WEEKLY
-        :param include_object_versions: If the inventory should contain all the object versions or only the current one. Default: InventoryObjectVersion.ALL
-        :param inventory_id: The inventory configuration ID. Should be limited to 64 characters and can only contain letters, numbers, periods, dashes, and underscores. Default: - generated ID.
-        :param objects_prefix: The inventory will only include objects that meet the prefix filter criteria. Default: - No objects prefix
-        :param optional_fields: A list of optional fields to be included in the inventory result. Default: - No optional fields.
-
-        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-inventory.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            # bucket: s3.Bucket
-            
-            inventory = s3.Inventory(
-                destination=s3.InventoryDestination(
-                    bucket=bucket,
-            
-                    # the properties below are optional
-                    bucket_owner="bucketOwner",
-                    prefix="prefix"
-                ),
-            
-                # the properties below are optional
-                enabled=False,
-                format=s3.InventoryFormat.CSV,
-                frequency=s3.InventoryFrequency.DAILY,
-                include_object_versions=s3.InventoryObjectVersion.ALL,
-                inventory_id="inventoryId",
-                objects_prefix="objectsPrefix",
-                optional_fields=["optionalFields"]
-            )
-        '''
-        if isinstance(destination, dict):
-            destination = InventoryDestination(**destination)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b50520ea10cd25b0243bc2814b1b5f3844d998374d49d7e51343bba962edb837)
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
-            check_type(argname="argument include_object_versions", value=include_object_versions, expected_type=type_hints["include_object_versions"])
-            check_type(argname="argument inventory_id", value=inventory_id, expected_type=type_hints["inventory_id"])
-            check_type(argname="argument objects_prefix", value=objects_prefix, expected_type=type_hints["objects_prefix"])
-            check_type(argname="argument optional_fields", value=optional_fields, expected_type=type_hints["optional_fields"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination": destination,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if format is not None:
-            self._values["format"] = format
-        if frequency is not None:
-            self._values["frequency"] = frequency
-        if include_object_versions is not None:
-            self._values["include_object_versions"] = include_object_versions
-        if inventory_id is not None:
-            self._values["inventory_id"] = inventory_id
-        if objects_prefix is not None:
-            self._values["objects_prefix"] = objects_prefix
-        if optional_fields is not None:
-            self._values["optional_fields"] = optional_fields
-
-    @builtins.property
-    def destination(self) -> "InventoryDestination":
-        '''The destination of the inventory.'''
-        result = self._values.get("destination")
-        assert result is not None, "Required property 'destination' is missing"
-        return typing.cast("InventoryDestination", result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether the inventory is enabled or disabled.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def format(self) -> typing.Optional["InventoryFormat"]:
-        '''The format of the inventory.
-
-        :default: InventoryFormat.CSV
-        '''
-        result = self._values.get("format")
-        return typing.cast(typing.Optional["InventoryFormat"], result)
-
-    @builtins.property
-    def frequency(self) -> typing.Optional["InventoryFrequency"]:
-        '''Frequency at which the inventory should be generated.
-
-        :default: InventoryFrequency.WEEKLY
-        '''
-        result = self._values.get("frequency")
-        return typing.cast(typing.Optional["InventoryFrequency"], result)
-
-    @builtins.property
-    def include_object_versions(self) -> typing.Optional["InventoryObjectVersion"]:
-        '''If the inventory should contain all the object versions or only the current one.
-
-        :default: InventoryObjectVersion.ALL
-        '''
-        result = self._values.get("include_object_versions")
-        return typing.cast(typing.Optional["InventoryObjectVersion"], result)
-
-    @builtins.property
-    def inventory_id(self) -> typing.Optional[builtins.str]:
-        '''The inventory configuration ID.
-
-        Should be limited to 64 characters and can only contain letters, numbers, periods, dashes, and underscores.
-
-        :default: - generated ID.
-        '''
-        result = self._values.get("inventory_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def objects_prefix(self) -> typing.Optional[builtins.str]:
-        '''The inventory will only include objects that meet the prefix filter criteria.
-
-        :default: - No objects prefix
-        '''
-        result = self._values.get("objects_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def optional_fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of optional fields to be included in the inventory result.
-
-        :default: - No optional fields.
-        '''
-        result = self._values.get("optional_fields")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Inventory(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.InventoryDestination",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket": "bucket",
-        "bucket_owner": "bucketOwner",
-        "prefix": "prefix",
-    },
-)
-class InventoryDestination:
-    def __init__(
-        self,
-        *,
-        bucket: IBucket,
-        bucket_owner: typing.Optional[builtins.str] = None,
-        prefix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''The destination of the inventory.
-
-        :param bucket: Bucket where all inventories will be saved in.
-        :param bucket_owner: The account ID that owns the destination S3 bucket. If no account ID is provided, the owner is not validated before exporting data. It's recommended to set an account ID to prevent problems if the destination bucket ownership changes. Default: - No account ID.
-        :param prefix: The prefix to be used when saving the inventory. Default: - No prefix.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            inventory_bucket = s3.Bucket(self, "InventoryBucket")
-            
-            data_bucket = s3.Bucket(self, "DataBucket",
-                inventories=[s3.Inventory(
-                    frequency=s3.InventoryFrequency.DAILY,
-                    include_object_versions=s3.InventoryObjectVersion.CURRENT,
-                    destination=s3.InventoryDestination(
-                        bucket=inventory_bucket
-                    )
-                ), s3.Inventory(
-                    frequency=s3.InventoryFrequency.WEEKLY,
-                    include_object_versions=s3.InventoryObjectVersion.ALL,
-                    destination=s3.InventoryDestination(
-                        bucket=inventory_bucket,
-                        prefix="with-all-versions"
-                    )
-                )
-                ]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44c25755abc9b158dc77d6a90064e0165cb0a20c5c7e20dc89fb38df2e7dded5)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-        }
-        if bucket_owner is not None:
-            self._values["bucket_owner"] = bucket_owner
-        if prefix is not None:
-            self._values["prefix"] = prefix
-
-    @builtins.property
-    def bucket(self) -> IBucket:
-        '''Bucket where all inventories will be saved in.'''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(IBucket, result)
-
-    @builtins.property
-    def bucket_owner(self) -> typing.Optional[builtins.str]:
-        '''The account ID that owns the destination S3 bucket.
-
-        If no account ID is provided, the owner is not validated before exporting data.
-        It's recommended to set an account ID to prevent problems if the destination bucket ownership changes.
-
-        :default: - No account ID.
-        '''
-        result = self._values.get("bucket_owner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''The prefix to be used when saving the inventory.
-
-        :default: - No prefix.
-        '''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InventoryDestination(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryFormat")
-class InventoryFormat(enum.Enum):
-    '''All supported inventory list formats.'''
-
-    CSV = "CSV"
-    '''Generate the inventory list as CSV.'''
-    PARQUET = "PARQUET"
-    '''Generate the inventory list as Parquet.'''
-    ORC = "ORC"
-    '''Generate the inventory list as ORC.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryFrequency")
-class InventoryFrequency(enum.Enum):
-    '''All supported inventory frequencies.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        inventory_bucket = s3.Bucket(self, "InventoryBucket")
-        
-        data_bucket = s3.Bucket(self, "DataBucket",
-            inventories=[s3.Inventory(
-                frequency=s3.InventoryFrequency.DAILY,
-                include_object_versions=s3.InventoryObjectVersion.CURRENT,
-                destination=s3.InventoryDestination(
-                    bucket=inventory_bucket
-                )
-            ), s3.Inventory(
-                frequency=s3.InventoryFrequency.WEEKLY,
-                include_object_versions=s3.InventoryObjectVersion.ALL,
-                destination=s3.InventoryDestination(
-                    bucket=inventory_bucket,
-                    prefix="with-all-versions"
-                )
-            )
-            ]
-        )
-    '''
-
-    DAILY = "DAILY"
-    '''A report is generated every day.'''
-    WEEKLY = "WEEKLY"
-    '''A report is generated every Sunday (UTC timezone) after the initial report.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.InventoryObjectVersion")
-class InventoryObjectVersion(enum.Enum):
-    '''Inventory version support.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        inventory_bucket = s3.Bucket(self, "InventoryBucket")
-        
-        data_bucket = s3.Bucket(self, "DataBucket",
-            inventories=[s3.Inventory(
-                frequency=s3.InventoryFrequency.DAILY,
-                include_object_versions=s3.InventoryObjectVersion.CURRENT,
-                destination=s3.InventoryDestination(
-                    bucket=inventory_bucket
-                )
-            ), s3.Inventory(
-                frequency=s3.InventoryFrequency.WEEKLY,
-                include_object_versions=s3.InventoryObjectVersion.ALL,
-                destination=s3.InventoryDestination(
-                    bucket=inventory_bucket,
-                    prefix="with-all-versions"
-                )
-            )
-            ]
-        )
-    '''
-
-    ALL = "ALL"
-    '''Includes all versions of each object in the report.'''
-    CURRENT = "CURRENT"
-    '''Includes only the current version of each object in the report.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.LifecycleRule",
-    jsii_struct_bases=[],
-    name_mapping={
-        "abort_incomplete_multipart_upload_after": "abortIncompleteMultipartUploadAfter",
-        "enabled": "enabled",
-        "expiration": "expiration",
-        "expiration_date": "expirationDate",
-        "expired_object_delete_marker": "expiredObjectDeleteMarker",
-        "id": "id",
-        "noncurrent_version_expiration": "noncurrentVersionExpiration",
-        "noncurrent_versions_to_retain": "noncurrentVersionsToRetain",
-        "noncurrent_version_transitions": "noncurrentVersionTransitions",
-        "object_size_greater_than": "objectSizeGreaterThan",
-        "object_size_less_than": "objectSizeLessThan",
-        "prefix": "prefix",
-        "tag_filters": "tagFilters",
-        "transitions": "transitions",
-    },
-)
-class LifecycleRule:
-    def __init__(
-        self,
-        *,
-        abort_incomplete_multipart_upload_after: typing.Optional[_Duration_4839e8c3] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        expiration: typing.Optional[_Duration_4839e8c3] = None,
-        expiration_date: typing.Optional[datetime.datetime] = None,
-        expired_object_delete_marker: typing.Optional[builtins.bool] = None,
-        id: typing.Optional[builtins.str] = None,
-        noncurrent_version_expiration: typing.Optional[_Duration_4839e8c3] = None,
-        noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
-        noncurrent_version_transitions: typing.Optional[typing.Sequence[typing.Union["NoncurrentVersionTransition", typing.Dict[builtins.str, typing.Any]]]] = None,
-        object_size_greater_than: typing.Optional[jsii.Number] = None,
-        object_size_less_than: typing.Optional[jsii.Number] = None,
-        prefix: typing.Optional[builtins.str] = None,
-        tag_filters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        transitions: typing.Optional[typing.Sequence[typing.Union["Transition", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Declaration of a Life cycle rule.
-
-        :param abort_incomplete_multipart_upload_after: Specifies a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket. The AbortIncompleteMultipartUpload property type creates a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket. When Amazon S3 aborts a multipart upload, it deletes all parts associated with the multipart upload. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - Incomplete uploads are never aborted
-        :param enabled: Whether this rule is enabled. Default: true
-        :param expiration: Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon Glacier. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No expiration timeout
-        :param expiration_date: Indicates when objects are deleted from Amazon S3 and Amazon Glacier. The date value must be in ISO 8601 format. The time is always midnight UTC. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. Default: - No expiration date
-        :param expired_object_delete_marker: Indicates whether Amazon S3 will remove a delete marker with no noncurrent versions. If set to true, the delete marker will be expired. Default: false
-        :param id: A unique identifier for this rule. The value cannot be more than 255 characters.
-        :param noncurrent_version_expiration: Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire. For buckets with versioning enabled (or suspended), specifies the time, in days, between when a new version of the object is uploaded to the bucket and when old versions of the object expire. When object versions expire, Amazon S3 permanently deletes them. If you specify a transition and expiration time, the expiration time must be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No noncurrent version expiration
-        :param noncurrent_versions_to_retain: Indicates a maximum number of noncurrent versions to retain. If there are this many more noncurrent versions, Amazon S3 permanently deletes them. Default: - No noncurrent versions to retain
-        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
-        :param object_size_greater_than: Specifies the minimum object size in bytes for this rule to apply to. Objects must be larger than this value in bytes. Default: - No rule
-        :param object_size_less_than: Specifies the maximum object size in bytes for this rule to apply to. Objects must be smaller than this value in bytes. Default: - No rule
-        :param prefix: Object key prefix that identifies one or more objects to which this rule applies. Default: - Rule applies to all objects
-        :param tag_filters: The TagFilter property type specifies tags to use to identify a subset of objects for an Amazon S3 bucket. Default: - Rule applies to all objects
-        :param transitions: One or more transition rules that specify when an object transitions to a specified storage class. If you specify an expiration and transition time, you must use the same time unit for both properties (either in days or by date). The expiration time must also be later than the transition time. Default: - No transition rules
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_s3 as s3
-            
-            # storage_class: s3.StorageClass
-            # tag_filters: Any
-            
-            lifecycle_rule = s3.LifecycleRule(
-                abort_incomplete_multipart_upload_after=cdk.Duration.minutes(30),
-                enabled=False,
-                expiration=cdk.Duration.minutes(30),
-                expiration_date=Date(),
-                expired_object_delete_marker=False,
-                id="id",
-                noncurrent_version_expiration=cdk.Duration.minutes(30),
-                noncurrent_versions_to_retain=123,
-                noncurrent_version_transitions=[s3.NoncurrentVersionTransition(
-                    storage_class=storage_class,
-                    transition_after=cdk.Duration.minutes(30),
-            
-                    # the properties below are optional
-                    noncurrent_versions_to_retain=123
-                )],
-                object_size_greater_than=123,
-                object_size_less_than=123,
-                prefix="prefix",
-                tag_filters={
-                    "tag_filters_key": tag_filters
-                },
-                transitions=[s3.Transition(
-                    storage_class=storage_class,
-            
-                    # the properties below are optional
-                    transition_after=cdk.Duration.minutes(30),
-                    transition_date=Date()
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8e7ac9e486ca680ca8dffc9a76b32ed38369c97278548e908a0acbd3dcf2fc5)
-            check_type(argname="argument abort_incomplete_multipart_upload_after", value=abort_incomplete_multipart_upload_after, expected_type=type_hints["abort_incomplete_multipart_upload_after"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument expiration", value=expiration, expected_type=type_hints["expiration"])
-            check_type(argname="argument expiration_date", value=expiration_date, expected_type=type_hints["expiration_date"])
-            check_type(argname="argument expired_object_delete_marker", value=expired_object_delete_marker, expected_type=type_hints["expired_object_delete_marker"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument noncurrent_version_expiration", value=noncurrent_version_expiration, expected_type=type_hints["noncurrent_version_expiration"])
-            check_type(argname="argument noncurrent_versions_to_retain", value=noncurrent_versions_to_retain, expected_type=type_hints["noncurrent_versions_to_retain"])
-            check_type(argname="argument noncurrent_version_transitions", value=noncurrent_version_transitions, expected_type=type_hints["noncurrent_version_transitions"])
-            check_type(argname="argument object_size_greater_than", value=object_size_greater_than, expected_type=type_hints["object_size_greater_than"])
-            check_type(argname="argument object_size_less_than", value=object_size_less_than, expected_type=type_hints["object_size_less_than"])
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            check_type(argname="argument tag_filters", value=tag_filters, expected_type=type_hints["tag_filters"])
-            check_type(argname="argument transitions", value=transitions, expected_type=type_hints["transitions"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if abort_incomplete_multipart_upload_after is not None:
-            self._values["abort_incomplete_multipart_upload_after"] = abort_incomplete_multipart_upload_after
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if expiration is not None:
-            self._values["expiration"] = expiration
-        if expiration_date is not None:
-            self._values["expiration_date"] = expiration_date
-        if expired_object_delete_marker is not None:
-            self._values["expired_object_delete_marker"] = expired_object_delete_marker
-        if id is not None:
-            self._values["id"] = id
-        if noncurrent_version_expiration is not None:
-            self._values["noncurrent_version_expiration"] = noncurrent_version_expiration
-        if noncurrent_versions_to_retain is not None:
-            self._values["noncurrent_versions_to_retain"] = noncurrent_versions_to_retain
-        if noncurrent_version_transitions is not None:
-            self._values["noncurrent_version_transitions"] = noncurrent_version_transitions
-        if object_size_greater_than is not None:
-            self._values["object_size_greater_than"] = object_size_greater_than
-        if object_size_less_than is not None:
-            self._values["object_size_less_than"] = object_size_less_than
-        if prefix is not None:
-            self._values["prefix"] = prefix
-        if tag_filters is not None:
-            self._values["tag_filters"] = tag_filters
-        if transitions is not None:
-            self._values["transitions"] = transitions
-
-    @builtins.property
-    def abort_incomplete_multipart_upload_after(
-        self,
-    ) -> typing.Optional[_Duration_4839e8c3]:
-        '''Specifies a lifecycle rule that aborts incomplete multipart uploads to an Amazon S3 bucket.
-
-        The AbortIncompleteMultipartUpload property type creates a lifecycle
-        rule that aborts incomplete multipart uploads to an Amazon S3 bucket.
-        When Amazon S3 aborts a multipart upload, it deletes all parts
-        associated with the multipart upload.
-
-        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
-        does not represent a whole number of days will result in a runtime or deployment error.
-
-        :default: - Incomplete uploads are never aborted
-        '''
-        result = self._values.get("abort_incomplete_multipart_upload_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether this rule is enabled.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def expiration(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon Glacier.
-
-        If you specify an expiration and transition time, you must use the same
-        time unit for both properties (either in days or by date). The
-        expiration time must also be later than the transition time.
-
-        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
-        does not represent a whole number of days will result in a runtime or deployment error.
-
-        :default: - No expiration timeout
-        '''
-        result = self._values.get("expiration")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def expiration_date(self) -> typing.Optional[datetime.datetime]:
-        '''Indicates when objects are deleted from Amazon S3 and Amazon Glacier.
-
-        The date value must be in ISO 8601 format. The time is always midnight UTC.
-
-        If you specify an expiration and transition time, you must use the same
-        time unit for both properties (either in days or by date). The
-        expiration time must also be later than the transition time.
-
-        :default: - No expiration date
-        '''
-        result = self._values.get("expiration_date")
-        return typing.cast(typing.Optional[datetime.datetime], result)
-
-    @builtins.property
-    def expired_object_delete_marker(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether Amazon S3 will remove a delete marker with no noncurrent versions.
-
-        If set to true, the delete marker will be expired.
-
-        :default: false
-        '''
-        result = self._values.get("expired_object_delete_marker")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for this rule.
-
-        The value cannot be more than 255 characters.
-        '''
-        result = self._values.get("id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def noncurrent_version_expiration(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire.
-
-        For buckets with versioning enabled (or suspended), specifies the time,
-        in days, between when a new version of the object is uploaded to the
-        bucket and when old versions of the object expire. When object versions
-        expire, Amazon S3 permanently deletes them. If you specify a transition
-        and expiration time, the expiration time must be later than the
-        transition time.
-
-        The underlying configuration is expressed in whole numbers of days. Providing a Duration that
-        does not represent a whole number of days will result in a runtime or deployment error.
-
-        :default: - No noncurrent version expiration
-        '''
-        result = self._values.get("noncurrent_version_expiration")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def noncurrent_versions_to_retain(self) -> typing.Optional[jsii.Number]:
-        '''Indicates a maximum number of noncurrent versions to retain.
-
-        If there are this many more noncurrent versions,
-        Amazon S3 permanently deletes them.
-
-        :default: - No noncurrent versions to retain
-        '''
-        result = self._values.get("noncurrent_versions_to_retain")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def noncurrent_version_transitions(
-        self,
-    ) -> typing.Optional[typing.List["NoncurrentVersionTransition"]]:
-        '''One or more transition rules that specify when non-current objects transition to a specified storage class.
-
-        Only for buckets with versioning enabled (or suspended).
-
-        If you specify a transition and expiration time, the expiration time
-        must be later than the transition time.
-        '''
-        result = self._values.get("noncurrent_version_transitions")
-        return typing.cast(typing.Optional[typing.List["NoncurrentVersionTransition"]], result)
-
-    @builtins.property
-    def object_size_greater_than(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the minimum object size in bytes for this rule to apply to.
-
-        Objects must be larger than this value in bytes.
-
-        :default: - No rule
-        '''
-        result = self._values.get("object_size_greater_than")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def object_size_less_than(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the maximum object size in bytes for this rule to apply to.
-
-        Objects must be smaller than this value in bytes.
-
-        :default: - No rule
-        '''
-        result = self._values.get("object_size_less_than")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''Object key prefix that identifies one or more objects to which this rule applies.
-
-        :default: - Rule applies to all objects
-        '''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tag_filters(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
-        '''The TagFilter property type specifies tags to use to identify a subset of objects for an Amazon S3 bucket.
-
-        :default: - Rule applies to all objects
-        '''
-        result = self._values.get("tag_filters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
-
-    @builtins.property
-    def transitions(self) -> typing.Optional[typing.List["Transition"]]:
-        '''One or more transition rules that specify when an object transitions to a specified storage class.
-
-        If you specify an expiration and transition time, you must use the same
-        time unit for both properties (either in days or by date). The
-        expiration time must also be later than the transition time.
-
-        :default: - No transition rules
-        '''
-        result = self._values.get("transitions")
-        return typing.cast(typing.Optional[typing.List["Transition"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LifecycleRule(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.Location",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket_name": "bucketName",
-        "object_key": "objectKey",
-        "object_version": "objectVersion",
-    },
-)
-class Location:
-    def __init__(
-        self,
-        *,
-        bucket_name: builtins.str,
-        object_key: builtins.str,
-        object_version: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''An interface that represents the location of a specific object in an S3 Bucket.
-
-        :param bucket_name: The name of the S3 Bucket the object is in.
-        :param object_key: The path inside the Bucket where the object is located at.
-        :param object_version: The S3 object version.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            start_query_execution_job = tasks.AthenaStartQueryExecution(self, "Start Athena Query",
-                query_string=sfn.JsonPath.string_at("$.queryString"),
-                query_execution_context=tasks.QueryExecutionContext(
-                    database_name="mydatabase"
-                ),
-                result_configuration=tasks.ResultConfiguration(
-                    encryption_configuration=tasks.EncryptionConfiguration(
-                        encryption_option=tasks.EncryptionOption.S3_MANAGED
-                    ),
-                    output_location=s3.Location(
-                        bucket_name="query-results-bucket",
-                        object_key="folder"
-                    )
-                ),
-                execution_parameters=["param1", "param2"],
-                result_reuse_configuration_max_age=Duration.minutes(100)
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d168957d45fdd37a3618738d958a758ca37ac6b118df34c7aaf08ac7f02853dc)
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
-            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket_name": bucket_name,
-            "object_key": object_key,
-        }
-        if object_version is not None:
-            self._values["object_version"] = object_version
-
-    @builtins.property
-    def bucket_name(self) -> builtins.str:
-        '''The name of the S3 Bucket the object is in.'''
-        result = self._values.get("bucket_name")
-        assert result is not None, "Required property 'bucket_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def object_key(self) -> builtins.str:
-        '''The path inside the Bucket where the object is located at.'''
-        result = self._values.get("object_key")
-        assert result is not None, "Required property 'object_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def object_version(self) -> typing.Optional[builtins.str]:
-        '''The S3 object version.'''
-        result = self._values.get("object_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Location(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.NoncurrentVersionTransition",
-    jsii_struct_bases=[],
-    name_mapping={
-        "storage_class": "storageClass",
-        "transition_after": "transitionAfter",
-        "noncurrent_versions_to_retain": "noncurrentVersionsToRetain",
-    },
-)
-class NoncurrentVersionTransition:
-    def __init__(
-        self,
-        *,
-        storage_class: "StorageClass",
-        transition_after: _Duration_4839e8c3,
-        noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Describes when noncurrent versions transition to a specified storage class.
-
-        :param storage_class: The storage class to which you want the object to transition.
-        :param transition_after: Indicates the number of days after creation when objects are transitioned to the specified storage class. Default: - No transition count.
-        :param noncurrent_versions_to_retain: Indicates the number of noncurrent version objects to be retained. Can be up to 100 noncurrent versions retained. Default: - No noncurrent version retained.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_s3 as s3
-            
-            # storage_class: s3.StorageClass
-            
-            noncurrent_version_transition = s3.NoncurrentVersionTransition(
-                storage_class=storage_class,
-                transition_after=cdk.Duration.minutes(30),
-            
-                # the properties below are optional
-                noncurrent_versions_to_retain=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e172df32791e08b327adeead864822f0327108fef6d11b60a2847d5ac563835b)
-            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
-            check_type(argname="argument transition_after", value=transition_after, expected_type=type_hints["transition_after"])
-            check_type(argname="argument noncurrent_versions_to_retain", value=noncurrent_versions_to_retain, expected_type=type_hints["noncurrent_versions_to_retain"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "storage_class": storage_class,
-            "transition_after": transition_after,
-        }
-        if noncurrent_versions_to_retain is not None:
-            self._values["noncurrent_versions_to_retain"] = noncurrent_versions_to_retain
-
-    @builtins.property
-    def storage_class(self) -> "StorageClass":
-        '''The storage class to which you want the object to transition.'''
-        result = self._values.get("storage_class")
-        assert result is not None, "Required property 'storage_class' is missing"
-        return typing.cast("StorageClass", result)
-
-    @builtins.property
-    def transition_after(self) -> _Duration_4839e8c3:
-        '''Indicates the number of days after creation when objects are transitioned to the specified storage class.
-
-        :default: - No transition count.
-        '''
-        result = self._values.get("transition_after")
-        assert result is not None, "Required property 'transition_after' is missing"
-        return typing.cast(_Duration_4839e8c3, result)
-
-    @builtins.property
-    def noncurrent_versions_to_retain(self) -> typing.Optional[jsii.Number]:
-        '''Indicates the number of noncurrent version objects to be retained.
-
-        Can be up to 100 noncurrent versions retained.
-
-        :default: - No noncurrent version retained.
-        '''
-        result = self._values.get("noncurrent_versions_to_retain")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NoncurrentVersionTransition(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.NotificationKeyFilter",
-    jsii_struct_bases=[],
-    name_mapping={"prefix": "prefix", "suffix": "suffix"},
-)
-class NotificationKeyFilter:
-    def __init__(
-        self,
-        *,
-        prefix: typing.Optional[builtins.str] = None,
-        suffix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param prefix: S3 keys must have the specified prefix.
-        :param suffix: S3 keys must have the specified suffix.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # my_queue: sqs.Queue
-            
-            bucket = s3.Bucket(self, "MyBucket")
-            bucket.add_event_notification(s3.EventType.OBJECT_REMOVED, s3n.SqsDestination(my_queue),
-                prefix="foo/",
-                suffix=".jpg"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9027ccde47331a53dd5d5647e0ac8b2d59832c2e174d2a101438fbf22f7f4ab1)
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            check_type(argname="argument suffix", value=suffix, expected_type=type_hints["suffix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if prefix is not None:
-            self._values["prefix"] = prefix
-        if suffix is not None:
-            self._values["suffix"] = suffix
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''S3 keys must have the specified prefix.'''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def suffix(self) -> typing.Optional[builtins.str]:
-        '''S3 keys must have the specified suffix.'''
-        result = self._values.get("suffix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NotificationKeyFilter(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.ObjectLockMode")
-class ObjectLockMode(enum.Enum):
-    '''Modes in which S3 Object Lock retention can be configured.
-
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html#object-lock-retention-modes
-    '''
-
-    GOVERNANCE = "GOVERNANCE"
-    '''The Governance retention mode.
-
-    With governance mode, you protect objects against being deleted by most users, but you can
-    still grant some users permission to alter the retention settings or delete the object if
-    necessary. You can also use governance mode to test retention-period settings before
-    creating a compliance-mode retention period.
-    '''
-    COMPLIANCE = "COMPLIANCE"
-    '''The Compliance retention mode.
-
-    When an object is locked in compliance mode, its retention mode can't be changed, and
-    its retention period can't be shortened. Compliance mode helps ensure that an object
-    version can't be overwritten or deleted for the duration of the retention period.
-    '''
-
-
-class ObjectLockRetention(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_s3.ObjectLockRetention",
-):
-    '''The default retention settings for an S3 Object Lock configuration.
-
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html
-    :exampleMetadata: infused
-
-    Example::
-
-        # Configure for governance mode with a duration of 7 years
-        s3.Bucket(self, "Bucket1",
-            object_lock_default_retention=s3.ObjectLockRetention.governance(Duration.days(7 * 365))
-        )
-        
-        # Configure for compliance mode with a duration of 1 year
-        s3.Bucket(self, "Bucket2",
-            object_lock_default_retention=s3.ObjectLockRetention.compliance(Duration.days(365))
-        )
-    '''
-
-    @jsii.member(jsii_name="compliance")
-    @builtins.classmethod
-    def compliance(cls, duration: _Duration_4839e8c3) -> "ObjectLockRetention":
-        '''Configure for Compliance retention for a specified duration.
-
-        When an object is locked in compliance mode, its retention mode can't be changed, and
-        its retention period can't be shortened. Compliance mode helps ensure that an object
-        version can't be overwritten or deleted for the duration of the retention period.
-
-        :param duration: the length of time for which objects should be retained.
-
-        :return: the ObjectLockRetention configuration
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9490d8de494d11f7d3c1e46f6134d99456eca2e34e831d1d5d2b26c700781adb)
-            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-        return typing.cast("ObjectLockRetention", jsii.sinvoke(cls, "compliance", [duration]))
-
-    @jsii.member(jsii_name="governance")
-    @builtins.classmethod
-    def governance(cls, duration: _Duration_4839e8c3) -> "ObjectLockRetention":
-        '''Configure for Governance retention for a specified duration.
-
-        With governance mode, you protect objects against being deleted by most users, but you can
-        still grant some users permission to alter the retention settings or delete the object if
-        necessary. You can also use governance mode to test retention-period settings before
-        creating a compliance-mode retention period.
-
-        :param duration: the length of time for which objects should retained.
-
-        :return: the ObjectLockRetention configuration
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94e609b96749203cdf306d370e394200eb0c7ff96876338e53f416ce6dab46ab)
-            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-        return typing.cast("ObjectLockRetention", jsii.sinvoke(cls, "governance", [duration]))
-
-    @builtins.property
-    @jsii.member(jsii_name="duration")
-    def duration(self) -> _Duration_4839e8c3:
-        '''The default period for which objects should be retained.'''
-        return typing.cast(_Duration_4839e8c3, jsii.get(self, "duration"))
-
-    @builtins.property
-    @jsii.member(jsii_name="mode")
-    def mode(self) -> ObjectLockMode:
-        '''The retention mode to use for the object lock configuration.
-
-        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html#object-lock-retention-modes
-        '''
-        return typing.cast(ObjectLockMode, jsii.get(self, "mode"))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.ObjectOwnership")
-class ObjectOwnership(enum.Enum):
-    '''The ObjectOwnership of the bucket.
-
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/about-object-ownership.html
-    :exampleMetadata: infused
-
-    Example::
-
-        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
-            object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
-        )
-        
-        access_logs_bucket.add_to_resource_policy(
-            iam.PolicyStatement(
-                actions=["s3:*"],
-                resources=[access_logs_bucket.bucket_arn, access_logs_bucket.arn_for_objects("*")],
-                principals=[iam.AnyPrincipal()]
-            ))
-        
-        bucket = s3.Bucket(self, "MyBucket",
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix="logs"
-        )
-    '''
-
-    BUCKET_OWNER_ENFORCED = "BUCKET_OWNER_ENFORCED"
-    '''ACLs are disabled, and the bucket owner automatically owns and has full control over every object in the bucket.
-
-    ACLs no longer affect permissions to data in the S3 bucket.
-    The bucket uses policies to define access control.
-    '''
-    BUCKET_OWNER_PREFERRED = "BUCKET_OWNER_PREFERRED"
-    '''The bucket owner will own the object if the object is uploaded with the bucket-owner-full-control canned ACL.
-
-    Without this setting and
-    canned ACL, the object is uploaded and remains owned by the uploading account.
-    '''
-    OBJECT_WRITER = "OBJECT_WRITER"
-    '''The uploading account will own the object.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.OnCloudTrailBucketEventOptions",
-    jsii_struct_bases=[_OnEventOptions_8711b8b3],
-    name_mapping={
-        "cross_stack_scope": "crossStackScope",
-        "description": "description",
-        "event_pattern": "eventPattern",
-        "rule_name": "ruleName",
-        "target": "target",
-        "paths": "paths",
-    },
-)
-class OnCloudTrailBucketEventOptions(_OnEventOptions_8711b8b3):
-    def __init__(
-        self,
-        *,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-        target: typing.Optional[_IRuleTarget_7a91f454] = None,
-        paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Options for the onCloudTrailPutObject method.
-
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
-        :param paths: Only watch changes to these object paths. Default: - Watch changes to all objects
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            from aws_cdk import aws_s3 as s3
-            import constructs as constructs
-            
-            # construct: constructs.Construct
-            # detail: Any
-            # rule_target: events.IRuleTarget
-            
-            on_cloud_trail_bucket_event_options = s3.OnCloudTrailBucketEventOptions(
-                cross_stack_scope=construct,
-                description="description",
-                event_pattern=events.EventPattern(
-                    account=["account"],
-                    detail={
-                        "detail_key": detail
-                    },
-                    detail_type=["detailType"],
-                    id=["id"],
-                    region=["region"],
-                    resources=["resources"],
-                    source=["source"],
-                    time=["time"],
-                    version=["version"]
-                ),
-                paths=["paths"],
-                rule_name="ruleName",
-                target=rule_target
-            )
-        '''
-        if isinstance(event_pattern, dict):
-            event_pattern = _EventPattern_fe557901(**event_pattern)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fe95c165eac8b0551cdcadba23dd748dd8fc69fa5f9fa2d5b7c3313f764386a)
-            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-            check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cross_stack_scope is not None:
-            self._values["cross_stack_scope"] = cross_stack_scope
-        if description is not None:
-            self._values["description"] = description
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-        if target is not None:
-            self._values["target"] = target
-        if paths is not None:
-            self._values["paths"] = paths
-
-    @builtins.property
-    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
-        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
-
-        This helps dealing with cycles that often arise in these situations.
-
-        :default: - none (the main scope will be used, even for cross-stack Events)
-        '''
-        result = self._values.get("cross_stack_scope")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the rule's purpose.
-
-        :default: - No description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Optional[_EventPattern_fe557901]:
-        '''Additional restrictions for the event to route to the specified target.
-
-        The method that generates the rule probably imposes some type of event
-        filtering. The filtering implied by what you pass here is added
-        on top of that filtering.
-
-        :default: - No additional filtering based on an event pattern.
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional[_EventPattern_fe557901], result)
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the rule.
-
-        :default: AWS CloudFormation generates a unique physical ID.
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def target(self) -> typing.Optional[_IRuleTarget_7a91f454]:
-        '''The target to register for the event.
-
-        :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
-        '''
-        result = self._values.get("target")
-        return typing.cast(typing.Optional[_IRuleTarget_7a91f454], result)
-
-    @builtins.property
-    def paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Only watch changes to these object paths.
-
-        :default: - Watch changes to all objects
-        '''
-        result = self._values.get("paths")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OnCloudTrailBucketEventOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.PartitionDateSource")
-class PartitionDateSource(enum.Enum):
-    '''The date source for the partitioned prefix.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket")
-        
-        bucket = s3.Bucket(self, "MyBucket",
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix="logs",
-            target_object_key_format=s3.TargetObjectKeyFormat.partitioned_prefix(s3.PartitionDateSource.EVENT_TIME)
-        )
-    '''
-
-    EVENT_TIME = "EVENT_TIME"
-    '''The year, month, and day will be based on the timestamp of the S3 event in the file that's been delivered.'''
-    DELIVERY_TIME = "DELIVERY_TIME"
-    '''The year, month, and day will be based on the time when the log file was delivered to S3.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.RedirectProtocol")
-class RedirectProtocol(enum.Enum):
-    '''All http request methods.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        bucket = s3.Bucket(self, "MyRedirectedBucket",
-            website_routing_rules=[s3.RoutingRule(
-                host_name="www.example.com",
-                http_redirect_code="302",
-                protocol=s3.RedirectProtocol.HTTPS,
-                replace_key=s3.ReplaceKey.prefix_with("test/"),
-                condition=s3.RoutingRuleCondition(
-                    http_error_code_returned_equals="200",
-                    key_prefix_equals="prefix"
-                )
-            )
-            ]
-        )
-    '''
-
-    HTTP = "HTTP"
-    HTTPS = "HTTPS"
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.RedirectTarget",
-    jsii_struct_bases=[],
-    name_mapping={"host_name": "hostName", "protocol": "protocol"},
-)
-class RedirectTarget:
-    def __init__(
-        self,
-        *,
-        host_name: builtins.str,
-        protocol: typing.Optional[RedirectProtocol] = None,
-    ) -> None:
-        '''Specifies a redirect behavior of all requests to a website endpoint of a bucket.
-
-        :param host_name: Name of the host where requests are redirected.
-        :param protocol: Protocol to use when redirecting requests. Default: - The protocol used in the original request.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            bucket = s3.Bucket(self, "MyRedirectedBucket",
-                website_redirect=s3.RedirectTarget(host_name="www.example.com")
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1720144bcc9a3e6ed5e09070dd4a288585844e0c282d63b4fc539bb068317132)
-            check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "host_name": host_name,
-        }
-        if protocol is not None:
-            self._values["protocol"] = protocol
-
-    @builtins.property
-    def host_name(self) -> builtins.str:
-        '''Name of the host where requests are redirected.'''
-        result = self._values.get("host_name")
-        assert result is not None, "Required property 'host_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protocol(self) -> typing.Optional[RedirectProtocol]:
-        '''Protocol to use when redirecting requests.
-
-        :default: - The protocol used in the original request.
-        '''
-        result = self._values.get("protocol")
-        return typing.cast(typing.Optional[RedirectProtocol], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RedirectTarget(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class ReplaceKey(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_s3.ReplaceKey"):
-    '''
-    :exampleMetadata: infused
-
-    Example::
-
-        bucket = s3.Bucket(self, "MyRedirectedBucket",
-            website_routing_rules=[s3.RoutingRule(
-                host_name="www.example.com",
-                http_redirect_code="302",
-                protocol=s3.RedirectProtocol.HTTPS,
-                replace_key=s3.ReplaceKey.prefix_with("test/"),
-                condition=s3.RoutingRuleCondition(
-                    http_error_code_returned_equals="200",
-                    key_prefix_equals="prefix"
-                )
-            )
-            ]
-        )
-    '''
-
-    @jsii.member(jsii_name="prefixWith")
-    @builtins.classmethod
-    def prefix_with(cls, key_replacement: builtins.str) -> "ReplaceKey":
-        '''The object key prefix to use in the redirect request.
-
-        :param key_replacement: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbf2b903ac331e0cb09af7793e6968cb8ab89d46fe2d2feac3442e87251fd3b2)
-            check_type(argname="argument key_replacement", value=key_replacement, expected_type=type_hints["key_replacement"])
-        return typing.cast("ReplaceKey", jsii.sinvoke(cls, "prefixWith", [key_replacement]))
-
-    @jsii.member(jsii_name="with")
-    @builtins.classmethod
-    def with_(cls, key_replacement: builtins.str) -> "ReplaceKey":
-        '''The specific object key to use in the redirect request.
-
-        :param key_replacement: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__080e6df7f96363149eb8dfbb9c1dcddefe96fd0ba7c0bb0e46fdbcf1b10d51a9)
-            check_type(argname="argument key_replacement", value=key_replacement, expected_type=type_hints["key_replacement"])
-        return typing.cast("ReplaceKey", jsii.sinvoke(cls, "with", [key_replacement]))
-
-    @builtins.property
-    @jsii.member(jsii_name="prefixWithKey")
-    def prefix_with_key(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "prefixWithKey"))
-
-    @builtins.property
-    @jsii.member(jsii_name="withKey")
-    def with_key(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "withKey"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.ReplicationRule",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination": "destination",
-        "access_control_transition": "accessControlTransition",
-        "delete_marker_replication": "deleteMarkerReplication",
-        "filter": "filter",
-        "id": "id",
-        "kms_key": "kmsKey",
-        "metrics": "metrics",
-        "priority": "priority",
-        "replica_modifications": "replicaModifications",
-        "replication_time_control": "replicationTimeControl",
-        "sse_kms_encrypted_objects": "sseKmsEncryptedObjects",
-        "storage_class": "storageClass",
-    },
-)
-class ReplicationRule:
-    def __init__(
-        self,
-        *,
-        destination: IBucket,
-        access_control_transition: typing.Optional[builtins.bool] = None,
-        delete_marker_replication: typing.Optional[builtins.bool] = None,
-        filter: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
-        id: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-        metrics: typing.Optional["ReplicationTimeValue"] = None,
-        priority: typing.Optional[jsii.Number] = None,
-        replica_modifications: typing.Optional[builtins.bool] = None,
-        replication_time_control: typing.Optional["ReplicationTimeValue"] = None,
-        sse_kms_encrypted_objects: typing.Optional[builtins.bool] = None,
-        storage_class: typing.Optional["StorageClass"] = None,
-    ) -> None:
-        '''Specifies which Amazon S3 objects to replicate and where to store the replicas.
-
-        :param destination: The destination bucket for the replicated objects. The destination can be either in the same AWS account or a cross account. If you want to configure cross-account replication, the destination bucket must have a policy that allows the source bucket to replicate objects to it.
-        :param access_control_transition: Whether to want to change replica ownership to the AWS account that owns the destination bucket. This can only be specified if the source bucket and the destination bucket are not in the same AWS account. Default: - The replicas are owned by same AWS account that owns the source object
-        :param delete_marker_replication: Specifies whether Amazon S3 replicates delete markers. Default: - delete markers in source bucket is not replicated to destination bucket
-        :param filter: A filter that identifies the subset of objects to which the replication rule applies. Default: - applies to all objects
-        :param id: A unique identifier for the rule. The maximum value is 255 characters. Default: - auto generated random ID
-        :param kms_key: The customer managed AWS KMS key stored in AWS Key Management Service (KMS) for the destination bucket. Amazon S3 uses this key to encrypt replica objects. Amazon S3 only supports symmetric encryption KMS keys. Default: - Amazon S3 uses the AWS managed KMS key for encryption
-        :param metrics: A container specifying replication metrics-related settings enabling replication metrics and events. When a value is set, metrics will be output to indicate whether the replication took longer than the specified time. Default: - Replication metrics are not enabled
-        :param priority: The priority indicates which rule has precedence whenever two or more replication rules conflict. Amazon S3 will attempt to replicate objects according to all replication rules. However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority. The higher the number, the higher the priority. It is essential to specify priority explicitly when the replication configuration has multiple rules. Default: 0
-        :param replica_modifications: Specifies whether Amazon S3 replicates modifications on replicas. Default: false
-        :param replication_time_control: Specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated. Default: - S3 Replication Time Control is not enabled
-        :param sse_kms_encrypted_objects: Specifies whether Amazon S3 replicates objects created with server-side encryption using an AWS KMS key stored in AWS Key Management Service. Default: false
-        :param storage_class: The storage class to use when replicating objects, such as S3 Standard or reduced redundancy. Default: - The storage class of the source object
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kms as kms
-            from aws_cdk import aws_s3 as s3
-            
-            # bucket: s3.Bucket
-            # key: kms.Key
-            # replication_time_value: s3.ReplicationTimeValue
-            # storage_class: s3.StorageClass
-            
-            replication_rule = s3.ReplicationRule(
-                destination=bucket,
-            
-                # the properties below are optional
-                access_control_transition=False,
-                delete_marker_replication=False,
-                filter=s3.Filter(
-                    prefix="prefix",
-                    tags=[s3.Tag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                id="id",
-                kms_key=key,
-                metrics=replication_time_value,
-                priority=123,
-                replica_modifications=False,
-                replication_time_control=replication_time_value,
-                sse_kms_encrypted_objects=False,
-                storage_class=storage_class
-            )
-        '''
-        if isinstance(filter, dict):
-            filter = Filter(**filter)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb99af4044ffb625b707ac7ff5de3796f00ec1217ed24e21f6c240e90e846f0)
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument access_control_transition", value=access_control_transition, expected_type=type_hints["access_control_transition"])
-            check_type(argname="argument delete_marker_replication", value=delete_marker_replication, expected_type=type_hints["delete_marker_replication"])
-            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-            check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument replica_modifications", value=replica_modifications, expected_type=type_hints["replica_modifications"])
-            check_type(argname="argument replication_time_control", value=replication_time_control, expected_type=type_hints["replication_time_control"])
-            check_type(argname="argument sse_kms_encrypted_objects", value=sse_kms_encrypted_objects, expected_type=type_hints["sse_kms_encrypted_objects"])
-            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination": destination,
-        }
-        if access_control_transition is not None:
-            self._values["access_control_transition"] = access_control_transition
-        if delete_marker_replication is not None:
-            self._values["delete_marker_replication"] = delete_marker_replication
-        if filter is not None:
-            self._values["filter"] = filter
-        if id is not None:
-            self._values["id"] = id
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-        if metrics is not None:
-            self._values["metrics"] = metrics
-        if priority is not None:
-            self._values["priority"] = priority
-        if replica_modifications is not None:
-            self._values["replica_modifications"] = replica_modifications
-        if replication_time_control is not None:
-            self._values["replication_time_control"] = replication_time_control
-        if sse_kms_encrypted_objects is not None:
-            self._values["sse_kms_encrypted_objects"] = sse_kms_encrypted_objects
-        if storage_class is not None:
-            self._values["storage_class"] = storage_class
-
-    @builtins.property
-    def destination(self) -> IBucket:
-        '''The destination bucket for the replicated objects.
-
-        The destination can be either in the same AWS account or a cross account.
-
-        If you want to configure cross-account replication,
-        the destination bucket must have a policy that allows the source bucket to replicate objects to it.
-
-        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html
-        '''
-        result = self._values.get("destination")
-        assert result is not None, "Required property 'destination' is missing"
-        return typing.cast(IBucket, result)
-
-    @builtins.property
-    def access_control_transition(self) -> typing.Optional[builtins.bool]:
-        '''Whether to want to change replica ownership to the AWS account that owns the destination bucket.
-
-        This can only be specified if the source bucket and the destination bucket are not in the same AWS account.
-
-        :default: - The replicas are owned by same AWS account that owns the source object
-        '''
-        result = self._values.get("access_control_transition")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def delete_marker_replication(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether Amazon S3 replicates delete markers.
-
-        :default: - delete markers in source bucket is not replicated to destination bucket
-
-        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-marker-replication.html
-        '''
-        result = self._values.get("delete_marker_replication")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def filter(self) -> typing.Optional[Filter]:
-        '''A filter that identifies the subset of objects to which the replication rule applies.
-
-        :default: - applies to all objects
-        '''
-        result = self._values.get("filter")
-        return typing.cast(typing.Optional[Filter], result)
-
-    @builtins.property
-    def id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for the rule.
-
-        The maximum value is 255 characters.
-
-        :default: - auto generated random ID
-        '''
-        result = self._values.get("id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The customer managed AWS KMS key stored in AWS Key Management Service (KMS) for the destination bucket.
-
-        Amazon S3 uses this key to encrypt replica objects.
-
-        Amazon S3 only supports symmetric encryption KMS keys.
-
-        :default: - Amazon S3 uses the AWS managed KMS key for encryption
-
-        :see: https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    @builtins.property
-    def metrics(self) -> typing.Optional["ReplicationTimeValue"]:
-        '''A container specifying replication metrics-related settings enabling replication metrics and events.
-
-        When a value is set, metrics will be output to indicate whether the replication took longer than the specified time.
-
-        :default: - Replication metrics are not enabled
-        '''
-        result = self._values.get("metrics")
-        return typing.cast(typing.Optional["ReplicationTimeValue"], result)
-
-    @builtins.property
-    def priority(self) -> typing.Optional[jsii.Number]:
-        '''The priority indicates which rule has precedence whenever two or more replication rules conflict.
-
-        Amazon S3 will attempt to replicate objects according to all replication rules.
-        However, if there are two or more rules with the same destination bucket,
-        then objects will be replicated according to the rule with the highest priority.
-
-        The higher the number, the higher the priority.
-
-        It is essential to specify priority explicitly when the replication configuration has multiple rules.
-
-        :default: 0
-        '''
-        result = self._values.get("priority")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def replica_modifications(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether Amazon S3 replicates modifications on replicas.
-
-        :default: false
-        '''
-        result = self._values.get("replica_modifications")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def replication_time_control(self) -> typing.Optional["ReplicationTimeValue"]:
-        '''Specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated.
-
-        :default: - S3 Replication Time Control is not enabled
-        '''
-        result = self._values.get("replication_time_control")
-        return typing.cast(typing.Optional["ReplicationTimeValue"], result)
-
-    @builtins.property
-    def sse_kms_encrypted_objects(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether Amazon S3 replicates objects created with server-side encryption using an AWS KMS key stored in AWS Key Management Service.
-
-        :default: false
-        '''
-        result = self._values.get("sse_kms_encrypted_objects")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def storage_class(self) -> typing.Optional["StorageClass"]:
-        '''The storage class to use when replicating objects, such as S3 Standard or reduced redundancy.
-
-        :default: - The storage class of the source object
-        '''
-        result = self._values.get("storage_class")
-        return typing.cast(typing.Optional["StorageClass"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicationRule(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class ReplicationTimeValue(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_s3.ReplicationTimeValue",
-):
-    '''The replication time value used for S3 Replication Time Control (S3 RTC).
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # destination_bucket1: s3.IBucket
-        # destination_bucket2: s3.IBucket
-        # replication_role: iam.IRole
-        # encryption_key: kms.IKey
-        # destination_encryption_key: kms.IKey
-        
-        
-        source_bucket = s3.Bucket(self, "SourceBucket",
-            # Versioning must be enabled on both the source and destination bucket
-            versioned=True,
-            # Optional. Specify the KMS key to use for encrypts objects in the source bucket.
-            encryption_key=encryption_key,
-            # Optional. If not specified, a new role will be created.
-            replication_role=replication_role,
-            replication_rules=[s3.ReplicationRule(
-                # The destination bucket for the replication rule.
-                destination=destination_bucket1,
-                # The priority of the rule.
-                # Amazon S3 will attempt to replicate objects according to all replication rules.
-                # However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority.
-                # The higher the number, the higher the priority.
-                # It is essential to specify priority explicitly when the replication configuration has multiple rules.
-                priority=1
-            ), s3.ReplicationRule(
-                destination=destination_bucket2,
-                priority=2,
-                # Whether to specify S3 Replication Time Control (S3 RTC).
-                # S3 RTC replicates most objects that you upload to Amazon S3 in seconds,
-                # and 99.99 percent of those objects within specified time.
-                replication_time_control=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                # Whether to enable replication metrics about S3 RTC.
-                # If set, metrics will be output to indicate whether replication by S3 RTC took longer than the configured time.
-                metrics=s3.ReplicationTimeValue.FIFTEEN_MINUTES,
-                # The kms key to use for the destination bucket.
-                kms_key=destination_encryption_key,
-                # The storage class to use for the destination bucket.
-                storage_class=s3.StorageClass.INFREQUENT_ACCESS,
-                # Whether to replicate objects with SSE-KMS encryption.
-                sse_kms_encrypted_objects=False,
-                # Whether to replicate modifications on replicas.
-                replica_modifications=True,
-                # Whether to replicate delete markers.
-                # This property cannot be enabled if the replication rule has a tag filter.
-                delete_marker_replication=False,
-                # The ID of the rule.
-                id="full-settings-rule",
-                # The object filter for the rule.
-                filter=s3.Filter(
-                    # The prefix filter for the rule.
-                    prefix="prefix",
-                    # The tag filter for the rule.
-                    tags=[s3.Tag(
-                        key="tagKey",
-                        value="tagValue"
-                    )
-                    ]
-                )
-            )
-            ]
-        )
-        
-        # Grant permissions to the replication role.
-        # This method is not required if you choose to use an auto-generated replication role or manually grant permissions.
-        source_bucket.grant_replication_permission(replication_role,
-            # Optional. Specify the KMS key to use for decrypting objects in the source bucket.
-            source_decryption_key=encryption_key,
-            destinations=[s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket1), s3.GrantReplicationPermissionDestinationProps(bucket=destination_bucket2, encryption_key=destination_encryption_key)
-            ]
-        )
-    '''
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="FIFTEEN_MINUTES")
-    def FIFTEEN_MINUTES(cls) -> "ReplicationTimeValue":
-        '''Fifteen minutes.'''
-        return typing.cast("ReplicationTimeValue", jsii.sget(cls, "FIFTEEN_MINUTES"))
-
-    @builtins.property
-    @jsii.member(jsii_name="minutes")
-    def minutes(self) -> jsii.Number:
-        '''the time in minutes.'''
-        return typing.cast(jsii.Number, jsii.get(self, "minutes"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.RoutingRule",
-    jsii_struct_bases=[],
-    name_mapping={
-        "condition": "condition",
-        "host_name": "hostName",
-        "http_redirect_code": "httpRedirectCode",
-        "protocol": "protocol",
-        "replace_key": "replaceKey",
-    },
-)
-class RoutingRule:
-    def __init__(
-        self,
-        *,
-        condition: typing.Optional[typing.Union["RoutingRuleCondition", typing.Dict[builtins.str, typing.Any]]] = None,
-        host_name: typing.Optional[builtins.str] = None,
-        http_redirect_code: typing.Optional[builtins.str] = None,
-        protocol: typing.Optional[RedirectProtocol] = None,
-        replace_key: typing.Optional[ReplaceKey] = None,
-    ) -> None:
-        '''Rule that define when a redirect is applied and the redirect behavior.
-
-        :param condition: Specifies a condition that must be met for the specified redirect to apply. Default: - No condition
-        :param host_name: The host name to use in the redirect request. Default: - The host name used in the original request.
-        :param http_redirect_code: The HTTP redirect code to use on the response. Default: "301" - Moved Permanently
-        :param protocol: Protocol to use when redirecting requests. Default: - The protocol used in the original request.
-        :param replace_key: Specifies the object key prefix to use in the redirect request. Default: - The key will not be replaced
-
-        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/how-to-page-redirect.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            # replace_key: s3.ReplaceKey
-            
-            routing_rule = s3.RoutingRule(
-                condition=s3.RoutingRuleCondition(
-                    http_error_code_returned_equals="httpErrorCodeReturnedEquals",
-                    key_prefix_equals="keyPrefixEquals"
-                ),
-                host_name="hostName",
-                http_redirect_code="httpRedirectCode",
-                protocol=s3.RedirectProtocol.HTTP,
-                replace_key=replace_key
-            )
-        '''
-        if isinstance(condition, dict):
-            condition = RoutingRuleCondition(**condition)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8752d303f1211901bb201082ccfac00227de7385764f326153a028696cc3c69)
-            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
-            check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
-            check_type(argname="argument http_redirect_code", value=http_redirect_code, expected_type=type_hints["http_redirect_code"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument replace_key", value=replace_key, expected_type=type_hints["replace_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if condition is not None:
-            self._values["condition"] = condition
-        if host_name is not None:
-            self._values["host_name"] = host_name
-        if http_redirect_code is not None:
-            self._values["http_redirect_code"] = http_redirect_code
-        if protocol is not None:
-            self._values["protocol"] = protocol
-        if replace_key is not None:
-            self._values["replace_key"] = replace_key
-
-    @builtins.property
-    def condition(self) -> typing.Optional["RoutingRuleCondition"]:
-        '''Specifies a condition that must be met for the specified redirect to apply.
-
-        :default: - No condition
-        '''
-        result = self._values.get("condition")
-        return typing.cast(typing.Optional["RoutingRuleCondition"], result)
-
-    @builtins.property
-    def host_name(self) -> typing.Optional[builtins.str]:
-        '''The host name to use in the redirect request.
-
-        :default: - The host name used in the original request.
-        '''
-        result = self._values.get("host_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def http_redirect_code(self) -> typing.Optional[builtins.str]:
-        '''The HTTP redirect code to use on the response.
-
-        :default: "301" - Moved Permanently
-        '''
-        result = self._values.get("http_redirect_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def protocol(self) -> typing.Optional[RedirectProtocol]:
-        '''Protocol to use when redirecting requests.
-
-        :default: - The protocol used in the original request.
-        '''
-        result = self._values.get("protocol")
-        return typing.cast(typing.Optional[RedirectProtocol], result)
-
-    @builtins.property
-    def replace_key(self) -> typing.Optional[ReplaceKey]:
-        '''Specifies the object key prefix to use in the redirect request.
-
-        :default: - The key will not be replaced
-        '''
-        result = self._values.get("replace_key")
-        return typing.cast(typing.Optional[ReplaceKey], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RoutingRule(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.RoutingRuleCondition",
-    jsii_struct_bases=[],
-    name_mapping={
-        "http_error_code_returned_equals": "httpErrorCodeReturnedEquals",
-        "key_prefix_equals": "keyPrefixEquals",
-    },
-)
-class RoutingRuleCondition:
-    def __init__(
-        self,
-        *,
-        http_error_code_returned_equals: typing.Optional[builtins.str] = None,
-        key_prefix_equals: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param http_error_code_returned_equals: The HTTP error code when the redirect is applied. In the event of an error, if the error code equals this value, then the specified redirect is applied. If both condition properties are specified, both must be true for the redirect to be applied. Default: - The HTTP error code will not be verified
-        :param key_prefix_equals: The object key name prefix when the redirect is applied. If both condition properties are specified, both must be true for the redirect to be applied. Default: - The object key name will not be verified
-
-        :exampleMetadata: infused
-
-        Example::
-
-            bucket = s3.Bucket(self, "MyRedirectedBucket",
-                website_routing_rules=[s3.RoutingRule(
-                    host_name="www.example.com",
-                    http_redirect_code="302",
-                    protocol=s3.RedirectProtocol.HTTPS,
-                    replace_key=s3.ReplaceKey.prefix_with("test/"),
-                    condition=s3.RoutingRuleCondition(
-                        http_error_code_returned_equals="200",
-                        key_prefix_equals="prefix"
-                    )
-                )
-                ]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f74cc1f2be83f337aa00add0668c647a4c8cec3ab5a8888461c0232bc9cd52)
-            check_type(argname="argument http_error_code_returned_equals", value=http_error_code_returned_equals, expected_type=type_hints["http_error_code_returned_equals"])
-            check_type(argname="argument key_prefix_equals", value=key_prefix_equals, expected_type=type_hints["key_prefix_equals"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if http_error_code_returned_equals is not None:
-            self._values["http_error_code_returned_equals"] = http_error_code_returned_equals
-        if key_prefix_equals is not None:
-            self._values["key_prefix_equals"] = key_prefix_equals
-
-    @builtins.property
-    def http_error_code_returned_equals(self) -> typing.Optional[builtins.str]:
-        '''The HTTP error code when the redirect is applied.
-
-        In the event of an error, if the error code equals this value, then the specified redirect is applied.
-
-        If both condition properties are specified, both must be true for the redirect to be applied.
-
-        :default: - The HTTP error code will not be verified
-        '''
-        result = self._values.get("http_error_code_returned_equals")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def key_prefix_equals(self) -> typing.Optional[builtins.str]:
-        '''The object key name prefix when the redirect is applied.
-
-        If both condition properties are specified, both must be true for the redirect to be applied.
-
-        :default: - The object key name will not be verified
-        '''
-        result = self._values.get("key_prefix_equals")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RoutingRuleCondition(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class StorageClass(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_s3.StorageClass",
-):
-    '''Storage class to move an object to.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        bucket = s3.Bucket(self, "MyBucket",
-            lifecycle_rules=[s3.LifecycleRule(
-                abort_incomplete_multipart_upload_after=Duration.minutes(30),
-                enabled=False,
-                expiration=Duration.days(30),
-                expiration_date=Date(),
-                expired_object_delete_marker=False,
-                id="id",
-                noncurrent_version_expiration=Duration.days(30),
-        
-                # the properties below are optional
-                noncurrent_versions_to_retain=123,
-                noncurrent_version_transitions=[s3.NoncurrentVersionTransition(
-                    storage_class=s3.StorageClass.GLACIER,
-                    transition_after=Duration.days(30),
-        
-                    # the properties below are optional
-                    noncurrent_versions_to_retain=123
-                )
-                ],
-                object_size_greater_than=500,
-                prefix="prefix",
-                object_size_less_than=10000,
-                transitions=[s3.Transition(
-                    storage_class=s3.StorageClass.GLACIER,
-        
-                    # exactly one of transitionAfter or transitionDate must be specified
-                    transition_after=Duration.days(30)
-                )
-                ]
-            )
-            ]
-        )
-    '''
-
-    def __init__(self, value: builtins.str) -> None:
-        '''
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d172840b868660ee39a22a52380b882acc3adf0baf3b1589cd0f0f5eb6c6fdf7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.create(self.__class__, self, [value])
-
-    @jsii.member(jsii_name="toString")
-    def to_string(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="DEEP_ARCHIVE")
-    def DEEP_ARCHIVE(cls) -> "StorageClass":
-        '''Use for archiving data that rarely needs to be accessed.
-
-        Data stored in the
-        DEEP_ARCHIVE storage class has a minimum storage duration period of 180
-        days and a default retrieval time of 12 hours. If you delete an object
-        before the 180-day minimum, you are charged for 180 days. For pricing
-        information, see Amazon S3 Pricing.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "DEEP_ARCHIVE"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="GLACIER")
-    def GLACIER(cls) -> "StorageClass":
-        '''Storage class for long-term archival that can take between minutes and hours to access.
-
-        Use for archives where portions of the data might need to be retrieved in
-        minutes. Data stored in the GLACIER storage class has a minimum storage
-        duration period of 90 days and can be accessed in as little as 1-5 minutes
-        using expedited retrieval. If you delete an object before the 90-day
-        minimum, you are charged for 90 days.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "GLACIER"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="GLACIER_INSTANT_RETRIEVAL")
-    def GLACIER_INSTANT_RETRIEVAL(cls) -> "StorageClass":
-        '''Storage class for long-term archival that can be accessed in a few milliseconds.
-
-        It is ideal for data that is accessed once or twice per quarter, and
-        that requires immediate access. Data stored in the GLACIER_IR storage class
-        has a minimum storage duration period of 90 days and can be accessed in
-        as milliseconds. If you delete an object before the 90-day minimum,
-        you are charged for 90 days.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "GLACIER_INSTANT_RETRIEVAL"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="INFREQUENT_ACCESS")
-    def INFREQUENT_ACCESS(cls) -> "StorageClass":
-        '''Storage class for data that is accessed less frequently, but requires rapid access when needed.
-
-        Has lower availability than Standard storage.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "INFREQUENT_ACCESS"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="INTELLIGENT_TIERING")
-    def INTELLIGENT_TIERING(cls) -> "StorageClass":
-        '''The INTELLIGENT_TIERING storage class is designed to optimize storage costs by automatically moving data to the most cost-effective storage access tier, without performance impact or operational overhead.
-
-        INTELLIGENT_TIERING delivers automatic cost savings by moving data on a
-        granular object level between two access tiers, a frequent access tier and
-        a lower-cost infrequent access tier, when access patterns change. The
-        INTELLIGENT_TIERING storage class is ideal if you want to optimize storage
-        costs automatically for long-lived data when access patterns are unknown or
-        unpredictable.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "INTELLIGENT_TIERING"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ONE_ZONE_INFREQUENT_ACCESS")
-    def ONE_ZONE_INFREQUENT_ACCESS(cls) -> "StorageClass":
-        '''Infrequent Access that's only stored in one availability zone.
-
-        Has lower availability than standard InfrequentAccess.
-        '''
-        return typing.cast("StorageClass", jsii.sget(cls, "ONE_ZONE_INFREQUENT_ACCESS"))
-
-    @builtins.property
-    @jsii.member(jsii_name="value")
-    def value(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "value"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.Tag",
-    jsii_struct_bases=[],
-    name_mapping={"key": "key", "value": "value"},
-)
-class Tag:
-    def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-        '''Tag.
-
-        :param key: key to e tagged.
-        :param value: additional value.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            tag = s3.Tag(
-                key="key",
-                value="value"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e29e6574d43989cdd3e313cbe8bac874337698fa60c17542c191cd683a838e3)
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key": key,
-            "value": value,
-        }
-
-    @builtins.property
-    def key(self) -> builtins.str:
-        '''key to e tagged.'''
-        result = self._values.get("key")
-        assert result is not None, "Required property 'key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def value(self) -> builtins.str:
-        '''additional value.'''
-        result = self._values.get("value")
-        assert result is not None, "Required property 'value' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Tag(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class TargetObjectKeyFormat(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_s3.TargetObjectKeyFormat",
-):
-    '''The key format for the log object.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        access_logs_bucket = s3.Bucket(self, "AccessLogsBucket")
-        
-        bucket = s3.Bucket(self, "MyBucket",
-            server_access_logs_bucket=access_logs_bucket,
-            server_access_logs_prefix="logs",
-            # You can use a simple prefix with `TargetObjectKeyFormat.simplePrefix()`, but it is the same even if you do not specify `targetObjectKeyFormat` property.
-            target_object_key_format=s3.TargetObjectKeyFormat.simple_prefix()
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="partitionedPrefix")
-    @builtins.classmethod
-    def partitioned_prefix(
-        cls,
-        date_source: typing.Optional[PartitionDateSource] = None,
-    ) -> "TargetObjectKeyFormat":
-        '''Use partitioned prefix for log objects. If you do not specify the dateSource argument, the default is EventTime.
-
-        The partitioned prefix format as follow:
-        [DestinationPrefix][SourceAccountId]/​[SourceRegion]/​[SourceBucket]/​[YYYY]/​[MM]/​[DD]/​[YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString]
-
-        :param date_source: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__809ebd5650171e4a75fd330e81161995116c2e7e2f44d102273c44e5f588f820)
-            check_type(argname="argument date_source", value=date_source, expected_type=type_hints["date_source"])
-        return typing.cast("TargetObjectKeyFormat", jsii.sinvoke(cls, "partitionedPrefix", [date_source]))
-
-    @jsii.member(jsii_name="simplePrefix")
-    @builtins.classmethod
-    def simple_prefix(cls) -> "TargetObjectKeyFormat":
-        '''Use the simple prefix for log objects.
-
-        The simple prefix format as follow:
-        [DestinationPrefix][YYYY]-[MM]-[DD]-[hh]-[mm]-[ss]-[UniqueString]
-        '''
-        return typing.cast("TargetObjectKeyFormat", jsii.sinvoke(cls, "simplePrefix", []))
-
-
-class _TargetObjectKeyFormatProxy(TargetObjectKeyFormat):
-    pass
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, TargetObjectKeyFormat).__jsii_proxy_class__ = lambda : _TargetObjectKeyFormatProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.TransferAccelerationUrlOptions",
-    jsii_struct_bases=[],
-    name_mapping={"dual_stack": "dualStack"},
-)
-class TransferAccelerationUrlOptions:
-    def __init__(self, *, dual_stack: typing.Optional[builtins.bool] = None) -> None:
-        '''Options for creating a Transfer Acceleration URL.
-
-        :param dual_stack: Dual-stack support to connect to the bucket over IPv6. Default: - false
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3 as s3
-            
-            transfer_acceleration_url_options = s3.TransferAccelerationUrlOptions(
-                dual_stack=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b7896c666f1ed607ff8c29acec3bda7e98b815485a75d7b49d5960890231a1d)
-            check_type(argname="argument dual_stack", value=dual_stack, expected_type=type_hints["dual_stack"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dual_stack is not None:
-            self._values["dual_stack"] = dual_stack
-
-    @builtins.property
-    def dual_stack(self) -> typing.Optional[builtins.bool]:
-        '''Dual-stack support to connect to the bucket over IPv6.
-
-        :default: - false
-        '''
-        result = self._values.get("dual_stack")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TransferAccelerationUrlOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.Transition",
-    jsii_struct_bases=[],
-    name_mapping={
-        "storage_class": "storageClass",
-        "transition_after": "transitionAfter",
-        "transition_date": "transitionDate",
-    },
-)
-class Transition:
-    def __init__(
-        self,
-        *,
-        storage_class: StorageClass,
-        transition_after: typing.Optional[_Duration_4839e8c3] = None,
-        transition_date: typing.Optional[datetime.datetime] = None,
-    ) -> None:
-        '''Describes when an object transitions to a specified storage class.
-
-        :param storage_class: The storage class to which you want the object to transition.
-        :param transition_after: Indicates the number of days after creation when objects are transitioned to the specified storage class. Default: - No transition count.
-        :param transition_date: Indicates when objects are transitioned to the specified storage class. The date value must be in ISO 8601 format. The time is always midnight UTC. Default: - No transition date.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_s3 as s3
-            
-            # storage_class: s3.StorageClass
-            
-            transition = s3.Transition(
-                storage_class=storage_class,
-            
-                # the properties below are optional
-                transition_after=cdk.Duration.minutes(30),
-                transition_date=Date()
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10688c7a0b8de7c4b20db878cadbd12d272ce9b2cb302efe953046bf83489f0f)
-            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
-            check_type(argname="argument transition_after", value=transition_after, expected_type=type_hints["transition_after"])
-            check_type(argname="argument transition_date", value=transition_date, expected_type=type_hints["transition_date"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "storage_class": storage_class,
-        }
-        if transition_after is not None:
-            self._values["transition_after"] = transition_after
-        if transition_date is not None:
-            self._values["transition_date"] = transition_date
-
-    @builtins.property
-    def storage_class(self) -> StorageClass:
-        '''The storage class to which you want the object to transition.'''
-        result = self._values.get("storage_class")
-        assert result is not None, "Required property 'storage_class' is missing"
-        return typing.cast(StorageClass, result)
-
-    @builtins.property
-    def transition_after(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''Indicates the number of days after creation when objects are transitioned to the specified storage class.
-
-        :default: - No transition count.
-        '''
-        result = self._values.get("transition_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def transition_date(self) -> typing.Optional[datetime.datetime]:
-        '''Indicates when objects are transitioned to the specified storage class.
-
-        The date value must be in ISO 8601 format. The time is always midnight UTC.
-
-        :default: - No transition date.
-        '''
-        result = self._values.get("transition_date")
-        return typing.cast(typing.Optional[datetime.datetime], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Transition(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.TransitionDefaultMinimumObjectSize")
-class TransitionDefaultMinimumObjectSize(enum.Enum):
-    '''The transition default minimum object size for lifecycle.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        s3.Bucket(self, "MyBucket",
-            transition_default_minimum_object_size=s3.TransitionDefaultMinimumObjectSize.VARIES_BY_STORAGE_CLASS,
-            lifecycle_rules=[s3.LifecycleRule(
-                transitions=[s3.Transition(
-                    storage_class=s3.StorageClass.DEEP_ARCHIVE,
-                    transition_after=Duration.days(30)
-                )]
-            ), s3.LifecycleRule(
-                object_size_less_than=300000,
-                object_size_greater_than=200000,
-                transitions=[s3.Transition(
-                    storage_class=s3.StorageClass.ONE_ZONE_INFREQUENT_ACCESS,
-                    transition_after=Duration.days(30)
-                )]
-            )
-            ]
-        )
-    '''
-
-    ALL_STORAGE_CLASSES_128_K = "ALL_STORAGE_CLASSES_128_K"
-    '''Objects smaller than 128 KB will not transition to any storage class by default.'''
-    VARIES_BY_STORAGE_CLASS = "VARIES_BY_STORAGE_CLASS"
-    '''Objects smaller than 128 KB will transition to Glacier Flexible Retrieval or Glacier Deep Archive storage classes.
-
-    By default, all other storage classes will prevent transitions smaller than 128 KB.
-    '''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3.VirtualHostedStyleUrlOptions",
-    jsii_struct_bases=[],
-    name_mapping={"regional": "regional"},
-)
-class VirtualHostedStyleUrlOptions:
-    def __init__(self, *, regional: typing.Optional[builtins.bool] = None) -> None:
-        '''Options for creating Virtual-Hosted style URL.
-
-        :param regional: Specifies the URL includes the region. Default: - true
-
-        :exampleMetadata: infused
-
-        Example::
-
-            bucket = s3.Bucket(self, "MyBucket")
-            bucket.url_for_object("objectname") # Path-Style URL
-            bucket.virtual_hosted_url_for_object("objectname") # Virtual Hosted-Style URL
-            bucket.virtual_hosted_url_for_object("objectname", regional=False)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__821852ae55e52ae1b92b181b16fc426016399b7271d4a8341cdb9da5c483e4b8)
-            check_type(argname="argument regional", value=regional, expected_type=type_hints["regional"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if regional is not None:
-            self._values["regional"] = regional
-
-    @builtins.property
-    def regional(self) -> typing.Optional[builtins.bool]:
-        '''Specifies the URL includes the region.
-
-        :default: - true
-        '''
-        result = self._values.get("regional")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VirtualHostedStyleUrlOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.implements(IBucket)
@@ -21500,6 +22563,12 @@ class BucketBase(
     def bucket_name(self) -> builtins.str:
         '''The name of the bucket.'''
         ...
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketRef")
+    def bucket_ref(self) -> BucketReference:
+        '''A reference to a Bucket resource.'''
+        return typing.cast(BucketReference, jsii.get(self, "bucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="bucketRegionalDomainName")
@@ -22283,6 +23352,10 @@ class Bucket(
 
 
 __all__ = [
+    "AccessGrantReference",
+    "AccessGrantsInstanceReference",
+    "AccessGrantsLocationReference",
+    "AccessPointReference",
     "BlockPublicAccess",
     "BlockPublicAccessOptions",
     "Bucket",
@@ -22295,7 +23368,9 @@ __all__ = [
     "BucketNotificationDestinationType",
     "BucketPolicy",
     "BucketPolicyProps",
+    "BucketPolicyReference",
     "BucketProps",
+    "BucketReference",
     "CfnAccessGrant",
     "CfnAccessGrantProps",
     "CfnAccessGrantsInstance",
@@ -22322,8 +23397,18 @@ __all__ = [
     "GrantReplicationPermissionDestinationProps",
     "GrantReplicationPermissionProps",
     "HttpMethods",
+    "IAccessGrantRef",
+    "IAccessGrantsInstanceRef",
+    "IAccessGrantsLocationRef",
+    "IAccessPointRef",
     "IBucket",
     "IBucketNotificationDestination",
+    "IBucketPolicyRef",
+    "IBucketRef",
+    "IMultiRegionAccessPointPolicyRef",
+    "IMultiRegionAccessPointRef",
+    "IStorageLensGroupRef",
+    "IStorageLensRef",
     "IntelligentTieringConfiguration",
     "Inventory",
     "InventoryDestination",
@@ -22332,6 +23417,8 @@ __all__ = [
     "InventoryObjectVersion",
     "LifecycleRule",
     "Location",
+    "MultiRegionAccessPointPolicyReference",
+    "MultiRegionAccessPointReference",
     "NoncurrentVersionTransition",
     "NotificationKeyFilter",
     "ObjectLockMode",
@@ -22347,6 +23434,8 @@ __all__ = [
     "RoutingRule",
     "RoutingRuleCondition",
     "StorageClass",
+    "StorageLensGroupReference",
+    "StorageLensReference",
     "Tag",
     "TargetObjectKeyFormat",
     "TransferAccelerationUrlOptions",
@@ -22356,6 +23445,37 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__fa94ec9cd9ee0007622ff8d0972b010b299eb9c7fde6df796e54df281c7c9ca6(
+    *,
+    access_grant_arn: builtins.str,
+    access_grant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df976e97867f75d16c7386359e80e4326881452e73771ce94a0b6a4419ebeadc(
+    *,
+    access_grants_instance_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4abb5f879af7600b277cc9a86c5bf5874078b7eb92605e3baf86feb06cf247b2(
+    *,
+    access_grants_location_arn: builtins.str,
+    access_grants_location_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__092ba63292f78503cb2a073b6f7747c2cce15e136f76c6c05715a6affe93e81c(
+    *,
+    access_point_arn: builtins.str,
+    access_point_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__7c7460d0788a3581f53118e0e633044dbbacdb3bb39e06a86a9c4e5c3d7e5a9f(
     value: typing.Optional[builtins.bool],
@@ -22427,32 +23547,17 @@ def _typecheckingstub__d6a435bc6f062bf994c2d09482e0e60e726c10272a9b728fd3ffc4281
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__910b3df1208e67cb52dad0b0b8c5feb43c7bddb0ced50eaf6c953477298a840e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    bucket: IBucket,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd3f50341cadbb894f48d7873cd17f90805868eb52fe95025e4a60567b5529f1(
-    cfn_bucket_policy: CfnBucketPolicy,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__70ab6602f43f75a64ae8e8349b5d140cdfefe9af2e4d2352ec6279ed1b544fca(
-    removal_policy: _RemovalPolicy_9f93c814,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4d7b9233434273933326211f004f27c2982fedd89ad904dc86d84c54f0f50ac6(
     *,
     bucket: IBucket,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01ced09519691ca37ae0567bb0801ed5daa2aceab1c87f5d2394c6e90397c2ed(
+    *,
+    bucket: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22493,6 +23598,425 @@ def _typecheckingstub__f2ff878f2dca3dd037442155369c2fcc7bd194425c0967a7fd7bfa576
     website_index_document: typing.Optional[builtins.str] = None,
     website_redirect: typing.Optional[typing.Union[RedirectTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     website_routing_rules: typing.Optional[typing.Sequence[typing.Union[RoutingRule, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a86cfbb4f4eba9bf41ace37d4d3693e8e2de937adefed5f9af44fa17698bcdf3(
+    *,
+    bucket_arn: builtins.str,
+    bucket_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6693824092437048ff69d9ab00d31c023baa833a8fec5c0bcd4d8fabe7901ca7(
+    *,
+    access_grants_location_id: builtins.str,
+    grantee: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.GranteeProperty, typing.Dict[builtins.str, typing.Any]]],
+    permission: builtins.str,
+    access_grants_location_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.AccessGrantsLocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_arn: typing.Optional[builtins.str] = None,
+    s3_prefix_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60225afff484a18da279540c306f31ca28ba21d38e2e53a434a570988d4050e2(
+    *,
+    identity_center_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f891152429263f2b2cdf0641e18212de422d1b020ebb0f7ffbac1e255090f5d(
+    *,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    location_scope: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78747b8f8c95f80def774b788cce8b1ff46ec71c89a1b75527040106602da5b3(
+    *,
+    bucket: builtins.str,
+    bucket_account_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    policy: typing.Any = None,
+    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e45362293c11bec4f214faabdb065f61ae05bd217411f39deaf7c82ac79ccf0(
+    *,
+    bucket: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__658a4165ec8804b9770871bbb27764713f55dc53e9c9e990dca120e7713b6fd8(
+    *,
+    accelerate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AccelerateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    access_control: typing.Optional[builtins.str] = None,
+    analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bucket_name: typing.Optional[builtins.str] = None,
+    cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.IntelligentTieringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    object_lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ObjectLockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    object_lock_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ownership_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.OwnershipControlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    website_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.WebsiteConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83dff8fea1cc4bc1e3a8051ab8dcc73809271fe45f045b7a620578ab1e838fb0(
+    *,
+    mrap_name: builtins.str,
+    policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9c34c742822cb3c6e1b5ff82e1cd9701cccdd13b6eca90aaa41af8e2b2160fb(
+    *,
+    regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.RegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: typing.Optional[builtins.str] = None,
+    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1507fb63678d3f602a3355afdc02627a401fd48b97ef9ac2aec6c8dbfb25cfc(
+    *,
+    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLensGroup.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4457e4bcc8248ede524c36517847e53317556018cc8b8eaa3a00e086f16cc74(
+    *,
+    storage_lens_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLens.StorageLensConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beafb715fedc4fd96130b462f30e56792d8aa655173f4d4fa2e8dcd77a7539e7(
+    *,
+    allowed_methods: typing.Sequence[HttpMethods],
+    allowed_origins: typing.Sequence[builtins.str],
+    allowed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    exposed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    max_age: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff4b8a813f6812ab1464fced92fa61b97e151767705973ce994c0970fde139df(
+    *,
+    prefix: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c28989eb119121ac7809e78ba2038558e14755021078bf7d97f894b34bc3311a(
+    *,
+    bucket: IBucket,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__892523669f29c26ab296b743291f04387d44edf1630a2288ab68d906f972d8ff(
+    *,
+    destinations: typing.Sequence[typing.Union[GrantReplicationPermissionDestinationProps, typing.Dict[builtins.str, typing.Any]]],
+    source_decryption_key: typing.Optional[_IKey_5f11635f] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c383a5262868f93c81da67f9058929f12151009bdb49b69a87ed6e62b4fe28a9(
+    scope: _constructs_77d1e7e8.Construct,
+    bucket: IBucketRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5a872b4e52f3fa296b07f8c2ef0ea3956aa019880ff4850ab95c5cd6bde38ae(
+    *,
+    name: builtins.str,
+    archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
+    deep_archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
+    prefix: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b50520ea10cd25b0243bc2814b1b5f3844d998374d49d7e51343bba962edb837(
+    *,
+    destination: typing.Union[InventoryDestination, typing.Dict[builtins.str, typing.Any]],
+    enabled: typing.Optional[builtins.bool] = None,
+    format: typing.Optional[InventoryFormat] = None,
+    frequency: typing.Optional[InventoryFrequency] = None,
+    include_object_versions: typing.Optional[InventoryObjectVersion] = None,
+    inventory_id: typing.Optional[builtins.str] = None,
+    objects_prefix: typing.Optional[builtins.str] = None,
+    optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44c25755abc9b158dc77d6a90064e0165cb0a20c5c7e20dc89fb38df2e7dded5(
+    *,
+    bucket: IBucket,
+    bucket_owner: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8e7ac9e486ca680ca8dffc9a76b32ed38369c97278548e908a0acbd3dcf2fc5(
+    *,
+    abort_incomplete_multipart_upload_after: typing.Optional[_Duration_4839e8c3] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    expiration: typing.Optional[_Duration_4839e8c3] = None,
+    expiration_date: typing.Optional[datetime.datetime] = None,
+    expired_object_delete_marker: typing.Optional[builtins.bool] = None,
+    id: typing.Optional[builtins.str] = None,
+    noncurrent_version_expiration: typing.Optional[_Duration_4839e8c3] = None,
+    noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
+    noncurrent_version_transitions: typing.Optional[typing.Sequence[typing.Union[NoncurrentVersionTransition, typing.Dict[builtins.str, typing.Any]]]] = None,
+    object_size_greater_than: typing.Optional[jsii.Number] = None,
+    object_size_less_than: typing.Optional[jsii.Number] = None,
+    prefix: typing.Optional[builtins.str] = None,
+    tag_filters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    transitions: typing.Optional[typing.Sequence[typing.Union[Transition, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d168957d45fdd37a3618738d958a758ca37ac6b118df34c7aaf08ac7f02853dc(
+    *,
+    bucket_name: builtins.str,
+    object_key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db5300ab524216e58d5efe0cac6f78b5be185877b4d20467f8eb68c4586dacd1(
+    *,
+    mrap_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ae04eb265ca1bc67d2394386f0d8e996192637319597e5e312f63d57787498a(
+    *,
+    multi_region_access_point_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e172df32791e08b327adeead864822f0327108fef6d11b60a2847d5ac563835b(
+    *,
+    storage_class: StorageClass,
+    transition_after: _Duration_4839e8c3,
+    noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9027ccde47331a53dd5d5647e0ac8b2d59832c2e174d2a101438fbf22f7f4ab1(
+    *,
+    prefix: typing.Optional[builtins.str] = None,
+    suffix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9490d8de494d11f7d3c1e46f6134d99456eca2e34e831d1d5d2b26c700781adb(
+    duration: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94e609b96749203cdf306d370e394200eb0c7ff96876338e53f416ce6dab46ab(
+    duration: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fe95c165eac8b0551cdcadba23dd748dd8fc69fa5f9fa2d5b7c3313f764386a(
+    *,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+    target: typing.Optional[_IRuleTarget_7a91f454] = None,
+    paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1720144bcc9a3e6ed5e09070dd4a288585844e0c282d63b4fc539bb068317132(
+    *,
+    host_name: builtins.str,
+    protocol: typing.Optional[RedirectProtocol] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbf2b903ac331e0cb09af7793e6968cb8ab89d46fe2d2feac3442e87251fd3b2(
+    key_replacement: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__080e6df7f96363149eb8dfbb9c1dcddefe96fd0ba7c0bb0e46fdbcf1b10d51a9(
+    key_replacement: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2eb99af4044ffb625b707ac7ff5de3796f00ec1217ed24e21f6c240e90e846f0(
+    *,
+    destination: IBucket,
+    access_control_transition: typing.Optional[builtins.bool] = None,
+    delete_marker_replication: typing.Optional[builtins.bool] = None,
+    filter: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
+    id: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    metrics: typing.Optional[ReplicationTimeValue] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    replica_modifications: typing.Optional[builtins.bool] = None,
+    replication_time_control: typing.Optional[ReplicationTimeValue] = None,
+    sse_kms_encrypted_objects: typing.Optional[builtins.bool] = None,
+    storage_class: typing.Optional[StorageClass] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8752d303f1211901bb201082ccfac00227de7385764f326153a028696cc3c69(
+    *,
+    condition: typing.Optional[typing.Union[RoutingRuleCondition, typing.Dict[builtins.str, typing.Any]]] = None,
+    host_name: typing.Optional[builtins.str] = None,
+    http_redirect_code: typing.Optional[builtins.str] = None,
+    protocol: typing.Optional[RedirectProtocol] = None,
+    replace_key: typing.Optional[ReplaceKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38f74cc1f2be83f337aa00add0668c647a4c8cec3ab5a8888461c0232bc9cd52(
+    *,
+    http_error_code_returned_equals: typing.Optional[builtins.str] = None,
+    key_prefix_equals: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d172840b868660ee39a22a52380b882acc3adf0baf3b1589cd0f0f5eb6c6fdf7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b63919b674fc43122b6a433f4bcd91bac627f1a7007b2c3e758988ff8c667dbd(
+    *,
+    storage_lens_group_arn: builtins.str,
+    storage_lens_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc54ff800dee061d4988bb5cc9e59ed84f5d9502fdb31f4185d3ede3a771716d(
+    *,
+    storage_lens_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e29e6574d43989cdd3e313cbe8bac874337698fa60c17542c191cd683a838e3(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__809ebd5650171e4a75fd330e81161995116c2e7e2f44d102273c44e5f588f820(
+    date_source: typing.Optional[PartitionDateSource] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b7896c666f1ed607ff8c29acec3bda7e98b815485a75d7b49d5960890231a1d(
+    *,
+    dual_stack: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10688c7a0b8de7c4b20db878cadbd12d272ce9b2cb302efe953046bf83489f0f(
+    *,
+    storage_class: StorageClass,
+    transition_after: typing.Optional[_Duration_4839e8c3] = None,
+    transition_date: typing.Optional[datetime.datetime] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__821852ae55e52ae1b92b181b16fc426016399b7271d4a8341cdb9da5c483e4b8(
+    *,
+    regional: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__910b3df1208e67cb52dad0b0b8c5feb43c7bddb0ced50eaf6c953477298a840e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    bucket: IBucket,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd3f50341cadbb894f48d7873cd17f90805868eb52fe95025e4a60567b5529f1(
+    cfn_bucket_policy: CfnBucketPolicy,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70ab6602f43f75a64ae8e8349b5d140cdfefe9af2e4d2352ec6279ed1b544fca(
+    removal_policy: _RemovalPolicy_9f93c814,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22581,19 +24105,6 @@ def _typecheckingstub__3b785c0bbe71b57995b307ae98fc32e70783df1424ad1c9234086809b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6693824092437048ff69d9ab00d31c023baa833a8fec5c0bcd4d8fabe7901ca7(
-    *,
-    access_grants_location_id: builtins.str,
-    grantee: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.GranteeProperty, typing.Dict[builtins.str, typing.Any]]],
-    permission: builtins.str,
-    access_grants_location_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessGrant.AccessGrantsLocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_arn: typing.Optional[builtins.str] = None,
-    s3_prefix_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9cd8a2d092322325cf4878b4c57abd47b0898523b929d6cd7eb4198d006d4ff2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22624,14 +24135,6 @@ def _typecheckingstub__d1edfd3c71ca2c204d8c2d42fea322038a8895b842d27bac8381609ce
 
 def _typecheckingstub__c9b78b2087e9cc15388ddb58da353ffe059b1e3b8044b2db62a599ecd5b176b4(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60225afff484a18da279540c306f31ca28ba21d38e2e53a434a570988d4050e2(
-    *,
-    identity_center_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22673,15 +24176,6 @@ def _typecheckingstub__80f4ecc1c277ca36e62d80157ee09c7e5856bf9bc1e1542588d3449f9
 
 def _typecheckingstub__34ec64e9e3a170eac86359c24d865c728a0273caa8c470380483ea14cc644f5c(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f891152429263f2b2cdf0641e18212de422d1b020ebb0f7ffbac1e255090f5d(
-    *,
-    iam_role_arn: typing.Optional[builtins.str] = None,
-    location_scope: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22768,19 +24262,6 @@ def _typecheckingstub__fa57a802a63b2b1b80fc49682ff16aac45bd54a4bd4a23826121c16a4
 def _typecheckingstub__3b2d60f9f612c992c225d3af9b49ef360fcb52f3f07a5403ebcac8b8d0cf2f20(
     *,
     vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__78747b8f8c95f80def774b788cce8b1ff46ec71c89a1b75527040106602da5b3(
-    *,
-    bucket: builtins.str,
-    bucket_account_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    policy: typing.Any = None,
-    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23569,42 +25050,6 @@ def _typecheckingstub__0e8fd92f949a743ee76326cb0c265c3f249d88130ab93dbd4233f7336
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4e45362293c11bec4f214faabdb065f61ae05bd217411f39deaf7c82ac79ccf0(
-    *,
-    bucket: builtins.str,
-    policy_document: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__658a4165ec8804b9770871bbb27764713f55dc53e9c9e990dca120e7713b6fd8(
-    *,
-    accelerate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AccelerateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    access_control: typing.Optional[builtins.str] = None,
-    analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bucket_name: typing.Optional[builtins.str] = None,
-    cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.IntelligentTieringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metadata_table_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetadataTableConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metrics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.NotificationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    object_lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ObjectLockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    object_lock_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ownership_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.OwnershipControlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    website_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.WebsiteConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5210a0982e35577fee7ff2694f121006d0a51d21a02dc73b3de6fb3b3839bde2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23701,23 +25146,6 @@ def _typecheckingstub__f652c96d8b984e16b2d02a6b6cce91057e4836c1eca63227e3d8951f8
 def _typecheckingstub__10aa16a619308de43f1b775bfade1b1920e8ee535a0030bc8aaa9ca41f724a3c(
     *,
     is_public: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__83dff8fea1cc4bc1e3a8051ab8dcc73809271fe45f045b7a620578ab1e838fb0(
-    *,
-    mrap_name: builtins.str,
-    policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e9c34c742822cb3c6e1b5ff82e1cd9701cccdd13b6eca90aaa41af8e2b2160fb(
-    *,
-    regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.RegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: typing.Optional[builtins.str] = None,
-    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24009,59 +25437,6 @@ def _typecheckingstub__fef499e038e3c4f4035d7b5a6dfed37ef055979ddb602c63478683397
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e1507fb63678d3f602a3355afdc02627a401fd48b97ef9ac2aec6c8dbfb25cfc(
-    *,
-    filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLensGroup.FilterProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4457e4bcc8248ede524c36517847e53317556018cc8b8eaa3a00e086f16cc74(
-    *,
-    storage_lens_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageLens.StorageLensConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__beafb715fedc4fd96130b462f30e56792d8aa655173f4d4fa2e8dcd77a7539e7(
-    *,
-    allowed_methods: typing.Sequence[HttpMethods],
-    allowed_origins: typing.Sequence[builtins.str],
-    allowed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    exposed_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    id: typing.Optional[builtins.str] = None,
-    max_age: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ff4b8a813f6812ab1464fced92fa61b97e151767705973ce994c0970fde139df(
-    *,
-    prefix: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c28989eb119121ac7809e78ba2038558e14755021078bf7d97f894b34bc3311a(
-    *,
-    bucket: IBucket,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__892523669f29c26ab296b743291f04387d44edf1630a2288ab68d906f972d8ff(
-    *,
-    destinations: typing.Sequence[typing.Union[GrantReplicationPermissionDestinationProps, typing.Dict[builtins.str, typing.Any]]],
-    source_decryption_key: typing.Optional[_IKey_5f11635f] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__eee382ff86c17d46379012dcccee86976ea92e15cb6d63c3e3f4e853c058ac53(
     value: typing.Optional[BucketPolicy],
 ) -> None:
@@ -24236,217 +25611,6 @@ def _typecheckingstub__34368dc633f217064106b6fb8352649bc55ae67d56a4eb93387f0703e
 
 def _typecheckingstub__993ef29805b7b5223d6327faefc00c505108a1497efd501af949abb29814758e(
     key: typing.Optional[builtins.str] = None,
-    *,
-    regional: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c383a5262868f93c81da67f9058929f12151009bdb49b69a87ed6e62b4fe28a9(
-    scope: _constructs_77d1e7e8.Construct,
-    bucket: IBucket,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d5a872b4e52f3fa296b07f8c2ef0ea3956aa019880ff4850ab95c5cd6bde38ae(
-    *,
-    name: builtins.str,
-    archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
-    deep_archive_access_tier_time: typing.Optional[_Duration_4839e8c3] = None,
-    prefix: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b50520ea10cd25b0243bc2814b1b5f3844d998374d49d7e51343bba962edb837(
-    *,
-    destination: typing.Union[InventoryDestination, typing.Dict[builtins.str, typing.Any]],
-    enabled: typing.Optional[builtins.bool] = None,
-    format: typing.Optional[InventoryFormat] = None,
-    frequency: typing.Optional[InventoryFrequency] = None,
-    include_object_versions: typing.Optional[InventoryObjectVersion] = None,
-    inventory_id: typing.Optional[builtins.str] = None,
-    objects_prefix: typing.Optional[builtins.str] = None,
-    optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__44c25755abc9b158dc77d6a90064e0165cb0a20c5c7e20dc89fb38df2e7dded5(
-    *,
-    bucket: IBucket,
-    bucket_owner: typing.Optional[builtins.str] = None,
-    prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c8e7ac9e486ca680ca8dffc9a76b32ed38369c97278548e908a0acbd3dcf2fc5(
-    *,
-    abort_incomplete_multipart_upload_after: typing.Optional[_Duration_4839e8c3] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    expiration: typing.Optional[_Duration_4839e8c3] = None,
-    expiration_date: typing.Optional[datetime.datetime] = None,
-    expired_object_delete_marker: typing.Optional[builtins.bool] = None,
-    id: typing.Optional[builtins.str] = None,
-    noncurrent_version_expiration: typing.Optional[_Duration_4839e8c3] = None,
-    noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
-    noncurrent_version_transitions: typing.Optional[typing.Sequence[typing.Union[NoncurrentVersionTransition, typing.Dict[builtins.str, typing.Any]]]] = None,
-    object_size_greater_than: typing.Optional[jsii.Number] = None,
-    object_size_less_than: typing.Optional[jsii.Number] = None,
-    prefix: typing.Optional[builtins.str] = None,
-    tag_filters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    transitions: typing.Optional[typing.Sequence[typing.Union[Transition, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d168957d45fdd37a3618738d958a758ca37ac6b118df34c7aaf08ac7f02853dc(
-    *,
-    bucket_name: builtins.str,
-    object_key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e172df32791e08b327adeead864822f0327108fef6d11b60a2847d5ac563835b(
-    *,
-    storage_class: StorageClass,
-    transition_after: _Duration_4839e8c3,
-    noncurrent_versions_to_retain: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9027ccde47331a53dd5d5647e0ac8b2d59832c2e174d2a101438fbf22f7f4ab1(
-    *,
-    prefix: typing.Optional[builtins.str] = None,
-    suffix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9490d8de494d11f7d3c1e46f6134d99456eca2e34e831d1d5d2b26c700781adb(
-    duration: _Duration_4839e8c3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94e609b96749203cdf306d370e394200eb0c7ff96876338e53f416ce6dab46ab(
-    duration: _Duration_4839e8c3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9fe95c165eac8b0551cdcadba23dd748dd8fc69fa5f9fa2d5b7c3313f764386a(
-    *,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[_EventPattern_fe557901, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-    target: typing.Optional[_IRuleTarget_7a91f454] = None,
-    paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1720144bcc9a3e6ed5e09070dd4a288585844e0c282d63b4fc539bb068317132(
-    *,
-    host_name: builtins.str,
-    protocol: typing.Optional[RedirectProtocol] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cbf2b903ac331e0cb09af7793e6968cb8ab89d46fe2d2feac3442e87251fd3b2(
-    key_replacement: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__080e6df7f96363149eb8dfbb9c1dcddefe96fd0ba7c0bb0e46fdbcf1b10d51a9(
-    key_replacement: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2eb99af4044ffb625b707ac7ff5de3796f00ec1217ed24e21f6c240e90e846f0(
-    *,
-    destination: IBucket,
-    access_control_transition: typing.Optional[builtins.bool] = None,
-    delete_marker_replication: typing.Optional[builtins.bool] = None,
-    filter: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
-    id: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    metrics: typing.Optional[ReplicationTimeValue] = None,
-    priority: typing.Optional[jsii.Number] = None,
-    replica_modifications: typing.Optional[builtins.bool] = None,
-    replication_time_control: typing.Optional[ReplicationTimeValue] = None,
-    sse_kms_encrypted_objects: typing.Optional[builtins.bool] = None,
-    storage_class: typing.Optional[StorageClass] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8752d303f1211901bb201082ccfac00227de7385764f326153a028696cc3c69(
-    *,
-    condition: typing.Optional[typing.Union[RoutingRuleCondition, typing.Dict[builtins.str, typing.Any]]] = None,
-    host_name: typing.Optional[builtins.str] = None,
-    http_redirect_code: typing.Optional[builtins.str] = None,
-    protocol: typing.Optional[RedirectProtocol] = None,
-    replace_key: typing.Optional[ReplaceKey] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38f74cc1f2be83f337aa00add0668c647a4c8cec3ab5a8888461c0232bc9cd52(
-    *,
-    http_error_code_returned_equals: typing.Optional[builtins.str] = None,
-    key_prefix_equals: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d172840b868660ee39a22a52380b882acc3adf0baf3b1589cd0f0f5eb6c6fdf7(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e29e6574d43989cdd3e313cbe8bac874337698fa60c17542c191cd683a838e3(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__809ebd5650171e4a75fd330e81161995116c2e7e2f44d102273c44e5f588f820(
-    date_source: typing.Optional[PartitionDateSource] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b7896c666f1ed607ff8c29acec3bda7e98b815485a75d7b49d5960890231a1d(
-    *,
-    dual_stack: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__10688c7a0b8de7c4b20db878cadbd12d272ce9b2cb302efe953046bf83489f0f(
-    *,
-    storage_class: StorageClass,
-    transition_after: typing.Optional[_Duration_4839e8c3] = None,
-    transition_date: typing.Optional[datetime.datetime] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__821852ae55e52ae1b92b181b16fc426016399b7271d4a8341cdb9da5c483e4b8(
     *,
     regional: typing.Optional[builtins.bool] = None,
 ) -> None:

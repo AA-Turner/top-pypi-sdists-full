@@ -1,65 +1,40 @@
-import os
-
 from setuptools import setup
 
-ROOT = os.path.dirname(os.path.realpath(__file__))
-
 setup(
-    # Meta data
-    name='grab',
-    version='0.6.41',
-    author='Gregory Petukhov',
-    author_email='lorien@lorien.name',
-    maintainer='Gregory Petukhov',
-    maintainer_email='lorien@lorien.name',
-    url='http://grablib.org',
-    description='Web Scraping Framework',
-    long_description=open(os.path.join(ROOT, 'README.rst')).read(),
-    download_url='https://pypi.python.org/pypi/grab',
-    keywords='pycurl multicurl curl network parsing grabbing scraping'
-             ' lxml xpath data mining',
-    license='MIT License',
-    # Package files
+    name="grab",
+    version="1.0.1",
     packages=[
-        'grab',
-        'grab.script',
-        'grab.spider',
-        'grab.spider.cache_backend',
-        'grab.spider.queue_backend',
-        'grab.spider.network_service',
-        'grab.transport',
-        'grab.util',
+        "grab",
+        "grab.script",
+        "grab.spider",
+        "grab.spider.cache_backend",
+        "grab.spider.queue_backend",
+        "grab.spider.network_service",
+        "grab.transport",
+        "grab.util",
     ],
-    include_package_data=True,
-    # Dependencies
     install_requires=[
-        'weblib>=0.1.28',
-        'six',
-        'user_agent',
-        'selection',
-        'lxml;platform_system!="Windows"',
-        'pycurl<7.43.0.2;platform_system!="Windows"',
-        'defusedxml',
+        "six",
+        "user_agent",
+        "selection>=2.0.1",
+        'lxml;platform_system != "Windows" or python_version >= "3.13"',
+        'pycurl;platform_system != "Windows" or python_version >= "3.13"',
+        "defusedxml",
+        'typing-extensions; python_version <= "2.7"',
     ],
     extras_require={
-        'full': ['urllib3', 'certifi'],
+        "full": [  # deprecated
+            "urllib3",
+            "certifi",
+        ],
+        "urllib3": [
+            "urllib3",
+            "certifi",
+        ],
+        "pyquery": [
+            'pyquery; platform_system != "Windows" and python_version >= "3.0"',
+            'pyquery; platform_system == "Windows" and python_version >= "3.13"',
+            'pyquery <= 1.4.1; platform_system != "Windows" and python_version <= "2.7"',
+        ],
     },
-    # Topics
-    classifiers=[
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'License :: OSI Approved :: MIT License',
-        'Development Status :: 5 - Production/Stable',
-        'Environment :: Console',
-        'Intended Audience :: Developers',
-        'Operating System :: OS Independent',
-        'Topic :: Software Development :: Libraries :: Application Frameworks',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-        'Topic :: Internet :: WWW/HTTP',
-    ],
 )

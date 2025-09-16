@@ -3795,7 +3795,7 @@ class IntegTestCaseStack(
         :param cross_region_references: Enable this flag to allow native cross region stack references. Enabling this will create a CloudFormation custom resource in both the producing stack and consuming stack in order to perform the export/import This feature is currently experimental Default: false
         :param description: A description of the stack. Default: - No description.
         :param env: The AWS environment (account/region) where this stack will be deployed. Set the ``region``/``account`` fields of ``env`` to either a concrete value to select the indicated environment (recommended for production stacks), or to the values of environment variables ``CDK_DEFAULT_REGION``/``CDK_DEFAULT_ACCOUNT`` to let the target environment depend on the AWS credentials/configuration that the CDK CLI is executed under (recommended for development stacks). If the ``Stack`` is instantiated inside a ``Stage``, any undefined ``region``/``account`` fields from ``env`` will default to the same field on the encompassing ``Stage``, if configured there. If either ``region`` or ``account`` are not set nor inherited from ``Stage``, the Stack will be considered "*environment-agnostic*"". Environment-agnostic stacks can be deployed to any environment but may not be able to take advantage of all features of the CDK. For example, they will not be able to use environmental context lookups such as ``ec2.Vpc.fromLookup`` and will not automatically translate Service Principals to the right format based on the environment's AWS partition, and other such enhancements. Default: - The environment of the containing ``Stage`` if available, otherwise create the stack will be environment-agnostic.
-        :param notification_arns: SNS Topic ARNs that will receive stack events. Default: - no notfication arns.
+        :param notification_arns: SNS Topic ARNs that will receive stack events. Default: - no notification arns.
         :param permissions_boundary: Options for applying a permissions boundary to all IAM Roles and Users created within this Stage. Default: - no permissions boundary is applied
         :param property_injectors: A list of IPropertyInjector attached to this Stack. Default: - no PropertyInjectors
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
@@ -3922,7 +3922,7 @@ class IntegTestCaseStackProps(
         :param cross_region_references: Enable this flag to allow native cross region stack references. Enabling this will create a CloudFormation custom resource in both the producing stack and consuming stack in order to perform the export/import This feature is currently experimental Default: false
         :param description: A description of the stack. Default: - No description.
         :param env: The AWS environment (account/region) where this stack will be deployed. Set the ``region``/``account`` fields of ``env`` to either a concrete value to select the indicated environment (recommended for production stacks), or to the values of environment variables ``CDK_DEFAULT_REGION``/``CDK_DEFAULT_ACCOUNT`` to let the target environment depend on the AWS credentials/configuration that the CDK CLI is executed under (recommended for development stacks). If the ``Stack`` is instantiated inside a ``Stage``, any undefined ``region``/``account`` fields from ``env`` will default to the same field on the encompassing ``Stage``, if configured there. If either ``region`` or ``account`` are not set nor inherited from ``Stage``, the Stack will be considered "*environment-agnostic*"". Environment-agnostic stacks can be deployed to any environment but may not be able to take advantage of all features of the CDK. For example, they will not be able to use environmental context lookups such as ``ec2.Vpc.fromLookup`` and will not automatically translate Service Principals to the right format based on the environment's AWS partition, and other such enhancements. Default: - The environment of the containing ``Stage`` if available, otherwise create the stack will be environment-agnostic.
-        :param notification_arns: SNS Topic ARNs that will receive stack events. Default: - no notfication arns.
+        :param notification_arns: SNS Topic ARNs that will receive stack events. Default: - no notification arns.
         :param permissions_boundary: Options for applying a permissions boundary to all IAM Roles and Users created within this Stage. Default: - no permissions boundary is applied
         :param property_injectors: A list of IPropertyInjector attached to this Stack. Default: - no PropertyInjectors
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
@@ -4186,7 +4186,7 @@ class IntegTestCaseStackProps(
     def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''SNS Topic ARNs that will receive stack events.
 
-        :default: - no notfication arns.
+        :default: - no notification arns.
         '''
         result = self._values.get("notification_arns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

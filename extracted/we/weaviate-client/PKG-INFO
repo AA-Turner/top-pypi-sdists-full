@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weaviate-client
-Version: 4.16.9
+Version: 4.16.10
 Summary: A python native Weaviate client
 Home-page: https://github.com/weaviate/weaviate-python-client
 Author: Weaviate
@@ -20,7 +20,7 @@ Requires-Dist: grpcio<1.80.0,>=1.59.5
 Requires-Dist: protobuf<7.0.0,>=4.21.6
 Requires-Dist: deprecation<3.0.0,>=2.1.0
 Provides-Extra: agents
-Requires-Dist: weaviate-agents<1.0.0,>=0.3.0; extra == "agents"
+Requires-Dist: weaviate-agents<2.0.0,>=1.0.0; extra == "agents"
 Dynamic: license-file
 
 Weaviate python client

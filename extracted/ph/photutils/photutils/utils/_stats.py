@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module defines nan-ignoring statistical functions, using bottleneck
-for performance if available.
+Define nan-ignoring statistical functions, using bottleneck for
+performance if available.
 """
 
 from functools import partial
@@ -44,7 +44,7 @@ if HAS_BOTTLENECK:
         array_new = np.transpose(array, other_axes + axis)
 
         # Reshape the array by combining the moved axes
-        return array_new.reshape(array_new.shape[:len(other_axes)] + (-1,))
+        return array_new.reshape((*array_new.shape[:len(other_axes)], -1))
 
     def _apply_bottleneck(function, array, axis=None, **kwargs):
         """

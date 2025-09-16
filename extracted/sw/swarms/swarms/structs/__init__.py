@@ -6,6 +6,7 @@ from swarms.structs.auto_swarm_builder import AutoSwarmBuilder
 from swarms.structs.base_structure import BaseStructure
 from swarms.structs.base_swarm import BaseSwarm
 from swarms.structs.batch_agent_execution import batch_agent_execution
+from swarms.structs.batched_grid_workflow import BatchedGridWorkflow
 from swarms.structs.concurrent_workflow import ConcurrentWorkflow
 from swarms.structs.conversation import Conversation
 from swarms.structs.council_as_judge import CouncilAsAJudge
@@ -47,16 +48,16 @@ from swarms.structs.meme_agent_persona_generator import (
 from swarms.structs.mixture_of_agents import MixtureOfAgents
 from swarms.structs.model_router import ModelRouter
 from swarms.structs.multi_agent_exec import (
+    batched_grid_agent_execution,
     get_agents_info,
     get_swarms_info,
-    run_agent_with_timeout,
+    run_agent_async,
     run_agents_concurrently,
     run_agents_concurrently_async,
     run_agents_concurrently_multiprocess,
-    run_agents_sequentially,
+    run_agents_concurrently_uvloop,
     run_agents_with_different_tasks,
-    run_agents_with_resource_monitoring,
-    run_agents_with_tasks_concurrently,
+    run_agents_with_tasks_uvloop,
     run_single_agent,
 )
 from swarms.structs.multi_agent_router import MultiAgentRouter
@@ -140,15 +141,15 @@ __all__ = [
     "SwarmRouter",
     "SwarmType",
     "SwarmRearrange",
+    "batched_grid_agent_execution",
+    "run_agent_async",
     "run_agents_concurrently",
     "run_agents_concurrently_async",
-    "run_single_agent",
     "run_agents_concurrently_multiprocess",
-    "run_agents_sequentially",
+    "run_agents_concurrently_uvloop",
     "run_agents_with_different_tasks",
-    "run_agent_with_timeout",
-    "run_agents_with_resource_monitoring",
-    "run_agents_with_tasks_concurrently",
+    "run_agents_with_tasks_uvloop",
+    "run_single_agent",
     "GroupChat",
     "expertise_based",
     "MultiAgentRouter",
@@ -184,4 +185,5 @@ __all__ = [
     "check_exit",
     "check_end",
     "AgentLoader",
+    "BatchedGridWorkflow",
 ]

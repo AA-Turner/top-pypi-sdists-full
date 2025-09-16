@@ -69,7 +69,227 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotcoredeviceadvisor.CfnSuiteDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "suite_definition_configuration": "suiteDefinitionConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnSuiteDefinitionProps:
+    def __init__(
+        self,
+        *,
+        suite_definition_configuration: typing.Any,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSuiteDefinition``.
+
+        :param suite_definition_configuration: The configuration of the Suite Definition. Listed below are the required elements of the ``SuiteDefinitionConfiguration`` . - ***devicePermissionRoleArn*** - The device permission arn. This is a required element. *Type:* String - ***devices*** - The list of configured devices under test. For more information on devices under test, see `DeviceUnderTest <https://docs.aws.amazon.com/iot/latest/apireference/API_iotdeviceadvisor_DeviceUnderTest.html>`_ Not a required element. *Type:* List of devices under test - ***intendedForQualification*** - The tests intended for qualification in a suite. Not a required element. *Type:* Boolean - ***rootGroup*** - The test suite root group. For more information on creating and using root groups see the `Device Advisor workflow <https://docs.aws.amazon.com/iot/latest/developerguide/device-advisor-workflow.html>`_ . This is a required element. *Type:* String - ***suiteDefinitionName*** - The Suite Definition Configuration name. This is a required element. *Type:* String
+        :param tags: Metadata that can be used to manage the the Suite Definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotcoredeviceadvisor as iotcoredeviceadvisor
+            
+            # suite_definition_configuration: Any
+            
+            cfn_suite_definition_props = iotcoredeviceadvisor.CfnSuiteDefinitionProps(
+                suite_definition_configuration=suite_definition_configuration,
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a1bf45ec004a9aea8096b474c6edc62abc371cd3d6adc9e0f1362e1053a1891)
+            check_type(argname="argument suite_definition_configuration", value=suite_definition_configuration, expected_type=type_hints["suite_definition_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "suite_definition_configuration": suite_definition_configuration,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def suite_definition_configuration(self) -> typing.Any:
+        '''The configuration of the Suite Definition. Listed below are the required elements of the ``SuiteDefinitionConfiguration`` .
+
+        - ***devicePermissionRoleArn*** - The device permission arn.
+
+        This is a required element.
+
+        *Type:* String
+
+        - ***devices*** - The list of configured devices under test. For more information on devices under test, see `DeviceUnderTest <https://docs.aws.amazon.com/iot/latest/apireference/API_iotdeviceadvisor_DeviceUnderTest.html>`_
+
+        Not a required element.
+
+        *Type:* List of devices under test
+
+        - ***intendedForQualification*** - The tests intended for qualification in a suite.
+
+        Not a required element.
+
+        *Type:* Boolean
+
+        - ***rootGroup*** - The test suite root group. For more information on creating and using root groups see the `Device Advisor workflow <https://docs.aws.amazon.com/iot/latest/developerguide/device-advisor-workflow.html>`_ .
+
+        This is a required element.
+
+        *Type:* String
+
+        - ***suiteDefinitionName*** - The Suite Definition Configuration name.
+
+        This is a required element.
+
+        *Type:* String
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html#cfn-iotcoredeviceadvisor-suitedefinition-suitedefinitionconfiguration
+        '''
+        result = self._values.get("suite_definition_configuration")
+        assert result is not None, "Required property 'suite_definition_configuration' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the the Suite Definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html#cfn-iotcoredeviceadvisor-suitedefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSuiteDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotcoredeviceadvisor.ISuiteDefinitionRef")
+class ISuiteDefinitionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SuiteDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="suiteDefinitionRef")
+    def suite_definition_ref(self) -> "SuiteDefinitionReference":
+        '''(experimental) A reference to a SuiteDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISuiteDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SuiteDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotcoredeviceadvisor.ISuiteDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="suiteDefinitionRef")
+    def suite_definition_ref(self) -> "SuiteDefinitionReference":
+        '''(experimental) A reference to a SuiteDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SuiteDefinitionReference", jsii.get(self, "suiteDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISuiteDefinitionRef).__jsii_proxy_class__ = lambda : _ISuiteDefinitionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotcoredeviceadvisor.SuiteDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "suite_definition_arn": "suiteDefinitionArn",
+        "suite_definition_id": "suiteDefinitionId",
+    },
+)
+class SuiteDefinitionReference:
+    def __init__(
+        self,
+        *,
+        suite_definition_arn: builtins.str,
+        suite_definition_id: builtins.str,
+    ) -> None:
+        '''A reference to a SuiteDefinition resource.
+
+        :param suite_definition_arn: The ARN of the SuiteDefinition resource.
+        :param suite_definition_id: The SuiteDefinitionId of the SuiteDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotcoredeviceadvisor as iotcoredeviceadvisor
+            
+            suite_definition_reference = iotcoredeviceadvisor.SuiteDefinitionReference(
+                suite_definition_arn="suiteDefinitionArn",
+                suite_definition_id="suiteDefinitionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77eb8a336ca8ea3ffd78aafea87febe408350ad461754f13478a1b2f1a43fabe)
+            check_type(argname="argument suite_definition_arn", value=suite_definition_arn, expected_type=type_hints["suite_definition_arn"])
+            check_type(argname="argument suite_definition_id", value=suite_definition_id, expected_type=type_hints["suite_definition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "suite_definition_arn": suite_definition_arn,
+            "suite_definition_id": suite_definition_id,
+        }
+
+    @builtins.property
+    def suite_definition_arn(self) -> builtins.str:
+        '''The ARN of the SuiteDefinition resource.'''
+        result = self._values.get("suite_definition_arn")
+        assert result is not None, "Required property 'suite_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def suite_definition_id(self) -> builtins.str:
+        '''The SuiteDefinitionId of the SuiteDefinition resource.'''
+        result = self._values.get("suite_definition_id")
+        assert result is not None, "Required property 'suite_definition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SuiteDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ISuiteDefinitionRef, _ITaggable_36806126)
 class CfnSuiteDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -187,6 +407,12 @@ class CfnSuiteDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="suiteDefinitionRef")
+    def suite_definition_ref(self) -> SuiteDefinitionReference:
+        '''A reference to a SuiteDefinition resource.'''
+        return typing.cast(SuiteDefinitionReference, jsii.get(self, "suiteDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -435,124 +661,30 @@ class CfnSuiteDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotcoredeviceadvisor.CfnSuiteDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "suite_definition_configuration": "suiteDefinitionConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnSuiteDefinitionProps:
-    def __init__(
-        self,
-        *,
-        suite_definition_configuration: typing.Any,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSuiteDefinition``.
-
-        :param suite_definition_configuration: The configuration of the Suite Definition. Listed below are the required elements of the ``SuiteDefinitionConfiguration`` . - ***devicePermissionRoleArn*** - The device permission arn. This is a required element. *Type:* String - ***devices*** - The list of configured devices under test. For more information on devices under test, see `DeviceUnderTest <https://docs.aws.amazon.com/iot/latest/apireference/API_iotdeviceadvisor_DeviceUnderTest.html>`_ Not a required element. *Type:* List of devices under test - ***intendedForQualification*** - The tests intended for qualification in a suite. Not a required element. *Type:* Boolean - ***rootGroup*** - The test suite root group. For more information on creating and using root groups see the `Device Advisor workflow <https://docs.aws.amazon.com/iot/latest/developerguide/device-advisor-workflow.html>`_ . This is a required element. *Type:* String - ***suiteDefinitionName*** - The Suite Definition Configuration name. This is a required element. *Type:* String
-        :param tags: Metadata that can be used to manage the the Suite Definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotcoredeviceadvisor as iotcoredeviceadvisor
-            
-            # suite_definition_configuration: Any
-            
-            cfn_suite_definition_props = iotcoredeviceadvisor.CfnSuiteDefinitionProps(
-                suite_definition_configuration=suite_definition_configuration,
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a1bf45ec004a9aea8096b474c6edc62abc371cd3d6adc9e0f1362e1053a1891)
-            check_type(argname="argument suite_definition_configuration", value=suite_definition_configuration, expected_type=type_hints["suite_definition_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "suite_definition_configuration": suite_definition_configuration,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def suite_definition_configuration(self) -> typing.Any:
-        '''The configuration of the Suite Definition. Listed below are the required elements of the ``SuiteDefinitionConfiguration`` .
-
-        - ***devicePermissionRoleArn*** - The device permission arn.
-
-        This is a required element.
-
-        *Type:* String
-
-        - ***devices*** - The list of configured devices under test. For more information on devices under test, see `DeviceUnderTest <https://docs.aws.amazon.com/iot/latest/apireference/API_iotdeviceadvisor_DeviceUnderTest.html>`_
-
-        Not a required element.
-
-        *Type:* List of devices under test
-
-        - ***intendedForQualification*** - The tests intended for qualification in a suite.
-
-        Not a required element.
-
-        *Type:* Boolean
-
-        - ***rootGroup*** - The test suite root group. For more information on creating and using root groups see the `Device Advisor workflow <https://docs.aws.amazon.com/iot/latest/developerguide/device-advisor-workflow.html>`_ .
-
-        This is a required element.
-
-        *Type:* String
-
-        - ***suiteDefinitionName*** - The Suite Definition Configuration name.
-
-        This is a required element.
-
-        *Type:* String
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html#cfn-iotcoredeviceadvisor-suitedefinition-suitedefinitionconfiguration
-        '''
-        result = self._values.get("suite_definition_configuration")
-        assert result is not None, "Required property 'suite_definition_configuration' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the the Suite Definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotcoredeviceadvisor-suitedefinition.html#cfn-iotcoredeviceadvisor-suitedefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSuiteDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnSuiteDefinition",
     "CfnSuiteDefinitionProps",
+    "ISuiteDefinitionRef",
+    "SuiteDefinitionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1a1bf45ec004a9aea8096b474c6edc62abc371cd3d6adc9e0f1362e1053a1891(
+    *,
+    suite_definition_configuration: typing.Any,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77eb8a336ca8ea3ffd78aafea87febe408350ad461754f13478a1b2f1a43fabe(
+    *,
+    suite_definition_arn: builtins.str,
+    suite_definition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__945861bb0ea34e6da34c3c8b60ba3b233f881a73cecd8fa75200bae6d1751207(
     scope: _constructs_77d1e7e8.Construct,
@@ -603,14 +735,6 @@ def _typecheckingstub__ca9dfe56a34afc7e2b0f82879e2d57319c1c636afc88023fc9e530655
     devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSuiteDefinition.DeviceUnderTestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     intended_for_qualification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     suite_definition_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1a1bf45ec004a9aea8096b474c6edc62abc371cd3d6adc9e0f1362e1053a1891(
-    *,
-    suite_definition_configuration: typing.Any,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

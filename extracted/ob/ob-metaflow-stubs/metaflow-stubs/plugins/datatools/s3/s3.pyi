@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-09T09:20:35.580308                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-16T01:38:51.284440                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.exception
     import metaflow.plugins.datatools.s3.s3

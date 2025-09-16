@@ -69,7 +69,312 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_finspace.CfnEnvironmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "data_bundles": "dataBundles",
+        "description": "description",
+        "federation_mode": "federationMode",
+        "federation_parameters": "federationParameters",
+        "kms_key_id": "kmsKeyId",
+        "superuser_parameters": "superuserParameters",
+        "tags": "tags",
+    },
+)
+class CfnEnvironmentProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        federation_mode: typing.Optional[builtins.str] = None,
+        federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.FederationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.SuperuserParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnvironment``.
+
+        :param name: The name of the FinSpace environment.
+        :param data_bundles: (deprecated) ARNs of FinSpace Data Bundles to install.
+        :param description: The description of the FinSpace environment.
+        :param federation_mode: The authentication mode for the environment.
+        :param federation_parameters: Configuration information when authentication mode is FEDERATED.
+        :param kms_key_id: The KMS key id used to encrypt in the FinSpace environment.
+        :param superuser_parameters: Configuration information for the superuser.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_finspace as finspace
+            
+            cfn_environment_props = finspace.CfnEnvironmentProps(
+                name="name",
+            
+                # the properties below are optional
+                data_bundles=["dataBundles"],
+                description="description",
+                federation_mode="federationMode",
+                federation_parameters=finspace.CfnEnvironment.FederationParametersProperty(
+                    application_call_back_url="applicationCallBackUrl",
+                    attribute_map=[finspace.CfnEnvironment.AttributeMapItemsProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    federation_provider_name="federationProviderName",
+                    federation_urn="federationUrn",
+                    saml_metadata_document="samlMetadataDocument",
+                    saml_metadata_url="samlMetadataUrl"
+                ),
+                kms_key_id="kmsKeyId",
+                superuser_parameters=finspace.CfnEnvironment.SuperuserParametersProperty(
+                    email_address="emailAddress",
+                    first_name="firstName",
+                    last_name="lastName"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument data_bundles", value=data_bundles, expected_type=type_hints["data_bundles"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument federation_mode", value=federation_mode, expected_type=type_hints["federation_mode"])
+            check_type(argname="argument federation_parameters", value=federation_parameters, expected_type=type_hints["federation_parameters"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument superuser_parameters", value=superuser_parameters, expected_type=type_hints["superuser_parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if data_bundles is not None:
+            self._values["data_bundles"] = data_bundles
+        if description is not None:
+            self._values["description"] = description
+        if federation_mode is not None:
+            self._values["federation_mode"] = federation_mode
+        if federation_parameters is not None:
+            self._values["federation_parameters"] = federation_parameters
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if superuser_parameters is not None:
+            self._values["superuser_parameters"] = superuser_parameters
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the FinSpace environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_bundles(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) ARNs of FinSpace Data Bundles to install.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-databundles
+        :stability: deprecated
+        '''
+        result = self._values.get("data_bundles")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the FinSpace environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def federation_mode(self) -> typing.Optional[builtins.str]:
+        '''The authentication mode for the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-federationmode
+        '''
+        result = self._values.get("federation_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def federation_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.FederationParametersProperty"]]:
+        '''Configuration information when authentication mode is FEDERATED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-federationparameters
+        '''
+        result = self._values.get("federation_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.FederationParametersProperty"]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The KMS key id used to encrypt in the FinSpace environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def superuser_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.SuperuserParametersProperty"]]:
+        '''Configuration information for the superuser.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-superuserparameters
+        '''
+        result = self._values.get("superuser_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.SuperuserParametersProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_finspace.EnvironmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_arn": "environmentArn",
+        "environment_id": "environmentId",
+    },
+)
+class EnvironmentReference:
+    def __init__(
+        self,
+        *,
+        environment_arn: builtins.str,
+        environment_id: builtins.str,
+    ) -> None:
+        '''A reference to a Environment resource.
+
+        :param environment_arn: The ARN of the Environment resource.
+        :param environment_id: The EnvironmentId of the Environment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_finspace as finspace
+            
+            environment_reference = finspace.EnvironmentReference(
+                environment_arn="environmentArn",
+                environment_id="environmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d6808ce9242839e88bae86a938b2dba70e2ac00b7f2ba951429103d22c32dd7)
+            check_type(argname="argument environment_arn", value=environment_arn, expected_type=type_hints["environment_arn"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_arn": environment_arn,
+            "environment_id": environment_id,
+        }
+
+    @builtins.property
+    def environment_arn(self) -> builtins.str:
+        '''The ARN of the Environment resource.'''
+        result = self._values.get("environment_arn")
+        assert result is not None, "Required property 'environment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_id(self) -> builtins.str:
+        '''The EnvironmentId of the Environment resource.'''
+        result = self._values.get("environment_id")
+        assert result is not None, "Required property 'environment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_finspace.IEnvironmentRef")
+class IEnvironmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEnvironmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_finspace.IEnvironmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvironmentRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IEnvironmentRef, _ITaggable_36806126)
 class CfnEnvironment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -258,6 +563,12 @@ class CfnEnvironment(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''A reference to a Environment resource.'''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -693,209 +1004,36 @@ class CfnEnvironment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_finspace.CfnEnvironmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "data_bundles": "dataBundles",
-        "description": "description",
-        "federation_mode": "federationMode",
-        "federation_parameters": "federationParameters",
-        "kms_key_id": "kmsKeyId",
-        "superuser_parameters": "superuserParameters",
-        "tags": "tags",
-    },
-)
-class CfnEnvironmentProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        federation_mode: typing.Optional[builtins.str] = None,
-        federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnvironment``.
-
-        :param name: The name of the FinSpace environment.
-        :param data_bundles: (deprecated) ARNs of FinSpace Data Bundles to install.
-        :param description: The description of the FinSpace environment.
-        :param federation_mode: The authentication mode for the environment.
-        :param federation_parameters: Configuration information when authentication mode is FEDERATED.
-        :param kms_key_id: The KMS key id used to encrypt in the FinSpace environment.
-        :param superuser_parameters: Configuration information for the superuser.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_finspace as finspace
-            
-            cfn_environment_props = finspace.CfnEnvironmentProps(
-                name="name",
-            
-                # the properties below are optional
-                data_bundles=["dataBundles"],
-                description="description",
-                federation_mode="federationMode",
-                federation_parameters=finspace.CfnEnvironment.FederationParametersProperty(
-                    application_call_back_url="applicationCallBackUrl",
-                    attribute_map=[finspace.CfnEnvironment.AttributeMapItemsProperty(
-                        key="key",
-                        value="value"
-                    )],
-                    federation_provider_name="federationProviderName",
-                    federation_urn="federationUrn",
-                    saml_metadata_document="samlMetadataDocument",
-                    saml_metadata_url="samlMetadataUrl"
-                ),
-                kms_key_id="kmsKeyId",
-                superuser_parameters=finspace.CfnEnvironment.SuperuserParametersProperty(
-                    email_address="emailAddress",
-                    first_name="firstName",
-                    last_name="lastName"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument data_bundles", value=data_bundles, expected_type=type_hints["data_bundles"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument federation_mode", value=federation_mode, expected_type=type_hints["federation_mode"])
-            check_type(argname="argument federation_parameters", value=federation_parameters, expected_type=type_hints["federation_parameters"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument superuser_parameters", value=superuser_parameters, expected_type=type_hints["superuser_parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if data_bundles is not None:
-            self._values["data_bundles"] = data_bundles
-        if description is not None:
-            self._values["description"] = description
-        if federation_mode is not None:
-            self._values["federation_mode"] = federation_mode
-        if federation_parameters is not None:
-            self._values["federation_parameters"] = federation_parameters
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if superuser_parameters is not None:
-            self._values["superuser_parameters"] = superuser_parameters
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the FinSpace environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_bundles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) ARNs of FinSpace Data Bundles to install.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-databundles
-        :stability: deprecated
-        '''
-        result = self._values.get("data_bundles")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the FinSpace environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def federation_mode(self) -> typing.Optional[builtins.str]:
-        '''The authentication mode for the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-federationmode
-        '''
-        result = self._values.get("federation_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def federation_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.FederationParametersProperty]]:
-        '''Configuration information when authentication mode is FEDERATED.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-federationparameters
-        '''
-        result = self._values.get("federation_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.FederationParametersProperty]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The KMS key id used to encrypt in the FinSpace environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def superuser_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.SuperuserParametersProperty]]:
-        '''Configuration information for the superuser.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-superuserparameters
-        '''
-        result = self._values.get("superuser_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.SuperuserParametersProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnvironmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnEnvironment",
     "CfnEnvironmentProps",
+    "EnvironmentReference",
+    "IEnvironmentRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3(
+    *,
+    name: builtins.str,
+    data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    federation_mode: typing.Optional[builtins.str] = None,
+    federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d6808ce9242839e88bae86a938b2dba70e2ac00b7f2ba951429103d22c32dd7(
+    *,
+    environment_arn: builtins.str,
+    environment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__9f57ac69116cda232b57cc77dd248367e34b3decfb4cc4cd606394bbf0afc629(
     scope: _constructs_77d1e7e8.Construct,
@@ -998,20 +1136,6 @@ def _typecheckingstub__30a1d9568bcc8c25bfd4568d72ee1d13dea0ac6eb1eeaac5c76a6db3d
     email_address: typing.Optional[builtins.str] = None,
     first_name: typing.Optional[builtins.str] = None,
     last_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3(
-    *,
-    name: builtins.str,
-    data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    federation_mode: typing.Optional[builtins.str] = None,
-    federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

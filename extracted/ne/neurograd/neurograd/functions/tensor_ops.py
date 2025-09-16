@@ -222,6 +222,8 @@ class SlidingWindowView(Function, Module):
             A, self.window_shape, self.axes)[self.slices]
     def backward(self, grad_output: xp.ndarray) -> xp.ndarray:
         A = self.parent_tensors[0]
+        if not A.requires_grad:
+            return None
         grad_buffer = xp.zeros(A.shape, dtype=grad_output.dtype)
         kwargs = {"writeable": True} if xp is np else {}
         grad_view = xp.lib.stride_tricks.sliding_window_view(

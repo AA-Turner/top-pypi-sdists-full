@@ -6,8 +6,10 @@ import re
 import unicodedata
 from typing import TYPE_CHECKING, Literal
 
+from bs4.element import NavigableString
+
 if TYPE_CHECKING:
-    from bs4 import NavigableString, PageElement, Tag
+    from bs4 import PageElement
 
 
 WhitespaceMode = Literal["normalized", "strict"]
@@ -128,11 +130,13 @@ class WhitespaceHandler:
     def normalize_unicode_spaces(self, text: str) -> str:
         text = self._unicode_spaces.sub(" ", text)
 
+        text = text.replace("\r\n", "\n")
+
         normalized = []
         for char in text:
             if unicodedata.category(char) in ("Zs", "Zl", "Zp"):
                 normalized.append(" ")
-            elif char in ("\r\n", "\r"):
+            elif char == "\r":  # pragma: no cover
                 normalized.append("\n")
             else:
                 normalized.append(char)
@@ -168,13 +172,10 @@ class WhitespaceHandler:
         *,
         in_pre: bool = False,
     ) -> str:
-        if not text:
+        if not text:  # pragma: no cover
             return ""
 
         if in_pre or self.should_preserve_whitespace(element):
-            return text
-
-        if self.mode == "strict":
             return text
 
         text = self.normalize_unicode_spaces(text)
@@ -204,8 +205,8 @@ class WhitespaceHandler:
     def _process_text_with_content(self, text: str, element: NavigableString) -> str:
         original = str(element)
 
-        has_lead_space = original and original[0] in " \t\n"
-        has_trail_space = original and original[-1] in " \t\n"
+        has_lead_space = bool(original and original[0] in " \t\n")
+        has_trail_space = bool(original and original[-1] in " \t\n")
 
         text = self._multiple_spaces.sub(" ", text.strip())
 
@@ -215,9 +216,9 @@ class WhitespaceHandler:
             return self._process_special_inline_containers(text, original)
 
         if parent and self.is_inline_element(parent):
-            return self._process_inline_element_text(text, original, bool(has_lead_space), bool(has_trail_space))
+            return self._process_inline_element_text(text, original, has_lead_space, has_trail_space)
 
-        return self._process_standalone_text(text, original, element, bool(has_lead_space), bool(has_trail_space))
+        return self._process_standalone_text(text, original, element, has_lead_space, has_trail_space)
 
     def _process_special_inline_containers(self, text: str, original: str) -> str:
         if original and "\n" not in original and "\t" not in original:
@@ -253,12 +254,22 @@ class WhitespaceHandler:
         has_leading = (
             has_lead_space
             and original[0] == " "
-            and (self.is_inline_element(prev_sibling) or self.is_block_element(prev_sibling) or prev_sibling is None)
+            and (
+                self.is_inline_element(prev_sibling)
+                or self.is_block_element(prev_sibling)
+                or prev_sibling is None
+                or isinstance(prev_sibling, NavigableString)
+            )
         )
         has_trailing = (
             has_trail_space
             and original[-1] == " "
-            and (self.is_inline_element(next_sibling) or self.is_block_element(next_sibling) or next_sibling is None)
+            and (
+                self.is_inline_element(next_sibling)
+                or self.is_block_element(next_sibling)
+                or next_sibling is None
+                or isinstance(next_sibling, NavigableString)
+            )
         )
 
         if original and original[0] in "\n\t" and self.is_inline_element(prev_sibling):
@@ -280,24 +291,3 @@ class WhitespaceHandler:
             text = text + "\n\n"
 
         return text
-
-    def get_block_spacing(self, tag: Tag, next_sibling: PageElement | None = None) -> str:
-        if self.mode == "strict":
-            return ""
-
-        tag_name = tag.name.lower() if hasattr(tag, "name") else ""
-
-        double_newline_elements = {"p", "div", "blockquote", "pre", "table", "ul", "ol", "dl"}
-
-        single_newline_elements = {"li", "dt", "dd", "tr", "td", "th"}
-
-        if tag_name in double_newline_elements:
-            if self.is_block_element(next_sibling):
-                return "\n\n"
-            return "\n"
-        if tag_name in single_newline_elements:
-            return "\n"
-        if tag_name.startswith("h") and len(tag_name) == 2 and tag_name[1].isdigit():
-            return "\n\n"
-
-        return ""

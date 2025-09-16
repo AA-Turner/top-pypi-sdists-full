@@ -25,65 +25,69 @@ import json,sys,math,re,calendar,hashlib,haversine
 from time import sleep
 import itertools
 import decimal
+from decimal import localcontext,Decimal
 unit_registry=pint.UnitRegistry()
+import math
 def area_triangle():
-	height=None
-	base=None
-	'''
-	A=hbb/2
-	'''
-	while True:
-		try:
-			base=Control(func=FormBuilderMkText,ptext="base",helpText="base width",data="string")
-			if base is None:
-				return
-			elif base in ['d',]:
-				base=unit_registry.Quantity('1')
-			else:
-				base=unit_registry.Quantity(base)
-			break
-		except Exception as e:
-			print(e)
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		height=None
+		base=None
+		'''
+		A=hbb/2
+		'''
+		while True:
 			try:
-				base=Control(func=FormBuilderMkText,ptext="base no units",helpText="base width,do not include units",data="dec.dec")
+				base=Control(func=FormBuilderMkText,ptext="base",helpText="base width",data="string")
 				if base is None:
 					return
 				elif base in ['d',]:
-					base=decc(1)
+					base=unit_registry.Quantity('1')
+				else:
+					base=unit_registry.Quantity(base)
 				break
 			except Exception as e:
-				continue
+				print(e)
+				try:
+					base=Control(func=FormBuilderMkText,ptext="base no units",helpText="base width,do not include units",data="dec.dec")
+					if base is None:
+						return
+					elif base in ['d',]:
+						base=decc(1)
+					break
+				except Exception as e:
+					continue
 
-	while True:
-		try:
-			height=Control(func=FormBuilderMkText,ptext="height",helpText="height width",data="string")
-			if height is None:
-				return
-			elif height in ['d',]:
-				height=unit_registry.Quantity('1')
-			else:
-				height=unit_registry.Quantity(height)
-			break
-		except Exception as e:
-			print(e)
+		while True:
 			try:
-				height=Control(func=FormBuilderMkText,ptext="height no units",helpText="height width, do not include units",data="dec.dec")
+				height=Control(func=FormBuilderMkText,ptext="height",helpText="height width",data="string")
 				if height is None:
 					return
 				elif height in ['d',]:
-					height=decc(1)
+					height=unit_registry.Quantity('1')
+				else:
+					height=unit_registry.Quantity(height)
 				break
 			except Exception as e:
-				continue
-	print(type(height),height,type(base))
-	if isinstance(height,decimal.Decimal) and isinstance(base,decimal.Decimal):
-		return decc((height*base)/decc(2))
-	elif isinstance(height,pint.Quantity) and isinstance(base,pint.Quantity):
-		return ((height.to(base)*base)/2)
-	elif isinstance(height,pint.Quantity) and isinstance(base,decimal.Decimal):
-		return ((height*unit_registry.Quantity(base,height.units))/2)
-	elif isinstance(height,decimal.Decimal) and isinstance(base,pint.Quantity):
-		return ((unit_registry.Quantity(height,base.units)*base)/2)
+				print(e)
+				try:
+					height=Control(func=FormBuilderMkText,ptext="height no units",helpText="height width, do not include units",data="dec.dec")
+					if height is None:
+						return
+					elif height in ['d',]:
+						height=decc(1)
+					break
+				except Exception as e:
+					continue
+		print(type(height),height,type(base))
+		if isinstance(height,decimal.Decimal) and isinstance(base,decimal.Decimal):
+			return decc((height*base)/decc(2))
+		elif isinstance(height,pint.Quantity) and isinstance(base,pint.Quantity):
+			return ((height.to(base)*base)/2)
+		elif isinstance(height,pint.Quantity) and isinstance(base,decimal.Decimal):
+			return ((height*unit_registry.Quantity(base,height.units))/2)
+		elif isinstance(height,decimal.Decimal) and isinstance(base,pint.Quantity):
+			return ((unit_registry.Quantity(height,base.units)*base)/2)
 
 class Taxable:
 	def general_taxable(self):
@@ -196,144 +200,152 @@ juices)''',
 		
 #tax rate tools go here
 def AddNewTaxRate(excludes=['txrt_id','DTOE']):
-	with Session(ENGINE) as session:
-		'''AddNewTaxRate() -> None
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		with Session(ENGINE) as session:
+			'''AddNewTaxRate() -> None
 
-		add a new taxrate to db.'''
-		tr=TaxRate()
-		session.add(tr)
-		session.commit()
-		session.refresh(tr)
-		fields={i.name:{
-		'default':getattr(tr,i.name),
-		'type':str(i.type).lower()} for i in tr.__table__.columns if i.name not in excludes
-		}
+			add a new taxrate to db.'''
+			tr=TaxRate()
+			session.add(tr)
+			session.commit()
+			session.refresh(tr)
+			fields={i.name:{
+			'default':getattr(tr,i.name),
+			'type':str(i.type).lower()} for i in tr.__table__.columns if i.name not in excludes
+			}
 
-		fd=FormBuilder(data=fields)
-		if fd is None:
-			session.delete(tr)
-			return
-		for k in fd:
-			setattr(tr,k,fd[k])
+			fd=FormBuilder(data=fields)
+			if fd is None:
+				session.delete(tr)
+				return
+			for k in fd:
+				setattr(tr,k,fd[k])
 
-	
-		session.add(tr)
-		session.commit()
-		session.refresh(tr)
-	print(tr)
-	return tr.TaxRate
+		
+			session.add(tr)
+			session.commit()
+			session.refresh(tr)
+		print(tr)
+		return tr.TaxRate
 
 def GetTaxRate(excludes=['txrt_id','DTOE']):
-	with Session(ENGINE) as session:
-		'''GetTaxRate() -> TaxRate:Decimal
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		with Session(ENGINE) as session:
+			'''GetTaxRate() -> TaxRate:Decimal
 
-		search for and return a Decimal/decc
-		taxrate for use by prompt.
-		'''
-		tr=TaxRate()
-		fields={i.name:{
-		'default':getattr(tr,i.name),
-		'type':str(i.type).lower()} for i in tr.__table__.columns if i.name not in excludes
-		}
+			search for and return a Decimal/decc
+			taxrate for use by prompt.
+			'''
+			tr=TaxRate()
+			fields={i.name:{
+			'default':getattr(tr,i.name),
+			'type':str(i.type).lower()} for i in tr.__table__.columns if i.name not in excludes
+			}
 
-		fd=FormBuilder(data=fields,passThruText="GetTaxRate Search -> ")
-		if fd is None:
-			return
-		for k in fd:
-			setattr(tr,k,fd[k])
-		#and_
-		filte=[]
-		for k in fd:
-			if fd[k] is not None:
-				if isinstance(fd[k],str):
-					filte.append(getattr(TaxRate,k).icontains(fd[k]))
-				else:
-					filte.append(getattr(tr,k)==fd[k])
-	
-		results=session.query(TaxRate).filter(and_(*filte)).all()
-		ct=len(results)
-		htext=[]
-		for num,i in enumerate(results):
-			m=std_colorize(i,num,ct)
-			print(m)
-			htext.append(m)
-		htext='\n'.join(htext)
-		if ct < 1:
-			print(f"{Fore.light_red}There is nothing to work on in TaxRates that match your criteria.{Style.reset}")
-			return
-		while True:
-			select=Control(func=FormBuilderMkText,ptext="Which index to return for tax rate[NAN=0.0000]?",helpText=htext,data="integer")
-			print(select)
-			if select is None:
+			fd=FormBuilder(data=fields,passThruText="GetTaxRate Search -> ")
+			if fd is None:
 				return
-			elif isinstance(select,str) and select.upper() in ['NAN',]:
-				return 0
-			elif select in ['d',]:
-				return results[0].TaxRate
-			else:
-				if index_inList(select,results):
-					return results[select].TaxRate
+			for k in fd:
+				setattr(tr,k,fd[k])
+			#and_
+			filte=[]
+			for k in fd:
+				if fd[k] is not None:
+					if isinstance(fd[k],str):
+						filte.append(getattr(TaxRate,k).icontains(fd[k]))
+					else:
+						filte.append(getattr(tr,k)==fd[k])
+		
+			results=session.query(TaxRate).filter(and_(*filte)).all()
+			ct=len(results)
+			htext=[]
+			for num,i in enumerate(results):
+				m=std_colorize(i,num,ct)
+				print(m)
+				htext.append(m)
+			htext='\n'.join(htext)
+			if ct < 1:
+				print(f"{Fore.light_red}There is nothing to work on in TaxRates that match your criteria.{Style.reset}")
+				return
+			while True:
+				select=Control(func=FormBuilderMkText,ptext="Which index to return for tax rate[NAN=0.0000]?",helpText=htext,data="integer")
+				print(select)
+				if select is None:
+					return
+				elif isinstance(select,str) and select.upper() in ['NAN',]:
+					return 0
+				elif select in ['d',]:
+					return results[0].TaxRate
 				else:
-					continue
+					if index_inList(select,results):
+						return results[select].TaxRate
+					else:
+						continue
 
 def price_by_tax(total=False):
-	fields={
-	'price':{
-		'default':0,
-		'type':'dec.dec'
-		},
-	'rate':{
-		'default':GetTaxRate(),
-		'type':'dec.dec'
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		fields={
+		'price':{
+			'default':0,
+			'type':'dec.dec'
+			},
+		'rate':{
+			'default':GetTaxRate(),
+			'type':'dec.dec'
+			}
 		}
-	}
-	fd=FormBuilder(data=fields,passThruText="Tax on Price ->")
-	if fd is None:
-		return
-	else:
-		price=fd['price']
-		rate=fd['rate']
-		if price is None:
-			price=0
-		if fd['rate'] is None:
-			rate=0
-		if total == False:
-			return decc(price,cf=4)*decc(rate,cf=4)
+		fd=FormBuilder(data=fields,passThruText="Tax on Price ->")
+		if fd is None:
+			return
 		else:
-			return (decc(price,cf=4)*decc(rate,cf=4))+decc(price,cf=4)
+			price=fd['price']
+			rate=fd['rate']
+			if price is None:
+				price=0
+			if fd['rate'] is None:
+				rate=0
+			if total == False:
+				return decc(price,cf=4)*decc(rate,cf=4)
+			else:
+				return (decc(price,cf=4)*decc(rate,cf=4))+decc(price,cf=4)
 
 def price_plus_crv_by_tax(total=False):
-	fields={
-	'price':{
-		'default':0,
-		'type':'dec.dec'
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		fields={
+		'price':{
+			'default':0,
+			'type':'dec.dec'
+			},
+		'crv_total_for_pkg':{
+			'default':0,
+			'type':'dec.dec',
 		},
-	'crv_total_for_pkg':{
-		'default':0,
-		'type':'dec.dec',
-	},
-	'rate':{
-		'default':GetTaxRate(),
-		'type':'dec.dec'
+		'rate':{
+			'default':GetTaxRate(),
+			'type':'dec.dec'
+			}
 		}
-	}
-	fd=FormBuilder(data=fields,passThruText="Tax on (Price+CRV)")
-	if fd is None:
-		return
-	else:
-		price=fd['price']
-		rate=fd['rate']
-		crv=fd['crv_total_for_pkg']
-		if price is None:
-			price=0
-		if crv is None:
-			crv=0
-		if fd['rate'] is None:
-			rate=0
-		if total == False:
-			return (decc(price,cf=4)+decc(crv,cf=4))*decc(rate,cf=4)
+		fd=FormBuilder(data=fields,passThruText="Tax on (Price+CRV)")
+		if fd is None:
+			return
 		else:
-			return (price+crv)+((decc(price,cf=4)+decc(crv,cf=4))*decc(rate,cf=4))
+			price=fd['price']
+			rate=fd['rate']
+			crv=fd['crv_total_for_pkg']
+			if price is None:
+				price=0
+			if crv is None:
+				crv=0
+			if fd['rate'] is None:
+				rate=0
+			if total == False:
+				return (decc(price,cf=4)+decc(crv,cf=4))*decc(rate,cf=4)
+			else:
+				return (price+crv)+((decc(price,cf=4)+decc(crv,cf=4))*decc(rate,cf=4))
 
 def DeleteTaxRate(excludes=['txrt_id','DTOE']):
 	with Session(ENGINE) as session:
@@ -459,3 +471,126 @@ def EditTaxRate(excludes=['txrt_id','DTOE']):
 					return
 				else:
 					continue
+
+def heronsFormula():
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		Calculate the semi-perimeter (s): Add the lengths of the three sides and divide by 2.
+		s = (a + b + c) / 2
+		'''
+		fields={
+			'side 1':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'side 2':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'side 3':{
+			'default':1,
+			'type':'dec.dec'
+			},
+		}
+		fd=FormBuilder(data=fields)
+		if fd is None:
+			return
+
+		s=(fd['side 1']+fd['side 2']+fd['side 3'])/2
+		'''Apply Heron's formula: Substitute the semi-perimeter (s) and the side lengths (a, b, and c) into the formula:
+		Area = √(s(s-a)(s-b)(s-c))'''
+		Area=math.sqrt(s*(s-fd['side 1'])*(s-fd['side 2'])*(s-fd['side 3']))
+		return Area
+
+def volumeCylinderRadius():
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		Volume of a cylinder: Used for cylindrical storage bins, silos, or tanks.(V=pi r^{2}h)
+		'''
+		fields={
+			'height':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'radius':{
+			'default':1,
+			'type':'dec.dec'
+			},
+		}
+		fd=FormBuilder(data=fields)
+		if fd is None:
+			return
+
+		volume=Decimal(math.pi)*(fd['radius']**2)*fd['height']
+		return volume
+
+def volumeCylinderDiameter():
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		Volume of a cylinder: Used for cylindrical storage bins, silos, or tanks.(V=pi r^{2}h)
+		'''
+		fields={
+			'height':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'diameter':{
+			'default':1,
+			'type':'dec.dec'
+			},
+		}
+		fd=FormBuilder(data=fields)
+		if fd is None:
+			return
+
+		volume=Decimal(math.pi)*((fd['diameter']/2)**2)*fd['height']
+		return volume
+
+def volumeConeRadius():
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		Volume of a cylinder: Used for cylindrical storage bins, silos, or tanks.(V=pi r^{2}h)
+		'''
+		fields={
+			'height':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'radius':{
+			'default':1,
+			'type':'dec.dec'
+			},
+		}
+		fd=FormBuilder(data=fields)
+		if fd is None:
+			return
+
+		volume=Decimal(1/3)*(Decimal(math.pi)*(fd['radius']**2)*fd['height'])
+		return volume
+
+def volumeConeDiameter():
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		Volume of a cylinder: Used for cylindrical storage bins, silos, or tanks.(V=pi r^{2}h)
+		'''
+		fields={
+			'height':{
+			'default':1,
+			'type':'dec.dec'
+			},
+			'diameter':{
+			'default':1,
+			'type':'dec.dec'
+			},
+		}
+		fd=FormBuilder(data=fields)
+		if fd is None:
+			return
+
+		volume=Decimal(1/3)*(Decimal(math.pi)*((fd['diameter']/2)**2)*fd['height'])
+		return volume

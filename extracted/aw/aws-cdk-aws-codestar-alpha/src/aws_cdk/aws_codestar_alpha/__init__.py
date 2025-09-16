@@ -96,7 +96,7 @@ class GitHubRepositoryProps:
         self,
         *,
         access_token: _aws_cdk_ceddda9d.SecretValue,
-        contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucketRef,
         contents_key: builtins.str,
         owner: builtins.str,
         repository_name: builtins.str,
@@ -174,14 +174,14 @@ class GitHubRepositoryProps:
         return typing.cast(_aws_cdk_ceddda9d.SecretValue, result)
 
     @builtins.property
-    def contents_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def contents_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucketRef:
         '''(experimental) The name of the Amazon S3 bucket that contains the ZIP file with the content to be committed to the new repository.
 
         :stability: experimental
         '''
         result = self._values.get("contents_bucket")
         assert result is not None, "Required property 'contents_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucketRef, result)
 
     @builtins.property
     def contents_key(self) -> builtins.str:
@@ -392,7 +392,7 @@ class GitHubRepository(
         id: builtins.str,
         *,
         access_token: _aws_cdk_ceddda9d.SecretValue,
-        contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucketRef,
         contents_key: builtins.str,
         owner: builtins.str,
         repository_name: builtins.str,
@@ -474,7 +474,7 @@ publication.publish()
 def _typecheckingstub__c848afd2b589eccc9fe7fdbeff1681e2af3dab8477fed31f0d8bfb02ca05e0df(
     *,
     access_token: _aws_cdk_ceddda9d.SecretValue,
-    contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucketRef,
     contents_key: builtins.str,
     owner: builtins.str,
     repository_name: builtins.str,
@@ -491,7 +491,7 @@ def _typecheckingstub__9532a574e633c6d68e3daa0a175cb9309cb6a09badef5107c2a79a31d
     id: builtins.str,
     *,
     access_token: _aws_cdk_ceddda9d.SecretValue,
-    contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    contents_bucket: _aws_cdk_aws_s3_ceddda9d.IBucketRef,
     contents_key: builtins.str,
     owner: builtins.str,
     repository_name: builtins.str,

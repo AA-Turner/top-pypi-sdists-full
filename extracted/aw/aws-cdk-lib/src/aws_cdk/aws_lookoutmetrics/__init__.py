@@ -66,7 +66,526 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lookoutmetrics.AlertReference",
+    jsii_struct_bases=[],
+    name_mapping={"alert_arn": "alertArn"},
+)
+class AlertReference:
+    def __init__(self, *, alert_arn: builtins.str) -> None:
+        '''A reference to a Alert resource.
+
+        :param alert_arn: The Arn of the Alert resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
+            
+            alert_reference = lookoutmetrics.AlertReference(
+                alert_arn="alertArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61a503e8c0c98043a0300d3d720ef4427e7c08aa8209cb926b676c185a6998a3)
+            check_type(argname="argument alert_arn", value=alert_arn, expected_type=type_hints["alert_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alert_arn": alert_arn,
+        }
+
+    @builtins.property
+    def alert_arn(self) -> builtins.str:
+        '''The Arn of the Alert resource.'''
+        result = self._values.get("alert_arn")
+        assert result is not None, "Required property 'alert_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlertReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lookoutmetrics.AnomalyDetectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"anomaly_detector_arn": "anomalyDetectorArn"},
+)
+class AnomalyDetectorReference:
+    def __init__(self, *, anomaly_detector_arn: builtins.str) -> None:
+        '''A reference to a AnomalyDetector resource.
+
+        :param anomaly_detector_arn: The Arn of the AnomalyDetector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
+            
+            anomaly_detector_reference = lookoutmetrics.AnomalyDetectorReference(
+                anomaly_detector_arn="anomalyDetectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__976fa7ffbb29beb647e42529e65de6ced0c5b448109e040bf922921c2e1a27f3)
+            check_type(argname="argument anomaly_detector_arn", value=anomaly_detector_arn, expected_type=type_hints["anomaly_detector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "anomaly_detector_arn": anomaly_detector_arn,
+        }
+
+    @builtins.property
+    def anomaly_detector_arn(self) -> builtins.str:
+        '''The Arn of the AnomalyDetector resource.'''
+        result = self._values.get("anomaly_detector_arn")
+        assert result is not None, "Required property 'anomaly_detector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AnomalyDetectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAlertProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action": "action",
+        "alert_sensitivity_threshold": "alertSensitivityThreshold",
+        "anomaly_detector_arn": "anomalyDetectorArn",
+        "alert_description": "alertDescription",
+        "alert_name": "alertName",
+    },
+)
+class CfnAlertProps:
+    def __init__(
+        self,
+        *,
+        action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlert.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        alert_sensitivity_threshold: jsii.Number,
+        anomaly_detector_arn: builtins.str,
+        alert_description: typing.Optional[builtins.str] = None,
+        alert_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlert``.
+
+        :param action: Action that will be triggered when there is an alert.
+        :param alert_sensitivity_threshold: An integer from 0 to 100 specifying the alert sensitivity threshold.
+        :param anomaly_detector_arn: The ARN of the detector to which the alert is attached.
+        :param alert_description: A description of the alert.
+        :param alert_name: The name of the alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
+            
+            cfn_alert_props = lookoutmetrics.CfnAlertProps(
+                action=lookoutmetrics.CfnAlert.ActionProperty(
+                    lambda_configuration=lookoutmetrics.CfnAlert.LambdaConfigurationProperty(
+                        lambda_arn="lambdaArn",
+                        role_arn="roleArn"
+                    ),
+                    sns_configuration=lookoutmetrics.CfnAlert.SNSConfigurationProperty(
+                        role_arn="roleArn",
+                        sns_topic_arn="snsTopicArn"
+                    )
+                ),
+                alert_sensitivity_threshold=123,
+                anomaly_detector_arn="anomalyDetectorArn",
+            
+                # the properties below are optional
+                alert_description="alertDescription",
+                alert_name="alertName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37b5e7a084e60c1889b63e691905589769e7d3d6e42edfe3ff8deb1be27e9b12)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument alert_sensitivity_threshold", value=alert_sensitivity_threshold, expected_type=type_hints["alert_sensitivity_threshold"])
+            check_type(argname="argument anomaly_detector_arn", value=anomaly_detector_arn, expected_type=type_hints["anomaly_detector_arn"])
+            check_type(argname="argument alert_description", value=alert_description, expected_type=type_hints["alert_description"])
+            check_type(argname="argument alert_name", value=alert_name, expected_type=type_hints["alert_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action": action,
+            "alert_sensitivity_threshold": alert_sensitivity_threshold,
+            "anomaly_detector_arn": anomaly_detector_arn,
+        }
+        if alert_description is not None:
+            self._values["alert_description"] = alert_description
+        if alert_name is not None:
+            self._values["alert_name"] = alert_name
+
+    @builtins.property
+    def action(self) -> typing.Union[_IResolvable_da3f097b, "CfnAlert.ActionProperty"]:
+        '''Action that will be triggered when there is an alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-action
+        '''
+        result = self._values.get("action")
+        assert result is not None, "Required property 'action' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAlert.ActionProperty"], result)
+
+    @builtins.property
+    def alert_sensitivity_threshold(self) -> jsii.Number:
+        '''An integer from 0 to 100 specifying the alert sensitivity threshold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertsensitivitythreshold
+        '''
+        result = self._values.get("alert_sensitivity_threshold")
+        assert result is not None, "Required property 'alert_sensitivity_threshold' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def anomaly_detector_arn(self) -> builtins.str:
+        '''The ARN of the detector to which the alert is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-anomalydetectorarn
+        '''
+        result = self._values.get("anomaly_detector_arn")
+        assert result is not None, "Required property 'anomaly_detector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alert_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertdescription
+        '''
+        result = self._values.get("alert_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def alert_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertname
+        '''
+        result = self._values.get("alert_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAlertProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAnomalyDetectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "anomaly_detector_config": "anomalyDetectorConfig",
+        "metric_set_list": "metricSetList",
+        "anomaly_detector_description": "anomalyDetectorDescription",
+        "anomaly_detector_name": "anomalyDetectorName",
+        "kms_key_arn": "kmsKeyArn",
+    },
+)
+class CfnAnomalyDetectorProps:
+    def __init__(
+        self,
+        *,
+        anomaly_detector_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.AnomalyDetectorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        metric_set_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnomalyDetector.MetricSetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        anomaly_detector_description: typing.Optional[builtins.str] = None,
+        anomaly_detector_name: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAnomalyDetector``.
+
+        :param anomaly_detector_config: Contains information about the configuration of the anomaly detector.
+        :param metric_set_list: The detector's dataset.
+        :param anomaly_detector_description: A description of the detector.
+        :param anomaly_detector_name: The name of the detector.
+        :param kms_key_arn: The ARN of the KMS key to use to encrypt your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
+            
+            cfn_anomaly_detector_props = lookoutmetrics.CfnAnomalyDetectorProps(
+                anomaly_detector_config=lookoutmetrics.CfnAnomalyDetector.AnomalyDetectorConfigProperty(
+                    anomaly_detector_frequency="anomalyDetectorFrequency"
+                ),
+                metric_set_list=[lookoutmetrics.CfnAnomalyDetector.MetricSetProperty(
+                    metric_list=[lookoutmetrics.CfnAnomalyDetector.MetricProperty(
+                        aggregation_function="aggregationFunction",
+                        metric_name="metricName",
+            
+                        # the properties below are optional
+                        namespace="namespace"
+                    )],
+                    metric_set_name="metricSetName",
+                    metric_source=lookoutmetrics.CfnAnomalyDetector.MetricSourceProperty(
+                        app_flow_config=lookoutmetrics.CfnAnomalyDetector.AppFlowConfigProperty(
+                            flow_name="flowName",
+                            role_arn="roleArn"
+                        ),
+                        cloudwatch_config=lookoutmetrics.CfnAnomalyDetector.CloudwatchConfigProperty(
+                            role_arn="roleArn"
+                        ),
+                        rds_source_config=lookoutmetrics.CfnAnomalyDetector.RDSSourceConfigProperty(
+                            database_host="databaseHost",
+                            database_name="databaseName",
+                            database_port=123,
+                            db_instance_identifier="dbInstanceIdentifier",
+                            role_arn="roleArn",
+                            secret_manager_arn="secretManagerArn",
+                            table_name="tableName",
+                            vpc_configuration=lookoutmetrics.CfnAnomalyDetector.VpcConfigurationProperty(
+                                security_group_id_list=["securityGroupIdList"],
+                                subnet_id_list=["subnetIdList"]
+                            )
+                        ),
+                        redshift_source_config=lookoutmetrics.CfnAnomalyDetector.RedshiftSourceConfigProperty(
+                            cluster_identifier="clusterIdentifier",
+                            database_host="databaseHost",
+                            database_name="databaseName",
+                            database_port=123,
+                            role_arn="roleArn",
+                            secret_manager_arn="secretManagerArn",
+                            table_name="tableName",
+                            vpc_configuration=lookoutmetrics.CfnAnomalyDetector.VpcConfigurationProperty(
+                                security_group_id_list=["securityGroupIdList"],
+                                subnet_id_list=["subnetIdList"]
+                            )
+                        ),
+                        s3_source_config=lookoutmetrics.CfnAnomalyDetector.S3SourceConfigProperty(
+                            file_format_descriptor=lookoutmetrics.CfnAnomalyDetector.FileFormatDescriptorProperty(
+                                csv_format_descriptor=lookoutmetrics.CfnAnomalyDetector.CsvFormatDescriptorProperty(
+                                    charset="charset",
+                                    contains_header=False,
+                                    delimiter="delimiter",
+                                    file_compression="fileCompression",
+                                    header_list=["headerList"],
+                                    quote_symbol="quoteSymbol"
+                                ),
+                                json_format_descriptor=lookoutmetrics.CfnAnomalyDetector.JsonFormatDescriptorProperty(
+                                    charset="charset",
+                                    file_compression="fileCompression"
+                                )
+                            ),
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            historical_data_path_list=["historicalDataPathList"],
+                            templated_path_list=["templatedPathList"]
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    dimension_list=["dimensionList"],
+                    metric_set_description="metricSetDescription",
+                    metric_set_frequency="metricSetFrequency",
+                    offset=123,
+                    timestamp_column=lookoutmetrics.CfnAnomalyDetector.TimestampColumnProperty(
+                        column_format="columnFormat",
+                        column_name="columnName"
+                    ),
+                    timezone="timezone"
+                )],
+            
+                # the properties below are optional
+                anomaly_detector_description="anomalyDetectorDescription",
+                anomaly_detector_name="anomalyDetectorName",
+                kms_key_arn="kmsKeyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac2e9b61e4663a0d7be16c47f2f04bda869f46de5537627485274ac9d915adb1)
+            check_type(argname="argument anomaly_detector_config", value=anomaly_detector_config, expected_type=type_hints["anomaly_detector_config"])
+            check_type(argname="argument metric_set_list", value=metric_set_list, expected_type=type_hints["metric_set_list"])
+            check_type(argname="argument anomaly_detector_description", value=anomaly_detector_description, expected_type=type_hints["anomaly_detector_description"])
+            check_type(argname="argument anomaly_detector_name", value=anomaly_detector_name, expected_type=type_hints["anomaly_detector_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "anomaly_detector_config": anomaly_detector_config,
+            "metric_set_list": metric_set_list,
+        }
+        if anomaly_detector_description is not None:
+            self._values["anomaly_detector_description"] = anomaly_detector_description
+        if anomaly_detector_name is not None:
+            self._values["anomaly_detector_name"] = anomaly_detector_name
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+
+    @builtins.property
+    def anomaly_detector_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.AnomalyDetectorConfigProperty"]:
+        '''Contains information about the configuration of the anomaly detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectorconfig
+        '''
+        result = self._values.get("anomaly_detector_config")
+        assert result is not None, "Required property 'anomaly_detector_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.AnomalyDetectorConfigProperty"], result)
+
+    @builtins.property
+    def metric_set_list(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricSetProperty"]]]:
+        '''The detector's dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-metricsetlist
+        '''
+        result = self._values.get("metric_set_list")
+        assert result is not None, "Required property 'metric_set_list' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnomalyDetector.MetricSetProperty"]]], result)
+
+    @builtins.property
+    def anomaly_detector_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectordescription
+        '''
+        result = self._values.get("anomaly_detector_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def anomaly_detector_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the detector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectorname
+        '''
+        result = self._values.get("anomaly_detector_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key to use to encrypt your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAnomalyDetectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lookoutmetrics.IAlertRef")
+class IAlertRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Alert.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> AlertReference:
+        '''(experimental) A reference to a Alert resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAlertRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alert.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lookoutmetrics.IAlertRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> AlertReference:
+        '''(experimental) A reference to a Alert resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AlertReference, jsii.get(self, "alertRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlertRef).__jsii_proxy_class__ = lambda : _IAlertRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lookoutmetrics.IAnomalyDetectorRef")
+class IAnomalyDetectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''(experimental) A reference to a AnomalyDetector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAnomalyDetectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AnomalyDetector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lookoutmetrics.IAnomalyDetectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''(experimental) A reference to a AnomalyDetector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AnomalyDetectorReference, jsii.get(self, "anomalyDetectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAnomalyDetectorRef).__jsii_proxy_class__ = lambda : _IAnomalyDetectorRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAlertRef)
 class CfnAlert(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -167,6 +686,12 @@ class CfnAlert(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alertRef")
+    def alert_ref(self) -> AlertReference:
+        '''A reference to a Alert resource.'''
+        return typing.cast(AlertReference, jsii.get(self, "alertRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -473,141 +998,7 @@ class CfnAlert(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAlertProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action": "action",
-        "alert_sensitivity_threshold": "alertSensitivityThreshold",
-        "anomaly_detector_arn": "anomalyDetectorArn",
-        "alert_description": "alertDescription",
-        "alert_name": "alertName",
-    },
-)
-class CfnAlertProps:
-    def __init__(
-        self,
-        *,
-        action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlert.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-        alert_sensitivity_threshold: jsii.Number,
-        anomaly_detector_arn: builtins.str,
-        alert_description: typing.Optional[builtins.str] = None,
-        alert_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAlert``.
-
-        :param action: Action that will be triggered when there is an alert.
-        :param alert_sensitivity_threshold: An integer from 0 to 100 specifying the alert sensitivity threshold.
-        :param anomaly_detector_arn: The ARN of the detector to which the alert is attached.
-        :param alert_description: A description of the alert.
-        :param alert_name: The name of the alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
-            
-            cfn_alert_props = lookoutmetrics.CfnAlertProps(
-                action=lookoutmetrics.CfnAlert.ActionProperty(
-                    lambda_configuration=lookoutmetrics.CfnAlert.LambdaConfigurationProperty(
-                        lambda_arn="lambdaArn",
-                        role_arn="roleArn"
-                    ),
-                    sns_configuration=lookoutmetrics.CfnAlert.SNSConfigurationProperty(
-                        role_arn="roleArn",
-                        sns_topic_arn="snsTopicArn"
-                    )
-                ),
-                alert_sensitivity_threshold=123,
-                anomaly_detector_arn="anomalyDetectorArn",
-            
-                # the properties below are optional
-                alert_description="alertDescription",
-                alert_name="alertName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37b5e7a084e60c1889b63e691905589769e7d3d6e42edfe3ff8deb1be27e9b12)
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument alert_sensitivity_threshold", value=alert_sensitivity_threshold, expected_type=type_hints["alert_sensitivity_threshold"])
-            check_type(argname="argument anomaly_detector_arn", value=anomaly_detector_arn, expected_type=type_hints["anomaly_detector_arn"])
-            check_type(argname="argument alert_description", value=alert_description, expected_type=type_hints["alert_description"])
-            check_type(argname="argument alert_name", value=alert_name, expected_type=type_hints["alert_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action": action,
-            "alert_sensitivity_threshold": alert_sensitivity_threshold,
-            "anomaly_detector_arn": anomaly_detector_arn,
-        }
-        if alert_description is not None:
-            self._values["alert_description"] = alert_description
-        if alert_name is not None:
-            self._values["alert_name"] = alert_name
-
-    @builtins.property
-    def action(self) -> typing.Union[_IResolvable_da3f097b, CfnAlert.ActionProperty]:
-        '''Action that will be triggered when there is an alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-action
-        '''
-        result = self._values.get("action")
-        assert result is not None, "Required property 'action' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAlert.ActionProperty], result)
-
-    @builtins.property
-    def alert_sensitivity_threshold(self) -> jsii.Number:
-        '''An integer from 0 to 100 specifying the alert sensitivity threshold.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertsensitivitythreshold
-        '''
-        result = self._values.get("alert_sensitivity_threshold")
-        assert result is not None, "Required property 'alert_sensitivity_threshold' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def anomaly_detector_arn(self) -> builtins.str:
-        '''The ARN of the detector to which the alert is attached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-anomalydetectorarn
-        '''
-        result = self._values.get("anomaly_detector_arn")
-        assert result is not None, "Required property 'anomaly_detector_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def alert_description(self) -> typing.Optional[builtins.str]:
-        '''A description of the alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertdescription
-        '''
-        result = self._values.get("alert_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def alert_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-alert.html#cfn-lookoutmetrics-alert-alertname
-        '''
-        result = self._values.get("alert_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAlertProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAnomalyDetectorRef)
 class CfnAnomalyDetector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -777,6 +1168,12 @@ class CfnAnomalyDetector(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectorRef")
+    def anomaly_detector_ref(self) -> AnomalyDetectorReference:
+        '''A reference to a AnomalyDetector resource.'''
+        return typing.cast(AnomalyDetectorReference, jsii.get(self, "anomalyDetectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -2490,221 +2887,54 @@ class CfnAnomalyDetector(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAnomalyDetectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "anomaly_detector_config": "anomalyDetectorConfig",
-        "metric_set_list": "metricSetList",
-        "anomaly_detector_description": "anomalyDetectorDescription",
-        "anomaly_detector_name": "anomalyDetectorName",
-        "kms_key_arn": "kmsKeyArn",
-    },
-)
-class CfnAnomalyDetectorProps:
-    def __init__(
-        self,
-        *,
-        anomaly_detector_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.AnomalyDetectorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        metric_set_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricSetProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        anomaly_detector_description: typing.Optional[builtins.str] = None,
-        anomaly_detector_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAnomalyDetector``.
-
-        :param anomaly_detector_config: Contains information about the configuration of the anomaly detector.
-        :param metric_set_list: The detector's dataset.
-        :param anomaly_detector_description: A description of the detector.
-        :param anomaly_detector_name: The name of the detector.
-        :param kms_key_arn: The ARN of the KMS key to use to encrypt your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lookoutmetrics as lookoutmetrics
-            
-            cfn_anomaly_detector_props = lookoutmetrics.CfnAnomalyDetectorProps(
-                anomaly_detector_config=lookoutmetrics.CfnAnomalyDetector.AnomalyDetectorConfigProperty(
-                    anomaly_detector_frequency="anomalyDetectorFrequency"
-                ),
-                metric_set_list=[lookoutmetrics.CfnAnomalyDetector.MetricSetProperty(
-                    metric_list=[lookoutmetrics.CfnAnomalyDetector.MetricProperty(
-                        aggregation_function="aggregationFunction",
-                        metric_name="metricName",
-            
-                        # the properties below are optional
-                        namespace="namespace"
-                    )],
-                    metric_set_name="metricSetName",
-                    metric_source=lookoutmetrics.CfnAnomalyDetector.MetricSourceProperty(
-                        app_flow_config=lookoutmetrics.CfnAnomalyDetector.AppFlowConfigProperty(
-                            flow_name="flowName",
-                            role_arn="roleArn"
-                        ),
-                        cloudwatch_config=lookoutmetrics.CfnAnomalyDetector.CloudwatchConfigProperty(
-                            role_arn="roleArn"
-                        ),
-                        rds_source_config=lookoutmetrics.CfnAnomalyDetector.RDSSourceConfigProperty(
-                            database_host="databaseHost",
-                            database_name="databaseName",
-                            database_port=123,
-                            db_instance_identifier="dbInstanceIdentifier",
-                            role_arn="roleArn",
-                            secret_manager_arn="secretManagerArn",
-                            table_name="tableName",
-                            vpc_configuration=lookoutmetrics.CfnAnomalyDetector.VpcConfigurationProperty(
-                                security_group_id_list=["securityGroupIdList"],
-                                subnet_id_list=["subnetIdList"]
-                            )
-                        ),
-                        redshift_source_config=lookoutmetrics.CfnAnomalyDetector.RedshiftSourceConfigProperty(
-                            cluster_identifier="clusterIdentifier",
-                            database_host="databaseHost",
-                            database_name="databaseName",
-                            database_port=123,
-                            role_arn="roleArn",
-                            secret_manager_arn="secretManagerArn",
-                            table_name="tableName",
-                            vpc_configuration=lookoutmetrics.CfnAnomalyDetector.VpcConfigurationProperty(
-                                security_group_id_list=["securityGroupIdList"],
-                                subnet_id_list=["subnetIdList"]
-                            )
-                        ),
-                        s3_source_config=lookoutmetrics.CfnAnomalyDetector.S3SourceConfigProperty(
-                            file_format_descriptor=lookoutmetrics.CfnAnomalyDetector.FileFormatDescriptorProperty(
-                                csv_format_descriptor=lookoutmetrics.CfnAnomalyDetector.CsvFormatDescriptorProperty(
-                                    charset="charset",
-                                    contains_header=False,
-                                    delimiter="delimiter",
-                                    file_compression="fileCompression",
-                                    header_list=["headerList"],
-                                    quote_symbol="quoteSymbol"
-                                ),
-                                json_format_descriptor=lookoutmetrics.CfnAnomalyDetector.JsonFormatDescriptorProperty(
-                                    charset="charset",
-                                    file_compression="fileCompression"
-                                )
-                            ),
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            historical_data_path_list=["historicalDataPathList"],
-                            templated_path_list=["templatedPathList"]
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    dimension_list=["dimensionList"],
-                    metric_set_description="metricSetDescription",
-                    metric_set_frequency="metricSetFrequency",
-                    offset=123,
-                    timestamp_column=lookoutmetrics.CfnAnomalyDetector.TimestampColumnProperty(
-                        column_format="columnFormat",
-                        column_name="columnName"
-                    ),
-                    timezone="timezone"
-                )],
-            
-                # the properties below are optional
-                anomaly_detector_description="anomalyDetectorDescription",
-                anomaly_detector_name="anomalyDetectorName",
-                kms_key_arn="kmsKeyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac2e9b61e4663a0d7be16c47f2f04bda869f46de5537627485274ac9d915adb1)
-            check_type(argname="argument anomaly_detector_config", value=anomaly_detector_config, expected_type=type_hints["anomaly_detector_config"])
-            check_type(argname="argument metric_set_list", value=metric_set_list, expected_type=type_hints["metric_set_list"])
-            check_type(argname="argument anomaly_detector_description", value=anomaly_detector_description, expected_type=type_hints["anomaly_detector_description"])
-            check_type(argname="argument anomaly_detector_name", value=anomaly_detector_name, expected_type=type_hints["anomaly_detector_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "anomaly_detector_config": anomaly_detector_config,
-            "metric_set_list": metric_set_list,
-        }
-        if anomaly_detector_description is not None:
-            self._values["anomaly_detector_description"] = anomaly_detector_description
-        if anomaly_detector_name is not None:
-            self._values["anomaly_detector_name"] = anomaly_detector_name
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-
-    @builtins.property
-    def anomaly_detector_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.AnomalyDetectorConfigProperty]:
-        '''Contains information about the configuration of the anomaly detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectorconfig
-        '''
-        result = self._values.get("anomaly_detector_config")
-        assert result is not None, "Required property 'anomaly_detector_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.AnomalyDetectorConfigProperty], result)
-
-    @builtins.property
-    def metric_set_list(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricSetProperty]]]:
-        '''The detector's dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-metricsetlist
-        '''
-        result = self._values.get("metric_set_list")
-        assert result is not None, "Required property 'metric_set_list' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricSetProperty]]], result)
-
-    @builtins.property
-    def anomaly_detector_description(self) -> typing.Optional[builtins.str]:
-        '''A description of the detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectordescription
-        '''
-        result = self._values.get("anomaly_detector_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def anomaly_detector_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the detector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-anomalydetectorname
-        '''
-        result = self._values.get("anomaly_detector_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the KMS key to use to encrypt your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutmetrics-anomalydetector.html#cfn-lookoutmetrics-anomalydetector-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAnomalyDetectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AlertReference",
+    "AnomalyDetectorReference",
     "CfnAlert",
     "CfnAlertProps",
     "CfnAnomalyDetector",
     "CfnAnomalyDetectorProps",
+    "IAlertRef",
+    "IAnomalyDetectorRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__61a503e8c0c98043a0300d3d720ef4427e7c08aa8209cb926b676c185a6998a3(
+    *,
+    alert_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__976fa7ffbb29beb647e42529e65de6ced0c5b448109e040bf922921c2e1a27f3(
+    *,
+    anomaly_detector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37b5e7a084e60c1889b63e691905589769e7d3d6e42edfe3ff8deb1be27e9b12(
+    *,
+    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlert.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    alert_sensitivity_threshold: jsii.Number,
+    anomaly_detector_arn: builtins.str,
+    alert_description: typing.Optional[builtins.str] = None,
+    alert_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac2e9b61e4663a0d7be16c47f2f04bda869f46de5537627485274ac9d915adb1(
+    *,
+    anomaly_detector_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.AnomalyDetectorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric_set_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricSetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    anomaly_detector_description: typing.Optional[builtins.str] = None,
+    anomaly_detector_name: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f8728605cf8a8c3531f6dae116746c94e17fc40f4b10454ed68253f7594f37b5(
     scope: _constructs_77d1e7e8.Construct,
@@ -2781,17 +3011,6 @@ def _typecheckingstub__408298e997cc645a10d8bca48400dc1f10d0a9d3264e454b49baf80bb
     *,
     role_arn: builtins.str,
     sns_topic_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__37b5e7a084e60c1889b63e691905589769e7d3d6e42edfe3ff8deb1be27e9b12(
-    *,
-    action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlert.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    alert_sensitivity_threshold: jsii.Number,
-    anomaly_detector_arn: builtins.str,
-    alert_description: typing.Optional[builtins.str] = None,
-    alert_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2986,17 +3205,6 @@ def _typecheckingstub__b0e193c483b7f0f4ee9e4f34c456400f9886edb4320e33f47274503e4
     *,
     security_group_id_list: typing.Sequence[builtins.str],
     subnet_id_list: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac2e9b61e4663a0d7be16c47f2f04bda869f46de5537627485274ac9d915adb1(
-    *,
-    anomaly_detector_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.AnomalyDetectorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    metric_set_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricSetProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    anomaly_detector_description: typing.Optional[builtins.str] = None,
-    anomaly_detector_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

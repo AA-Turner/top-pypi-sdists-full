@@ -755,7 +755,11 @@ class OrderBaseModel(FrameBaseModel):
                                     buy_order_invoke_result_data = top_base_model.get_buy_order_info(order['tid'], access_token, app_key, app_secret, is_log)
                                     if buy_order_invoke_result_data.success == False:
                                         continue
-                                    buy_order_payment = decimal.Decimal(buy_order_invoke_result_data.data["payment"])
+                                    sub_order_infos = buy_order_invoke_result_data.data.get("orders", {}).get("order", [])
+                                    sub_order_info = query(sub_order_infos).first_or_default(None, lambda x: str(x["oid"]) == str(order["oid"]))
+                                    if sub_order_info == None:
+                                        continue
+                                    buy_order_payment = decimal.Decimal(sub_order_info['payment'])
                                 else:
                                     buy_order_payment = decimal.Decimal(order['payment'])
                                 tao_pay_order.pay_price = buy_order_payment

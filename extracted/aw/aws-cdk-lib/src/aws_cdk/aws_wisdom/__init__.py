@@ -70,7 +70,3548 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIAgentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_agent_arn": "aiAgentArn",
+        "ai_agent_id": "aiAgentId",
+        "assistant_id": "assistantId",
+    },
+)
+class AIAgentReference:
+    def __init__(
+        self,
+        *,
+        ai_agent_arn: builtins.str,
+        ai_agent_id: builtins.str,
+        assistant_id: builtins.str,
+    ) -> None:
+        '''A reference to a AIAgent resource.
+
+        :param ai_agent_arn: The ARN of the AIAgent resource.
+        :param ai_agent_id: The AIAgentId of the AIAgent resource.
+        :param assistant_id: The AssistantId of the AIAgent resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iAgent_reference = wisdom.AIAgentReference(
+                ai_agent_arn="aiAgentArn",
+                ai_agent_id="aiAgentId",
+                assistant_id="assistantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__405c229c90845e14ac86f236f6b17202d7229bede9788da6e11960175c5a1a16)
+            check_type(argname="argument ai_agent_arn", value=ai_agent_arn, expected_type=type_hints["ai_agent_arn"])
+            check_type(argname="argument ai_agent_id", value=ai_agent_id, expected_type=type_hints["ai_agent_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_agent_arn": ai_agent_arn,
+            "ai_agent_id": ai_agent_id,
+            "assistant_id": assistant_id,
+        }
+
+    @builtins.property
+    def ai_agent_arn(self) -> builtins.str:
+        '''The ARN of the AIAgent resource.'''
+        result = self._values.get("ai_agent_arn")
+        assert result is not None, "Required property 'ai_agent_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ai_agent_id(self) -> builtins.str:
+        '''The AIAgentId of the AIAgent resource.'''
+        result = self._values.get("ai_agent_id")
+        assert result is not None, "Required property 'ai_agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIAgent resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIAgentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIAgentVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_agent_id": "aiAgentId",
+        "assistant_id": "assistantId",
+        "version_number": "versionNumber",
+    },
+)
+class AIAgentVersionReference:
+    def __init__(
+        self,
+        *,
+        ai_agent_id: builtins.str,
+        assistant_id: builtins.str,
+        version_number: builtins.str,
+    ) -> None:
+        '''A reference to a AIAgentVersion resource.
+
+        :param ai_agent_id: The AIAgentId of the AIAgentVersion resource.
+        :param assistant_id: The AssistantId of the AIAgentVersion resource.
+        :param version_number: The VersionNumber of the AIAgentVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iAgent_version_reference = wisdom.AIAgentVersionReference(
+                ai_agent_id="aiAgentId",
+                assistant_id="assistantId",
+                version_number="versionNumber"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9544c76b9e15341af4ccc50b0410eddb3129fdeafcedb1435f3057a64517bd7)
+            check_type(argname="argument ai_agent_id", value=ai_agent_id, expected_type=type_hints["ai_agent_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument version_number", value=version_number, expected_type=type_hints["version_number"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_agent_id": ai_agent_id,
+            "assistant_id": assistant_id,
+            "version_number": version_number,
+        }
+
+    @builtins.property
+    def ai_agent_id(self) -> builtins.str:
+        '''The AIAgentId of the AIAgentVersion resource.'''
+        result = self._values.get("ai_agent_id")
+        assert result is not None, "Required property 'ai_agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIAgentVersion resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_number(self) -> builtins.str:
+        '''The VersionNumber of the AIAgentVersion resource.'''
+        result = self._values.get("version_number")
+        assert result is not None, "Required property 'version_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIAgentVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIGuardrailReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_guardrail_arn": "aiGuardrailArn",
+        "ai_guardrail_id": "aiGuardrailId",
+        "assistant_id": "assistantId",
+    },
+)
+class AIGuardrailReference:
+    def __init__(
+        self,
+        *,
+        ai_guardrail_arn: builtins.str,
+        ai_guardrail_id: builtins.str,
+        assistant_id: builtins.str,
+    ) -> None:
+        '''A reference to a AIGuardrail resource.
+
+        :param ai_guardrail_arn: The ARN of the AIGuardrail resource.
+        :param ai_guardrail_id: The AIGuardrailId of the AIGuardrail resource.
+        :param assistant_id: The AssistantId of the AIGuardrail resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iGuardrail_reference = wisdom.AIGuardrailReference(
+                ai_guardrail_arn="aiGuardrailArn",
+                ai_guardrail_id="aiGuardrailId",
+                assistant_id="assistantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40a82a1e2d0b4a4cc6dffed6af1c168acb1be30b0a78785df9b5802363fa0ca0)
+            check_type(argname="argument ai_guardrail_arn", value=ai_guardrail_arn, expected_type=type_hints["ai_guardrail_arn"])
+            check_type(argname="argument ai_guardrail_id", value=ai_guardrail_id, expected_type=type_hints["ai_guardrail_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_guardrail_arn": ai_guardrail_arn,
+            "ai_guardrail_id": ai_guardrail_id,
+            "assistant_id": assistant_id,
+        }
+
+    @builtins.property
+    def ai_guardrail_arn(self) -> builtins.str:
+        '''The ARN of the AIGuardrail resource.'''
+        result = self._values.get("ai_guardrail_arn")
+        assert result is not None, "Required property 'ai_guardrail_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ai_guardrail_id(self) -> builtins.str:
+        '''The AIGuardrailId of the AIGuardrail resource.'''
+        result = self._values.get("ai_guardrail_id")
+        assert result is not None, "Required property 'ai_guardrail_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIGuardrail resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIGuardrailReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIGuardrailVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_guardrail_id": "aiGuardrailId",
+        "assistant_id": "assistantId",
+        "version_number": "versionNumber",
+    },
+)
+class AIGuardrailVersionReference:
+    def __init__(
+        self,
+        *,
+        ai_guardrail_id: builtins.str,
+        assistant_id: builtins.str,
+        version_number: builtins.str,
+    ) -> None:
+        '''A reference to a AIGuardrailVersion resource.
+
+        :param ai_guardrail_id: The AIGuardrailId of the AIGuardrailVersion resource.
+        :param assistant_id: The AssistantId of the AIGuardrailVersion resource.
+        :param version_number: The VersionNumber of the AIGuardrailVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iGuardrail_version_reference = wisdom.AIGuardrailVersionReference(
+                ai_guardrail_id="aiGuardrailId",
+                assistant_id="assistantId",
+                version_number="versionNumber"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e43de45e438a20695b7bd5d4f403d524934995d43de1eef66724df0963f5d0c1)
+            check_type(argname="argument ai_guardrail_id", value=ai_guardrail_id, expected_type=type_hints["ai_guardrail_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument version_number", value=version_number, expected_type=type_hints["version_number"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_guardrail_id": ai_guardrail_id,
+            "assistant_id": assistant_id,
+            "version_number": version_number,
+        }
+
+    @builtins.property
+    def ai_guardrail_id(self) -> builtins.str:
+        '''The AIGuardrailId of the AIGuardrailVersion resource.'''
+        result = self._values.get("ai_guardrail_id")
+        assert result is not None, "Required property 'ai_guardrail_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIGuardrailVersion resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_number(self) -> builtins.str:
+        '''The VersionNumber of the AIGuardrailVersion resource.'''
+        result = self._values.get("version_number")
+        assert result is not None, "Required property 'version_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIGuardrailVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIPromptReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_prompt_arn": "aiPromptArn",
+        "ai_prompt_id": "aiPromptId",
+        "assistant_id": "assistantId",
+    },
+)
+class AIPromptReference:
+    def __init__(
+        self,
+        *,
+        ai_prompt_arn: builtins.str,
+        ai_prompt_id: builtins.str,
+        assistant_id: builtins.str,
+    ) -> None:
+        '''A reference to a AIPrompt resource.
+
+        :param ai_prompt_arn: The ARN of the AIPrompt resource.
+        :param ai_prompt_id: The AIPromptId of the AIPrompt resource.
+        :param assistant_id: The AssistantId of the AIPrompt resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iPrompt_reference = wisdom.AIPromptReference(
+                ai_prompt_arn="aiPromptArn",
+                ai_prompt_id="aiPromptId",
+                assistant_id="assistantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3e3e5ef74b7d773eb46bcac69d5140e57e05f5afb2d0f139fbba918658ef36b)
+            check_type(argname="argument ai_prompt_arn", value=ai_prompt_arn, expected_type=type_hints["ai_prompt_arn"])
+            check_type(argname="argument ai_prompt_id", value=ai_prompt_id, expected_type=type_hints["ai_prompt_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_prompt_arn": ai_prompt_arn,
+            "ai_prompt_id": ai_prompt_id,
+            "assistant_id": assistant_id,
+        }
+
+    @builtins.property
+    def ai_prompt_arn(self) -> builtins.str:
+        '''The ARN of the AIPrompt resource.'''
+        result = self._values.get("ai_prompt_arn")
+        assert result is not None, "Required property 'ai_prompt_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ai_prompt_id(self) -> builtins.str:
+        '''The AIPromptId of the AIPrompt resource.'''
+        result = self._values.get("ai_prompt_id")
+        assert result is not None, "Required property 'ai_prompt_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIPrompt resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIPromptReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AIPromptVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_prompt_id": "aiPromptId",
+        "assistant_id": "assistantId",
+        "version_number": "versionNumber",
+    },
+)
+class AIPromptVersionReference:
+    def __init__(
+        self,
+        *,
+        ai_prompt_id: builtins.str,
+        assistant_id: builtins.str,
+        version_number: builtins.str,
+    ) -> None:
+        '''A reference to a AIPromptVersion resource.
+
+        :param ai_prompt_id: The AIPromptId of the AIPromptVersion resource.
+        :param assistant_id: The AssistantId of the AIPromptVersion resource.
+        :param version_number: The VersionNumber of the AIPromptVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            a_iPrompt_version_reference = wisdom.AIPromptVersionReference(
+                ai_prompt_id="aiPromptId",
+                assistant_id="assistantId",
+                version_number="versionNumber"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7ee3f2187e790cc85d138d704ca7db5553224865a8cf6d8249269db07f4613c)
+            check_type(argname="argument ai_prompt_id", value=ai_prompt_id, expected_type=type_hints["ai_prompt_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument version_number", value=version_number, expected_type=type_hints["version_number"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_prompt_id": ai_prompt_id,
+            "assistant_id": assistant_id,
+            "version_number": version_number,
+        }
+
+    @builtins.property
+    def ai_prompt_id(self) -> builtins.str:
+        '''The AIPromptId of the AIPromptVersion resource.'''
+        result = self._values.get("ai_prompt_id")
+        assert result is not None, "Required property 'ai_prompt_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AIPromptVersion resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_number(self) -> builtins.str:
+        '''The VersionNumber of the AIPromptVersion resource.'''
+        result = self._values.get("version_number")
+        assert result is not None, "Required property 'version_number' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AIPromptVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AssistantAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assistant_association_arn": "assistantAssociationArn",
+        "assistant_association_id": "assistantAssociationId",
+        "assistant_id": "assistantId",
+    },
+)
+class AssistantAssociationReference:
+    def __init__(
+        self,
+        *,
+        assistant_association_arn: builtins.str,
+        assistant_association_id: builtins.str,
+        assistant_id: builtins.str,
+    ) -> None:
+        '''A reference to a AssistantAssociation resource.
+
+        :param assistant_association_arn: The ARN of the AssistantAssociation resource.
+        :param assistant_association_id: The AssistantAssociationId of the AssistantAssociation resource.
+        :param assistant_id: The AssistantId of the AssistantAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            assistant_association_reference = wisdom.AssistantAssociationReference(
+                assistant_association_arn="assistantAssociationArn",
+                assistant_association_id="assistantAssociationId",
+                assistant_id="assistantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ec615e2d99a0b810ecde5b453eda91e8a61a7a1d99631358e6596a76c467c6e)
+            check_type(argname="argument assistant_association_arn", value=assistant_association_arn, expected_type=type_hints["assistant_association_arn"])
+            check_type(argname="argument assistant_association_id", value=assistant_association_id, expected_type=type_hints["assistant_association_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assistant_association_arn": assistant_association_arn,
+            "assistant_association_id": assistant_association_id,
+            "assistant_id": assistant_id,
+        }
+
+    @builtins.property
+    def assistant_association_arn(self) -> builtins.str:
+        '''The ARN of the AssistantAssociation resource.'''
+        result = self._values.get("assistant_association_arn")
+        assert result is not None, "Required property 'assistant_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_association_id(self) -> builtins.str:
+        '''The AssistantAssociationId of the AssistantAssociation resource.'''
+        result = self._values.get("assistant_association_id")
+        assert result is not None, "Required property 'assistant_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the AssistantAssociation resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssistantAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.AssistantReference",
+    jsii_struct_bases=[],
+    name_mapping={"assistant_arn": "assistantArn", "assistant_id": "assistantId"},
+)
+class AssistantReference:
+    def __init__(
+        self,
+        *,
+        assistant_arn: builtins.str,
+        assistant_id: builtins.str,
+    ) -> None:
+        '''A reference to a Assistant resource.
+
+        :param assistant_arn: The ARN of the Assistant resource.
+        :param assistant_id: The AssistantId of the Assistant resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            assistant_reference = wisdom.AssistantReference(
+                assistant_arn="assistantArn",
+                assistant_id="assistantId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12a5fb9ca6ec900cc27918bd98d1680364ecca65e79ed053f59e20f661b8619a)
+            check_type(argname="argument assistant_arn", value=assistant_arn, expected_type=type_hints["assistant_arn"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assistant_arn": assistant_arn,
+            "assistant_id": assistant_id,
+        }
+
+    @builtins.property
+    def assistant_arn(self) -> builtins.str:
+        '''The ARN of the Assistant resource.'''
+        result = self._values.get("assistant_arn")
+        assert result is not None, "Required property 'assistant_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The AssistantId of the Assistant resource.'''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssistantReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assistant_id": "assistantId",
+        "configuration": "configuration",
+        "type": "type",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnAIAgentProps:
+    def __init__(
+        self,
+        *,
+        assistant_id: builtins.str,
+        configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIAgent.AIAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIAgent``.
+
+        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
+        :param configuration: Configuration for the AI Agent.
+        :param type: The type of the AI Agent.
+        :param description: The description of the AI Agent.
+        :param name: The name of the AI Agent.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIAgent_props = wisdom.CfnAIAgentProps(
+                assistant_id="assistantId",
+                configuration=wisdom.CfnAIAgent.AIAgentConfigurationProperty(
+                    answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
+                        answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
+                        answer_generation_ai_prompt_id="answerGenerationAiPromptId",
+                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
+                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
+                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
+                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
+                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )],
+                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
+                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )],
+                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )
+                                        )],
+                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )
+                                    ),
+                                    max_results=123,
+                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
+                                )
+                            ),
+                            association_id="associationId",
+                            association_type="associationType"
+                        )],
+                        intent_labeling_generation_ai_prompt_id="intentLabelingGenerationAiPromptId",
+                        locale="locale",
+                        query_reformulation_ai_prompt_id="queryReformulationAiPromptId"
+                    ),
+                    manual_search_ai_agent_configuration=wisdom.CfnAIAgent.ManualSearchAIAgentConfigurationProperty(
+                        answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
+                        answer_generation_ai_prompt_id="answerGenerationAiPromptId",
+                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
+                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
+                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
+                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
+                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )],
+                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
+                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )],
+                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )
+                                        )],
+                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )
+                                    ),
+                                    max_results=123,
+                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
+                                )
+                            ),
+                            association_id="associationId",
+                            association_type="associationType"
+                        )],
+                        locale="locale"
+                    ),
+                    self_service_ai_agent_configuration=wisdom.CfnAIAgent.SelfServiceAIAgentConfigurationProperty(
+                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
+                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
+                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
+                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
+                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )],
+                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
+                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )],
+                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                                key="key",
+            
+                                                # the properties below are optional
+                                                value="value"
+                                            )
+                                        )],
+                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
+                                            key="key",
+            
+                                            # the properties below are optional
+                                            value="value"
+                                        )
+                                    ),
+                                    max_results=123,
+                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
+                                )
+                            ),
+                            association_id="associationId",
+                            association_type="associationType"
+                        )],
+                        self_service_ai_guardrail_id="selfServiceAiGuardrailId",
+                        self_service_answer_generation_ai_prompt_id="selfServiceAnswerGenerationAiPromptId",
+                        self_service_pre_processing_ai_prompt_id="selfServicePreProcessingAiPromptId"
+                    )
+                ),
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1cda9a6282ec07c28c0ef49efdf8da8f079052d26edd32bbe15324644982756)
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assistant_id": assistant_id,
+            "configuration": configuration,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q in Connect assistant.
+
+        Can be either the ID or the ARN. URLs cannot contain the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAIAgent.AIAgentConfigurationProperty"]:
+        '''Configuration for the AI Agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAIAgent.AIAgentConfigurationProperty"], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of the AI Agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the AI Agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AI Agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIAgentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgentVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_agent_id": "aiAgentId",
+        "assistant_id": "assistantId",
+        "modified_time_seconds": "modifiedTimeSeconds",
+    },
+)
+class CfnAIAgentVersionProps:
+    def __init__(
+        self,
+        *,
+        ai_agent_id: builtins.str,
+        assistant_id: builtins.str,
+        modified_time_seconds: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIAgentVersion``.
+
+        :param ai_agent_id: The identifier of the AI Agent.
+        :param assistant_id: 
+        :param modified_time_seconds: The time the AI Agent version was last modified in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIAgent_version_props = wisdom.CfnAIAgentVersionProps(
+                ai_agent_id="aiAgentId",
+                assistant_id="assistantId",
+            
+                # the properties below are optional
+                modified_time_seconds=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ce55b0c69b9bc58cfcaeadaff04d7986170a5f73af9f6157ba1fe19c79b250e)
+            check_type(argname="argument ai_agent_id", value=ai_agent_id, expected_type=type_hints["ai_agent_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_agent_id": ai_agent_id,
+            "assistant_id": assistant_id,
+        }
+        if modified_time_seconds is not None:
+            self._values["modified_time_seconds"] = modified_time_seconds
+
+    @builtins.property
+    def ai_agent_id(self) -> builtins.str:
+        '''The identifier of the AI Agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-aiagentid
+        '''
+        result = self._values.get("ai_agent_id")
+        assert result is not None, "Required property 'ai_agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The time the AI Agent version was last modified in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-modifiedtimeseconds
+        '''
+        result = self._values.get("modified_time_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIAgentVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIGuardrailProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assistant_id": "assistantId",
+        "blocked_input_messaging": "blockedInputMessaging",
+        "blocked_outputs_messaging": "blockedOutputsMessaging",
+        "content_policy_config": "contentPolicyConfig",
+        "contextual_grounding_policy_config": "contextualGroundingPolicyConfig",
+        "description": "description",
+        "name": "name",
+        "sensitive_information_policy_config": "sensitiveInformationPolicyConfig",
+        "tags": "tags",
+        "topic_policy_config": "topicPolicyConfig",
+        "word_policy_config": "wordPolicyConfig",
+    },
+)
+class CfnAIGuardrailProps:
+    def __init__(
+        self,
+        *,
+        assistant_id: builtins.str,
+        blocked_input_messaging: builtins.str,
+        blocked_outputs_messaging: builtins.str,
+        content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIGuardrail``.
+
+        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
+        :param blocked_input_messaging: The message to return when the AI Guardrail blocks a prompt.
+        :param blocked_outputs_messaging: The message to return when the AI Guardrail blocks a model response.
+        :param content_policy_config: Contains details about how to handle harmful content.
+        :param contextual_grounding_policy_config: The policy configuration details for the AI Guardrail's contextual grounding policy.
+        :param description: A description of the AI Guardrail.
+        :param name: The name of the AI Guardrail.
+        :param sensitive_information_policy_config: Contains details about PII entities and regular expressions to configure for the AI Guardrail.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param topic_policy_config: Contains details about topics that the AI Guardrail should identify and deny.
+        :param word_policy_config: Contains details about the word policy to configured for the AI Guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIGuardrail_props = wisdom.CfnAIGuardrailProps(
+                assistant_id="assistantId",
+                blocked_input_messaging="blockedInputMessaging",
+                blocked_outputs_messaging="blockedOutputsMessaging",
+            
+                # the properties below are optional
+                content_policy_config=wisdom.CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty(
+                    filters_config=[wisdom.CfnAIGuardrail.GuardrailContentFilterConfigProperty(
+                        input_strength="inputStrength",
+                        output_strength="outputStrength",
+                        type="type"
+                    )]
+                ),
+                contextual_grounding_policy_config=wisdom.CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty(
+                    filters_config=[wisdom.CfnAIGuardrail.GuardrailContextualGroundingFilterConfigProperty(
+                        threshold=123,
+                        type="type"
+                    )]
+                ),
+                description="description",
+                name="name",
+                sensitive_information_policy_config=wisdom.CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty(
+                    pii_entities_config=[wisdom.CfnAIGuardrail.GuardrailPiiEntityConfigProperty(
+                        action="action",
+                        type="type"
+                    )],
+                    regexes_config=[wisdom.CfnAIGuardrail.GuardrailRegexConfigProperty(
+                        action="action",
+                        name="name",
+                        pattern="pattern",
+            
+                        # the properties below are optional
+                        description="description"
+                    )]
+                ),
+                tags={
+                    "tags_key": "tags"
+                },
+                topic_policy_config=wisdom.CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty(
+                    topics_config=[wisdom.CfnAIGuardrail.GuardrailTopicConfigProperty(
+                        definition="definition",
+                        name="name",
+                        type="type",
+            
+                        # the properties below are optional
+                        examples=["examples"]
+                    )]
+                ),
+                word_policy_config=wisdom.CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty(
+                    managed_word_lists_config=[wisdom.CfnAIGuardrail.GuardrailManagedWordsConfigProperty(
+                        type="type"
+                    )],
+                    words_config=[wisdom.CfnAIGuardrail.GuardrailWordConfigProperty(
+                        text="text"
+                    )]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__272934bdd57f29fc5c93ba393c351f7b04e959a7a6be0e13591e187bd90df3aa)
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument blocked_input_messaging", value=blocked_input_messaging, expected_type=type_hints["blocked_input_messaging"])
+            check_type(argname="argument blocked_outputs_messaging", value=blocked_outputs_messaging, expected_type=type_hints["blocked_outputs_messaging"])
+            check_type(argname="argument content_policy_config", value=content_policy_config, expected_type=type_hints["content_policy_config"])
+            check_type(argname="argument contextual_grounding_policy_config", value=contextual_grounding_policy_config, expected_type=type_hints["contextual_grounding_policy_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument sensitive_information_policy_config", value=sensitive_information_policy_config, expected_type=type_hints["sensitive_information_policy_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument topic_policy_config", value=topic_policy_config, expected_type=type_hints["topic_policy_config"])
+            check_type(argname="argument word_policy_config", value=word_policy_config, expected_type=type_hints["word_policy_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assistant_id": assistant_id,
+            "blocked_input_messaging": blocked_input_messaging,
+            "blocked_outputs_messaging": blocked_outputs_messaging,
+        }
+        if content_policy_config is not None:
+            self._values["content_policy_config"] = content_policy_config
+        if contextual_grounding_policy_config is not None:
+            self._values["contextual_grounding_policy_config"] = contextual_grounding_policy_config
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if sensitive_information_policy_config is not None:
+            self._values["sensitive_information_policy_config"] = sensitive_information_policy_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if topic_policy_config is not None:
+            self._values["topic_policy_config"] = topic_policy_config
+        if word_policy_config is not None:
+            self._values["word_policy_config"] = word_policy_config
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q in Connect assistant.
+
+        Can be either the ID or the ARN. URLs cannot contain the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def blocked_input_messaging(self) -> builtins.str:
+        '''The message to return when the AI Guardrail blocks a prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-blockedinputmessaging
+        '''
+        result = self._values.get("blocked_input_messaging")
+        assert result is not None, "Required property 'blocked_input_messaging' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def blocked_outputs_messaging(self) -> builtins.str:
+        '''The message to return when the AI Guardrail blocks a model response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-blockedoutputsmessaging
+        '''
+        result = self._values.get("blocked_outputs_messaging")
+        assert result is not None, "Required property 'blocked_outputs_messaging' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty"]]:
+        '''Contains details about how to handle harmful content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-contentpolicyconfig
+        '''
+        result = self._values.get("content_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def contextual_grounding_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty"]]:
+        '''The policy configuration details for the AI Guardrail's contextual grounding policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-contextualgroundingpolicyconfig
+        '''
+        result = self._values.get("contextual_grounding_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the AI Guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AI Guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sensitive_information_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty"]]:
+        '''Contains details about PII entities and regular expressions to configure for the AI Guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-sensitiveinformationpolicyconfig
+        '''
+        result = self._values.get("sensitive_information_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def topic_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty"]]:
+        '''Contains details about topics that the AI Guardrail should identify and deny.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-topicpolicyconfig
+        '''
+        result = self._values.get("topic_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def word_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty"]]:
+        '''Contains details about the word policy to configured for the AI Guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-wordpolicyconfig
+        '''
+        result = self._values.get("word_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIGuardrailProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIGuardrailVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_guardrail_id": "aiGuardrailId",
+        "assistant_id": "assistantId",
+        "modified_time_seconds": "modifiedTimeSeconds",
+    },
+)
+class CfnAIGuardrailVersionProps:
+    def __init__(
+        self,
+        *,
+        ai_guardrail_id: builtins.str,
+        assistant_id: builtins.str,
+        modified_time_seconds: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIGuardrailVersion``.
+
+        :param ai_guardrail_id: The ID of the AI guardrail version.
+        :param assistant_id: The ID of the AI guardrail version assistant.
+        :param modified_time_seconds: The modified time of the AI guardrail version in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIGuardrail_version_props = wisdom.CfnAIGuardrailVersionProps(
+                ai_guardrail_id="aiGuardrailId",
+                assistant_id="assistantId",
+            
+                # the properties below are optional
+                modified_time_seconds=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a99128fc6202c08bbbe787b73cc8f6fe79376afb6a408a1c3b9f1d86295794b)
+            check_type(argname="argument ai_guardrail_id", value=ai_guardrail_id, expected_type=type_hints["ai_guardrail_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_guardrail_id": ai_guardrail_id,
+            "assistant_id": assistant_id,
+        }
+        if modified_time_seconds is not None:
+            self._values["modified_time_seconds"] = modified_time_seconds
+
+    @builtins.property
+    def ai_guardrail_id(self) -> builtins.str:
+        '''The ID of the AI guardrail version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-aiguardrailid
+        '''
+        result = self._values.get("ai_guardrail_id")
+        assert result is not None, "Required property 'ai_guardrail_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The ID of the AI guardrail version assistant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The modified time of the AI guardrail version in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-modifiedtimeseconds
+        '''
+        result = self._values.get("modified_time_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIGuardrailVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPromptProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "api_format": "apiFormat",
+        "model_id": "modelId",
+        "template_configuration": "templateConfiguration",
+        "template_type": "templateType",
+        "type": "type",
+        "assistant_id": "assistantId",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnAIPromptProps:
+    def __init__(
+        self,
+        *,
+        api_format: builtins.str,
+        model_id: builtins.str,
+        template_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAIPrompt.AIPromptTemplateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        template_type: builtins.str,
+        type: builtins.str,
+        assistant_id: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIPrompt``.
+
+        :param api_format: The API format used for this AI Prompt.
+        :param model_id: The identifier of the model used for this AI Prompt. The following model Ids are supported:. - ``anthropic.claude-3-haiku--v1:0`` - ``apac.amazon.nova-lite-v1:0`` - ``apac.amazon.nova-micro-v1:0`` - ``apac.amazon.nova-pro-v1:0`` - ``apac.anthropic.claude-3-5-sonnet--v2:0`` - ``apac.anthropic.claude-3-haiku-20240307-v1:0`` - ``eu.amazon.nova-lite-v1:0`` - ``eu.amazon.nova-micro-v1:0`` - ``eu.amazon.nova-pro-v1:0`` - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``eu.anthropic.claude-3-haiku-20240307-v1:0`` - ``us.amazon.nova-lite-v1:0`` - ``us.amazon.nova-micro-v1:0`` - ``us.amazon.nova-pro-v1:0`` - ``us.anthropic.claude-3-5-haiku-20241022-v1:0`` - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``us.anthropic.claude-3-haiku-20240307-v1:0``
+        :param template_configuration: The configuration of the prompt template for this AI Prompt.
+        :param template_type: The type of the prompt template for this AI Prompt.
+        :param type: The type of this AI Prompt.
+        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
+        :param description: The description of the AI Prompt.
+        :param name: The name of the AI Prompt.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIPrompt_props = wisdom.CfnAIPromptProps(
+                api_format="apiFormat",
+                model_id="modelId",
+                template_configuration=wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
+                    text_full_ai_prompt_edit_template_configuration=wisdom.CfnAIPrompt.TextFullAIPromptEditTemplateConfigurationProperty(
+                        text="text"
+                    )
+                ),
+                template_type="templateType",
+                type="type",
+            
+                # the properties below are optional
+                assistant_id="assistantId",
+                description="description",
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a55de2153828f44950073a28af3416601dc1f09105d3fa9d8f1ec243b3822d3)
+            check_type(argname="argument api_format", value=api_format, expected_type=type_hints["api_format"])
+            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+            check_type(argname="argument template_configuration", value=template_configuration, expected_type=type_hints["template_configuration"])
+            check_type(argname="argument template_type", value=template_type, expected_type=type_hints["template_type"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_format": api_format,
+            "model_id": model_id,
+            "template_configuration": template_configuration,
+            "template_type": template_type,
+            "type": type,
+        }
+        if assistant_id is not None:
+            self._values["assistant_id"] = assistant_id
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def api_format(self) -> builtins.str:
+        '''The API format used for this AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-apiformat
+        '''
+        result = self._values.get("api_format")
+        assert result is not None, "Required property 'api_format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_id(self) -> builtins.str:
+        '''The identifier of the model used for this AI Prompt. The following model Ids are supported:.
+
+        - ``anthropic.claude-3-haiku--v1:0``
+        - ``apac.amazon.nova-lite-v1:0``
+        - ``apac.amazon.nova-micro-v1:0``
+        - ``apac.amazon.nova-pro-v1:0``
+        - ``apac.anthropic.claude-3-5-sonnet--v2:0``
+        - ``apac.anthropic.claude-3-haiku-20240307-v1:0``
+        - ``eu.amazon.nova-lite-v1:0``
+        - ``eu.amazon.nova-micro-v1:0``
+        - ``eu.amazon.nova-pro-v1:0``
+        - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0``
+        - ``eu.anthropic.claude-3-haiku-20240307-v1:0``
+        - ``us.amazon.nova-lite-v1:0``
+        - ``us.amazon.nova-micro-v1:0``
+        - ``us.amazon.nova-pro-v1:0``
+        - ``us.anthropic.claude-3-5-haiku-20241022-v1:0``
+        - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0``
+        - ``us.anthropic.claude-3-haiku-20240307-v1:0``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-modelid
+        '''
+        result = self._values.get("model_id")
+        assert result is not None, "Required property 'model_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAIPrompt.AIPromptTemplateConfigurationProperty"]:
+        '''The configuration of the prompt template for this AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-templateconfiguration
+        '''
+        result = self._values.get("template_configuration")
+        assert result is not None, "Required property 'template_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAIPrompt.AIPromptTemplateConfigurationProperty"], result)
+
+    @builtins.property
+    def template_type(self) -> builtins.str:
+        '''The type of the prompt template for this AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-templatetype
+        '''
+        result = self._values.get("template_type")
+        assert result is not None, "Required property 'template_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of this AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the Amazon Q in Connect assistant.
+
+        Can be either the ID or the ARN. URLs cannot contain the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AI Prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIPromptProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPromptVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ai_prompt_id": "aiPromptId",
+        "assistant_id": "assistantId",
+        "modified_time_seconds": "modifiedTimeSeconds",
+    },
+)
+class CfnAIPromptVersionProps:
+    def __init__(
+        self,
+        *,
+        ai_prompt_id: builtins.str,
+        assistant_id: builtins.str,
+        modified_time_seconds: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAIPromptVersion``.
+
+        :param ai_prompt_id: The identifier of the Amazon Q in Connect AI prompt.
+        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
+        :param modified_time_seconds: The time the AI Prompt version was last modified in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_aIPrompt_version_props = wisdom.CfnAIPromptVersionProps(
+                ai_prompt_id="aiPromptId",
+                assistant_id="assistantId",
+            
+                # the properties below are optional
+                modified_time_seconds=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39068faf047cdd2f1dce0d86adaff6f71058bba08c161da563b36647959f2add)
+            check_type(argname="argument ai_prompt_id", value=ai_prompt_id, expected_type=type_hints["ai_prompt_id"])
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ai_prompt_id": ai_prompt_id,
+            "assistant_id": assistant_id,
+        }
+        if modified_time_seconds is not None:
+            self._values["modified_time_seconds"] = modified_time_seconds
+
+    @builtins.property
+    def ai_prompt_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q in Connect AI prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-aipromptid
+        '''
+        result = self._values.get("ai_prompt_id")
+        assert result is not None, "Required property 'ai_prompt_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q in Connect assistant.
+
+        Can be either the ID or the ARN. URLs cannot contain the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The time the AI Prompt version was last modified in seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-modifiedtimeseconds
+        '''
+        result = self._values.get("modified_time_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAIPromptVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistantAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assistant_id": "assistantId",
+        "association": "association",
+        "association_type": "associationType",
+        "tags": "tags",
+    },
+)
+class CfnAssistantAssociationProps:
+    def __init__(
+        self,
+        *,
+        assistant_id: builtins.str,
+        association: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssistantAssociation.AssociationDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        association_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssistantAssociation``.
+
+        :param assistant_id: The identifier of the Wisdom assistant.
+        :param association: The identifier of the associated resource.
+        :param association_type: The type of association.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_assistant_association_props = wisdom.CfnAssistantAssociationProps(
+                assistant_id="assistantId",
+                association=wisdom.CfnAssistantAssociation.AssociationDataProperty(
+                    knowledge_base_id="knowledgeBaseId"
+                ),
+                association_type="associationType",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__419e70156a249f4fa2bea77a71d532fe9a351e3d150b5939dc8455b174375514)
+            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
+            check_type(argname="argument association", value=association, expected_type=type_hints["association"])
+            check_type(argname="argument association_type", value=association_type, expected_type=type_hints["association_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assistant_id": assistant_id,
+            "association": association,
+            "association_type": association_type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def assistant_id(self) -> builtins.str:
+        '''The identifier of the Wisdom assistant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-assistantid
+        '''
+        result = self._values.get("assistant_id")
+        assert result is not None, "Required property 'assistant_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def association(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAssistantAssociation.AssociationDataProperty"]:
+        '''The identifier of the associated resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-association
+        '''
+        result = self._values.get("association")
+        assert result is not None, "Required property 'association' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAssistantAssociation.AssociationDataProperty"], result)
+
+    @builtins.property
+    def association_type(self) -> builtins.str:
+        '''The type of association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-associationtype
+        '''
+        result = self._values.get("association_type")
+        assert result is not None, "Required property 'association_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssistantAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "type": "type",
+        "description": "description",
+        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnAssistantProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssistant.ServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssistant``.
+
+        :param name: The name of the assistant.
+        :param type: The type of assistant.
+        :param description: The description of the assistant.
+        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_assistant_props = wisdom.CfnAssistantProps(
+                name="name",
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                server_side_encryption_configuration=wisdom.CfnAssistant.ServerSideEncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2f6978729a0bccb7cc077df26ee5d379812791b9fe7ec0622251ed958562e07)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if server_side_encryption_configuration is not None:
+            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the assistant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of assistant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the assistant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_side_encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssistant.ServerSideEncryptionConfigurationProperty"]]:
+        '''The configuration information for the customer managed key used for encryption.
+
+        The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-serversideencryptionconfiguration
+        '''
+        result = self._values.get("server_side_encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssistant.ServerSideEncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssistantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnKnowledgeBaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_type": "knowledgeBaseType",
+        "name": "name",
+        "description": "description",
+        "rendering_configuration": "renderingConfiguration",
+        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        "source_configuration": "sourceConfiguration",
+        "tags": "tags",
+        "vector_ingestion_configuration": "vectorIngestionConfiguration",
+    },
+)
+class CfnKnowledgeBaseProps:
+    def __init__(
+        self,
+        *,
+        knowledge_base_type: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        rendering_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.RenderingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.VectorIngestionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnKnowledgeBase``.
+
+        :param knowledge_base_type: The type of knowledge base. Only CUSTOM knowledge bases allow you to upload your own content. EXTERNAL knowledge bases support integrations with third-party systems whose content is synchronized automatically.
+        :param name: The name of the knowledge base.
+        :param description: The description.
+        :param rendering_configuration: Information about how to render the content.
+        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+        :param source_configuration: The source of the knowledge base content. Only set this argument for EXTERNAL or Managed knowledge bases.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param vector_ingestion_configuration: Contains details about how to ingest the documents in a data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_knowledge_base_props = wisdom.CfnKnowledgeBaseProps(
+                knowledge_base_type="knowledgeBaseType",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                rendering_configuration=wisdom.CfnKnowledgeBase.RenderingConfigurationProperty(
+                    template_uri="templateUri"
+                ),
+                server_side_encryption_configuration=wisdom.CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+                source_configuration=wisdom.CfnKnowledgeBase.SourceConfigurationProperty(
+                    app_integrations=wisdom.CfnKnowledgeBase.AppIntegrationsConfigurationProperty(
+                        app_integration_arn="appIntegrationArn",
+            
+                        # the properties below are optional
+                        object_fields=["objectFields"]
+                    ),
+                    managed_source_configuration=wisdom.CfnKnowledgeBase.ManagedSourceConfigurationProperty(
+                        web_crawler_configuration=wisdom.CfnKnowledgeBase.WebCrawlerConfigurationProperty(
+                            url_configuration=wisdom.CfnKnowledgeBase.UrlConfigurationProperty(
+                                seed_urls=[wisdom.CfnKnowledgeBase.SeedUrlProperty(
+                                    url="url"
+                                )]
+                            ),
+            
+                            # the properties below are optional
+                            crawler_limits=wisdom.CfnKnowledgeBase.CrawlerLimitsProperty(
+                                rate_limit=123
+                            ),
+                            exclusion_filters=["exclusionFilters"],
+                            inclusion_filters=["inclusionFilters"],
+                            scope="scope"
+                        )
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vector_ingestion_configuration=wisdom.CfnKnowledgeBase.VectorIngestionConfigurationProperty(
+                    chunking_configuration=wisdom.CfnKnowledgeBase.ChunkingConfigurationProperty(
+                        chunking_strategy="chunkingStrategy",
+            
+                        # the properties below are optional
+                        fixed_size_chunking_configuration=wisdom.CfnKnowledgeBase.FixedSizeChunkingConfigurationProperty(
+                            max_tokens=123,
+                            overlap_percentage=123
+                        ),
+                        hierarchical_chunking_configuration=wisdom.CfnKnowledgeBase.HierarchicalChunkingConfigurationProperty(
+                            level_configurations=[wisdom.CfnKnowledgeBase.HierarchicalChunkingLevelConfigurationProperty(
+                                max_tokens=123
+                            )],
+                            overlap_tokens=123
+                        ),
+                        semantic_chunking_configuration=wisdom.CfnKnowledgeBase.SemanticChunkingConfigurationProperty(
+                            breakpoint_percentile_threshold=123,
+                            buffer_size=123,
+                            max_tokens=123
+                        )
+                    ),
+                    parsing_configuration=wisdom.CfnKnowledgeBase.ParsingConfigurationProperty(
+                        parsing_strategy="parsingStrategy",
+            
+                        # the properties below are optional
+                        bedrock_foundation_model_configuration=wisdom.CfnKnowledgeBase.BedrockFoundationModelConfigurationProperty(
+                            model_arn="modelArn",
+            
+                            # the properties below are optional
+                            parsing_prompt=wisdom.CfnKnowledgeBase.ParsingPromptProperty(
+                                parsing_prompt_text="parsingPromptText"
+                            )
+                        )
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b2c89f78d66a3c10ed4851c5bc420028f69cc91ddabbe2ac038dd7332ea1edd)
+            check_type(argname="argument knowledge_base_type", value=knowledge_base_type, expected_type=type_hints["knowledge_base_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rendering_configuration", value=rendering_configuration, expected_type=type_hints["rendering_configuration"])
+            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vector_ingestion_configuration", value=vector_ingestion_configuration, expected_type=type_hints["vector_ingestion_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_type": knowledge_base_type,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if rendering_configuration is not None:
+            self._values["rendering_configuration"] = rendering_configuration
+        if server_side_encryption_configuration is not None:
+            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+        if source_configuration is not None:
+            self._values["source_configuration"] = source_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if vector_ingestion_configuration is not None:
+            self._values["vector_ingestion_configuration"] = vector_ingestion_configuration
+
+    @builtins.property
+    def knowledge_base_type(self) -> builtins.str:
+        '''The type of knowledge base.
+
+        Only CUSTOM knowledge bases allow you to upload your own content. EXTERNAL knowledge bases support integrations with third-party systems whose content is synchronized automatically.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-knowledgebasetype
+        '''
+        result = self._values.get("knowledge_base_type")
+        assert result is not None, "Required property 'knowledge_base_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rendering_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.RenderingConfigurationProperty"]]:
+        '''Information about how to render the content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-renderingconfiguration
+        '''
+        result = self._values.get("rendering_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.RenderingConfigurationProperty"]], result)
+
+    @builtins.property
+    def server_side_encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty"]]:
+        '''This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom.
+
+        For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-serversideencryptionconfiguration
+        '''
+        result = self._values.get("server_side_encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.SourceConfigurationProperty"]]:
+        '''The source of the knowledge base content.
+
+        Only set this argument for EXTERNAL or Managed knowledge bases.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-sourceconfiguration
+        '''
+        result = self._values.get("source_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.SourceConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vector_ingestion_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.VectorIngestionConfigurationProperty"]]:
+        '''Contains details about how to ingest the documents in a data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-vectoringestionconfiguration
+        '''
+        result = self._values.get("vector_ingestion_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.VectorIngestionConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnKnowledgeBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnMessageTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_subtype": "channelSubtype",
+        "content": "content",
+        "knowledge_base_arn": "knowledgeBaseArn",
+        "name": "name",
+        "default_attributes": "defaultAttributes",
+        "description": "description",
+        "grouping_configuration": "groupingConfiguration",
+        "language": "language",
+        "message_template_attachments": "messageTemplateAttachments",
+        "tags": "tags",
+    },
+)
+class CfnMessageTemplateProps:
+    def __init__(
+        self,
+        *,
+        channel_subtype: builtins.str,
+        content: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMessageTemplate.ContentProperty", typing.Dict[builtins.str, typing.Any]]],
+        knowledge_base_arn: builtins.str,
+        name: builtins.str,
+        default_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMessageTemplate.MessageTemplateAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMessageTemplate.GroupingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        language: typing.Optional[builtins.str] = None,
+        message_template_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMessageTemplate.MessageTemplateAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMessageTemplate``.
+
+        :param channel_subtype: The channel subtype this message template applies to.
+        :param content: The content of the message template.
+        :param knowledge_base_arn: The Amazon Resource Name (ARN) of the knowledge base.
+        :param name: The name of the message template.
+        :param default_attributes: An object that specifies the default values to use for variables in the message template. This object contains different categories of key-value pairs. Each key defines a variable or placeholder in the message template. The corresponding value defines the default value for that variable.
+        :param description: The description of the message template.
+        :param grouping_configuration: The configuration information of the external data source.
+        :param language: The language code value for the language in which the quick response is written. The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
+        :param message_template_attachments: List of message template attachments.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_message_template_props = wisdom.CfnMessageTemplateProps(
+                channel_subtype="channelSubtype",
+                content=wisdom.CfnMessageTemplate.ContentProperty(
+                    email_message_template_content=wisdom.CfnMessageTemplate.EmailMessageTemplateContentProperty(
+                        body=wisdom.CfnMessageTemplate.EmailMessageTemplateContentBodyProperty(
+                            html=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
+                                content="content"
+                            ),
+                            plain_text=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
+                                content="content"
+                            )
+                        ),
+                        headers=[wisdom.CfnMessageTemplate.EmailMessageTemplateHeaderProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        subject="subject"
+                    ),
+                    sms_message_template_content=wisdom.CfnMessageTemplate.SmsMessageTemplateContentProperty(
+                        body=wisdom.CfnMessageTemplate.SmsMessageTemplateContentBodyProperty(
+                            plain_text=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
+                                content="content"
+                            )
+                        )
+                    )
+                ),
+                knowledge_base_arn="knowledgeBaseArn",
+                name="name",
+            
+                # the properties below are optional
+                default_attributes=wisdom.CfnMessageTemplate.MessageTemplateAttributesProperty(
+                    agent_attributes=wisdom.CfnMessageTemplate.AgentAttributesProperty(
+                        first_name="firstName",
+                        last_name="lastName"
+                    ),
+                    custom_attributes={
+                        "custom_attributes_key": "customAttributes"
+                    },
+                    customer_profile_attributes=wisdom.CfnMessageTemplate.CustomerProfileAttributesProperty(
+                        account_number="accountNumber",
+                        additional_information="additionalInformation",
+                        address1="address1",
+                        address2="address2",
+                        address3="address3",
+                        address4="address4",
+                        billing_address1="billingAddress1",
+                        billing_address2="billingAddress2",
+                        billing_address3="billingAddress3",
+                        billing_address4="billingAddress4",
+                        billing_city="billingCity",
+                        billing_country="billingCountry",
+                        billing_county="billingCounty",
+                        billing_postal_code="billingPostalCode",
+                        billing_province="billingProvince",
+                        billing_state="billingState",
+                        birth_date="birthDate",
+                        business_email_address="businessEmailAddress",
+                        business_name="businessName",
+                        business_phone_number="businessPhoneNumber",
+                        city="city",
+                        country="country",
+                        county="county",
+                        custom={
+                            "custom_key": "custom"
+                        },
+                        email_address="emailAddress",
+                        first_name="firstName",
+                        gender="gender",
+                        home_phone_number="homePhoneNumber",
+                        last_name="lastName",
+                        mailing_address1="mailingAddress1",
+                        mailing_address2="mailingAddress2",
+                        mailing_address3="mailingAddress3",
+                        mailing_address4="mailingAddress4",
+                        mailing_city="mailingCity",
+                        mailing_country="mailingCountry",
+                        mailing_county="mailingCounty",
+                        mailing_postal_code="mailingPostalCode",
+                        mailing_province="mailingProvince",
+                        mailing_state="mailingState",
+                        middle_name="middleName",
+                        mobile_phone_number="mobilePhoneNumber",
+                        party_type="partyType",
+                        phone_number="phoneNumber",
+                        postal_code="postalCode",
+                        profile_arn="profileArn",
+                        profile_id="profileId",
+                        province="province",
+                        shipping_address1="shippingAddress1",
+                        shipping_address2="shippingAddress2",
+                        shipping_address3="shippingAddress3",
+                        shipping_address4="shippingAddress4",
+                        shipping_city="shippingCity",
+                        shipping_country="shippingCountry",
+                        shipping_county="shippingCounty",
+                        shipping_postal_code="shippingPostalCode",
+                        shipping_province="shippingProvince",
+                        shipping_state="shippingState",
+                        state="state"
+                    ),
+                    system_attributes=wisdom.CfnMessageTemplate.SystemAttributesProperty(
+                        customer_endpoint=wisdom.CfnMessageTemplate.SystemEndpointAttributesProperty(
+                            address="address"
+                        ),
+                        name="name",
+                        system_endpoint=wisdom.CfnMessageTemplate.SystemEndpointAttributesProperty(
+                            address="address"
+                        )
+                    )
+                ),
+                description="description",
+                grouping_configuration=wisdom.CfnMessageTemplate.GroupingConfigurationProperty(
+                    criteria="criteria",
+                    values=["values"]
+                ),
+                language="language",
+                message_template_attachments=[wisdom.CfnMessageTemplate.MessageTemplateAttachmentProperty(
+                    attachment_name="attachmentName",
+                    s3_presigned_url="s3PresignedUrl",
+            
+                    # the properties below are optional
+                    attachment_id="attachmentId"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec25e0f87d8fdbd9dfa333317dee4b1a02318078d19b7a6a2b5abe02825ec475)
+            check_type(argname="argument channel_subtype", value=channel_subtype, expected_type=type_hints["channel_subtype"])
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument default_attributes", value=default_attributes, expected_type=type_hints["default_attributes"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument grouping_configuration", value=grouping_configuration, expected_type=type_hints["grouping_configuration"])
+            check_type(argname="argument language", value=language, expected_type=type_hints["language"])
+            check_type(argname="argument message_template_attachments", value=message_template_attachments, expected_type=type_hints["message_template_attachments"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_subtype": channel_subtype,
+            "content": content,
+            "knowledge_base_arn": knowledge_base_arn,
+            "name": name,
+        }
+        if default_attributes is not None:
+            self._values["default_attributes"] = default_attributes
+        if description is not None:
+            self._values["description"] = description
+        if grouping_configuration is not None:
+            self._values["grouping_configuration"] = grouping_configuration
+        if language is not None:
+            self._values["language"] = language
+        if message_template_attachments is not None:
+            self._values["message_template_attachments"] = message_template_attachments
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_subtype(self) -> builtins.str:
+        '''The channel subtype this message template applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-channelsubtype
+        '''
+        result = self._values.get("channel_subtype")
+        assert result is not None, "Required property 'channel_subtype' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.ContentProperty"]:
+        '''The content of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.ContentProperty"], result)
+
+    @builtins.property
+    def knowledge_base_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-knowledgebasearn
+        '''
+        result = self._values.get("knowledge_base_arn")
+        assert result is not None, "Required property 'knowledge_base_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.MessageTemplateAttributesProperty"]]:
+        '''An object that specifies the default values to use for variables in the message template.
+
+        This object contains different categories of key-value pairs. Each key defines a variable or placeholder in the message template. The corresponding value defines the default value for that variable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-defaultattributes
+        '''
+        result = self._values.get("default_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.MessageTemplateAttributesProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def grouping_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.GroupingConfigurationProperty"]]:
+        '''The configuration information of the external data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-groupingconfiguration
+        '''
+        result = self._values.get("grouping_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.GroupingConfigurationProperty"]], result)
+
+    @builtins.property
+    def language(self) -> typing.Optional[builtins.str]:
+        '''The language code value for the language in which the quick response is written.
+
+        The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-language
+        '''
+        result = self._values.get("language")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def message_template_attachments(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.MessageTemplateAttachmentProperty"]]]]:
+        '''List of message template attachments.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-messagetemplateattachments
+        '''
+        result = self._values.get("message_template_attachments")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMessageTemplate.MessageTemplateAttachmentProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMessageTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnMessageTemplateVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "message_template_arn": "messageTemplateArn",
+        "message_template_content_sha256": "messageTemplateContentSha256",
+    },
+)
+class CfnMessageTemplateVersionProps:
+    def __init__(
+        self,
+        *,
+        message_template_arn: builtins.str,
+        message_template_content_sha256: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMessageTemplateVersion``.
+
+        :param message_template_arn: The Amazon Resource Name (ARN) of the message template.
+        :param message_template_content_sha256: The content SHA256 of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_message_template_version_props = wisdom.CfnMessageTemplateVersionProps(
+                message_template_arn="messageTemplateArn",
+            
+                # the properties below are optional
+                message_template_content_sha256="messageTemplateContentSha256"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0b2a184adf6bc572d2575c7f11c4caa1ebc990936a7af469c6f91288d5f2908)
+            check_type(argname="argument message_template_arn", value=message_template_arn, expected_type=type_hints["message_template_arn"])
+            check_type(argname="argument message_template_content_sha256", value=message_template_content_sha256, expected_type=type_hints["message_template_content_sha256"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "message_template_arn": message_template_arn,
+        }
+        if message_template_content_sha256 is not None:
+            self._values["message_template_content_sha256"] = message_template_content_sha256
+
+    @builtins.property
+    def message_template_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html#cfn-wisdom-messagetemplateversion-messagetemplatearn
+        '''
+        result = self._values.get("message_template_arn")
+        assert result is not None, "Required property 'message_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def message_template_content_sha256(self) -> typing.Optional[builtins.str]:
+        '''The content SHA256 of the message template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html#cfn-wisdom-messagetemplateversion-messagetemplatecontentsha256
+        '''
+        result = self._values.get("message_template_content_sha256")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMessageTemplateVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.CfnQuickResponseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "knowledge_base_arn": "knowledgeBaseArn",
+        "name": "name",
+        "channels": "channels",
+        "content_type": "contentType",
+        "description": "description",
+        "grouping_configuration": "groupingConfiguration",
+        "is_active": "isActive",
+        "language": "language",
+        "shortcut_key": "shortcutKey",
+        "tags": "tags",
+    },
+)
+class CfnQuickResponseProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Union[_IResolvable_da3f097b, typing.Union["CfnQuickResponse.QuickResponseContentProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+        knowledge_base_arn: builtins.str,
+        name: builtins.str,
+        channels: typing.Optional[typing.Sequence[builtins.str]] = None,
+        content_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnQuickResponse.GroupingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        language: typing.Optional[builtins.str] = None,
+        shortcut_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQuickResponse``.
+
+        :param content: The content of the quick response.
+        :param knowledge_base_arn: The Amazon Resource Name (ARN) of the knowledge base.
+        :param name: The name of the quick response.
+        :param channels: The Amazon Connect contact channels this quick response applies to. The supported contact channel types include ``Chat`` .
+        :param content_type: The media type of the quick response content. - Use ``application/x.quickresponse;format=plain`` for quick response written in plain text. - Use ``application/x.quickresponse;format=markdown`` for quick response written in richtext.
+        :param description: The description of the quick response.
+        :param grouping_configuration: The configuration information of the user groups that the quick response is accessible to.
+        :param is_active: Whether the quick response is active.
+        :param language: The language code value for the language in which the quick response is written. The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
+        :param shortcut_key: The shortcut key of the quick response. The value should be unique across the knowledge base.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            cfn_quick_response_props = wisdom.CfnQuickResponseProps(
+                content=wisdom.CfnQuickResponse.QuickResponseContentProviderProperty(
+                    content="content"
+                ),
+                knowledge_base_arn="knowledgeBaseArn",
+                name="name",
+            
+                # the properties below are optional
+                channels=["channels"],
+                content_type="contentType",
+                description="description",
+                grouping_configuration=wisdom.CfnQuickResponse.GroupingConfigurationProperty(
+                    criteria="criteria",
+                    values=["values"]
+                ),
+                is_active=False,
+                language="language",
+                shortcut_key="shortcutKey",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__067c5855940164369fb121429e1673fedfb78768ee6ca862e7facdd01b2c15ac)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument channels", value=channels, expected_type=type_hints["channels"])
+            check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument grouping_configuration", value=grouping_configuration, expected_type=type_hints["grouping_configuration"])
+            check_type(argname="argument is_active", value=is_active, expected_type=type_hints["is_active"])
+            check_type(argname="argument language", value=language, expected_type=type_hints["language"])
+            check_type(argname="argument shortcut_key", value=shortcut_key, expected_type=type_hints["shortcut_key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "knowledge_base_arn": knowledge_base_arn,
+            "name": name,
+        }
+        if channels is not None:
+            self._values["channels"] = channels
+        if content_type is not None:
+            self._values["content_type"] = content_type
+        if description is not None:
+            self._values["description"] = description
+        if grouping_configuration is not None:
+            self._values["grouping_configuration"] = grouping_configuration
+        if is_active is not None:
+            self._values["is_active"] = is_active
+        if language is not None:
+            self._values["language"] = language
+        if shortcut_key is not None:
+            self._values["shortcut_key"] = shortcut_key
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnQuickResponse.QuickResponseContentProviderProperty"]:
+        '''The content of the quick response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnQuickResponse.QuickResponseContentProviderProperty"], result)
+
+    @builtins.property
+    def knowledge_base_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-knowledgebasearn
+        '''
+        result = self._values.get("knowledge_base_arn")
+        assert result is not None, "Required property 'knowledge_base_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the quick response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channels(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Connect contact channels this quick response applies to.
+
+        The supported contact channel types include ``Chat`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-channels
+        '''
+        result = self._values.get("channels")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def content_type(self) -> typing.Optional[builtins.str]:
+        '''The media type of the quick response content.
+
+        - Use ``application/x.quickresponse;format=plain`` for quick response written in plain text.
+        - Use ``application/x.quickresponse;format=markdown`` for quick response written in richtext.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-contenttype
+        '''
+        result = self._values.get("content_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the quick response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def grouping_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQuickResponse.GroupingConfigurationProperty"]]:
+        '''The configuration information of the user groups that the quick response is accessible to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-groupingconfiguration
+        '''
+        result = self._values.get("grouping_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQuickResponse.GroupingConfigurationProperty"]], result)
+
+    @builtins.property
+    def is_active(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether the quick response is active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-isactive
+        '''
+        result = self._values.get("is_active")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def language(self) -> typing.Optional[builtins.str]:
+        '''The language code value for the language in which the quick response is written.
+
+        The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-language
+        '''
+        result = self._values.get("language")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def shortcut_key(self) -> typing.Optional[builtins.str]:
+        '''The shortcut key of the quick response.
+
+        The value should be unique across the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-shortcutkey
+        '''
+        result = self._values.get("shortcut_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQuickResponseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIAgentRef")
+class IAIAgentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AIAgent.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiAgentRef")
+    def ai_agent_ref(self) -> AIAgentReference:
+        '''(experimental) A reference to a AIAgent resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIAgentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIAgent.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIAgentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiAgentRef")
+    def ai_agent_ref(self) -> AIAgentReference:
+        '''(experimental) A reference to a AIAgent resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIAgentReference, jsii.get(self, "aiAgentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIAgentRef).__jsii_proxy_class__ = lambda : _IAIAgentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIAgentVersionRef")
+class IAIAgentVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AIAgentVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiAgentVersionRef")
+    def ai_agent_version_ref(self) -> AIAgentVersionReference:
+        '''(experimental) A reference to a AIAgentVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIAgentVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIAgentVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIAgentVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiAgentVersionRef")
+    def ai_agent_version_ref(self) -> AIAgentVersionReference:
+        '''(experimental) A reference to a AIAgentVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIAgentVersionReference, jsii.get(self, "aiAgentVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIAgentVersionRef).__jsii_proxy_class__ = lambda : _IAIAgentVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIGuardrailRef")
+class IAIGuardrailRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AIGuardrail.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiGuardrailRef")
+    def ai_guardrail_ref(self) -> AIGuardrailReference:
+        '''(experimental) A reference to a AIGuardrail resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIGuardrailRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIGuardrail.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIGuardrailRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiGuardrailRef")
+    def ai_guardrail_ref(self) -> AIGuardrailReference:
+        '''(experimental) A reference to a AIGuardrail resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIGuardrailReference, jsii.get(self, "aiGuardrailRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIGuardrailRef).__jsii_proxy_class__ = lambda : _IAIGuardrailRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIGuardrailVersionRef")
+class IAIGuardrailVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIGuardrailVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiGuardrailVersionRef")
+    def ai_guardrail_version_ref(self) -> AIGuardrailVersionReference:
+        '''(experimental) A reference to a AIGuardrailVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIGuardrailVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIGuardrailVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIGuardrailVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiGuardrailVersionRef")
+    def ai_guardrail_version_ref(self) -> AIGuardrailVersionReference:
+        '''(experimental) A reference to a AIGuardrailVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIGuardrailVersionReference, jsii.get(self, "aiGuardrailVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIGuardrailVersionRef).__jsii_proxy_class__ = lambda : _IAIGuardrailVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIPromptRef")
+class IAIPromptRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AIPrompt.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiPromptRef")
+    def ai_prompt_ref(self) -> AIPromptReference:
+        '''(experimental) A reference to a AIPrompt resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIPromptRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIPrompt.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIPromptRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiPromptRef")
+    def ai_prompt_ref(self) -> AIPromptReference:
+        '''(experimental) A reference to a AIPrompt resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIPromptReference, jsii.get(self, "aiPromptRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIPromptRef).__jsii_proxy_class__ = lambda : _IAIPromptRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAIPromptVersionRef")
+class IAIPromptVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AIPromptVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aiPromptVersionRef")
+    def ai_prompt_version_ref(self) -> AIPromptVersionReference:
+        '''(experimental) A reference to a AIPromptVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAIPromptVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AIPromptVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAIPromptVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aiPromptVersionRef")
+    def ai_prompt_version_ref(self) -> AIPromptVersionReference:
+        '''(experimental) A reference to a AIPromptVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AIPromptVersionReference, jsii.get(self, "aiPromptVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAIPromptVersionRef).__jsii_proxy_class__ = lambda : _IAIPromptVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAssistantAssociationRef")
+class IAssistantAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssistantAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantAssociationRef")
+    def assistant_association_ref(self) -> AssistantAssociationReference:
+        '''(experimental) A reference to a AssistantAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssistantAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssistantAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAssistantAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantAssociationRef")
+    def assistant_association_ref(self) -> AssistantAssociationReference:
+        '''(experimental) A reference to a AssistantAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssistantAssociationReference, jsii.get(self, "assistantAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssistantAssociationRef).__jsii_proxy_class__ = lambda : _IAssistantAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IAssistantRef")
+class IAssistantRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Assistant.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantRef")
+    def assistant_ref(self) -> AssistantReference:
+        '''(experimental) A reference to a Assistant resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssistantRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Assistant.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IAssistantRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantRef")
+    def assistant_ref(self) -> AssistantReference:
+        '''(experimental) A reference to a Assistant resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssistantReference, jsii.get(self, "assistantRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssistantRef).__jsii_proxy_class__ = lambda : _IAssistantRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IKnowledgeBaseRef")
+class IKnowledgeBaseRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKnowledgeBaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IKnowledgeBaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KnowledgeBaseReference", jsii.get(self, "knowledgeBaseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKnowledgeBaseRef).__jsii_proxy_class__ = lambda : _IKnowledgeBaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IMessageTemplateRef")
+class IMessageTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MessageTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTemplateRef")
+    def message_template_ref(self) -> "MessageTemplateReference":
+        '''(experimental) A reference to a MessageTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMessageTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MessageTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IMessageTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTemplateRef")
+    def message_template_ref(self) -> "MessageTemplateReference":
+        '''(experimental) A reference to a MessageTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MessageTemplateReference", jsii.get(self, "messageTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMessageTemplateRef).__jsii_proxy_class__ = lambda : _IMessageTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IMessageTemplateVersionRef")
+class IMessageTemplateVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MessageTemplateVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTemplateVersionRef")
+    def message_template_version_ref(self) -> "MessageTemplateVersionReference":
+        '''(experimental) A reference to a MessageTemplateVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMessageTemplateVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MessageTemplateVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IMessageTemplateVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTemplateVersionRef")
+    def message_template_version_ref(self) -> "MessageTemplateVersionReference":
+        '''(experimental) A reference to a MessageTemplateVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MessageTemplateVersionReference", jsii.get(self, "messageTemplateVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMessageTemplateVersionRef).__jsii_proxy_class__ = lambda : _IMessageTemplateVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_wisdom.IQuickResponseRef")
+class IQuickResponseRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a QuickResponse.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="quickResponseRef")
+    def quick_response_ref(self) -> "QuickResponseReference":
+        '''(experimental) A reference to a QuickResponse resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQuickResponseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QuickResponse.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wisdom.IQuickResponseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="quickResponseRef")
+    def quick_response_ref(self) -> "QuickResponseReference":
+        '''(experimental) A reference to a QuickResponse resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QuickResponseReference", jsii.get(self, "quickResponseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQuickResponseRef).__jsii_proxy_class__ = lambda : _IQuickResponseRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.KnowledgeBaseReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_arn": "knowledgeBaseArn",
+        "knowledge_base_id": "knowledgeBaseId",
+    },
+)
+class KnowledgeBaseReference:
+    def __init__(
+        self,
+        *,
+        knowledge_base_arn: builtins.str,
+        knowledge_base_id: builtins.str,
+    ) -> None:
+        '''A reference to a KnowledgeBase resource.
+
+        :param knowledge_base_arn: The ARN of the KnowledgeBase resource.
+        :param knowledge_base_id: The KnowledgeBaseId of the KnowledgeBase resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            knowledge_base_reference = wisdom.KnowledgeBaseReference(
+                knowledge_base_arn="knowledgeBaseArn",
+                knowledge_base_id="knowledgeBaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c69902cc2ec3a24b9aef5f7911e1fc31f392d26bdc2caf5cb2d10a1e13fd976)
+            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_arn": knowledge_base_arn,
+            "knowledge_base_id": knowledge_base_id,
+        }
+
+    @builtins.property
+    def knowledge_base_arn(self) -> builtins.str:
+        '''The ARN of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_arn")
+        assert result is not None, "Required property 'knowledge_base_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The KnowledgeBaseId of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KnowledgeBaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.MessageTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"message_template_arn": "messageTemplateArn"},
+)
+class MessageTemplateReference:
+    def __init__(self, *, message_template_arn: builtins.str) -> None:
+        '''A reference to a MessageTemplate resource.
+
+        :param message_template_arn: The MessageTemplateArn of the MessageTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            message_template_reference = wisdom.MessageTemplateReference(
+                message_template_arn="messageTemplateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea8c9a1a4d93d6180a60d653630d279e6c576719ddb30597e436ae4c7bd7ce5f)
+            check_type(argname="argument message_template_arn", value=message_template_arn, expected_type=type_hints["message_template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "message_template_arn": message_template_arn,
+        }
+
+    @builtins.property
+    def message_template_arn(self) -> builtins.str:
+        '''The MessageTemplateArn of the MessageTemplate resource.'''
+        result = self._values.get("message_template_arn")
+        assert result is not None, "Required property 'message_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MessageTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.MessageTemplateVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"message_template_version_arn": "messageTemplateVersionArn"},
+)
+class MessageTemplateVersionReference:
+    def __init__(self, *, message_template_version_arn: builtins.str) -> None:
+        '''A reference to a MessageTemplateVersion resource.
+
+        :param message_template_version_arn: The MessageTemplateVersionArn of the MessageTemplateVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            message_template_version_reference = wisdom.MessageTemplateVersionReference(
+                message_template_version_arn="messageTemplateVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1879ed9dc2ac276e9c4b30b2e0ac1fdf204a2d570ec64459334d748654b0dca9)
+            check_type(argname="argument message_template_version_arn", value=message_template_version_arn, expected_type=type_hints["message_template_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "message_template_version_arn": message_template_version_arn,
+        }
+
+    @builtins.property
+    def message_template_version_arn(self) -> builtins.str:
+        '''The MessageTemplateVersionArn of the MessageTemplateVersion resource.'''
+        result = self._values.get("message_template_version_arn")
+        assert result is not None, "Required property 'message_template_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MessageTemplateVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wisdom.QuickResponseReference",
+    jsii_struct_bases=[],
+    name_mapping={"quick_response_arn": "quickResponseArn"},
+)
+class QuickResponseReference:
+    def __init__(self, *, quick_response_arn: builtins.str) -> None:
+        '''A reference to a QuickResponse resource.
+
+        :param quick_response_arn: The QuickResponseArn of the QuickResponse resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wisdom as wisdom
+            
+            quick_response_reference = wisdom.QuickResponseReference(
+                quick_response_arn="quickResponseArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df94d421dee0c01e0a91d554582418d75e88b7fb1cb5f37ea0e8954ab2789325)
+            check_type(argname="argument quick_response_arn", value=quick_response_arn, expected_type=type_hints["quick_response_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "quick_response_arn": quick_response_arn,
+        }
+
+    @builtins.property
+    def quick_response_arn(self) -> builtins.str:
+        '''The QuickResponseArn of the QuickResponse resource.'''
+        result = self._values.get("quick_response_arn")
+        assert result is not None, "Required property 'quick_response_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QuickResponseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAIAgentRef, _ITaggableV2_4e6798f8)
 class CfnAIAgent(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -300,6 +3841,12 @@ class CfnAIAgent(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aiAgentRef")
+    def ai_agent_ref(self) -> AIAgentReference:
+        '''A reference to a AIAgent resource.'''
+        return typing.cast(AIAgentReference, jsii.get(self, "aiAgentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAiAgentArn")
@@ -1735,286 +5282,7 @@ class CfnAIAgent(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "assistant_id": "assistantId",
-        "configuration": "configuration",
-        "type": "type",
-        "description": "description",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnAIAgentProps:
-    def __init__(
-        self,
-        *,
-        assistant_id: builtins.str,
-        configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIAgent.AIAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIAgent``.
-
-        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
-        :param configuration: Configuration for the AI Agent.
-        :param type: The type of the AI Agent.
-        :param description: The description of the AI Agent.
-        :param name: The name of the AI Agent.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIAgent_props = wisdom.CfnAIAgentProps(
-                assistant_id="assistantId",
-                configuration=wisdom.CfnAIAgent.AIAgentConfigurationProperty(
-                    answer_recommendation_ai_agent_configuration=wisdom.CfnAIAgent.AnswerRecommendationAIAgentConfigurationProperty(
-                        answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
-                        answer_generation_ai_prompt_id="answerGenerationAiPromptId",
-                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
-                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
-                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
-                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
-                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )],
-                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
-                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )],
-                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )
-                                        )],
-                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )
-                                    ),
-                                    max_results=123,
-                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
-                                )
-                            ),
-                            association_id="associationId",
-                            association_type="associationType"
-                        )],
-                        intent_labeling_generation_ai_prompt_id="intentLabelingGenerationAiPromptId",
-                        locale="locale",
-                        query_reformulation_ai_prompt_id="queryReformulationAiPromptId"
-                    ),
-                    manual_search_ai_agent_configuration=wisdom.CfnAIAgent.ManualSearchAIAgentConfigurationProperty(
-                        answer_generation_ai_guardrail_id="answerGenerationAiGuardrailId",
-                        answer_generation_ai_prompt_id="answerGenerationAiPromptId",
-                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
-                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
-                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
-                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
-                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )],
-                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
-                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )],
-                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )
-                                        )],
-                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )
-                                    ),
-                                    max_results=123,
-                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
-                                )
-                            ),
-                            association_id="associationId",
-                            association_type="associationType"
-                        )],
-                        locale="locale"
-                    ),
-                    self_service_ai_agent_configuration=wisdom.CfnAIAgent.SelfServiceAIAgentConfigurationProperty(
-                        association_configurations=[wisdom.CfnAIAgent.AssociationConfigurationProperty(
-                            association_configuration_data=wisdom.CfnAIAgent.AssociationConfigurationDataProperty(
-                                knowledge_base_association_configuration_data=wisdom.CfnAIAgent.KnowledgeBaseAssociationConfigurationDataProperty(
-                                    content_tag_filter=wisdom.CfnAIAgent.TagFilterProperty(
-                                        and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )],
-                                        or_conditions=[wisdom.CfnAIAgent.OrConditionProperty(
-                                            and_conditions=[wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )],
-                                            tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                                key="key",
-            
-                                                # the properties below are optional
-                                                value="value"
-                                            )
-                                        )],
-                                        tag_condition=wisdom.CfnAIAgent.TagConditionProperty(
-                                            key="key",
-            
-                                            # the properties below are optional
-                                            value="value"
-                                        )
-                                    ),
-                                    max_results=123,
-                                    override_knowledge_base_search_type="overrideKnowledgeBaseSearchType"
-                                )
-                            ),
-                            association_id="associationId",
-                            association_type="associationType"
-                        )],
-                        self_service_ai_guardrail_id="selfServiceAiGuardrailId",
-                        self_service_answer_generation_ai_prompt_id="selfServiceAnswerGenerationAiPromptId",
-                        self_service_pre_processing_ai_prompt_id="selfServicePreProcessingAiPromptId"
-                    )
-                ),
-                type="type",
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1cda9a6282ec07c28c0ef49efdf8da8f079052d26edd32bbe15324644982756)
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "assistant_id": assistant_id,
-            "configuration": configuration,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q in Connect assistant.
-
-        Can be either the ID or the ARN. URLs cannot contain the ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAIAgent.AIAgentConfigurationProperty]:
-        '''Configuration for the AI Agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAIAgent.AIAgentConfigurationProperty], result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of the AI Agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the AI Agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the AI Agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagent.html#cfn-wisdom-aiagent-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIAgentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAIAgentVersionRef)
 class CfnAIAgentVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2100,6 +5368,12 @@ class CfnAIAgentVersion(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="aiAgentVersionRef")
+    def ai_agent_version_ref(self) -> AIAgentVersionReference:
+        '''A reference to a AIAgentVersion resource.'''
+        return typing.cast(AIAgentVersionReference, jsii.get(self, "aiAgentVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrAiAgentArn")
     def attr_ai_agent_arn(self) -> builtins.str:
         '''
@@ -2176,99 +5450,7 @@ class CfnAIAgentVersion(
         jsii.set(self, "modifiedTimeSeconds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIAgentVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ai_agent_id": "aiAgentId",
-        "assistant_id": "assistantId",
-        "modified_time_seconds": "modifiedTimeSeconds",
-    },
-)
-class CfnAIAgentVersionProps:
-    def __init__(
-        self,
-        *,
-        ai_agent_id: builtins.str,
-        assistant_id: builtins.str,
-        modified_time_seconds: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIAgentVersion``.
-
-        :param ai_agent_id: The identifier of the AI Agent.
-        :param assistant_id: 
-        :param modified_time_seconds: The time the AI Agent version was last modified in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIAgent_version_props = wisdom.CfnAIAgentVersionProps(
-                ai_agent_id="aiAgentId",
-                assistant_id="assistantId",
-            
-                # the properties below are optional
-                modified_time_seconds=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce55b0c69b9bc58cfcaeadaff04d7986170a5f73af9f6157ba1fe19c79b250e)
-            check_type(argname="argument ai_agent_id", value=ai_agent_id, expected_type=type_hints["ai_agent_id"])
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ai_agent_id": ai_agent_id,
-            "assistant_id": assistant_id,
-        }
-        if modified_time_seconds is not None:
-            self._values["modified_time_seconds"] = modified_time_seconds
-
-    @builtins.property
-    def ai_agent_id(self) -> builtins.str:
-        '''The identifier of the AI Agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-aiagentid
-        '''
-        result = self._values.get("ai_agent_id")
-        assert result is not None, "Required property 'ai_agent_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The time the AI Agent version was last modified in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiagentversion.html#cfn-wisdom-aiagentversion-modifiedtimeseconds
-        '''
-        result = self._values.get("modified_time_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIAgentVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAIGuardrailRef, _ITaggableV2_4e6798f8)
 class CfnAIGuardrail(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2426,6 +5608,12 @@ class CfnAIGuardrail(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aiGuardrailRef")
+    def ai_guardrail_ref(self) -> AIGuardrailReference:
+        '''A reference to a AIGuardrail resource.'''
+        return typing.cast(AIGuardrailReference, jsii.get(self, "aiGuardrailRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAiGuardrailArn")
@@ -3537,282 +6725,7 @@ class CfnAIGuardrail(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIGuardrailProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "assistant_id": "assistantId",
-        "blocked_input_messaging": "blockedInputMessaging",
-        "blocked_outputs_messaging": "blockedOutputsMessaging",
-        "content_policy_config": "contentPolicyConfig",
-        "contextual_grounding_policy_config": "contextualGroundingPolicyConfig",
-        "description": "description",
-        "name": "name",
-        "sensitive_information_policy_config": "sensitiveInformationPolicyConfig",
-        "tags": "tags",
-        "topic_policy_config": "topicPolicyConfig",
-        "word_policy_config": "wordPolicyConfig",
-    },
-)
-class CfnAIGuardrailProps:
-    def __init__(
-        self,
-        *,
-        assistant_id: builtins.str,
-        blocked_input_messaging: builtins.str,
-        blocked_outputs_messaging: builtins.str,
-        content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIGuardrail``.
-
-        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
-        :param blocked_input_messaging: The message to return when the AI Guardrail blocks a prompt.
-        :param blocked_outputs_messaging: The message to return when the AI Guardrail blocks a model response.
-        :param content_policy_config: Contains details about how to handle harmful content.
-        :param contextual_grounding_policy_config: The policy configuration details for the AI Guardrail's contextual grounding policy.
-        :param description: A description of the AI Guardrail.
-        :param name: The name of the AI Guardrail.
-        :param sensitive_information_policy_config: Contains details about PII entities and regular expressions to configure for the AI Guardrail.
-        :param tags: The tags used to organize, track, or control access for this resource.
-        :param topic_policy_config: Contains details about topics that the AI Guardrail should identify and deny.
-        :param word_policy_config: Contains details about the word policy to configured for the AI Guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIGuardrail_props = wisdom.CfnAIGuardrailProps(
-                assistant_id="assistantId",
-                blocked_input_messaging="blockedInputMessaging",
-                blocked_outputs_messaging="blockedOutputsMessaging",
-            
-                # the properties below are optional
-                content_policy_config=wisdom.CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty(
-                    filters_config=[wisdom.CfnAIGuardrail.GuardrailContentFilterConfigProperty(
-                        input_strength="inputStrength",
-                        output_strength="outputStrength",
-                        type="type"
-                    )]
-                ),
-                contextual_grounding_policy_config=wisdom.CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty(
-                    filters_config=[wisdom.CfnAIGuardrail.GuardrailContextualGroundingFilterConfigProperty(
-                        threshold=123,
-                        type="type"
-                    )]
-                ),
-                description="description",
-                name="name",
-                sensitive_information_policy_config=wisdom.CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty(
-                    pii_entities_config=[wisdom.CfnAIGuardrail.GuardrailPiiEntityConfigProperty(
-                        action="action",
-                        type="type"
-                    )],
-                    regexes_config=[wisdom.CfnAIGuardrail.GuardrailRegexConfigProperty(
-                        action="action",
-                        name="name",
-                        pattern="pattern",
-            
-                        # the properties below are optional
-                        description="description"
-                    )]
-                ),
-                tags={
-                    "tags_key": "tags"
-                },
-                topic_policy_config=wisdom.CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty(
-                    topics_config=[wisdom.CfnAIGuardrail.GuardrailTopicConfigProperty(
-                        definition="definition",
-                        name="name",
-                        type="type",
-            
-                        # the properties below are optional
-                        examples=["examples"]
-                    )]
-                ),
-                word_policy_config=wisdom.CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty(
-                    managed_word_lists_config=[wisdom.CfnAIGuardrail.GuardrailManagedWordsConfigProperty(
-                        type="type"
-                    )],
-                    words_config=[wisdom.CfnAIGuardrail.GuardrailWordConfigProperty(
-                        text="text"
-                    )]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__272934bdd57f29fc5c93ba393c351f7b04e959a7a6be0e13591e187bd90df3aa)
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument blocked_input_messaging", value=blocked_input_messaging, expected_type=type_hints["blocked_input_messaging"])
-            check_type(argname="argument blocked_outputs_messaging", value=blocked_outputs_messaging, expected_type=type_hints["blocked_outputs_messaging"])
-            check_type(argname="argument content_policy_config", value=content_policy_config, expected_type=type_hints["content_policy_config"])
-            check_type(argname="argument contextual_grounding_policy_config", value=contextual_grounding_policy_config, expected_type=type_hints["contextual_grounding_policy_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument sensitive_information_policy_config", value=sensitive_information_policy_config, expected_type=type_hints["sensitive_information_policy_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument topic_policy_config", value=topic_policy_config, expected_type=type_hints["topic_policy_config"])
-            check_type(argname="argument word_policy_config", value=word_policy_config, expected_type=type_hints["word_policy_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "assistant_id": assistant_id,
-            "blocked_input_messaging": blocked_input_messaging,
-            "blocked_outputs_messaging": blocked_outputs_messaging,
-        }
-        if content_policy_config is not None:
-            self._values["content_policy_config"] = content_policy_config
-        if contextual_grounding_policy_config is not None:
-            self._values["contextual_grounding_policy_config"] = contextual_grounding_policy_config
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if sensitive_information_policy_config is not None:
-            self._values["sensitive_information_policy_config"] = sensitive_information_policy_config
-        if tags is not None:
-            self._values["tags"] = tags
-        if topic_policy_config is not None:
-            self._values["topic_policy_config"] = topic_policy_config
-        if word_policy_config is not None:
-            self._values["word_policy_config"] = word_policy_config
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q in Connect assistant.
-
-        Can be either the ID or the ARN. URLs cannot contain the ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def blocked_input_messaging(self) -> builtins.str:
-        '''The message to return when the AI Guardrail blocks a prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-blockedinputmessaging
-        '''
-        result = self._values.get("blocked_input_messaging")
-        assert result is not None, "Required property 'blocked_input_messaging' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def blocked_outputs_messaging(self) -> builtins.str:
-        '''The message to return when the AI Guardrail blocks a model response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-blockedoutputsmessaging
-        '''
-        result = self._values.get("blocked_outputs_messaging")
-        assert result is not None, "Required property 'blocked_outputs_messaging' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def content_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty]]:
-        '''Contains details about how to handle harmful content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-contentpolicyconfig
-        '''
-        result = self._values.get("content_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty]], result)
-
-    @builtins.property
-    def contextual_grounding_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty]]:
-        '''The policy configuration details for the AI Guardrail's contextual grounding policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-contextualgroundingpolicyconfig
-        '''
-        result = self._values.get("contextual_grounding_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the AI Guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the AI Guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sensitive_information_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty]]:
-        '''Contains details about PII entities and regular expressions to configure for the AI Guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-sensitiveinformationpolicyconfig
-        '''
-        result = self._values.get("sensitive_information_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def topic_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty]]:
-        '''Contains details about topics that the AI Guardrail should identify and deny.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-topicpolicyconfig
-        '''
-        result = self._values.get("topic_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty]], result)
-
-    @builtins.property
-    def word_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty]]:
-        '''Contains details about the word policy to configured for the AI Guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrail.html#cfn-wisdom-aiguardrail-wordpolicyconfig
-        '''
-        result = self._values.get("word_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIGuardrailProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAIGuardrailVersionRef)
 class CfnAIGuardrailVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3898,6 +6811,12 @@ class CfnAIGuardrailVersion(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="aiGuardrailVersionRef")
+    def ai_guardrail_version_ref(self) -> AIGuardrailVersionReference:
+        '''A reference to a AIGuardrailVersion resource.'''
+        return typing.cast(AIGuardrailVersionReference, jsii.get(self, "aiGuardrailVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrAiGuardrailArn")
     def attr_ai_guardrail_arn(self) -> builtins.str:
         '''The ARN of the AI guardrail version.
@@ -3978,100 +6897,7 @@ class CfnAIGuardrailVersion(
         jsii.set(self, "modifiedTimeSeconds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIGuardrailVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ai_guardrail_id": "aiGuardrailId",
-        "assistant_id": "assistantId",
-        "modified_time_seconds": "modifiedTimeSeconds",
-    },
-)
-class CfnAIGuardrailVersionProps:
-    def __init__(
-        self,
-        *,
-        ai_guardrail_id: builtins.str,
-        assistant_id: builtins.str,
-        modified_time_seconds: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIGuardrailVersion``.
-
-        :param ai_guardrail_id: The ID of the AI guardrail version.
-        :param assistant_id: The ID of the AI guardrail version assistant.
-        :param modified_time_seconds: The modified time of the AI guardrail version in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIGuardrail_version_props = wisdom.CfnAIGuardrailVersionProps(
-                ai_guardrail_id="aiGuardrailId",
-                assistant_id="assistantId",
-            
-                # the properties below are optional
-                modified_time_seconds=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a99128fc6202c08bbbe787b73cc8f6fe79376afb6a408a1c3b9f1d86295794b)
-            check_type(argname="argument ai_guardrail_id", value=ai_guardrail_id, expected_type=type_hints["ai_guardrail_id"])
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ai_guardrail_id": ai_guardrail_id,
-            "assistant_id": assistant_id,
-        }
-        if modified_time_seconds is not None:
-            self._values["modified_time_seconds"] = modified_time_seconds
-
-    @builtins.property
-    def ai_guardrail_id(self) -> builtins.str:
-        '''The ID of the AI guardrail version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-aiguardrailid
-        '''
-        result = self._values.get("ai_guardrail_id")
-        assert result is not None, "Required property 'ai_guardrail_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''The ID of the AI guardrail version assistant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The modified time of the AI guardrail version in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiguardrailversion.html#cfn-wisdom-aiguardrailversion-modifiedtimeseconds
-        '''
-        result = self._values.get("modified_time_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIGuardrailVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAIPromptRef, _ITaggableV2_4e6798f8)
 class CfnAIPrompt(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4185,6 +7011,12 @@ class CfnAIPrompt(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aiPromptRef")
+    def ai_prompt_ref(self) -> AIPromptReference:
+        '''A reference to a AIPrompt resource.'''
+        return typing.cast(AIPromptReference, jsii.get(self, "aiPromptRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAiPromptArn")
@@ -4475,224 +7307,7 @@ class CfnAIPrompt(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPromptProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "api_format": "apiFormat",
-        "model_id": "modelId",
-        "template_configuration": "templateConfiguration",
-        "template_type": "templateType",
-        "type": "type",
-        "assistant_id": "assistantId",
-        "description": "description",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnAIPromptProps:
-    def __init__(
-        self,
-        *,
-        api_format: builtins.str,
-        model_id: builtins.str,
-        template_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIPrompt.AIPromptTemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        template_type: builtins.str,
-        type: builtins.str,
-        assistant_id: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIPrompt``.
-
-        :param api_format: The API format used for this AI Prompt.
-        :param model_id: The identifier of the model used for this AI Prompt. The following model Ids are supported:. - ``anthropic.claude-3-haiku--v1:0`` - ``apac.amazon.nova-lite-v1:0`` - ``apac.amazon.nova-micro-v1:0`` - ``apac.amazon.nova-pro-v1:0`` - ``apac.anthropic.claude-3-5-sonnet--v2:0`` - ``apac.anthropic.claude-3-haiku-20240307-v1:0`` - ``eu.amazon.nova-lite-v1:0`` - ``eu.amazon.nova-micro-v1:0`` - ``eu.amazon.nova-pro-v1:0`` - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``eu.anthropic.claude-3-haiku-20240307-v1:0`` - ``us.amazon.nova-lite-v1:0`` - ``us.amazon.nova-micro-v1:0`` - ``us.amazon.nova-pro-v1:0`` - ``us.anthropic.claude-3-5-haiku-20241022-v1:0`` - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0`` - ``us.anthropic.claude-3-haiku-20240307-v1:0``
-        :param template_configuration: The configuration of the prompt template for this AI Prompt.
-        :param template_type: The type of the prompt template for this AI Prompt.
-        :param type: The type of this AI Prompt.
-        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
-        :param description: The description of the AI Prompt.
-        :param name: The name of the AI Prompt.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIPrompt_props = wisdom.CfnAIPromptProps(
-                api_format="apiFormat",
-                model_id="modelId",
-                template_configuration=wisdom.CfnAIPrompt.AIPromptTemplateConfigurationProperty(
-                    text_full_ai_prompt_edit_template_configuration=wisdom.CfnAIPrompt.TextFullAIPromptEditTemplateConfigurationProperty(
-                        text="text"
-                    )
-                ),
-                template_type="templateType",
-                type="type",
-            
-                # the properties below are optional
-                assistant_id="assistantId",
-                description="description",
-                name="name",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a55de2153828f44950073a28af3416601dc1f09105d3fa9d8f1ec243b3822d3)
-            check_type(argname="argument api_format", value=api_format, expected_type=type_hints["api_format"])
-            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
-            check_type(argname="argument template_configuration", value=template_configuration, expected_type=type_hints["template_configuration"])
-            check_type(argname="argument template_type", value=template_type, expected_type=type_hints["template_type"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "api_format": api_format,
-            "model_id": model_id,
-            "template_configuration": template_configuration,
-            "template_type": template_type,
-            "type": type,
-        }
-        if assistant_id is not None:
-            self._values["assistant_id"] = assistant_id
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def api_format(self) -> builtins.str:
-        '''The API format used for this AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-apiformat
-        '''
-        result = self._values.get("api_format")
-        assert result is not None, "Required property 'api_format' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_id(self) -> builtins.str:
-        '''The identifier of the model used for this AI Prompt. The following model Ids are supported:.
-
-        - ``anthropic.claude-3-haiku--v1:0``
-        - ``apac.amazon.nova-lite-v1:0``
-        - ``apac.amazon.nova-micro-v1:0``
-        - ``apac.amazon.nova-pro-v1:0``
-        - ``apac.anthropic.claude-3-5-sonnet--v2:0``
-        - ``apac.anthropic.claude-3-haiku-20240307-v1:0``
-        - ``eu.amazon.nova-lite-v1:0``
-        - ``eu.amazon.nova-micro-v1:0``
-        - ``eu.amazon.nova-pro-v1:0``
-        - ``eu.anthropic.claude-3-7-sonnet-20250219-v1:0``
-        - ``eu.anthropic.claude-3-haiku-20240307-v1:0``
-        - ``us.amazon.nova-lite-v1:0``
-        - ``us.amazon.nova-micro-v1:0``
-        - ``us.amazon.nova-pro-v1:0``
-        - ``us.anthropic.claude-3-5-haiku-20241022-v1:0``
-        - ``us.anthropic.claude-3-7-sonnet-20250219-v1:0``
-        - ``us.anthropic.claude-3-haiku-20240307-v1:0``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-modelid
-        '''
-        result = self._values.get("model_id")
-        assert result is not None, "Required property 'model_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAIPrompt.AIPromptTemplateConfigurationProperty]:
-        '''The configuration of the prompt template for this AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-templateconfiguration
-        '''
-        result = self._values.get("template_configuration")
-        assert result is not None, "Required property 'template_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAIPrompt.AIPromptTemplateConfigurationProperty], result)
-
-    @builtins.property
-    def template_type(self) -> builtins.str:
-        '''The type of the prompt template for this AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-templatetype
-        '''
-        result = self._values.get("template_type")
-        assert result is not None, "Required property 'template_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of this AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def assistant_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the Amazon Q in Connect assistant.
-
-        Can be either the ID or the ARN. URLs cannot contain the ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the AI Prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aiprompt.html#cfn-wisdom-aiprompt-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIPromptProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAIPromptVersionRef)
 class CfnAIPromptVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4778,6 +7393,12 @@ class CfnAIPromptVersion(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="aiPromptVersionRef")
+    def ai_prompt_version_ref(self) -> AIPromptVersionReference:
+        '''A reference to a AIPromptVersion resource.'''
+        return typing.cast(AIPromptVersionReference, jsii.get(self, "aiPromptVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrAiPromptArn")
     def attr_ai_prompt_arn(self) -> builtins.str:
         '''The ARN of the AI prompt.
@@ -4856,102 +7477,7 @@ class CfnAIPromptVersion(
         jsii.set(self, "modifiedTimeSeconds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAIPromptVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ai_prompt_id": "aiPromptId",
-        "assistant_id": "assistantId",
-        "modified_time_seconds": "modifiedTimeSeconds",
-    },
-)
-class CfnAIPromptVersionProps:
-    def __init__(
-        self,
-        *,
-        ai_prompt_id: builtins.str,
-        assistant_id: builtins.str,
-        modified_time_seconds: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAIPromptVersion``.
-
-        :param ai_prompt_id: The identifier of the Amazon Q in Connect AI prompt.
-        :param assistant_id: The identifier of the Amazon Q in Connect assistant. Can be either the ID or the ARN. URLs cannot contain the ARN.
-        :param modified_time_seconds: The time the AI Prompt version was last modified in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_aIPrompt_version_props = wisdom.CfnAIPromptVersionProps(
-                ai_prompt_id="aiPromptId",
-                assistant_id="assistantId",
-            
-                # the properties below are optional
-                modified_time_seconds=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39068faf047cdd2f1dce0d86adaff6f71058bba08c161da563b36647959f2add)
-            check_type(argname="argument ai_prompt_id", value=ai_prompt_id, expected_type=type_hints["ai_prompt_id"])
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument modified_time_seconds", value=modified_time_seconds, expected_type=type_hints["modified_time_seconds"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ai_prompt_id": ai_prompt_id,
-            "assistant_id": assistant_id,
-        }
-        if modified_time_seconds is not None:
-            self._values["modified_time_seconds"] = modified_time_seconds
-
-    @builtins.property
-    def ai_prompt_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q in Connect AI prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-aipromptid
-        '''
-        result = self._values.get("ai_prompt_id")
-        assert result is not None, "Required property 'ai_prompt_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q in Connect assistant.
-
-        Can be either the ID or the ARN. URLs cannot contain the ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def modified_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The time the AI Prompt version was last modified in seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-aipromptversion.html#cfn-wisdom-aipromptversion-modifiedtimeseconds
-        '''
-        result = self._values.get("modified_time_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAIPromptVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IAssistantRef, _ITaggable_36806126)
 class CfnAssistant(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5048,6 +7574,12 @@ class CfnAssistant(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantRef")
+    def assistant_ref(self) -> AssistantReference:
+        '''A reference to a Assistant resource.'''
+        return typing.cast(AssistantReference, jsii.get(self, "assistantRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAssistantArn")
@@ -5202,7 +7734,7 @@ class CfnAssistant(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IAssistantAssociationRef, _ITaggable_36806126)
 class CfnAssistantAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5297,6 +7829,12 @@ class CfnAssistantAssociation(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assistantAssociationRef")
+    def assistant_association_ref(self) -> AssistantAssociationReference:
+        '''A reference to a AssistantAssociation resource.'''
+        return typing.cast(AssistantAssociationReference, jsii.get(self, "assistantAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAssistantArn")
@@ -5446,257 +7984,7 @@ class CfnAssistantAssociation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistantAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "assistant_id": "assistantId",
-        "association": "association",
-        "association_type": "associationType",
-        "tags": "tags",
-    },
-)
-class CfnAssistantAssociationProps:
-    def __init__(
-        self,
-        *,
-        assistant_id: builtins.str,
-        association: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistantAssociation.AssociationDataProperty, typing.Dict[builtins.str, typing.Any]]],
-        association_type: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAssistantAssociation``.
-
-        :param assistant_id: The identifier of the Wisdom assistant.
-        :param association: The identifier of the associated resource.
-        :param association_type: The type of association.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_assistant_association_props = wisdom.CfnAssistantAssociationProps(
-                assistant_id="assistantId",
-                association=wisdom.CfnAssistantAssociation.AssociationDataProperty(
-                    knowledge_base_id="knowledgeBaseId"
-                ),
-                association_type="associationType",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__419e70156a249f4fa2bea77a71d532fe9a351e3d150b5939dc8455b174375514)
-            check_type(argname="argument assistant_id", value=assistant_id, expected_type=type_hints["assistant_id"])
-            check_type(argname="argument association", value=association, expected_type=type_hints["association"])
-            check_type(argname="argument association_type", value=association_type, expected_type=type_hints["association_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "assistant_id": assistant_id,
-            "association": association,
-            "association_type": association_type,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def assistant_id(self) -> builtins.str:
-        '''The identifier of the Wisdom assistant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-assistantid
-        '''
-        result = self._values.get("assistant_id")
-        assert result is not None, "Required property 'assistant_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def association(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAssistantAssociation.AssociationDataProperty]:
-        '''The identifier of the associated resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-association
-        '''
-        result = self._values.get("association")
-        assert result is not None, "Required property 'association' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAssistantAssociation.AssociationDataProperty], result)
-
-    @builtins.property
-    def association_type(self) -> builtins.str:
-        '''The type of association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-associationtype
-        '''
-        result = self._values.get("association_type")
-        assert result is not None, "Required property 'association_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistantassociation.html#cfn-wisdom-assistantassociation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssistantAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnAssistantProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "type": "type",
-        "description": "description",
-        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnAssistantProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistant.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAssistant``.
-
-        :param name: The name of the assistant.
-        :param type: The type of assistant.
-        :param description: The description of the assistant.
-        :param server_side_encryption_configuration: The configuration information for the customer managed key used for encryption. The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_assistant_props = wisdom.CfnAssistantProps(
-                name="name",
-                type="type",
-            
-                # the properties below are optional
-                description="description",
-                server_side_encryption_configuration=wisdom.CfnAssistant.ServerSideEncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2f6978729a0bccb7cc077df26ee5d379812791b9fe7ec0622251ed958562e07)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if server_side_encryption_configuration is not None:
-            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the assistant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of assistant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the assistant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_side_encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssistant.ServerSideEncryptionConfigurationProperty]]:
-        '''The configuration information for the customer managed key used for encryption.
-
-        The customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. To use Wisdom with chat, the key policy must also allow ``kms:Decrypt`` , ``kms:GenerateDataKey*`` , and ``kms:DescribeKey`` permissions to the ``connect.amazonaws.com`` service principal. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-serversideencryptionconfiguration
-        '''
-        result = self._values.get("server_side_encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssistant.ServerSideEncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-assistant.html#cfn-wisdom-assistant-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssistantProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IKnowledgeBaseRef, _ITaggable_36806126)
 class CfnKnowledgeBase(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5888,6 +8176,12 @@ class CfnKnowledgeBase(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> KnowledgeBaseReference:
+        '''A reference to a KnowledgeBase resource.'''
+        return typing.cast(KnowledgeBaseReference, jsii.get(self, "knowledgeBaseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7469,259 +9763,7 @@ class CfnKnowledgeBase(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnKnowledgeBaseProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "knowledge_base_type": "knowledgeBaseType",
-        "name": "name",
-        "description": "description",
-        "rendering_configuration": "renderingConfiguration",
-        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
-        "source_configuration": "sourceConfiguration",
-        "tags": "tags",
-        "vector_ingestion_configuration": "vectorIngestionConfiguration",
-    },
-)
-class CfnKnowledgeBaseProps:
-    def __init__(
-        self,
-        *,
-        knowledge_base_type: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        rendering_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.RenderingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnKnowledgeBase``.
-
-        :param knowledge_base_type: The type of knowledge base. Only CUSTOM knowledge bases allow you to upload your own content. EXTERNAL knowledge bases support integrations with third-party systems whose content is synchronized automatically.
-        :param name: The name of the knowledge base.
-        :param description: The description.
-        :param rendering_configuration: Information about how to render the content.
-        :param server_side_encryption_configuration: This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom. For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
-        :param source_configuration: The source of the knowledge base content. Only set this argument for EXTERNAL or Managed knowledge bases.
-        :param tags: The tags used to organize, track, or control access for this resource.
-        :param vector_ingestion_configuration: Contains details about how to ingest the documents in a data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_knowledge_base_props = wisdom.CfnKnowledgeBaseProps(
-                knowledge_base_type="knowledgeBaseType",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                rendering_configuration=wisdom.CfnKnowledgeBase.RenderingConfigurationProperty(
-                    template_uri="templateUri"
-                ),
-                server_side_encryption_configuration=wisdom.CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-                source_configuration=wisdom.CfnKnowledgeBase.SourceConfigurationProperty(
-                    app_integrations=wisdom.CfnKnowledgeBase.AppIntegrationsConfigurationProperty(
-                        app_integration_arn="appIntegrationArn",
-            
-                        # the properties below are optional
-                        object_fields=["objectFields"]
-                    ),
-                    managed_source_configuration=wisdom.CfnKnowledgeBase.ManagedSourceConfigurationProperty(
-                        web_crawler_configuration=wisdom.CfnKnowledgeBase.WebCrawlerConfigurationProperty(
-                            url_configuration=wisdom.CfnKnowledgeBase.UrlConfigurationProperty(
-                                seed_urls=[wisdom.CfnKnowledgeBase.SeedUrlProperty(
-                                    url="url"
-                                )]
-                            ),
-            
-                            # the properties below are optional
-                            crawler_limits=wisdom.CfnKnowledgeBase.CrawlerLimitsProperty(
-                                rate_limit=123
-                            ),
-                            exclusion_filters=["exclusionFilters"],
-                            inclusion_filters=["inclusionFilters"],
-                            scope="scope"
-                        )
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vector_ingestion_configuration=wisdom.CfnKnowledgeBase.VectorIngestionConfigurationProperty(
-                    chunking_configuration=wisdom.CfnKnowledgeBase.ChunkingConfigurationProperty(
-                        chunking_strategy="chunkingStrategy",
-            
-                        # the properties below are optional
-                        fixed_size_chunking_configuration=wisdom.CfnKnowledgeBase.FixedSizeChunkingConfigurationProperty(
-                            max_tokens=123,
-                            overlap_percentage=123
-                        ),
-                        hierarchical_chunking_configuration=wisdom.CfnKnowledgeBase.HierarchicalChunkingConfigurationProperty(
-                            level_configurations=[wisdom.CfnKnowledgeBase.HierarchicalChunkingLevelConfigurationProperty(
-                                max_tokens=123
-                            )],
-                            overlap_tokens=123
-                        ),
-                        semantic_chunking_configuration=wisdom.CfnKnowledgeBase.SemanticChunkingConfigurationProperty(
-                            breakpoint_percentile_threshold=123,
-                            buffer_size=123,
-                            max_tokens=123
-                        )
-                    ),
-                    parsing_configuration=wisdom.CfnKnowledgeBase.ParsingConfigurationProperty(
-                        parsing_strategy="parsingStrategy",
-            
-                        # the properties below are optional
-                        bedrock_foundation_model_configuration=wisdom.CfnKnowledgeBase.BedrockFoundationModelConfigurationProperty(
-                            model_arn="modelArn",
-            
-                            # the properties below are optional
-                            parsing_prompt=wisdom.CfnKnowledgeBase.ParsingPromptProperty(
-                                parsing_prompt_text="parsingPromptText"
-                            )
-                        )
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b2c89f78d66a3c10ed4851c5bc420028f69cc91ddabbe2ac038dd7332ea1edd)
-            check_type(argname="argument knowledge_base_type", value=knowledge_base_type, expected_type=type_hints["knowledge_base_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument rendering_configuration", value=rendering_configuration, expected_type=type_hints["rendering_configuration"])
-            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
-            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vector_ingestion_configuration", value=vector_ingestion_configuration, expected_type=type_hints["vector_ingestion_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "knowledge_base_type": knowledge_base_type,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if rendering_configuration is not None:
-            self._values["rendering_configuration"] = rendering_configuration
-        if server_side_encryption_configuration is not None:
-            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
-        if source_configuration is not None:
-            self._values["source_configuration"] = source_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if vector_ingestion_configuration is not None:
-            self._values["vector_ingestion_configuration"] = vector_ingestion_configuration
-
-    @builtins.property
-    def knowledge_base_type(self) -> builtins.str:
-        '''The type of knowledge base.
-
-        Only CUSTOM knowledge bases allow you to upload your own content. EXTERNAL knowledge bases support integrations with third-party systems whose content is synchronized automatically.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-knowledgebasetype
-        '''
-        result = self._values.get("knowledge_base_type")
-        assert result is not None, "Required property 'knowledge_base_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rendering_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.RenderingConfigurationProperty]]:
-        '''Information about how to render the content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-renderingconfiguration
-        '''
-        result = self._values.get("rendering_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.RenderingConfigurationProperty]], result)
-
-    @builtins.property
-    def server_side_encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty]]:
-        '''This customer managed key must have a policy that allows ``kms:CreateGrant`` and ``kms:DescribeKey`` permissions to the IAM identity using the key to invoke Wisdom.
-
-        For more information about setting up a customer managed key for Wisdom, see `Enable Amazon Connect Wisdom for your instance <https://docs.aws.amazon.com/connect/latest/adminguide/enable-wisdom.html>`_ . For information about valid ID values, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-serversideencryptionconfiguration
-        '''
-        result = self._values.get("server_side_encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def source_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.SourceConfigurationProperty]]:
-        '''The source of the knowledge base content.
-
-        Only set this argument for EXTERNAL or Managed knowledge bases.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-sourceconfiguration
-        '''
-        result = self._values.get("source_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.SourceConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vector_ingestion_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.VectorIngestionConfigurationProperty]]:
-        '''Contains details about how to ingest the documents in a data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-knowledgebase.html#cfn-wisdom-knowledgebase-vectoringestionconfiguration
-        '''
-        result = self._values.get("vector_ingestion_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.VectorIngestionConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnKnowledgeBaseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IMessageTemplateRef, _ITaggableV2_4e6798f8)
 class CfnMessageTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7989,6 +10031,12 @@ class CfnMessageTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTemplateRef")
+    def message_template_ref(self) -> MessageTemplateReference:
+        '''A reference to a MessageTemplate resource.'''
+        return typing.cast(MessageTemplateReference, jsii.get(self, "messageTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelSubtype")
@@ -10213,338 +12261,7 @@ class CfnMessageTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnMessageTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_subtype": "channelSubtype",
-        "content": "content",
-        "knowledge_base_arn": "knowledgeBaseArn",
-        "name": "name",
-        "default_attributes": "defaultAttributes",
-        "description": "description",
-        "grouping_configuration": "groupingConfiguration",
-        "language": "language",
-        "message_template_attachments": "messageTemplateAttachments",
-        "tags": "tags",
-    },
-)
-class CfnMessageTemplateProps:
-    def __init__(
-        self,
-        *,
-        channel_subtype: builtins.str,
-        content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.ContentProperty, typing.Dict[builtins.str, typing.Any]]],
-        knowledge_base_arn: builtins.str,
-        name: builtins.str,
-        default_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        language: typing.Optional[builtins.str] = None,
-        message_template_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMessageTemplate``.
-
-        :param channel_subtype: The channel subtype this message template applies to.
-        :param content: The content of the message template.
-        :param knowledge_base_arn: The Amazon Resource Name (ARN) of the knowledge base.
-        :param name: The name of the message template.
-        :param default_attributes: An object that specifies the default values to use for variables in the message template. This object contains different categories of key-value pairs. Each key defines a variable or placeholder in the message template. The corresponding value defines the default value for that variable.
-        :param description: The description of the message template.
-        :param grouping_configuration: The configuration information of the external data source.
-        :param language: The language code value for the language in which the quick response is written. The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
-        :param message_template_attachments: List of message template attachments.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_message_template_props = wisdom.CfnMessageTemplateProps(
-                channel_subtype="channelSubtype",
-                content=wisdom.CfnMessageTemplate.ContentProperty(
-                    email_message_template_content=wisdom.CfnMessageTemplate.EmailMessageTemplateContentProperty(
-                        body=wisdom.CfnMessageTemplate.EmailMessageTemplateContentBodyProperty(
-                            html=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
-                                content="content"
-                            ),
-                            plain_text=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
-                                content="content"
-                            )
-                        ),
-                        headers=[wisdom.CfnMessageTemplate.EmailMessageTemplateHeaderProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        subject="subject"
-                    ),
-                    sms_message_template_content=wisdom.CfnMessageTemplate.SmsMessageTemplateContentProperty(
-                        body=wisdom.CfnMessageTemplate.SmsMessageTemplateContentBodyProperty(
-                            plain_text=wisdom.CfnMessageTemplate.MessageTemplateBodyContentProviderProperty(
-                                content="content"
-                            )
-                        )
-                    )
-                ),
-                knowledge_base_arn="knowledgeBaseArn",
-                name="name",
-            
-                # the properties below are optional
-                default_attributes=wisdom.CfnMessageTemplate.MessageTemplateAttributesProperty(
-                    agent_attributes=wisdom.CfnMessageTemplate.AgentAttributesProperty(
-                        first_name="firstName",
-                        last_name="lastName"
-                    ),
-                    custom_attributes={
-                        "custom_attributes_key": "customAttributes"
-                    },
-                    customer_profile_attributes=wisdom.CfnMessageTemplate.CustomerProfileAttributesProperty(
-                        account_number="accountNumber",
-                        additional_information="additionalInformation",
-                        address1="address1",
-                        address2="address2",
-                        address3="address3",
-                        address4="address4",
-                        billing_address1="billingAddress1",
-                        billing_address2="billingAddress2",
-                        billing_address3="billingAddress3",
-                        billing_address4="billingAddress4",
-                        billing_city="billingCity",
-                        billing_country="billingCountry",
-                        billing_county="billingCounty",
-                        billing_postal_code="billingPostalCode",
-                        billing_province="billingProvince",
-                        billing_state="billingState",
-                        birth_date="birthDate",
-                        business_email_address="businessEmailAddress",
-                        business_name="businessName",
-                        business_phone_number="businessPhoneNumber",
-                        city="city",
-                        country="country",
-                        county="county",
-                        custom={
-                            "custom_key": "custom"
-                        },
-                        email_address="emailAddress",
-                        first_name="firstName",
-                        gender="gender",
-                        home_phone_number="homePhoneNumber",
-                        last_name="lastName",
-                        mailing_address1="mailingAddress1",
-                        mailing_address2="mailingAddress2",
-                        mailing_address3="mailingAddress3",
-                        mailing_address4="mailingAddress4",
-                        mailing_city="mailingCity",
-                        mailing_country="mailingCountry",
-                        mailing_county="mailingCounty",
-                        mailing_postal_code="mailingPostalCode",
-                        mailing_province="mailingProvince",
-                        mailing_state="mailingState",
-                        middle_name="middleName",
-                        mobile_phone_number="mobilePhoneNumber",
-                        party_type="partyType",
-                        phone_number="phoneNumber",
-                        postal_code="postalCode",
-                        profile_arn="profileArn",
-                        profile_id="profileId",
-                        province="province",
-                        shipping_address1="shippingAddress1",
-                        shipping_address2="shippingAddress2",
-                        shipping_address3="shippingAddress3",
-                        shipping_address4="shippingAddress4",
-                        shipping_city="shippingCity",
-                        shipping_country="shippingCountry",
-                        shipping_county="shippingCounty",
-                        shipping_postal_code="shippingPostalCode",
-                        shipping_province="shippingProvince",
-                        shipping_state="shippingState",
-                        state="state"
-                    ),
-                    system_attributes=wisdom.CfnMessageTemplate.SystemAttributesProperty(
-                        customer_endpoint=wisdom.CfnMessageTemplate.SystemEndpointAttributesProperty(
-                            address="address"
-                        ),
-                        name="name",
-                        system_endpoint=wisdom.CfnMessageTemplate.SystemEndpointAttributesProperty(
-                            address="address"
-                        )
-                    )
-                ),
-                description="description",
-                grouping_configuration=wisdom.CfnMessageTemplate.GroupingConfigurationProperty(
-                    criteria="criteria",
-                    values=["values"]
-                ),
-                language="language",
-                message_template_attachments=[wisdom.CfnMessageTemplate.MessageTemplateAttachmentProperty(
-                    attachment_name="attachmentName",
-                    s3_presigned_url="s3PresignedUrl",
-            
-                    # the properties below are optional
-                    attachment_id="attachmentId"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec25e0f87d8fdbd9dfa333317dee4b1a02318078d19b7a6a2b5abe02825ec475)
-            check_type(argname="argument channel_subtype", value=channel_subtype, expected_type=type_hints["channel_subtype"])
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument default_attributes", value=default_attributes, expected_type=type_hints["default_attributes"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument grouping_configuration", value=grouping_configuration, expected_type=type_hints["grouping_configuration"])
-            check_type(argname="argument language", value=language, expected_type=type_hints["language"])
-            check_type(argname="argument message_template_attachments", value=message_template_attachments, expected_type=type_hints["message_template_attachments"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_subtype": channel_subtype,
-            "content": content,
-            "knowledge_base_arn": knowledge_base_arn,
-            "name": name,
-        }
-        if default_attributes is not None:
-            self._values["default_attributes"] = default_attributes
-        if description is not None:
-            self._values["description"] = description
-        if grouping_configuration is not None:
-            self._values["grouping_configuration"] = grouping_configuration
-        if language is not None:
-            self._values["language"] = language
-        if message_template_attachments is not None:
-            self._values["message_template_attachments"] = message_template_attachments
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def channel_subtype(self) -> builtins.str:
-        '''The channel subtype this message template applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-channelsubtype
-        '''
-        result = self._values.get("channel_subtype")
-        assert result is not None, "Required property 'channel_subtype' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def content(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.ContentProperty]:
-        '''The content of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.ContentProperty], result)
-
-    @builtins.property
-    def knowledge_base_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-knowledgebasearn
-        '''
-        result = self._values.get("knowledge_base_arn")
-        assert result is not None, "Required property 'knowledge_base_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.MessageTemplateAttributesProperty]]:
-        '''An object that specifies the default values to use for variables in the message template.
-
-        This object contains different categories of key-value pairs. Each key defines a variable or placeholder in the message template. The corresponding value defines the default value for that variable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-defaultattributes
-        '''
-        result = self._values.get("default_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.MessageTemplateAttributesProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def grouping_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.GroupingConfigurationProperty]]:
-        '''The configuration information of the external data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-groupingconfiguration
-        '''
-        result = self._values.get("grouping_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.GroupingConfigurationProperty]], result)
-
-    @builtins.property
-    def language(self) -> typing.Optional[builtins.str]:
-        '''The language code value for the language in which the quick response is written.
-
-        The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-language
-        '''
-        result = self._values.get("language")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def message_template_attachments(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.MessageTemplateAttachmentProperty]]]]:
-        '''List of message template attachments.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-messagetemplateattachments
-        '''
-        result = self._values.get("message_template_attachments")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMessageTemplate.MessageTemplateAttachmentProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplate.html#cfn-wisdom-messagetemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMessageTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMessageTemplateVersionRef)
 class CfnMessageTemplateVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10651,6 +12368,12 @@ class CfnMessageTemplateVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="messageTemplateVersionRef")
+    def message_template_version_ref(self) -> MessageTemplateVersionReference:
+        '''A reference to a MessageTemplateVersion resource.'''
+        return typing.cast(MessageTemplateVersionReference, jsii.get(self, "messageTemplateVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="messageTemplateArn")
     def message_template_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the message template.'''
@@ -10680,84 +12403,7 @@ class CfnMessageTemplateVersion(
         jsii.set(self, "messageTemplateContentSha256", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnMessageTemplateVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "message_template_arn": "messageTemplateArn",
-        "message_template_content_sha256": "messageTemplateContentSha256",
-    },
-)
-class CfnMessageTemplateVersionProps:
-    def __init__(
-        self,
-        *,
-        message_template_arn: builtins.str,
-        message_template_content_sha256: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMessageTemplateVersion``.
-
-        :param message_template_arn: The Amazon Resource Name (ARN) of the message template.
-        :param message_template_content_sha256: The content SHA256 of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_message_template_version_props = wisdom.CfnMessageTemplateVersionProps(
-                message_template_arn="messageTemplateArn",
-            
-                # the properties below are optional
-                message_template_content_sha256="messageTemplateContentSha256"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0b2a184adf6bc572d2575c7f11c4caa1ebc990936a7af469c6f91288d5f2908)
-            check_type(argname="argument message_template_arn", value=message_template_arn, expected_type=type_hints["message_template_arn"])
-            check_type(argname="argument message_template_content_sha256", value=message_template_content_sha256, expected_type=type_hints["message_template_content_sha256"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "message_template_arn": message_template_arn,
-        }
-        if message_template_content_sha256 is not None:
-            self._values["message_template_content_sha256"] = message_template_content_sha256
-
-    @builtins.property
-    def message_template_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html#cfn-wisdom-messagetemplateversion-messagetemplatearn
-        '''
-        result = self._values.get("message_template_arn")
-        assert result is not None, "Required property 'message_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def message_template_content_sha256(self) -> typing.Optional[builtins.str]:
-        '''The content SHA256 of the message template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-messagetemplateversion.html#cfn-wisdom-messagetemplateversion-messagetemplatecontentsha256
-        '''
-        result = self._values.get("message_template_content_sha256")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMessageTemplateVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IQuickResponseRef, _ITaggableV2_4e6798f8)
 class CfnQuickResponse(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10928,6 +12574,12 @@ class CfnQuickResponse(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="quickResponseRef")
+    def quick_response_ref(self) -> QuickResponseReference:
+        '''A reference to a QuickResponse resource.'''
+        return typing.cast(QuickResponseReference, jsii.get(self, "quickResponseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -11294,251 +12946,15 @@ class CfnQuickResponse(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wisdom.CfnQuickResponseProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "content": "content",
-        "knowledge_base_arn": "knowledgeBaseArn",
-        "name": "name",
-        "channels": "channels",
-        "content_type": "contentType",
-        "description": "description",
-        "grouping_configuration": "groupingConfiguration",
-        "is_active": "isActive",
-        "language": "language",
-        "shortcut_key": "shortcutKey",
-        "tags": "tags",
-    },
-)
-class CfnQuickResponseProps:
-    def __init__(
-        self,
-        *,
-        content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.QuickResponseContentProviderProperty, typing.Dict[builtins.str, typing.Any]]],
-        knowledge_base_arn: builtins.str,
-        name: builtins.str,
-        channels: typing.Optional[typing.Sequence[builtins.str]] = None,
-        content_type: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        language: typing.Optional[builtins.str] = None,
-        shortcut_key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnQuickResponse``.
-
-        :param content: The content of the quick response.
-        :param knowledge_base_arn: The Amazon Resource Name (ARN) of the knowledge base.
-        :param name: The name of the quick response.
-        :param channels: The Amazon Connect contact channels this quick response applies to. The supported contact channel types include ``Chat`` .
-        :param content_type: The media type of the quick response content. - Use ``application/x.quickresponse;format=plain`` for quick response written in plain text. - Use ``application/x.quickresponse;format=markdown`` for quick response written in richtext.
-        :param description: The description of the quick response.
-        :param grouping_configuration: The configuration information of the user groups that the quick response is accessible to.
-        :param is_active: Whether the quick response is active.
-        :param language: The language code value for the language in which the quick response is written. The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
-        :param shortcut_key: The shortcut key of the quick response. The value should be unique across the knowledge base.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wisdom as wisdom
-            
-            cfn_quick_response_props = wisdom.CfnQuickResponseProps(
-                content=wisdom.CfnQuickResponse.QuickResponseContentProviderProperty(
-                    content="content"
-                ),
-                knowledge_base_arn="knowledgeBaseArn",
-                name="name",
-            
-                # the properties below are optional
-                channels=["channels"],
-                content_type="contentType",
-                description="description",
-                grouping_configuration=wisdom.CfnQuickResponse.GroupingConfigurationProperty(
-                    criteria="criteria",
-                    values=["values"]
-                ),
-                is_active=False,
-                language="language",
-                shortcut_key="shortcutKey",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__067c5855940164369fb121429e1673fedfb78768ee6ca862e7facdd01b2c15ac)
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument channels", value=channels, expected_type=type_hints["channels"])
-            check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument grouping_configuration", value=grouping_configuration, expected_type=type_hints["grouping_configuration"])
-            check_type(argname="argument is_active", value=is_active, expected_type=type_hints["is_active"])
-            check_type(argname="argument language", value=language, expected_type=type_hints["language"])
-            check_type(argname="argument shortcut_key", value=shortcut_key, expected_type=type_hints["shortcut_key"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content": content,
-            "knowledge_base_arn": knowledge_base_arn,
-            "name": name,
-        }
-        if channels is not None:
-            self._values["channels"] = channels
-        if content_type is not None:
-            self._values["content_type"] = content_type
-        if description is not None:
-            self._values["description"] = description
-        if grouping_configuration is not None:
-            self._values["grouping_configuration"] = grouping_configuration
-        if is_active is not None:
-            self._values["is_active"] = is_active
-        if language is not None:
-            self._values["language"] = language
-        if shortcut_key is not None:
-            self._values["shortcut_key"] = shortcut_key
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def content(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnQuickResponse.QuickResponseContentProviderProperty]:
-        '''The content of the quick response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnQuickResponse.QuickResponseContentProviderProperty], result)
-
-    @builtins.property
-    def knowledge_base_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-knowledgebasearn
-        '''
-        result = self._values.get("knowledge_base_arn")
-        assert result is not None, "Required property 'knowledge_base_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the quick response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channels(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Connect contact channels this quick response applies to.
-
-        The supported contact channel types include ``Chat`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-channels
-        '''
-        result = self._values.get("channels")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def content_type(self) -> typing.Optional[builtins.str]:
-        '''The media type of the quick response content.
-
-        - Use ``application/x.quickresponse;format=plain`` for quick response written in plain text.
-        - Use ``application/x.quickresponse;format=markdown`` for quick response written in richtext.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-contenttype
-        '''
-        result = self._values.get("content_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the quick response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def grouping_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQuickResponse.GroupingConfigurationProperty]]:
-        '''The configuration information of the user groups that the quick response is accessible to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-groupingconfiguration
-        '''
-        result = self._values.get("grouping_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQuickResponse.GroupingConfigurationProperty]], result)
-
-    @builtins.property
-    def is_active(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether the quick response is active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-isactive
-        '''
-        result = self._values.get("is_active")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def language(self) -> typing.Optional[builtins.str]:
-        '''The language code value for the language in which the quick response is written.
-
-        The supported language codes include ``de_DE`` , ``en_US`` , ``es_ES`` , ``fr_FR`` , ``id_ID`` , ``it_IT`` , ``ja_JP`` , ``ko_KR`` , ``pt_BR`` , ``zh_CN`` , ``zh_TW``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-language
-        '''
-        result = self._values.get("language")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def shortcut_key(self) -> typing.Optional[builtins.str]:
-        '''The shortcut key of the quick response.
-
-        The value should be unique across the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-shortcutkey
-        '''
-        result = self._values.get("shortcut_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wisdom-quickresponse.html#cfn-wisdom-quickresponse-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnQuickResponseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AIAgentReference",
+    "AIAgentVersionReference",
+    "AIGuardrailReference",
+    "AIGuardrailVersionReference",
+    "AIPromptReference",
+    "AIPromptVersionReference",
+    "AssistantAssociationReference",
+    "AssistantReference",
     "CfnAIAgent",
     "CfnAIAgentProps",
     "CfnAIAgentVersion",
@@ -11563,9 +12979,272 @@ __all__ = [
     "CfnMessageTemplateVersionProps",
     "CfnQuickResponse",
     "CfnQuickResponseProps",
+    "IAIAgentRef",
+    "IAIAgentVersionRef",
+    "IAIGuardrailRef",
+    "IAIGuardrailVersionRef",
+    "IAIPromptRef",
+    "IAIPromptVersionRef",
+    "IAssistantAssociationRef",
+    "IAssistantRef",
+    "IKnowledgeBaseRef",
+    "IMessageTemplateRef",
+    "IMessageTemplateVersionRef",
+    "IQuickResponseRef",
+    "KnowledgeBaseReference",
+    "MessageTemplateReference",
+    "MessageTemplateVersionReference",
+    "QuickResponseReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__405c229c90845e14ac86f236f6b17202d7229bede9788da6e11960175c5a1a16(
+    *,
+    ai_agent_arn: builtins.str,
+    ai_agent_id: builtins.str,
+    assistant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9544c76b9e15341af4ccc50b0410eddb3129fdeafcedb1435f3057a64517bd7(
+    *,
+    ai_agent_id: builtins.str,
+    assistant_id: builtins.str,
+    version_number: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40a82a1e2d0b4a4cc6dffed6af1c168acb1be30b0a78785df9b5802363fa0ca0(
+    *,
+    ai_guardrail_arn: builtins.str,
+    ai_guardrail_id: builtins.str,
+    assistant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e43de45e438a20695b7bd5d4f403d524934995d43de1eef66724df0963f5d0c1(
+    *,
+    ai_guardrail_id: builtins.str,
+    assistant_id: builtins.str,
+    version_number: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3e3e5ef74b7d773eb46bcac69d5140e57e05f5afb2d0f139fbba918658ef36b(
+    *,
+    ai_prompt_arn: builtins.str,
+    ai_prompt_id: builtins.str,
+    assistant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7ee3f2187e790cc85d138d704ca7db5553224865a8cf6d8249269db07f4613c(
+    *,
+    ai_prompt_id: builtins.str,
+    assistant_id: builtins.str,
+    version_number: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ec615e2d99a0b810ecde5b453eda91e8a61a7a1d99631358e6596a76c467c6e(
+    *,
+    assistant_association_arn: builtins.str,
+    assistant_association_id: builtins.str,
+    assistant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12a5fb9ca6ec900cc27918bd98d1680364ecca65e79ed053f59e20f661b8619a(
+    *,
+    assistant_arn: builtins.str,
+    assistant_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1cda9a6282ec07c28c0ef49efdf8da8f079052d26edd32bbe15324644982756(
+    *,
+    assistant_id: builtins.str,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIAgent.AIAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ce55b0c69b9bc58cfcaeadaff04d7986170a5f73af9f6157ba1fe19c79b250e(
+    *,
+    ai_agent_id: builtins.str,
+    assistant_id: builtins.str,
+    modified_time_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__272934bdd57f29fc5c93ba393c351f7b04e959a7a6be0e13591e187bd90df3aa(
+    *,
+    assistant_id: builtins.str,
+    blocked_input_messaging: builtins.str,
+    blocked_outputs_messaging: builtins.str,
+    content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a99128fc6202c08bbbe787b73cc8f6fe79376afb6a408a1c3b9f1d86295794b(
+    *,
+    ai_guardrail_id: builtins.str,
+    assistant_id: builtins.str,
+    modified_time_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a55de2153828f44950073a28af3416601dc1f09105d3fa9d8f1ec243b3822d3(
+    *,
+    api_format: builtins.str,
+    model_id: builtins.str,
+    template_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIPrompt.AIPromptTemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    template_type: builtins.str,
+    type: builtins.str,
+    assistant_id: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39068faf047cdd2f1dce0d86adaff6f71058bba08c161da563b36647959f2add(
+    *,
+    ai_prompt_id: builtins.str,
+    assistant_id: builtins.str,
+    modified_time_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__419e70156a249f4fa2bea77a71d532fe9a351e3d150b5939dc8455b174375514(
+    *,
+    assistant_id: builtins.str,
+    association: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistantAssociation.AssociationDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    association_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2f6978729a0bccb7cc077df26ee5d379812791b9fe7ec0622251ed958562e07(
+    *,
+    name: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistant.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b2c89f78d66a3c10ed4851c5bc420028f69cc91ddabbe2ac038dd7332ea1edd(
+    *,
+    knowledge_base_type: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    rendering_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.RenderingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec25e0f87d8fdbd9dfa333317dee4b1a02318078d19b7a6a2b5abe02825ec475(
+    *,
+    channel_subtype: builtins.str,
+    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.ContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    knowledge_base_arn: builtins.str,
+    name: builtins.str,
+    default_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    language: typing.Optional[builtins.str] = None,
+    message_template_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0b2a184adf6bc572d2575c7f11c4caa1ebc990936a7af469c6f91288d5f2908(
+    *,
+    message_template_arn: builtins.str,
+    message_template_content_sha256: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__067c5855940164369fb121429e1673fedfb78768ee6ca862e7facdd01b2c15ac(
+    *,
+    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.QuickResponseContentProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    knowledge_base_arn: builtins.str,
+    name: builtins.str,
+    channels: typing.Optional[typing.Sequence[builtins.str]] = None,
+    content_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    language: typing.Optional[builtins.str] = None,
+    shortcut_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c69902cc2ec3a24b9aef5f7911e1fc31f392d26bdc2caf5cb2d10a1e13fd976(
+    *,
+    knowledge_base_arn: builtins.str,
+    knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea8c9a1a4d93d6180a60d653630d279e6c576719ddb30597e436ae4c7bd7ce5f(
+    *,
+    message_template_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1879ed9dc2ac276e9c4b30b2e0ac1fdf204a2d570ec64459334d748654b0dca9(
+    *,
+    message_template_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df94d421dee0c01e0a91d554582418d75e88b7fb1cb5f37ea0e8954ab2789325(
+    *,
+    quick_response_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e4d43de9ccaeb31eba5b0b613ecac25531a87bb9137652388e6196070f4622ab(
     scope: _constructs_77d1e7e8.Construct,
@@ -11720,18 +13399,6 @@ def _typecheckingstub__47961a691b994d09a0537dc7d655a0aab653585a5e8bd78b30c4bc84e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b1cda9a6282ec07c28c0ef49efdf8da8f079052d26edd32bbe15324644982756(
-    *,
-    assistant_id: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIAgent.AIAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__fa5a166c3d658d9410f80c3ff44a4aee88b29cb4def5f6c7d811c5b47f5ffb68(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11769,15 +13436,6 @@ def _typecheckingstub__e3c00eedc618755e116ec4cf13129b9ecab51c03e0aa3285aa6c4eca0
 
 def _typecheckingstub__1cbb04d6951221f1cfd98bc4ebed42ba72b9f79a3ef0707bfcea622572f06cd2(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ce55b0c69b9bc58cfcaeadaff04d7986170a5f73af9f6157ba1fe19c79b250e(
-    *,
-    ai_agent_id: builtins.str,
-    assistant_id: builtins.str,
-    modified_time_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11975,23 +13633,6 @@ def _typecheckingstub__606553234f4510e4e970f7df37efccc44b1516de671a981777f610261
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__272934bdd57f29fc5c93ba393c351f7b04e959a7a6be0e13591e187bd90df3aa(
-    *,
-    assistant_id: builtins.str,
-    blocked_input_messaging: builtins.str,
-    blocked_outputs_messaging: builtins.str,
-    content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailSensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailTopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIGuardrail.AIGuardrailWordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7a9a92a95cf92d95c08e9a7abc4202740081918bf2082c415b59e8a388ed1ceb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12029,15 +13670,6 @@ def _typecheckingstub__ad42f08834e2762e6f546d5167e6c7dccf9f639bbf36d9596aa7a154f
 
 def _typecheckingstub__94c07d3aa9bfd5fbb498b3a8c9f38b60219be42b9521625f0f8d680e6206d6ee(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6a99128fc6202c08bbbe787b73cc8f6fe79376afb6a408a1c3b9f1d86295794b(
-    *,
-    ai_guardrail_id: builtins.str,
-    assistant_id: builtins.str,
-    modified_time_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12139,21 +13771,6 @@ def _typecheckingstub__aab519c6a13d7d17f031944b9ddc67f7d24074f5ba48e4816f1ba2dfd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3a55de2153828f44950073a28af3416601dc1f09105d3fa9d8f1ec243b3822d3(
-    *,
-    api_format: builtins.str,
-    model_id: builtins.str,
-    template_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAIPrompt.AIPromptTemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    template_type: builtins.str,
-    type: builtins.str,
-    assistant_id: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__729db38c828e5e73ae0386aea45298b479e1a069777600fadadd338035a13e5d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12191,15 +13808,6 @@ def _typecheckingstub__1b6982f0f13d49bf234e47082e4a9783bc461e6dc18d68737a370a368
 
 def _typecheckingstub__d1f64ffa51639af07e9712d95780a238db8bd368a440a159ead5f0364951dcd4(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__39068faf047cdd2f1dce0d86adaff6f71058bba08c161da563b36647959f2add(
-    *,
-    ai_prompt_id: builtins.str,
-    assistant_id: builtins.str,
-    modified_time_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12317,27 +13925,6 @@ def _typecheckingstub__ea3d3cb4fe1048c256fc8719ac3d18f47cb21ef29730dd9d1f53a9304
 def _typecheckingstub__f6ecf0cfb2eb97624a8ec4ab51e16f75cfa1a5397890274252a2621ff5ad378d(
     *,
     knowledge_base_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__419e70156a249f4fa2bea77a71d532fe9a351e3d150b5939dc8455b174375514(
-    *,
-    assistant_id: builtins.str,
-    association: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistantAssociation.AssociationDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    association_type: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2f6978729a0bccb7cc077df26ee5d379812791b9fe7ec0622251ed958562e07(
-    *,
-    name: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssistant.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12556,20 +14143,6 @@ def _typecheckingstub__8b62d94eb7bc7c732098a29bd2a5de83daa71f6616ea1433becc1240c
     exclusion_filters: typing.Optional[typing.Sequence[builtins.str]] = None,
     inclusion_filters: typing.Optional[typing.Sequence[builtins.str]] = None,
     scope: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b2c89f78d66a3c10ed4851c5bc420028f69cc91ddabbe2ac038dd7332ea1edd(
-    *,
-    knowledge_base_type: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    rendering_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.RenderingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12833,22 +14406,6 @@ def _typecheckingstub__a331097c8b523e827ded8e1b2307d25adea67abd59cd8f02120521fb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ec25e0f87d8fdbd9dfa333317dee4b1a02318078d19b7a6a2b5abe02825ec475(
-    *,
-    channel_subtype: builtins.str,
-    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.ContentProperty, typing.Dict[builtins.str, typing.Any]]],
-    knowledge_base_arn: builtins.str,
-    name: builtins.str,
-    default_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    language: typing.Optional[builtins.str] = None,
-    message_template_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMessageTemplate.MessageTemplateAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__74fb30e95cf0983e689b729ce7c37f315a3a89ee72eba30c0076157947593055(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12879,14 +14436,6 @@ def _typecheckingstub__08418dbc91726be614a7891204fe619271f6618bccf8511f3e62a4f02
 
 def _typecheckingstub__2add34eec806e4ffcc1182689dc4344729a80e6faab1ee1e72aafe25168cddeb(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c0b2a184adf6bc572d2575c7f11c4caa1ebc990936a7af469c6f91288d5f2908(
-    *,
-    message_template_arn: builtins.str,
-    message_template_content_sha256: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13007,23 +14556,6 @@ def _typecheckingstub__41295c77edcd7270c3f3a36764ea805915fa2a44214fd58b6530df7e0
     *,
     markdown: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.QuickResponseContentProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     plain_text: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.QuickResponseContentProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__067c5855940164369fb121429e1673fedfb78768ee6ca862e7facdd01b2c15ac(
-    *,
-    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.QuickResponseContentProviderProperty, typing.Dict[builtins.str, typing.Any]]],
-    knowledge_base_arn: builtins.str,
-    name: builtins.str,
-    channels: typing.Optional[typing.Sequence[builtins.str]] = None,
-    content_type: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    grouping_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickResponse.GroupingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    is_active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    language: typing.Optional[builtins.str] = None,
-    shortcut_key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

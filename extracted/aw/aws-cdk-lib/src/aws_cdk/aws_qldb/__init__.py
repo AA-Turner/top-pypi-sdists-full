@@ -69,196 +69,6 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnLedger(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_qldb.CfnLedger",
-):
-    '''The ``AWS::QLDB::Ledger`` resource specifies a new Amazon Quantum Ledger Database (Amazon QLDB) ledger in your AWS account .
-
-    Amazon QLDB is a fully managed ledger database that provides a transparent, immutable, and cryptographically verifiable transaction log owned by a central trusted authority. You can use QLDB to track all application data changes, and maintain a complete and verifiable history of changes over time.
-
-    For more information, see `CreateLedger <https://docs.aws.amazon.com/qldb/latest/developerguide/API_CreateLedger.html>`_ in the *Amazon QLDB API Reference* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-ledger.html
-    :cloudformationResource: AWS::QLDB::Ledger
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_qldb as qldb
-        
-        cfn_ledger = qldb.CfnLedger(self, "MyCfnLedger",
-            permissions_mode="permissionsMode",
-        
-            # the properties below are optional
-            deletion_protection=False,
-            kms_key="kmsKey",
-            name="name",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        permissions_mode: builtins.str,
-        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        kms_key: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param permissions_mode: The permissions mode to assign to the ledger that you want to create. This parameter can have one of the following values: - ``ALLOW_ALL`` : A legacy permissions mode that enables access control with API-level granularity for ledgers. This mode allows users who have the ``SendCommand`` API permission for this ledger to run all PartiQL commands (hence, ``ALLOW_ALL`` ) on any tables in the specified ledger. This mode disregards any table-level or command-level IAM permissions policies that you create for the ledger. - ``STANDARD`` : ( *Recommended* ) A permissions mode that enables access control with finer granularity for ledgers, tables, and PartiQL commands. By default, this mode denies all user requests to run any PartiQL commands on any tables in this ledger. To allow PartiQL commands to run, you must create IAM permissions policies for specific table resources and PartiQL actions, in addition to the ``SendCommand`` API permission for the ledger. For information, see `Getting started with the standard permissions mode <https://docs.aws.amazon.com/qldb/latest/developerguide/getting-started-standard-mode.html>`_ in the *Amazon QLDB Developer Guide* . .. epigraph:: We strongly recommend using the ``STANDARD`` permissions mode to maximize the security of your ledger data.
-        :param deletion_protection: Specifies whether the ledger is protected from being deleted by any user. If not defined during ledger creation, this feature is enabled ( ``true`` ) by default. If deletion protection is enabled, you must first disable it before you can delete the ledger. You can disable it by calling the ``UpdateLedger`` operation to set this parameter to ``false`` .
-        :param kms_key: The key in AWS Key Management Service ( AWS KMS ) to use for encryption of data at rest in the ledger. For more information, see `Encryption at rest <https://docs.aws.amazon.com/qldb/latest/developerguide/encryption-at-rest.html>`_ in the *Amazon QLDB Developer Guide* . Use one of the following options to specify this parameter: - ``AWS_OWNED_KMS_KEY`` : Use an AWS KMS key that is owned and managed by AWS on your behalf. - *Undefined* : By default, use an AWS owned KMS key. - *A valid symmetric customer managed KMS key* : Use the specified symmetric encryption KMS key in your account that you create, own, and manage. Amazon QLDB does not support asymmetric keys. For more information, see `Using symmetric and asymmetric keys <https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html>`_ in the *AWS Key Management Service Developer Guide* . To specify a customer managed KMS key, you can use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. When using an alias name, prefix it with ``"alias/"`` . To specify a key in a different AWS account , you must use the key ARN or alias ARN. For example: - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` - Alias name: ``alias/ExampleAlias`` - Alias ARN: ``arn:aws:kms:us-east-2:111122223333:alias/ExampleAlias`` For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
-        :param name: The name of the ledger that you want to create. The name must be unique among all of the ledgers in your AWS account in the current Region. Naming constraints for ledger names are defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e774e646e1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLedgerProps(
-            permissions_mode=permissions_mode,
-            deletion_protection=deletion_protection,
-            kms_key=kms_key,
-            name=name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0621f4368a524c5c6f871fd57788a125a31975fe5179220aa8651a3ab9e950c7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1333ad936a34c0eec57e124b0843a7eb33e35176d234b7917f34ff098461d324)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsMode")
-    def permissions_mode(self) -> builtins.str:
-        '''The permissions mode to assign to the ledger that you want to create.'''
-        return typing.cast(builtins.str, jsii.get(self, "permissionsMode"))
-
-    @permissions_mode.setter
-    def permissions_mode(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a89e619bca2f94e6b3db069845ba60ca02914b7a4be30253994fdf3b4d512b31)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionsMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deletionProtection")
-    def deletion_protection(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the ledger is protected from being deleted by any user.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
-
-    @deletion_protection.setter
-    def deletion_protection(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b3fe377f100037b9cde4aff29cf5c4b1fc32e83c4f45f03c00ecf702acfa3ec)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKey")
-    def kms_key(self) -> typing.Optional[builtins.str]:
-        '''The key in AWS Key Management Service ( AWS KMS ) to use for encryption of data at rest in the ledger.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKey"))
-
-    @kms_key.setter
-    def kms_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07f645e3cf44ac4a544caad49252b894a50db46388e08cff021fbba2e27eac50)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the ledger that you want to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d54819c5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_qldb.CfnLedgerProps",
     jsii_struct_bases=[],
@@ -433,7 +243,596 @@ class CfnLedgerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qldb.CfnStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "inclusive_start_time": "inclusiveStartTime",
+        "kinesis_configuration": "kinesisConfiguration",
+        "ledger_name": "ledgerName",
+        "role_arn": "roleArn",
+        "stream_name": "streamName",
+        "exclusive_end_time": "exclusiveEndTime",
+        "tags": "tags",
+    },
+)
+class CfnStreamProps:
+    def __init__(
+        self,
+        *,
+        inclusive_start_time: builtins.str,
+        kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnStream.KinesisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ledger_name: builtins.str,
+        role_arn: builtins.str,
+        stream_name: builtins.str,
+        exclusive_end_time: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStream``.
+
+        :param inclusive_start_time: The inclusive start date and time from which to start streaming journal data. This parameter must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` . The ``InclusiveStartTime`` cannot be in the future and must be before ``ExclusiveEndTime`` . If you provide an ``InclusiveStartTime`` that is before the ledger's ``CreationDateTime`` , QLDB effectively defaults it to the ledger's ``CreationDateTime`` .
+        :param kinesis_configuration: The configuration settings of the Kinesis Data Streams destination for your stream request.
+        :param ledger_name: The name of the ledger.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants QLDB permissions for a journal stream to write data records to a Kinesis Data Streams resource. To pass a role to QLDB when requesting a journal stream, you must have permissions to perform the ``iam:PassRole`` action on the IAM role resource. This is required for all journal stream requests.
+        :param stream_name: The name that you want to assign to the QLDB journal stream. User-defined names can help identify and indicate the purpose of a stream. Your stream name must be unique among other *active* streams for a given ledger. Stream names have the same naming constraints as ledger names, as defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
+        :param exclusive_end_time: The exclusive date and time that specifies when the stream ends. If you don't define this parameter, the stream runs indefinitely until you cancel it. The ``ExclusiveEndTime`` must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qldb as qldb
+            
+            cfn_stream_props = qldb.CfnStreamProps(
+                inclusive_start_time="inclusiveStartTime",
+                kinesis_configuration=qldb.CfnStream.KinesisConfigurationProperty(
+                    aggregation_enabled=False,
+                    stream_arn="streamArn"
+                ),
+                ledger_name="ledgerName",
+                role_arn="roleArn",
+                stream_name="streamName",
+            
+                # the properties below are optional
+                exclusive_end_time="exclusiveEndTime",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f)
+            check_type(argname="argument inclusive_start_time", value=inclusive_start_time, expected_type=type_hints["inclusive_start_time"])
+            check_type(argname="argument kinesis_configuration", value=kinesis_configuration, expected_type=type_hints["kinesis_configuration"])
+            check_type(argname="argument ledger_name", value=ledger_name, expected_type=type_hints["ledger_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
+            check_type(argname="argument exclusive_end_time", value=exclusive_end_time, expected_type=type_hints["exclusive_end_time"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "inclusive_start_time": inclusive_start_time,
+            "kinesis_configuration": kinesis_configuration,
+            "ledger_name": ledger_name,
+            "role_arn": role_arn,
+            "stream_name": stream_name,
+        }
+        if exclusive_end_time is not None:
+            self._values["exclusive_end_time"] = exclusive_end_time
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def inclusive_start_time(self) -> builtins.str:
+        '''The inclusive start date and time from which to start streaming journal data.
+
+        This parameter must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
+
+        The ``InclusiveStartTime`` cannot be in the future and must be before ``ExclusiveEndTime`` .
+
+        If you provide an ``InclusiveStartTime`` that is before the ledger's ``CreationDateTime`` , QLDB effectively defaults it to the ledger's ``CreationDateTime`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-inclusivestarttime
+        '''
+        result = self._values.get("inclusive_start_time")
+        assert result is not None, "Required property 'inclusive_start_time' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kinesis_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnStream.KinesisConfigurationProperty"]:
+        '''The configuration settings of the Kinesis Data Streams destination for your stream request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-kinesisconfiguration
+        '''
+        result = self._values.get("kinesis_configuration")
+        assert result is not None, "Required property 'kinesis_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnStream.KinesisConfigurationProperty"], result)
+
+    @builtins.property
+    def ledger_name(self) -> builtins.str:
+        '''The name of the ledger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-ledgername
+        '''
+        result = self._values.get("ledger_name")
+        assert result is not None, "Required property 'ledger_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants QLDB permissions for a journal stream to write data records to a Kinesis Data Streams resource.
+
+        To pass a role to QLDB when requesting a journal stream, you must have permissions to perform the ``iam:PassRole`` action on the IAM role resource. This is required for all journal stream requests.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_name(self) -> builtins.str:
+        '''The name that you want to assign to the QLDB journal stream.
+
+        User-defined names can help identify and indicate the purpose of a stream.
+
+        Your stream name must be unique among other *active* streams for a given ledger. Stream names have the same naming constraints as ledger names, as defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-streamname
+        '''
+        result = self._values.get("stream_name")
+        assert result is not None, "Required property 'stream_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def exclusive_end_time(self) -> typing.Optional[builtins.str]:
+        '''The exclusive date and time that specifies when the stream ends.
+
+        If you don't define this parameter, the stream runs indefinitely until you cancel it.
+
+        The ``ExclusiveEndTime`` must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-exclusiveendtime
+        '''
+        result = self._values.get("exclusive_end_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qldb.ILedgerRef")
+class ILedgerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Ledger.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ledgerRef")
+    def ledger_ref(self) -> "LedgerReference":
+        '''(experimental) A reference to a Ledger resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILedgerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Ledger.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qldb.ILedgerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ledgerRef")
+    def ledger_ref(self) -> "LedgerReference":
+        '''(experimental) A reference to a Ledger resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LedgerReference", jsii.get(self, "ledgerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILedgerRef).__jsii_proxy_class__ = lambda : _ILedgerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qldb.IStreamRef")
+class IStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stream.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qldb.IStreamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> "StreamReference":
+        '''(experimental) A reference to a Stream resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamReference", jsii.get(self, "streamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamRef).__jsii_proxy_class__ = lambda : _IStreamRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qldb.LedgerReference",
+    jsii_struct_bases=[],
+    name_mapping={"ledger_id": "ledgerId"},
+)
+class LedgerReference:
+    def __init__(self, *, ledger_id: builtins.str) -> None:
+        '''A reference to a Ledger resource.
+
+        :param ledger_id: The Id of the Ledger resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qldb as qldb
+            
+            ledger_reference = qldb.LedgerReference(
+                ledger_id="ledgerId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc60f377f38c46c9bbda4601354ffa19f14281fa44ebcb2c24e495b2b1ed463a)
+            check_type(argname="argument ledger_id", value=ledger_id, expected_type=type_hints["ledger_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ledger_id": ledger_id,
+        }
+
+    @builtins.property
+    def ledger_id(self) -> builtins.str:
+        '''The Id of the Ledger resource.'''
+        result = self._values.get("ledger_id")
+        assert result is not None, "Required property 'ledger_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LedgerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qldb.StreamReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ledger_name": "ledgerName",
+        "stream_arn": "streamArn",
+        "stream_id": "streamId",
+    },
+)
+class StreamReference:
+    def __init__(
+        self,
+        *,
+        ledger_name: builtins.str,
+        stream_arn: builtins.str,
+        stream_id: builtins.str,
+    ) -> None:
+        '''A reference to a Stream resource.
+
+        :param ledger_name: The LedgerName of the Stream resource.
+        :param stream_arn: The ARN of the Stream resource.
+        :param stream_id: The Id of the Stream resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qldb as qldb
+            
+            stream_reference = qldb.StreamReference(
+                ledger_name="ledgerName",
+                stream_arn="streamArn",
+                stream_id="streamId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__501b0ea381fdf04dead6410cbac6b917a344dd3d93e7517966f18801b621fd16)
+            check_type(argname="argument ledger_name", value=ledger_name, expected_type=type_hints["ledger_name"])
+            check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ledger_name": ledger_name,
+            "stream_arn": stream_arn,
+            "stream_id": stream_id,
+        }
+
+    @builtins.property
+    def ledger_name(self) -> builtins.str:
+        '''The LedgerName of the Stream resource.'''
+        result = self._values.get("ledger_name")
+        assert result is not None, "Required property 'ledger_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_arn(self) -> builtins.str:
+        '''The ARN of the Stream resource.'''
+        result = self._values.get("stream_arn")
+        assert result is not None, "Required property 'stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_id(self) -> builtins.str:
+        '''The Id of the Stream resource.'''
+        result = self._values.get("stream_id")
+        assert result is not None, "Required property 'stream_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ILedgerRef, _ITaggable_36806126)
+class CfnLedger(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_qldb.CfnLedger",
+):
+    '''The ``AWS::QLDB::Ledger`` resource specifies a new Amazon Quantum Ledger Database (Amazon QLDB) ledger in your AWS account .
+
+    Amazon QLDB is a fully managed ledger database that provides a transparent, immutable, and cryptographically verifiable transaction log owned by a central trusted authority. You can use QLDB to track all application data changes, and maintain a complete and verifiable history of changes over time.
+
+    For more information, see `CreateLedger <https://docs.aws.amazon.com/qldb/latest/developerguide/API_CreateLedger.html>`_ in the *Amazon QLDB API Reference* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-ledger.html
+    :cloudformationResource: AWS::QLDB::Ledger
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_qldb as qldb
+        
+        cfn_ledger = qldb.CfnLedger(self, "MyCfnLedger",
+            permissions_mode="permissionsMode",
+        
+            # the properties below are optional
+            deletion_protection=False,
+            kms_key="kmsKey",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        permissions_mode: builtins.str,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        kms_key: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param permissions_mode: The permissions mode to assign to the ledger that you want to create. This parameter can have one of the following values: - ``ALLOW_ALL`` : A legacy permissions mode that enables access control with API-level granularity for ledgers. This mode allows users who have the ``SendCommand`` API permission for this ledger to run all PartiQL commands (hence, ``ALLOW_ALL`` ) on any tables in the specified ledger. This mode disregards any table-level or command-level IAM permissions policies that you create for the ledger. - ``STANDARD`` : ( *Recommended* ) A permissions mode that enables access control with finer granularity for ledgers, tables, and PartiQL commands. By default, this mode denies all user requests to run any PartiQL commands on any tables in this ledger. To allow PartiQL commands to run, you must create IAM permissions policies for specific table resources and PartiQL actions, in addition to the ``SendCommand`` API permission for the ledger. For information, see `Getting started with the standard permissions mode <https://docs.aws.amazon.com/qldb/latest/developerguide/getting-started-standard-mode.html>`_ in the *Amazon QLDB Developer Guide* . .. epigraph:: We strongly recommend using the ``STANDARD`` permissions mode to maximize the security of your ledger data.
+        :param deletion_protection: Specifies whether the ledger is protected from being deleted by any user. If not defined during ledger creation, this feature is enabled ( ``true`` ) by default. If deletion protection is enabled, you must first disable it before you can delete the ledger. You can disable it by calling the ``UpdateLedger`` operation to set this parameter to ``false`` .
+        :param kms_key: The key in AWS Key Management Service ( AWS KMS ) to use for encryption of data at rest in the ledger. For more information, see `Encryption at rest <https://docs.aws.amazon.com/qldb/latest/developerguide/encryption-at-rest.html>`_ in the *Amazon QLDB Developer Guide* . Use one of the following options to specify this parameter: - ``AWS_OWNED_KMS_KEY`` : Use an AWS KMS key that is owned and managed by AWS on your behalf. - *Undefined* : By default, use an AWS owned KMS key. - *A valid symmetric customer managed KMS key* : Use the specified symmetric encryption KMS key in your account that you create, own, and manage. Amazon QLDB does not support asymmetric keys. For more information, see `Using symmetric and asymmetric keys <https://docs.aws.amazon.com/kms/latest/developerguide/symmetric-asymmetric.html>`_ in the *AWS Key Management Service Developer Guide* . To specify a customer managed KMS key, you can use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. When using an alias name, prefix it with ``"alias/"`` . To specify a key in a different AWS account , you must use the key ARN or alias ARN. For example: - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` - Alias name: ``alias/ExampleAlias`` - Alias ARN: ``arn:aws:kms:us-east-2:111122223333:alias/ExampleAlias`` For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id>`_ in the *AWS Key Management Service Developer Guide* .
+        :param name: The name of the ledger that you want to create. The name must be unique among all of the ledgers in your AWS account in the current Region. Naming constraints for ledger names are defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e774e646e1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLedgerProps(
+            permissions_mode=permissions_mode,
+            deletion_protection=deletion_protection,
+            kms_key=kms_key,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0621f4368a524c5c6f871fd57788a125a31975fe5179220aa8651a3ab9e950c7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1333ad936a34c0eec57e124b0843a7eb33e35176d234b7917f34ff098461d324)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ledgerRef")
+    def ledger_ref(self) -> LedgerReference:
+        '''A reference to a Ledger resource.'''
+        return typing.cast(LedgerReference, jsii.get(self, "ledgerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionsMode")
+    def permissions_mode(self) -> builtins.str:
+        '''The permissions mode to assign to the ledger that you want to create.'''
+        return typing.cast(builtins.str, jsii.get(self, "permissionsMode"))
+
+    @permissions_mode.setter
+    def permissions_mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a89e619bca2f94e6b3db069845ba60ca02914b7a4be30253994fdf3b4d512b31)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionsMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the ledger is protected from being deleted by any user.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b3fe377f100037b9cde4aff29cf5c4b1fc32e83c4f45f03c00ecf702acfa3ec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional[builtins.str]:
+        '''The key in AWS Key Management Service ( AWS KMS ) to use for encryption of data at rest in the ledger.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKey"))
+
+    @kms_key.setter
+    def kms_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07f645e3cf44ac4a544caad49252b894a50db46388e08cff021fbba2e27eac50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the ledger that you want to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d54819c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IStreamRef, _ITaggable_36806126)
 class CfnStream(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -570,6 +969,12 @@ class CfnStream(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamRef")
+    def stream_ref(self) -> StreamReference:
+        '''A reference to a Stream resource.'''
+        return typing.cast(StreamReference, jsii.get(self, "streamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -754,197 +1159,58 @@ class CfnStream(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qldb.CfnStreamProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "inclusive_start_time": "inclusiveStartTime",
-        "kinesis_configuration": "kinesisConfiguration",
-        "ledger_name": "ledgerName",
-        "role_arn": "roleArn",
-        "stream_name": "streamName",
-        "exclusive_end_time": "exclusiveEndTime",
-        "tags": "tags",
-    },
-)
-class CfnStreamProps:
-    def __init__(
-        self,
-        *,
-        inclusive_start_time: builtins.str,
-        kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        ledger_name: builtins.str,
-        role_arn: builtins.str,
-        stream_name: builtins.str,
-        exclusive_end_time: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStream``.
-
-        :param inclusive_start_time: The inclusive start date and time from which to start streaming journal data. This parameter must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` . The ``InclusiveStartTime`` cannot be in the future and must be before ``ExclusiveEndTime`` . If you provide an ``InclusiveStartTime`` that is before the ledger's ``CreationDateTime`` , QLDB effectively defaults it to the ledger's ``CreationDateTime`` .
-        :param kinesis_configuration: The configuration settings of the Kinesis Data Streams destination for your stream request.
-        :param ledger_name: The name of the ledger.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that grants QLDB permissions for a journal stream to write data records to a Kinesis Data Streams resource. To pass a role to QLDB when requesting a journal stream, you must have permissions to perform the ``iam:PassRole`` action on the IAM role resource. This is required for all journal stream requests.
-        :param stream_name: The name that you want to assign to the QLDB journal stream. User-defined names can help identify and indicate the purpose of a stream. Your stream name must be unique among other *active* streams for a given ledger. Stream names have the same naming constraints as ledger names, as defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
-        :param exclusive_end_time: The exclusive date and time that specifies when the stream ends. If you don't define this parameter, the stream runs indefinitely until you cancel it. The ``ExclusiveEndTime`` must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qldb as qldb
-            
-            cfn_stream_props = qldb.CfnStreamProps(
-                inclusive_start_time="inclusiveStartTime",
-                kinesis_configuration=qldb.CfnStream.KinesisConfigurationProperty(
-                    aggregation_enabled=False,
-                    stream_arn="streamArn"
-                ),
-                ledger_name="ledgerName",
-                role_arn="roleArn",
-                stream_name="streamName",
-            
-                # the properties below are optional
-                exclusive_end_time="exclusiveEndTime",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f)
-            check_type(argname="argument inclusive_start_time", value=inclusive_start_time, expected_type=type_hints["inclusive_start_time"])
-            check_type(argname="argument kinesis_configuration", value=kinesis_configuration, expected_type=type_hints["kinesis_configuration"])
-            check_type(argname="argument ledger_name", value=ledger_name, expected_type=type_hints["ledger_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
-            check_type(argname="argument exclusive_end_time", value=exclusive_end_time, expected_type=type_hints["exclusive_end_time"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "inclusive_start_time": inclusive_start_time,
-            "kinesis_configuration": kinesis_configuration,
-            "ledger_name": ledger_name,
-            "role_arn": role_arn,
-            "stream_name": stream_name,
-        }
-        if exclusive_end_time is not None:
-            self._values["exclusive_end_time"] = exclusive_end_time
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def inclusive_start_time(self) -> builtins.str:
-        '''The inclusive start date and time from which to start streaming journal data.
-
-        This parameter must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
-
-        The ``InclusiveStartTime`` cannot be in the future and must be before ``ExclusiveEndTime`` .
-
-        If you provide an ``InclusiveStartTime`` that is before the ledger's ``CreationDateTime`` , QLDB effectively defaults it to the ledger's ``CreationDateTime`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-inclusivestarttime
-        '''
-        result = self._values.get("inclusive_start_time")
-        assert result is not None, "Required property 'inclusive_start_time' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kinesis_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnStream.KinesisConfigurationProperty]:
-        '''The configuration settings of the Kinesis Data Streams destination for your stream request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-kinesisconfiguration
-        '''
-        result = self._values.get("kinesis_configuration")
-        assert result is not None, "Required property 'kinesis_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnStream.KinesisConfigurationProperty], result)
-
-    @builtins.property
-    def ledger_name(self) -> builtins.str:
-        '''The name of the ledger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-ledgername
-        '''
-        result = self._values.get("ledger_name")
-        assert result is not None, "Required property 'ledger_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role that grants QLDB permissions for a journal stream to write data records to a Kinesis Data Streams resource.
-
-        To pass a role to QLDB when requesting a journal stream, you must have permissions to perform the ``iam:PassRole`` action on the IAM role resource. This is required for all journal stream requests.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stream_name(self) -> builtins.str:
-        '''The name that you want to assign to the QLDB journal stream.
-
-        User-defined names can help identify and indicate the purpose of a stream.
-
-        Your stream name must be unique among other *active* streams for a given ledger. Stream names have the same naming constraints as ledger names, as defined in `Quotas in Amazon QLDB <https://docs.aws.amazon.com/qldb/latest/developerguide/limits.html#limits.naming>`_ in the *Amazon QLDB Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-streamname
-        '''
-        result = self._values.get("stream_name")
-        assert result is not None, "Required property 'stream_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def exclusive_end_time(self) -> typing.Optional[builtins.str]:
-        '''The exclusive date and time that specifies when the stream ends.
-
-        If you don't define this parameter, the stream runs indefinitely until you cancel it.
-
-        The ``ExclusiveEndTime`` must be in ``ISO 8601`` date and time format and in Universal Coordinated Time (UTC). For example: ``2019-06-13T21:36:34Z`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-exclusiveendtime
-        '''
-        result = self._values.get("exclusive_end_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qldb-stream.html#cfn-qldb-stream-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnLedger",
     "CfnLedgerProps",
     "CfnStream",
     "CfnStreamProps",
+    "ILedgerRef",
+    "IStreamRef",
+    "LedgerReference",
+    "StreamReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__5663dfd1f46a65b8b57ab0b2e5ff5e0c5d475f06d19e33cc58dfbf6d23b9ab6a(
+    *,
+    permissions_mode: builtins.str,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    kms_key: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f(
+    *,
+    inclusive_start_time: builtins.str,
+    kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    ledger_name: builtins.str,
+    role_arn: builtins.str,
+    stream_name: builtins.str,
+    exclusive_end_time: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc60f377f38c46c9bbda4601354ffa19f14281fa44ebcb2c24e495b2b1ed463a(
+    *,
+    ledger_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__501b0ea381fdf04dead6410cbac6b917a344dd3d93e7517966f18801b621fd16(
+    *,
+    ledger_name: builtins.str,
+    stream_arn: builtins.str,
+    stream_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6c3f292b1a2e3c0b8e03745ad454d7d55c22a260af8318dfec1074e774e646e1(
     scope: _constructs_77d1e7e8.Construct,
@@ -997,17 +1263,6 @@ def _typecheckingstub__cfde1a1589cee060b1bc3f659b346954c99d568692b34716e284f1a4d
 
 def _typecheckingstub__58e2cf9516bbbe2dc95bb5894175223984cbea74e4c177e3c5a7db64d7c625c6(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5663dfd1f46a65b8b57ab0b2e5ff5e0c5d475f06d19e33cc58dfbf6d23b9ab6a(
-    *,
-    permissions_mode: builtins.str,
-    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    kms_key: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1085,19 +1340,6 @@ def _typecheckingstub__84d94b9a3158f284a06b6624c8254b032e304f833d0a315233a79e237
     *,
     aggregation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     stream_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__93b24971535d3527d042ac4bb7ac175f1193a6f26f891b339dd6cbadd998ce9f(
-    *,
-    inclusive_start_time: builtins.str,
-    kinesis_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.KinesisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    ledger_name: builtins.str,
-    role_arn: builtins.str,
-    stream_name: builtins.str,
-    exclusive_end_time: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

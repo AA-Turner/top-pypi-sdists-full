@@ -3,11 +3,10 @@ from kubernetes import client
 from adam.commands.command import Command
 from adam.commands.deploy.deploy_utils import deploy_frontend, gen_labels
 from adam.config import Config
-from adam.k8s_utils.ingresses import Ingresses
+from adam.k8s_utils.deployment import Deployments
 from adam.k8s_utils.kube_context import KubeContext
 from adam.k8s_utils.pods import Pods
 from adam.k8s_utils.service_accounts import ServiceAccounts
-from adam.k8s_utils.services import Services
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2
 
@@ -55,11 +54,12 @@ class DeployPod(Command):
                 add=["SYS_PTRACE"]
             )
         )
-        Pods.create(state.namespace, pod_name, image, env={'NAMESPACE': state.namespace}, container_security_context=security_context, labels=labels, sa_name=sa_name)
+        Deployments.create(state.namespace, pod_name, image, env={'NAMESPACE': state.namespace}, container_security_context=security_context, labels=labels, sa_name=sa_name)
 
         uri = deploy_frontend(pod_name, state.namespace, label_selector)
 
-        Pods.wait_for_running(state.namespace, pod_name, msg=f'Ops pod is starting up; it will be available at {uri}.')
+        # Pods.wait_for_running(state.namespace, label_selector, msg=f'Ops pod is starting up; it will be available at {uri}.')
+        Pods.wait_for_running(state.namespace, pod_name, msg=f'Ops pod is starting up; it will be available at {uri}.', label_selector=label_selector)
 
         return state
 

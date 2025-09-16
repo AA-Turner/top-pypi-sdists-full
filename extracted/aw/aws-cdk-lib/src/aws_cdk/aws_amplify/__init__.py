@@ -74,7 +74,1215 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.AppReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_arn": "appArn"},
+)
+class AppReference:
+    def __init__(self, *, app_arn: builtins.str) -> None:
+        '''A reference to a App resource.
+
+        :param app_arn: The Arn of the App resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            app_reference = amplify.AppReference(
+                app_arn="appArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da659fd3c98665df1721a63a0a53cd6b330f82084f200da727e9b7c785295051)
+            check_type(argname="argument app_arn", value=app_arn, expected_type=type_hints["app_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_arn": app_arn,
+        }
+
+    @builtins.property
+    def app_arn(self) -> builtins.str:
+        '''The Arn of the App resource.'''
+        result = self._values.get("app_arn")
+        assert result is not None, "Required property 'app_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.BranchReference",
+    jsii_struct_bases=[],
+    name_mapping={"branch_arn": "branchArn"},
+)
+class BranchReference:
+    def __init__(self, *, branch_arn: builtins.str) -> None:
+        '''A reference to a Branch resource.
+
+        :param branch_arn: The Arn of the Branch resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            branch_reference = amplify.BranchReference(
+                branch_arn="branchArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81c22f2a86689924b3bdab8697232edb9b1c4e71c2e43043c4ea2bc7c96794d3)
+            check_type(argname="argument branch_arn", value=branch_arn, expected_type=type_hints["branch_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "branch_arn": branch_arn,
+        }
+
+    @builtins.property
+    def branch_arn(self) -> builtins.str:
+        '''The Arn of the Branch resource.'''
+        result = self._values.get("branch_arn")
+        assert result is not None, "Required property 'branch_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BranchReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.CfnAppProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "access_token": "accessToken",
+        "auto_branch_creation_config": "autoBranchCreationConfig",
+        "basic_auth_config": "basicAuthConfig",
+        "build_spec": "buildSpec",
+        "cache_config": "cacheConfig",
+        "compute_role_arn": "computeRoleArn",
+        "custom_headers": "customHeaders",
+        "custom_rules": "customRules",
+        "description": "description",
+        "enable_branch_auto_deletion": "enableBranchAutoDeletion",
+        "environment_variables": "environmentVariables",
+        "iam_service_role": "iamServiceRole",
+        "job_config": "jobConfig",
+        "oauth_token": "oauthToken",
+        "platform": "platform",
+        "repository": "repository",
+        "tags": "tags",
+    },
+)
+class CfnAppProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        access_token: typing.Optional[builtins.str] = None,
+        auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.AutoBranchCreationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        build_spec: typing.Optional[builtins.str] = None,
+        cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.CacheConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compute_role_arn: typing.Optional[builtins.str] = None,
+        custom_headers: typing.Optional[builtins.str] = None,
+        custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.CustomRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        iam_service_role: typing.Optional[builtins.str] = None,
+        job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.JobConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        oauth_token: typing.Optional[builtins.str] = None,
+        platform: typing.Optional[builtins.str] = None,
+        repository: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApp``.
+
+        :param name: The name of the Amplify app.
+        :param access_token: The personal access token for a GitHub repository for an Amplify app. The personal access token is used to authorize access to a GitHub repository using the Amplify GitHub App. The token is not stored. Use ``AccessToken`` for GitHub repositories only. To authorize access to a repository provider such as Bitbucket or CodeCommit, use ``OauthToken`` . You must specify either ``AccessToken`` or ``OauthToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
+        :param auto_branch_creation_config: Sets the configuration for your automatic branch creation.
+        :param basic_auth_config: The credentials for basic authorization for an Amplify app. You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
+        :param build_spec: The build specification (build spec) for an Amplify app.
+        :param cache_config: The cache configuration for the Amplify app. If you don't specify the cache configuration ``type`` , Amplify uses the default ``AMPLIFY_MANAGED`` setting.
+        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role for an SSR app. The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
+        :param custom_headers: The custom HTTP headers for an Amplify app.
+        :param custom_rules: The custom rewrite and redirect rules for an Amplify app.
+        :param description: The description of the Amplify app.
+        :param enable_branch_auto_deletion: Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
+        :param environment_variables: The environment variables for the Amplify app. For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
+        :param iam_service_role: AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
+        :param job_config: The configuration details that apply to the jobs for an Amplify app.
+        :param oauth_token: The OAuth token for a third-party source control system for an Amplify app. The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored. Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` . You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
+        :param platform: The platform for the Amplify app. For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` . If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
+        :param repository: The Git repository for the Amplify app.
+        :param tags: The tag for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            cfn_app_props = amplify.CfnAppProps(
+                name="name",
+            
+                # the properties below are optional
+                access_token="accessToken",
+                auto_branch_creation_config=amplify.CfnApp.AutoBranchCreationConfigProperty(
+                    auto_branch_creation_patterns=["autoBranchCreationPatterns"],
+                    basic_auth_config=amplify.CfnApp.BasicAuthConfigProperty(
+                        enable_basic_auth=False,
+                        password="password",
+                        username="username"
+                    ),
+                    build_spec="buildSpec",
+                    enable_auto_branch_creation=False,
+                    enable_auto_build=False,
+                    enable_performance_mode=False,
+                    enable_pull_request_preview=False,
+                    environment_variables=[amplify.CfnApp.EnvironmentVariableProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    framework="framework",
+                    pull_request_environment_name="pullRequestEnvironmentName",
+                    stage="stage"
+                ),
+                basic_auth_config=amplify.CfnApp.BasicAuthConfigProperty(
+                    enable_basic_auth=False,
+                    password="password",
+                    username="username"
+                ),
+                build_spec="buildSpec",
+                cache_config=amplify.CfnApp.CacheConfigProperty(
+                    type="type"
+                ),
+                compute_role_arn="computeRoleArn",
+                custom_headers="customHeaders",
+                custom_rules=[amplify.CfnApp.CustomRuleProperty(
+                    source="source",
+                    target="target",
+            
+                    # the properties below are optional
+                    condition="condition",
+                    status="status"
+                )],
+                description="description",
+                enable_branch_auto_deletion=False,
+                environment_variables=[amplify.CfnApp.EnvironmentVariableProperty(
+                    name="name",
+                    value="value"
+                )],
+                iam_service_role="iamServiceRole",
+                job_config=amplify.CfnApp.JobConfigProperty(
+                    build_compute_type="buildComputeType"
+                ),
+                oauth_token="oauthToken",
+                platform="platform",
+                repository="repository",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
+            check_type(argname="argument auto_branch_creation_config", value=auto_branch_creation_config, expected_type=type_hints["auto_branch_creation_config"])
+            check_type(argname="argument basic_auth_config", value=basic_auth_config, expected_type=type_hints["basic_auth_config"])
+            check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
+            check_type(argname="argument cache_config", value=cache_config, expected_type=type_hints["cache_config"])
+            check_type(argname="argument compute_role_arn", value=compute_role_arn, expected_type=type_hints["compute_role_arn"])
+            check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
+            check_type(argname="argument custom_rules", value=custom_rules, expected_type=type_hints["custom_rules"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enable_branch_auto_deletion", value=enable_branch_auto_deletion, expected_type=type_hints["enable_branch_auto_deletion"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument iam_service_role", value=iam_service_role, expected_type=type_hints["iam_service_role"])
+            check_type(argname="argument job_config", value=job_config, expected_type=type_hints["job_config"])
+            check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
+            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
+            check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if access_token is not None:
+            self._values["access_token"] = access_token
+        if auto_branch_creation_config is not None:
+            self._values["auto_branch_creation_config"] = auto_branch_creation_config
+        if basic_auth_config is not None:
+            self._values["basic_auth_config"] = basic_auth_config
+        if build_spec is not None:
+            self._values["build_spec"] = build_spec
+        if cache_config is not None:
+            self._values["cache_config"] = cache_config
+        if compute_role_arn is not None:
+            self._values["compute_role_arn"] = compute_role_arn
+        if custom_headers is not None:
+            self._values["custom_headers"] = custom_headers
+        if custom_rules is not None:
+            self._values["custom_rules"] = custom_rules
+        if description is not None:
+            self._values["description"] = description
+        if enable_branch_auto_deletion is not None:
+            self._values["enable_branch_auto_deletion"] = enable_branch_auto_deletion
+        if environment_variables is not None:
+            self._values["environment_variables"] = environment_variables
+        if iam_service_role is not None:
+            self._values["iam_service_role"] = iam_service_role
+        if job_config is not None:
+            self._values["job_config"] = job_config
+        if oauth_token is not None:
+            self._values["oauth_token"] = oauth_token
+        if platform is not None:
+            self._values["platform"] = platform
+        if repository is not None:
+            self._values["repository"] = repository
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_token(self) -> typing.Optional[builtins.str]:
+        '''The personal access token for a GitHub repository for an Amplify app.
+
+        The personal access token is used to authorize access to a GitHub repository using the Amplify GitHub App. The token is not stored.
+
+        Use ``AccessToken`` for GitHub repositories only. To authorize access to a repository provider such as Bitbucket or CodeCommit, use ``OauthToken`` .
+
+        You must specify either ``AccessToken`` or ``OauthToken`` when you create a new app.
+
+        Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-accesstoken
+        '''
+        result = self._values.get("access_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_branch_creation_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.AutoBranchCreationConfigProperty"]]:
+        '''Sets the configuration for your automatic branch creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-autobranchcreationconfig
+        '''
+        result = self._values.get("auto_branch_creation_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.AutoBranchCreationConfigProperty"]], result)
+
+    @builtins.property
+    def basic_auth_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.BasicAuthConfigProperty"]]:
+        '''The credentials for basic authorization for an Amplify app.
+
+        You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-basicauthconfig
+        '''
+        result = self._values.get("basic_auth_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.BasicAuthConfigProperty"]], result)
+
+    @builtins.property
+    def build_spec(self) -> typing.Optional[builtins.str]:
+        '''The build specification (build spec) for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-buildspec
+        '''
+        result = self._values.get("build_spec")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cache_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.CacheConfigProperty"]]:
+        '''The cache configuration for the Amplify app.
+
+        If you don't specify the cache configuration ``type`` , Amplify uses the default ``AMPLIFY_MANAGED`` setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-cacheconfig
+        '''
+        result = self._values.get("cache_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.CacheConfigProperty"]], result)
+
+    @builtins.property
+    def compute_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role for an SSR app.
+
+        The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-computerolearn
+        '''
+        result = self._values.get("compute_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_headers(self) -> typing.Optional[builtins.str]:
+        '''The custom HTTP headers for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-customheaders
+        '''
+        result = self._values.get("custom_headers")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.CustomRuleProperty"]]]]:
+        '''The custom rewrite and redirect rules for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-customrules
+        '''
+        result = self._values.get("custom_rules")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.CustomRuleProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_branch_auto_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-enablebranchautodeletion
+        '''
+        result = self._values.get("enable_branch_auto_deletion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EnvironmentVariableProperty"]]]]:
+        '''The environment variables for the Amplify app.
+
+        For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-environmentvariables
+        '''
+        result = self._values.get("environment_variables")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EnvironmentVariableProperty"]]]], result)
+
+    @builtins.property
+    def iam_service_role(self) -> typing.Optional[builtins.str]:
+        '''AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-iamservicerole
+        '''
+        result = self._values.get("iam_service_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.JobConfigProperty"]]:
+        '''The configuration details that apply to the jobs for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-jobconfig
+        '''
+        result = self._values.get("job_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.JobConfigProperty"]], result)
+
+    @builtins.property
+    def oauth_token(self) -> typing.Optional[builtins.str]:
+        '''The OAuth token for a third-party source control system for an Amplify app.
+
+        The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored.
+
+        Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` .
+
+        You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app.
+
+        Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-oauthtoken
+        '''
+        result = self._values.get("oauth_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def platform(self) -> typing.Optional[builtins.str]:
+        '''The platform for the Amplify app.
+
+        For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` .
+
+        If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-platform
+        '''
+        result = self._values.get("platform")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def repository(self) -> typing.Optional[builtins.str]:
+        '''The Git repository for the Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-repository
+        '''
+        result = self._values.get("repository")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tag for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.CfnBranchProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_id": "appId",
+        "branch_name": "branchName",
+        "backend": "backend",
+        "basic_auth_config": "basicAuthConfig",
+        "build_spec": "buildSpec",
+        "compute_role_arn": "computeRoleArn",
+        "description": "description",
+        "enable_auto_build": "enableAutoBuild",
+        "enable_performance_mode": "enablePerformanceMode",
+        "enable_pull_request_preview": "enablePullRequestPreview",
+        "enable_skew_protection": "enableSkewProtection",
+        "environment_variables": "environmentVariables",
+        "framework": "framework",
+        "pull_request_environment_name": "pullRequestEnvironmentName",
+        "stage": "stage",
+        "tags": "tags",
+    },
+)
+class CfnBranchProps:
+    def __init__(
+        self,
+        *,
+        app_id: builtins.str,
+        branch_name: builtins.str,
+        backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBranch.BackendProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBranch.BasicAuthConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        build_spec: typing.Optional[builtins.str] = None,
+        compute_role_arn: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBranch.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        framework: typing.Optional[builtins.str] = None,
+        pull_request_environment_name: typing.Optional[builtins.str] = None,
+        stage: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBranch``.
+
+        :param app_id: The unique ID for an Amplify app.
+        :param branch_name: The name for the branch.
+        :param backend: The backend for a ``Branch`` of an Amplify app. Use for a backend created from an AWS CloudFormation stack. This field is available to Amplify Gen 2 apps only. When you deploy an application with Amplify Gen 2, you provision the app's backend infrastructure using Typescript code.
+        :param basic_auth_config: The basic authorization credentials for a branch of an Amplify app. You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
+        :param build_spec: The build specification (build spec) for the branch.
+        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
+        :param description: The description for the branch that is part of an Amplify app.
+        :param enable_auto_build: Enables auto building for the branch.
+        :param enable_performance_mode: Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
+        :param enable_pull_request_preview: Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch. If this property is enabled, Amplify deploys your app to a unique preview URL after each pull request is opened. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch. To provide backend support for your preview, Amplify automatically provisions a temporary backend environment that it deletes when the pull request is closed. If you want to specify a dedicated backend environment for your previews, use the ``PullRequestEnvironmentName`` property. For more information, see `Web Previews <https://docs.aws.amazon.com/amplify/latest/userguide/pr-previews.html>`_ in the *AWS Amplify Hosting User Guide* .
+        :param enable_skew_protection: Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. For more information about skew protection, see `Skew protection for Amplify deployments <https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html>`_ in the *Amplify User Guide* .
+        :param environment_variables: The environment variables for the branch.
+        :param framework: The framework for the branch.
+        :param pull_request_environment_name: If pull request previews are enabled for this branch, you can use this property to specify a dedicated backend environment for your previews. For example, you could specify an environment named ``prod`` , ``test`` , or ``dev`` that you initialized with the Amplify CLI and mapped to this branch. To enable pull request previews, set the ``EnablePullRequestPreview`` property to ``true`` . If you don't specify an environment, Amplify Hosting provides backend support for each preview by automatically provisioning a temporary backend environment. Amplify Hosting deletes this environment when the pull request is closed. For more information about creating backend environments, see `Feature Branch Deployments and Team Workflows <https://docs.aws.amazon.com/amplify/latest/userguide/multi-environments.html>`_ in the *AWS Amplify Hosting User Guide* .
+        :param stage: Describes the current stage for the branch.
+        :param tags: The tag for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            cfn_branch_props = amplify.CfnBranchProps(
+                app_id="appId",
+                branch_name="branchName",
+            
+                # the properties below are optional
+                backend=amplify.CfnBranch.BackendProperty(
+                    stack_arn="stackArn"
+                ),
+                basic_auth_config=amplify.CfnBranch.BasicAuthConfigProperty(
+                    password="password",
+                    username="username",
+            
+                    # the properties below are optional
+                    enable_basic_auth=False
+                ),
+                build_spec="buildSpec",
+                compute_role_arn="computeRoleArn",
+                description="description",
+                enable_auto_build=False,
+                enable_performance_mode=False,
+                enable_pull_request_preview=False,
+                enable_skew_protection=False,
+                environment_variables=[amplify.CfnBranch.EnvironmentVariableProperty(
+                    name="name",
+                    value="value"
+                )],
+                framework="framework",
+                pull_request_environment_name="pullRequestEnvironmentName",
+                stage="stage",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
+            check_type(argname="argument backend", value=backend, expected_type=type_hints["backend"])
+            check_type(argname="argument basic_auth_config", value=basic_auth_config, expected_type=type_hints["basic_auth_config"])
+            check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
+            check_type(argname="argument compute_role_arn", value=compute_role_arn, expected_type=type_hints["compute_role_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enable_auto_build", value=enable_auto_build, expected_type=type_hints["enable_auto_build"])
+            check_type(argname="argument enable_performance_mode", value=enable_performance_mode, expected_type=type_hints["enable_performance_mode"])
+            check_type(argname="argument enable_pull_request_preview", value=enable_pull_request_preview, expected_type=type_hints["enable_pull_request_preview"])
+            check_type(argname="argument enable_skew_protection", value=enable_skew_protection, expected_type=type_hints["enable_skew_protection"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument framework", value=framework, expected_type=type_hints["framework"])
+            check_type(argname="argument pull_request_environment_name", value=pull_request_environment_name, expected_type=type_hints["pull_request_environment_name"])
+            check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_id": app_id,
+            "branch_name": branch_name,
+        }
+        if backend is not None:
+            self._values["backend"] = backend
+        if basic_auth_config is not None:
+            self._values["basic_auth_config"] = basic_auth_config
+        if build_spec is not None:
+            self._values["build_spec"] = build_spec
+        if compute_role_arn is not None:
+            self._values["compute_role_arn"] = compute_role_arn
+        if description is not None:
+            self._values["description"] = description
+        if enable_auto_build is not None:
+            self._values["enable_auto_build"] = enable_auto_build
+        if enable_performance_mode is not None:
+            self._values["enable_performance_mode"] = enable_performance_mode
+        if enable_pull_request_preview is not None:
+            self._values["enable_pull_request_preview"] = enable_pull_request_preview
+        if enable_skew_protection is not None:
+            self._values["enable_skew_protection"] = enable_skew_protection
+        if environment_variables is not None:
+            self._values["environment_variables"] = environment_variables
+        if framework is not None:
+            self._values["framework"] = framework
+        if pull_request_environment_name is not None:
+            self._values["pull_request_environment_name"] = pull_request_environment_name
+        if stage is not None:
+            self._values["stage"] = stage
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_id(self) -> builtins.str:
+        '''The unique ID for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-appid
+        '''
+        result = self._values.get("app_id")
+        assert result is not None, "Required property 'app_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def branch_name(self) -> builtins.str:
+        '''The name for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-branchname
+        '''
+        result = self._values.get("branch_name")
+        assert result is not None, "Required property 'branch_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def backend(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBranch.BackendProperty"]]:
+        '''The backend for a ``Branch`` of an Amplify app. Use for a backend created from an AWS CloudFormation stack.
+
+        This field is available to Amplify Gen 2 apps only. When you deploy an application with Amplify Gen 2, you provision the app's backend infrastructure using Typescript code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-backend
+        '''
+        result = self._values.get("backend")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBranch.BackendProperty"]], result)
+
+    @builtins.property
+    def basic_auth_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBranch.BasicAuthConfigProperty"]]:
+        '''The basic authorization credentials for a branch of an Amplify app.
+
+        You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-basicauthconfig
+        '''
+        result = self._values.get("basic_auth_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBranch.BasicAuthConfigProperty"]], result)
+
+    @builtins.property
+    def build_spec(self) -> typing.Optional[builtins.str]:
+        '''The build specification (build spec) for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-buildspec
+        '''
+        result = self._values.get("build_spec")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def compute_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app.
+
+        The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-computerolearn
+        '''
+        result = self._values.get("compute_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for the branch that is part of an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_auto_build(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables auto building for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableautobuild
+        '''
+        result = self._values.get("enable_auto_build")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def enable_performance_mode(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables performance mode for the branch.
+
+        Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableperformancemode
+        '''
+        result = self._values.get("enable_performance_mode")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def enable_pull_request_preview(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch.
+
+        If this property is enabled, Amplify deploys your app to a unique preview URL after each pull request is opened. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch.
+
+        To provide backend support for your preview, Amplify automatically provisions a temporary backend environment that it deletes when the pull request is closed. If you want to specify a dedicated backend environment for your previews, use the ``PullRequestEnvironmentName`` property.
+
+        For more information, see `Web Previews <https://docs.aws.amazon.com/amplify/latest/userguide/pr-previews.html>`_ in the *AWS Amplify Hosting User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enablepullrequestpreview
+        '''
+        result = self._values.get("enable_pull_request_preview")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def enable_skew_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the skew protection feature is enabled for the branch.
+
+        Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. For more information about skew protection, see `Skew protection for Amplify deployments <https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html>`_ in the *Amplify User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableskewprotection
+        '''
+        result = self._values.get("enable_skew_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBranch.EnvironmentVariableProperty"]]]]:
+        '''The environment variables for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-environmentvariables
+        '''
+        result = self._values.get("environment_variables")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBranch.EnvironmentVariableProperty"]]]], result)
+
+    @builtins.property
+    def framework(self) -> typing.Optional[builtins.str]:
+        '''The framework for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-framework
+        '''
+        result = self._values.get("framework")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pull_request_environment_name(self) -> typing.Optional[builtins.str]:
+        '''If pull request previews are enabled for this branch, you can use this property to specify a dedicated backend environment for your previews.
+
+        For example, you could specify an environment named ``prod`` , ``test`` , or ``dev`` that you initialized with the Amplify CLI and mapped to this branch.
+
+        To enable pull request previews, set the ``EnablePullRequestPreview`` property to ``true`` .
+
+        If you don't specify an environment, Amplify Hosting provides backend support for each preview by automatically provisioning a temporary backend environment. Amplify Hosting deletes this environment when the pull request is closed.
+
+        For more information about creating backend environments, see `Feature Branch Deployments and Team Workflows <https://docs.aws.amazon.com/amplify/latest/userguide/multi-environments.html>`_ in the *AWS Amplify Hosting User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-pullrequestenvironmentname
+        '''
+        result = self._values.get("pull_request_environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stage(self) -> typing.Optional[builtins.str]:
+        '''Describes the current stage for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-stage
+        '''
+        result = self._values.get("stage")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tag for the branch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBranchProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_id": "appId",
+        "domain_name": "domainName",
+        "sub_domain_settings": "subDomainSettings",
+        "auto_sub_domain_creation_patterns": "autoSubDomainCreationPatterns",
+        "auto_sub_domain_iam_role": "autoSubDomainIamRole",
+        "certificate_settings": "certificateSettings",
+        "enable_auto_sub_domain": "enableAutoSubDomain",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        app_id: builtins.str,
+        domain_name: builtins.str,
+        sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SubDomainSettingProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        auto_sub_domain_iam_role: typing.Optional[builtins.str] = None,
+        certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.CertificateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param app_id: The unique ID for an Amplify app.
+        :param domain_name: The domain name for the domain association.
+        :param sub_domain_settings: The setting for the subdomain.
+        :param auto_sub_domain_creation_patterns: Sets the branch patterns for automatic subdomain creation.
+        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAMlong) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
+        :param certificate_settings: The type of SSL/TLS certificate to use for your custom domain. If you don't specify a certificate type, Amplify uses the default certificate that it provisions and manages for you.
+        :param enable_auto_sub_domain: Enables the automated creation of subdomains for branches.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            cfn_domain_props = amplify.CfnDomainProps(
+                app_id="appId",
+                domain_name="domainName",
+                sub_domain_settings=[amplify.CfnDomain.SubDomainSettingProperty(
+                    branch_name="branchName",
+                    prefix="prefix"
+                )],
+            
+                # the properties below are optional
+                auto_sub_domain_creation_patterns=["autoSubDomainCreationPatterns"],
+                auto_sub_domain_iam_role="autoSubDomainIamRole",
+                certificate_settings=amplify.CfnDomain.CertificateSettingsProperty(
+                    certificate_type="certificateType",
+                    custom_certificate_arn="customCertificateArn"
+                ),
+                enable_auto_sub_domain=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument sub_domain_settings", value=sub_domain_settings, expected_type=type_hints["sub_domain_settings"])
+            check_type(argname="argument auto_sub_domain_creation_patterns", value=auto_sub_domain_creation_patterns, expected_type=type_hints["auto_sub_domain_creation_patterns"])
+            check_type(argname="argument auto_sub_domain_iam_role", value=auto_sub_domain_iam_role, expected_type=type_hints["auto_sub_domain_iam_role"])
+            check_type(argname="argument certificate_settings", value=certificate_settings, expected_type=type_hints["certificate_settings"])
+            check_type(argname="argument enable_auto_sub_domain", value=enable_auto_sub_domain, expected_type=type_hints["enable_auto_sub_domain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_id": app_id,
+            "domain_name": domain_name,
+            "sub_domain_settings": sub_domain_settings,
+        }
+        if auto_sub_domain_creation_patterns is not None:
+            self._values["auto_sub_domain_creation_patterns"] = auto_sub_domain_creation_patterns
+        if auto_sub_domain_iam_role is not None:
+            self._values["auto_sub_domain_iam_role"] = auto_sub_domain_iam_role
+        if certificate_settings is not None:
+            self._values["certificate_settings"] = certificate_settings
+        if enable_auto_sub_domain is not None:
+            self._values["enable_auto_sub_domain"] = enable_auto_sub_domain
+
+    @builtins.property
+    def app_id(self) -> builtins.str:
+        '''The unique ID for an Amplify app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-appid
+        '''
+        result = self._values.get("app_id")
+        assert result is not None, "Required property 'app_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The domain name for the domain association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sub_domain_settings(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.SubDomainSettingProperty"]]]:
+        '''The setting for the subdomain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-subdomainsettings
+        '''
+        result = self._values.get("sub_domain_settings")
+        assert result is not None, "Required property 'sub_domain_settings' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.SubDomainSettingProperty"]]], result)
+
+    @builtins.property
+    def auto_sub_domain_creation_patterns(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''Sets the branch patterns for automatic subdomain creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-autosubdomaincreationpatterns
+        '''
+        result = self._values.get("auto_sub_domain_creation_patterns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def auto_sub_domain_iam_role(self) -> typing.Optional[builtins.str]:
+        '''The required AWS Identity and Access Management (IAMlong) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-autosubdomainiamrole
+        '''
+        result = self._values.get("auto_sub_domain_iam_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CertificateSettingsProperty"]]:
+        '''The type of SSL/TLS certificate to use for your custom domain.
+
+        If you don't specify a certificate type, Amplify uses the default certificate that it provisions and manages for you.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-certificatesettings
+        '''
+        result = self._values.get("certificate_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CertificateSettingsProperty"]], result)
+
+    @builtins.property
+    def enable_auto_sub_domain(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables the automated creation of subdomains for branches.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-enableautosubdomain
+        '''
+        result = self._values.get("enable_auto_sub_domain")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_amplify.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_arn": "domainArn"},
+)
+class DomainReference:
+    def __init__(self, *, domain_arn: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_arn: The Arn of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_amplify as amplify
+            
+            domain_reference = amplify.DomainReference(
+                domain_arn="domainArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03aa2b23dd69fbbf388312914550e7de3f8c019753389df71ddb0a61c3abeec7)
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_arn": domain_arn,
+        }
+
+    @builtins.property
+    def domain_arn(self) -> builtins.str:
+        '''The Arn of the Domain resource.'''
+        result = self._values.get("domain_arn")
+        assert result is not None, "Required property 'domain_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amplify.IAppRef")
+class IAppRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplify.IAppRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amplify.IBranchRef")
+class IBranchRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Branch.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="branchRef")
+    def branch_ref(self) -> BranchReference:
+        '''(experimental) A reference to a Branch resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBranchRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Branch.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplify.IBranchRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="branchRef")
+    def branch_ref(self) -> BranchReference:
+        '''(experimental) A reference to a Branch resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BranchReference, jsii.get(self, "branchRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBranchRef).__jsii_proxy_class__ = lambda : _IBranchRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_amplify.IDomainRef")
+class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_amplify.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAppRef, _ITaggable_36806126)
 class CfnApp(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -260,6 +1468,12 @@ class CfnApp(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''A reference to a App resource.'''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAppId")
@@ -1232,422 +2446,7 @@ class CfnApp(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplify.CfnAppProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "access_token": "accessToken",
-        "auto_branch_creation_config": "autoBranchCreationConfig",
-        "basic_auth_config": "basicAuthConfig",
-        "build_spec": "buildSpec",
-        "cache_config": "cacheConfig",
-        "compute_role_arn": "computeRoleArn",
-        "custom_headers": "customHeaders",
-        "custom_rules": "customRules",
-        "description": "description",
-        "enable_branch_auto_deletion": "enableBranchAutoDeletion",
-        "environment_variables": "environmentVariables",
-        "iam_service_role": "iamServiceRole",
-        "job_config": "jobConfig",
-        "oauth_token": "oauthToken",
-        "platform": "platform",
-        "repository": "repository",
-        "tags": "tags",
-    },
-)
-class CfnAppProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        access_token: typing.Optional[builtins.str] = None,
-        auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        build_spec: typing.Optional[builtins.str] = None,
-        cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        compute_role_arn: typing.Optional[builtins.str] = None,
-        custom_headers: typing.Optional[builtins.str] = None,
-        custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        iam_service_role: typing.Optional[builtins.str] = None,
-        job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        oauth_token: typing.Optional[builtins.str] = None,
-        platform: typing.Optional[builtins.str] = None,
-        repository: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApp``.
-
-        :param name: The name of the Amplify app.
-        :param access_token: The personal access token for a GitHub repository for an Amplify app. The personal access token is used to authorize access to a GitHub repository using the Amplify GitHub App. The token is not stored. Use ``AccessToken`` for GitHub repositories only. To authorize access to a repository provider such as Bitbucket or CodeCommit, use ``OauthToken`` . You must specify either ``AccessToken`` or ``OauthToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
-        :param auto_branch_creation_config: Sets the configuration for your automatic branch creation.
-        :param basic_auth_config: The credentials for basic authorization for an Amplify app. You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
-        :param build_spec: The build specification (build spec) for an Amplify app.
-        :param cache_config: The cache configuration for the Amplify app. If you don't specify the cache configuration ``type`` , Amplify uses the default ``AMPLIFY_MANAGED`` setting.
-        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role for an SSR app. The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
-        :param custom_headers: The custom HTTP headers for an Amplify app.
-        :param custom_rules: The custom rewrite and redirect rules for an Amplify app.
-        :param description: The description of the Amplify app.
-        :param enable_branch_auto_deletion: Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
-        :param environment_variables: The environment variables for the Amplify app. For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
-        :param iam_service_role: AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
-        :param job_config: The configuration details that apply to the jobs for an Amplify app.
-        :param oauth_token: The OAuth token for a third-party source control system for an Amplify app. The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored. Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` . You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app. Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
-        :param platform: The platform for the Amplify app. For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` . If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
-        :param repository: The Git repository for the Amplify app.
-        :param tags: The tag for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplify as amplify
-            
-            cfn_app_props = amplify.CfnAppProps(
-                name="name",
-            
-                # the properties below are optional
-                access_token="accessToken",
-                auto_branch_creation_config=amplify.CfnApp.AutoBranchCreationConfigProperty(
-                    auto_branch_creation_patterns=["autoBranchCreationPatterns"],
-                    basic_auth_config=amplify.CfnApp.BasicAuthConfigProperty(
-                        enable_basic_auth=False,
-                        password="password",
-                        username="username"
-                    ),
-                    build_spec="buildSpec",
-                    enable_auto_branch_creation=False,
-                    enable_auto_build=False,
-                    enable_performance_mode=False,
-                    enable_pull_request_preview=False,
-                    environment_variables=[amplify.CfnApp.EnvironmentVariableProperty(
-                        name="name",
-                        value="value"
-                    )],
-                    framework="framework",
-                    pull_request_environment_name="pullRequestEnvironmentName",
-                    stage="stage"
-                ),
-                basic_auth_config=amplify.CfnApp.BasicAuthConfigProperty(
-                    enable_basic_auth=False,
-                    password="password",
-                    username="username"
-                ),
-                build_spec="buildSpec",
-                cache_config=amplify.CfnApp.CacheConfigProperty(
-                    type="type"
-                ),
-                compute_role_arn="computeRoleArn",
-                custom_headers="customHeaders",
-                custom_rules=[amplify.CfnApp.CustomRuleProperty(
-                    source="source",
-                    target="target",
-            
-                    # the properties below are optional
-                    condition="condition",
-                    status="status"
-                )],
-                description="description",
-                enable_branch_auto_deletion=False,
-                environment_variables=[amplify.CfnApp.EnvironmentVariableProperty(
-                    name="name",
-                    value="value"
-                )],
-                iam_service_role="iamServiceRole",
-                job_config=amplify.CfnApp.JobConfigProperty(
-                    build_compute_type="buildComputeType"
-                ),
-                oauth_token="oauthToken",
-                platform="platform",
-                repository="repository",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
-            check_type(argname="argument auto_branch_creation_config", value=auto_branch_creation_config, expected_type=type_hints["auto_branch_creation_config"])
-            check_type(argname="argument basic_auth_config", value=basic_auth_config, expected_type=type_hints["basic_auth_config"])
-            check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
-            check_type(argname="argument cache_config", value=cache_config, expected_type=type_hints["cache_config"])
-            check_type(argname="argument compute_role_arn", value=compute_role_arn, expected_type=type_hints["compute_role_arn"])
-            check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
-            check_type(argname="argument custom_rules", value=custom_rules, expected_type=type_hints["custom_rules"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_branch_auto_deletion", value=enable_branch_auto_deletion, expected_type=type_hints["enable_branch_auto_deletion"])
-            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
-            check_type(argname="argument iam_service_role", value=iam_service_role, expected_type=type_hints["iam_service_role"])
-            check_type(argname="argument job_config", value=job_config, expected_type=type_hints["job_config"])
-            check_type(argname="argument oauth_token", value=oauth_token, expected_type=type_hints["oauth_token"])
-            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
-            check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if access_token is not None:
-            self._values["access_token"] = access_token
-        if auto_branch_creation_config is not None:
-            self._values["auto_branch_creation_config"] = auto_branch_creation_config
-        if basic_auth_config is not None:
-            self._values["basic_auth_config"] = basic_auth_config
-        if build_spec is not None:
-            self._values["build_spec"] = build_spec
-        if cache_config is not None:
-            self._values["cache_config"] = cache_config
-        if compute_role_arn is not None:
-            self._values["compute_role_arn"] = compute_role_arn
-        if custom_headers is not None:
-            self._values["custom_headers"] = custom_headers
-        if custom_rules is not None:
-            self._values["custom_rules"] = custom_rules
-        if description is not None:
-            self._values["description"] = description
-        if enable_branch_auto_deletion is not None:
-            self._values["enable_branch_auto_deletion"] = enable_branch_auto_deletion
-        if environment_variables is not None:
-            self._values["environment_variables"] = environment_variables
-        if iam_service_role is not None:
-            self._values["iam_service_role"] = iam_service_role
-        if job_config is not None:
-            self._values["job_config"] = job_config
-        if oauth_token is not None:
-            self._values["oauth_token"] = oauth_token
-        if platform is not None:
-            self._values["platform"] = platform
-        if repository is not None:
-            self._values["repository"] = repository
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_token(self) -> typing.Optional[builtins.str]:
-        '''The personal access token for a GitHub repository for an Amplify app.
-
-        The personal access token is used to authorize access to a GitHub repository using the Amplify GitHub App. The token is not stored.
-
-        Use ``AccessToken`` for GitHub repositories only. To authorize access to a repository provider such as Bitbucket or CodeCommit, use ``OauthToken`` .
-
-        You must specify either ``AccessToken`` or ``OauthToken`` when you create a new app.
-
-        Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-accesstoken
-        '''
-        result = self._values.get("access_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_branch_creation_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.AutoBranchCreationConfigProperty]]:
-        '''Sets the configuration for your automatic branch creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-autobranchcreationconfig
-        '''
-        result = self._values.get("auto_branch_creation_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.AutoBranchCreationConfigProperty]], result)
-
-    @builtins.property
-    def basic_auth_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.BasicAuthConfigProperty]]:
-        '''The credentials for basic authorization for an Amplify app.
-
-        You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-basicauthconfig
-        '''
-        result = self._values.get("basic_auth_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.BasicAuthConfigProperty]], result)
-
-    @builtins.property
-    def build_spec(self) -> typing.Optional[builtins.str]:
-        '''The build specification (build spec) for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-buildspec
-        '''
-        result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cache_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.CacheConfigProperty]]:
-        '''The cache configuration for the Amplify app.
-
-        If you don't specify the cache configuration ``type`` , Amplify uses the default ``AMPLIFY_MANAGED`` setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-cacheconfig
-        '''
-        result = self._values.get("cache_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.CacheConfigProperty]], result)
-
-    @builtins.property
-    def compute_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role for an SSR app.
-
-        The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-computerolearn
-        '''
-        result = self._values.get("compute_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_headers(self) -> typing.Optional[builtins.str]:
-        '''The custom HTTP headers for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-customheaders
-        '''
-        result = self._values.get("custom_headers")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.CustomRuleProperty]]]]:
-        '''The custom rewrite and redirect rules for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-customrules
-        '''
-        result = self._values.get("custom_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.CustomRuleProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_branch_auto_deletion(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Automatically disconnect a branch in Amplify Hosting when you delete a branch from your Git repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-enablebranchautodeletion
-        '''
-        result = self._values.get("enable_branch_auto_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def environment_variables(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EnvironmentVariableProperty]]]]:
-        '''The environment variables for the Amplify app.
-
-        For a list of the environment variables that are accessible to Amplify by default, see `Amplify Environment variables <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-console-environment-variables.html>`_ in the *Amplify Hosting User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-environmentvariables
-        '''
-        result = self._values.get("environment_variables")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EnvironmentVariableProperty]]]], result)
-
-    @builtins.property
-    def iam_service_role(self) -> typing.Optional[builtins.str]:
-        '''AWS Identity and Access Management ( IAM ) service role for the Amazon Resource Name (ARN) of the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-iamservicerole
-        '''
-        result = self._values.get("iam_service_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def job_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]]:
-        '''The configuration details that apply to the jobs for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-jobconfig
-        '''
-        result = self._values.get("job_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.JobConfigProperty]], result)
-
-    @builtins.property
-    def oauth_token(self) -> typing.Optional[builtins.str]:
-        '''The OAuth token for a third-party source control system for an Amplify app.
-
-        The OAuth token is used to create a webhook and a read-only deploy key using SSH cloning. The OAuth token is not stored.
-
-        Use ``OauthToken`` for repository providers other than GitHub, such as Bitbucket or CodeCommit. To authorize access to GitHub as your repository provider, use ``AccessToken`` .
-
-        You must specify either ``OauthToken`` or ``AccessToken`` when you create a new app.
-
-        Existing Amplify apps deployed from a GitHub repository using OAuth continue to work with CI/CD. However, we strongly recommend that you migrate these apps to use the GitHub App. For more information, see `Migrating an existing OAuth app to the Amplify GitHub App <https://docs.aws.amazon.com/amplify/latest/userguide/setting-up-GitHub-access.html#migrating-to-github-app-auth>`_ in the *Amplify User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-oauthtoken
-        '''
-        result = self._values.get("oauth_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def platform(self) -> typing.Optional[builtins.str]:
-        '''The platform for the Amplify app.
-
-        For a static app, set the platform type to ``WEB`` . For a dynamic server-side rendered (SSR) app, set the platform type to ``WEB_COMPUTE`` . For an app requiring Amplify Hosting's original SSR support only, set the platform type to ``WEB_DYNAMIC`` .
-
-        If you are deploying an SSG only app with Next.js version 14 or later, you must set the platform type to ``WEB_COMPUTE`` and set the artifacts ``baseDirectory`` to ``.next`` in the application's build settings. For an example of the build specification settings, see `Amplify build settings for a Next.js 14 SSG application <https://docs.aws.amazon.com/amplify/latest/userguide/deploy-nextjs-app.html#build-setting-detection-ssg-14>`_ in the *Amplify Hosting User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-platform
-        '''
-        result = self._values.get("platform")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def repository(self) -> typing.Optional[builtins.str]:
-        '''The Git repository for the Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-repository
-        '''
-        result = self._values.get("repository")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tag for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-app.html#cfn-amplify-app-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IBranchRef, _ITaggable_36806126)
 class CfnBranch(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1815,6 +2614,12 @@ class CfnBranch(
         :cloudformationAttribute: BranchName
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrBranchName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="branchRef")
+    def branch_ref(self) -> BranchReference:
+        '''A reference to a Branch resource.'''
+        return typing.cast(BranchReference, jsii.get(self, "branchRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2291,360 +3096,7 @@ class CfnBranch(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplify.CfnBranchProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "branch_name": "branchName",
-        "backend": "backend",
-        "basic_auth_config": "basicAuthConfig",
-        "build_spec": "buildSpec",
-        "compute_role_arn": "computeRoleArn",
-        "description": "description",
-        "enable_auto_build": "enableAutoBuild",
-        "enable_performance_mode": "enablePerformanceMode",
-        "enable_pull_request_preview": "enablePullRequestPreview",
-        "enable_skew_protection": "enableSkewProtection",
-        "environment_variables": "environmentVariables",
-        "framework": "framework",
-        "pull_request_environment_name": "pullRequestEnvironmentName",
-        "stage": "stage",
-        "tags": "tags",
-    },
-)
-class CfnBranchProps:
-    def __init__(
-        self,
-        *,
-        app_id: builtins.str,
-        branch_name: builtins.str,
-        backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        build_spec: typing.Optional[builtins.str] = None,
-        compute_role_arn: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        framework: typing.Optional[builtins.str] = None,
-        pull_request_environment_name: typing.Optional[builtins.str] = None,
-        stage: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBranch``.
-
-        :param app_id: The unique ID for an Amplify app.
-        :param branch_name: The name for the branch.
-        :param backend: The backend for a ``Branch`` of an Amplify app. Use for a backend created from an AWS CloudFormation stack. This field is available to Amplify Gen 2 apps only. When you deploy an application with Amplify Gen 2, you provision the app's backend infrastructure using Typescript code.
-        :param basic_auth_config: The basic authorization credentials for a branch of an Amplify app. You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
-        :param build_spec: The build specification (build spec) for the branch.
-        :param compute_role_arn: The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app. The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
-        :param description: The description for the branch that is part of an Amplify app.
-        :param enable_auto_build: Enables auto building for the branch.
-        :param enable_performance_mode: Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
-        :param enable_pull_request_preview: Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch. If this property is enabled, Amplify deploys your app to a unique preview URL after each pull request is opened. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch. To provide backend support for your preview, Amplify automatically provisions a temporary backend environment that it deletes when the pull request is closed. If you want to specify a dedicated backend environment for your previews, use the ``PullRequestEnvironmentName`` property. For more information, see `Web Previews <https://docs.aws.amazon.com/amplify/latest/userguide/pr-previews.html>`_ in the *AWS Amplify Hosting User Guide* .
-        :param enable_skew_protection: Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. For more information about skew protection, see `Skew protection for Amplify deployments <https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html>`_ in the *Amplify User Guide* .
-        :param environment_variables: The environment variables for the branch.
-        :param framework: The framework for the branch.
-        :param pull_request_environment_name: If pull request previews are enabled for this branch, you can use this property to specify a dedicated backend environment for your previews. For example, you could specify an environment named ``prod`` , ``test`` , or ``dev`` that you initialized with the Amplify CLI and mapped to this branch. To enable pull request previews, set the ``EnablePullRequestPreview`` property to ``true`` . If you don't specify an environment, Amplify Hosting provides backend support for each preview by automatically provisioning a temporary backend environment. Amplify Hosting deletes this environment when the pull request is closed. For more information about creating backend environments, see `Feature Branch Deployments and Team Workflows <https://docs.aws.amazon.com/amplify/latest/userguide/multi-environments.html>`_ in the *AWS Amplify Hosting User Guide* .
-        :param stage: Describes the current stage for the branch.
-        :param tags: The tag for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplify as amplify
-            
-            cfn_branch_props = amplify.CfnBranchProps(
-                app_id="appId",
-                branch_name="branchName",
-            
-                # the properties below are optional
-                backend=amplify.CfnBranch.BackendProperty(
-                    stack_arn="stackArn"
-                ),
-                basic_auth_config=amplify.CfnBranch.BasicAuthConfigProperty(
-                    password="password",
-                    username="username",
-            
-                    # the properties below are optional
-                    enable_basic_auth=False
-                ),
-                build_spec="buildSpec",
-                compute_role_arn="computeRoleArn",
-                description="description",
-                enable_auto_build=False,
-                enable_performance_mode=False,
-                enable_pull_request_preview=False,
-                enable_skew_protection=False,
-                environment_variables=[amplify.CfnBranch.EnvironmentVariableProperty(
-                    name="name",
-                    value="value"
-                )],
-                framework="framework",
-                pull_request_environment_name="pullRequestEnvironmentName",
-                stage="stage",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
-            check_type(argname="argument backend", value=backend, expected_type=type_hints["backend"])
-            check_type(argname="argument basic_auth_config", value=basic_auth_config, expected_type=type_hints["basic_auth_config"])
-            check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
-            check_type(argname="argument compute_role_arn", value=compute_role_arn, expected_type=type_hints["compute_role_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_auto_build", value=enable_auto_build, expected_type=type_hints["enable_auto_build"])
-            check_type(argname="argument enable_performance_mode", value=enable_performance_mode, expected_type=type_hints["enable_performance_mode"])
-            check_type(argname="argument enable_pull_request_preview", value=enable_pull_request_preview, expected_type=type_hints["enable_pull_request_preview"])
-            check_type(argname="argument enable_skew_protection", value=enable_skew_protection, expected_type=type_hints["enable_skew_protection"])
-            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
-            check_type(argname="argument framework", value=framework, expected_type=type_hints["framework"])
-            check_type(argname="argument pull_request_environment_name", value=pull_request_environment_name, expected_type=type_hints["pull_request_environment_name"])
-            check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_id": app_id,
-            "branch_name": branch_name,
-        }
-        if backend is not None:
-            self._values["backend"] = backend
-        if basic_auth_config is not None:
-            self._values["basic_auth_config"] = basic_auth_config
-        if build_spec is not None:
-            self._values["build_spec"] = build_spec
-        if compute_role_arn is not None:
-            self._values["compute_role_arn"] = compute_role_arn
-        if description is not None:
-            self._values["description"] = description
-        if enable_auto_build is not None:
-            self._values["enable_auto_build"] = enable_auto_build
-        if enable_performance_mode is not None:
-            self._values["enable_performance_mode"] = enable_performance_mode
-        if enable_pull_request_preview is not None:
-            self._values["enable_pull_request_preview"] = enable_pull_request_preview
-        if enable_skew_protection is not None:
-            self._values["enable_skew_protection"] = enable_skew_protection
-        if environment_variables is not None:
-            self._values["environment_variables"] = environment_variables
-        if framework is not None:
-            self._values["framework"] = framework
-        if pull_request_environment_name is not None:
-            self._values["pull_request_environment_name"] = pull_request_environment_name
-        if stage is not None:
-            self._values["stage"] = stage
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def app_id(self) -> builtins.str:
-        '''The unique ID for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-appid
-        '''
-        result = self._values.get("app_id")
-        assert result is not None, "Required property 'app_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def branch_name(self) -> builtins.str:
-        '''The name for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-branchname
-        '''
-        result = self._values.get("branch_name")
-        assert result is not None, "Required property 'branch_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def backend(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BackendProperty]]:
-        '''The backend for a ``Branch`` of an Amplify app. Use for a backend created from an AWS CloudFormation stack.
-
-        This field is available to Amplify Gen 2 apps only. When you deploy an application with Amplify Gen 2, you provision the app's backend infrastructure using Typescript code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-backend
-        '''
-        result = self._values.get("backend")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BackendProperty]], result)
-
-    @builtins.property
-    def basic_auth_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BasicAuthConfigProperty]]:
-        '''The basic authorization credentials for a branch of an Amplify app.
-
-        You must base64-encode the authorization credentials and provide them in the format ``user:password`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-basicauthconfig
-        '''
-        result = self._values.get("basic_auth_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBranch.BasicAuthConfigProperty]], result)
-
-    @builtins.property
-    def build_spec(self) -> typing.Optional[builtins.str]:
-        '''The build specification (build spec) for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-buildspec
-        '''
-        result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def compute_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role to assign to a branch of an SSR app.
-
-        The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. For more information about the SSR Compute role, see `Adding an SSR Compute role <https://docs.aws.amazon.com/amplify/latest/userguide/amplify-SSR-compute-role.html>`_ in the *Amplify User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-computerolearn
-        '''
-        result = self._values.get("compute_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description for the branch that is part of an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_auto_build(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables auto building for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableautobuild
-        '''
-        result = self._values.get("enable_auto_build")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def enable_performance_mode(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables performance mode for the branch.
-
-        Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableperformancemode
-        '''
-        result = self._values.get("enable_performance_mode")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def enable_pull_request_preview(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether Amplify Hosting creates a preview for each pull request that is made for this branch.
-
-        If this property is enabled, Amplify deploys your app to a unique preview URL after each pull request is opened. Development and QA teams can use this preview to test the pull request before it's merged into a production or integration branch.
-
-        To provide backend support for your preview, Amplify automatically provisions a temporary backend environment that it deletes when the pull request is closed. If you want to specify a dedicated backend environment for your previews, use the ``PullRequestEnvironmentName`` property.
-
-        For more information, see `Web Previews <https://docs.aws.amazon.com/amplify/latest/userguide/pr-previews.html>`_ in the *AWS Amplify Hosting User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enablepullrequestpreview
-        '''
-        result = self._values.get("enable_pull_request_preview")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def enable_skew_protection(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the skew protection feature is enabled for the branch.
-
-        Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. For more information about skew protection, see `Skew protection for Amplify deployments <https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html>`_ in the *Amplify User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-enableskewprotection
-        '''
-        result = self._values.get("enable_skew_protection")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def environment_variables(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBranch.EnvironmentVariableProperty]]]]:
-        '''The environment variables for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-environmentvariables
-        '''
-        result = self._values.get("environment_variables")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBranch.EnvironmentVariableProperty]]]], result)
-
-    @builtins.property
-    def framework(self) -> typing.Optional[builtins.str]:
-        '''The framework for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-framework
-        '''
-        result = self._values.get("framework")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pull_request_environment_name(self) -> typing.Optional[builtins.str]:
-        '''If pull request previews are enabled for this branch, you can use this property to specify a dedicated backend environment for your previews.
-
-        For example, you could specify an environment named ``prod`` , ``test`` , or ``dev`` that you initialized with the Amplify CLI and mapped to this branch.
-
-        To enable pull request previews, set the ``EnablePullRequestPreview`` property to ``true`` .
-
-        If you don't specify an environment, Amplify Hosting provides backend support for each preview by automatically provisioning a temporary backend environment. Amplify Hosting deletes this environment when the pull request is closed.
-
-        For more information about creating backend environments, see `Feature Branch Deployments and Team Workflows <https://docs.aws.amazon.com/amplify/latest/userguide/multi-environments.html>`_ in the *AWS Amplify Hosting User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-pullrequestenvironmentname
-        '''
-        result = self._values.get("pull_request_environment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def stage(self) -> typing.Optional[builtins.str]:
-        '''Describes the current stage for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-stage
-        '''
-        result = self._values.get("stage")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tag for the branch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-branch.html#cfn-amplify-branch-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBranchProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDomainRef)
 class CfnDomain(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2854,6 +3306,12 @@ class CfnDomain(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''A reference to a Domain resource.'''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="appId")
@@ -3217,189 +3675,102 @@ class CfnDomain(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_amplify.CfnDomainProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_id": "appId",
-        "domain_name": "domainName",
-        "sub_domain_settings": "subDomainSettings",
-        "auto_sub_domain_creation_patterns": "autoSubDomainCreationPatterns",
-        "auto_sub_domain_iam_role": "autoSubDomainIamRole",
-        "certificate_settings": "certificateSettings",
-        "enable_auto_sub_domain": "enableAutoSubDomain",
-    },
-)
-class CfnDomainProps:
-    def __init__(
-        self,
-        *,
-        app_id: builtins.str,
-        domain_name: builtins.str,
-        sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        auto_sub_domain_iam_role: typing.Optional[builtins.str] = None,
-        certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDomain``.
-
-        :param app_id: The unique ID for an Amplify app.
-        :param domain_name: The domain name for the domain association.
-        :param sub_domain_settings: The setting for the subdomain.
-        :param auto_sub_domain_creation_patterns: Sets the branch patterns for automatic subdomain creation.
-        :param auto_sub_domain_iam_role: The required AWS Identity and Access Management (IAMlong) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
-        :param certificate_settings: The type of SSL/TLS certificate to use for your custom domain. If you don't specify a certificate type, Amplify uses the default certificate that it provisions and manages for you.
-        :param enable_auto_sub_domain: Enables the automated creation of subdomains for branches.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_amplify as amplify
-            
-            cfn_domain_props = amplify.CfnDomainProps(
-                app_id="appId",
-                domain_name="domainName",
-                sub_domain_settings=[amplify.CfnDomain.SubDomainSettingProperty(
-                    branch_name="branchName",
-                    prefix="prefix"
-                )],
-            
-                # the properties below are optional
-                auto_sub_domain_creation_patterns=["autoSubDomainCreationPatterns"],
-                auto_sub_domain_iam_role="autoSubDomainIamRole",
-                certificate_settings=amplify.CfnDomain.CertificateSettingsProperty(
-                    certificate_type="certificateType",
-                    custom_certificate_arn="customCertificateArn"
-                ),
-                enable_auto_sub_domain=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776)
-            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument sub_domain_settings", value=sub_domain_settings, expected_type=type_hints["sub_domain_settings"])
-            check_type(argname="argument auto_sub_domain_creation_patterns", value=auto_sub_domain_creation_patterns, expected_type=type_hints["auto_sub_domain_creation_patterns"])
-            check_type(argname="argument auto_sub_domain_iam_role", value=auto_sub_domain_iam_role, expected_type=type_hints["auto_sub_domain_iam_role"])
-            check_type(argname="argument certificate_settings", value=certificate_settings, expected_type=type_hints["certificate_settings"])
-            check_type(argname="argument enable_auto_sub_domain", value=enable_auto_sub_domain, expected_type=type_hints["enable_auto_sub_domain"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_id": app_id,
-            "domain_name": domain_name,
-            "sub_domain_settings": sub_domain_settings,
-        }
-        if auto_sub_domain_creation_patterns is not None:
-            self._values["auto_sub_domain_creation_patterns"] = auto_sub_domain_creation_patterns
-        if auto_sub_domain_iam_role is not None:
-            self._values["auto_sub_domain_iam_role"] = auto_sub_domain_iam_role
-        if certificate_settings is not None:
-            self._values["certificate_settings"] = certificate_settings
-        if enable_auto_sub_domain is not None:
-            self._values["enable_auto_sub_domain"] = enable_auto_sub_domain
-
-    @builtins.property
-    def app_id(self) -> builtins.str:
-        '''The unique ID for an Amplify app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-appid
-        '''
-        result = self._values.get("app_id")
-        assert result is not None, "Required property 'app_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The domain name for the domain association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sub_domain_settings(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.SubDomainSettingProperty]]]:
-        '''The setting for the subdomain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-subdomainsettings
-        '''
-        result = self._values.get("sub_domain_settings")
-        assert result is not None, "Required property 'sub_domain_settings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.SubDomainSettingProperty]]], result)
-
-    @builtins.property
-    def auto_sub_domain_creation_patterns(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Sets the branch patterns for automatic subdomain creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-autosubdomaincreationpatterns
-        '''
-        result = self._values.get("auto_sub_domain_creation_patterns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def auto_sub_domain_iam_role(self) -> typing.Optional[builtins.str]:
-        '''The required AWS Identity and Access Management (IAMlong) service role for the Amazon Resource Name (ARN) for automatically creating subdomains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-autosubdomainiamrole
-        '''
-        result = self._values.get("auto_sub_domain_iam_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CertificateSettingsProperty]]:
-        '''The type of SSL/TLS certificate to use for your custom domain.
-
-        If you don't specify a certificate type, Amplify uses the default certificate that it provisions and manages for you.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-certificatesettings
-        '''
-        result = self._values.get("certificate_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CertificateSettingsProperty]], result)
-
-    @builtins.property
-    def enable_auto_sub_domain(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables the automated creation of subdomains for branches.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amplify-domain.html#cfn-amplify-domain-enableautosubdomain
-        '''
-        result = self._values.get("enable_auto_sub_domain")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AppReference",
+    "BranchReference",
     "CfnApp",
     "CfnAppProps",
     "CfnBranch",
     "CfnBranchProps",
     "CfnDomain",
     "CfnDomainProps",
+    "DomainReference",
+    "IAppRef",
+    "IBranchRef",
+    "IDomainRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__da659fd3c98665df1721a63a0a53cd6b330f82084f200da727e9b7c785295051(
+    *,
+    app_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81c22f2a86689924b3bdab8697232edb9b1c4e71c2e43043c4ea2bc7c96794d3(
+    *,
+    branch_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db(
+    *,
+    name: builtins.str,
+    access_token: typing.Optional[builtins.str] = None,
+    auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    build_spec: typing.Optional[builtins.str] = None,
+    cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compute_role_arn: typing.Optional[builtins.str] = None,
+    custom_headers: typing.Optional[builtins.str] = None,
+    custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    iam_service_role: typing.Optional[builtins.str] = None,
+    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    oauth_token: typing.Optional[builtins.str] = None,
+    platform: typing.Optional[builtins.str] = None,
+    repository: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f(
+    *,
+    app_id: builtins.str,
+    branch_name: builtins.str,
+    backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    build_spec: typing.Optional[builtins.str] = None,
+    compute_role_arn: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    framework: typing.Optional[builtins.str] = None,
+    pull_request_environment_name: typing.Optional[builtins.str] = None,
+    stage: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776(
+    *,
+    app_id: builtins.str,
+    domain_name: builtins.str,
+    sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    auto_sub_domain_iam_role: typing.Optional[builtins.str] = None,
+    certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03aa2b23dd69fbbf388312914550e7de3f8c019753389df71ddb0a61c3abeec7(
+    *,
+    domain_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__8dc8d772047a068d22a76d907b344356448c6a26d23e419ed69cc622d02781ee(
     scope: _constructs_77d1e7e8.Construct,
@@ -3605,30 +3976,6 @@ def _typecheckingstub__23396b8a9e988b0968a9bc45be771b246c847bee1770ffbdca295739a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cfa8f09e6d42b5d6d1122d3e9214ec780302e9c3fda48d7ca044dd07613d11db(
-    *,
-    name: builtins.str,
-    access_token: typing.Optional[builtins.str] = None,
-    auto_branch_creation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.AutoBranchCreationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    build_spec: typing.Optional[builtins.str] = None,
-    cache_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CacheConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    compute_role_arn: typing.Optional[builtins.str] = None,
-    custom_headers: typing.Optional[builtins.str] = None,
-    custom_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.CustomRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    enable_branch_auto_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    iam_service_role: typing.Optional[builtins.str] = None,
-    job_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.JobConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    oauth_token: typing.Optional[builtins.str] = None,
-    platform: typing.Optional[builtins.str] = None,
-    repository: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__859cd0a15aef1449f80ffe32589fdb895b13f3510c6905791c3eea0336ef1a99(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3785,28 +4132,6 @@ def _typecheckingstub__5692be601b7d7aa14d2fdd9d64f48f458db4470a9da3bcd9c9e8bdbe7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__57c0d80a85d344dca51e3abe3e5e1ee9fff906ef48fa3809bec9a68a37b6d22f(
-    *,
-    app_id: builtins.str,
-    branch_name: builtins.str,
-    backend: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BackendProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic_auth_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.BasicAuthConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    build_spec: typing.Optional[builtins.str] = None,
-    compute_role_arn: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    enable_auto_build: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_performance_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_pull_request_preview: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_skew_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBranch.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    framework: typing.Optional[builtins.str] = None,
-    pull_request_environment_name: typing.Optional[builtins.str] = None,
-    stage: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a92a80249ff3da7389619f6d46781e48a0d6d9fe2d6d8bc5754daa9ff3c2f0e6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3897,19 +4222,6 @@ def _typecheckingstub__dd38d5241efdfbfd6fe4d24eb582e27c45fd585058138e3d4ffa9e077
     *,
     branch_name: builtins.str,
     prefix: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__88c16eb1917ed2b27dcef2eed98ca7097349329b83222123ac70b435f951d776(
-    *,
-    app_id: builtins.str,
-    domain_name: builtins.str,
-    sub_domain_settings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SubDomainSettingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    auto_sub_domain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    auto_sub_domain_iam_role: typing.Optional[builtins.str] = None,
-    certificate_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CertificateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enable_auto_sub_domain: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

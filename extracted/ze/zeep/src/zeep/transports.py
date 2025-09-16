@@ -16,6 +16,16 @@ try:
 except ImportError:
     httpx = None
 
+try:
+    from packaging.version import Version
+
+    if httpx is None or Version(httpx.__version__) < Version("0.26.0"):
+        HTTPX_PROXY_KWARG_NAME = "proxies"
+    else:
+        HTTPX_PROXY_KWARG_NAME = "proxy"
+except ImportError:
+    Version = None
+    HTTPX_PROXY_KWARG_NAME = None
 
 __all__ = ["AsyncTransport", "Transport"]
 
@@ -178,20 +188,24 @@ class AsyncTransport(Transport):
         verify_ssl=True,
         proxy=None,
     ):
-        if httpx is None:
-            raise RuntimeError("The AsyncTransport is based on the httpx module")
+        if httpx is None or HTTPX_PROXY_KWARG_NAME is None:
+            raise RuntimeError(
+                "To use AsyncTransport, install zeep with the async extras, "
+                "e.g., `pip install zeep[async]`"
+            )
 
         self._close_session = False
         self.cache = cache
+        proxy_kwargs = {HTTPX_PROXY_KWARG_NAME: proxy}
         self.wsdl_client = wsdl_client or httpx.Client(
             verify=verify_ssl,
-            proxies=proxy,
             timeout=timeout,
+            **proxy_kwargs,
         )
         self.client = client or httpx.AsyncClient(
             verify=verify_ssl,
-            proxies=proxy,
             timeout=operation_timeout,
+            **proxy_kwargs,
         )
         self.logger = logging.getLogger(__name__)
 

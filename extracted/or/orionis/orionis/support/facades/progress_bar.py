@@ -1,22 +1,24 @@
 from orionis.container.facades.facade import Facade
-from orionis.console.contracts.progress_bar import IProgressBar
 
 class ProgressBar(Facade):
 
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Get the registered name of the component.
+        Returns the service container binding key for the progress bar component.
 
-        This method returns the binding key that identifies the progress bar service
-        within the service container. The facade uses this key to resolve the actual
-        progress bar implementation when static methods are called.
+        This method provides the unique string identifier used by the service container
+        to resolve and retrieve the progress bar implementation. The facade relies on
+        this binding key to delegate static method calls to the underlying progress bar
+        service.
 
         Returns
         -------
         str
-            The service container binding key 'x-orionis.console.contracts.progress_bar.IProgressBar
-            used to retrieve the progress bar service instance.
+            The string 'x-orionis.console.contracts.progress_bar.IProgressBar', which
+            is the binding key used to obtain the progress bar service instance from
+            the service container.
         """
 
-        return f"x-{IProgressBar.__module__}.{IProgressBar.__name__}"
+        # Return the binding key for the progress bar service in the container
+        return "x-orionis.console.contracts.progress_bar.IProgressBar"

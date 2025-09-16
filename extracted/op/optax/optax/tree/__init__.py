@@ -33,6 +33,7 @@ map_params = _state_utils.tree_map_params
 set = _state_utils.tree_set  # pylint: disable=redefined-builtin
 add = _tree_math.tree_add
 add_scale = _tree_math.tree_add_scale
+allclose = _tree_math.tree_allclose
 batch_shape = _tree_math.tree_batch_shape
 bias_correction = _tree_math.tree_bias_correction
 clip = _tree_math.tree_clip
@@ -40,11 +41,13 @@ conj = _tree_math.tree_conj
 div = _tree_math.tree_div
 full_like = _tree_math.tree_full_like
 max = _tree_math.tree_max  # pylint: disable=redefined-builtin
+min = _tree_math.tree_min  # pylint: disable=redefined-builtin
 mul = _tree_math.tree_mul
 norm = _tree_math.tree_norm
 ones_like = _tree_math.tree_ones_like
 real = _tree_math.tree_real
 scale = _tree_math.tree_scale
+size = _tree_math.tree_size
 sub = _tree_math.tree_sub
 sum = _tree_math.tree_sum  # pylint: disable=redefined-builtin
 update_infinity_moment = _tree_math.tree_update_infinity_moment

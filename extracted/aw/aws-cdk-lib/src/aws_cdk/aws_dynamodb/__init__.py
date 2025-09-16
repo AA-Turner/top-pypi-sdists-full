@@ -1519,3023 +1519,6 @@ class CapacityMode(enum.Enum):
     '''Autoscaled.'''
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnGlobalTable(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable",
-):
-    '''The ``AWS::DynamoDB::GlobalTable`` resource enables you to create and manage a Version 2019.11.21 global table. This resource cannot be used to create or manage a Version 2017.11.29 global table. For more information, see `Global tables <https://docs.aws.amazon.com//amazondynamodb/latest/developerguide/GlobalTables.html>`_ .
-
-    .. epigraph::
-
-       You cannot convert a resource of type ``AWS::DynamoDB::Table`` into a resource of type ``AWS::DynamoDB::GlobalTable`` by changing its type in your template. *Doing so might result in the deletion of your DynamoDB table.*
-
-       You can instead use the GlobalTable resource to create a new table in a single Region. This will be billed the same as a single Region table. If you later update the stack to add other Regions then Global Tables pricing will apply.
-
-    You should be aware of the following behaviors when working with DynamoDB global tables.
-
-    - The IAM Principal executing the stack operation must have the permissions listed below in all regions where you plan to have a global table replica. The IAM Principal's permissions should not have restrictions based on IP source address. Some global tables operations (for example, adding a replica) are asynchronous, and require that the IAM Principal is valid until they complete. You should not delete the Principal (user or IAM role) until CloudFormation has finished updating your stack.
-    - ``application-autoscaling:DeleteScalingPolicy``
-    - ``application-autoscaling:DeleteScheduledAction``
-    - ``application-autoscaling:DeregisterScalableTarget``
-    - ``application-autoscaling:DescribeScalableTargets``
-    - ``application-autoscaling:DescribeScalingPolicies``
-    - ``application-autoscaling:PutScalingPolicy``
-    - ``application-autoscaling:PutScheduledAction``
-    - ``application-autoscaling:RegisterScalableTarget``
-    - ``dynamodb:BatchWriteItem``
-    - ``dynamodb:CreateGlobalTableWitness``
-    - ``dynamodb:CreateTable``
-    - ``dynamodb:CreateTableReplica``
-    - ``dynamodb:DeleteGlobalTableWitness``
-    - ``dynamodb:DeleteItem``
-    - ``dynamodb:DeleteTable``
-    - ``dynamodb:DeleteTableReplica``
-    - ``dynamodb:DescribeContinuousBackups``
-    - ``dynamodb:DescribeContributorInsights``
-    - ``dynamodb:DescribeTable``
-    - ``dynamodb:DescribeTableReplicaAutoScaling``
-    - ``dynamodb:DescribeTimeToLive``
-    - ``dynamodb:DisableKinesisStreamingDestination``
-    - ``dynamodb:EnableKinesisStreamingDestination``
-    - ``dynamodb:GetItem``
-    - ``dynamodb:ListTables``
-    - ``dynamodb:ListTagsOfResource``
-    - ``dynamodb:PutItem``
-    - ``dynamodb:Query``
-    - ``dynamodb:Scan``
-    - ``dynamodb:TagResource``
-    - ``dynamodb:UntagResource``
-    - ``dynamodb:UpdateContinuousBackups``
-    - ``dynamodb:UpdateContributorInsights``
-    - ``dynamodb:UpdateItem``
-    - ``dynamodb:UpdateTable``
-    - ``dynamodb:UpdateTableReplicaAutoScaling``
-    - ``dynamodb:UpdateTimeToLive``
-    - ``iam:CreateServiceLinkedRole``
-    - ``kms:CreateGrant``
-    - ``kms:DescribeKey``
-    - When using provisioned billing mode, CloudFormation will create an auto scaling policy on each of your replicas to control their write capacities. You must configure this policy using the ``WriteProvisionedThroughputSettings`` property. CloudFormation will ensure that all replicas have the same write capacity auto scaling property. You cannot directly specify a value for write capacity for a global table.
-    - If your table uses provisioned capacity, you must configure auto scaling directly in the ``AWS::DynamoDB::GlobalTable`` resource. You should not configure additional auto scaling policies on any of the table replicas or global secondary indexes, either via API or via ``AWS::ApplicationAutoScaling::ScalableTarget`` or ``AWS::ApplicationAutoScaling::ScalingPolicy`` . Doing so might result in unexpected behavior and is unsupported.
-    - In AWS CloudFormation , each global table is controlled by a single stack, in a single region, regardless of the number of replicas. When you deploy your template, CloudFormation will create/update all replicas as part of a single stack operation. You should not deploy the same ``AWS::DynamoDB::GlobalTable`` resource in multiple regions. Doing so will result in errors, and is unsupported. If you deploy your application template in multiple regions, you can use conditions to only create the resource in a single region. Alternatively, you can choose to define your ``AWS::DynamoDB::GlobalTable`` resources in a stack separate from your application stack, and make sure it is only deployed to a single region.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html
-    :cloudformationResource: AWS::DynamoDB::GlobalTable
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_dynamodb as dynamodb
-        
-        # policy_document: Any
-        
-        cfn_global_table = dynamodb.CfnGlobalTable(self, "MyCfnGlobalTable",
-            attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
-                attribute_name="attributeName",
-                attribute_type="attributeType"
-            )],
-            key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                attribute_name="attributeName",
-                key_type="keyType"
-            )],
-            replicas=[dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
-                region="region",
-        
-                # the properties below are optional
-                contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                    enabled=False,
-        
-                    # the properties below are optional
-                    mode="mode"
-                ),
-                deletion_protection_enabled=False,
-                global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
-                    index_name="indexName",
-        
-                    # the properties below are optional
-                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False,
-        
-                        # the properties below are optional
-                        mode="mode"
-                    ),
-                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                        max_read_request_units=123
-                    ),
-                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                            max_capacity=123,
-                            min_capacity=123,
-                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                                target_value=123,
-        
-                                # the properties below are optional
-                                disable_scale_in=False,
-                                scale_in_cooldown=123,
-                                scale_out_cooldown=123
-                            ),
-        
-                            # the properties below are optional
-                            seed_capacity=123
-                        ),
-                        read_capacity_units=123
-                    )
-                )],
-                kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
-                    stream_arn="streamArn",
-        
-                    # the properties below are optional
-                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
-                ),
-                point_in_time_recovery_specification=dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
-                    point_in_time_recovery_enabled=False,
-                    recovery_period_in_days=123
-                ),
-                read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                    max_read_request_units=123
-                ),
-                read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                    read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                        max_capacity=123,
-                        min_capacity=123,
-                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                            target_value=123,
-        
-                            # the properties below are optional
-                            disable_scale_in=False,
-                            scale_in_cooldown=123,
-                            scale_out_cooldown=123
-                        ),
-        
-                        # the properties below are optional
-                        seed_capacity=123
-                    ),
-                    read_capacity_units=123
-                ),
-                replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
-                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                        policy_document=policy_document
-                    )
-                ),
-                resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                    policy_document=policy_document
-                ),
-                sse_specification=dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
-                    kms_master_key_id="kmsMasterKeyId"
-                ),
-                table_class="tableClass",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )],
-        
-            # the properties below are optional
-            billing_mode="billingMode",
-            global_secondary_indexes=[dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
-                index_name="indexName",
-                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )],
-                projection=dynamodb.CfnGlobalTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                ),
-        
-                # the properties below are optional
-                warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
-                    read_units_per_second=123,
-                    write_units_per_second=123
-                ),
-                write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
-                    max_write_request_units=123
-                ),
-                write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
-                    write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                        max_capacity=123,
-                        min_capacity=123,
-                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                            target_value=123,
-        
-                            # the properties below are optional
-                            disable_scale_in=False,
-                            scale_in_cooldown=123,
-                            scale_out_cooldown=123
-                        ),
-        
-                        # the properties below are optional
-                        seed_capacity=123
-                    )
-                )
-            )],
-            global_table_witnesses=[dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
-                region="region"
-            )],
-            local_secondary_indexes=[dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
-                index_name="indexName",
-                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )],
-                projection=dynamodb.CfnGlobalTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                )
-            )],
-            multi_region_consistency="multiRegionConsistency",
-            sse_specification=dynamodb.CfnGlobalTable.SSESpecificationProperty(
-                sse_enabled=False,
-        
-                # the properties below are optional
-                sse_type="sseType"
-            ),
-            stream_specification=dynamodb.CfnGlobalTable.StreamSpecificationProperty(
-                stream_view_type="streamViewType"
-            ),
-            table_name="tableName",
-            time_to_live_specification=dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
-                enabled=False,
-        
-                # the properties below are optional
-                attribute_name="attributeName"
-            ),
-            warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
-                read_units_per_second=123,
-                write_units_per_second=123
-            ),
-            write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
-                max_write_request_units=123
-            ),
-            write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
-                write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                    max_capacity=123,
-                    min_capacity=123,
-                    target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                        target_value=123,
-        
-                        # the properties below are optional
-                        disable_scale_in=False,
-                        scale_in_cooldown=123,
-                        scale_out_cooldown=123
-                    ),
-        
-                    # the properties below are optional
-                    seed_capacity=123
-                )
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        billing_mode: typing.Optional[builtins.str] = None,
-        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalTableWitnessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        multi_region_consistency: typing.Optional[builtins.str] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        table_name: typing.Optional[builtins.str] = None,
-        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
-        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
-        :param replicas: Specifies the list of replicas for your global table. The list must contain at least one element, the region where the stack defining the global table is deployed. For example, if you define your table in a stack deployed to us-east-1, you must have an entry in ``Replicas`` with the region us-east-1. You cannot remove the replica in the stack region. .. epigraph:: Adding a replica might take a few minutes for an empty table, or up to several hours for large tables. If you want to add or remove a replica, we recommend submitting an ``UpdateStack`` operation containing only that change. If you add or delete a replica during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new replica, you might need to manually delete the replica. You can create a new global table with as many replicas as needed. You can add or remove replicas after table creation, but you can only add or remove a single replica in each update. For Multi-Region Strong Consistency (MRSC), you can add or remove up to 3 replicas, or 2 replicas plus a witness Region.
-        :param billing_mode: Specifies how you are charged for read and write throughput and how you manage capacity. Valid values are:. - ``PAY_PER_REQUEST`` - ``PROVISIONED`` All replicas in your global table will have the same billing mode. If you use ``PROVISIONED`` billing mode, you must provide an auto scaling configuration via the ``WriteProvisionedThroughputSettings`` property. The default value of this property is ``PROVISIONED`` .
-        :param global_secondary_indexes: Global secondary indexes to be created on the global table. You can create up to 20 global secondary indexes. Each replica in your global table will have the same global secondary index settings. You can only create or delete one global secondary index in a single stack operation. Since the backfilling of an index could take a long time, CloudFormation does not wait for the index to become active. If a stack operation rolls back, CloudFormation might not delete an index that has been added. In that case, you will need to delete the index manually.
-        :param global_table_witnesses: The list of witnesses of the MRSC global table. Only one witness Region can be configured per MRSC global table.
-        :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to five local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes. Each replica in your global table will have the same local secondary index settings.
-        :param multi_region_consistency: Specifies the consistency mode for a new global table. You can specify one of the following consistency modes: - ``EVENTUAL`` : Configures a new global table for multi-Region eventual consistency (MREC). - ``STRONG`` : Configures a new global table for multi-Region strong consistency (MRSC). If you don't specify this field, the global table consistency mode defaults to ``EVENTUAL`` . For more information about global tables consistency modes, see `Consistency modes <https://docs.aws.amazon.com/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes>`_ in DynamoDB developer guide.
-        :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
-        :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
-        :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
-        :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
-        :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-        :param write_provisioned_throughput_settings: Specifies an auto scaling policy for write capacity. This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b30f832c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnGlobalTableProps(
-            attribute_definitions=attribute_definitions,
-            key_schema=key_schema,
-            replicas=replicas,
-            billing_mode=billing_mode,
-            global_secondary_indexes=global_secondary_indexes,
-            global_table_witnesses=global_table_witnesses,
-            local_secondary_indexes=local_secondary_indexes,
-            multi_region_consistency=multi_region_consistency,
-            sse_specification=sse_specification,
-            stream_specification=stream_specification,
-            table_name=table_name,
-            time_to_live_specification=time_to_live_specification,
-            warm_throughput=warm_throughput,
-            write_on_demand_throughput_settings=write_on_demand_throughput_settings,
-            write_provisioned_throughput_settings=write_provisioned_throughput_settings,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d6d6d953afce9a6c78e724d40aed1ff47a96ec42f6abd85c9d802b6d17044b3)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b537e69787151b8af9fdebb101e49ee80b7950f5c9598c894774176ebe79d87a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the DynamoDB table, such as ``arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable`` .
-
-        The ARN returned is that of the replica in the region the stack is deployed to.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamArn")
-    def attr_stream_arn(self) -> builtins.str:
-        '''The ARN of the DynamoDB stream, such as ``arn:aws:dynamodb:us-east-1:123456789012:table/testddbstack-myDynamoDBTable-012A1SL7SMP5Q/stream/2015-11-30T20:10:00.000`` . The ``StreamArn`` returned is that of the replica in the region the stack is deployed to.
-
-        .. epigraph::
-
-           You must specify the ``StreamSpecification`` property to use this attribute.
-
-        :cloudformationAttribute: StreamArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTableId")
-    def attr_table_id(self) -> builtins.str:
-        '''Unique identifier for the table, such as ``a123b456-01ab-23cd-123a-111222aaabbb`` .
-
-        The ``TableId`` returned is that of the replica in the region the stack is deployed to.
-
-        :cloudformationAttribute: TableId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrTableId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeDefinitions")
-    def attribute_definitions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]]:
-        '''A list of attributes that describe the key schema for the global table and indexes.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]], jsii.get(self, "attributeDefinitions"))
-
-    @attribute_definitions.setter
-    def attribute_definitions(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keySchema")
-    def key_schema(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
-        '''Specifies the attributes that make up the primary key for the table.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], jsii.get(self, "keySchema"))
-
-    @key_schema.setter
-    def key_schema(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="replicas")
-    def replicas(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]]:
-        '''Specifies the list of replicas for your global table.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]], jsii.get(self, "replicas"))
-
-    @replicas.setter
-    def replicas(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="billingMode")
-    def billing_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies how you are charged for read and write throughput and how you manage capacity.
-
-        Valid values are:.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "billingMode"))
-
-    @billing_mode.setter
-    def billing_mode(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7a91e461bd5e49ff4dc2350ae1ceae8597a286d7e21db96c7ec976ba3537e3c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="globalSecondaryIndexes")
-    def global_secondary_indexes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]]:
-        '''Global secondary indexes to be created on the global table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]], jsii.get(self, "globalSecondaryIndexes"))
-
-    @global_secondary_indexes.setter
-    def global_secondary_indexes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d9872d332b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="globalTableWitnesses")
-    def global_table_witnesses(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]]:
-        '''The list of witnesses of the MRSC global table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]], jsii.get(self, "globalTableWitnesses"))
-
-    @global_table_witnesses.setter
-    def global_table_witnesses(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalTableWitnesses", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="localSecondaryIndexes")
-    def local_secondary_indexes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]]:
-        '''Local secondary indexes to be created on the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]], jsii.get(self, "localSecondaryIndexes"))
-
-    @local_secondary_indexes.setter
-    def local_secondary_indexes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188ceee5162)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="multiRegionConsistency")
-    def multi_region_consistency(self) -> typing.Optional[builtins.str]:
-        '''Specifies the consistency mode for a new global table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "multiRegionConsistency"))
-
-    @multi_region_consistency.setter
-    def multi_region_consistency(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegionConsistency", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sseSpecification")
-    def sse_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]]:
-        '''Specifies the settings to enable server-side encryption.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]], jsii.get(self, "sseSpecification"))
-
-    @sse_specification.setter
-    def sse_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccb739aac1de1ded207a80b782298c972ccf113dd96de224fea60f9ce1b43833)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="streamSpecification")
-    def stream_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]]:
-        '''Specifies the streams settings on your global table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]], jsii.get(self, "streamSpecification"))
-
-    @stream_specification.setter
-    def stream_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce608971cd7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableName")
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the global table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableName"))
-
-    @table_name.setter
-    def table_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="timeToLiveSpecification")
-    def time_to_live_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]]:
-        '''Specifies the time to live (TTL) settings for the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]], jsii.get(self, "timeToLiveSpecification"))
-
-    @time_to_live_specification.setter
-    def time_to_live_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="warmThroughput")
-    def warm_throughput(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]]:
-        '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]], jsii.get(self, "warmThroughput"))
-
-    @warm_throughput.setter
-    def warm_throughput(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cffa71e41723d2cc6240a56e0993116de480cb2c21c1c9bb92de9599718c4b2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="writeOnDemandThroughputSettings")
-    def write_on_demand_throughput_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]]:
-        '''Sets the write request settings for a global table or a global secondary index.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]], jsii.get(self, "writeOnDemandThroughputSettings"))
-
-    @write_on_demand_throughput_settings.setter
-    def write_on_demand_throughput_settings(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9e1941bc70970aa12bf29b98d00fed94dd701aea1acb0d4280e0f96ab3ca8bc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "writeOnDemandThroughputSettings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="writeProvisionedThroughputSettings")
-    def write_provisioned_throughput_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]]:
-        '''Specifies an auto scaling policy for write capacity.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]], jsii.get(self, "writeProvisionedThroughputSettings"))
-
-    @write_provisioned_throughput_settings.setter
-    def write_provisioned_throughput_settings(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__575a6fcd8e2e451f04b5c40c3e6da53aad798e3089f98afaa25d709c7d291a10)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "writeProvisionedThroughputSettings", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.AttributeDefinitionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "attribute_name": "attributeName",
-            "attribute_type": "attributeType",
-        },
-    )
-    class AttributeDefinitionProperty:
-        def __init__(
-            self,
-            *,
-            attribute_name: builtins.str,
-            attribute_type: builtins.str,
-        ) -> None:
-            '''Represents an attribute for describing the schema for the table and indexes.
-
-            :param attribute_name: A name for the attribute.
-            :param attribute_type: The data type for the attribute, where:. - ``S`` - the attribute is of type String - ``N`` - the attribute is of type Number - ``B`` - the attribute is of type Binary
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                attribute_definition_property = dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
-                    attribute_name="attributeName",
-                    attribute_type="attributeType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__132ff4911748619940d51d18802ab16c68912a365b124aba40c2bad82a6fdd34)
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-                check_type(argname="argument attribute_type", value=attribute_type, expected_type=type_hints["attribute_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "attribute_name": attribute_name,
-                "attribute_type": attribute_type,
-            }
-
-        @builtins.property
-        def attribute_name(self) -> builtins.str:
-            '''A name for the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html#cfn-dynamodb-globaltable-attributedefinition-attributename
-            '''
-            result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def attribute_type(self) -> builtins.str:
-            '''The data type for the attribute, where:.
-
-            - ``S`` - the attribute is of type String
-            - ``N`` - the attribute is of type Number
-            - ``B`` - the attribute is of type Binary
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html#cfn-dynamodb-globaltable-attributedefinition-attributetype
-            '''
-            result = self._values.get("attribute_type")
-            assert result is not None, "Required property 'attribute_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AttributeDefinitionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "max_capacity": "maxCapacity",
-            "min_capacity": "minCapacity",
-            "target_tracking_scaling_policy_configuration": "targetTrackingScalingPolicyConfiguration",
-            "seed_capacity": "seedCapacity",
-        },
-    )
-    class CapacityAutoScalingSettingsProperty:
-        def __init__(
-            self,
-            *,
-            max_capacity: jsii.Number,
-            min_capacity: jsii.Number,
-            target_tracking_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            seed_capacity: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Configures a scalable target and an autoscaling policy for a table or global secondary index's read or write capacity.
-
-            :param max_capacity: The maximum provisioned capacity units for the global table.
-            :param min_capacity: The minimum provisioned capacity units for the global table.
-            :param target_tracking_scaling_policy_configuration: Defines a target tracking scaling policy.
-            :param seed_capacity: When switching billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , DynamoDB requires you to specify read and write capacity unit values for the table and for each global secondary index. These values will be applied to all replicas. The table will use these provisioned values until CloudFormation creates the autoscaling policies you configured in your template. CloudFormation cannot determine what capacity the table and its global secondary indexes will require in this time period, since they are application-dependent. If you want to switch a table's billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , you must specify a value for this property for each autoscaled resource. If you specify different values for the same resource in different regions, CloudFormation will use the highest value found in either the ``SeedCapacity`` or ``ReadCapacityUnits`` properties. For example, if your global secondary index ``myGSI`` has a ``SeedCapacity`` of 10 in us-east-1 and a fixed ``ReadCapacityUnits`` of 20 in eu-west-1, CloudFormation will initially set the read capacity for ``myGSI`` to 20. Note that if you disable ``ScaleIn`` for ``myGSI`` in us-east-1, its read capacity units might not be set back to 10. You must also specify a value for ``SeedCapacity`` when you plan to switch a table's billing mode from ``PROVISIONED`` to ``PAY_PER_REQUEST`` , because CloudFormation might need to roll back the operation (reverting the billing mode to ``PROVISIONED`` ) and this cannot succeed without specifying a value for ``SeedCapacity`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                capacity_auto_scaling_settings_property = dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                    max_capacity=123,
-                    min_capacity=123,
-                    target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                        target_value=123,
-                
-                        # the properties below are optional
-                        disable_scale_in=False,
-                        scale_in_cooldown=123,
-                        scale_out_cooldown=123
-                    ),
-                
-                    # the properties below are optional
-                    seed_capacity=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__51587895f2d228591cb8c1b278064c8ca442192e93e2e20c22de9e04b6a6e60a)
-                check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
-                check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
-                check_type(argname="argument target_tracking_scaling_policy_configuration", value=target_tracking_scaling_policy_configuration, expected_type=type_hints["target_tracking_scaling_policy_configuration"])
-                check_type(argname="argument seed_capacity", value=seed_capacity, expected_type=type_hints["seed_capacity"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "max_capacity": max_capacity,
-                "min_capacity": min_capacity,
-                "target_tracking_scaling_policy_configuration": target_tracking_scaling_policy_configuration,
-            }
-            if seed_capacity is not None:
-                self._values["seed_capacity"] = seed_capacity
-
-        @builtins.property
-        def max_capacity(self) -> jsii.Number:
-            '''The maximum provisioned capacity units for the global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-maxcapacity
-            '''
-            result = self._values.get("max_capacity")
-            assert result is not None, "Required property 'max_capacity' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def min_capacity(self) -> jsii.Number:
-            '''The minimum provisioned capacity units for the global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-mincapacity
-            '''
-            result = self._values.get("min_capacity")
-            assert result is not None, "Required property 'min_capacity' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def target_tracking_scaling_policy_configuration(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty"]:
-            '''Defines a target tracking scaling policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-targettrackingscalingpolicyconfiguration
-            '''
-            result = self._values.get("target_tracking_scaling_policy_configuration")
-            assert result is not None, "Required property 'target_tracking_scaling_policy_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty"], result)
-
-        @builtins.property
-        def seed_capacity(self) -> typing.Optional[jsii.Number]:
-            '''When switching billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , DynamoDB requires you to specify read and write capacity unit values for the table and for each global secondary index.
-
-            These values will be applied to all replicas. The table will use these provisioned values until CloudFormation creates the autoscaling policies you configured in your template. CloudFormation cannot determine what capacity the table and its global secondary indexes will require in this time period, since they are application-dependent.
-
-            If you want to switch a table's billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , you must specify a value for this property for each autoscaled resource. If you specify different values for the same resource in different regions, CloudFormation will use the highest value found in either the ``SeedCapacity`` or ``ReadCapacityUnits`` properties. For example, if your global secondary index ``myGSI`` has a ``SeedCapacity`` of 10 in us-east-1 and a fixed ``ReadCapacityUnits`` of 20 in eu-west-1, CloudFormation will initially set the read capacity for ``myGSI`` to 20. Note that if you disable ``ScaleIn`` for ``myGSI`` in us-east-1, its read capacity units might not be set back to 10.
-
-            You must also specify a value for ``SeedCapacity`` when you plan to switch a table's billing mode from ``PROVISIONED`` to ``PAY_PER_REQUEST`` , because CloudFormation might need to roll back the operation (reverting the billing mode to ``PROVISIONED`` ) and this cannot succeed without specifying a value for ``SeedCapacity`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-seedcapacity
-            '''
-            result = self._values.get("seed_capacity")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CapacityAutoScalingSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "mode": "mode"},
-    )
-    class ContributorInsightsSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            mode: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Configures contributor insights settings for a replica or one of its indexes.
-
-            :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-            :param mode: Specifies the CloudWatch Contributor Insights mode for a global table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                contributor_insights_specification_property = dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                    enabled=False,
-                
-                    # the properties below are optional
-                    mode="mode"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "enabled": enabled,
-            }
-            if mode is not None:
-                self._values["mode"] = mode
-
-        @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-enabled
-            '''
-            result = self._values.get("enabled")
-            assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def mode(self) -> typing.Optional[builtins.str]:
-            '''Specifies the CloudWatch Contributor Insights mode for a global table.
-
-            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-mode
-            '''
-            result = self._values.get("mode")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ContributorInsightsSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "index_name": "indexName",
-            "key_schema": "keySchema",
-            "projection": "projection",
-            "warm_throughput": "warmThroughput",
-            "write_on_demand_throughput_settings": "writeOnDemandThroughputSettings",
-            "write_provisioned_throughput_settings": "writeProvisionedThroughputSettings",
-        },
-    )
-    class GlobalSecondaryIndexProperty:
-        def __init__(
-            self,
-            *,
-            index_name: builtins.str,
-            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
-            warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Allows you to specify a global secondary index for the global table.
-
-            The index will be defined on all replicas.
-
-            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
-            :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-            :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-            :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
-            :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-            :param write_provisioned_throughput_settings: Defines write capacity settings for the global secondary index. You must specify a value for this property if the table's ``BillingMode`` is ``PROVISIONED`` . All replicas will have the same write capacity settings for this global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                global_secondary_index_property = dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
-                    index_name="indexName",
-                    key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                        attribute_name="attributeName",
-                        key_type="keyType"
-                    )],
-                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
-                        non_key_attributes=["nonKeyAttributes"],
-                        projection_type="projectionType"
-                    ),
-                
-                    # the properties below are optional
-                    warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
-                        read_units_per_second=123,
-                        write_units_per_second=123
-                    ),
-                    write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
-                        max_write_request_units=123
-                    ),
-                    write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
-                        write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                            max_capacity=123,
-                            min_capacity=123,
-                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                                target_value=123,
-                
-                                # the properties below are optional
-                                disable_scale_in=False,
-                                scale_in_cooldown=123,
-                                scale_out_cooldown=123
-                            ),
-                
-                            # the properties below are optional
-                            seed_capacity=123
-                        )
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e4c0e93a19b9176fd628b4a4e5a1bb2ecabf4d1960e7d8fd138a1ecf06466de5)
-                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
-                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
-                check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
-                check_type(argname="argument write_on_demand_throughput_settings", value=write_on_demand_throughput_settings, expected_type=type_hints["write_on_demand_throughput_settings"])
-                check_type(argname="argument write_provisioned_throughput_settings", value=write_provisioned_throughput_settings, expected_type=type_hints["write_provisioned_throughput_settings"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "index_name": index_name,
-                "key_schema": key_schema,
-                "projection": projection,
-            }
-            if warm_throughput is not None:
-                self._values["warm_throughput"] = warm_throughput
-            if write_on_demand_throughput_settings is not None:
-                self._values["write_on_demand_throughput_settings"] = write_on_demand_throughput_settings
-            if write_provisioned_throughput_settings is not None:
-                self._values["write_provisioned_throughput_settings"] = write_provisioned_throughput_settings
-
-        @builtins.property
-        def index_name(self) -> builtins.str:
-            '''The name of the global secondary index.
-
-            The name must be unique among all other indexes on this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-indexname
-            '''
-            result = self._values.get("index_name")
-            assert result is not None, "Required property 'index_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_schema(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
-            '''The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
-
-            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-            .. epigraph::
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-keyschema
-            '''
-            result = self._values.get("key_schema")
-            assert result is not None, "Required property 'key_schema' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], result)
-
-        @builtins.property
-        def projection(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"]:
-            '''Represents attributes that are copied (projected) from the table into the global secondary index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-projection
-            '''
-            result = self._values.get("projection")
-            assert result is not None, "Required property 'projection' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"], result)
-
-        @builtins.property
-        def warm_throughput(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]]:
-            '''Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index.
-
-            If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-warmthroughput
-            '''
-            result = self._values.get("warm_throughput")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]], result)
-
-        @builtins.property
-        def write_on_demand_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]]:
-            '''Sets the write request settings for a global table or a global secondary index.
-
-            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-writeondemandthroughputsettings
-            '''
-            result = self._values.get("write_on_demand_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]], result)
-
-        @builtins.property
-        def write_provisioned_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]]:
-            '''Defines write capacity settings for the global secondary index.
-
-            You must specify a value for this property if the table's ``BillingMode`` is ``PROVISIONED`` . All replicas will have the same write capacity settings for this global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-writeprovisionedthroughputsettings
-            '''
-            result = self._values.get("write_provisioned_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GlobalSecondaryIndexProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalTableWitnessProperty",
-        jsii_struct_bases=[],
-        name_mapping={"region": "region"},
-    )
-    class GlobalTableWitnessProperty:
-        def __init__(self, *, region: typing.Optional[builtins.str] = None) -> None:
-            '''The witness Region for the MRSC global table.
-
-            A MRSC global table can be configured with either three replicas, or with two replicas and one witness.
-
-            The witness must be in a different Region than the replicas and within the same Region set:
-
-            - US Region set: US East (N. Virginia), US East (Ohio), US West (Oregon)
-            - EU Region set: Europe (Ireland), Europe (London), Europe (Paris), Europe (Frankfurt)
-            - AP Region set: Asia Pacific (Tokyo), Asia Pacific (Seoul), Asia Pacific (Osaka)
-
-            :param region: The name of the AWS Region that serves as a witness for the MRSC global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globaltablewitness.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                global_table_witness_property = dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
-                    region="region"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7628b4fa51cd4a5f8c1253b45a920f7c03001298e758a5d6592641047f1b8e9)
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if region is not None:
-                self._values["region"] = region
-
-        @builtins.property
-        def region(self) -> typing.Optional[builtins.str]:
-            '''The name of the AWS Region that serves as a witness for the MRSC global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globaltablewitness.html#cfn-dynamodb-globaltable-globaltablewitness-region
-            '''
-            result = self._values.get("region")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GlobalTableWitnessProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.KeySchemaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"attribute_name": "attributeName", "key_type": "keyType"},
-    )
-    class KeySchemaProperty:
-        def __init__(
-            self,
-            *,
-            attribute_name: builtins.str,
-            key_type: builtins.str,
-        ) -> None:
-            '''Represents *a single element* of a key schema.
-
-            A key schema specifies the attributes that make up the primary key of a table, or the key attributes of an index.
-
-            A ``KeySchemaElement`` represents exactly one attribute of the primary key. For example, a simple primary key would be represented by one ``KeySchemaElement`` (for the partition key). A composite primary key would require one ``KeySchemaElement`` for the partition key, and another ``KeySchemaElement`` for the sort key.
-
-            A ``KeySchemaElement`` must be a scalar, top-level attribute (not a nested attribute). The data type must be one of String, Number, or Binary. The attribute cannot be nested within a List or a Map.
-
-            :param attribute_name: The name of a key attribute.
-            :param key_type: The role that this key attribute will assume:. - ``HASH`` - partition key - ``RANGE`` - sort key .. epigraph:: The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                key_schema_property = dynamodb.CfnGlobalTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f6fed9a918a916a89877bc736388ca668f340b42771520c53e2d95e6b4837e2)
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "attribute_name": attribute_name,
-                "key_type": key_type,
-            }
-
-        @builtins.property
-        def attribute_name(self) -> builtins.str:
-            '''The name of a key attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html#cfn-dynamodb-globaltable-keyschema-attributename
-            '''
-            result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_type(self) -> builtins.str:
-            '''The role that this key attribute will assume:.
-
-            - ``HASH`` - partition key
-            - ``RANGE`` - sort key
-
-            .. epigraph::
-
-               The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html#cfn-dynamodb-globaltable-keyschema-keytype
-            '''
-            result = self._values.get("key_type")
-            assert result is not None, "Required property 'key_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "KeySchemaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "stream_arn": "streamArn",
-            "approximate_creation_date_time_precision": "approximateCreationDateTimePrecision",
-        },
-    )
-    class KinesisStreamSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            stream_arn: builtins.str,
-            approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The Kinesis Data Streams configuration for the specified global table replica.
-
-            :param stream_arn: The ARN for a specific Kinesis data stream.
-            :param approximate_creation_date_time_precision: The precision for the time and date that the stream was created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                kinesis_stream_specification_property = dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
-                    stream_arn="streamArn",
-                
-                    # the properties below are optional
-                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6acc9d3df1fb5e5e6046cee30108ea5fa4450c329d99252dfa36f32cff756603)
-                check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
-                check_type(argname="argument approximate_creation_date_time_precision", value=approximate_creation_date_time_precision, expected_type=type_hints["approximate_creation_date_time_precision"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "stream_arn": stream_arn,
-            }
-            if approximate_creation_date_time_precision is not None:
-                self._values["approximate_creation_date_time_precision"] = approximate_creation_date_time_precision
-
-        @builtins.property
-        def stream_arn(self) -> builtins.str:
-            '''The ARN for a specific Kinesis data stream.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html#cfn-dynamodb-globaltable-kinesisstreamspecification-streamarn
-            '''
-            result = self._values.get("stream_arn")
-            assert result is not None, "Required property 'stream_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def approximate_creation_date_time_precision(
-            self,
-        ) -> typing.Optional[builtins.str]:
-            '''The precision for the time and date that the stream was created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html#cfn-dynamodb-globaltable-kinesisstreamspecification-approximatecreationdatetimeprecision
-            '''
-            result = self._values.get("approximate_creation_date_time_precision")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "KinesisStreamSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "index_name": "indexName",
-            "key_schema": "keySchema",
-            "projection": "projection",
-        },
-    )
-    class LocalSecondaryIndexProperty:
-        def __init__(
-            self,
-            *,
-            index_name: builtins.str,
-            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
-        ) -> None:
-            '''Represents the properties of a local secondary index.
-
-            A local secondary index can only be created when its parent table is created.
-
-            :param index_name: The name of the local secondary index. The name must be unique among all other indexes on this table.
-            :param key_schema: The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-            :param projection: Represents attributes that are copied (projected) from the table into the local secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                local_secondary_index_property = dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
-                    index_name="indexName",
-                    key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                        attribute_name="attributeName",
-                        key_type="keyType"
-                    )],
-                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
-                        non_key_attributes=["nonKeyAttributes"],
-                        projection_type="projectionType"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc80bdf64e67d180ed664a6277a7783edc8ac361b313b1a9c645a7fbedba26ea)
-                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
-                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "index_name": index_name,
-                "key_schema": key_schema,
-                "projection": projection,
-            }
-
-        @builtins.property
-        def index_name(self) -> builtins.str:
-            '''The name of the local secondary index.
-
-            The name must be unique among all other indexes on this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-indexname
-            '''
-            result = self._values.get("index_name")
-            assert result is not None, "Required property 'index_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_schema(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
-            '''The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
-
-            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-            .. epigraph::
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-keyschema
-            '''
-            result = self._values.get("key_schema")
-            assert result is not None, "Required property 'key_schema' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], result)
-
-        @builtins.property
-        def projection(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"]:
-            '''Represents attributes that are copied (projected) from the table into the local secondary index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-projection
-            '''
-            result = self._values.get("projection")
-            assert result is not None, "Required property 'projection' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LocalSecondaryIndexProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "point_in_time_recovery_enabled": "pointInTimeRecoveryEnabled",
-            "recovery_period_in_days": "recoveryPeriodInDays",
-        },
-    )
-    class PointInTimeRecoverySpecificationProperty:
-        def __init__(
-            self,
-            *,
-            point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            recovery_period_in_days: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Represents the settings used to enable point in time recovery.
-
-            :param point_in_time_recovery_enabled: Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
-            :param recovery_period_in_days: The number of preceding days for which continuous backups are taken and maintained. Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                point_in_time_recovery_specification_property = dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
-                    point_in_time_recovery_enabled=False,
-                    recovery_period_in_days=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5290cad7073a0d0e9ec36328a3c9ddef8999cbd0266a5bcc51dd77a05820353)
-                check_type(argname="argument point_in_time_recovery_enabled", value=point_in_time_recovery_enabled, expected_type=type_hints["point_in_time_recovery_enabled"])
-                check_type(argname="argument recovery_period_in_days", value=recovery_period_in_days, expected_type=type_hints["recovery_period_in_days"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if point_in_time_recovery_enabled is not None:
-                self._values["point_in_time_recovery_enabled"] = point_in_time_recovery_enabled
-            if recovery_period_in_days is not None:
-                self._values["recovery_period_in_days"] = recovery_period_in_days
-
-        @builtins.property
-        def point_in_time_recovery_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html#cfn-dynamodb-globaltable-pointintimerecoveryspecification-pointintimerecoveryenabled
-            '''
-            result = self._values.get("point_in_time_recovery_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def recovery_period_in_days(self) -> typing.Optional[jsii.Number]:
-            '''The number of preceding days for which continuous backups are taken and maintained.
-
-            Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html#cfn-dynamodb-globaltable-pointintimerecoveryspecification-recoveryperiodindays
-            '''
-            result = self._values.get("recovery_period_in_days")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PointInTimeRecoverySpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ProjectionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "non_key_attributes": "nonKeyAttributes",
-            "projection_type": "projectionType",
-        },
-    )
-    class ProjectionProperty:
-        def __init__(
-            self,
-            *,
-            non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            projection_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents attributes that are copied (projected) from the table into an index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :param non_key_attributes: Represents the non-key attribute names which will be projected into the index. For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
-            :param projection_type: The set of attributes that are projected into the index:. - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index. - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify. - ``ALL`` - All of the table attributes are projected into the index. When using the DynamoDB console, ``ALL`` is selected by default.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                projection_property = dynamodb.CfnGlobalTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4c0de1c2636b4a9d86fe25eb5edc6065c41b4822ca849d93b7d9dd461a8a1726)
-                check_type(argname="argument non_key_attributes", value=non_key_attributes, expected_type=type_hints["non_key_attributes"])
-                check_type(argname="argument projection_type", value=projection_type, expected_type=type_hints["projection_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if non_key_attributes is not None:
-                self._values["non_key_attributes"] = non_key_attributes
-            if projection_type is not None:
-                self._values["projection_type"] = projection_type
-
-        @builtins.property
-        def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''Represents the non-key attribute names which will be projected into the index.
-
-            For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html#cfn-dynamodb-globaltable-projection-nonkeyattributes
-            '''
-            result = self._values.get("non_key_attributes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def projection_type(self) -> typing.Optional[builtins.str]:
-            '''The set of attributes that are projected into the index:.
-
-            - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index.
-            - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify.
-            - ``ALL`` - All of the table attributes are projected into the index.
-
-            When using the DynamoDB console, ``ALL`` is selected by default.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html#cfn-dynamodb-globaltable-projection-projectiontype
-            '''
-            result = self._values.get("projection_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProjectionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"max_read_request_units": "maxReadRequestUnits"},
-    )
-    class ReadOnDemandThroughputSettingsProperty:
-        def __init__(
-            self,
-            *,
-            max_read_request_units: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Sets the read request settings for a replica table or a replica global secondary index.
-
-            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-
-            :param max_read_request_units: Maximum number of read request units for the specified replica of a global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                read_on_demand_throughput_settings_property = dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                    max_read_request_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0fd14c9cf2e3c45eb388ee769c75710497a5d90721d232825a5cf8f3e9f4a225)
-                check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if max_read_request_units is not None:
-                self._values["max_read_request_units"] = max_read_request_units
-
-        @builtins.property
-        def max_read_request_units(self) -> typing.Optional[jsii.Number]:
-            '''Maximum number of read request units for the specified replica of a global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html#cfn-dynamodb-globaltable-readondemandthroughputsettings-maxreadrequestunits
-            '''
-            result = self._values.get("max_read_request_units")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReadOnDemandThroughputSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "read_capacity_auto_scaling_settings": "readCapacityAutoScalingSettings",
-            "read_capacity_units": "readCapacityUnits",
-        },
-    )
-    class ReadProvisionedThroughputSettingsProperty:
-        def __init__(
-            self,
-            *,
-            read_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.CapacityAutoScalingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_capacity_units: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Allows you to specify the read capacity settings for a replica table or a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
-
-            You must specify a value for either ``ReadCapacityUnits`` or ``ReadCapacityAutoScalingSettings`` , but not both. You can switch between fixed capacity and auto scaling.
-
-            :param read_capacity_auto_scaling_settings: Specifies auto scaling settings for the replica table or global secondary index.
-            :param read_capacity_units: Specifies a fixed read capacity for the replica table or global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                read_provisioned_throughput_settings_property = dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                    read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                        max_capacity=123,
-                        min_capacity=123,
-                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                            target_value=123,
-                
-                            # the properties below are optional
-                            disable_scale_in=False,
-                            scale_in_cooldown=123,
-                            scale_out_cooldown=123
-                        ),
-                
-                        # the properties below are optional
-                        seed_capacity=123
-                    ),
-                    read_capacity_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b95856807eaa8352f280e9d6233fd175afe80fcaffeb2aa7ece368e85c369db9)
-                check_type(argname="argument read_capacity_auto_scaling_settings", value=read_capacity_auto_scaling_settings, expected_type=type_hints["read_capacity_auto_scaling_settings"])
-                check_type(argname="argument read_capacity_units", value=read_capacity_units, expected_type=type_hints["read_capacity_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if read_capacity_auto_scaling_settings is not None:
-                self._values["read_capacity_auto_scaling_settings"] = read_capacity_auto_scaling_settings
-            if read_capacity_units is not None:
-                self._values["read_capacity_units"] = read_capacity_units
-
-        @builtins.property
-        def read_capacity_auto_scaling_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]]:
-            '''Specifies auto scaling settings for the replica table or global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-readprovisionedthroughputsettings-readcapacityautoscalingsettings
-            '''
-            result = self._values.get("read_capacity_auto_scaling_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]], result)
-
-        @builtins.property
-        def read_capacity_units(self) -> typing.Optional[jsii.Number]:
-            '''Specifies a fixed read capacity for the replica table or global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-readprovisionedthroughputsettings-readcapacityunits
-            '''
-            result = self._values.get("read_capacity_units")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReadProvisionedThroughputSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "index_name": "indexName",
-            "contributor_insights_specification": "contributorInsightsSpecification",
-            "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
-            "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
-        },
-    )
-    class ReplicaGlobalSecondaryIndexSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            index_name: builtins.str,
-            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents the properties of a global secondary index that can be set on a per-replica basis.
-
-            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
-            :param contributor_insights_specification: Updates the status for contributor insights for a specific table or index. CloudWatch Contributor Insights for DynamoDB graphs display the partition key and (if applicable) sort key of frequently accessed items and frequently throttled items in plaintext. If you require the use of AWS Key Management Service (KMS) to encrypt this table’s partition key and sort key data with an AWS managed key or customer managed key, you should not enable CloudWatch Contributor Insights for DynamoDB for this table.
-            :param read_on_demand_throughput_settings: Sets the read request settings for a replica global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-            :param read_provisioned_throughput_settings: Allows you to specify the read capacity settings for a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                replica_global_secondary_index_specification_property = dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
-                    index_name="indexName",
-                
-                    # the properties below are optional
-                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False,
-                
-                        # the properties below are optional
-                        mode="mode"
-                    ),
-                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                        max_read_request_units=123
-                    ),
-                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                            max_capacity=123,
-                            min_capacity=123,
-                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                                target_value=123,
-                
-                                # the properties below are optional
-                                disable_scale_in=False,
-                                scale_in_cooldown=123,
-                                scale_out_cooldown=123
-                            ),
-                
-                            # the properties below are optional
-                            seed_capacity=123
-                        ),
-                        read_capacity_units=123
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__49303cfe760c4878a1d5ead21be42a0bc2eebc2849956fff8adf78f55a49ab0d)
-                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
-                check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
-                check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "index_name": index_name,
-            }
-            if contributor_insights_specification is not None:
-                self._values["contributor_insights_specification"] = contributor_insights_specification
-            if read_on_demand_throughput_settings is not None:
-                self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
-            if read_provisioned_throughput_settings is not None:
-                self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
-
-        @builtins.property
-        def index_name(self) -> builtins.str:
-            '''The name of the global secondary index.
-
-            The name must be unique among all other indexes on this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-indexname
-            '''
-            result = self._values.get("index_name")
-            assert result is not None, "Required property 'index_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def contributor_insights_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]]:
-            '''Updates the status for contributor insights for a specific table or index.
-
-            CloudWatch Contributor Insights for DynamoDB graphs display the partition key and (if applicable) sort key of frequently accessed items and frequently throttled items in plaintext. If you require the use of AWS Key Management Service (KMS) to encrypt this table’s partition key and sort key data with an AWS managed key or customer managed key, you should not enable CloudWatch Contributor Insights for DynamoDB for this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-contributorinsightsspecification
-            '''
-            result = self._values.get("contributor_insights_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]], result)
-
-        @builtins.property
-        def read_on_demand_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
-            '''Sets the read request settings for a replica global secondary index.
-
-            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-readondemandthroughputsettings
-            '''
-            result = self._values.get("read_on_demand_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
-
-        @builtins.property
-        def read_provisioned_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]]:
-            '''Allows you to specify the read capacity settings for a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-readprovisionedthroughputsettings
-            '''
-            result = self._values.get("read_provisioned_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReplicaGlobalSecondaryIndexSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"kms_master_key_id": "kmsMasterKeyId"},
-    )
-    class ReplicaSSESpecificationProperty:
-        def __init__(self, *, kms_master_key_id: builtins.str) -> None:
-            '''Allows you to specify a KMS key identifier to be used for server-side encryption.
-
-            The key can be specified via ARN, key ID, or alias. The key must be created in the same region as the replica.
-
-            :param kms_master_key_id: The AWS KMS key that should be used for the AWS KMS encryption. To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicassespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                replica_sSESpecification_property = dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
-                    kms_master_key_id="kmsMasterKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13d47a60eb46d74e5115b498f84bf715cc24726b136c4176ed35bd7defb0f3b4)
-                check_type(argname="argument kms_master_key_id", value=kms_master_key_id, expected_type=type_hints["kms_master_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "kms_master_key_id": kms_master_key_id,
-            }
-
-        @builtins.property
-        def kms_master_key_id(self) -> builtins.str:
-            '''The AWS KMS key that should be used for the AWS KMS encryption.
-
-            To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicassespecification.html#cfn-dynamodb-globaltable-replicassespecification-kmsmasterkeyid
-            '''
-            result = self._values.get("kms_master_key_id")
-            assert result is not None, "Required property 'kms_master_key_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReplicaSSESpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "region": "region",
-            "contributor_insights_specification": "contributorInsightsSpecification",
-            "deletion_protection_enabled": "deletionProtectionEnabled",
-            "global_secondary_indexes": "globalSecondaryIndexes",
-            "kinesis_stream_specification": "kinesisStreamSpecification",
-            "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
-            "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
-            "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
-            "replica_stream_specification": "replicaStreamSpecification",
-            "resource_policy": "resourcePolicy",
-            "sse_specification": "sseSpecification",
-            "table_class": "tableClass",
-            "tags": "tags",
-        },
-    )
-    class ReplicaSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            region: builtins.str,
-            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            replica_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaSSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_class: typing.Optional[builtins.str] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Defines settings specific to a single replica of a global table.
-
-            :param region: The region in which this replica exists.
-            :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified replica. When not specified, defaults to contributor insights disabled for the replica.
-            :param deletion_protection_enabled: Determines if a replica is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
-            :param global_secondary_indexes: Defines additional settings for the global secondary indexes of this replica.
-            :param kinesis_stream_specification: Defines the Kinesis Data Streams configuration for the specified replica.
-            :param point_in_time_recovery_specification: The settings used to enable point in time recovery. When not specified, defaults to point in time recovery disabled for the replica.
-            :param read_on_demand_throughput_settings: Sets read request settings for the replica table.
-            :param read_provisioned_throughput_settings: Defines read capacity settings for the replica table.
-            :param replica_stream_specification: Represents the DynamoDB Streams configuration for a global table replica.
-            :param resource_policy: A resource-based policy document that contains permissions to add to the specified replica of a DynamoDB global table. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-            :param sse_specification: Allows you to specify a customer-managed key for the replica. When using customer-managed keys for server-side encryption, this property must have a value in all replicas.
-            :param table_class: The table class of the specified table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
-            :param tags: An array of key-value pairs to apply to this replica. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                # policy_document: Any
-                
-                replica_specification_property = dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
-                    region="region",
-                
-                    # the properties below are optional
-                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False,
-                
-                        # the properties below are optional
-                        mode="mode"
-                    ),
-                    deletion_protection_enabled=False,
-                    global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
-                        index_name="indexName",
-                
-                        # the properties below are optional
-                        contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                            enabled=False,
-                
-                            # the properties below are optional
-                            mode="mode"
-                        ),
-                        read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                            max_read_request_units=123
-                        ),
-                        read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                            read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                                max_capacity=123,
-                                min_capacity=123,
-                                target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                                    target_value=123,
-                
-                                    # the properties below are optional
-                                    disable_scale_in=False,
-                                    scale_in_cooldown=123,
-                                    scale_out_cooldown=123
-                                ),
-                
-                                # the properties below are optional
-                                seed_capacity=123
-                            ),
-                            read_capacity_units=123
-                        )
-                    )],
-                    kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
-                        stream_arn="streamArn",
-                
-                        # the properties below are optional
-                        approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
-                    ),
-                    point_in_time_recovery_specification=dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
-                        point_in_time_recovery_enabled=False,
-                        recovery_period_in_days=123
-                    ),
-                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
-                        max_read_request_units=123
-                    ),
-                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
-                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                            max_capacity=123,
-                            min_capacity=123,
-                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                                target_value=123,
-                
-                                # the properties below are optional
-                                disable_scale_in=False,
-                                scale_in_cooldown=123,
-                                scale_out_cooldown=123
-                            ),
-                
-                            # the properties below are optional
-                            seed_capacity=123
-                        ),
-                        read_capacity_units=123
-                    ),
-                    replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
-                        resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                            policy_document=policy_document
-                        )
-                    ),
-                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                        policy_document=policy_document
-                    ),
-                    sse_specification=dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
-                        kms_master_key_id="kmsMasterKeyId"
-                    ),
-                    table_class="tableClass",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e45f373b)
-                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
-                check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
-                check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
-                check_type(argname="argument kinesis_stream_specification", value=kinesis_stream_specification, expected_type=type_hints["kinesis_stream_specification"])
-                check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
-                check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
-                check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
-                check_type(argname="argument replica_stream_specification", value=replica_stream_specification, expected_type=type_hints["replica_stream_specification"])
-                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-                check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
-                check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
-                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "region": region,
-            }
-            if contributor_insights_specification is not None:
-                self._values["contributor_insights_specification"] = contributor_insights_specification
-            if deletion_protection_enabled is not None:
-                self._values["deletion_protection_enabled"] = deletion_protection_enabled
-            if global_secondary_indexes is not None:
-                self._values["global_secondary_indexes"] = global_secondary_indexes
-            if kinesis_stream_specification is not None:
-                self._values["kinesis_stream_specification"] = kinesis_stream_specification
-            if point_in_time_recovery_specification is not None:
-                self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
-            if read_on_demand_throughput_settings is not None:
-                self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
-            if read_provisioned_throughput_settings is not None:
-                self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
-            if replica_stream_specification is not None:
-                self._values["replica_stream_specification"] = replica_stream_specification
-            if resource_policy is not None:
-                self._values["resource_policy"] = resource_policy
-            if sse_specification is not None:
-                self._values["sse_specification"] = sse_specification
-            if table_class is not None:
-                self._values["table_class"] = table_class
-            if tags is not None:
-                self._values["tags"] = tags
-
-        @builtins.property
-        def region(self) -> builtins.str:
-            '''The region in which this replica exists.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-region
-            '''
-            result = self._values.get("region")
-            assert result is not None, "Required property 'region' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def contributor_insights_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]]:
-            '''The settings used to enable or disable CloudWatch Contributor Insights for the specified replica.
-
-            When not specified, defaults to contributor insights disabled for the replica.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-contributorinsightsspecification
-            '''
-            result = self._values.get("contributor_insights_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]], result)
-
-        @builtins.property
-        def deletion_protection_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Determines if a replica is protected from deletion.
-
-            When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-deletionprotectionenabled
-            '''
-            result = self._values.get("deletion_protection_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def global_secondary_indexes(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty"]]]]:
-            '''Defines additional settings for the global secondary indexes of this replica.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-globalsecondaryindexes
-            '''
-            result = self._values.get("global_secondary_indexes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty"]]]], result)
-
-        @builtins.property
-        def kinesis_stream_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KinesisStreamSpecificationProperty"]]:
-            '''Defines the Kinesis Data Streams configuration for the specified replica.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-kinesisstreamspecification
-            '''
-            result = self._values.get("kinesis_stream_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KinesisStreamSpecificationProperty"]], result)
-
-        @builtins.property
-        def point_in_time_recovery_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.PointInTimeRecoverySpecificationProperty"]]:
-            '''The settings used to enable point in time recovery.
-
-            When not specified, defaults to point in time recovery disabled for the replica.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-pointintimerecoveryspecification
-            '''
-            result = self._values.get("point_in_time_recovery_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.PointInTimeRecoverySpecificationProperty"]], result)
-
-        @builtins.property
-        def read_on_demand_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
-            '''Sets read request settings for the replica table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-readondemandthroughputsettings
-            '''
-            result = self._values.get("read_on_demand_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
-
-        @builtins.property
-        def read_provisioned_throughput_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]]:
-            '''Defines read capacity settings for the replica table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-readprovisionedthroughputsettings
-            '''
-            result = self._values.get("read_provisioned_throughput_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]], result)
-
-        @builtins.property
-        def replica_stream_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaStreamSpecificationProperty"]]:
-            '''Represents the DynamoDB Streams configuration for a global table replica.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-replicastreamspecification
-            '''
-            result = self._values.get("replica_stream_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaStreamSpecificationProperty"]], result)
-
-        @builtins.property
-        def resource_policy(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]]:
-            '''A resource-based policy document that contains permissions to add to the specified replica of a DynamoDB global table.
-
-            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
-            '''
-            result = self._values.get("resource_policy")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]], result)
-
-        @builtins.property
-        def sse_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSSESpecificationProperty"]]:
-            '''Allows you to specify a customer-managed key for the replica.
-
-            When using customer-managed keys for server-side encryption, this property must have a value in all replicas.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-ssespecification
-            '''
-            result = self._values.get("sse_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSSESpecificationProperty"]], result)
-
-        @builtins.property
-        def table_class(self) -> typing.Optional[builtins.str]:
-            '''The table class of the specified table.
-
-            Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-tableclass
-            '''
-            result = self._values.get("table_class")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-            '''An array of key-value pairs to apply to this replica.
-
-            For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-tags
-            '''
-            result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReplicaSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"resource_policy": "resourcePolicy"},
-    )
-    class ReplicaStreamSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            resource_policy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]],
-        ) -> None:
-            '''Represents the DynamoDB Streams configuration for a global table replica.
-
-            :param resource_policy: A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ . You can update the ``ResourcePolicy`` property if you've specified more than one table using the `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                # policy_document: Any
-                
-                replica_stream_specification_property = dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
-                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                        policy_document=policy_document
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed)
-                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "resource_policy": resource_policy,
-            }
-
-        @builtins.property
-        def resource_policy(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]:
-            '''A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica.
-
-            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            You can update the ``ResourcePolicy`` property if you've specified more than one table using the `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
-            '''
-            result = self._values.get("resource_policy")
-            assert result is not None, "Required property 'resource_policy' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ReplicaStreamSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ResourcePolicyProperty",
-        jsii_struct_bases=[],
-        name_mapping={"policy_document": "policyDocument"},
-    )
-    class ResourcePolicyProperty:
-        def __init__(self, *, policy_document: typing.Any) -> None:
-            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table, its indexes, and stream.
-
-            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            While defining resource-based policies in your CloudFormation templates, the following considerations apply:
-
-            - The maximum size supported for a resource-based policy document in JSON format is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit.
-            - Resource-based policies don't support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html#>`_ . If you update a policy outside of the CloudFormation stack template, you'll need to update the CloudFormation stack with the changes.
-            - Resource-based policies don't support out-of-band changes. If you add, update, or delete a policy outside of the CloudFormation template, the change won't be overwritten if there are no changes to the policy within the template.
-
-            For example, say that your template contains a resource-based policy, which you later update outside of the template. If you don't make any changes to the policy in the template, the updated policy in DynamoDB won’t be synced with the policy in the template.
-
-            Conversely, say that your template doesn’t contain a resource-based policy, but you add a policy outside of the template. This policy won’t be removed from DynamoDB as long as you don’t add it to the template. When you add a policy to the template and update the stack, the existing policy in DynamoDB will be updated to match the one defined in the template.
-
-            - Within a resource-based policy, if the action for a DynamoDB service-linked role (SLR) to replicate data for a global table is denied, adding or deleting a replica will fail with an error.
-            - The `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource doesn't support creating a replica in the same stack update in Regions other than the Region where you deploy the stack update.
-
-            For a full list of all considerations, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ .
-
-            :param policy_document: A resource-based policy document that contains permissions to add to the specified DynamoDB table, its indexes, and stream. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-resourcepolicy.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                # policy_document: Any
-                
-                resource_policy_property = dynamodb.CfnGlobalTable.ResourcePolicyProperty(
-                    policy_document=policy_document
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6007e745281a1817381b3cb8f148da677e9fde77893fbd60db054cb3b85f34db)
-                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "policy_document": policy_document,
-            }
-
-        @builtins.property
-        def policy_document(self) -> typing.Any:
-            '''A resource-based policy document that contains permissions to add to the specified DynamoDB table, its indexes, and stream.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-resourcepolicy.html#cfn-dynamodb-globaltable-resourcepolicy-policydocument
-            '''
-            result = self._values.get("policy_document")
-            assert result is not None, "Required property 'policy_document' is missing"
-            return typing.cast(typing.Any, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ResourcePolicyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.SSESpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"sse_enabled": "sseEnabled", "sse_type": "sseType"},
-    )
-    class SSESpecificationProperty:
-        def __init__(
-            self,
-            *,
-            sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            sse_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents the settings used to enable server-side encryption.
-
-            :param sse_enabled: Indicates whether server-side encryption is performed using an AWS managed key or an AWS owned key. If enabled (true), server-side encryption type is set to KMS and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified,server-side encryption is set to an AWS owned key. If you choose to use KMS encryption, you can also use customer managed KMS keys by specifying them in the ``ReplicaSpecification.SSESpecification`` object. You cannot mix AWS managed and customer managed KMS keys.
-            :param sse_type: Server-side encryption type. The only supported value is:. - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                s_sESpecification_property = dynamodb.CfnGlobalTable.SSESpecificationProperty(
-                    sse_enabled=False,
-                
-                    # the properties below are optional
-                    sse_type="sseType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ea2cb67b1629904043fec37c484f260e58078624f7b496fe52fc2201d365e1c8)
-                check_type(argname="argument sse_enabled", value=sse_enabled, expected_type=type_hints["sse_enabled"])
-                check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "sse_enabled": sse_enabled,
-            }
-            if sse_type is not None:
-                self._values["sse_type"] = sse_type
-
-        @builtins.property
-        def sse_enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether server-side encryption is performed using an AWS managed key or an AWS owned key.
-
-            If enabled (true), server-side encryption type is set to KMS and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified,server-side encryption is set to an AWS owned key. If you choose to use KMS encryption, you can also use customer managed KMS keys by specifying them in the ``ReplicaSpecification.SSESpecification`` object. You cannot mix AWS managed and customer managed KMS keys.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html#cfn-dynamodb-globaltable-ssespecification-sseenabled
-            '''
-            result = self._values.get("sse_enabled")
-            assert result is not None, "Required property 'sse_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def sse_type(self) -> typing.Optional[builtins.str]:
-            '''Server-side encryption type. The only supported value is:.
-
-            - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html#cfn-dynamodb-globaltable-ssespecification-ssetype
-            '''
-            result = self._values.get("sse_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SSESpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.StreamSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"stream_view_type": "streamViewType"},
-    )
-    class StreamSpecificationProperty:
-        def __init__(self, *, stream_view_type: builtins.str) -> None:
-            '''Represents the DynamoDB Streams configuration for a table in DynamoDB .
-
-            You can only modify this value for a ``AWS::DynamoDB::GlobalTable`` resource configured for multi-Region eventual consistency (MREC, the default) if that resource contains only one entry in ``Replicas`` . You must specify a value for this property for a ``AWS::DynamoDB::GlobalTable`` resource configured for MREC with more than one entry in ``Replicas`` . For Multi-Region Strong Consistency (MRSC), Streams are not required and can be changed for existing tables.
-
-            :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-streamspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                stream_specification_property = dynamodb.CfnGlobalTable.StreamSpecificationProperty(
-                    stream_view_type="streamViewType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bf486381a1dcd1491dcd25b2b304b74893e1088d27adcc55317833f7618f698e)
-                check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "stream_view_type": stream_view_type,
-            }
-
-        @builtins.property
-        def stream_view_type(self) -> builtins.str:
-            '''When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table.
-
-            Valid values for ``StreamViewType`` are:
-
-            - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream.
-            - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream.
-            - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream.
-            - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-streamspecification.html#cfn-dynamodb-globaltable-streamspecification-streamviewtype
-            '''
-            result = self._values.get("stream_view_type")
-            assert result is not None, "Required property 'stream_view_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StreamSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "target_value": "targetValue",
-            "disable_scale_in": "disableScaleIn",
-            "scale_in_cooldown": "scaleInCooldown",
-            "scale_out_cooldown": "scaleOutCooldown",
-        },
-    )
-    class TargetTrackingScalingPolicyConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            target_value: jsii.Number,
-            disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            scale_in_cooldown: typing.Optional[jsii.Number] = None,
-            scale_out_cooldown: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Defines a target tracking scaling policy.
-
-            :param target_value: Defines a target value for the scaling policy.
-            :param disable_scale_in: Indicates whether scale in by the target tracking scaling policy is disabled. The default value is ``false`` .
-            :param scale_in_cooldown: The amount of time, in seconds, after a scale-in activity completes before another scale-in activity can start.
-            :param scale_out_cooldown: The amount of time, in seconds, after a scale-out activity completes before another scale-out activity can start.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                target_tracking_scaling_policy_configuration_property = dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                    target_value=123,
-                
-                    # the properties below are optional
-                    disable_scale_in=False,
-                    scale_in_cooldown=123,
-                    scale_out_cooldown=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cff51147efeb84166406d956aa4cd526d14eba1656b169dfe2b4253d9459950e)
-                check_type(argname="argument target_value", value=target_value, expected_type=type_hints["target_value"])
-                check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
-                check_type(argname="argument scale_in_cooldown", value=scale_in_cooldown, expected_type=type_hints["scale_in_cooldown"])
-                check_type(argname="argument scale_out_cooldown", value=scale_out_cooldown, expected_type=type_hints["scale_out_cooldown"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "target_value": target_value,
-            }
-            if disable_scale_in is not None:
-                self._values["disable_scale_in"] = disable_scale_in
-            if scale_in_cooldown is not None:
-                self._values["scale_in_cooldown"] = scale_in_cooldown
-            if scale_out_cooldown is not None:
-                self._values["scale_out_cooldown"] = scale_out_cooldown
-
-        @builtins.property
-        def target_value(self) -> jsii.Number:
-            '''Defines a target value for the scaling policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-targetvalue
-            '''
-            result = self._values.get("target_value")
-            assert result is not None, "Required property 'target_value' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def disable_scale_in(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether scale in by the target tracking scaling policy is disabled.
-
-            The default value is ``false`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-disablescalein
-            '''
-            result = self._values.get("disable_scale_in")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def scale_in_cooldown(self) -> typing.Optional[jsii.Number]:
-            '''The amount of time, in seconds, after a scale-in activity completes before another scale-in activity can start.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-scaleincooldown
-            '''
-            result = self._values.get("scale_in_cooldown")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def scale_out_cooldown(self) -> typing.Optional[jsii.Number]:
-            '''The amount of time, in seconds, after a scale-out activity completes before another scale-out activity can start.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-scaleoutcooldown
-            '''
-            result = self._values.get("scale_out_cooldown")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetTrackingScalingPolicyConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "attribute_name": "attributeName"},
-    )
-    class TimeToLiveSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            attribute_name: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents the settings used to enable or disable Time to Live (TTL) for the specified table.
-
-            All replicas will have the same time to live configuration.
-
-            :param enabled: Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
-            :param attribute_name: The name of the attribute used to store the expiration time for items in the table. Currently, you cannot directly change the attribute name used to evaluate time to live. In order to do so, you must first disable time to live, and then re-enable it with the new attribute name. It can take up to one hour for changes to time to live to take effect. If you attempt to modify time to live within that time window, your stack operation might be delayed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                time_to_live_specification_property = dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
-                    enabled=False,
-                
-                    # the properties below are optional
-                    attribute_name="attributeName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dcf0cf3bffc007a79dfc055873ae7915dea668a00f7752d51c421f918f640e88)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "enabled": enabled,
-            }
-            if attribute_name is not None:
-                self._values["attribute_name"] = attribute_name
-
-        @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html#cfn-dynamodb-globaltable-timetolivespecification-enabled
-            '''
-            result = self._values.get("enabled")
-            assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def attribute_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the attribute used to store the expiration time for items in the table.
-
-            Currently, you cannot directly change the attribute name used to evaluate time to live. In order to do so, you must first disable time to live, and then re-enable it with the new attribute name. It can take up to one hour for changes to time to live to take effect. If you attempt to modify time to live within that time window, your stack operation might be delayed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html#cfn-dynamodb-globaltable-timetolivespecification-attributename
-            '''
-            result = self._values.get("attribute_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TimeToLiveSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WarmThroughputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "read_units_per_second": "readUnitsPerSecond",
-            "write_units_per_second": "writeUnitsPerSecond",
-        },
-    )
-    class WarmThroughputProperty:
-        def __init__(
-            self,
-            *,
-            read_units_per_second: typing.Optional[jsii.Number] = None,
-            write_units_per_second: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.
-
-            The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
-
-            :param read_units_per_second: Represents the number of read operations your base table can instantaneously support.
-            :param write_units_per_second: Represents the number of write operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                warm_throughput_property = dynamodb.CfnGlobalTable.WarmThroughputProperty(
-                    read_units_per_second=123,
-                    write_units_per_second=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b4a9630f73ba64974f75710b10a566fd0d88349b6d07fc41deb6fac3b443b29)
-                check_type(argname="argument read_units_per_second", value=read_units_per_second, expected_type=type_hints["read_units_per_second"])
-                check_type(argname="argument write_units_per_second", value=write_units_per_second, expected_type=type_hints["write_units_per_second"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if read_units_per_second is not None:
-                self._values["read_units_per_second"] = read_units_per_second
-            if write_units_per_second is not None:
-                self._values["write_units_per_second"] = write_units_per_second
-
-        @builtins.property
-        def read_units_per_second(self) -> typing.Optional[jsii.Number]:
-            '''Represents the number of read operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html#cfn-dynamodb-globaltable-warmthroughput-readunitspersecond
-            '''
-            result = self._values.get("read_units_per_second")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def write_units_per_second(self) -> typing.Optional[jsii.Number]:
-            '''Represents the number of write operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html#cfn-dynamodb-globaltable-warmthroughput-writeunitspersecond
-            '''
-            result = self._values.get("write_units_per_second")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WarmThroughputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"max_write_request_units": "maxWriteRequestUnits"},
-    )
-    class WriteOnDemandThroughputSettingsProperty:
-        def __init__(
-            self,
-            *,
-            max_write_request_units: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Sets the write request settings for a global table or a global secondary index.
-
-            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
-
-            :param max_write_request_units: Maximum number of write request settings for the specified replica of a global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeondemandthroughputsettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                write_on_demand_throughput_settings_property = dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
-                    max_write_request_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a74a3ac973b7df1320fab048c78a8197faf1684042be3f88a34a74adb99870fc)
-                check_type(argname="argument max_write_request_units", value=max_write_request_units, expected_type=type_hints["max_write_request_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if max_write_request_units is not None:
-                self._values["max_write_request_units"] = max_write_request_units
-
-        @builtins.property
-        def max_write_request_units(self) -> typing.Optional[jsii.Number]:
-            '''Maximum number of write request settings for the specified replica of a global table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeondemandthroughputsettings.html#cfn-dynamodb-globaltable-writeondemandthroughputsettings-maxwriterequestunits
-            '''
-            result = self._values.get("max_write_request_units")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WriteOnDemandThroughputSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "write_capacity_auto_scaling_settings": "writeCapacityAutoScalingSettings",
-        },
-    )
-    class WriteProvisionedThroughputSettingsProperty:
-        def __init__(
-            self,
-            *,
-            write_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.CapacityAutoScalingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Specifies an auto scaling policy for write capacity.
-
-            This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
-
-            :param write_capacity_auto_scaling_settings: Specifies auto scaling settings for the replica table or global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeprovisionedthroughputsettings.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                write_provisioned_throughput_settings_property = dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
-                    write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
-                        max_capacity=123,
-                        min_capacity=123,
-                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
-                            target_value=123,
-                
-                            # the properties below are optional
-                            disable_scale_in=False,
-                            scale_in_cooldown=123,
-                            scale_out_cooldown=123
-                        ),
-                
-                        # the properties below are optional
-                        seed_capacity=123
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__18a3302042e66f614ad3ddfe94bd456ac404316f80809965b0a7980371a56484)
-                check_type(argname="argument write_capacity_auto_scaling_settings", value=write_capacity_auto_scaling_settings, expected_type=type_hints["write_capacity_auto_scaling_settings"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if write_capacity_auto_scaling_settings is not None:
-                self._values["write_capacity_auto_scaling_settings"] = write_capacity_auto_scaling_settings
-
-        @builtins.property
-        def write_capacity_auto_scaling_settings(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]]:
-            '''Specifies auto scaling settings for the replica table or global secondary index.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-writeprovisionedthroughputsettings-writecapacityautoscalingsettings
-            '''
-            result = self._values.get("write_capacity_auto_scaling_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WriteProvisionedThroughputSettingsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTableProps",
     jsii_struct_bases=[],
@@ -4561,21 +1544,21 @@ class CfnGlobalTableProps:
     def __init__(
         self,
         *,
-        attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         billing_mode: typing.Optional[builtins.str] = None,
-        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalTableWitnessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalTableWitnessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         multi_region_consistency: typing.Optional[builtins.str] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
-        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGlobalTable``.
 
@@ -4853,19 +1836,19 @@ class CfnGlobalTableProps:
     @builtins.property
     def attribute_definitions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]]:
         '''A list of attributes that describe the key schema for the global table and indexes.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-attributedefinitions
         '''
         result = self._values.get("attribute_definitions")
         assert result is not None, "Required property 'attribute_definitions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]], result)
 
     @builtins.property
     def key_schema(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
         '''Specifies the attributes that make up the primary key for the table.
 
         The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
@@ -4874,12 +1857,12 @@ class CfnGlobalTableProps:
         '''
         result = self._values.get("key_schema")
         assert result is not None, "Required property 'key_schema' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], result)
 
     @builtins.property
     def replicas(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReplicaSpecificationProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]]:
         '''Specifies the list of replicas for your global table.
 
         The list must contain at least one element, the region where the stack defining the global table is deployed. For example, if you define your table in a stack deployed to us-east-1, you must have an entry in ``Replicas`` with the region us-east-1. You cannot remove the replica in the stack region.
@@ -4895,7 +1878,7 @@ class CfnGlobalTableProps:
         '''
         result = self._values.get("replicas")
         assert result is not None, "Required property 'replicas' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReplicaSpecificationProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]], result)
 
     @builtins.property
     def billing_mode(self) -> typing.Optional[builtins.str]:
@@ -4914,7 +1897,7 @@ class CfnGlobalTableProps:
     @builtins.property
     def global_secondary_indexes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalSecondaryIndexProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]]:
         '''Global secondary indexes to be created on the global table.
 
         You can create up to 20 global secondary indexes. Each replica in your global table will have the same global secondary index settings. You can only create or delete one global secondary index in a single stack operation.
@@ -4924,12 +1907,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-globalsecondaryindexes
         '''
         result = self._values.get("global_secondary_indexes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalSecondaryIndexProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]], result)
 
     @builtins.property
     def global_table_witnesses(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalTableWitnessProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]]:
         '''The list of witnesses of the MRSC global table.
 
         Only one witness Region can be configured per MRSC global table.
@@ -4937,12 +1920,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-globaltablewitnesses
         '''
         result = self._values.get("global_table_witnesses")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalTableWitnessProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]], result)
 
     @builtins.property
     def local_secondary_indexes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.LocalSecondaryIndexProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]]:
         '''Local secondary indexes to be created on the table.
 
         You can create up to five local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes. Each replica in your global table will have the same local secondary index settings.
@@ -4950,7 +1933,7 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-localsecondaryindexes
         '''
         result = self._values.get("local_secondary_indexes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.LocalSecondaryIndexProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]], result)
 
     @builtins.property
     def multi_region_consistency(self) -> typing.Optional[builtins.str]:
@@ -4971,7 +1954,7 @@ class CfnGlobalTableProps:
     @builtins.property
     def sse_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.SSESpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]]:
         '''Specifies the settings to enable server-side encryption.
 
         These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
@@ -4979,12 +1962,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-ssespecification
         '''
         result = self._values.get("sse_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.SSESpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]], result)
 
     @builtins.property
     def stream_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.StreamSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]]:
         '''Specifies the streams settings on your global table.
 
         You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
@@ -4992,7 +1975,7 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-streamspecification
         '''
         result = self._values.get("stream_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.StreamSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
@@ -5011,7 +1994,7 @@ class CfnGlobalTableProps:
     @builtins.property
     def time_to_live_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.TimeToLiveSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]]:
         '''Specifies the time to live (TTL) settings for the table.
 
         This setting will be applied to all replicas.
@@ -5019,12 +2002,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-timetolivespecification
         '''
         result = self._values.get("time_to_live_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.TimeToLiveSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]], result)
 
     @builtins.property
     def warm_throughput(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WarmThroughputProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]]:
         '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.
 
         The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
@@ -5032,12 +2015,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-warmthroughput
         '''
         result = self._values.get("warm_throughput")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WarmThroughputProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]], result)
 
     @builtins.property
     def write_on_demand_throughput_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteOnDemandThroughputSettingsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]]:
         '''Sets the write request settings for a global table or a global secondary index.
 
         You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
@@ -5045,12 +2028,12 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-writeondemandthroughputsettings
         '''
         result = self._values.get("write_on_demand_throughput_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteOnDemandThroughputSettingsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]], result)
 
     @builtins.property
     def write_provisioned_throughput_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteProvisionedThroughputSettingsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]]:
         '''Specifies an auto scaling policy for write capacity.
 
         This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
@@ -5058,7 +2041,7 @@ class CfnGlobalTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-writeprovisionedthroughputsettings
         '''
         result = self._values.get("write_provisioned_throughput_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteProvisionedThroughputSettingsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5070,2389 +2053,6 @@ class CfnGlobalTableProps:
         return "CfnGlobalTableProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnTable(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable",
-):
-    '''The ``AWS::DynamoDB::Table`` resource creates a DynamoDB table. For more information, see `CreateTable <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html>`_ in the *Amazon DynamoDB API Reference* .
-
-    You should be aware of the following behaviors when working with DynamoDB tables:
-
-    - AWS CloudFormation typically creates DynamoDB tables in parallel. However, if your template includes multiple DynamoDB tables with indexes, you must declare dependencies so that the tables are created sequentially. Amazon DynamoDB limits the number of tables with secondary indexes that are in the creating state. If you create multiple tables with indexes at the same time, DynamoDB returns an error and the stack operation fails. For an example, see `DynamoDB Table with a DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#aws-resource-dynamodb-table--examples--DynamoDB_Table_with_a_DependsOn_Attribute>`_ .
-
-    .. epigraph::
-
-       Our guidance is to use the latest schema documented for your AWS CloudFormation templates. This schema supports the provisioning of all table settings below. When using this schema in your AWS CloudFormation templates, please ensure that your Identity and Access Management ( IAM ) policies are updated with appropriate permissions to allow for the authorization of these setting changes.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
-    :cloudformationResource: AWS::DynamoDB::Table
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_dynamodb as dynamodb
-        
-        # policy_document: Any
-        
-        cfn_table = dynamodb.CfnTable(self, "MyCfnTable",
-            key_schema=[dynamodb.CfnTable.KeySchemaProperty(
-                attribute_name="attributeName",
-                key_type="keyType"
-            )],
-        
-            # the properties below are optional
-            attribute_definitions=[dynamodb.CfnTable.AttributeDefinitionProperty(
-                attribute_name="attributeName",
-                attribute_type="attributeType"
-            )],
-            billing_mode="billingMode",
-            contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                enabled=False,
-        
-                # the properties below are optional
-                mode="mode"
-            ),
-            deletion_protection_enabled=False,
-            global_secondary_indexes=[dynamodb.CfnTable.GlobalSecondaryIndexProperty(
-                index_name="indexName",
-                key_schema=[dynamodb.CfnTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )],
-                projection=dynamodb.CfnTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                ),
-        
-                # the properties below are optional
-                contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                    enabled=False,
-        
-                    # the properties below are optional
-                    mode="mode"
-                ),
-                on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
-                    max_read_request_units=123,
-                    max_write_request_units=123
-                ),
-                provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
-                    read_capacity_units=123,
-                    write_capacity_units=123
-                ),
-                warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
-                    read_units_per_second=123,
-                    write_units_per_second=123
-                )
-            )],
-            import_source_specification=dynamodb.CfnTable.ImportSourceSpecificationProperty(
-                input_format="inputFormat",
-                s3_bucket_source=dynamodb.CfnTable.S3BucketSourceProperty(
-                    s3_bucket="s3Bucket",
-        
-                    # the properties below are optional
-                    s3_bucket_owner="s3BucketOwner",
-                    s3_key_prefix="s3KeyPrefix"
-                ),
-        
-                # the properties below are optional
-                input_compression_type="inputCompressionType",
-                input_format_options=dynamodb.CfnTable.InputFormatOptionsProperty(
-                    csv=dynamodb.CfnTable.CsvProperty(
-                        delimiter="delimiter",
-                        header_list=["headerList"]
-                    )
-                )
-            ),
-            kinesis_stream_specification=dynamodb.CfnTable.KinesisStreamSpecificationProperty(
-                stream_arn="streamArn",
-        
-                # the properties below are optional
-                approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
-            ),
-            local_secondary_indexes=[dynamodb.CfnTable.LocalSecondaryIndexProperty(
-                index_name="indexName",
-                key_schema=[dynamodb.CfnTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )],
-                projection=dynamodb.CfnTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                )
-            )],
-            on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
-                max_read_request_units=123,
-                max_write_request_units=123
-            ),
-            point_in_time_recovery_specification=dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty(
-                point_in_time_recovery_enabled=False,
-                recovery_period_in_days=123
-            ),
-            provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
-                read_capacity_units=123,
-                write_capacity_units=123
-            ),
-            resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
-                policy_document=policy_document
-            ),
-            sse_specification=dynamodb.CfnTable.SSESpecificationProperty(
-                sse_enabled=False,
-        
-                # the properties below are optional
-                kms_master_key_id="kmsMasterKeyId",
-                sse_type="sseType"
-            ),
-            stream_specification=dynamodb.CfnTable.StreamSpecificationProperty(
-                stream_view_type="streamViewType",
-        
-                # the properties below are optional
-                resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
-                    policy_document=policy_document
-                )
-            ),
-            table_class="tableClass",
-            table_name="tableName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            time_to_live_specification=dynamodb.CfnTable.TimeToLiveSpecificationProperty(
-                enabled=False,
-        
-                # the properties below are optional
-                attribute_name="attributeName"
-            ),
-            warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
-                read_units_per_second=123,
-                write_units_per_second=123
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        billing_mode: typing.Optional[builtins.str] = None,
-        contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ImportSourceSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.OnDemandThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        table_class: typing.Optional[builtins.str] = None,
-        table_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
-        :param attribute_definitions: A list of attributes that describe the key schema for the table and indexes. This property is required to create a DynamoDB table. Update requires: `Some interruptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-some-interrupt>`_ . Replacement if you edit an existing AttributeDefinition.
-        :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Valid values include: - ``PAY_PER_REQUEST`` - We recommend using ``PAY_PER_REQUEST`` for most DynamoDB workloads. ``PAY_PER_REQUEST`` sets the billing mode to `On-demand capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html>`_ . - ``PROVISIONED`` - We recommend using ``PROVISIONED`` for steady workloads with predictable growth where capacity requirements can be reliably forecasted. ``PROVISIONED`` sets the billing mode to `Provisioned capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html>`_ . If not specified, the default is ``PROVISIONED`` .
-        :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
-        :param deletion_protection_enabled: Determines if a table is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
-        :param global_secondary_indexes: Global secondary indexes to be created on the table. You can create up to 20 global secondary indexes. .. epigraph:: If you update a table to include a new global secondary index, AWS CloudFormation initiates the index creation and then proceeds with the stack update. AWS CloudFormation doesn't wait for the index to complete creation because the backfilling phase can take a long time, depending on the size of the table. You can't use the index or update the table until the index's status is ``ACTIVE`` . You can track its status by using the DynamoDB `DescribeTable <https://docs.aws.amazon.com/cli/latest/reference/dynamodb/describe-table.html>`_ command. If you add or delete an index during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new index, you must manually delete the index. Updates are not supported. The following are exceptions: - If you update either the contributor insights specification or the provisioned throughput values of global secondary indexes, you can update the table without interruption. - You can delete or add one global secondary index without interruption. If you do both in the same update (for example, by changing the index's logical ID), the update fails.
-        :param import_source_specification: Specifies the properties of data being imported from the S3 bucket source to the" table. .. epigraph:: If you specify the ``ImportSourceSpecification`` property, and also specify either the ``StreamSpecification`` , the ``TableClass`` property, the ``DeletionProtectionEnabled`` property, or the ``WarmThroughput`` property, the IAM entity creating/updating stack must have ``UpdateTable`` permission.
-        :param kinesis_stream_specification: The Kinesis Data Streams configuration for the specified table.
-        :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to 5 local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes.
-        :param on_demand_throughput: Sets the maximum number of read and write units for the specified on-demand table. If you use this property, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both.
-        :param point_in_time_recovery_specification: The settings used to enable point in time recovery.
-        :param provisioned_throughput: Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` . For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ . If you set ``BillingMode`` as ``PROVISIONED`` , you must specify this property. If you set ``BillingMode`` as ``PAY_PER_REQUEST`` , you cannot specify this property.
-        :param resource_policy: An AWS resource-based policy document in JSON format that will be attached to the table. When you attach a resource-based policy while creating a table, the policy application is *strongly consistent* . The maximum size supported for a resource-based policy document is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit. For a full list of all considerations that apply for resource-based policies, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ . .. epigraph:: You need to specify the ``CreateTable`` and ``PutResourcePolicy`` IAM actions for authorizing a user to create a table with a resource-based policy.
-        :param sse_specification: Specifies the settings to enable server-side encryption.
-        :param stream_specification: The settings for the DynamoDB table stream, which captures changes to items stored in the table. Including this property in your AWS CloudFormation template automatically enables streaming.
-        :param table_class: The table class of the new table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
-        :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param time_to_live_specification: Specifies the Time to Live (TTL) settings for the table. .. epigraph:: For detailed information about the limits in DynamoDB, see `Limits in Amazon DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the Amazon DynamoDB Developer Guide.
-        :param warm_throughput: Represents the warm throughput (in read units per second and write units per second) for creating a table.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c4a83992df200bfde2ccfe129994eeacab105432a2509473861feb736dd5ea6)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTableProps(
-            key_schema=key_schema,
-            attribute_definitions=attribute_definitions,
-            billing_mode=billing_mode,
-            contributor_insights_specification=contributor_insights_specification,
-            deletion_protection_enabled=deletion_protection_enabled,
-            global_secondary_indexes=global_secondary_indexes,
-            import_source_specification=import_source_specification,
-            kinesis_stream_specification=kinesis_stream_specification,
-            local_secondary_indexes=local_secondary_indexes,
-            on_demand_throughput=on_demand_throughput,
-            point_in_time_recovery_specification=point_in_time_recovery_specification,
-            provisioned_throughput=provisioned_throughput,
-            resource_policy=resource_policy,
-            sse_specification=sse_specification,
-            stream_specification=stream_specification,
-            table_class=table_class,
-            table_name=table_name,
-            tags=tags,
-            time_to_live_specification=time_to_live_specification,
-            warm_throughput=warm_throughput,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26bb91e182be62190fa064879e470f7aaf0c082ee3cebed92380192ddd6e106c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81643a0c10d8cbe127677c1696bc389f9cf0cbef6e9b16eeadacb8f85f5abb00)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the DynamoDB table, such as ``arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamArn")
-    def attr_stream_arn(self) -> builtins.str:
-        '''The ARN of the DynamoDB stream, such as ``arn:aws:dynamodb:us-east-1:123456789012:table/testddbstack-myDynamoDBTable-012A1SL7SMP5Q/stream/2015-11-30T20:10:00.000`` .
-
-        .. epigraph::
-
-           You must specify the ``StreamSpecification`` property to use this attribute.
-
-        :cloudformationAttribute: StreamArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="keySchema")
-    def key_schema(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
-        '''Specifies the attributes that make up the primary key for the table.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], jsii.get(self, "keySchema"))
-
-    @key_schema.setter
-    def key_schema(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b23ffa0600490aa85e7d7d78bfa21eab76ec61e446848fa311842ae651fa9836)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="attributeDefinitions")
-    def attribute_definitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]]:
-        '''A list of attributes that describe the key schema for the table and indexes.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]], jsii.get(self, "attributeDefinitions"))
-
-    @attribute_definitions.setter
-    def attribute_definitions(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5daf5ddc396c2de639d9ab720b24bd4802cb6b1935c3acaabde5b29c25732fd7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="billingMode")
-    def billing_mode(self) -> typing.Optional[builtins.str]:
-        '''Specify how you are charged for read and write throughput and how you manage capacity.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "billingMode"))
-
-    @billing_mode.setter
-    def billing_mode(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859e18c7e0169484ae1438c12328e5f08e77b8ce32d6fc9d190d1d453358f8b8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="contributorInsightsSpecification")
-    def contributor_insights_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
-        '''The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], jsii.get(self, "contributorInsightsSpecification"))
-
-    @contributor_insights_specification.setter
-    def contributor_insights_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4418562f8958ca4e57cc994ee87a0b27423f94d0f99284b5f04311b9e61b238f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contributorInsightsSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deletionProtectionEnabled")
-    def deletion_protection_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Determines if a table is protected from deletion.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtectionEnabled"))
-
-    @deletion_protection_enabled.setter
-    def deletion_protection_enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d91900a3abfeb455a4849c52c7f1d034e09b1b0ceb4a50b598d8c938f15c012b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="globalSecondaryIndexes")
-    def global_secondary_indexes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]]:
-        '''Global secondary indexes to be created on the table.
-
-        You can create up to 20 global secondary indexes.
-        '''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]], jsii.get(self, "globalSecondaryIndexes"))
-
-    @global_secondary_indexes.setter
-    def global_secondary_indexes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97df696d6ba063acb98f58f09adb6516d0fc1d41d4d4a37c39f7ffac09e0d5cd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="importSourceSpecification")
-    def import_source_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]]:
-        '''Specifies the properties of data being imported from the S3 bucket source to the" table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]], jsii.get(self, "importSourceSpecification"))
-
-    @import_source_specification.setter
-    def import_source_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61eb67e9e79c54ed8659ffe201d838bdf08b6b20da8fa03693734f4336da76c2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "importSourceSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kinesisStreamSpecification")
-    def kinesis_stream_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]]:
-        '''The Kinesis Data Streams configuration for the specified table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]], jsii.get(self, "kinesisStreamSpecification"))
-
-    @kinesis_stream_specification.setter
-    def kinesis_stream_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d983fc83d1717d6aa76c247a0250e28278e9d16c940822fa16986ff229e9043)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kinesisStreamSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="localSecondaryIndexes")
-    def local_secondary_indexes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]]:
-        '''Local secondary indexes to be created on the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]], jsii.get(self, "localSecondaryIndexes"))
-
-    @local_secondary_indexes.setter
-    def local_secondary_indexes(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45185c524451628b623abf4663f9427843c4d4a709a2cf82b14f8d2b3a9a7ffd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="onDemandThroughput")
-    def on_demand_throughput(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]]:
-        '''Sets the maximum number of read and write units for the specified on-demand table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]], jsii.get(self, "onDemandThroughput"))
-
-    @on_demand_throughput.setter
-    def on_demand_throughput(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__510f5c7d4293f98a55434a588a20db69cf20ac7b409105b7335eb2699ba8c570)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onDemandThroughput", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pointInTimeRecoverySpecification")
-    def point_in_time_recovery_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]]:
-        '''The settings used to enable point in time recovery.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]], jsii.get(self, "pointInTimeRecoverySpecification"))
-
-    @point_in_time_recovery_specification.setter
-    def point_in_time_recovery_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f7cca9d14af75b709b53e94a6fb51bba6dfa0cb31a23e0b70f506be9551e8d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pointInTimeRecoverySpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisionedThroughput")
-    def provisioned_throughput(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]]:
-        '''Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]], jsii.get(self, "provisionedThroughput"))
-
-    @provisioned_throughput.setter
-    def provisioned_throughput(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fa8ca064a9e23781245ca2f3d32d36a2324726abba76565a2e12ac5e399a599)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedThroughput", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicy")
-    def resource_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]]:
-        '''An AWS resource-based policy document in JSON format that will be attached to the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
-
-    @resource_policy.setter
-    def resource_policy(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4166d9b0a925b24598927de15ecb1935d22d14f9a49469ba893db8d18421bf02)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sseSpecification")
-    def sse_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]]:
-        '''Specifies the settings to enable server-side encryption.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]], jsii.get(self, "sseSpecification"))
-
-    @sse_specification.setter
-    def sse_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc5e50032964d91e0cf5ec36aba75b6ae325bfe6129ad9f55764353e645b28c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="streamSpecification")
-    def stream_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]]:
-        '''The settings for the DynamoDB table stream, which captures changes to items stored in the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]], jsii.get(self, "streamSpecification"))
-
-    @stream_specification.setter
-    def stream_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4ba4ef955ba0e9ac6474c62ea545a637752c92fffc5fe0868d55987f8b593ba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableClass")
-    def table_class(self) -> typing.Optional[builtins.str]:
-        '''The table class of the new table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableClass"))
-
-    @table_class.setter
-    def table_class(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df6efdc84208b4dd6d9307c0da182d301e83373407c8e72b4e33094a16f0e9ee)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableClass", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableName")
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableName"))
-
-    @table_name.setter
-    def table_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9a680d2bfdc5e6712f2c0338c7388d0ee2bbf8560c324a2398466ed5efe5e1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae8c7d0ef496e4ff46af1a1db46d7b3840fc5e44d90dd5539a886f2d9ef19658)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="timeToLiveSpecification")
-    def time_to_live_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]]:
-        '''Specifies the Time to Live (TTL) settings for the table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]], jsii.get(self, "timeToLiveSpecification"))
-
-    @time_to_live_specification.setter
-    def time_to_live_specification(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="warmThroughput")
-    def warm_throughput(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]]:
-        '''Represents the warm throughput (in read units per second and write units per second) for creating a table.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]], jsii.get(self, "warmThroughput"))
-
-    @warm_throughput.setter
-    def warm_throughput(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.AttributeDefinitionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "attribute_name": "attributeName",
-            "attribute_type": "attributeType",
-        },
-    )
-    class AttributeDefinitionProperty:
-        def __init__(
-            self,
-            *,
-            attribute_name: builtins.str,
-            attribute_type: builtins.str,
-        ) -> None:
-            '''Represents an attribute for describing the schema for the table and indexes.
-
-            :param attribute_name: A name for the attribute.
-            :param attribute_type: The data type for the attribute, where:. - ``S`` - the attribute is of type String - ``N`` - the attribute is of type Number - ``B`` - the attribute is of type Binary
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                attribute_definition_property = dynamodb.CfnTable.AttributeDefinitionProperty(
-                    attribute_name="attributeName",
-                    attribute_type="attributeType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__09c7a32c39444fb07dbb26b4ad1f9b87ad574421e0b12ac175c090173de657a3)
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-                check_type(argname="argument attribute_type", value=attribute_type, expected_type=type_hints["attribute_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "attribute_name": attribute_name,
-                "attribute_type": attribute_type,
-            }
-
-        @builtins.property
-        def attribute_name(self) -> builtins.str:
-            '''A name for the attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html#cfn-dynamodb-table-attributedefinition-attributename
-            '''
-            result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def attribute_type(self) -> builtins.str:
-            '''The data type for the attribute, where:.
-
-            - ``S`` - the attribute is of type String
-            - ``N`` - the attribute is of type Number
-            - ``B`` - the attribute is of type Binary
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html#cfn-dynamodb-table-attributedefinition-attributetype
-            '''
-            result = self._values.get("attribute_type")
-            assert result is not None, "Required property 'attribute_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AttributeDefinitionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ContributorInsightsSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "mode": "mode"},
-    )
-    class ContributorInsightsSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            mode: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Configures contributor insights settings for a table or one of its indexes.
-
-            :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-            :param mode: Specifies the CloudWatch Contributor Insights mode for a table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                contributor_insights_specification_property = dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                    enabled=False,
-                
-                    # the properties below are optional
-                    mode="mode"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "enabled": enabled,
-            }
-            if mode is not None:
-                self._values["mode"] = mode
-
-        @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-enabled
-            '''
-            result = self._values.get("enabled")
-            assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def mode(self) -> typing.Optional[builtins.str]:
-            '''Specifies the CloudWatch Contributor Insights mode for a table.
-
-            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-mode
-            '''
-            result = self._values.get("mode")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ContributorInsightsSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.CsvProperty",
-        jsii_struct_bases=[],
-        name_mapping={"delimiter": "delimiter", "header_list": "headerList"},
-    )
-    class CsvProperty:
-        def __init__(
-            self,
-            *,
-            delimiter: typing.Optional[builtins.str] = None,
-            header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The options for imported source files in CSV format.
-
-            The values are Delimiter and HeaderList.
-
-            :param delimiter: The delimiter used for separating items in the CSV file being imported.
-            :param header_list: List of the headers used to specify a common header for all source CSV files being imported. If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                csv_property = dynamodb.CfnTable.CsvProperty(
-                    delimiter="delimiter",
-                    header_list=["headerList"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1aa22e74932c2dcdf53fad9d8e58e5934c2ca867f5a4d9ac821cd6f571c6f732)
-                check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
-                check_type(argname="argument header_list", value=header_list, expected_type=type_hints["header_list"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if delimiter is not None:
-                self._values["delimiter"] = delimiter
-            if header_list is not None:
-                self._values["header_list"] = header_list
-
-        @builtins.property
-        def delimiter(self) -> typing.Optional[builtins.str]:
-            '''The delimiter used for separating items in the CSV file being imported.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html#cfn-dynamodb-table-csv-delimiter
-            '''
-            result = self._values.get("delimiter")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def header_list(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''List of the headers used to specify a common header for all source CSV files being imported.
-
-            If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html#cfn-dynamodb-table-csv-headerlist
-            '''
-            result = self._values.get("header_list")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CsvProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.GlobalSecondaryIndexProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "index_name": "indexName",
-            "key_schema": "keySchema",
-            "projection": "projection",
-            "contributor_insights_specification": "contributorInsightsSpecification",
-            "on_demand_throughput": "onDemandThroughput",
-            "provisioned_throughput": "provisionedThroughput",
-            "warm_throughput": "warmThroughput",
-        },
-    )
-    class GlobalSecondaryIndexProperty:
-        def __init__(
-            self,
-            *,
-            index_name: builtins.str,
-            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
-            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.OnDemandThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents the properties of a global secondary index.
-
-            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
-            :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-            :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-            :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
-            :param on_demand_throughput: The maximum number of read and write units for the specified global secondary index. If you use this parameter, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
-            :param provisioned_throughput: Represents the provisioned throughput settings for the specified global secondary index. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode. For current minimum and maximum provisioned throughput values, see `Service, Account, and Table Quotas <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the *Amazon DynamoDB Developer Guide* .
-            :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                global_secondary_index_property = dynamodb.CfnTable.GlobalSecondaryIndexProperty(
-                    index_name="indexName",
-                    key_schema=[dynamodb.CfnTable.KeySchemaProperty(
-                        attribute_name="attributeName",
-                        key_type="keyType"
-                    )],
-                    projection=dynamodb.CfnTable.ProjectionProperty(
-                        non_key_attributes=["nonKeyAttributes"],
-                        projection_type="projectionType"
-                    ),
-                
-                    # the properties below are optional
-                    contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                        enabled=False,
-                
-                        # the properties below are optional
-                        mode="mode"
-                    ),
-                    on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
-                        max_read_request_units=123,
-                        max_write_request_units=123
-                    ),
-                    provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
-                        read_capacity_units=123,
-                        write_capacity_units=123
-                    ),
-                    warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
-                        read_units_per_second=123,
-                        write_units_per_second=123
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__112c1b7034b42e59580b7feba43dc401f21ec329ca66e8612a1b056b0c3a744c)
-                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
-                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
-                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
-                check_type(argname="argument on_demand_throughput", value=on_demand_throughput, expected_type=type_hints["on_demand_throughput"])
-                check_type(argname="argument provisioned_throughput", value=provisioned_throughput, expected_type=type_hints["provisioned_throughput"])
-                check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "index_name": index_name,
-                "key_schema": key_schema,
-                "projection": projection,
-            }
-            if contributor_insights_specification is not None:
-                self._values["contributor_insights_specification"] = contributor_insights_specification
-            if on_demand_throughput is not None:
-                self._values["on_demand_throughput"] = on_demand_throughput
-            if provisioned_throughput is not None:
-                self._values["provisioned_throughput"] = provisioned_throughput
-            if warm_throughput is not None:
-                self._values["warm_throughput"] = warm_throughput
-
-        @builtins.property
-        def index_name(self) -> builtins.str:
-            '''The name of the global secondary index.
-
-            The name must be unique among all other indexes on this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-indexname
-            '''
-            result = self._values.get("index_name")
-            assert result is not None, "Required property 'index_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_schema(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
-            '''The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
-
-            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-            .. epigraph::
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-keyschema
-            '''
-            result = self._values.get("key_schema")
-            assert result is not None, "Required property 'key_schema' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], result)
-
-        @builtins.property
-        def projection(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"]:
-            '''Represents attributes that are copied (projected) from the table into the global secondary index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-projection
-            '''
-            result = self._values.get("projection")
-            assert result is not None, "Required property 'projection' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"], result)
-
-        @builtins.property
-        def contributor_insights_specification(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
-            '''The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-contributorinsightsspecification
-            '''
-            result = self._values.get("contributor_insights_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], result)
-
-        @builtins.property
-        def on_demand_throughput(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]]:
-            '''The maximum number of read and write units for the specified global secondary index.
-
-            If you use this parameter, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-ondemandthroughput
-            '''
-            result = self._values.get("on_demand_throughput")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]], result)
-
-        @builtins.property
-        def provisioned_throughput(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]]:
-            '''Represents the provisioned throughput settings for the specified global secondary index.
-
-            You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
-
-            For current minimum and maximum provisioned throughput values, see `Service, Account, and Table Quotas <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the *Amazon DynamoDB Developer Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-provisionedthroughput
-            '''
-            result = self._values.get("provisioned_throughput")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]], result)
-
-        @builtins.property
-        def warm_throughput(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]]:
-            '''Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index.
-
-            If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-warmthroughput
-            '''
-            result = self._values.get("warm_throughput")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "GlobalSecondaryIndexProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ImportSourceSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "input_format": "inputFormat",
-            "s3_bucket_source": "s3BucketSource",
-            "input_compression_type": "inputCompressionType",
-            "input_format_options": "inputFormatOptions",
-        },
-    )
-    class ImportSourceSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            input_format: builtins.str,
-            s3_bucket_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.S3BucketSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-            input_compression_type: typing.Optional[builtins.str] = None,
-            input_format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.InputFormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Specifies the properties of data being imported from the S3 bucket source to the table.
-
-            :param input_format: The format of the source data. Valid values for ``ImportFormat`` are ``CSV`` , ``DYNAMODB_JSON`` or ``ION`` .
-            :param s3_bucket_source: The S3 bucket that provides the source for the import.
-            :param input_compression_type: Type of compression to be used on the input coming from the imported table.
-            :param input_format_options: Additional properties that specify how the input is formatted,.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                import_source_specification_property = dynamodb.CfnTable.ImportSourceSpecificationProperty(
-                    input_format="inputFormat",
-                    s3_bucket_source=dynamodb.CfnTable.S3BucketSourceProperty(
-                        s3_bucket="s3Bucket",
-                
-                        # the properties below are optional
-                        s3_bucket_owner="s3BucketOwner",
-                        s3_key_prefix="s3KeyPrefix"
-                    ),
-                
-                    # the properties below are optional
-                    input_compression_type="inputCompressionType",
-                    input_format_options=dynamodb.CfnTable.InputFormatOptionsProperty(
-                        csv=dynamodb.CfnTable.CsvProperty(
-                            delimiter="delimiter",
-                            header_list=["headerList"]
-                        )
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a892ec521b494ae5a81ac20deb94ee9d3cdef4699ed7250b4aa0c1e487483982)
-                check_type(argname="argument input_format", value=input_format, expected_type=type_hints["input_format"])
-                check_type(argname="argument s3_bucket_source", value=s3_bucket_source, expected_type=type_hints["s3_bucket_source"])
-                check_type(argname="argument input_compression_type", value=input_compression_type, expected_type=type_hints["input_compression_type"])
-                check_type(argname="argument input_format_options", value=input_format_options, expected_type=type_hints["input_format_options"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "input_format": input_format,
-                "s3_bucket_source": s3_bucket_source,
-            }
-            if input_compression_type is not None:
-                self._values["input_compression_type"] = input_compression_type
-            if input_format_options is not None:
-                self._values["input_format_options"] = input_format_options
-
-        @builtins.property
-        def input_format(self) -> builtins.str:
-            '''The format of the source data.
-
-            Valid values for ``ImportFormat`` are ``CSV`` , ``DYNAMODB_JSON`` or ``ION`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputformat
-            '''
-            result = self._values.get("input_format")
-            assert result is not None, "Required property 'input_format' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def s3_bucket_source(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.S3BucketSourceProperty"]:
-            '''The S3 bucket that provides the source for the import.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-s3bucketsource
-            '''
-            result = self._values.get("s3_bucket_source")
-            assert result is not None, "Required property 's3_bucket_source' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.S3BucketSourceProperty"], result)
-
-        @builtins.property
-        def input_compression_type(self) -> typing.Optional[builtins.str]:
-            '''Type of compression to be used on the input coming from the imported table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputcompressiontype
-            '''
-            result = self._values.get("input_compression_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def input_format_options(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.InputFormatOptionsProperty"]]:
-            '''Additional properties that specify how the input is formatted,.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputformatoptions
-            '''
-            result = self._values.get("input_format_options")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.InputFormatOptionsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ImportSourceSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.InputFormatOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"csv": "csv"},
-    )
-    class InputFormatOptionsProperty:
-        def __init__(
-            self,
-            *,
-            csv: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.CsvProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''The format options for the data that was imported into the target table.
-
-            There is one value, CsvOption.
-
-            :param csv: The options for imported source files in CSV format. The values are Delimiter and HeaderList.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-inputformatoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                input_format_options_property = dynamodb.CfnTable.InputFormatOptionsProperty(
-                    csv=dynamodb.CfnTable.CsvProperty(
-                        delimiter="delimiter",
-                        header_list=["headerList"]
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__baf8d37dad8013f3f0372385196b6e4c72dd08d7f65f2f14f52958322242d87e)
-                check_type(argname="argument csv", value=csv, expected_type=type_hints["csv"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if csv is not None:
-                self._values["csv"] = csv
-
-        @builtins.property
-        def csv(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.CsvProperty"]]:
-            '''The options for imported source files in CSV format.
-
-            The values are Delimiter and HeaderList.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-inputformatoptions.html#cfn-dynamodb-table-inputformatoptions-csv
-            '''
-            result = self._values.get("csv")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.CsvProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "InputFormatOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.KeySchemaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"attribute_name": "attributeName", "key_type": "keyType"},
-    )
-    class KeySchemaProperty:
-        def __init__(
-            self,
-            *,
-            attribute_name: builtins.str,
-            key_type: builtins.str,
-        ) -> None:
-            '''Represents *a single element* of a key schema.
-
-            A key schema specifies the attributes that make up the primary key of a table, or the key attributes of an index.
-
-            A ``KeySchemaElement`` represents exactly one attribute of the primary key. For example, a simple primary key would be represented by one ``KeySchemaElement`` (for the partition key). A composite primary key would require one ``KeySchemaElement`` for the partition key, and another ``KeySchemaElement`` for the sort key.
-
-            A ``KeySchemaElement`` must be a scalar, top-level attribute (not a nested attribute). The data type must be one of String, Number, or Binary. The attribute cannot be nested within a List or a Map.
-
-            :param attribute_name: The name of a key attribute.
-            :param key_type: The role that this key attribute will assume:. - ``HASH`` - partition key - ``RANGE`` - sort key .. epigraph:: The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                key_schema_property = dynamodb.CfnTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e950e1a9ef4b739c934ec12e9f31ed8ea144c936240d474b6661a064bd89ff70)
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "attribute_name": attribute_name,
-                "key_type": key_type,
-            }
-
-        @builtins.property
-        def attribute_name(self) -> builtins.str:
-            '''The name of a key attribute.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html#cfn-dynamodb-table-keyschema-attributename
-            '''
-            result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_type(self) -> builtins.str:
-            '''The role that this key attribute will assume:.
-
-            - ``HASH`` - partition key
-            - ``RANGE`` - sort key
-
-            .. epigraph::
-
-               The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html#cfn-dynamodb-table-keyschema-keytype
-            '''
-            result = self._values.get("key_type")
-            assert result is not None, "Required property 'key_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "KeySchemaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.KinesisStreamSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "stream_arn": "streamArn",
-            "approximate_creation_date_time_precision": "approximateCreationDateTimePrecision",
-        },
-    )
-    class KinesisStreamSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            stream_arn: builtins.str,
-            approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The Kinesis Data Streams configuration for the specified table.
-
-            :param stream_arn: The ARN for a specific Kinesis data stream. Length Constraints: Minimum length of 37. Maximum length of 1024.
-            :param approximate_creation_date_time_precision: The precision for the time and date that the stream was created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                kinesis_stream_specification_property = dynamodb.CfnTable.KinesisStreamSpecificationProperty(
-                    stream_arn="streamArn",
-                
-                    # the properties below are optional
-                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cbb77b10d6677c9577ed11e7ae53f72ab1665def857c99c6c07d8e5de0dc705e)
-                check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
-                check_type(argname="argument approximate_creation_date_time_precision", value=approximate_creation_date_time_precision, expected_type=type_hints["approximate_creation_date_time_precision"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "stream_arn": stream_arn,
-            }
-            if approximate_creation_date_time_precision is not None:
-                self._values["approximate_creation_date_time_precision"] = approximate_creation_date_time_precision
-
-        @builtins.property
-        def stream_arn(self) -> builtins.str:
-            '''The ARN for a specific Kinesis data stream.
-
-            Length Constraints: Minimum length of 37. Maximum length of 1024.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html#cfn-dynamodb-table-kinesisstreamspecification-streamarn
-            '''
-            result = self._values.get("stream_arn")
-            assert result is not None, "Required property 'stream_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def approximate_creation_date_time_precision(
-            self,
-        ) -> typing.Optional[builtins.str]:
-            '''The precision for the time and date that the stream was created.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html#cfn-dynamodb-table-kinesisstreamspecification-approximatecreationdatetimeprecision
-            '''
-            result = self._values.get("approximate_creation_date_time_precision")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "KinesisStreamSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.LocalSecondaryIndexProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "index_name": "indexName",
-            "key_schema": "keySchema",
-            "projection": "projection",
-        },
-    )
-    class LocalSecondaryIndexProperty:
-        def __init__(
-            self,
-            *,
-            index_name: builtins.str,
-            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
-        ) -> None:
-            '''Represents the properties of a local secondary index.
-
-            A local secondary index can only be created when its parent table is created.
-
-            :param index_name: The name of the local secondary index. The name must be unique among all other indexes on this table.
-            :param key_schema: The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-            :param projection: Represents attributes that are copied (projected) from the table into the local secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                local_secondary_index_property = dynamodb.CfnTable.LocalSecondaryIndexProperty(
-                    index_name="indexName",
-                    key_schema=[dynamodb.CfnTable.KeySchemaProperty(
-                        attribute_name="attributeName",
-                        key_type="keyType"
-                    )],
-                    projection=dynamodb.CfnTable.ProjectionProperty(
-                        non_key_attributes=["nonKeyAttributes"],
-                        projection_type="projectionType"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0b88333ee681d4ae2ca57b460a2cb522a3c2318088078bf3d60236c2485f402)
-                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
-                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "index_name": index_name,
-                "key_schema": key_schema,
-                "projection": projection,
-            }
-
-        @builtins.property
-        def index_name(self) -> builtins.str:
-            '''The name of the local secondary index.
-
-            The name must be unique among all other indexes on this table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-indexname
-            '''
-            result = self._values.get("index_name")
-            assert result is not None, "Required property 'index_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_schema(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
-            '''The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
-
-            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
-            .. epigraph::
-
-               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-keyschema
-            '''
-            result = self._values.get("key_schema")
-            assert result is not None, "Required property 'key_schema' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], result)
-
-        @builtins.property
-        def projection(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"]:
-            '''Represents attributes that are copied (projected) from the table into the local secondary index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-projection
-            '''
-            result = self._values.get("projection")
-            assert result is not None, "Required property 'projection' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LocalSecondaryIndexProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.OnDemandThroughputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "max_read_request_units": "maxReadRequestUnits",
-            "max_write_request_units": "maxWriteRequestUnits",
-        },
-    )
-    class OnDemandThroughputProperty:
-        def __init__(
-            self,
-            *,
-            max_read_request_units: typing.Optional[jsii.Number] = None,
-            max_write_request_units: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Sets the maximum number of read and write units for the specified on-demand table.
-
-            If you use this property, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both.
-
-            :param max_read_request_units: Maximum number of read request units for the specified table. To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxReadRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxReadRequestUnits`` to -1.
-            :param max_write_request_units: Maximum number of write request units for the specified table. To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxWriteRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxWriteRequestUnits`` to -1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                on_demand_throughput_property = dynamodb.CfnTable.OnDemandThroughputProperty(
-                    max_read_request_units=123,
-                    max_write_request_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57fa9b9c0a1959797987b8f7dde13da703eb6da6e9a1d7c412f4b26d868eaf48)
-                check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
-                check_type(argname="argument max_write_request_units", value=max_write_request_units, expected_type=type_hints["max_write_request_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if max_read_request_units is not None:
-                self._values["max_read_request_units"] = max_read_request_units
-            if max_write_request_units is not None:
-                self._values["max_write_request_units"] = max_write_request_units
-
-        @builtins.property
-        def max_read_request_units(self) -> typing.Optional[jsii.Number]:
-            '''Maximum number of read request units for the specified table.
-
-            To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxReadRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxReadRequestUnits`` to -1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html#cfn-dynamodb-table-ondemandthroughput-maxreadrequestunits
-            '''
-            result = self._values.get("max_read_request_units")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def max_write_request_units(self) -> typing.Optional[jsii.Number]:
-            '''Maximum number of write request units for the specified table.
-
-            To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxWriteRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxWriteRequestUnits`` to -1.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html#cfn-dynamodb-table-ondemandthroughput-maxwriterequestunits
-            '''
-            result = self._values.get("max_write_request_units")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "OnDemandThroughputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "point_in_time_recovery_enabled": "pointInTimeRecoveryEnabled",
-            "recovery_period_in_days": "recoveryPeriodInDays",
-        },
-    )
-    class PointInTimeRecoverySpecificationProperty:
-        def __init__(
-            self,
-            *,
-            point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            recovery_period_in_days: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''The settings used to enable point in time recovery.
-
-            :param point_in_time_recovery_enabled: Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
-            :param recovery_period_in_days: The number of preceding days for which continuous backups are taken and maintained. Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                point_in_time_recovery_specification_property = dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty(
-                    point_in_time_recovery_enabled=False,
-                    recovery_period_in_days=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f4487b11f07e01ff872dc1405e046ab6c6bc7141706d606b21b57dcbd2f74eb)
-                check_type(argname="argument point_in_time_recovery_enabled", value=point_in_time_recovery_enabled, expected_type=type_hints["point_in_time_recovery_enabled"])
-                check_type(argname="argument recovery_period_in_days", value=recovery_period_in_days, expected_type=type_hints["recovery_period_in_days"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if point_in_time_recovery_enabled is not None:
-                self._values["point_in_time_recovery_enabled"] = point_in_time_recovery_enabled
-            if recovery_period_in_days is not None:
-                self._values["recovery_period_in_days"] = recovery_period_in_days
-
-        @builtins.property
-        def point_in_time_recovery_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html#cfn-dynamodb-table-pointintimerecoveryspecification-pointintimerecoveryenabled
-            '''
-            result = self._values.get("point_in_time_recovery_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def recovery_period_in_days(self) -> typing.Optional[jsii.Number]:
-            '''The number of preceding days for which continuous backups are taken and maintained.
-
-            Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html#cfn-dynamodb-table-pointintimerecoveryspecification-recoveryperiodindays
-            '''
-            result = self._values.get("recovery_period_in_days")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PointInTimeRecoverySpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ProjectionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "non_key_attributes": "nonKeyAttributes",
-            "projection_type": "projectionType",
-        },
-    )
-    class ProjectionProperty:
-        def __init__(
-            self,
-            *,
-            non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            projection_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents attributes that are copied (projected) from the table into an index.
-
-            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
-
-            :param non_key_attributes: Represents the non-key attribute names which will be projected into the index. For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
-            :param projection_type: The set of attributes that are projected into the index:. - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index. - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify. - ``ALL`` - All of the table attributes are projected into the index. When using the DynamoDB console, ``ALL`` is selected by default.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                projection_property = dynamodb.CfnTable.ProjectionProperty(
-                    non_key_attributes=["nonKeyAttributes"],
-                    projection_type="projectionType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d9036c04b0c4c58de6a0a95d1504323dc1970d9034c9feb67c217ff22fe993fd)
-                check_type(argname="argument non_key_attributes", value=non_key_attributes, expected_type=type_hints["non_key_attributes"])
-                check_type(argname="argument projection_type", value=projection_type, expected_type=type_hints["projection_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if non_key_attributes is not None:
-                self._values["non_key_attributes"] = non_key_attributes
-            if projection_type is not None:
-                self._values["projection_type"] = projection_type
-
-        @builtins.property
-        def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''Represents the non-key attribute names which will be projected into the index.
-
-            For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html#cfn-dynamodb-table-projection-nonkeyattributes
-            '''
-            result = self._values.get("non_key_attributes")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def projection_type(self) -> typing.Optional[builtins.str]:
-            '''The set of attributes that are projected into the index:.
-
-            - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index.
-            - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify.
-            - ``ALL`` - All of the table attributes are projected into the index.
-
-            When using the DynamoDB console, ``ALL`` is selected by default.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html#cfn-dynamodb-table-projection-projectiontype
-            '''
-            result = self._values.get("projection_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProjectionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ProvisionedThroughputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "read_capacity_units": "readCapacityUnits",
-            "write_capacity_units": "writeCapacityUnits",
-        },
-    )
-    class ProvisionedThroughputProperty:
-        def __init__(
-            self,
-            *,
-            read_capacity_units: jsii.Number,
-            write_capacity_units: jsii.Number,
-        ) -> None:
-            '''Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` .
-
-            For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ .
-
-            :param read_capacity_units: The maximum number of strongly consistent reads consumed per second before DynamoDB returns a ``ThrottlingException`` . For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* . If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
-            :param write_capacity_units: The maximum number of writes consumed per second before DynamoDB returns a ``ThrottlingException`` . For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* . If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                provisioned_throughput_property = dynamodb.CfnTable.ProvisionedThroughputProperty(
-                    read_capacity_units=123,
-                    write_capacity_units=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c605785147b4a82f1aad9bc135fb470b73358c151d323493ae3f1cde15d00ae)
-                check_type(argname="argument read_capacity_units", value=read_capacity_units, expected_type=type_hints["read_capacity_units"])
-                check_type(argname="argument write_capacity_units", value=write_capacity_units, expected_type=type_hints["write_capacity_units"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "read_capacity_units": read_capacity_units,
-                "write_capacity_units": write_capacity_units,
-            }
-
-        @builtins.property
-        def read_capacity_units(self) -> jsii.Number:
-            '''The maximum number of strongly consistent reads consumed per second before DynamoDB returns a ``ThrottlingException`` .
-
-            For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* .
-
-            If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html#cfn-dynamodb-table-provisionedthroughput-readcapacityunits
-            '''
-            result = self._values.get("read_capacity_units")
-            assert result is not None, "Required property 'read_capacity_units' is missing"
-            return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def write_capacity_units(self) -> jsii.Number:
-            '''The maximum number of writes consumed per second before DynamoDB returns a ``ThrottlingException`` .
-
-            For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* .
-
-            If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html#cfn-dynamodb-table-provisionedthroughput-writecapacityunits
-            '''
-            result = self._values.get("write_capacity_units")
-            assert result is not None, "Required property 'write_capacity_units' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProvisionedThroughputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ResourcePolicyProperty",
-        jsii_struct_bases=[],
-        name_mapping={"policy_document": "policyDocument"},
-    )
-    class ResourcePolicyProperty:
-        def __init__(self, *, policy_document: typing.Any) -> None:
-            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table, its indexes, and stream.
-
-            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            While defining resource-based policies in your CloudFormation templates, the following considerations apply:
-
-            - The maximum size supported for a resource-based policy document in JSON format is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit.
-            - Resource-based policies don't support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html#>`_ . If you update a policy outside of the CloudFormation stack template, you'll need to update the CloudFormation stack with the changes.
-            - Resource-based policies don't support out-of-band changes. If you add, update, or delete a policy outside of the CloudFormation template, the change won't be overwritten if there are no changes to the policy within the template.
-
-            For example, say that your template contains a resource-based policy, which you later update outside of the template. If you don't make any changes to the policy in the template, the updated policy in DynamoDB won’t be synced with the policy in the template.
-
-            Conversely, say that your template doesn’t contain a resource-based policy, but you add a policy outside of the template. This policy won’t be removed from DynamoDB as long as you don’t add it to the template. When you add a policy to the template and update the stack, the existing policy in DynamoDB will be updated to match the one defined in the template.
-
-            For a full list of all considerations, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ .
-
-            :param policy_document: A resource-based policy document that contains permissions to add to the specified DynamoDB table, index, or both. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-resourcepolicy.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                # policy_document: Any
-                
-                resource_policy_property = dynamodb.CfnTable.ResourcePolicyProperty(
-                    policy_document=policy_document
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__64c1cb1f4d183fca5b703f524bc57bfa5f9515fd97acd86171b92226b4e11ca3)
-                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "policy_document": policy_document,
-            }
-
-        @builtins.property
-        def policy_document(self) -> typing.Any:
-            '''A resource-based policy document that contains permissions to add to the specified DynamoDB table, index, or both.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-resourcepolicy.html#cfn-dynamodb-table-resourcepolicy-policydocument
-            '''
-            result = self._values.get("policy_document")
-            assert result is not None, "Required property 'policy_document' is missing"
-            return typing.cast(typing.Any, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ResourcePolicyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.S3BucketSourceProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "s3_bucket": "s3Bucket",
-            "s3_bucket_owner": "s3BucketOwner",
-            "s3_key_prefix": "s3KeyPrefix",
-        },
-    )
-    class S3BucketSourceProperty:
-        def __init__(
-            self,
-            *,
-            s3_bucket: builtins.str,
-            s3_bucket_owner: typing.Optional[builtins.str] = None,
-            s3_key_prefix: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The S3 bucket that is being imported from.
-
-            :param s3_bucket: The S3 bucket that is being imported from.
-            :param s3_bucket_owner: The account number of the S3 bucket that is being imported from. If the bucket is owned by the requester this is optional.
-            :param s3_key_prefix: The key prefix shared by all S3 Objects that are being imported.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                s3_bucket_source_property = dynamodb.CfnTable.S3BucketSourceProperty(
-                    s3_bucket="s3Bucket",
-                
-                    # the properties below are optional
-                    s3_bucket_owner="s3BucketOwner",
-                    s3_key_prefix="s3KeyPrefix"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f675acfe91cced819ac46665a50bf155c45e71e78313e471666e0e9d708883e2)
-                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
-                check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
-                check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3_bucket": s3_bucket,
-            }
-            if s3_bucket_owner is not None:
-                self._values["s3_bucket_owner"] = s3_bucket_owner
-            if s3_key_prefix is not None:
-                self._values["s3_key_prefix"] = s3_key_prefix
-
-        @builtins.property
-        def s3_bucket(self) -> builtins.str:
-            '''The S3 bucket that is being imported from.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3bucket
-            '''
-            result = self._values.get("s3_bucket")
-            assert result is not None, "Required property 's3_bucket' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
-            '''The account number of the S3 bucket that is being imported from.
-
-            If the bucket is owned by the requester this is optional.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3bucketowner
-            '''
-            result = self._values.get("s3_bucket_owner")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-            '''The key prefix shared by all S3 Objects that are being imported.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3keyprefix
-            '''
-            result = self._values.get("s3_key_prefix")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3BucketSourceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.SSESpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "sse_enabled": "sseEnabled",
-            "kms_master_key_id": "kmsMasterKeyId",
-            "sse_type": "sseType",
-        },
-    )
-    class SSESpecificationProperty:
-        def __init__(
-            self,
-            *,
-            sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            kms_master_key_id: typing.Optional[builtins.str] = None,
-            sse_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents the settings used to enable server-side encryption.
-
-            :param sse_enabled: Indicates whether server-side encryption is done using an AWS managed key or an AWS owned key. If enabled (true), server-side encryption type is set to ``KMS`` and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified, server-side encryption is set to AWS owned key.
-            :param kms_master_key_id: The AWS KMS key that should be used for the AWS KMS encryption. To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
-            :param sse_type: Server-side encryption type. The only supported value is:. - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                s_sESpecification_property = dynamodb.CfnTable.SSESpecificationProperty(
-                    sse_enabled=False,
-                
-                    # the properties below are optional
-                    kms_master_key_id="kmsMasterKeyId",
-                    sse_type="sseType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23b0abf52d7df3f9a3b741c39275e55783b349db0f08ac16d13c3d832be8301d)
-                check_type(argname="argument sse_enabled", value=sse_enabled, expected_type=type_hints["sse_enabled"])
-                check_type(argname="argument kms_master_key_id", value=kms_master_key_id, expected_type=type_hints["kms_master_key_id"])
-                check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "sse_enabled": sse_enabled,
-            }
-            if kms_master_key_id is not None:
-                self._values["kms_master_key_id"] = kms_master_key_id
-            if sse_type is not None:
-                self._values["sse_type"] = sse_type
-
-        @builtins.property
-        def sse_enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether server-side encryption is done using an AWS managed key or an AWS owned key.
-
-            If enabled (true), server-side encryption type is set to ``KMS`` and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified, server-side encryption is set to AWS owned key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-sseenabled
-            '''
-            result = self._values.get("sse_enabled")
-            assert result is not None, "Required property 'sse_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def kms_master_key_id(self) -> typing.Optional[builtins.str]:
-            '''The AWS KMS key that should be used for the AWS KMS encryption.
-
-            To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-kmsmasterkeyid
-            '''
-            result = self._values.get("kms_master_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def sse_type(self) -> typing.Optional[builtins.str]:
-            '''Server-side encryption type. The only supported value is:.
-
-            - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-ssetype
-            '''
-            result = self._values.get("sse_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SSESpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.StreamSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "stream_view_type": "streamViewType",
-            "resource_policy": "resourcePolicy",
-        },
-    )
-    class StreamSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            stream_view_type: builtins.str,
-            resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Represents the DynamoDB Streams configuration for a table in DynamoDB.
-
-            :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
-            :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. .. epigraph:: When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                # policy_document: Any
-                
-                stream_specification_property = dynamodb.CfnTable.StreamSpecificationProperty(
-                    stream_view_type="streamViewType",
-                
-                    # the properties below are optional
-                    resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
-                        policy_document=policy_document
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72)
-                check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
-                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "stream_view_type": stream_view_type,
-            }
-            if resource_policy is not None:
-                self._values["resource_policy"] = resource_policy
-
-        @builtins.property
-        def stream_view_type(self) -> builtins.str:
-            '''When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table.
-
-            Valid values for ``StreamViewType`` are:
-
-            - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream.
-            - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream.
-            - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream.
-            - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-streamviewtype
-            '''
-            result = self._values.get("stream_view_type")
-            assert result is not None, "Required property 'stream_view_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def resource_policy(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]]:
-            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams.
-
-            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
-            .. epigraph::
-
-               When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period.
-
-            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-resourcepolicy
-            '''
-            result = self._values.get("resource_policy")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "StreamSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.TimeToLiveSpecificationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "attribute_name": "attributeName"},
-    )
-    class TimeToLiveSpecificationProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            attribute_name: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Represents the settings used to enable or disable Time to Live (TTL) for the specified table.
-
-            :param enabled: Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
-            :param attribute_name: The name of the TTL attribute used to store the expiration time for items in the table. .. epigraph:: - The ``AttributeName`` property is required when enabling the TTL, or when TTL is already enabled. - To update this property, you must first disable TTL and then enable TTL with the new attribute name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                time_to_live_specification_property = dynamodb.CfnTable.TimeToLiveSpecificationProperty(
-                    enabled=False,
-                
-                    # the properties below are optional
-                    attribute_name="attributeName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d786558ff9ca543f7d0799e61bed247b8ecf13464a91bfd641c90c6a0e58845)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "enabled": enabled,
-            }
-            if attribute_name is not None:
-                self._values["attribute_name"] = attribute_name
-
-        @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-            '''Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html#cfn-dynamodb-table-timetolivespecification-enabled
-            '''
-            result = self._values.get("enabled")
-            assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-        @builtins.property
-        def attribute_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the TTL attribute used to store the expiration time for items in the table.
-
-            .. epigraph::
-
-               - The ``AttributeName`` property is required when enabling the TTL, or when TTL is already enabled.
-               - To update this property, you must first disable TTL and then enable TTL with the new attribute name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html#cfn-dynamodb-table-timetolivespecification-attributename
-            '''
-            result = self._values.get("attribute_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TimeToLiveSpecificationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.WarmThroughputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "read_units_per_second": "readUnitsPerSecond",
-            "write_units_per_second": "writeUnitsPerSecond",
-        },
-    )
-    class WarmThroughputProperty:
-        def __init__(
-            self,
-            *,
-            read_units_per_second: typing.Optional[jsii.Number] = None,
-            write_units_per_second: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.
-
-            The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
-
-            :param read_units_per_second: Represents the number of read operations your base table can instantaneously support.
-            :param write_units_per_second: Represents the number of write operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                warm_throughput_property = dynamodb.CfnTable.WarmThroughputProperty(
-                    read_units_per_second=123,
-                    write_units_per_second=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ddf88a87c38a2c772533f42deb8bc496ef2b564e2f9605ed588471312d01306)
-                check_type(argname="argument read_units_per_second", value=read_units_per_second, expected_type=type_hints["read_units_per_second"])
-                check_type(argname="argument write_units_per_second", value=write_units_per_second, expected_type=type_hints["write_units_per_second"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if read_units_per_second is not None:
-                self._values["read_units_per_second"] = read_units_per_second
-            if write_units_per_second is not None:
-                self._values["write_units_per_second"] = write_units_per_second
-
-        @builtins.property
-        def read_units_per_second(self) -> typing.Optional[jsii.Number]:
-            '''Represents the number of read operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html#cfn-dynamodb-table-warmthroughput-readunitspersecond
-            '''
-            result = self._values.get("read_units_per_second")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def write_units_per_second(self) -> typing.Optional[jsii.Number]:
-            '''Represents the number of write operations your base table can instantaneously support.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html#cfn-dynamodb-table-warmthroughput-writeunitspersecond
-            '''
-            result = self._values.get("write_units_per_second")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "WarmThroughputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -7485,26 +2085,26 @@ class CfnTableProps:
     def __init__(
         self,
         *,
-        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
-        contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ImportSourceSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OnDemandThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ImportSourceSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.OnDemandThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_class: typing.Optional[builtins.str] = None,
         table_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTable``.
 
@@ -7741,7 +2341,7 @@ class CfnTableProps:
     @builtins.property
     def key_schema(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.KeySchemaProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
         '''Specifies the attributes that make up the primary key for the table.
 
         The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
@@ -7750,12 +2350,12 @@ class CfnTableProps:
         '''
         result = self._values.get("key_schema")
         assert result is not None, "Required property 'key_schema' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.KeySchemaProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], result)
 
     @builtins.property
     def attribute_definitions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.AttributeDefinitionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]]:
         '''A list of attributes that describe the key schema for the table and indexes.
 
         This property is required to create a DynamoDB table.
@@ -7765,7 +2365,7 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-attributedefinitions
         '''
         result = self._values.get("attribute_definitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.AttributeDefinitionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]], result)
 
     @builtins.property
     def billing_mode(self) -> typing.Optional[builtins.str]:
@@ -7786,13 +2386,13 @@ class CfnTableProps:
     @builtins.property
     def contributor_insights_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ContributorInsightsSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
         '''The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-contributorinsightsspecification
         '''
         result = self._values.get("contributor_insights_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ContributorInsightsSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], result)
 
     @builtins.property
     def deletion_protection_enabled(
@@ -7810,7 +2410,7 @@ class CfnTableProps:
     @builtins.property
     def global_secondary_indexes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.GlobalSecondaryIndexProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]]:
         '''Global secondary indexes to be created on the table. You can create up to 20 global secondary indexes.
 
         .. epigraph::
@@ -7827,12 +2427,12 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-globalsecondaryindexes
         '''
         result = self._values.get("global_secondary_indexes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.GlobalSecondaryIndexProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]], result)
 
     @builtins.property
     def import_source_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ImportSourceSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]]:
         '''Specifies the properties of data being imported from the S3 bucket source to the" table.
 
         .. epigraph::
@@ -7842,23 +2442,23 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-importsourcespecification
         '''
         result = self._values.get("import_source_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ImportSourceSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]], result)
 
     @builtins.property
     def kinesis_stream_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.KinesisStreamSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]]:
         '''The Kinesis Data Streams configuration for the specified table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-kinesisstreamspecification
         '''
         result = self._values.get("kinesis_stream_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.KinesisStreamSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]], result)
 
     @builtins.property
     def local_secondary_indexes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.LocalSecondaryIndexProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]]:
         '''Local secondary indexes to be created on the table.
 
         You can create up to 5 local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes.
@@ -7866,12 +2466,12 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-localsecondaryindexes
         '''
         result = self._values.get("local_secondary_indexes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.LocalSecondaryIndexProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]], result)
 
     @builtins.property
     def on_demand_throughput(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.OnDemandThroughputProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]]:
         '''Sets the maximum number of read and write units for the specified on-demand table.
 
         If you use this property, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both.
@@ -7879,23 +2479,23 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-ondemandthroughput
         '''
         result = self._values.get("on_demand_throughput")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.OnDemandThroughputProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]], result)
 
     @builtins.property
     def point_in_time_recovery_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.PointInTimeRecoverySpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]]:
         '''The settings used to enable point in time recovery.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-pointintimerecoveryspecification
         '''
         result = self._values.get("point_in_time_recovery_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.PointInTimeRecoverySpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]], result)
 
     @builtins.property
     def provisioned_throughput(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ProvisionedThroughputProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]]:
         '''Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` .
 
         For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ .
@@ -7905,12 +2505,12 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-provisionedthroughput
         '''
         result = self._values.get("provisioned_throughput")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ProvisionedThroughputProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]], result)
 
     @builtins.property
     def resource_policy(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ResourcePolicyProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]]:
         '''An AWS resource-based policy document in JSON format that will be attached to the table.
 
         When you attach a resource-based policy while creating a table, the policy application is *strongly consistent* .
@@ -7923,23 +2523,23 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-resourcepolicy
         '''
         result = self._values.get("resource_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ResourcePolicyProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]], result)
 
     @builtins.property
     def sse_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SSESpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]]:
         '''Specifies the settings to enable server-side encryption.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-ssespecification
         '''
         result = self._values.get("sse_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SSESpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]], result)
 
     @builtins.property
     def stream_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StreamSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]]:
         '''The settings for the DynamoDB table stream, which captures changes to items stored in the table.
 
         Including this property in your AWS CloudFormation template automatically enables streaming.
@@ -7947,7 +2547,7 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-streamspecification
         '''
         result = self._values.get("stream_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StreamSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]], result)
 
     @builtins.property
     def table_class(self) -> typing.Optional[builtins.str]:
@@ -7988,7 +2588,7 @@ class CfnTableProps:
     @builtins.property
     def time_to_live_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.TimeToLiveSpecificationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]]:
         '''Specifies the Time to Live (TTL) settings for the table.
 
         .. epigraph::
@@ -7998,18 +2598,18 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-timetolivespecification
         '''
         result = self._values.get("time_to_live_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.TimeToLiveSpecificationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]], result)
 
     @builtins.property
     def warm_throughput(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.WarmThroughputProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]]:
         '''Represents the warm throughput (in read units per second and write units per second) for creating a table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-warmthroughput
         '''
         result = self._values.get("warm_throughput")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.WarmThroughputProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8298,6 +2898,111 @@ class EnableScalingProps:
         return "EnableScalingProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dynamodb.GlobalTableReference",
+    jsii_struct_bases=[],
+    name_mapping={"global_table_arn": "globalTableArn", "table_name": "tableName"},
+)
+class GlobalTableReference:
+    def __init__(
+        self,
+        *,
+        global_table_arn: builtins.str,
+        table_name: builtins.str,
+    ) -> None:
+        '''A reference to a GlobalTable resource.
+
+        :param global_table_arn: The ARN of the GlobalTable resource.
+        :param table_name: The TableName of the GlobalTable resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dynamodb as dynamodb
+            
+            global_table_reference = dynamodb.GlobalTableReference(
+                global_table_arn="globalTableArn",
+                table_name="tableName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc5b2ffa9239c84c347e870b166bd59126157e148ac6a1bad266edc17a0316d3)
+            check_type(argname="argument global_table_arn", value=global_table_arn, expected_type=type_hints["global_table_arn"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "global_table_arn": global_table_arn,
+            "table_name": table_name,
+        }
+
+    @builtins.property
+    def global_table_arn(self) -> builtins.str:
+        '''The ARN of the GlobalTable resource.'''
+        result = self._values.get("global_table_arn")
+        assert result is not None, "Required property 'global_table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the GlobalTable resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GlobalTableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dynamodb.IGlobalTableRef")
+class IGlobalTableRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GlobalTable.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="globalTableRef")
+    def global_table_ref(self) -> GlobalTableReference:
+        '''(experimental) A reference to a GlobalTable resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGlobalTableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GlobalTable.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dynamodb.IGlobalTableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="globalTableRef")
+    def global_table_ref(self) -> GlobalTableReference:
+        '''(experimental) A reference to a GlobalTable resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GlobalTableReference, jsii.get(self, "globalTableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGlobalTableRef).__jsii_proxy_class__ = lambda : _IGlobalTableRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_dynamodb.IScalableTableAttribute")
@@ -9502,6 +4207,46 @@ class _ITableProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITable).__jsii_proxy_class__ = lambda : _ITableProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dynamodb.ITableRef")
+class ITableRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Table.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> "TableReference":
+        '''(experimental) A reference to a Table resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Table.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dynamodb.ITableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> "TableReference":
+        '''(experimental) A reference to a Table resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TableReference", jsii.get(self, "tableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITableRef).__jsii_proxy_class__ = lambda : _ITableRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_dynamodb.ITableV2")
@@ -14789,6 +9534,66 @@ class TablePropsV2(TableOptionsV2):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dynamodb.TableReference",
+    jsii_struct_bases=[],
+    name_mapping={"table_arn": "tableArn", "table_name": "tableName"},
+)
+class TableReference:
+    def __init__(self, *, table_arn: builtins.str, table_name: builtins.str) -> None:
+        '''A reference to a Table resource.
+
+        :param table_arn: The ARN of the Table resource.
+        :param table_name: The TableName of the Table resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dynamodb as dynamodb
+            
+            table_reference = dynamodb.TableReference(
+                table_arn="tableArn",
+                table_name="tableName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f35272c419f58a36f958465c66a5a7c2a77bb7faf298383c4f965eaa7878079)
+            check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "table_arn": table_arn,
+            "table_name": table_name,
+        }
+
+    @builtins.property
+    def table_arn(self) -> builtins.str:
+        '''The ARN of the Table resource.'''
+        result = self._values.get("table_arn")
+        assert result is not None, "Required property 'table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The TableName of the Table resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class TableV2(
     TableBaseV2,
     metaclass=jsii.JSIIMeta,
@@ -15491,6 +10296,5418 @@ class WarmThroughput:
         return "WarmThroughput(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, IGlobalTableRef)
+class CfnGlobalTable(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable",
+):
+    '''The ``AWS::DynamoDB::GlobalTable`` resource enables you to create and manage a Version 2019.11.21 global table. This resource cannot be used to create or manage a Version 2017.11.29 global table. For more information, see `Global tables <https://docs.aws.amazon.com//amazondynamodb/latest/developerguide/GlobalTables.html>`_ .
+
+    .. epigraph::
+
+       You cannot convert a resource of type ``AWS::DynamoDB::Table`` into a resource of type ``AWS::DynamoDB::GlobalTable`` by changing its type in your template. *Doing so might result in the deletion of your DynamoDB table.*
+
+       You can instead use the GlobalTable resource to create a new table in a single Region. This will be billed the same as a single Region table. If you later update the stack to add other Regions then Global Tables pricing will apply.
+
+    You should be aware of the following behaviors when working with DynamoDB global tables.
+
+    - The IAM Principal executing the stack operation must have the permissions listed below in all regions where you plan to have a global table replica. The IAM Principal's permissions should not have restrictions based on IP source address. Some global tables operations (for example, adding a replica) are asynchronous, and require that the IAM Principal is valid until they complete. You should not delete the Principal (user or IAM role) until CloudFormation has finished updating your stack.
+    - ``application-autoscaling:DeleteScalingPolicy``
+    - ``application-autoscaling:DeleteScheduledAction``
+    - ``application-autoscaling:DeregisterScalableTarget``
+    - ``application-autoscaling:DescribeScalableTargets``
+    - ``application-autoscaling:DescribeScalingPolicies``
+    - ``application-autoscaling:PutScalingPolicy``
+    - ``application-autoscaling:PutScheduledAction``
+    - ``application-autoscaling:RegisterScalableTarget``
+    - ``dynamodb:BatchWriteItem``
+    - ``dynamodb:CreateGlobalTableWitness``
+    - ``dynamodb:CreateTable``
+    - ``dynamodb:CreateTableReplica``
+    - ``dynamodb:DeleteGlobalTableWitness``
+    - ``dynamodb:DeleteItem``
+    - ``dynamodb:DeleteTable``
+    - ``dynamodb:DeleteTableReplica``
+    - ``dynamodb:DescribeContinuousBackups``
+    - ``dynamodb:DescribeContributorInsights``
+    - ``dynamodb:DescribeTable``
+    - ``dynamodb:DescribeTableReplicaAutoScaling``
+    - ``dynamodb:DescribeTimeToLive``
+    - ``dynamodb:DisableKinesisStreamingDestination``
+    - ``dynamodb:EnableKinesisStreamingDestination``
+    - ``dynamodb:GetItem``
+    - ``dynamodb:ListTables``
+    - ``dynamodb:ListTagsOfResource``
+    - ``dynamodb:PutItem``
+    - ``dynamodb:Query``
+    - ``dynamodb:Scan``
+    - ``dynamodb:TagResource``
+    - ``dynamodb:UntagResource``
+    - ``dynamodb:UpdateContinuousBackups``
+    - ``dynamodb:UpdateContributorInsights``
+    - ``dynamodb:UpdateItem``
+    - ``dynamodb:UpdateTable``
+    - ``dynamodb:UpdateTableReplicaAutoScaling``
+    - ``dynamodb:UpdateTimeToLive``
+    - ``iam:CreateServiceLinkedRole``
+    - ``kms:CreateGrant``
+    - ``kms:DescribeKey``
+    - When using provisioned billing mode, CloudFormation will create an auto scaling policy on each of your replicas to control their write capacities. You must configure this policy using the ``WriteProvisionedThroughputSettings`` property. CloudFormation will ensure that all replicas have the same write capacity auto scaling property. You cannot directly specify a value for write capacity for a global table.
+    - If your table uses provisioned capacity, you must configure auto scaling directly in the ``AWS::DynamoDB::GlobalTable`` resource. You should not configure additional auto scaling policies on any of the table replicas or global secondary indexes, either via API or via ``AWS::ApplicationAutoScaling::ScalableTarget`` or ``AWS::ApplicationAutoScaling::ScalingPolicy`` . Doing so might result in unexpected behavior and is unsupported.
+    - In AWS CloudFormation , each global table is controlled by a single stack, in a single region, regardless of the number of replicas. When you deploy your template, CloudFormation will create/update all replicas as part of a single stack operation. You should not deploy the same ``AWS::DynamoDB::GlobalTable`` resource in multiple regions. Doing so will result in errors, and is unsupported. If you deploy your application template in multiple regions, you can use conditions to only create the resource in a single region. Alternatively, you can choose to define your ``AWS::DynamoDB::GlobalTable`` resources in a stack separate from your application stack, and make sure it is only deployed to a single region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html
+    :cloudformationResource: AWS::DynamoDB::GlobalTable
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_dynamodb as dynamodb
+        
+        # policy_document: Any
+        
+        cfn_global_table = dynamodb.CfnGlobalTable(self, "MyCfnGlobalTable",
+            attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
+                attribute_name="attributeName",
+                attribute_type="attributeType"
+            )],
+            key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                attribute_name="attributeName",
+                key_type="keyType"
+            )],
+            replicas=[dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
+                region="region",
+        
+                # the properties below are optional
+                contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    mode="mode"
+                ),
+                deletion_protection_enabled=False,
+                global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
+                    index_name="indexName",
+        
+                    # the properties below are optional
+                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                        enabled=False,
+        
+                        # the properties below are optional
+                        mode="mode"
+                    ),
+                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                        max_read_request_units=123
+                    ),
+                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                            max_capacity=123,
+                            min_capacity=123,
+                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                                target_value=123,
+        
+                                # the properties below are optional
+                                disable_scale_in=False,
+                                scale_in_cooldown=123,
+                                scale_out_cooldown=123
+                            ),
+        
+                            # the properties below are optional
+                            seed_capacity=123
+                        ),
+                        read_capacity_units=123
+                    )
+                )],
+                kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
+                    stream_arn="streamArn",
+        
+                    # the properties below are optional
+                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
+                ),
+                point_in_time_recovery_specification=dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
+                    point_in_time_recovery_enabled=False,
+                    recovery_period_in_days=123
+                ),
+                read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                    max_read_request_units=123
+                ),
+                read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                    read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                        max_capacity=123,
+                        min_capacity=123,
+                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                            target_value=123,
+        
+                            # the properties below are optional
+                            disable_scale_in=False,
+                            scale_in_cooldown=123,
+                            scale_out_cooldown=123
+                        ),
+        
+                        # the properties below are optional
+                        seed_capacity=123
+                    ),
+                    read_capacity_units=123
+                ),
+                replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
+                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                        policy_document=policy_document
+                    )
+                ),
+                resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                    policy_document=policy_document
+                ),
+                sse_specification=dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
+                    kms_master_key_id="kmsMasterKeyId"
+                ),
+                table_class="tableClass",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )],
+        
+            # the properties below are optional
+            billing_mode="billingMode",
+            global_secondary_indexes=[dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
+                index_name="indexName",
+                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )],
+                projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                ),
+        
+                # the properties below are optional
+                warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
+                    read_units_per_second=123,
+                    write_units_per_second=123
+                ),
+                write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
+                    max_write_request_units=123
+                ),
+                write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
+                    write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                        max_capacity=123,
+                        min_capacity=123,
+                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                            target_value=123,
+        
+                            # the properties below are optional
+                            disable_scale_in=False,
+                            scale_in_cooldown=123,
+                            scale_out_cooldown=123
+                        ),
+        
+                        # the properties below are optional
+                        seed_capacity=123
+                    )
+                )
+            )],
+            global_table_witnesses=[dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
+                region="region"
+            )],
+            local_secondary_indexes=[dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
+                index_name="indexName",
+                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )],
+                projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                )
+            )],
+            multi_region_consistency="multiRegionConsistency",
+            sse_specification=dynamodb.CfnGlobalTable.SSESpecificationProperty(
+                sse_enabled=False,
+        
+                # the properties below are optional
+                sse_type="sseType"
+            ),
+            stream_specification=dynamodb.CfnGlobalTable.StreamSpecificationProperty(
+                stream_view_type="streamViewType"
+            ),
+            table_name="tableName",
+            time_to_live_specification=dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                attribute_name="attributeName"
+            ),
+            warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
+                read_units_per_second=123,
+                write_units_per_second=123
+            ),
+            write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
+                max_write_request_units=123
+            ),
+            write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
+                write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                    max_capacity=123,
+                    min_capacity=123,
+                    target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                        target_value=123,
+        
+                        # the properties below are optional
+                        disable_scale_in=False,
+                        scale_in_cooldown=123,
+                        scale_out_cooldown=123
+                    ),
+        
+                    # the properties below are optional
+                    seed_capacity=123
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        billing_mode: typing.Optional[builtins.str] = None,
+        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.GlobalTableWitnessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multi_region_consistency: typing.Optional[builtins.str] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_name: typing.Optional[builtins.str] = None,
+        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
+        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
+        :param replicas: Specifies the list of replicas for your global table. The list must contain at least one element, the region where the stack defining the global table is deployed. For example, if you define your table in a stack deployed to us-east-1, you must have an entry in ``Replicas`` with the region us-east-1. You cannot remove the replica in the stack region. .. epigraph:: Adding a replica might take a few minutes for an empty table, or up to several hours for large tables. If you want to add or remove a replica, we recommend submitting an ``UpdateStack`` operation containing only that change. If you add or delete a replica during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new replica, you might need to manually delete the replica. You can create a new global table with as many replicas as needed. You can add or remove replicas after table creation, but you can only add or remove a single replica in each update. For Multi-Region Strong Consistency (MRSC), you can add or remove up to 3 replicas, or 2 replicas plus a witness Region.
+        :param billing_mode: Specifies how you are charged for read and write throughput and how you manage capacity. Valid values are:. - ``PAY_PER_REQUEST`` - ``PROVISIONED`` All replicas in your global table will have the same billing mode. If you use ``PROVISIONED`` billing mode, you must provide an auto scaling configuration via the ``WriteProvisionedThroughputSettings`` property. The default value of this property is ``PROVISIONED`` .
+        :param global_secondary_indexes: Global secondary indexes to be created on the global table. You can create up to 20 global secondary indexes. Each replica in your global table will have the same global secondary index settings. You can only create or delete one global secondary index in a single stack operation. Since the backfilling of an index could take a long time, CloudFormation does not wait for the index to become active. If a stack operation rolls back, CloudFormation might not delete an index that has been added. In that case, you will need to delete the index manually.
+        :param global_table_witnesses: The list of witnesses of the MRSC global table. Only one witness Region can be configured per MRSC global table.
+        :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to five local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes. Each replica in your global table will have the same local secondary index settings.
+        :param multi_region_consistency: Specifies the consistency mode for a new global table. You can specify one of the following consistency modes: - ``EVENTUAL`` : Configures a new global table for multi-Region eventual consistency (MREC). - ``STRONG`` : Configures a new global table for multi-Region strong consistency (MRSC). If you don't specify this field, the global table consistency mode defaults to ``EVENTUAL`` . For more information about global tables consistency modes, see `Consistency modes <https://docs.aws.amazon.com/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes>`_ in DynamoDB developer guide.
+        :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
+        :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
+        :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param time_to_live_specification: Specifies the time to live (TTL) settings for the table. This setting will be applied to all replicas.
+        :param warm_throughput: Provides visibility into the number of read and write operations your table or secondary index can instantaneously support. The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
+        :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+        :param write_provisioned_throughput_settings: Specifies an auto scaling policy for write capacity. This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b30f832c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGlobalTableProps(
+            attribute_definitions=attribute_definitions,
+            key_schema=key_schema,
+            replicas=replicas,
+            billing_mode=billing_mode,
+            global_secondary_indexes=global_secondary_indexes,
+            global_table_witnesses=global_table_witnesses,
+            local_secondary_indexes=local_secondary_indexes,
+            multi_region_consistency=multi_region_consistency,
+            sse_specification=sse_specification,
+            stream_specification=stream_specification,
+            table_name=table_name,
+            time_to_live_specification=time_to_live_specification,
+            warm_throughput=warm_throughput,
+            write_on_demand_throughput_settings=write_on_demand_throughput_settings,
+            write_provisioned_throughput_settings=write_provisioned_throughput_settings,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d6d6d953afce9a6c78e724d40aed1ff47a96ec42f6abd85c9d802b6d17044b3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b537e69787151b8af9fdebb101e49ee80b7950f5c9598c894774176ebe79d87a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the DynamoDB table, such as ``arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable`` .
+
+        The ARN returned is that of the replica in the region the stack is deployed to.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamArn")
+    def attr_stream_arn(self) -> builtins.str:
+        '''The ARN of the DynamoDB stream, such as ``arn:aws:dynamodb:us-east-1:123456789012:table/testddbstack-myDynamoDBTable-012A1SL7SMP5Q/stream/2015-11-30T20:10:00.000`` . The ``StreamArn`` returned is that of the replica in the region the stack is deployed to.
+
+        .. epigraph::
+
+           You must specify the ``StreamSpecification`` property to use this attribute.
+
+        :cloudformationAttribute: StreamArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTableId")
+    def attr_table_id(self) -> builtins.str:
+        '''Unique identifier for the table, such as ``a123b456-01ab-23cd-123a-111222aaabbb`` .
+
+        The ``TableId`` returned is that of the replica in the region the stack is deployed to.
+
+        :cloudformationAttribute: TableId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTableId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="globalTableRef")
+    def global_table_ref(self) -> GlobalTableReference:
+        '''A reference to a GlobalTable resource.'''
+        return typing.cast(GlobalTableReference, jsii.get(self, "globalTableRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeDefinitions")
+    def attribute_definitions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]]:
+        '''A list of attributes that describe the key schema for the global table and indexes.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]], jsii.get(self, "attributeDefinitions"))
+
+    @attribute_definitions.setter
+    def attribute_definitions(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.AttributeDefinitionProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keySchema")
+    def key_schema(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
+        '''Specifies the attributes that make up the primary key for the table.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], jsii.get(self, "keySchema"))
+
+    @key_schema.setter
+    def key_schema(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicas")
+    def replicas(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]]:
+        '''Specifies the list of replicas for your global table.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]], jsii.get(self, "replicas"))
+
+    @replicas.setter
+    def replicas(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSpecificationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="billingMode")
+    def billing_mode(self) -> typing.Optional[builtins.str]:
+        '''Specifies how you are charged for read and write throughput and how you manage capacity.
+
+        Valid values are:.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "billingMode"))
+
+    @billing_mode.setter
+    def billing_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7a91e461bd5e49ff4dc2350ae1ceae8597a286d7e21db96c7ec976ba3537e3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalSecondaryIndexes")
+    def global_secondary_indexes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]]:
+        '''Global secondary indexes to be created on the global table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]], jsii.get(self, "globalSecondaryIndexes"))
+
+    @global_secondary_indexes.setter
+    def global_secondary_indexes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d9872d332b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalTableWitnesses")
+    def global_table_witnesses(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]]:
+        '''The list of witnesses of the MRSC global table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]], jsii.get(self, "globalTableWitnesses"))
+
+    @global_table_witnesses.setter
+    def global_table_witnesses(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.GlobalTableWitnessProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalTableWitnesses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="localSecondaryIndexes")
+    def local_secondary_indexes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]]:
+        '''Local secondary indexes to be created on the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]], jsii.get(self, "localSecondaryIndexes"))
+
+    @local_secondary_indexes.setter
+    def local_secondary_indexes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.LocalSecondaryIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188ceee5162)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionConsistency")
+    def multi_region_consistency(self) -> typing.Optional[builtins.str]:
+        '''Specifies the consistency mode for a new global table.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "multiRegionConsistency"))
+
+    @multi_region_consistency.setter
+    def multi_region_consistency(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "multiRegionConsistency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sseSpecification")
+    def sse_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]]:
+        '''Specifies the settings to enable server-side encryption.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]], jsii.get(self, "sseSpecification"))
+
+    @sse_specification.setter
+    def sse_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.SSESpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ccb739aac1de1ded207a80b782298c972ccf113dd96de224fea60f9ce1b43833)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamSpecification")
+    def stream_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]]:
+        '''Specifies the streams settings on your global table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]], jsii.get(self, "streamSpecification"))
+
+    @stream_specification.setter
+    def stream_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.StreamSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce608971cd7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableName")
+    def table_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the global table.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableName"))
+
+    @table_name.setter
+    def table_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeToLiveSpecification")
+    def time_to_live_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]]:
+        '''Specifies the time to live (TTL) settings for the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]], jsii.get(self, "timeToLiveSpecification"))
+
+    @time_to_live_specification.setter
+    def time_to_live_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TimeToLiveSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="warmThroughput")
+    def warm_throughput(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]]:
+        '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]], jsii.get(self, "warmThroughput"))
+
+    @warm_throughput.setter
+    def warm_throughput(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cffa71e41723d2cc6240a56e0993116de480cb2c21c1c9bb92de9599718c4b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="writeOnDemandThroughputSettings")
+    def write_on_demand_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]]:
+        '''Sets the write request settings for a global table or a global secondary index.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]], jsii.get(self, "writeOnDemandThroughputSettings"))
+
+    @write_on_demand_throughput_settings.setter
+    def write_on_demand_throughput_settings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9e1941bc70970aa12bf29b98d00fed94dd701aea1acb0d4280e0f96ab3ca8bc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "writeOnDemandThroughputSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="writeProvisionedThroughputSettings")
+    def write_provisioned_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]]:
+        '''Specifies an auto scaling policy for write capacity.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]], jsii.get(self, "writeProvisionedThroughputSettings"))
+
+    @write_provisioned_throughput_settings.setter
+    def write_provisioned_throughput_settings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__575a6fcd8e2e451f04b5c40c3e6da53aad798e3089f98afaa25d709c7d291a10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "writeProvisionedThroughputSettings", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.AttributeDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attribute_name": "attributeName",
+            "attribute_type": "attributeType",
+        },
+    )
+    class AttributeDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            attribute_type: builtins.str,
+        ) -> None:
+            '''Represents an attribute for describing the schema for the table and indexes.
+
+            :param attribute_name: A name for the attribute.
+            :param attribute_type: The data type for the attribute, where:. - ``S`` - the attribute is of type String - ``N`` - the attribute is of type Number - ``B`` - the attribute is of type Binary
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                attribute_definition_property = dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
+                    attribute_name="attributeName",
+                    attribute_type="attributeType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__132ff4911748619940d51d18802ab16c68912a365b124aba40c2bad82a6fdd34)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument attribute_type", value=attribute_type, expected_type=type_hints["attribute_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "attribute_type": attribute_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''A name for the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html#cfn-dynamodb-globaltable-attributedefinition-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def attribute_type(self) -> builtins.str:
+            '''The data type for the attribute, where:.
+
+            - ``S`` - the attribute is of type String
+            - ``N`` - the attribute is of type Number
+            - ``B`` - the attribute is of type Binary
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-attributedefinition.html#cfn-dynamodb-globaltable-attributedefinition-attributetype
+            '''
+            result = self._values.get("attribute_type")
+            assert result is not None, "Required property 'attribute_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AttributeDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_capacity": "maxCapacity",
+            "min_capacity": "minCapacity",
+            "target_tracking_scaling_policy_configuration": "targetTrackingScalingPolicyConfiguration",
+            "seed_capacity": "seedCapacity",
+        },
+    )
+    class CapacityAutoScalingSettingsProperty:
+        def __init__(
+            self,
+            *,
+            max_capacity: jsii.Number,
+            min_capacity: jsii.Number,
+            target_tracking_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            seed_capacity: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configures a scalable target and an autoscaling policy for a table or global secondary index's read or write capacity.
+
+            :param max_capacity: The maximum provisioned capacity units for the global table.
+            :param min_capacity: The minimum provisioned capacity units for the global table.
+            :param target_tracking_scaling_policy_configuration: Defines a target tracking scaling policy.
+            :param seed_capacity: When switching billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , DynamoDB requires you to specify read and write capacity unit values for the table and for each global secondary index. These values will be applied to all replicas. The table will use these provisioned values until CloudFormation creates the autoscaling policies you configured in your template. CloudFormation cannot determine what capacity the table and its global secondary indexes will require in this time period, since they are application-dependent. If you want to switch a table's billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , you must specify a value for this property for each autoscaled resource. If you specify different values for the same resource in different regions, CloudFormation will use the highest value found in either the ``SeedCapacity`` or ``ReadCapacityUnits`` properties. For example, if your global secondary index ``myGSI`` has a ``SeedCapacity`` of 10 in us-east-1 and a fixed ``ReadCapacityUnits`` of 20 in eu-west-1, CloudFormation will initially set the read capacity for ``myGSI`` to 20. Note that if you disable ``ScaleIn`` for ``myGSI`` in us-east-1, its read capacity units might not be set back to 10. You must also specify a value for ``SeedCapacity`` when you plan to switch a table's billing mode from ``PROVISIONED`` to ``PAY_PER_REQUEST`` , because CloudFormation might need to roll back the operation (reverting the billing mode to ``PROVISIONED`` ) and this cannot succeed without specifying a value for ``SeedCapacity`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                capacity_auto_scaling_settings_property = dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                    max_capacity=123,
+                    min_capacity=123,
+                    target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                        target_value=123,
+                
+                        # the properties below are optional
+                        disable_scale_in=False,
+                        scale_in_cooldown=123,
+                        scale_out_cooldown=123
+                    ),
+                
+                    # the properties below are optional
+                    seed_capacity=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__51587895f2d228591cb8c1b278064c8ca442192e93e2e20c22de9e04b6a6e60a)
+                check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
+                check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
+                check_type(argname="argument target_tracking_scaling_policy_configuration", value=target_tracking_scaling_policy_configuration, expected_type=type_hints["target_tracking_scaling_policy_configuration"])
+                check_type(argname="argument seed_capacity", value=seed_capacity, expected_type=type_hints["seed_capacity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_capacity": max_capacity,
+                "min_capacity": min_capacity,
+                "target_tracking_scaling_policy_configuration": target_tracking_scaling_policy_configuration,
+            }
+            if seed_capacity is not None:
+                self._values["seed_capacity"] = seed_capacity
+
+        @builtins.property
+        def max_capacity(self) -> jsii.Number:
+            '''The maximum provisioned capacity units for the global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-maxcapacity
+            '''
+            result = self._values.get("max_capacity")
+            assert result is not None, "Required property 'max_capacity' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def min_capacity(self) -> jsii.Number:
+            '''The minimum provisioned capacity units for the global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-mincapacity
+            '''
+            result = self._values.get("min_capacity")
+            assert result is not None, "Required property 'min_capacity' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def target_tracking_scaling_policy_configuration(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty"]:
+            '''Defines a target tracking scaling policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-targettrackingscalingpolicyconfiguration
+            '''
+            result = self._values.get("target_tracking_scaling_policy_configuration")
+            assert result is not None, "Required property 'target_tracking_scaling_policy_configuration' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty"], result)
+
+        @builtins.property
+        def seed_capacity(self) -> typing.Optional[jsii.Number]:
+            '''When switching billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , DynamoDB requires you to specify read and write capacity unit values for the table and for each global secondary index.
+
+            These values will be applied to all replicas. The table will use these provisioned values until CloudFormation creates the autoscaling policies you configured in your template. CloudFormation cannot determine what capacity the table and its global secondary indexes will require in this time period, since they are application-dependent.
+
+            If you want to switch a table's billing mode from ``PAY_PER_REQUEST`` to ``PROVISIONED`` , you must specify a value for this property for each autoscaled resource. If you specify different values for the same resource in different regions, CloudFormation will use the highest value found in either the ``SeedCapacity`` or ``ReadCapacityUnits`` properties. For example, if your global secondary index ``myGSI`` has a ``SeedCapacity`` of 10 in us-east-1 and a fixed ``ReadCapacityUnits`` of 20 in eu-west-1, CloudFormation will initially set the read capacity for ``myGSI`` to 20. Note that if you disable ``ScaleIn`` for ``myGSI`` in us-east-1, its read capacity units might not be set back to 10.
+
+            You must also specify a value for ``SeedCapacity`` when you plan to switch a table's billing mode from ``PROVISIONED`` to ``PAY_PER_REQUEST`` , because CloudFormation might need to roll back the operation (reverting the billing mode to ``PROVISIONED`` ) and this cannot succeed without specifying a value for ``SeedCapacity`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-capacityautoscalingsettings.html#cfn-dynamodb-globaltable-capacityautoscalingsettings-seedcapacity
+            '''
+            result = self._values.get("seed_capacity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityAutoScalingSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "mode": "mode"},
+    )
+    class ContributorInsightsSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures contributor insights settings for a replica or one of its indexes.
+
+            :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+            :param mode: Specifies the CloudWatch Contributor Insights mode for a global table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                contributor_insights_specification_property = dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    mode="mode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if mode is not None:
+                self._values["mode"] = mode
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''Specifies the CloudWatch Contributor Insights mode for a global table.
+
+            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContributorInsightsSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "index_name": "indexName",
+            "key_schema": "keySchema",
+            "projection": "projection",
+            "warm_throughput": "warmThroughput",
+            "write_on_demand_throughput_settings": "writeOnDemandThroughputSettings",
+            "write_provisioned_throughput_settings": "writeProvisionedThroughputSettings",
+        },
+    )
+    class GlobalSecondaryIndexProperty:
+        def __init__(
+            self,
+            *,
+            index_name: builtins.str,
+            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+            warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Allows you to specify a global secondary index for the global table.
+
+            The index will be defined on all replicas.
+
+            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
+            :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+            :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+            :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
+            :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+            :param write_provisioned_throughput_settings: Defines write capacity settings for the global secondary index. You must specify a value for this property if the table's ``BillingMode`` is ``PROVISIONED`` . All replicas will have the same write capacity settings for this global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                global_secondary_index_property = dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
+                    index_name="indexName",
+                    key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                        attribute_name="attributeName",
+                        key_type="keyType"
+                    )],
+                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                
+                    # the properties below are optional
+                    warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
+                        read_units_per_second=123,
+                        write_units_per_second=123
+                    ),
+                    write_on_demand_throughput_settings=dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
+                        max_write_request_units=123
+                    ),
+                    write_provisioned_throughput_settings=dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
+                        write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                            max_capacity=123,
+                            min_capacity=123,
+                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                                target_value=123,
+                
+                                # the properties below are optional
+                                disable_scale_in=False,
+                                scale_in_cooldown=123,
+                                scale_out_cooldown=123
+                            ),
+                
+                            # the properties below are optional
+                            seed_capacity=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e4c0e93a19b9176fd628b4a4e5a1bb2ecabf4d1960e7d8fd138a1ecf06466de5)
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+                check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
+                check_type(argname="argument write_on_demand_throughput_settings", value=write_on_demand_throughput_settings, expected_type=type_hints["write_on_demand_throughput_settings"])
+                check_type(argname="argument write_provisioned_throughput_settings", value=write_provisioned_throughput_settings, expected_type=type_hints["write_provisioned_throughput_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "index_name": index_name,
+                "key_schema": key_schema,
+                "projection": projection,
+            }
+            if warm_throughput is not None:
+                self._values["warm_throughput"] = warm_throughput
+            if write_on_demand_throughput_settings is not None:
+                self._values["write_on_demand_throughput_settings"] = write_on_demand_throughput_settings
+            if write_provisioned_throughput_settings is not None:
+                self._values["write_provisioned_throughput_settings"] = write_provisioned_throughput_settings
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''The name of the global secondary index.
+
+            The name must be unique among all other indexes on this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_schema(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
+            '''The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
+
+            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+            .. epigraph::
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-keyschema
+            '''
+            result = self._values.get("key_schema")
+            assert result is not None, "Required property 'key_schema' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"]:
+            '''Represents attributes that are copied (projected) from the table into the global secondary index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"], result)
+
+        @builtins.property
+        def warm_throughput(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]]:
+            '''Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index.
+
+            If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-warmthroughput
+            '''
+            result = self._values.get("warm_throughput")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WarmThroughputProperty"]], result)
+
+        @builtins.property
+        def write_on_demand_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]]:
+            '''Sets the write request settings for a global table or a global secondary index.
+
+            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-writeondemandthroughputsettings
+            '''
+            result = self._values.get("write_on_demand_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteOnDemandThroughputSettingsProperty"]], result)
+
+        @builtins.property
+        def write_provisioned_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]]:
+            '''Defines write capacity settings for the global secondary index.
+
+            You must specify a value for this property if the table's ``BillingMode`` is ``PROVISIONED`` . All replicas will have the same write capacity settings for this global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-writeprovisionedthroughputsettings
+            '''
+            result = self._values.get("write_provisioned_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.WriteProvisionedThroughputSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GlobalSecondaryIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalTableWitnessProperty",
+        jsii_struct_bases=[],
+        name_mapping={"region": "region"},
+    )
+    class GlobalTableWitnessProperty:
+        def __init__(self, *, region: typing.Optional[builtins.str] = None) -> None:
+            '''The witness Region for the MRSC global table.
+
+            A MRSC global table can be configured with either three replicas, or with two replicas and one witness.
+
+            The witness must be in a different Region than the replicas and within the same Region set:
+
+            - US Region set: US East (N. Virginia), US East (Ohio), US West (Oregon)
+            - EU Region set: Europe (Ireland), Europe (London), Europe (Paris), Europe (Frankfurt)
+            - AP Region set: Asia Pacific (Tokyo), Asia Pacific (Seoul), Asia Pacific (Osaka)
+
+            :param region: The name of the AWS Region that serves as a witness for the MRSC global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globaltablewitness.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                global_table_witness_property = dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b7628b4fa51cd4a5f8c1253b45a920f7c03001298e758a5d6592641047f1b8e9)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if region is not None:
+                self._values["region"] = region
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The name of the AWS Region that serves as a witness for the MRSC global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globaltablewitness.html#cfn-dynamodb-globaltable-globaltablewitness-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GlobalTableWitnessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.KeySchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attribute_name": "attributeName", "key_type": "keyType"},
+    )
+    class KeySchemaProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            key_type: builtins.str,
+        ) -> None:
+            '''Represents *a single element* of a key schema.
+
+            A key schema specifies the attributes that make up the primary key of a table, or the key attributes of an index.
+
+            A ``KeySchemaElement`` represents exactly one attribute of the primary key. For example, a simple primary key would be represented by one ``KeySchemaElement`` (for the partition key). A composite primary key would require one ``KeySchemaElement`` for the partition key, and another ``KeySchemaElement`` for the sort key.
+
+            A ``KeySchemaElement`` must be a scalar, top-level attribute (not a nested attribute). The data type must be one of String, Number, or Binary. The attribute cannot be nested within a List or a Map.
+
+            :param attribute_name: The name of a key attribute.
+            :param key_type: The role that this key attribute will assume:. - ``HASH`` - partition key - ``RANGE`` - sort key .. epigraph:: The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                key_schema_property = dynamodb.CfnGlobalTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2f6fed9a918a916a89877bc736388ca668f340b42771520c53e2d95e6b4837e2)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "key_type": key_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''The name of a key attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html#cfn-dynamodb-globaltable-keyschema-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_type(self) -> builtins.str:
+            '''The role that this key attribute will assume:.
+
+            - ``HASH`` - partition key
+            - ``RANGE`` - sort key
+
+            .. epigraph::
+
+               The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-keyschema.html#cfn-dynamodb-globaltable-keyschema-keytype
+            '''
+            result = self._values.get("key_type")
+            assert result is not None, "Required property 'key_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeySchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "stream_arn": "streamArn",
+            "approximate_creation_date_time_precision": "approximateCreationDateTimePrecision",
+        },
+    )
+    class KinesisStreamSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            stream_arn: builtins.str,
+            approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Kinesis Data Streams configuration for the specified global table replica.
+
+            :param stream_arn: The ARN for a specific Kinesis data stream.
+            :param approximate_creation_date_time_precision: The precision for the time and date that the stream was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                kinesis_stream_specification_property = dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
+                    stream_arn="streamArn",
+                
+                    # the properties below are optional
+                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6acc9d3df1fb5e5e6046cee30108ea5fa4450c329d99252dfa36f32cff756603)
+                check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+                check_type(argname="argument approximate_creation_date_time_precision", value=approximate_creation_date_time_precision, expected_type=type_hints["approximate_creation_date_time_precision"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stream_arn": stream_arn,
+            }
+            if approximate_creation_date_time_precision is not None:
+                self._values["approximate_creation_date_time_precision"] = approximate_creation_date_time_precision
+
+        @builtins.property
+        def stream_arn(self) -> builtins.str:
+            '''The ARN for a specific Kinesis data stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html#cfn-dynamodb-globaltable-kinesisstreamspecification-streamarn
+            '''
+            result = self._values.get("stream_arn")
+            assert result is not None, "Required property 'stream_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def approximate_creation_date_time_precision(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''The precision for the time and date that the stream was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-kinesisstreamspecification.html#cfn-dynamodb-globaltable-kinesisstreamspecification-approximatecreationdatetimeprecision
+            '''
+            result = self._values.get("approximate_creation_date_time_precision")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisStreamSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "index_name": "indexName",
+            "key_schema": "keySchema",
+            "projection": "projection",
+        },
+    )
+    class LocalSecondaryIndexProperty:
+        def __init__(
+            self,
+            *,
+            index_name: builtins.str,
+            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Represents the properties of a local secondary index.
+
+            A local secondary index can only be created when its parent table is created.
+
+            :param index_name: The name of the local secondary index. The name must be unique among all other indexes on this table.
+            :param key_schema: The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+            :param projection: Represents attributes that are copied (projected) from the table into the local secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                local_secondary_index_property = dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
+                    index_name="indexName",
+                    key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                        attribute_name="attributeName",
+                        key_type="keyType"
+                    )],
+                    projection=dynamodb.CfnGlobalTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cc80bdf64e67d180ed664a6277a7783edc8ac361b313b1a9c645a7fbedba26ea)
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "index_name": index_name,
+                "key_schema": key_schema,
+                "projection": projection,
+            }
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''The name of the local secondary index.
+
+            The name must be unique among all other indexes on this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_schema(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]]:
+            '''The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
+
+            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+            .. epigraph::
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-keyschema
+            '''
+            result = self._values.get("key_schema")
+            assert result is not None, "Required property 'key_schema' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KeySchemaProperty"]]], result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"]:
+            '''Represents attributes that are copied (projected) from the table into the local secondary index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-localsecondaryindex.html#cfn-dynamodb-globaltable-localsecondaryindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ProjectionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LocalSecondaryIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "point_in_time_recovery_enabled": "pointInTimeRecoveryEnabled",
+            "recovery_period_in_days": "recoveryPeriodInDays",
+        },
+    )
+    class PointInTimeRecoverySpecificationProperty:
+        def __init__(
+            self,
+            *,
+            point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            recovery_period_in_days: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Represents the settings used to enable point in time recovery.
+
+            :param point_in_time_recovery_enabled: Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
+            :param recovery_period_in_days: The number of preceding days for which continuous backups are taken and maintained. Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                point_in_time_recovery_specification_property = dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
+                    point_in_time_recovery_enabled=False,
+                    recovery_period_in_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d5290cad7073a0d0e9ec36328a3c9ddef8999cbd0266a5bcc51dd77a05820353)
+                check_type(argname="argument point_in_time_recovery_enabled", value=point_in_time_recovery_enabled, expected_type=type_hints["point_in_time_recovery_enabled"])
+                check_type(argname="argument recovery_period_in_days", value=recovery_period_in_days, expected_type=type_hints["recovery_period_in_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if point_in_time_recovery_enabled is not None:
+                self._values["point_in_time_recovery_enabled"] = point_in_time_recovery_enabled
+            if recovery_period_in_days is not None:
+                self._values["recovery_period_in_days"] = recovery_period_in_days
+
+        @builtins.property
+        def point_in_time_recovery_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html#cfn-dynamodb-globaltable-pointintimerecoveryspecification-pointintimerecoveryenabled
+            '''
+            result = self._values.get("point_in_time_recovery_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def recovery_period_in_days(self) -> typing.Optional[jsii.Number]:
+            '''The number of preceding days for which continuous backups are taken and maintained.
+
+            Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-pointintimerecoveryspecification.html#cfn-dynamodb-globaltable-pointintimerecoveryspecification-recoveryperiodindays
+            '''
+            result = self._values.get("recovery_period_in_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PointInTimeRecoverySpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ProjectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "non_key_attributes": "nonKeyAttributes",
+            "projection_type": "projectionType",
+        },
+    )
+    class ProjectionProperty:
+        def __init__(
+            self,
+            *,
+            non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            projection_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents attributes that are copied (projected) from the table into an index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :param non_key_attributes: Represents the non-key attribute names which will be projected into the index. For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
+            :param projection_type: The set of attributes that are projected into the index:. - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index. - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify. - ``ALL`` - All of the table attributes are projected into the index. When using the DynamoDB console, ``ALL`` is selected by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                projection_property = dynamodb.CfnGlobalTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4c0de1c2636b4a9d86fe25eb5edc6065c41b4822ca849d93b7d9dd461a8a1726)
+                check_type(argname="argument non_key_attributes", value=non_key_attributes, expected_type=type_hints["non_key_attributes"])
+                check_type(argname="argument projection_type", value=projection_type, expected_type=type_hints["projection_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if non_key_attributes is not None:
+                self._values["non_key_attributes"] = non_key_attributes
+            if projection_type is not None:
+                self._values["projection_type"] = projection_type
+
+        @builtins.property
+        def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Represents the non-key attribute names which will be projected into the index.
+
+            For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html#cfn-dynamodb-globaltable-projection-nonkeyattributes
+            '''
+            result = self._values.get("non_key_attributes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def projection_type(self) -> typing.Optional[builtins.str]:
+            '''The set of attributes that are projected into the index:.
+
+            - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index.
+            - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify.
+            - ``ALL`` - All of the table attributes are projected into the index.
+
+            When using the DynamoDB console, ``ALL`` is selected by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-projection.html#cfn-dynamodb-globaltable-projection-projectiontype
+            '''
+            result = self._values.get("projection_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProjectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_read_request_units": "maxReadRequestUnits"},
+    )
+    class ReadOnDemandThroughputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            max_read_request_units: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Sets the read request settings for a replica table or a replica global secondary index.
+
+            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+
+            :param max_read_request_units: Maximum number of read request units for the specified replica of a global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                read_on_demand_throughput_settings_property = dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                    max_read_request_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0fd14c9cf2e3c45eb388ee769c75710497a5d90721d232825a5cf8f3e9f4a225)
+                check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_read_request_units is not None:
+                self._values["max_read_request_units"] = max_read_request_units
+
+        @builtins.property
+        def max_read_request_units(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of read request units for the specified replica of a global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html#cfn-dynamodb-globaltable-readondemandthroughputsettings-maxreadrequestunits
+            '''
+            result = self._values.get("max_read_request_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadOnDemandThroughputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "read_capacity_auto_scaling_settings": "readCapacityAutoScalingSettings",
+            "read_capacity_units": "readCapacityUnits",
+        },
+    )
+    class ReadProvisionedThroughputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            read_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.CapacityAutoScalingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_capacity_units: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Allows you to specify the read capacity settings for a replica table or a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
+
+            You must specify a value for either ``ReadCapacityUnits`` or ``ReadCapacityAutoScalingSettings`` , but not both. You can switch between fixed capacity and auto scaling.
+
+            :param read_capacity_auto_scaling_settings: Specifies auto scaling settings for the replica table or global secondary index.
+            :param read_capacity_units: Specifies a fixed read capacity for the replica table or global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                read_provisioned_throughput_settings_property = dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                    read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                        max_capacity=123,
+                        min_capacity=123,
+                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                            target_value=123,
+                
+                            # the properties below are optional
+                            disable_scale_in=False,
+                            scale_in_cooldown=123,
+                            scale_out_cooldown=123
+                        ),
+                
+                        # the properties below are optional
+                        seed_capacity=123
+                    ),
+                    read_capacity_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b95856807eaa8352f280e9d6233fd175afe80fcaffeb2aa7ece368e85c369db9)
+                check_type(argname="argument read_capacity_auto_scaling_settings", value=read_capacity_auto_scaling_settings, expected_type=type_hints["read_capacity_auto_scaling_settings"])
+                check_type(argname="argument read_capacity_units", value=read_capacity_units, expected_type=type_hints["read_capacity_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if read_capacity_auto_scaling_settings is not None:
+                self._values["read_capacity_auto_scaling_settings"] = read_capacity_auto_scaling_settings
+            if read_capacity_units is not None:
+                self._values["read_capacity_units"] = read_capacity_units
+
+        @builtins.property
+        def read_capacity_auto_scaling_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]]:
+            '''Specifies auto scaling settings for the replica table or global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-readprovisionedthroughputsettings-readcapacityautoscalingsettings
+            '''
+            result = self._values.get("read_capacity_auto_scaling_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]], result)
+
+        @builtins.property
+        def read_capacity_units(self) -> typing.Optional[jsii.Number]:
+            '''Specifies a fixed read capacity for the replica table or global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-readprovisionedthroughputsettings-readcapacityunits
+            '''
+            result = self._values.get("read_capacity_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadProvisionedThroughputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "index_name": "indexName",
+            "contributor_insights_specification": "contributorInsightsSpecification",
+            "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
+            "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
+        },
+    )
+    class ReplicaGlobalSecondaryIndexSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            index_name: builtins.str,
+            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents the properties of a global secondary index that can be set on a per-replica basis.
+
+            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
+            :param contributor_insights_specification: Updates the status for contributor insights for a specific table or index. CloudWatch Contributor Insights for DynamoDB graphs display the partition key and (if applicable) sort key of frequently accessed items and frequently throttled items in plaintext. If you require the use of AWS Key Management Service (KMS) to encrypt this table’s partition key and sort key data with an AWS managed key or customer managed key, you should not enable CloudWatch Contributor Insights for DynamoDB for this table.
+            :param read_on_demand_throughput_settings: Sets the read request settings for a replica global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+            :param read_provisioned_throughput_settings: Allows you to specify the read capacity settings for a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                replica_global_secondary_index_specification_property = dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
+                    index_name="indexName",
+                
+                    # the properties below are optional
+                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
+                    ),
+                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                        max_read_request_units=123
+                    ),
+                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                            max_capacity=123,
+                            min_capacity=123,
+                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                                target_value=123,
+                
+                                # the properties below are optional
+                                disable_scale_in=False,
+                                scale_in_cooldown=123,
+                                scale_out_cooldown=123
+                            ),
+                
+                            # the properties below are optional
+                            seed_capacity=123
+                        ),
+                        read_capacity_units=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49303cfe760c4878a1d5ead21be42a0bc2eebc2849956fff8adf78f55a49ab0d)
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
+                check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
+                check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "index_name": index_name,
+            }
+            if contributor_insights_specification is not None:
+                self._values["contributor_insights_specification"] = contributor_insights_specification
+            if read_on_demand_throughput_settings is not None:
+                self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
+            if read_provisioned_throughput_settings is not None:
+                self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''The name of the global secondary index.
+
+            The name must be unique among all other indexes on this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def contributor_insights_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]]:
+            '''Updates the status for contributor insights for a specific table or index.
+
+            CloudWatch Contributor Insights for DynamoDB graphs display the partition key and (if applicable) sort key of frequently accessed items and frequently throttled items in plaintext. If you require the use of AWS Key Management Service (KMS) to encrypt this table’s partition key and sort key data with an AWS managed key or customer managed key, you should not enable CloudWatch Contributor Insights for DynamoDB for this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-contributorinsightsspecification
+            '''
+            result = self._values.get("contributor_insights_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]], result)
+
+        @builtins.property
+        def read_on_demand_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
+            '''Sets the read request settings for a replica global secondary index.
+
+            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-readondemandthroughputsettings
+            '''
+            result = self._values.get("read_on_demand_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
+
+        @builtins.property
+        def read_provisioned_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]]:
+            '''Allows you to specify the read capacity settings for a replica global secondary index when the ``BillingMode`` is set to ``PROVISIONED`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaglobalsecondaryindexspecification.html#cfn-dynamodb-globaltable-replicaglobalsecondaryindexspecification-readprovisionedthroughputsettings
+            '''
+            result = self._values.get("read_provisioned_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaGlobalSecondaryIndexSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_master_key_id": "kmsMasterKeyId"},
+    )
+    class ReplicaSSESpecificationProperty:
+        def __init__(self, *, kms_master_key_id: builtins.str) -> None:
+            '''Allows you to specify a KMS key identifier to be used for server-side encryption.
+
+            The key can be specified via ARN, key ID, or alias. The key must be created in the same region as the replica.
+
+            :param kms_master_key_id: The AWS KMS key that should be used for the AWS KMS encryption. To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicassespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                replica_sSESpecification_property = dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
+                    kms_master_key_id="kmsMasterKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__13d47a60eb46d74e5115b498f84bf715cc24726b136c4176ed35bd7defb0f3b4)
+                check_type(argname="argument kms_master_key_id", value=kms_master_key_id, expected_type=type_hints["kms_master_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kms_master_key_id": kms_master_key_id,
+            }
+
+        @builtins.property
+        def kms_master_key_id(self) -> builtins.str:
+            '''The AWS KMS key that should be used for the AWS KMS encryption.
+
+            To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicassespecification.html#cfn-dynamodb-globaltable-replicassespecification-kmsmasterkeyid
+            '''
+            result = self._values.get("kms_master_key_id")
+            assert result is not None, "Required property 'kms_master_key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaSSESpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "region": "region",
+            "contributor_insights_specification": "contributorInsightsSpecification",
+            "deletion_protection_enabled": "deletionProtectionEnabled",
+            "global_secondary_indexes": "globalSecondaryIndexes",
+            "kinesis_stream_specification": "kinesisStreamSpecification",
+            "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
+            "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
+            "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
+            "replica_stream_specification": "replicaStreamSpecification",
+            "resource_policy": "resourcePolicy",
+            "sse_specification": "sseSpecification",
+            "table_class": "tableClass",
+            "tags": "tags",
+        },
+    )
+    class ReplicaSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            region: builtins.str,
+            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            replica_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ReplicaSSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_class: typing.Optional[builtins.str] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Defines settings specific to a single replica of a global table.
+
+            :param region: The region in which this replica exists.
+            :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified replica. When not specified, defaults to contributor insights disabled for the replica.
+            :param deletion_protection_enabled: Determines if a replica is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
+            :param global_secondary_indexes: Defines additional settings for the global secondary indexes of this replica.
+            :param kinesis_stream_specification: Defines the Kinesis Data Streams configuration for the specified replica.
+            :param point_in_time_recovery_specification: The settings used to enable point in time recovery. When not specified, defaults to point in time recovery disabled for the replica.
+            :param read_on_demand_throughput_settings: Sets read request settings for the replica table.
+            :param read_provisioned_throughput_settings: Defines read capacity settings for the replica table.
+            :param replica_stream_specification: Represents the DynamoDB Streams configuration for a global table replica.
+            :param resource_policy: A resource-based policy document that contains permissions to add to the specified replica of a DynamoDB global table. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+            :param sse_specification: Allows you to specify a customer-managed key for the replica. When using customer-managed keys for server-side encryption, this property must have a value in all replicas.
+            :param table_class: The table class of the specified table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
+            :param tags: An array of key-value pairs to apply to this replica. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                # policy_document: Any
+                
+                replica_specification_property = dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
+                    region="region",
+                
+                    # the properties below are optional
+                    contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
+                    ),
+                    deletion_protection_enabled=False,
+                    global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
+                        index_name="indexName",
+                
+                        # the properties below are optional
+                        contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
+                            enabled=False,
+                
+                            # the properties below are optional
+                            mode="mode"
+                        ),
+                        read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                            max_read_request_units=123
+                        ),
+                        read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                            read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                                max_capacity=123,
+                                min_capacity=123,
+                                target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                                    target_value=123,
+                
+                                    # the properties below are optional
+                                    disable_scale_in=False,
+                                    scale_in_cooldown=123,
+                                    scale_out_cooldown=123
+                                ),
+                
+                                # the properties below are optional
+                                seed_capacity=123
+                            ),
+                            read_capacity_units=123
+                        )
+                    )],
+                    kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
+                        stream_arn="streamArn",
+                
+                        # the properties below are optional
+                        approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
+                    ),
+                    point_in_time_recovery_specification=dynamodb.CfnGlobalTable.PointInTimeRecoverySpecificationProperty(
+                        point_in_time_recovery_enabled=False,
+                        recovery_period_in_days=123
+                    ),
+                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                        max_read_request_units=123
+                    ),
+                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.ReadProvisionedThroughputSettingsProperty(
+                        read_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                            max_capacity=123,
+                            min_capacity=123,
+                            target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                                target_value=123,
+                
+                                # the properties below are optional
+                                disable_scale_in=False,
+                                scale_in_cooldown=123,
+                                scale_out_cooldown=123
+                            ),
+                
+                            # the properties below are optional
+                            seed_capacity=123
+                        ),
+                        read_capacity_units=123
+                    ),
+                    replica_stream_specification=dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
+                        resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                            policy_document=policy_document
+                        )
+                    ),
+                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                        policy_document=policy_document
+                    ),
+                    sse_specification=dynamodb.CfnGlobalTable.ReplicaSSESpecificationProperty(
+                        kms_master_key_id="kmsMasterKeyId"
+                    ),
+                    table_class="tableClass",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e45f373b)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
+                check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+                check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
+                check_type(argname="argument kinesis_stream_specification", value=kinesis_stream_specification, expected_type=type_hints["kinesis_stream_specification"])
+                check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
+                check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
+                check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
+                check_type(argname="argument replica_stream_specification", value=replica_stream_specification, expected_type=type_hints["replica_stream_specification"])
+                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+                check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
+                check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region": region,
+            }
+            if contributor_insights_specification is not None:
+                self._values["contributor_insights_specification"] = contributor_insights_specification
+            if deletion_protection_enabled is not None:
+                self._values["deletion_protection_enabled"] = deletion_protection_enabled
+            if global_secondary_indexes is not None:
+                self._values["global_secondary_indexes"] = global_secondary_indexes
+            if kinesis_stream_specification is not None:
+                self._values["kinesis_stream_specification"] = kinesis_stream_specification
+            if point_in_time_recovery_specification is not None:
+                self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
+            if read_on_demand_throughput_settings is not None:
+                self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
+            if read_provisioned_throughput_settings is not None:
+                self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
+            if replica_stream_specification is not None:
+                self._values["replica_stream_specification"] = replica_stream_specification
+            if resource_policy is not None:
+                self._values["resource_policy"] = resource_policy
+            if sse_specification is not None:
+                self._values["sse_specification"] = sse_specification
+            if table_class is not None:
+                self._values["table_class"] = table_class
+            if tags is not None:
+                self._values["tags"] = tags
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''The region in which this replica exists.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def contributor_insights_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]]:
+            '''The settings used to enable or disable CloudWatch Contributor Insights for the specified replica.
+
+            When not specified, defaults to contributor insights disabled for the replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-contributorinsightsspecification
+            '''
+            result = self._values.get("contributor_insights_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ContributorInsightsSpecificationProperty"]], result)
+
+        @builtins.property
+        def deletion_protection_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Determines if a replica is protected from deletion.
+
+            When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-deletionprotectionenabled
+            '''
+            result = self._values.get("deletion_protection_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def global_secondary_indexes(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty"]]]]:
+            '''Defines additional settings for the global secondary indexes of this replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-globalsecondaryindexes
+            '''
+            result = self._values.get("global_secondary_indexes")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty"]]]], result)
+
+        @builtins.property
+        def kinesis_stream_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KinesisStreamSpecificationProperty"]]:
+            '''Defines the Kinesis Data Streams configuration for the specified replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-kinesisstreamspecification
+            '''
+            result = self._values.get("kinesis_stream_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.KinesisStreamSpecificationProperty"]], result)
+
+        @builtins.property
+        def point_in_time_recovery_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.PointInTimeRecoverySpecificationProperty"]]:
+            '''The settings used to enable point in time recovery.
+
+            When not specified, defaults to point in time recovery disabled for the replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-pointintimerecoveryspecification
+            '''
+            result = self._values.get("point_in_time_recovery_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.PointInTimeRecoverySpecificationProperty"]], result)
+
+        @builtins.property
+        def read_on_demand_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
+            '''Sets read request settings for the replica table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-readondemandthroughputsettings
+            '''
+            result = self._values.get("read_on_demand_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
+
+        @builtins.property
+        def read_provisioned_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]]:
+            '''Defines read capacity settings for the replica table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-readprovisionedthroughputsettings
+            '''
+            result = self._values.get("read_provisioned_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReadProvisionedThroughputSettingsProperty"]], result)
+
+        @builtins.property
+        def replica_stream_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaStreamSpecificationProperty"]]:
+            '''Represents the DynamoDB Streams configuration for a global table replica.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-replicastreamspecification
+            '''
+            result = self._values.get("replica_stream_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaStreamSpecificationProperty"]], result)
+
+        @builtins.property
+        def resource_policy(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]]:
+            '''A resource-based policy document that contains permissions to add to the specified replica of a DynamoDB global table.
+
+            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
+            '''
+            result = self._values.get("resource_policy")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]], result)
+
+        @builtins.property
+        def sse_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSSESpecificationProperty"]]:
+            '''Allows you to specify a customer-managed key for the replica.
+
+            When using customer-managed keys for server-side encryption, this property must have a value in all replicas.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-ssespecification
+            '''
+            result = self._values.get("sse_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ReplicaSSESpecificationProperty"]], result)
+
+        @builtins.property
+        def table_class(self) -> typing.Optional[builtins.str]:
+            '''The table class of the specified table.
+
+            Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-tableclass
+            '''
+            result = self._values.get("table_class")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+            '''An array of key-value pairs to apply to this replica.
+
+            For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resource_policy": "resourcePolicy"},
+    )
+    class ReplicaStreamSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            resource_policy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Represents the DynamoDB Streams configuration for a global table replica.
+
+            :param resource_policy: A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ . You can update the ``ResourcePolicy`` property if you've specified more than one table using the `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                # policy_document: Any
+                
+                replica_stream_specification_property = dynamodb.CfnGlobalTable.ReplicaStreamSpecificationProperty(
+                    resource_policy=dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                        policy_document=policy_document
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed)
+                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_policy": resource_policy,
+            }
+
+        @builtins.property
+        def resource_policy(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"]:
+            '''A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica.
+
+            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            You can update the ``ResourcePolicy`` property if you've specified more than one table using the `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
+            '''
+            result = self._values.get("resource_policy")
+            assert result is not None, "Required property 'resource_policy' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.ResourcePolicyProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReplicaStreamSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ResourcePolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"policy_document": "policyDocument"},
+    )
+    class ResourcePolicyProperty:
+        def __init__(self, *, policy_document: typing.Any) -> None:
+            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table, its indexes, and stream.
+
+            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            While defining resource-based policies in your CloudFormation templates, the following considerations apply:
+
+            - The maximum size supported for a resource-based policy document in JSON format is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit.
+            - Resource-based policies don't support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html#>`_ . If you update a policy outside of the CloudFormation stack template, you'll need to update the CloudFormation stack with the changes.
+            - Resource-based policies don't support out-of-band changes. If you add, update, or delete a policy outside of the CloudFormation template, the change won't be overwritten if there are no changes to the policy within the template.
+
+            For example, say that your template contains a resource-based policy, which you later update outside of the template. If you don't make any changes to the policy in the template, the updated policy in DynamoDB won’t be synced with the policy in the template.
+
+            Conversely, say that your template doesn’t contain a resource-based policy, but you add a policy outside of the template. This policy won’t be removed from DynamoDB as long as you don’t add it to the template. When you add a policy to the template and update the stack, the existing policy in DynamoDB will be updated to match the one defined in the template.
+
+            - Within a resource-based policy, if the action for a DynamoDB service-linked role (SLR) to replicate data for a global table is denied, adding or deleting a replica will fail with an error.
+            - The `AWS ::DynamoDB::GlobalTable <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html>`_ resource doesn't support creating a replica in the same stack update in Regions other than the Region where you deploy the stack update.
+
+            For a full list of all considerations, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ .
+
+            :param policy_document: A resource-based policy document that contains permissions to add to the specified DynamoDB table, its indexes, and stream. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-resourcepolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                # policy_document: Any
+                
+                resource_policy_property = dynamodb.CfnGlobalTable.ResourcePolicyProperty(
+                    policy_document=policy_document
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6007e745281a1817381b3cb8f148da677e9fde77893fbd60db054cb3b85f34db)
+                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy_document": policy_document,
+            }
+
+        @builtins.property
+        def policy_document(self) -> typing.Any:
+            '''A resource-based policy document that contains permissions to add to the specified DynamoDB table, its indexes, and stream.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-resourcepolicy.html#cfn-dynamodb-globaltable-resourcepolicy-policydocument
+            '''
+            result = self._values.get("policy_document")
+            assert result is not None, "Required property 'policy_document' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourcePolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.SSESpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"sse_enabled": "sseEnabled", "sse_type": "sseType"},
+    )
+    class SSESpecificationProperty:
+        def __init__(
+            self,
+            *,
+            sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            sse_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents the settings used to enable server-side encryption.
+
+            :param sse_enabled: Indicates whether server-side encryption is performed using an AWS managed key or an AWS owned key. If enabled (true), server-side encryption type is set to KMS and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified,server-side encryption is set to an AWS owned key. If you choose to use KMS encryption, you can also use customer managed KMS keys by specifying them in the ``ReplicaSpecification.SSESpecification`` object. You cannot mix AWS managed and customer managed KMS keys.
+            :param sse_type: Server-side encryption type. The only supported value is:. - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                s_sESpecification_property = dynamodb.CfnGlobalTable.SSESpecificationProperty(
+                    sse_enabled=False,
+                
+                    # the properties below are optional
+                    sse_type="sseType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ea2cb67b1629904043fec37c484f260e58078624f7b496fe52fc2201d365e1c8)
+                check_type(argname="argument sse_enabled", value=sse_enabled, expected_type=type_hints["sse_enabled"])
+                check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sse_enabled": sse_enabled,
+            }
+            if sse_type is not None:
+                self._values["sse_type"] = sse_type
+
+        @builtins.property
+        def sse_enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether server-side encryption is performed using an AWS managed key or an AWS owned key.
+
+            If enabled (true), server-side encryption type is set to KMS and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified,server-side encryption is set to an AWS owned key. If you choose to use KMS encryption, you can also use customer managed KMS keys by specifying them in the ``ReplicaSpecification.SSESpecification`` object. You cannot mix AWS managed and customer managed KMS keys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html#cfn-dynamodb-globaltable-ssespecification-sseenabled
+            '''
+            result = self._values.get("sse_enabled")
+            assert result is not None, "Required property 'sse_enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def sse_type(self) -> typing.Optional[builtins.str]:
+            '''Server-side encryption type. The only supported value is:.
+
+            - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-ssespecification.html#cfn-dynamodb-globaltable-ssespecification-ssetype
+            '''
+            result = self._values.get("sse_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SSESpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.StreamSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"stream_view_type": "streamViewType"},
+    )
+    class StreamSpecificationProperty:
+        def __init__(self, *, stream_view_type: builtins.str) -> None:
+            '''Represents the DynamoDB Streams configuration for a table in DynamoDB .
+
+            You can only modify this value for a ``AWS::DynamoDB::GlobalTable`` resource configured for multi-Region eventual consistency (MREC, the default) if that resource contains only one entry in ``Replicas`` . You must specify a value for this property for a ``AWS::DynamoDB::GlobalTable`` resource configured for MREC with more than one entry in ``Replicas`` . For Multi-Region Strong Consistency (MRSC), Streams are not required and can be changed for existing tables.
+
+            :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-streamspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                stream_specification_property = dynamodb.CfnGlobalTable.StreamSpecificationProperty(
+                    stream_view_type="streamViewType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bf486381a1dcd1491dcd25b2b304b74893e1088d27adcc55317833f7618f698e)
+                check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stream_view_type": stream_view_type,
+            }
+
+        @builtins.property
+        def stream_view_type(self) -> builtins.str:
+            '''When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table.
+
+            Valid values for ``StreamViewType`` are:
+
+            - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream.
+            - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream.
+            - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream.
+            - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-streamspecification.html#cfn-dynamodb-globaltable-streamspecification-streamviewtype
+            '''
+            result = self._values.get("stream_view_type")
+            assert result is not None, "Required property 'stream_view_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_value": "targetValue",
+            "disable_scale_in": "disableScaleIn",
+            "scale_in_cooldown": "scaleInCooldown",
+            "scale_out_cooldown": "scaleOutCooldown",
+        },
+    )
+    class TargetTrackingScalingPolicyConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            target_value: jsii.Number,
+            disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            scale_in_cooldown: typing.Optional[jsii.Number] = None,
+            scale_out_cooldown: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Defines a target tracking scaling policy.
+
+            :param target_value: Defines a target value for the scaling policy.
+            :param disable_scale_in: Indicates whether scale in by the target tracking scaling policy is disabled. The default value is ``false`` .
+            :param scale_in_cooldown: The amount of time, in seconds, after a scale-in activity completes before another scale-in activity can start.
+            :param scale_out_cooldown: The amount of time, in seconds, after a scale-out activity completes before another scale-out activity can start.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                target_tracking_scaling_policy_configuration_property = dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                    target_value=123,
+                
+                    # the properties below are optional
+                    disable_scale_in=False,
+                    scale_in_cooldown=123,
+                    scale_out_cooldown=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cff51147efeb84166406d956aa4cd526d14eba1656b169dfe2b4253d9459950e)
+                check_type(argname="argument target_value", value=target_value, expected_type=type_hints["target_value"])
+                check_type(argname="argument disable_scale_in", value=disable_scale_in, expected_type=type_hints["disable_scale_in"])
+                check_type(argname="argument scale_in_cooldown", value=scale_in_cooldown, expected_type=type_hints["scale_in_cooldown"])
+                check_type(argname="argument scale_out_cooldown", value=scale_out_cooldown, expected_type=type_hints["scale_out_cooldown"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_value": target_value,
+            }
+            if disable_scale_in is not None:
+                self._values["disable_scale_in"] = disable_scale_in
+            if scale_in_cooldown is not None:
+                self._values["scale_in_cooldown"] = scale_in_cooldown
+            if scale_out_cooldown is not None:
+                self._values["scale_out_cooldown"] = scale_out_cooldown
+
+        @builtins.property
+        def target_value(self) -> jsii.Number:
+            '''Defines a target value for the scaling policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-targetvalue
+            '''
+            result = self._values.get("target_value")
+            assert result is not None, "Required property 'target_value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def disable_scale_in(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether scale in by the target tracking scaling policy is disabled.
+
+            The default value is ``false`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-disablescalein
+            '''
+            result = self._values.get("disable_scale_in")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def scale_in_cooldown(self) -> typing.Optional[jsii.Number]:
+            '''The amount of time, in seconds, after a scale-in activity completes before another scale-in activity can start.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-scaleincooldown
+            '''
+            result = self._values.get("scale_in_cooldown")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def scale_out_cooldown(self) -> typing.Optional[jsii.Number]:
+            '''The amount of time, in seconds, after a scale-out activity completes before another scale-out activity can start.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-targettrackingscalingpolicyconfiguration.html#cfn-dynamodb-globaltable-targettrackingscalingpolicyconfiguration-scaleoutcooldown
+            '''
+            result = self._values.get("scale_out_cooldown")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetTrackingScalingPolicyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "attribute_name": "attributeName"},
+    )
+    class TimeToLiveSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            attribute_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents the settings used to enable or disable Time to Live (TTL) for the specified table.
+
+            All replicas will have the same time to live configuration.
+
+            :param enabled: Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
+            :param attribute_name: The name of the attribute used to store the expiration time for items in the table. Currently, you cannot directly change the attribute name used to evaluate time to live. In order to do so, you must first disable time to live, and then re-enable it with the new attribute name. It can take up to one hour for changes to time to live to take effect. If you attempt to modify time to live within that time window, your stack operation might be delayed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                time_to_live_specification_property = dynamodb.CfnGlobalTable.TimeToLiveSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    attribute_name="attributeName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dcf0cf3bffc007a79dfc055873ae7915dea668a00f7752d51c421f918f640e88)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if attribute_name is not None:
+                self._values["attribute_name"] = attribute_name
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html#cfn-dynamodb-globaltable-timetolivespecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def attribute_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the attribute used to store the expiration time for items in the table.
+
+            Currently, you cannot directly change the attribute name used to evaluate time to live. In order to do so, you must first disable time to live, and then re-enable it with the new attribute name. It can take up to one hour for changes to time to live to take effect. If you attempt to modify time to live within that time window, your stack operation might be delayed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-timetolivespecification.html#cfn-dynamodb-globaltable-timetolivespecification-attributename
+            '''
+            result = self._values.get("attribute_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TimeToLiveSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WarmThroughputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "read_units_per_second": "readUnitsPerSecond",
+            "write_units_per_second": "writeUnitsPerSecond",
+        },
+    )
+    class WarmThroughputProperty:
+        def __init__(
+            self,
+            *,
+            read_units_per_second: typing.Optional[jsii.Number] = None,
+            write_units_per_second: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.
+
+            The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
+
+            :param read_units_per_second: Represents the number of read operations your base table can instantaneously support.
+            :param write_units_per_second: Represents the number of write operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                warm_throughput_property = dynamodb.CfnGlobalTable.WarmThroughputProperty(
+                    read_units_per_second=123,
+                    write_units_per_second=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b4a9630f73ba64974f75710b10a566fd0d88349b6d07fc41deb6fac3b443b29)
+                check_type(argname="argument read_units_per_second", value=read_units_per_second, expected_type=type_hints["read_units_per_second"])
+                check_type(argname="argument write_units_per_second", value=write_units_per_second, expected_type=type_hints["write_units_per_second"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if read_units_per_second is not None:
+                self._values["read_units_per_second"] = read_units_per_second
+            if write_units_per_second is not None:
+                self._values["write_units_per_second"] = write_units_per_second
+
+        @builtins.property
+        def read_units_per_second(self) -> typing.Optional[jsii.Number]:
+            '''Represents the number of read operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html#cfn-dynamodb-globaltable-warmthroughput-readunitspersecond
+            '''
+            result = self._values.get("read_units_per_second")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def write_units_per_second(self) -> typing.Optional[jsii.Number]:
+            '''Represents the number of write operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-warmthroughput.html#cfn-dynamodb-globaltable-warmthroughput-writeunitspersecond
+            '''
+            result = self._values.get("write_units_per_second")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WarmThroughputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_write_request_units": "maxWriteRequestUnits"},
+    )
+    class WriteOnDemandThroughputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            max_write_request_units: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Sets the write request settings for a global table or a global secondary index.
+
+            You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
+
+            :param max_write_request_units: Maximum number of write request settings for the specified replica of a global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeondemandthroughputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                write_on_demand_throughput_settings_property = dynamodb.CfnGlobalTable.WriteOnDemandThroughputSettingsProperty(
+                    max_write_request_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a74a3ac973b7df1320fab048c78a8197faf1684042be3f88a34a74adb99870fc)
+                check_type(argname="argument max_write_request_units", value=max_write_request_units, expected_type=type_hints["max_write_request_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_write_request_units is not None:
+                self._values["max_write_request_units"] = max_write_request_units
+
+        @builtins.property
+        def max_write_request_units(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of write request settings for the specified replica of a global table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeondemandthroughputsettings.html#cfn-dynamodb-globaltable-writeondemandthroughputsettings-maxwriterequestunits
+            '''
+            result = self._values.get("max_write_request_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WriteOnDemandThroughputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "write_capacity_auto_scaling_settings": "writeCapacityAutoScalingSettings",
+        },
+    )
+    class WriteProvisionedThroughputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            write_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGlobalTable.CapacityAutoScalingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies an auto scaling policy for write capacity.
+
+            This policy will be applied to all replicas. This setting must be specified if ``BillingMode`` is set to ``PROVISIONED`` .
+
+            :param write_capacity_auto_scaling_settings: Specifies auto scaling settings for the replica table or global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeprovisionedthroughputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                write_provisioned_throughput_settings_property = dynamodb.CfnGlobalTable.WriteProvisionedThroughputSettingsProperty(
+                    write_capacity_auto_scaling_settings=dynamodb.CfnGlobalTable.CapacityAutoScalingSettingsProperty(
+                        max_capacity=123,
+                        min_capacity=123,
+                        target_tracking_scaling_policy_configuration=dynamodb.CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty(
+                            target_value=123,
+                
+                            # the properties below are optional
+                            disable_scale_in=False,
+                            scale_in_cooldown=123,
+                            scale_out_cooldown=123
+                        ),
+                
+                        # the properties below are optional
+                        seed_capacity=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__18a3302042e66f614ad3ddfe94bd456ac404316f80809965b0a7980371a56484)
+                check_type(argname="argument write_capacity_auto_scaling_settings", value=write_capacity_auto_scaling_settings, expected_type=type_hints["write_capacity_auto_scaling_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if write_capacity_auto_scaling_settings is not None:
+                self._values["write_capacity_auto_scaling_settings"] = write_capacity_auto_scaling_settings
+
+        @builtins.property
+        def write_capacity_auto_scaling_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]]:
+            '''Specifies auto scaling settings for the replica table or global secondary index.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-writeprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-writeprovisionedthroughputsettings-writecapacityautoscalingsettings
+            '''
+            result = self._values.get("write_capacity_auto_scaling_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGlobalTable.CapacityAutoScalingSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WriteProvisionedThroughputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ITableRef, _ITaggable_36806126)
+class CfnTable(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable",
+):
+    '''The ``AWS::DynamoDB::Table`` resource creates a DynamoDB table. For more information, see `CreateTable <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html>`_ in the *Amazon DynamoDB API Reference* .
+
+    You should be aware of the following behaviors when working with DynamoDB tables:
+
+    - AWS CloudFormation typically creates DynamoDB tables in parallel. However, if your template includes multiple DynamoDB tables with indexes, you must declare dependencies so that the tables are created sequentially. Amazon DynamoDB limits the number of tables with secondary indexes that are in the creating state. If you create multiple tables with indexes at the same time, DynamoDB returns an error and the stack operation fails. For an example, see `DynamoDB Table with a DependsOn Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#aws-resource-dynamodb-table--examples--DynamoDB_Table_with_a_DependsOn_Attribute>`_ .
+
+    .. epigraph::
+
+       Our guidance is to use the latest schema documented for your AWS CloudFormation templates. This schema supports the provisioning of all table settings below. When using this schema in your AWS CloudFormation templates, please ensure that your Identity and Access Management ( IAM ) policies are updated with appropriate permissions to allow for the authorization of these setting changes.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
+    :cloudformationResource: AWS::DynamoDB::Table
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_dynamodb as dynamodb
+        
+        # policy_document: Any
+        
+        cfn_table = dynamodb.CfnTable(self, "MyCfnTable",
+            key_schema=[dynamodb.CfnTable.KeySchemaProperty(
+                attribute_name="attributeName",
+                key_type="keyType"
+            )],
+        
+            # the properties below are optional
+            attribute_definitions=[dynamodb.CfnTable.AttributeDefinitionProperty(
+                attribute_name="attributeName",
+                attribute_type="attributeType"
+            )],
+            billing_mode="billingMode",
+            contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                mode="mode"
+            ),
+            deletion_protection_enabled=False,
+            global_secondary_indexes=[dynamodb.CfnTable.GlobalSecondaryIndexProperty(
+                index_name="indexName",
+                key_schema=[dynamodb.CfnTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )],
+                projection=dynamodb.CfnTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                ),
+        
+                # the properties below are optional
+                contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    mode="mode"
+                ),
+                on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
+                    max_read_request_units=123,
+                    max_write_request_units=123
+                ),
+                provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
+                    read_capacity_units=123,
+                    write_capacity_units=123
+                ),
+                warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
+                    read_units_per_second=123,
+                    write_units_per_second=123
+                )
+            )],
+            import_source_specification=dynamodb.CfnTable.ImportSourceSpecificationProperty(
+                input_format="inputFormat",
+                s3_bucket_source=dynamodb.CfnTable.S3BucketSourceProperty(
+                    s3_bucket="s3Bucket",
+        
+                    # the properties below are optional
+                    s3_bucket_owner="s3BucketOwner",
+                    s3_key_prefix="s3KeyPrefix"
+                ),
+        
+                # the properties below are optional
+                input_compression_type="inputCompressionType",
+                input_format_options=dynamodb.CfnTable.InputFormatOptionsProperty(
+                    csv=dynamodb.CfnTable.CsvProperty(
+                        delimiter="delimiter",
+                        header_list=["headerList"]
+                    )
+                )
+            ),
+            kinesis_stream_specification=dynamodb.CfnTable.KinesisStreamSpecificationProperty(
+                stream_arn="streamArn",
+        
+                # the properties below are optional
+                approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
+            ),
+            local_secondary_indexes=[dynamodb.CfnTable.LocalSecondaryIndexProperty(
+                index_name="indexName",
+                key_schema=[dynamodb.CfnTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )],
+                projection=dynamodb.CfnTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                )
+            )],
+            on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
+                max_read_request_units=123,
+                max_write_request_units=123
+            ),
+            point_in_time_recovery_specification=dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty(
+                point_in_time_recovery_enabled=False,
+                recovery_period_in_days=123
+            ),
+            provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
+                read_capacity_units=123,
+                write_capacity_units=123
+            ),
+            resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
+                policy_document=policy_document
+            ),
+            sse_specification=dynamodb.CfnTable.SSESpecificationProperty(
+                sse_enabled=False,
+        
+                # the properties below are optional
+                kms_master_key_id="kmsMasterKeyId",
+                sse_type="sseType"
+            ),
+            stream_specification=dynamodb.CfnTable.StreamSpecificationProperty(
+                stream_view_type="streamViewType",
+        
+                # the properties below are optional
+                resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
+                    policy_document=policy_document
+                )
+            ),
+            table_class="tableClass",
+            table_name="tableName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            time_to_live_specification=dynamodb.CfnTable.TimeToLiveSpecificationProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                attribute_name="attributeName"
+            ),
+            warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
+                read_units_per_second=123,
+                write_units_per_second=123
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        billing_mode: typing.Optional[builtins.str] = None,
+        contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ImportSourceSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.OnDemandThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_class: typing.Optional[builtins.str] = None,
+        table_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.TimeToLiveSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
+        :param attribute_definitions: A list of attributes that describe the key schema for the table and indexes. This property is required to create a DynamoDB table. Update requires: `Some interruptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-some-interrupt>`_ . Replacement if you edit an existing AttributeDefinition.
+        :param billing_mode: Specify how you are charged for read and write throughput and how you manage capacity. Valid values include: - ``PAY_PER_REQUEST`` - We recommend using ``PAY_PER_REQUEST`` for most DynamoDB workloads. ``PAY_PER_REQUEST`` sets the billing mode to `On-demand capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html>`_ . - ``PROVISIONED`` - We recommend using ``PROVISIONED`` for steady workloads with predictable growth where capacity requirements can be reliably forecasted. ``PROVISIONED`` sets the billing mode to `Provisioned capacity mode <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html>`_ . If not specified, the default is ``PROVISIONED`` .
+        :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.
+        :param deletion_protection_enabled: Determines if a table is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
+        :param global_secondary_indexes: Global secondary indexes to be created on the table. You can create up to 20 global secondary indexes. .. epigraph:: If you update a table to include a new global secondary index, AWS CloudFormation initiates the index creation and then proceeds with the stack update. AWS CloudFormation doesn't wait for the index to complete creation because the backfilling phase can take a long time, depending on the size of the table. You can't use the index or update the table until the index's status is ``ACTIVE`` . You can track its status by using the DynamoDB `DescribeTable <https://docs.aws.amazon.com/cli/latest/reference/dynamodb/describe-table.html>`_ command. If you add or delete an index during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new index, you must manually delete the index. Updates are not supported. The following are exceptions: - If you update either the contributor insights specification or the provisioned throughput values of global secondary indexes, you can update the table without interruption. - You can delete or add one global secondary index without interruption. If you do both in the same update (for example, by changing the index's logical ID), the update fails.
+        :param import_source_specification: Specifies the properties of data being imported from the S3 bucket source to the" table. .. epigraph:: If you specify the ``ImportSourceSpecification`` property, and also specify either the ``StreamSpecification`` , the ``TableClass`` property, the ``DeletionProtectionEnabled`` property, or the ``WarmThroughput`` property, the IAM entity creating/updating stack must have ``UpdateTable`` permission.
+        :param kinesis_stream_specification: The Kinesis Data Streams configuration for the specified table.
+        :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to 5 local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes.
+        :param on_demand_throughput: Sets the maximum number of read and write units for the specified on-demand table. If you use this property, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both.
+        :param point_in_time_recovery_specification: The settings used to enable point in time recovery.
+        :param provisioned_throughput: Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` . For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ . If you set ``BillingMode`` as ``PROVISIONED`` , you must specify this property. If you set ``BillingMode`` as ``PAY_PER_REQUEST`` , you cannot specify this property.
+        :param resource_policy: An AWS resource-based policy document in JSON format that will be attached to the table. When you attach a resource-based policy while creating a table, the policy application is *strongly consistent* . The maximum size supported for a resource-based policy document is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit. For a full list of all considerations that apply for resource-based policies, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ . .. epigraph:: You need to specify the ``CreateTable`` and ``PutResourcePolicy`` IAM actions for authorizing a user to create a table with a resource-based policy.
+        :param sse_specification: Specifies the settings to enable server-side encryption.
+        :param stream_specification: The settings for the DynamoDB table stream, which captures changes to items stored in the table. Including this property in your AWS CloudFormation template automatically enables streaming.
+        :param table_class: The table class of the new table. Valid values are ``STANDARD`` and ``STANDARD_INFREQUENT_ACCESS`` .
+        :param table_name: A name for the table. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the table name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param time_to_live_specification: Specifies the Time to Live (TTL) settings for the table. .. epigraph:: For detailed information about the limits in DynamoDB, see `Limits in Amazon DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the Amazon DynamoDB Developer Guide.
+        :param warm_throughput: Represents the warm throughput (in read units per second and write units per second) for creating a table.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c4a83992df200bfde2ccfe129994eeacab105432a2509473861feb736dd5ea6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTableProps(
+            key_schema=key_schema,
+            attribute_definitions=attribute_definitions,
+            billing_mode=billing_mode,
+            contributor_insights_specification=contributor_insights_specification,
+            deletion_protection_enabled=deletion_protection_enabled,
+            global_secondary_indexes=global_secondary_indexes,
+            import_source_specification=import_source_specification,
+            kinesis_stream_specification=kinesis_stream_specification,
+            local_secondary_indexes=local_secondary_indexes,
+            on_demand_throughput=on_demand_throughput,
+            point_in_time_recovery_specification=point_in_time_recovery_specification,
+            provisioned_throughput=provisioned_throughput,
+            resource_policy=resource_policy,
+            sse_specification=sse_specification,
+            stream_specification=stream_specification,
+            table_class=table_class,
+            table_name=table_name,
+            tags=tags,
+            time_to_live_specification=time_to_live_specification,
+            warm_throughput=warm_throughput,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26bb91e182be62190fa064879e470f7aaf0c082ee3cebed92380192ddd6e106c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81643a0c10d8cbe127677c1696bc389f9cf0cbef6e9b16eeadacb8f85f5abb00)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the DynamoDB table, such as ``arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStreamArn")
+    def attr_stream_arn(self) -> builtins.str:
+        '''The ARN of the DynamoDB stream, such as ``arn:aws:dynamodb:us-east-1:123456789012:table/testddbstack-myDynamoDBTable-012A1SL7SMP5Q/stream/2015-11-30T20:10:00.000`` .
+
+        .. epigraph::
+
+           You must specify the ``StreamSpecification`` property to use this attribute.
+
+        :cloudformationAttribute: StreamArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableRef")
+    def table_ref(self) -> TableReference:
+        '''A reference to a Table resource.'''
+        return typing.cast(TableReference, jsii.get(self, "tableRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keySchema")
+    def key_schema(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
+        '''Specifies the attributes that make up the primary key for the table.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], jsii.get(self, "keySchema"))
+
+    @key_schema.setter
+    def key_schema(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b23ffa0600490aa85e7d7d78bfa21eab76ec61e446848fa311842ae651fa9836)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeDefinitions")
+    def attribute_definitions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]]:
+        '''A list of attributes that describe the key schema for the table and indexes.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]], jsii.get(self, "attributeDefinitions"))
+
+    @attribute_definitions.setter
+    def attribute_definitions(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.AttributeDefinitionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5daf5ddc396c2de639d9ab720b24bd4802cb6b1935c3acaabde5b29c25732fd7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="billingMode")
+    def billing_mode(self) -> typing.Optional[builtins.str]:
+        '''Specify how you are charged for read and write throughput and how you manage capacity.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "billingMode"))
+
+    @billing_mode.setter
+    def billing_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__859e18c7e0169484ae1438c12328e5f08e77b8ce32d6fc9d190d1d453358f8b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contributorInsightsSpecification")
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
+        '''The settings used to specify whether to enable CloudWatch Contributor Insights for the table and define which events to monitor.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], jsii.get(self, "contributorInsightsSpecification"))
+
+    @contributor_insights_specification.setter
+    def contributor_insights_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4418562f8958ca4e57cc994ee87a0b27423f94d0f99284b5f04311b9e61b238f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contributorInsightsSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtectionEnabled")
+    def deletion_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Determines if a table is protected from deletion.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtectionEnabled"))
+
+    @deletion_protection_enabled.setter
+    def deletion_protection_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d91900a3abfeb455a4849c52c7f1d034e09b1b0ceb4a50b598d8c938f15c012b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalSecondaryIndexes")
+    def global_secondary_indexes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]]:
+        '''Global secondary indexes to be created on the table.
+
+        You can create up to 20 global secondary indexes.
+        '''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]], jsii.get(self, "globalSecondaryIndexes"))
+
+    @global_secondary_indexes.setter
+    def global_secondary_indexes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.GlobalSecondaryIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97df696d6ba063acb98f58f09adb6516d0fc1d41d4d4a37c39f7ffac09e0d5cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="importSourceSpecification")
+    def import_source_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]]:
+        '''Specifies the properties of data being imported from the S3 bucket source to the" table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]], jsii.get(self, "importSourceSpecification"))
+
+    @import_source_specification.setter
+    def import_source_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ImportSourceSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61eb67e9e79c54ed8659ffe201d838bdf08b6b20da8fa03693734f4336da76c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "importSourceSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kinesisStreamSpecification")
+    def kinesis_stream_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]]:
+        '''The Kinesis Data Streams configuration for the specified table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]], jsii.get(self, "kinesisStreamSpecification"))
+
+    @kinesis_stream_specification.setter
+    def kinesis_stream_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.KinesisStreamSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d983fc83d1717d6aa76c247a0250e28278e9d16c940822fa16986ff229e9043)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kinesisStreamSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="localSecondaryIndexes")
+    def local_secondary_indexes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]]:
+        '''Local secondary indexes to be created on the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]], jsii.get(self, "localSecondaryIndexes"))
+
+    @local_secondary_indexes.setter
+    def local_secondary_indexes(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.LocalSecondaryIndexProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45185c524451628b623abf4663f9427843c4d4a709a2cf82b14f8d2b3a9a7ffd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="onDemandThroughput")
+    def on_demand_throughput(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]]:
+        '''Sets the maximum number of read and write units for the specified on-demand table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]], jsii.get(self, "onDemandThroughput"))
+
+    @on_demand_throughput.setter
+    def on_demand_throughput(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__510f5c7d4293f98a55434a588a20db69cf20ac7b409105b7335eb2699ba8c570)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "onDemandThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pointInTimeRecoverySpecification")
+    def point_in_time_recovery_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]]:
+        '''The settings used to enable point in time recovery.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]], jsii.get(self, "pointInTimeRecoverySpecification"))
+
+    @point_in_time_recovery_specification.setter
+    def point_in_time_recovery_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.PointInTimeRecoverySpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06f7cca9d14af75b709b53e94a6fb51bba6dfa0cb31a23e0b70f506be9551e8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pointInTimeRecoverySpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisionedThroughput")
+    def provisioned_throughput(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]]:
+        '''Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` .'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]], jsii.get(self, "provisionedThroughput"))
+
+    @provisioned_throughput.setter
+    def provisioned_throughput(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fa8ca064a9e23781245ca2f3d32d36a2324726abba76565a2e12ac5e399a599)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisionedThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicy")
+    def resource_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]]:
+        '''An AWS resource-based policy document in JSON format that will be attached to the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
+
+    @resource_policy.setter
+    def resource_policy(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4166d9b0a925b24598927de15ecb1935d22d14f9a49469ba893db8d18421bf02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sseSpecification")
+    def sse_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]]:
+        '''Specifies the settings to enable server-side encryption.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]], jsii.get(self, "sseSpecification"))
+
+    @sse_specification.setter
+    def sse_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.SSESpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc5e50032964d91e0cf5ec36aba75b6ae325bfe6129ad9f55764353e645b28c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamSpecification")
+    def stream_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]]:
+        '''The settings for the DynamoDB table stream, which captures changes to items stored in the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]], jsii.get(self, "streamSpecification"))
+
+    @stream_specification.setter
+    def stream_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.StreamSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4ba4ef955ba0e9ac6474c62ea545a637752c92fffc5fe0868d55987f8b593ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableClass")
+    def table_class(self) -> typing.Optional[builtins.str]:
+        '''The table class of the new table.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableClass"))
+
+    @table_class.setter
+    def table_class(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df6efdc84208b4dd6d9307c0da182d301e83373407c8e72b4e33094a16f0e9ee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableClass", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableName")
+    def table_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the table.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableName"))
+
+    @table_name.setter
+    def table_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9a680d2bfdc5e6712f2c0338c7388d0ee2bbf8560c324a2398466ed5efe5e1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae8c7d0ef496e4ff46af1a1db46d7b3840fc5e44d90dd5539a886f2d9ef19658)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeToLiveSpecification")
+    def time_to_live_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]]:
+        '''Specifies the Time to Live (TTL) settings for the table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]], jsii.get(self, "timeToLiveSpecification"))
+
+    @time_to_live_specification.setter
+    def time_to_live_specification(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.TimeToLiveSpecificationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="warmThroughput")
+    def warm_throughput(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]]:
+        '''Represents the warm throughput (in read units per second and write units per second) for creating a table.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]], jsii.get(self, "warmThroughput"))
+
+    @warm_throughput.setter
+    def warm_throughput(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.AttributeDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "attribute_name": "attributeName",
+            "attribute_type": "attributeType",
+        },
+    )
+    class AttributeDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            attribute_type: builtins.str,
+        ) -> None:
+            '''Represents an attribute for describing the schema for the table and indexes.
+
+            :param attribute_name: A name for the attribute.
+            :param attribute_type: The data type for the attribute, where:. - ``S`` - the attribute is of type String - ``N`` - the attribute is of type Number - ``B`` - the attribute is of type Binary
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                attribute_definition_property = dynamodb.CfnTable.AttributeDefinitionProperty(
+                    attribute_name="attributeName",
+                    attribute_type="attributeType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__09c7a32c39444fb07dbb26b4ad1f9b87ad574421e0b12ac175c090173de657a3)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument attribute_type", value=attribute_type, expected_type=type_hints["attribute_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "attribute_type": attribute_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''A name for the attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html#cfn-dynamodb-table-attributedefinition-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def attribute_type(self) -> builtins.str:
+            '''The data type for the attribute, where:.
+
+            - ``S`` - the attribute is of type String
+            - ``N`` - the attribute is of type Number
+            - ``B`` - the attribute is of type Binary
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html#cfn-dynamodb-table-attributedefinition-attributetype
+            '''
+            result = self._values.get("attribute_type")
+            assert result is not None, "Required property 'attribute_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AttributeDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ContributorInsightsSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "mode": "mode"},
+    )
+    class ContributorInsightsSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures contributor insights settings for a table or one of its indexes.
+
+            :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+            :param mode: Specifies the CloudWatch Contributor Insights mode for a table. Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                contributor_insights_specification_property = dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    mode="mode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if mode is not None:
+                self._values["mode"] = mode
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''Specifies the CloudWatch Contributor Insights mode for a table.
+
+            Valid values are ``ACCESSED_AND_THROTTLED_KEYS`` (tracks all access and throttled events) or ``THROTTLED_KEYS`` (tracks only throttled events). This setting determines what type of contributor insights data is collected for the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContributorInsightsSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.CsvProperty",
+        jsii_struct_bases=[],
+        name_mapping={"delimiter": "delimiter", "header_list": "headerList"},
+    )
+    class CsvProperty:
+        def __init__(
+            self,
+            *,
+            delimiter: typing.Optional[builtins.str] = None,
+            header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The options for imported source files in CSV format.
+
+            The values are Delimiter and HeaderList.
+
+            :param delimiter: The delimiter used for separating items in the CSV file being imported.
+            :param header_list: List of the headers used to specify a common header for all source CSV files being imported. If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                csv_property = dynamodb.CfnTable.CsvProperty(
+                    delimiter="delimiter",
+                    header_list=["headerList"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1aa22e74932c2dcdf53fad9d8e58e5934c2ca867f5a4d9ac821cd6f571c6f732)
+                check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
+                check_type(argname="argument header_list", value=header_list, expected_type=type_hints["header_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delimiter is not None:
+                self._values["delimiter"] = delimiter
+            if header_list is not None:
+                self._values["header_list"] = header_list
+
+        @builtins.property
+        def delimiter(self) -> typing.Optional[builtins.str]:
+            '''The delimiter used for separating items in the CSV file being imported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html#cfn-dynamodb-table-csv-delimiter
+            '''
+            result = self._values.get("delimiter")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def header_list(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of the headers used to specify a common header for all source CSV files being imported.
+
+            If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-csv.html#cfn-dynamodb-table-csv-headerlist
+            '''
+            result = self._values.get("header_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CsvProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.GlobalSecondaryIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "index_name": "indexName",
+            "key_schema": "keySchema",
+            "projection": "projection",
+            "contributor_insights_specification": "contributorInsightsSpecification",
+            "on_demand_throughput": "onDemandThroughput",
+            "provisioned_throughput": "provisionedThroughput",
+            "warm_throughput": "warmThroughput",
+        },
+    )
+    class GlobalSecondaryIndexProperty:
+        def __init__(
+            self,
+            *,
+            index_name: builtins.str,
+            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+            contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.OnDemandThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents the properties of a global secondary index.
+
+            :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
+            :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+            :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+            :param contributor_insights_specification: The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
+            :param on_demand_throughput: The maximum number of read and write units for the specified global secondary index. If you use this parameter, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
+            :param provisioned_throughput: Represents the provisioned throughput settings for the specified global secondary index. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode. For current minimum and maximum provisioned throughput values, see `Service, Account, and Table Quotas <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the *Amazon DynamoDB Developer Guide* .
+            :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                global_secondary_index_property = dynamodb.CfnTable.GlobalSecondaryIndexProperty(
+                    index_name="indexName",
+                    key_schema=[dynamodb.CfnTable.KeySchemaProperty(
+                        attribute_name="attributeName",
+                        key_type="keyType"
+                    )],
+                    projection=dynamodb.CfnTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    ),
+                
+                    # the properties below are optional
+                    contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
+                    ),
+                    on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
+                        max_read_request_units=123,
+                        max_write_request_units=123
+                    ),
+                    provisioned_throughput=dynamodb.CfnTable.ProvisionedThroughputProperty(
+                        read_capacity_units=123,
+                        write_capacity_units=123
+                    ),
+                    warm_throughput=dynamodb.CfnTable.WarmThroughputProperty(
+                        read_units_per_second=123,
+                        write_units_per_second=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__112c1b7034b42e59580b7feba43dc401f21ec329ca66e8612a1b056b0c3a744c)
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+                check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
+                check_type(argname="argument on_demand_throughput", value=on_demand_throughput, expected_type=type_hints["on_demand_throughput"])
+                check_type(argname="argument provisioned_throughput", value=provisioned_throughput, expected_type=type_hints["provisioned_throughput"])
+                check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "index_name": index_name,
+                "key_schema": key_schema,
+                "projection": projection,
+            }
+            if contributor_insights_specification is not None:
+                self._values["contributor_insights_specification"] = contributor_insights_specification
+            if on_demand_throughput is not None:
+                self._values["on_demand_throughput"] = on_demand_throughput
+            if provisioned_throughput is not None:
+                self._values["provisioned_throughput"] = provisioned_throughput
+            if warm_throughput is not None:
+                self._values["warm_throughput"] = warm_throughput
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''The name of the global secondary index.
+
+            The name must be unique among all other indexes on this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_schema(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
+            '''The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
+
+            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+            .. epigraph::
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-keyschema
+            '''
+            result = self._values.get("key_schema")
+            assert result is not None, "Required property 'key_schema' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"]:
+            '''Represents attributes that are copied (projected) from the table into the global secondary index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"], result)
+
+        @builtins.property
+        def contributor_insights_specification(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]]:
+            '''The settings used to specify whether to enable CloudWatch Contributor Insights for the global table and define which events to monitor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-contributorinsightsspecification
+            '''
+            result = self._values.get("contributor_insights_specification")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ContributorInsightsSpecificationProperty"]], result)
+
+        @builtins.property
+        def on_demand_throughput(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]]:
+            '''The maximum number of read and write units for the specified global secondary index.
+
+            If you use this parameter, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both. You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-ondemandthroughput
+            '''
+            result = self._values.get("on_demand_throughput")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.OnDemandThroughputProperty"]], result)
+
+        @builtins.property
+        def provisioned_throughput(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]]:
+            '''Represents the provisioned throughput settings for the specified global secondary index.
+
+            You must use either ``OnDemandThroughput`` or ``ProvisionedThroughput`` based on your table's capacity mode.
+
+            For current minimum and maximum provisioned throughput values, see `Service, Account, and Table Quotas <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Limits.html>`_ in the *Amazon DynamoDB Developer Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-provisionedthroughput
+            '''
+            result = self._values.get("provisioned_throughput")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ProvisionedThroughputProperty"]], result)
+
+        @builtins.property
+        def warm_throughput(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]]:
+            '''Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index.
+
+            If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-globalsecondaryindex.html#cfn-dynamodb-table-globalsecondaryindex-warmthroughput
+            '''
+            result = self._values.get("warm_throughput")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.WarmThroughputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GlobalSecondaryIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ImportSourceSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "input_format": "inputFormat",
+            "s3_bucket_source": "s3BucketSource",
+            "input_compression_type": "inputCompressionType",
+            "input_format_options": "inputFormatOptions",
+        },
+    )
+    class ImportSourceSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            input_format: builtins.str,
+            s3_bucket_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.S3BucketSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            input_compression_type: typing.Optional[builtins.str] = None,
+            input_format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.InputFormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the properties of data being imported from the S3 bucket source to the table.
+
+            :param input_format: The format of the source data. Valid values for ``ImportFormat`` are ``CSV`` , ``DYNAMODB_JSON`` or ``ION`` .
+            :param s3_bucket_source: The S3 bucket that provides the source for the import.
+            :param input_compression_type: Type of compression to be used on the input coming from the imported table.
+            :param input_format_options: Additional properties that specify how the input is formatted,.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                import_source_specification_property = dynamodb.CfnTable.ImportSourceSpecificationProperty(
+                    input_format="inputFormat",
+                    s3_bucket_source=dynamodb.CfnTable.S3BucketSourceProperty(
+                        s3_bucket="s3Bucket",
+                
+                        # the properties below are optional
+                        s3_bucket_owner="s3BucketOwner",
+                        s3_key_prefix="s3KeyPrefix"
+                    ),
+                
+                    # the properties below are optional
+                    input_compression_type="inputCompressionType",
+                    input_format_options=dynamodb.CfnTable.InputFormatOptionsProperty(
+                        csv=dynamodb.CfnTable.CsvProperty(
+                            delimiter="delimiter",
+                            header_list=["headerList"]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a892ec521b494ae5a81ac20deb94ee9d3cdef4699ed7250b4aa0c1e487483982)
+                check_type(argname="argument input_format", value=input_format, expected_type=type_hints["input_format"])
+                check_type(argname="argument s3_bucket_source", value=s3_bucket_source, expected_type=type_hints["s3_bucket_source"])
+                check_type(argname="argument input_compression_type", value=input_compression_type, expected_type=type_hints["input_compression_type"])
+                check_type(argname="argument input_format_options", value=input_format_options, expected_type=type_hints["input_format_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "input_format": input_format,
+                "s3_bucket_source": s3_bucket_source,
+            }
+            if input_compression_type is not None:
+                self._values["input_compression_type"] = input_compression_type
+            if input_format_options is not None:
+                self._values["input_format_options"] = input_format_options
+
+        @builtins.property
+        def input_format(self) -> builtins.str:
+            '''The format of the source data.
+
+            Valid values for ``ImportFormat`` are ``CSV`` , ``DYNAMODB_JSON`` or ``ION`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputformat
+            '''
+            result = self._values.get("input_format")
+            assert result is not None, "Required property 'input_format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_bucket_source(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.S3BucketSourceProperty"]:
+            '''The S3 bucket that provides the source for the import.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-s3bucketsource
+            '''
+            result = self._values.get("s3_bucket_source")
+            assert result is not None, "Required property 's3_bucket_source' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.S3BucketSourceProperty"], result)
+
+        @builtins.property
+        def input_compression_type(self) -> typing.Optional[builtins.str]:
+            '''Type of compression to be used on the input coming from the imported table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputcompressiontype
+            '''
+            result = self._values.get("input_compression_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def input_format_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.InputFormatOptionsProperty"]]:
+            '''Additional properties that specify how the input is formatted,.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-importsourcespecification.html#cfn-dynamodb-table-importsourcespecification-inputformatoptions
+            '''
+            result = self._values.get("input_format_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.InputFormatOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImportSourceSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.InputFormatOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"csv": "csv"},
+    )
+    class InputFormatOptionsProperty:
+        def __init__(
+            self,
+            *,
+            csv: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.CsvProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The format options for the data that was imported into the target table.
+
+            There is one value, CsvOption.
+
+            :param csv: The options for imported source files in CSV format. The values are Delimiter and HeaderList.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-inputformatoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                input_format_options_property = dynamodb.CfnTable.InputFormatOptionsProperty(
+                    csv=dynamodb.CfnTable.CsvProperty(
+                        delimiter="delimiter",
+                        header_list=["headerList"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__baf8d37dad8013f3f0372385196b6e4c72dd08d7f65f2f14f52958322242d87e)
+                check_type(argname="argument csv", value=csv, expected_type=type_hints["csv"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if csv is not None:
+                self._values["csv"] = csv
+
+        @builtins.property
+        def csv(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.CsvProperty"]]:
+            '''The options for imported source files in CSV format.
+
+            The values are Delimiter and HeaderList.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-inputformatoptions.html#cfn-dynamodb-table-inputformatoptions-csv
+            '''
+            result = self._values.get("csv")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.CsvProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InputFormatOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.KeySchemaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attribute_name": "attributeName", "key_type": "keyType"},
+    )
+    class KeySchemaProperty:
+        def __init__(
+            self,
+            *,
+            attribute_name: builtins.str,
+            key_type: builtins.str,
+        ) -> None:
+            '''Represents *a single element* of a key schema.
+
+            A key schema specifies the attributes that make up the primary key of a table, or the key attributes of an index.
+
+            A ``KeySchemaElement`` represents exactly one attribute of the primary key. For example, a simple primary key would be represented by one ``KeySchemaElement`` (for the partition key). A composite primary key would require one ``KeySchemaElement`` for the partition key, and another ``KeySchemaElement`` for the sort key.
+
+            A ``KeySchemaElement`` must be a scalar, top-level attribute (not a nested attribute). The data type must be one of String, Number, or Binary. The attribute cannot be nested within a List or a Map.
+
+            :param attribute_name: The name of a key attribute.
+            :param key_type: The role that this key attribute will assume:. - ``HASH`` - partition key - ``RANGE`` - sort key .. epigraph:: The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                key_schema_property = dynamodb.CfnTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e950e1a9ef4b739c934ec12e9f31ed8ea144c936240d474b6661a064bd89ff70)
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attribute_name": attribute_name,
+                "key_type": key_type,
+            }
+
+        @builtins.property
+        def attribute_name(self) -> builtins.str:
+            '''The name of a key attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html#cfn-dynamodb-table-keyschema-attributename
+            '''
+            result = self._values.get("attribute_name")
+            assert result is not None, "Required property 'attribute_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_type(self) -> builtins.str:
+            '''The role that this key attribute will assume:.
+
+            - ``HASH`` - partition key
+            - ``RANGE`` - sort key
+
+            .. epigraph::
+
+               The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html#cfn-dynamodb-table-keyschema-keytype
+            '''
+            result = self._values.get("key_type")
+            assert result is not None, "Required property 'key_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeySchemaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.KinesisStreamSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "stream_arn": "streamArn",
+            "approximate_creation_date_time_precision": "approximateCreationDateTimePrecision",
+        },
+    )
+    class KinesisStreamSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            stream_arn: builtins.str,
+            approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Kinesis Data Streams configuration for the specified table.
+
+            :param stream_arn: The ARN for a specific Kinesis data stream. Length Constraints: Minimum length of 37. Maximum length of 1024.
+            :param approximate_creation_date_time_precision: The precision for the time and date that the stream was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                kinesis_stream_specification_property = dynamodb.CfnTable.KinesisStreamSpecificationProperty(
+                    stream_arn="streamArn",
+                
+                    # the properties below are optional
+                    approximate_creation_date_time_precision="approximateCreationDateTimePrecision"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cbb77b10d6677c9577ed11e7ae53f72ab1665def857c99c6c07d8e5de0dc705e)
+                check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
+                check_type(argname="argument approximate_creation_date_time_precision", value=approximate_creation_date_time_precision, expected_type=type_hints["approximate_creation_date_time_precision"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stream_arn": stream_arn,
+            }
+            if approximate_creation_date_time_precision is not None:
+                self._values["approximate_creation_date_time_precision"] = approximate_creation_date_time_precision
+
+        @builtins.property
+        def stream_arn(self) -> builtins.str:
+            '''The ARN for a specific Kinesis data stream.
+
+            Length Constraints: Minimum length of 37. Maximum length of 1024.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html#cfn-dynamodb-table-kinesisstreamspecification-streamarn
+            '''
+            result = self._values.get("stream_arn")
+            assert result is not None, "Required property 'stream_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def approximate_creation_date_time_precision(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''The precision for the time and date that the stream was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-kinesisstreamspecification.html#cfn-dynamodb-table-kinesisstreamspecification-approximatecreationdatetimeprecision
+            '''
+            result = self._values.get("approximate_creation_date_time_precision")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisStreamSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.LocalSecondaryIndexProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "index_name": "indexName",
+            "key_schema": "keySchema",
+            "projection": "projection",
+        },
+    )
+    class LocalSecondaryIndexProperty:
+        def __init__(
+            self,
+            *,
+            index_name: builtins.str,
+            key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            projection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Represents the properties of a local secondary index.
+
+            A local secondary index can only be created when its parent table is created.
+
+            :param index_name: The name of the local secondary index. The name must be unique among all other indexes on this table.
+            :param key_schema: The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+            :param projection: Represents attributes that are copied (projected) from the table into the local secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                local_secondary_index_property = dynamodb.CfnTable.LocalSecondaryIndexProperty(
+                    index_name="indexName",
+                    key_schema=[dynamodb.CfnTable.KeySchemaProperty(
+                        attribute_name="attributeName",
+                        key_type="keyType"
+                    )],
+                    projection=dynamodb.CfnTable.ProjectionProperty(
+                        non_key_attributes=["nonKeyAttributes"],
+                        projection_type="projectionType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b0b88333ee681d4ae2ca57b460a2cb522a3c2318088078bf3d60236c2485f402)
+                check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+                check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
+                check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "index_name": index_name,
+                "key_schema": key_schema,
+                "projection": projection,
+            }
+
+        @builtins.property
+        def index_name(self) -> builtins.str:
+            '''The name of the local secondary index.
+
+            The name must be unique among all other indexes on this table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-indexname
+            '''
+            result = self._values.get("index_name")
+            assert result is not None, "Required property 'index_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key_schema(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]]:
+            '''The complete key schema for the local secondary index, consisting of one or more pairs of attribute names and key types:  - ``HASH`` - partition key - ``RANGE`` - sort key  > The partition key of an item is also known as its *hash attribute* .
+
+            The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values.
+            .. epigraph::
+
+               The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-keyschema
+            '''
+            result = self._values.get("key_schema")
+            assert result is not None, "Required property 'key_schema' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTable.KeySchemaProperty"]]], result)
+
+        @builtins.property
+        def projection(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"]:
+            '''Represents attributes that are copied (projected) from the table into the local secondary index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-localsecondaryindex.html#cfn-dynamodb-table-localsecondaryindex-projection
+            '''
+            result = self._values.get("projection")
+            assert result is not None, "Required property 'projection' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTable.ProjectionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LocalSecondaryIndexProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.OnDemandThroughputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_read_request_units": "maxReadRequestUnits",
+            "max_write_request_units": "maxWriteRequestUnits",
+        },
+    )
+    class OnDemandThroughputProperty:
+        def __init__(
+            self,
+            *,
+            max_read_request_units: typing.Optional[jsii.Number] = None,
+            max_write_request_units: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Sets the maximum number of read and write units for the specified on-demand table.
+
+            If you use this property, you must specify ``MaxReadRequestUnits`` , ``MaxWriteRequestUnits`` , or both.
+
+            :param max_read_request_units: Maximum number of read request units for the specified table. To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxReadRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxReadRequestUnits`` to -1.
+            :param max_write_request_units: Maximum number of write request units for the specified table. To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxWriteRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxWriteRequestUnits`` to -1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                on_demand_throughput_property = dynamodb.CfnTable.OnDemandThroughputProperty(
+                    max_read_request_units=123,
+                    max_write_request_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__57fa9b9c0a1959797987b8f7dde13da703eb6da6e9a1d7c412f4b26d868eaf48)
+                check_type(argname="argument max_read_request_units", value=max_read_request_units, expected_type=type_hints["max_read_request_units"])
+                check_type(argname="argument max_write_request_units", value=max_write_request_units, expected_type=type_hints["max_write_request_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_read_request_units is not None:
+                self._values["max_read_request_units"] = max_read_request_units
+            if max_write_request_units is not None:
+                self._values["max_write_request_units"] = max_write_request_units
+
+        @builtins.property
+        def max_read_request_units(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of read request units for the specified table.
+
+            To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxReadRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxReadRequestUnits`` to -1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html#cfn-dynamodb-table-ondemandthroughput-maxreadrequestunits
+            '''
+            result = self._values.get("max_read_request_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_write_request_units(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of write request units for the specified table.
+
+            To specify a maximum ``OnDemandThroughput`` on your table, set the value of ``MaxWriteRequestUnits`` as greater than or equal to 1. To remove the maximum ``OnDemandThroughput`` that is currently set on your table, set the value of ``MaxWriteRequestUnits`` to -1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ondemandthroughput.html#cfn-dynamodb-table-ondemandthroughput-maxwriterequestunits
+            '''
+            result = self._values.get("max_write_request_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OnDemandThroughputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "point_in_time_recovery_enabled": "pointInTimeRecoveryEnabled",
+            "recovery_period_in_days": "recoveryPeriodInDays",
+        },
+    )
+    class PointInTimeRecoverySpecificationProperty:
+        def __init__(
+            self,
+            *,
+            point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            recovery_period_in_days: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The settings used to enable point in time recovery.
+
+            :param point_in_time_recovery_enabled: Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
+            :param recovery_period_in_days: The number of preceding days for which continuous backups are taken and maintained. Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                point_in_time_recovery_specification_property = dynamodb.CfnTable.PointInTimeRecoverySpecificationProperty(
+                    point_in_time_recovery_enabled=False,
+                    recovery_period_in_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8f4487b11f07e01ff872dc1405e046ab6c6bc7141706d606b21b57dcbd2f74eb)
+                check_type(argname="argument point_in_time_recovery_enabled", value=point_in_time_recovery_enabled, expected_type=type_hints["point_in_time_recovery_enabled"])
+                check_type(argname="argument recovery_period_in_days", value=recovery_period_in_days, expected_type=type_hints["recovery_period_in_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if point_in_time_recovery_enabled is not None:
+                self._values["point_in_time_recovery_enabled"] = point_in_time_recovery_enabled
+            if recovery_period_in_days is not None:
+                self._values["recovery_period_in_days"] = recovery_period_in_days
+
+        @builtins.property
+        def point_in_time_recovery_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether point in time recovery is enabled (true) or disabled (false) on the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html#cfn-dynamodb-table-pointintimerecoveryspecification-pointintimerecoveryenabled
+            '''
+            result = self._values.get("point_in_time_recovery_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def recovery_period_in_days(self) -> typing.Optional[jsii.Number]:
+            '''The number of preceding days for which continuous backups are taken and maintained.
+
+            Your table data is only recoverable to any point-in-time from within the configured recovery period. This parameter is optional. If no value is provided, the value will default to 35.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-pointintimerecoveryspecification.html#cfn-dynamodb-table-pointintimerecoveryspecification-recoveryperiodindays
+            '''
+            result = self._values.get("recovery_period_in_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PointInTimeRecoverySpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ProjectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "non_key_attributes": "nonKeyAttributes",
+            "projection_type": "projectionType",
+        },
+    )
+    class ProjectionProperty:
+        def __init__(
+            self,
+            *,
+            non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            projection_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents attributes that are copied (projected) from the table into an index.
+
+            These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+
+            :param non_key_attributes: Represents the non-key attribute names which will be projected into the index. For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
+            :param projection_type: The set of attributes that are projected into the index:. - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index. - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify. - ``ALL`` - All of the table attributes are projected into the index. When using the DynamoDB console, ``ALL`` is selected by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                projection_property = dynamodb.CfnTable.ProjectionProperty(
+                    non_key_attributes=["nonKeyAttributes"],
+                    projection_type="projectionType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d9036c04b0c4c58de6a0a95d1504323dc1970d9034c9feb67c217ff22fe993fd)
+                check_type(argname="argument non_key_attributes", value=non_key_attributes, expected_type=type_hints["non_key_attributes"])
+                check_type(argname="argument projection_type", value=projection_type, expected_type=type_hints["projection_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if non_key_attributes is not None:
+                self._values["non_key_attributes"] = non_key_attributes
+            if projection_type is not None:
+                self._values["projection_type"] = projection_type
+
+        @builtins.property
+        def non_key_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Represents the non-key attribute names which will be projected into the index.
+
+            For global and local secondary indexes, the total count of ``NonKeyAttributes`` summed across all of the secondary indexes, must not exceed 100. If you project the same attribute into two different indexes, this counts as two distinct attributes when determining the total. This limit only applies when you specify the ProjectionType of ``INCLUDE`` . You still can specify the ProjectionType of ``ALL`` to project all attributes from the source table, even if the table has more than 100 attributes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html#cfn-dynamodb-table-projection-nonkeyattributes
+            '''
+            result = self._values.get("non_key_attributes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def projection_type(self) -> typing.Optional[builtins.str]:
+            '''The set of attributes that are projected into the index:.
+
+            - ``KEYS_ONLY`` - Only the index and primary keys are projected into the index.
+            - ``INCLUDE`` - In addition to the attributes described in ``KEYS_ONLY`` , the secondary index will include other non-key attributes that you specify.
+            - ``ALL`` - All of the table attributes are projected into the index.
+
+            When using the DynamoDB console, ``ALL`` is selected by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-projection.html#cfn-dynamodb-table-projection-projectiontype
+            '''
+            result = self._values.get("projection_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProjectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ProvisionedThroughputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "read_capacity_units": "readCapacityUnits",
+            "write_capacity_units": "writeCapacityUnits",
+        },
+    )
+    class ProvisionedThroughputProperty:
+        def __init__(
+            self,
+            *,
+            read_capacity_units: jsii.Number,
+            write_capacity_units: jsii.Number,
+        ) -> None:
+            '''Throughput for the specified table, which consists of values for ``ReadCapacityUnits`` and ``WriteCapacityUnits`` .
+
+            For more information about the contents of a provisioned throughput structure, see `Amazon DynamoDB Table ProvisionedThroughput <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ProvisionedThroughput.html>`_ .
+
+            :param read_capacity_units: The maximum number of strongly consistent reads consumed per second before DynamoDB returns a ``ThrottlingException`` . For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* . If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
+            :param write_capacity_units: The maximum number of writes consumed per second before DynamoDB returns a ``ThrottlingException`` . For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* . If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                provisioned_throughput_property = dynamodb.CfnTable.ProvisionedThroughputProperty(
+                    read_capacity_units=123,
+                    write_capacity_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2c605785147b4a82f1aad9bc135fb470b73358c151d323493ae3f1cde15d00ae)
+                check_type(argname="argument read_capacity_units", value=read_capacity_units, expected_type=type_hints["read_capacity_units"])
+                check_type(argname="argument write_capacity_units", value=write_capacity_units, expected_type=type_hints["write_capacity_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "read_capacity_units": read_capacity_units,
+                "write_capacity_units": write_capacity_units,
+            }
+
+        @builtins.property
+        def read_capacity_units(self) -> jsii.Number:
+            '''The maximum number of strongly consistent reads consumed per second before DynamoDB returns a ``ThrottlingException`` .
+
+            For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* .
+
+            If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html#cfn-dynamodb-table-provisionedthroughput-readcapacityunits
+            '''
+            result = self._values.get("read_capacity_units")
+            assert result is not None, "Required property 'read_capacity_units' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def write_capacity_units(self) -> jsii.Number:
+            '''The maximum number of writes consumed per second before DynamoDB returns a ``ThrottlingException`` .
+
+            For more information, see `Specifying Read and Write Requirements <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html>`_ in the *Amazon DynamoDB Developer Guide* .
+
+            If read/write capacity mode is ``PAY_PER_REQUEST`` the value is set to 0.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-provisionedthroughput.html#cfn-dynamodb-table-provisionedthroughput-writecapacityunits
+            '''
+            result = self._values.get("write_capacity_units")
+            assert result is not None, "Required property 'write_capacity_units' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProvisionedThroughputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ResourcePolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"policy_document": "policyDocument"},
+    )
+    class ResourcePolicyProperty:
+        def __init__(self, *, policy_document: typing.Any) -> None:
+            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table, its indexes, and stream.
+
+            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            While defining resource-based policies in your CloudFormation templates, the following considerations apply:
+
+            - The maximum size supported for a resource-based policy document in JSON format is 20 KB. DynamoDB counts whitespaces when calculating the size of a policy against this limit.
+            - Resource-based policies don't support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html#>`_ . If you update a policy outside of the CloudFormation stack template, you'll need to update the CloudFormation stack with the changes.
+            - Resource-based policies don't support out-of-band changes. If you add, update, or delete a policy outside of the CloudFormation template, the change won't be overwritten if there are no changes to the policy within the template.
+
+            For example, say that your template contains a resource-based policy, which you later update outside of the template. If you don't make any changes to the policy in the template, the updated policy in DynamoDB won’t be synced with the policy in the template.
+
+            Conversely, say that your template doesn’t contain a resource-based policy, but you add a policy outside of the template. This policy won’t be removed from DynamoDB as long as you don’t add it to the template. When you add a policy to the template and update the stack, the existing policy in DynamoDB will be updated to match the one defined in the template.
+
+            For a full list of all considerations, see `Resource-based policy considerations <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-considerations.html>`_ .
+
+            :param policy_document: A resource-based policy document that contains permissions to add to the specified DynamoDB table, index, or both. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-resourcepolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                # policy_document: Any
+                
+                resource_policy_property = dynamodb.CfnTable.ResourcePolicyProperty(
+                    policy_document=policy_document
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__64c1cb1f4d183fca5b703f524bc57bfa5f9515fd97acd86171b92226b4e11ca3)
+                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy_document": policy_document,
+            }
+
+        @builtins.property
+        def policy_document(self) -> typing.Any:
+            '''A resource-based policy document that contains permissions to add to the specified DynamoDB table, index, or both.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-resourcepolicy.html#cfn-dynamodb-table-resourcepolicy-policydocument
+            '''
+            result = self._values.get("policy_document")
+            assert result is not None, "Required property 'policy_document' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourcePolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.S3BucketSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_bucket": "s3Bucket",
+            "s3_bucket_owner": "s3BucketOwner",
+            "s3_key_prefix": "s3KeyPrefix",
+        },
+    )
+    class S3BucketSourceProperty:
+        def __init__(
+            self,
+            *,
+            s3_bucket: builtins.str,
+            s3_bucket_owner: typing.Optional[builtins.str] = None,
+            s3_key_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The S3 bucket that is being imported from.
+
+            :param s3_bucket: The S3 bucket that is being imported from.
+            :param s3_bucket_owner: The account number of the S3 bucket that is being imported from. If the bucket is owned by the requester this is optional.
+            :param s3_key_prefix: The key prefix shared by all S3 Objects that are being imported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                s3_bucket_source_property = dynamodb.CfnTable.S3BucketSourceProperty(
+                    s3_bucket="s3Bucket",
+                
+                    # the properties below are optional
+                    s3_bucket_owner="s3BucketOwner",
+                    s3_key_prefix="s3KeyPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f675acfe91cced819ac46665a50bf155c45e71e78313e471666e0e9d708883e2)
+                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
+                check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
+                check_type(argname="argument s3_key_prefix", value=s3_key_prefix, expected_type=type_hints["s3_key_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_bucket": s3_bucket,
+            }
+            if s3_bucket_owner is not None:
+                self._values["s3_bucket_owner"] = s3_bucket_owner
+            if s3_key_prefix is not None:
+                self._values["s3_key_prefix"] = s3_key_prefix
+
+        @builtins.property
+        def s3_bucket(self) -> builtins.str:
+            '''The S3 bucket that is being imported from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3bucket
+            '''
+            result = self._values.get("s3_bucket")
+            assert result is not None, "Required property 's3_bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''The account number of the S3 bucket that is being imported from.
+
+            If the bucket is owned by the requester this is optional.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3bucketowner
+            '''
+            result = self._values.get("s3_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_key_prefix(self) -> typing.Optional[builtins.str]:
+            '''The key prefix shared by all S3 Objects that are being imported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-s3bucketsource.html#cfn-dynamodb-table-s3bucketsource-s3keyprefix
+            '''
+            result = self._values.get("s3_key_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3BucketSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.SSESpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "sse_enabled": "sseEnabled",
+            "kms_master_key_id": "kmsMasterKeyId",
+            "sse_type": "sseType",
+        },
+    )
+    class SSESpecificationProperty:
+        def __init__(
+            self,
+            *,
+            sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            kms_master_key_id: typing.Optional[builtins.str] = None,
+            sse_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents the settings used to enable server-side encryption.
+
+            :param sse_enabled: Indicates whether server-side encryption is done using an AWS managed key or an AWS owned key. If enabled (true), server-side encryption type is set to ``KMS`` and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified, server-side encryption is set to AWS owned key.
+            :param kms_master_key_id: The AWS KMS key that should be used for the AWS KMS encryption. To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
+            :param sse_type: Server-side encryption type. The only supported value is:. - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                s_sESpecification_property = dynamodb.CfnTable.SSESpecificationProperty(
+                    sse_enabled=False,
+                
+                    # the properties below are optional
+                    kms_master_key_id="kmsMasterKeyId",
+                    sse_type="sseType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__23b0abf52d7df3f9a3b741c39275e55783b349db0f08ac16d13c3d832be8301d)
+                check_type(argname="argument sse_enabled", value=sse_enabled, expected_type=type_hints["sse_enabled"])
+                check_type(argname="argument kms_master_key_id", value=kms_master_key_id, expected_type=type_hints["kms_master_key_id"])
+                check_type(argname="argument sse_type", value=sse_type, expected_type=type_hints["sse_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sse_enabled": sse_enabled,
+            }
+            if kms_master_key_id is not None:
+                self._values["kms_master_key_id"] = kms_master_key_id
+            if sse_type is not None:
+                self._values["sse_type"] = sse_type
+
+        @builtins.property
+        def sse_enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether server-side encryption is done using an AWS managed key or an AWS owned key.
+
+            If enabled (true), server-side encryption type is set to ``KMS`` and an AWS managed key is used ( AWS KMS charges apply). If disabled (false) or not specified, server-side encryption is set to AWS owned key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-sseenabled
+            '''
+            result = self._values.get("sse_enabled")
+            assert result is not None, "Required property 'sse_enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def kms_master_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS KMS key that should be used for the AWS KMS encryption.
+
+            To specify a key, use its key ID, Amazon Resource Name (ARN), alias name, or alias ARN. Note that you should only provide this parameter if the key is different from the default DynamoDB key ``alias/aws/dynamodb`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-kmsmasterkeyid
+            '''
+            result = self._values.get("kms_master_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sse_type(self) -> typing.Optional[builtins.str]:
+            '''Server-side encryption type. The only supported value is:.
+
+            - ``KMS`` - Server-side encryption that uses AWS Key Management Service . The key is stored in your account and is managed by AWS KMS ( AWS KMS charges apply).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-ssespecification.html#cfn-dynamodb-table-ssespecification-ssetype
+            '''
+            result = self._values.get("sse_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SSESpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.StreamSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "stream_view_type": "streamViewType",
+            "resource_policy": "resourcePolicy",
+        },
+    )
+    class StreamSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            stream_view_type: builtins.str,
+            resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Represents the DynamoDB Streams configuration for a table in DynamoDB.
+
+            :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
+            :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. .. epigraph:: When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                # policy_document: Any
+                
+                stream_specification_property = dynamodb.CfnTable.StreamSpecificationProperty(
+                    stream_view_type="streamViewType",
+                
+                    # the properties below are optional
+                    resource_policy=dynamodb.CfnTable.ResourcePolicyProperty(
+                        policy_document=policy_document
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72)
+                check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
+                check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stream_view_type": stream_view_type,
+            }
+            if resource_policy is not None:
+                self._values["resource_policy"] = resource_policy
+
+        @builtins.property
+        def stream_view_type(self) -> builtins.str:
+            '''When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table.
+
+            Valid values for ``StreamViewType`` are:
+
+            - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream.
+            - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream.
+            - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream.
+            - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-streamviewtype
+            '''
+            result = self._values.get("stream_view_type")
+            assert result is not None, "Required property 'stream_view_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def resource_policy(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]]:
+            '''Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams.
+
+            Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
+            .. epigraph::
+
+               When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period.
+
+            In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-resourcepolicy
+            '''
+            result = self._values.get("resource_policy")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTable.ResourcePolicyProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.TimeToLiveSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "attribute_name": "attributeName"},
+    )
+    class TimeToLiveSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            attribute_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Represents the settings used to enable or disable Time to Live (TTL) for the specified table.
+
+            :param enabled: Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
+            :param attribute_name: The name of the TTL attribute used to store the expiration time for items in the table. .. epigraph:: - The ``AttributeName`` property is required when enabling the TTL, or when TTL is already enabled. - To update this property, you must first disable TTL and then enable TTL with the new attribute name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                time_to_live_specification_property = dynamodb.CfnTable.TimeToLiveSpecificationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    attribute_name="attributeName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5d786558ff9ca543f7d0799e61bed247b8ecf13464a91bfd641c90c6a0e58845)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if attribute_name is not None:
+                self._values["attribute_name"] = attribute_name
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''Indicates whether TTL is to be enabled (true) or disabled (false) on the table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html#cfn-dynamodb-table-timetolivespecification-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def attribute_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the TTL attribute used to store the expiration time for items in the table.
+
+            .. epigraph::
+
+               - The ``AttributeName`` property is required when enabling the TTL, or when TTL is already enabled.
+               - To update this property, you must first disable TTL and then enable TTL with the new attribute name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-timetolivespecification.html#cfn-dynamodb-table-timetolivespecification-attributename
+            '''
+            result = self._values.get("attribute_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TimeToLiveSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.WarmThroughputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "read_units_per_second": "readUnitsPerSecond",
+            "write_units_per_second": "writeUnitsPerSecond",
+        },
+    )
+    class WarmThroughputProperty:
+        def __init__(
+            self,
+            *,
+            read_units_per_second: typing.Optional[jsii.Number] = None,
+            write_units_per_second: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Provides visibility into the number of read and write operations your table or secondary index can instantaneously support.
+
+            The settings can be modified using the ``UpdateTable`` operation to meet the throughput requirements of an upcoming peak event.
+
+            :param read_units_per_second: Represents the number of read operations your base table can instantaneously support.
+            :param write_units_per_second: Represents the number of write operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                warm_throughput_property = dynamodb.CfnTable.WarmThroughputProperty(
+                    read_units_per_second=123,
+                    write_units_per_second=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ddf88a87c38a2c772533f42deb8bc496ef2b564e2f9605ed588471312d01306)
+                check_type(argname="argument read_units_per_second", value=read_units_per_second, expected_type=type_hints["read_units_per_second"])
+                check_type(argname="argument write_units_per_second", value=write_units_per_second, expected_type=type_hints["write_units_per_second"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if read_units_per_second is not None:
+                self._values["read_units_per_second"] = read_units_per_second
+            if write_units_per_second is not None:
+                self._values["write_units_per_second"] = write_units_per_second
+
+        @builtins.property
+        def read_units_per_second(self) -> typing.Optional[jsii.Number]:
+            '''Represents the number of read operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html#cfn-dynamodb-table-warmthroughput-readunitspersecond
+            '''
+            result = self._values.get("read_units_per_second")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def write_units_per_second(self) -> typing.Optional[jsii.Number]:
+            '''Represents the number of write operations your base table can instantaneously support.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-warmthroughput.html#cfn-dynamodb-table-warmthroughput-writeunitspersecond
+            '''
+            result = self._values.get("write_units_per_second")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WarmThroughputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -17093,8 +17310,11 @@ __all__ = [
     "EnableScalingProps",
     "GlobalSecondaryIndexProps",
     "GlobalSecondaryIndexPropsV2",
+    "GlobalTableReference",
+    "IGlobalTableRef",
     "IScalableTableAttribute",
     "ITable",
+    "ITableRef",
     "ITableV2",
     "ImportSourceSpecification",
     "InputCompressionType",
@@ -17124,6 +17344,7 @@ __all__ = [
     "TableOptionsV2",
     "TableProps",
     "TablePropsV2",
+    "TableReference",
     "TableV2",
     "ThroughputProps",
     "UtilizationScalingProps",
@@ -17156,337 +17377,6 @@ def _typecheckingstub__ac96235cd17326a35c953f2d45a5b2b8c2323302d2f4fad1870f10eb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b30f832c(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    billing_mode: typing.Optional[builtins.str] = None,
-    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalTableWitnessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    multi_region_consistency: typing.Optional[builtins.str] = None,
-    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_name: typing.Optional[builtins.str] = None,
-    time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d6d6d953afce9a6c78e724d40aed1ff47a96ec42f6abd85c9d802b6d17044b3(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b537e69787151b8af9fdebb101e49ee80b7950f5c9598c894774176ebe79d87a(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReplicaSpecificationProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7a91e461bd5e49ff4dc2350ae1ceae8597a286d7e21db96c7ec976ba3537e3c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d9872d332b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalSecondaryIndexProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalTableWitnessProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188ceee5162(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.LocalSecondaryIndexProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ccb739aac1de1ded207a80b782298c972ccf113dd96de224fea60f9ce1b43833(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.SSESpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce608971cd7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.StreamSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.TimeToLiveSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5cffa71e41723d2cc6240a56e0993116de480cb2c21c1c9bb92de9599718c4b2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WarmThroughputProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e9e1941bc70970aa12bf29b98d00fed94dd701aea1acb0d4280e0f96ab3ca8bc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteOnDemandThroughputSettingsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__575a6fcd8e2e451f04b5c40c3e6da53aad798e3089f98afaa25d709c7d291a10(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteProvisionedThroughputSettingsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__132ff4911748619940d51d18802ab16c68912a365b124aba40c2bad82a6fdd34(
-    *,
-    attribute_name: builtins.str,
-    attribute_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__51587895f2d228591cb8c1b278064c8ca442192e93e2e20c22de9e04b6a6e60a(
-    *,
-    max_capacity: jsii.Number,
-    min_capacity: jsii.Number,
-    target_tracking_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    seed_capacity: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995(
-    *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    mode: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e4c0e93a19b9176fd628b4a4e5a1bb2ecabf4d1960e7d8fd138a1ecf06466de5(
-    *,
-    index_name: builtins.str,
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
-    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7628b4fa51cd4a5f8c1253b45a920f7c03001298e758a5d6592641047f1b8e9(
-    *,
-    region: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f6fed9a918a916a89877bc736388ca668f340b42771520c53e2d95e6b4837e2(
-    *,
-    attribute_name: builtins.str,
-    key_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6acc9d3df1fb5e5e6046cee30108ea5fa4450c329d99252dfa36f32cff756603(
-    *,
-    stream_arn: builtins.str,
-    approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cc80bdf64e67d180ed664a6277a7783edc8ac361b313b1a9c645a7fbedba26ea(
-    *,
-    index_name: builtins.str,
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d5290cad7073a0d0e9ec36328a3c9ddef8999cbd0266a5bcc51dd77a05820353(
-    *,
-    point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    recovery_period_in_days: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4c0de1c2636b4a9d86fe25eb5edc6065c41b4822ca849d93b7d9dd461a8a1726(
-    *,
-    non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    projection_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0fd14c9cf2e3c45eb388ee769c75710497a5d90721d232825a5cf8f3e9f4a225(
-    *,
-    max_read_request_units: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b95856807eaa8352f280e9d6233fd175afe80fcaffeb2aa7ece368e85c369db9(
-    *,
-    read_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.CapacityAutoScalingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_capacity_units: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__49303cfe760c4878a1d5ead21be42a0bc2eebc2849956fff8adf78f55a49ab0d(
-    *,
-    index_name: builtins.str,
-    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__13d47a60eb46d74e5115b498f84bf715cc24726b136c4176ed35bd7defb0f3b4(
-    *,
-    kms_master_key_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e45f373b(
-    *,
-    region: builtins.str,
-    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replica_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_class: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed(
-    *,
-    resource_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6007e745281a1817381b3cb8f148da677e9fde77893fbd60db054cb3b85f34db(
-    *,
-    policy_document: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea2cb67b1629904043fec37c484f260e58078624f7b496fe52fc2201d365e1c8(
-    *,
-    sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    sse_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf486381a1dcd1491dcd25b2b304b74893e1088d27adcc55317833f7618f698e(
-    *,
-    stream_view_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cff51147efeb84166406d956aa4cd526d14eba1656b169dfe2b4253d9459950e(
-    *,
-    target_value: jsii.Number,
-    disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    scale_in_cooldown: typing.Optional[jsii.Number] = None,
-    scale_out_cooldown: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dcf0cf3bffc007a79dfc055873ae7915dea668a00f7752d51c421f918f640e88(
-    *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    attribute_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b4a9630f73ba64974f75710b10a566fd0d88349b6d07fc41deb6fac3b443b29(
-    *,
-    read_units_per_second: typing.Optional[jsii.Number] = None,
-    write_units_per_second: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a74a3ac973b7df1320fab048c78a8197faf1684042be3f88a34a74adb99870fc(
-    *,
-    max_write_request_units: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__18a3302042e66f614ad3ddfe94bd456ac404316f80809965b0a7980371a56484(
-    *,
-    write_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.CapacityAutoScalingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2b193ad2(
     *,
     attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -17504,326 +17394,6 @@ def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2
     warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c4a83992df200bfde2ccfe129994eeacab105432a2509473861feb736dd5ea6(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    billing_mode: typing.Optional[builtins.str] = None,
-    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ImportSourceSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OnDemandThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_class: typing.Optional[builtins.str] = None,
-    table_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26bb91e182be62190fa064879e470f7aaf0c082ee3cebed92380192ddd6e106c(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__81643a0c10d8cbe127677c1696bc389f9cf0cbef6e9b16eeadacb8f85f5abb00(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b23ffa0600490aa85e7d7d78bfa21eab76ec61e446848fa311842ae651fa9836(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.KeySchemaProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5daf5ddc396c2de639d9ab720b24bd4802cb6b1935c3acaabde5b29c25732fd7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.AttributeDefinitionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__859e18c7e0169484ae1438c12328e5f08e77b8ce32d6fc9d190d1d453358f8b8(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4418562f8958ca4e57cc994ee87a0b27423f94d0f99284b5f04311b9e61b238f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ContributorInsightsSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d91900a3abfeb455a4849c52c7f1d034e09b1b0ceb4a50b598d8c938f15c012b(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__97df696d6ba063acb98f58f09adb6516d0fc1d41d4d4a37c39f7ffac09e0d5cd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.GlobalSecondaryIndexProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__61eb67e9e79c54ed8659ffe201d838bdf08b6b20da8fa03693734f4336da76c2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ImportSourceSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d983fc83d1717d6aa76c247a0250e28278e9d16c940822fa16986ff229e9043(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.KinesisStreamSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__45185c524451628b623abf4663f9427843c4d4a709a2cf82b14f8d2b3a9a7ffd(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.LocalSecondaryIndexProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__510f5c7d4293f98a55434a588a20db69cf20ac7b409105b7335eb2699ba8c570(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.OnDemandThroughputProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__06f7cca9d14af75b709b53e94a6fb51bba6dfa0cb31a23e0b70f506be9551e8d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.PointInTimeRecoverySpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6fa8ca064a9e23781245ca2f3d32d36a2324726abba76565a2e12ac5e399a599(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ProvisionedThroughputProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4166d9b0a925b24598927de15ecb1935d22d14f9a49469ba893db8d18421bf02(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ResourcePolicyProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bc5e50032964d91e0cf5ec36aba75b6ae325bfe6129ad9f55764353e645b28c6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SSESpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4ba4ef955ba0e9ac6474c62ea545a637752c92fffc5fe0868d55987f8b593ba(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StreamSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__df6efdc84208b4dd6d9307c0da182d301e83373407c8e72b4e33094a16f0e9ee(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b9a680d2bfdc5e6712f2c0338c7388d0ee2bbf8560c324a2398466ed5efe5e1b(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae8c7d0ef496e4ff46af1a1db46d7b3840fc5e44d90dd5539a886f2d9ef19658(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.TimeToLiveSpecificationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.WarmThroughputProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__09c7a32c39444fb07dbb26b4ad1f9b87ad574421e0b12ac175c090173de657a3(
-    *,
-    attribute_name: builtins.str,
-    attribute_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82(
-    *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    mode: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1aa22e74932c2dcdf53fad9d8e58e5934c2ca867f5a4d9ac821cd6f571c6f732(
-    *,
-    delimiter: typing.Optional[builtins.str] = None,
-    header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__112c1b7034b42e59580b7feba43dc401f21ec329ca66e8612a1b056b0c3a744c(
-    *,
-    index_name: builtins.str,
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
-    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OnDemandThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a892ec521b494ae5a81ac20deb94ee9d3cdef4699ed7250b4aa0c1e487483982(
-    *,
-    input_format: builtins.str,
-    s3_bucket_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.S3BucketSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    input_compression_type: typing.Optional[builtins.str] = None,
-    input_format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.InputFormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__baf8d37dad8013f3f0372385196b6e4c72dd08d7f65f2f14f52958322242d87e(
-    *,
-    csv: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.CsvProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e950e1a9ef4b739c934ec12e9f31ed8ea144c936240d474b6661a064bd89ff70(
-    *,
-    attribute_name: builtins.str,
-    key_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cbb77b10d6677c9577ed11e7ae53f72ab1665def857c99c6c07d8e5de0dc705e(
-    *,
-    stream_arn: builtins.str,
-    approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b0b88333ee681d4ae2ca57b460a2cb522a3c2318088078bf3d60236c2485f402(
-    *,
-    index_name: builtins.str,
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__57fa9b9c0a1959797987b8f7dde13da703eb6da6e9a1d7c412f4b26d868eaf48(
-    *,
-    max_read_request_units: typing.Optional[jsii.Number] = None,
-    max_write_request_units: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8f4487b11f07e01ff872dc1405e046ab6c6bc7141706d606b21b57dcbd2f74eb(
-    *,
-    point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    recovery_period_in_days: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d9036c04b0c4c58de6a0a95d1504323dc1970d9034c9feb67c217ff22fe993fd(
-    *,
-    non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    projection_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c605785147b4a82f1aad9bc135fb470b73358c151d323493ae3f1cde15d00ae(
-    *,
-    read_capacity_units: jsii.Number,
-    write_capacity_units: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__64c1cb1f4d183fca5b703f524bc57bfa5f9515fd97acd86171b92226b4e11ca3(
-    *,
-    policy_document: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f675acfe91cced819ac46665a50bf155c45e71e78313e471666e0e9d708883e2(
-    *,
-    s3_bucket: builtins.str,
-    s3_bucket_owner: typing.Optional[builtins.str] = None,
-    s3_key_prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__23b0abf52d7df3f9a3b741c39275e55783b349db0f08ac16d13c3d832be8301d(
-    *,
-    sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    kms_master_key_id: typing.Optional[builtins.str] = None,
-    sse_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72(
-    *,
-    stream_view_type: builtins.str,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d786558ff9ca543f7d0799e61bed247b8ecf13464a91bfd641c90c6a0e58845(
-    *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    attribute_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ddf88a87c38a2c772533f42deb8bc496ef2b564e2f9605ed588471312d01306(
-    *,
-    read_units_per_second: typing.Optional[jsii.Number] = None,
-    write_units_per_second: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17874,6 +17444,14 @@ def _typecheckingstub__65bf96db699a872053104efc42fdd7451bf3f3e22f1b43ef371c92f79
     *,
     max_capacity: jsii.Number,
     min_capacity: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc5b2ffa9239c84c347e870b166bd59126157e148ac6a1bad266edc17a0316d3(
+    *,
+    global_table_arn: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18401,6 +17979,14 @@ def _typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd10
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5f35272c419f58a36f958465c66a5a7c2a77bb7faf298383c4f965eaa7878079(
+    *,
+    table_arn: builtins.str,
+    table_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9ea47b003cdb497ff620f1410260696f97dbb2b00fa8558235f23771f8edcb29(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18496,6 +18082,657 @@ def _typecheckingstub__c4ff699feae0a38c5f10e2a5642e047a70a3e0efba02b8c1f70810eb7
     pass
 
 def _typecheckingstub__ea3f07e08dc05c8371a6d7c241d22bd88e7f4c275408314c3875915b1c8db940(
+    *,
+    read_units_per_second: typing.Optional[jsii.Number] = None,
+    write_units_per_second: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b30f832c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    billing_mode: typing.Optional[builtins.str] = None,
+    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalTableWitnessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multi_region_consistency: typing.Optional[builtins.str] = None,
+    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_name: typing.Optional[builtins.str] = None,
+    time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d6d6d953afce9a6c78e724d40aed1ff47a96ec42f6abd85c9d802b6d17044b3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b537e69787151b8af9fdebb101e49ee80b7950f5c9598c894774176ebe79d87a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReplicaSpecificationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7a91e461bd5e49ff4dc2350ae1ceae8597a286d7e21db96c7ec976ba3537e3c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d9872d332b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalSecondaryIndexProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalTableWitnessProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188ceee5162(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.LocalSecondaryIndexProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccb739aac1de1ded207a80b782298c972ccf113dd96de224fea60f9ce1b43833(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.SSESpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce608971cd7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.StreamSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.TimeToLiveSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cffa71e41723d2cc6240a56e0993116de480cb2c21c1c9bb92de9599718c4b2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WarmThroughputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9e1941bc70970aa12bf29b98d00fed94dd701aea1acb0d4280e0f96ab3ca8bc(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteOnDemandThroughputSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__575a6fcd8e2e451f04b5c40c3e6da53aad798e3089f98afaa25d709c7d291a10(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.WriteProvisionedThroughputSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__132ff4911748619940d51d18802ab16c68912a365b124aba40c2bad82a6fdd34(
+    *,
+    attribute_name: builtins.str,
+    attribute_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51587895f2d228591cb8c1b278064c8ca442192e93e2e20c22de9e04b6a6e60a(
+    *,
+    max_capacity: jsii.Number,
+    min_capacity: jsii.Number,
+    target_tracking_scaling_policy_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.TargetTrackingScalingPolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    seed_capacity: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4c0e93a19b9176fd628b4a4e5a1bb2ecabf4d1960e7d8fd138a1ecf06466de5(
+    *,
+    index_name: builtins.str,
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7628b4fa51cd4a5f8c1253b45a920f7c03001298e758a5d6592641047f1b8e9(
+    *,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f6fed9a918a916a89877bc736388ca668f340b42771520c53e2d95e6b4837e2(
+    *,
+    attribute_name: builtins.str,
+    key_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6acc9d3df1fb5e5e6046cee30108ea5fa4450c329d99252dfa36f32cff756603(
+    *,
+    stream_arn: builtins.str,
+    approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc80bdf64e67d180ed664a6277a7783edc8ac361b313b1a9c645a7fbedba26ea(
+    *,
+    index_name: builtins.str,
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5290cad7073a0d0e9ec36328a3c9ddef8999cbd0266a5bcc51dd77a05820353(
+    *,
+    point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    recovery_period_in_days: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c0de1c2636b4a9d86fe25eb5edc6065c41b4822ca849d93b7d9dd461a8a1726(
+    *,
+    non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    projection_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fd14c9cf2e3c45eb388ee769c75710497a5d90721d232825a5cf8f3e9f4a225(
+    *,
+    max_read_request_units: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b95856807eaa8352f280e9d6233fd175afe80fcaffeb2aa7ece368e85c369db9(
+    *,
+    read_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.CapacityAutoScalingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_capacity_units: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49303cfe760c4878a1d5ead21be42a0bc2eebc2849956fff8adf78f55a49ab0d(
+    *,
+    index_name: builtins.str,
+    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13d47a60eb46d74e5115b498f84bf715cc24726b136c4176ed35bd7defb0f3b4(
+    *,
+    kms_master_key_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e45f373b(
+    *,
+    region: builtins.str,
+    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replica_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_class: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed(
+    *,
+    resource_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6007e745281a1817381b3cb8f148da677e9fde77893fbd60db054cb3b85f34db(
+    *,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea2cb67b1629904043fec37c484f260e58078624f7b496fe52fc2201d365e1c8(
+    *,
+    sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    sse_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf486381a1dcd1491dcd25b2b304b74893e1088d27adcc55317833f7618f698e(
+    *,
+    stream_view_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cff51147efeb84166406d956aa4cd526d14eba1656b169dfe2b4253d9459950e(
+    *,
+    target_value: jsii.Number,
+    disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    scale_in_cooldown: typing.Optional[jsii.Number] = None,
+    scale_out_cooldown: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcf0cf3bffc007a79dfc055873ae7915dea668a00f7752d51c421f918f640e88(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    attribute_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b4a9630f73ba64974f75710b10a566fd0d88349b6d07fc41deb6fac3b443b29(
+    *,
+    read_units_per_second: typing.Optional[jsii.Number] = None,
+    write_units_per_second: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a74a3ac973b7df1320fab048c78a8197faf1684042be3f88a34a74adb99870fc(
+    *,
+    max_write_request_units: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18a3302042e66f614ad3ddfe94bd456ac404316f80809965b0a7980371a56484(
+    *,
+    write_capacity_auto_scaling_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.CapacityAutoScalingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c4a83992df200bfde2ccfe129994eeacab105432a2509473861feb736dd5ea6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    billing_mode: typing.Optional[builtins.str] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    import_source_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ImportSourceSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OnDemandThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_class: typing.Optional[builtins.str] = None,
+    table_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_to_live_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.TimeToLiveSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26bb91e182be62190fa064879e470f7aaf0c082ee3cebed92380192ddd6e106c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81643a0c10d8cbe127677c1696bc389f9cf0cbef6e9b16eeadacb8f85f5abb00(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b23ffa0600490aa85e7d7d78bfa21eab76ec61e446848fa311842ae651fa9836(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.KeySchemaProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5daf5ddc396c2de639d9ab720b24bd4802cb6b1935c3acaabde5b29c25732fd7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.AttributeDefinitionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__859e18c7e0169484ae1438c12328e5f08e77b8ce32d6fc9d190d1d453358f8b8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4418562f8958ca4e57cc994ee87a0b27423f94d0f99284b5f04311b9e61b238f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ContributorInsightsSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d91900a3abfeb455a4849c52c7f1d034e09b1b0ceb4a50b598d8c938f15c012b(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97df696d6ba063acb98f58f09adb6516d0fc1d41d4d4a37c39f7ffac09e0d5cd(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.GlobalSecondaryIndexProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61eb67e9e79c54ed8659ffe201d838bdf08b6b20da8fa03693734f4336da76c2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ImportSourceSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d983fc83d1717d6aa76c247a0250e28278e9d16c940822fa16986ff229e9043(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.KinesisStreamSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45185c524451628b623abf4663f9427843c4d4a709a2cf82b14f8d2b3a9a7ffd(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTable.LocalSecondaryIndexProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__510f5c7d4293f98a55434a588a20db69cf20ac7b409105b7335eb2699ba8c570(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.OnDemandThroughputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06f7cca9d14af75b709b53e94a6fb51bba6dfa0cb31a23e0b70f506be9551e8d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.PointInTimeRecoverySpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fa8ca064a9e23781245ca2f3d32d36a2324726abba76565a2e12ac5e399a599(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ProvisionedThroughputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4166d9b0a925b24598927de15ecb1935d22d14f9a49469ba893db8d18421bf02(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.ResourcePolicyProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc5e50032964d91e0cf5ec36aba75b6ae325bfe6129ad9f55764353e645b28c6(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SSESpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4ba4ef955ba0e9ac6474c62ea545a637752c92fffc5fe0868d55987f8b593ba(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StreamSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df6efdc84208b4dd6d9307c0da182d301e83373407c8e72b4e33094a16f0e9ee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9a680d2bfdc5e6712f2c0338c7388d0ee2bbf8560c324a2398466ed5efe5e1b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae8c7d0ef496e4ff46af1a1db46d7b3840fc5e44d90dd5539a886f2d9ef19658(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.TimeToLiveSpecificationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.WarmThroughputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09c7a32c39444fb07dbb26b4ad1f9b87ad574421e0b12ac175c090173de657a3(
+    *,
+    attribute_name: builtins.str,
+    attribute_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aa22e74932c2dcdf53fad9d8e58e5934c2ca867f5a4d9ac821cd6f571c6f732(
+    *,
+    delimiter: typing.Optional[builtins.str] = None,
+    header_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__112c1b7034b42e59580b7feba43dc401f21ec329ca66e8612a1b056b0c3a744c(
+    *,
+    index_name: builtins.str,
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    on_demand_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.OnDemandThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a892ec521b494ae5a81ac20deb94ee9d3cdef4699ed7250b4aa0c1e487483982(
+    *,
+    input_format: builtins.str,
+    s3_bucket_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.S3BucketSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_compression_type: typing.Optional[builtins.str] = None,
+    input_format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.InputFormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baf8d37dad8013f3f0372385196b6e4c72dd08d7f65f2f14f52958322242d87e(
+    *,
+    csv: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.CsvProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e950e1a9ef4b739c934ec12e9f31ed8ea144c936240d474b6661a064bd89ff70(
+    *,
+    attribute_name: builtins.str,
+    key_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbb77b10d6677c9577ed11e7ae53f72ab1665def857c99c6c07d8e5de0dc705e(
+    *,
+    stream_arn: builtins.str,
+    approximate_creation_date_time_precision: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0b88333ee681d4ae2ca57b460a2cb522a3c2318088078bf3d60236c2485f402(
+    *,
+    index_name: builtins.str,
+    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57fa9b9c0a1959797987b8f7dde13da703eb6da6e9a1d7c412f4b26d868eaf48(
+    *,
+    max_read_request_units: typing.Optional[jsii.Number] = None,
+    max_write_request_units: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f4487b11f07e01ff872dc1405e046ab6c6bc7141706d606b21b57dcbd2f74eb(
+    *,
+    point_in_time_recovery_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    recovery_period_in_days: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9036c04b0c4c58de6a0a95d1504323dc1970d9034c9feb67c217ff22fe993fd(
+    *,
+    non_key_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    projection_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c605785147b4a82f1aad9bc135fb470b73358c151d323493ae3f1cde15d00ae(
+    *,
+    read_capacity_units: jsii.Number,
+    write_capacity_units: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64c1cb1f4d183fca5b703f524bc57bfa5f9515fd97acd86171b92226b4e11ca3(
+    *,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f675acfe91cced819ac46665a50bf155c45e71e78313e471666e0e9d708883e2(
+    *,
+    s3_bucket: builtins.str,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
+    s3_key_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23b0abf52d7df3f9a3b741c39275e55783b349db0f08ac16d13c3d832be8301d(
+    *,
+    sse_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    kms_master_key_id: typing.Optional[builtins.str] = None,
+    sse_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3099d6d2aee077548b7bec617449da8355169637f0983749d3191a63e00a1c72(
+    *,
+    stream_view_type: builtins.str,
+    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d786558ff9ca543f7d0799e61bed247b8ecf13464a91bfd641c90c6a0e58845(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    attribute_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ddf88a87c38a2c772533f42deb8bc496ef2b564e2f9605ed588471312d01306(
     *,
     read_units_per_second: typing.Optional[jsii.Number] = None,
     write_units_per_second: typing.Optional[jsii.Number] = None,

@@ -77,6 +77,61 @@ struct mj_deleteVFS {
   }
 };
 
+struct mj_getCacheSize {
+  static constexpr char name[] = "mj_getCacheSize";
+  static constexpr char doc[] = "Get the current size of the asset cache in bytes.";
+  using type = size_t (const mjCache *);
+  static constexpr auto param_names = std::make_tuple("cache");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_getCacheSize;
+  }
+};
+
+struct mj_getCacheCapacity {
+  static constexpr char name[] = "mj_getCacheCapacity";
+  static constexpr char doc[] = "Get the capacity of the asset cache in bytes.";
+  using type = size_t (const mjCache *);
+  static constexpr auto param_names = std::make_tuple("cache");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_getCacheCapacity;
+  }
+};
+
+struct mj_setCacheCapacity {
+  static constexpr char name[] = "mj_setCacheCapacity";
+  static constexpr char doc[] = "Set the capacity of the asset cache in bytes (0 to disable); returns the new capacity.";
+  using type = size_t (mjCache *, size_t);
+  static constexpr auto param_names = std::make_tuple("cache", "size");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_setCacheCapacity;
+  }
+};
+
+struct mj_getCache {
+  static constexpr char name[] = "mj_getCache";
+  static constexpr char doc[] = "Get the internal asset cache used by the compiler.";
+  using type = mjCache * ();
+  static constexpr auto param_names = std::make_tuple();
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_getCache;
+  }
+};
+
+struct mj_clearCache {
+  static constexpr char name[] = "mj_clearCache";
+  static constexpr char doc[] = "Clear the asset cache.";
+  using type = void (mjCache *);
+  static constexpr auto param_names = std::make_tuple("cache");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_clearCache;
+  }
+};
+
 struct mj_loadXML {
   static constexpr char name[] = "mj_loadXML";
   static constexpr char doc[] = "Parse XML file in MJCF or URDF format, compile it, return low-level model. If vfs is not NULL, look up files in vfs before reading from disk. If error is not NULL, it must have size error_sz.";
@@ -1124,9 +1179,9 @@ struct mj_constraintUpdate {
 
 struct mj_stateSize {
   static constexpr char name[] = "mj_stateSize";
-  static constexpr char doc[] = "Return size of state specification.";
+  static constexpr char doc[] = "Return size of state signature.";
   using type = int (const mjModel *, unsigned int);
-  static constexpr auto param_names = std::make_tuple("m", "spec");
+  static constexpr auto param_names = std::make_tuple("m", "sig");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_stateSize;
@@ -1137,7 +1192,7 @@ struct mj_getState {
   static constexpr char name[] = "mj_getState";
   static constexpr char doc[] = "Get state.";
   using type = void (const mjModel *, const mjData *, mjtNum *, unsigned int);
-  static constexpr auto param_names = std::make_tuple("m", "d", "state", "spec");
+  static constexpr auto param_names = std::make_tuple("m", "d", "state", "sig");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_getState;
@@ -1148,7 +1203,7 @@ struct mj_setState {
   static constexpr char name[] = "mj_setState";
   static constexpr char doc[] = "Set state.";
   using type = void (const mjModel *, mjData *, const mjtNum *, unsigned int);
-  static constexpr auto param_names = std::make_tuple("m", "d", "state", "spec");
+  static constexpr auto param_names = std::make_tuple("m", "d", "state", "sig");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_setState;
@@ -1388,7 +1443,7 @@ struct mj_mulM2 {
 
 struct mj_addM {
   static constexpr char name[] = "mj_addM";
-  static constexpr char doc[] = "Add inertia matrix to destination matrix. Destination can be sparse or dense when all int* are NULL.";
+  static constexpr char doc[] = "Add inertia matrix to destination matrix (lower triangle only). Destination can be sparse or dense when all int* are NULL.";
   using type = void (const mjModel *, mjData *, mjtNum *, int *, int *, int *);
   static constexpr auto param_names = std::make_tuple("m", "d", "dst", "rownnz", "rowadr", "colind");
 

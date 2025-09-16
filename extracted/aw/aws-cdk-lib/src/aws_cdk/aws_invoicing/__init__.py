@@ -78,7 +78,250 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_invoicing.CfnInvoiceUnitProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "invoice_receiver": "invoiceReceiver",
+        "name": "name",
+        "rule": "rule",
+        "description": "description",
+        "resource_tags": "resourceTags",
+        "tax_inheritance_disabled": "taxInheritanceDisabled",
+    },
+)
+class CfnInvoiceUnitProps:
+    def __init__(
+        self,
+        *,
+        invoice_receiver: builtins.str,
+        name: builtins.str,
+        rule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInvoiceUnit.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnInvoiceUnit.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tax_inheritance_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInvoiceUnit``.
+
+        :param invoice_receiver: The account that receives invoices related to the invoice unit.
+        :param name: A unique name that is distinctive within your AWS .
+        :param rule: An ``InvoiceUnitRule`` object used the categorize invoice units.
+        :param description: The assigned description for an invoice unit. This information can't be modified or deleted.
+        :param resource_tags: The tag structure that contains a tag key and value.
+        :param tax_inheritance_disabled: Whether the invoice unit based tax inheritance is/ should be enabled or disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_invoicing as invoicing
+            
+            cfn_invoice_unit_props = invoicing.CfnInvoiceUnitProps(
+                invoice_receiver="invoiceReceiver",
+                name="name",
+                rule=invoicing.CfnInvoiceUnit.RuleProperty(
+                    linked_accounts=["linkedAccounts"]
+                ),
+            
+                # the properties below are optional
+                description="description",
+                resource_tags=[invoicing.CfnInvoiceUnit.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )],
+                tax_inheritance_disabled=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4fdf29b8c64b38c209320f998b71b0ce2601c2ac744bde28886f66b3cefdce6)
+            check_type(argname="argument invoice_receiver", value=invoice_receiver, expected_type=type_hints["invoice_receiver"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+            check_type(argname="argument tax_inheritance_disabled", value=tax_inheritance_disabled, expected_type=type_hints["tax_inheritance_disabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "invoice_receiver": invoice_receiver,
+            "name": name,
+            "rule": rule,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+        if tax_inheritance_disabled is not None:
+            self._values["tax_inheritance_disabled"] = tax_inheritance_disabled
+
+    @builtins.property
+    def invoice_receiver(self) -> builtins.str:
+        '''The account that receives invoices related to the invoice unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-invoicereceiver
+        '''
+        result = self._values.get("invoice_receiver")
+        assert result is not None, "Required property 'invoice_receiver' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A unique name that is distinctive within your AWS .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnInvoiceUnit.RuleProperty"]:
+        '''An ``InvoiceUnitRule`` object used the categorize invoice units.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-rule
+        '''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInvoiceUnit.RuleProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The assigned description for an invoice unit.
+
+        This information can't be modified or deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnInvoiceUnit.ResourceTagProperty"]]:
+        '''The tag structure that contains a tag key and value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.List["CfnInvoiceUnit.ResourceTagProperty"]], result)
+
+    @builtins.property
+    def tax_inheritance_disabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether the invoice unit based tax inheritance is/ should be enabled or disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-taxinheritancedisabled
+        '''
+        result = self._values.get("tax_inheritance_disabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInvoiceUnitProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_invoicing.IInvoiceUnitRef")
+class IInvoiceUnitRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a InvoiceUnit.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="invoiceUnitRef")
+    def invoice_unit_ref(self) -> "InvoiceUnitReference":
+        '''(experimental) A reference to a InvoiceUnit resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInvoiceUnitRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InvoiceUnit.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_invoicing.IInvoiceUnitRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="invoiceUnitRef")
+    def invoice_unit_ref(self) -> "InvoiceUnitReference":
+        '''(experimental) A reference to a InvoiceUnit resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InvoiceUnitReference", jsii.get(self, "invoiceUnitRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInvoiceUnitRef).__jsii_proxy_class__ = lambda : _IInvoiceUnitRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_invoicing.InvoiceUnitReference",
+    jsii_struct_bases=[],
+    name_mapping={"invoice_unit_arn": "invoiceUnitArn"},
+)
+class InvoiceUnitReference:
+    def __init__(self, *, invoice_unit_arn: builtins.str) -> None:
+        '''A reference to a InvoiceUnit resource.
+
+        :param invoice_unit_arn: The InvoiceUnitArn of the InvoiceUnit resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_invoicing as invoicing
+            
+            invoice_unit_reference = invoicing.InvoiceUnitReference(
+                invoice_unit_arn="invoiceUnitArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6cf03a3ecba8d7807ba12ad7e7d13f9cec58caf16670a7358ae43fe3af070706)
+            check_type(argname="argument invoice_unit_arn", value=invoice_unit_arn, expected_type=type_hints["invoice_unit_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "invoice_unit_arn": invoice_unit_arn,
+        }
+
+    @builtins.property
+    def invoice_unit_arn(self) -> builtins.str:
+        '''The InvoiceUnitArn of the InvoiceUnit resource.'''
+        result = self._values.get("invoice_unit_arn")
+        assert result is not None, "Required property 'invoice_unit_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InvoiceUnitReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IInvoiceUnitRef, _ITaggableV2_4e6798f8)
 class CfnInvoiceUnit(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -214,6 +457,12 @@ class CfnInvoiceUnit(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="invoiceUnitRef")
+    def invoice_unit_ref(self) -> InvoiceUnitReference:
+        '''A reference to a InvoiceUnit resource.'''
+        return typing.cast(InvoiceUnitReference, jsii.get(self, "invoiceUnitRef"))
 
     @builtins.property
     @jsii.member(jsii_name="invoiceReceiver")
@@ -427,164 +676,33 @@ class CfnInvoiceUnit(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_invoicing.CfnInvoiceUnitProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "invoice_receiver": "invoiceReceiver",
-        "name": "name",
-        "rule": "rule",
-        "description": "description",
-        "resource_tags": "resourceTags",
-        "tax_inheritance_disabled": "taxInheritanceDisabled",
-    },
-)
-class CfnInvoiceUnitProps:
-    def __init__(
-        self,
-        *,
-        invoice_receiver: builtins.str,
-        name: builtins.str,
-        rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInvoiceUnit.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnInvoiceUnit.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tax_inheritance_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInvoiceUnit``.
-
-        :param invoice_receiver: The account that receives invoices related to the invoice unit.
-        :param name: A unique name that is distinctive within your AWS .
-        :param rule: An ``InvoiceUnitRule`` object used the categorize invoice units.
-        :param description: The assigned description for an invoice unit. This information can't be modified or deleted.
-        :param resource_tags: The tag structure that contains a tag key and value.
-        :param tax_inheritance_disabled: Whether the invoice unit based tax inheritance is/ should be enabled or disabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_invoicing as invoicing
-            
-            cfn_invoice_unit_props = invoicing.CfnInvoiceUnitProps(
-                invoice_receiver="invoiceReceiver",
-                name="name",
-                rule=invoicing.CfnInvoiceUnit.RuleProperty(
-                    linked_accounts=["linkedAccounts"]
-                ),
-            
-                # the properties below are optional
-                description="description",
-                resource_tags=[invoicing.CfnInvoiceUnit.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )],
-                tax_inheritance_disabled=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4fdf29b8c64b38c209320f998b71b0ce2601c2ac744bde28886f66b3cefdce6)
-            check_type(argname="argument invoice_receiver", value=invoice_receiver, expected_type=type_hints["invoice_receiver"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-            check_type(argname="argument tax_inheritance_disabled", value=tax_inheritance_disabled, expected_type=type_hints["tax_inheritance_disabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "invoice_receiver": invoice_receiver,
-            "name": name,
-            "rule": rule,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-        if tax_inheritance_disabled is not None:
-            self._values["tax_inheritance_disabled"] = tax_inheritance_disabled
-
-    @builtins.property
-    def invoice_receiver(self) -> builtins.str:
-        '''The account that receives invoices related to the invoice unit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-invoicereceiver
-        '''
-        result = self._values.get("invoice_receiver")
-        assert result is not None, "Required property 'invoice_receiver' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A unique name that is distinctive within your AWS .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule(self) -> typing.Union[_IResolvable_da3f097b, CfnInvoiceUnit.RuleProperty]:
-        '''An ``InvoiceUnitRule`` object used the categorize invoice units.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-rule
-        '''
-        result = self._values.get("rule")
-        assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnInvoiceUnit.RuleProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The assigned description for an invoice unit.
-
-        This information can't be modified or deleted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnInvoiceUnit.ResourceTagProperty]]:
-        '''The tag structure that contains a tag key and value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.List[CfnInvoiceUnit.ResourceTagProperty]], result)
-
-    @builtins.property
-    def tax_inheritance_disabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether the invoice unit based tax inheritance is/ should be enabled or disabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-invoicing-invoiceunit.html#cfn-invoicing-invoiceunit-taxinheritancedisabled
-        '''
-        result = self._values.get("tax_inheritance_disabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInvoiceUnitProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnInvoiceUnit",
     "CfnInvoiceUnitProps",
+    "IInvoiceUnitRef",
+    "InvoiceUnitReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a4fdf29b8c64b38c209320f998b71b0ce2601c2ac744bde28886f66b3cefdce6(
+    *,
+    invoice_receiver: builtins.str,
+    name: builtins.str,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInvoiceUnit.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnInvoiceUnit.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tax_inheritance_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cf03a3ecba8d7807ba12ad7e7d13f9cec58caf16670a7358ae43fe3af070706(
+    *,
+    invoice_unit_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__ec21d6093b38a709121aa7ff8c0297fdced84c912861970ec02e3bc317566bc6(
     scope: _constructs_77d1e7e8.Construct,
@@ -659,18 +777,6 @@ def _typecheckingstub__859a6df074320cbe1a9099b42236f7d3759a4ce5419adf8bb3c001155
 def _typecheckingstub__8558be1d7f9b75065f54979d9fa00436e977578b77550f4c1d3e32a6b46a4bea(
     *,
     linked_accounts: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a4fdf29b8c64b38c209320f998b71b0ce2601c2ac744bde28886f66b3cefdce6(
-    *,
-    invoice_receiver: builtins.str,
-    name: builtins.str,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInvoiceUnit.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnInvoiceUnit.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tax_inheritance_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

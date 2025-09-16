@@ -51,6 +51,7 @@ from optax._src.alias import nadamw
 from optax._src.alias import noisy_sgd
 from optax._src.alias import novograd
 from optax._src.alias import optimistic_adam
+from optax._src.alias import optimistic_adam_v2
 from optax._src.alias import optimistic_gradient_descent
 from optax._src.alias import polyak_sgd
 from optax._src.alias import radam
@@ -64,6 +65,7 @@ from optax._src.base import EmptyState
 from optax._src.base import GradientTransformation
 from optax._src.base import GradientTransformationExtraArgs
 from optax._src.base import identity
+from optax._src.base import init_empty_state
 from optax._src.base import OptState
 from optax._src.base import Params
 from optax._src.base import ScalarOrSchedule
@@ -147,8 +149,10 @@ from optax._src.utils import value_and_grad_from_state
 
 # TODO(mtthss): remove contrib aliases from flat namespace once users updated.
 # Deprecated modules
-from optax.contrib import differentially_private_aggregate as _deprecated_differentially_private_aggregate
-from optax.contrib import DifferentiallyPrivateAggregateState as _deprecated_DifferentiallyPrivateAggregateState
+from optax.contrib import (differentially_private_aggregate
+                           as _deprecated_differentially_private_aggregate)
+from optax.contrib import (DifferentiallyPrivateAggregateState
+                           as _deprecated_DifferentiallyPrivateAggregateState)
 from optax.contrib import dpsgd as _deprecated_dpsgd
 
 
@@ -189,6 +193,8 @@ conditionally_transform = transforms.conditionally_transform
 ConditionallyMaskState = transforms.ConditionallyMaskState
 ConditionallyTransformState = transforms.ConditionallyTransformState
 flatten = transforms.flatten
+freeze = transforms.freeze
+selective_transform = transforms.selective_transform
 masked = transforms.masked
 MaskedNode = transforms.MaskedNode
 MaskedState = transforms.MaskedState
@@ -197,6 +203,8 @@ MultiStepsState = transforms.MultiStepsState
 ShouldSkipUpdateFunction = transforms.ShouldSkipUpdateFunction
 skip_large_updates = transforms.skip_large_updates
 skip_not_finite = transforms.skip_not_finite
+snapshot = transforms.snapshot
+SnapshotState = transforms.SnapshotState
 
 # TODO(mtthss): remove tree_utils aliases after updates.
 tree_map_params = tree_utils.tree_map_params
@@ -284,7 +292,8 @@ if _typing.TYPE_CHECKING:
   # pylint: enable=reimported
 
 else:
-  from optax._src.deprecations import deprecation_getattr as _deprecation_getattr
+  from optax._src.deprecations import (deprecation_getattr
+                                       as _deprecation_getattr)
 
   __getattr__ = _deprecation_getattr(__name__, _deprecations)
   del _deprecation_getattr
@@ -294,7 +303,7 @@ del _typing
 # pylint: enable=g-importing-member
 
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 __all__ = (
     "adabelief",

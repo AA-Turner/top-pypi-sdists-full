@@ -66,7 +66,559 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_directoryservice.CfnMicrosoftADProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "password": "password",
+        "vpc_settings": "vpcSettings",
+        "create_alias": "createAlias",
+        "edition": "edition",
+        "enable_sso": "enableSso",
+        "short_name": "shortName",
+    },
+)
+class CfnMicrosoftADProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        password: builtins.str,
+        vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMicrosoftAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        edition: typing.Optional[builtins.str] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        short_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMicrosoftAD``.
+
+        :param name: The fully qualified domain name for the AWS Managed Microsoft AD directory, such as ``corp.example.com`` . This name will resolve inside your VPC only. It does not need to be publicly resolvable.
+        :param password: The password for the default administrative user named ``Admin`` . If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
+        :param vpc_settings: Specifies the VPC settings of the Microsoft AD directory server in AWS .
+        :param create_alias: Specifies an alias for a directory and assigns the alias to the directory. The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, AWS CloudFormation does not create an alias. .. epigraph:: After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
+        :param edition: AWS Managed Microsoft AD is available in two editions: ``Standard`` and ``Enterprise`` . ``Enterprise`` is the default.
+        :param enable_sso: Whether to enable single sign-on for a Microsoft Active Directory in AWS . Single sign-on allows users in your directory to access certain AWS services from a computer joined to the directory without having to enter their credentials separately. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
+        :param short_name: The NetBIOS name for your domain, such as ``CORP`` . If you don't specify a NetBIOS name, it will default to the first part of your directory DNS. For example, ``CORP`` for the directory DNS ``corp.example.com`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_directoryservice as directoryservice
+            
+            cfn_microsoft_aDProps = directoryservice.CfnMicrosoftADProps(
+                name="name",
+                password="password",
+                vpc_settings=directoryservice.CfnMicrosoftAD.VpcSettingsProperty(
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                ),
+            
+                # the properties below are optional
+                create_alias=False,
+                edition="edition",
+                enable_sso=False,
+                short_name="shortName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
+            check_type(argname="argument create_alias", value=create_alias, expected_type=type_hints["create_alias"])
+            check_type(argname="argument edition", value=edition, expected_type=type_hints["edition"])
+            check_type(argname="argument enable_sso", value=enable_sso, expected_type=type_hints["enable_sso"])
+            check_type(argname="argument short_name", value=short_name, expected_type=type_hints["short_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "password": password,
+            "vpc_settings": vpc_settings,
+        }
+        if create_alias is not None:
+            self._values["create_alias"] = create_alias
+        if edition is not None:
+            self._values["edition"] = edition
+        if enable_sso is not None:
+            self._values["enable_sso"] = enable_sso
+        if short_name is not None:
+            self._values["short_name"] = short_name
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The fully qualified domain name for the AWS Managed Microsoft AD directory, such as ``corp.example.com`` . This name will resolve inside your VPC only. It does not need to be publicly resolvable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def password(self) -> builtins.str:
+        '''The password for the default administrative user named ``Admin`` .
+
+        If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-password
+        '''
+        result = self._values.get("password")
+        assert result is not None, "Required property 'password' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_settings(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMicrosoftAD.VpcSettingsProperty"]:
+        '''Specifies the VPC settings of the Microsoft AD directory server in AWS .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-vpcsettings
+        '''
+        result = self._values.get("vpc_settings")
+        assert result is not None, "Required property 'vpc_settings' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMicrosoftAD.VpcSettingsProperty"], result)
+
+    @builtins.property
+    def create_alias(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies an alias for a directory and assigns the alias to the directory.
+
+        The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, AWS CloudFormation does not create an alias.
+        .. epigraph::
+
+           After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-createalias
+        '''
+        result = self._values.get("create_alias")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def edition(self) -> typing.Optional[builtins.str]:
+        '''AWS Managed Microsoft AD is available in two editions: ``Standard`` and ``Enterprise`` .
+
+        ``Enterprise`` is the default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-edition
+        '''
+        result = self._values.get("edition")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_sso(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to enable single sign-on for a Microsoft Active Directory in AWS .
+
+        Single sign-on allows users in your directory to access certain AWS services from a computer joined to the directory without having to enter their credentials separately. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-enablesso
+        '''
+        result = self._values.get("enable_sso")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def short_name(self) -> typing.Optional[builtins.str]:
+        '''The NetBIOS name for your domain, such as ``CORP`` .
+
+        If you don't specify a NetBIOS name, it will default to the first part of your directory DNS. For example, ``CORP`` for the directory DNS ``corp.example.com`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-shortname
+        '''
+        result = self._values.get("short_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMicrosoftADProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_directoryservice.CfnSimpleADProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "size": "size",
+        "vpc_settings": "vpcSettings",
+        "create_alias": "createAlias",
+        "description": "description",
+        "enable_sso": "enableSso",
+        "password": "password",
+        "short_name": "shortName",
+    },
+)
+class CfnSimpleADProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        size: builtins.str,
+        vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimpleAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        description: typing.Optional[builtins.str] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        password: typing.Optional[builtins.str] = None,
+        short_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSimpleAD``.
+
+        :param name: The fully qualified name for the directory, such as ``corp.example.com`` .
+        :param size: The size of the directory. For valid values, see `CreateDirectory <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_CreateDirectory.html>`_ in the *AWS Directory Service API Reference* .
+        :param vpc_settings: A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.
+        :param create_alias: If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory. The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, this property is set to ``false`` . .. epigraph:: After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
+        :param description: A description for the directory.
+        :param enable_sso: Whether to enable single sign-on for a directory. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
+        :param password: The password for the directory administrator. The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password. If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
+        :param short_name: The NetBIOS name of the directory, such as ``CORP`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_directoryservice as directoryservice
+            
+            cfn_simple_aDProps = directoryservice.CfnSimpleADProps(
+                name="name",
+                size="size",
+                vpc_settings=directoryservice.CfnSimpleAD.VpcSettingsProperty(
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                ),
+            
+                # the properties below are optional
+                create_alias=False,
+                description="description",
+                enable_sso=False,
+                password="password",
+                short_name="shortName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument size", value=size, expected_type=type_hints["size"])
+            check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
+            check_type(argname="argument create_alias", value=create_alias, expected_type=type_hints["create_alias"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enable_sso", value=enable_sso, expected_type=type_hints["enable_sso"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument short_name", value=short_name, expected_type=type_hints["short_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "size": size,
+            "vpc_settings": vpc_settings,
+        }
+        if create_alias is not None:
+            self._values["create_alias"] = create_alias
+        if description is not None:
+            self._values["description"] = description
+        if enable_sso is not None:
+            self._values["enable_sso"] = enable_sso
+        if password is not None:
+            self._values["password"] = password
+        if short_name is not None:
+            self._values["short_name"] = short_name
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The fully qualified name for the directory, such as ``corp.example.com`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def size(self) -> builtins.str:
+        '''The size of the directory.
+
+        For valid values, see `CreateDirectory <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_CreateDirectory.html>`_ in the *AWS Directory Service API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-size
+        '''
+        result = self._values.get("size")
+        assert result is not None, "Required property 'size' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_settings(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSimpleAD.VpcSettingsProperty"]:
+        '''A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-vpcsettings
+        '''
+        result = self._values.get("vpc_settings")
+        assert result is not None, "Required property 'vpc_settings' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSimpleAD.VpcSettingsProperty"], result)
+
+    @builtins.property
+    def create_alias(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory.
+
+        The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, this property is set to ``false`` .
+        .. epigraph::
+
+           After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-createalias
+        '''
+        result = self._values.get("create_alias")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_sso(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to enable single sign-on for a directory.
+
+        If you don't specify a value, AWS CloudFormation disables single sign-on by default.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-enablesso
+        '''
+        result = self._values.get("enable_sso")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The password for the directory administrator.
+
+        The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password.
+
+        If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def short_name(self) -> typing.Optional[builtins.str]:
+        '''The NetBIOS name of the directory, such as ``CORP`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-shortname
+        '''
+        result = self._values.get("short_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSimpleADProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_directoryservice.IMicrosoftADRef")
+class IMicrosoftADRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MicrosoftAD.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="microsoftAdRef")
+    def microsoft_ad_ref(self) -> "MicrosoftADReference":
+        '''(experimental) A reference to a MicrosoftAD resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMicrosoftADRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MicrosoftAD.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_directoryservice.IMicrosoftADRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="microsoftAdRef")
+    def microsoft_ad_ref(self) -> "MicrosoftADReference":
+        '''(experimental) A reference to a MicrosoftAD resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MicrosoftADReference", jsii.get(self, "microsoftAdRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMicrosoftADRef).__jsii_proxy_class__ = lambda : _IMicrosoftADRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_directoryservice.ISimpleADRef")
+class ISimpleADRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SimpleAD.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleAdRef")
+    def simple_ad_ref(self) -> "SimpleADReference":
+        '''(experimental) A reference to a SimpleAD resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISimpleADRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SimpleAD.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_directoryservice.ISimpleADRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleAdRef")
+    def simple_ad_ref(self) -> "SimpleADReference":
+        '''(experimental) A reference to a SimpleAD resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SimpleADReference", jsii.get(self, "simpleAdRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISimpleADRef).__jsii_proxy_class__ = lambda : _ISimpleADRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_directoryservice.MicrosoftADReference",
+    jsii_struct_bases=[],
+    name_mapping={"microsoft_ad_id": "microsoftAdId"},
+)
+class MicrosoftADReference:
+    def __init__(self, *, microsoft_ad_id: builtins.str) -> None:
+        '''A reference to a MicrosoftAD resource.
+
+        :param microsoft_ad_id: The Id of the MicrosoftAD resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_directoryservice as directoryservice
+            
+            microsoft_aDReference = directoryservice.MicrosoftADReference(
+                microsoft_ad_id="microsoftAdId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87926942461161142db4f29e45b6509705307b341cbee4e13425e89dd6d7a6cb)
+            check_type(argname="argument microsoft_ad_id", value=microsoft_ad_id, expected_type=type_hints["microsoft_ad_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "microsoft_ad_id": microsoft_ad_id,
+        }
+
+    @builtins.property
+    def microsoft_ad_id(self) -> builtins.str:
+        '''The Id of the MicrosoftAD resource.'''
+        result = self._values.get("microsoft_ad_id")
+        assert result is not None, "Required property 'microsoft_ad_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MicrosoftADReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_directoryservice.SimpleADReference",
+    jsii_struct_bases=[],
+    name_mapping={"directory_id": "directoryId"},
+)
+class SimpleADReference:
+    def __init__(self, *, directory_id: builtins.str) -> None:
+        '''A reference to a SimpleAD resource.
+
+        :param directory_id: The DirectoryId of the SimpleAD resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_directoryservice as directoryservice
+            
+            simple_aDReference = directoryservice.SimpleADReference(
+                directory_id="directoryId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5ce047bbaa7d3cead147e75cd32e8186f454046cde6052ecdfa453720325835)
+            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_id": directory_id,
+        }
+
+    @builtins.property
+    def directory_id(self) -> builtins.str:
+        '''The DirectoryId of the SimpleAD resource.'''
+        result = self._values.get("directory_id")
+        assert result is not None, "Required property 'directory_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SimpleADReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IMicrosoftADRef)
 class CfnMicrosoftAD(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -207,6 +759,12 @@ class CfnMicrosoftAD(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="microsoftAdRef")
+    def microsoft_ad_ref(self) -> MicrosoftADReference:
+        '''A reference to a MicrosoftAD resource.'''
+        return typing.cast(MicrosoftADReference, jsii.get(self, "microsoftAdRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -388,186 +946,7 @@ class CfnMicrosoftAD(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_directoryservice.CfnMicrosoftADProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "password": "password",
-        "vpc_settings": "vpcSettings",
-        "create_alias": "createAlias",
-        "edition": "edition",
-        "enable_sso": "enableSso",
-        "short_name": "shortName",
-    },
-)
-class CfnMicrosoftADProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        password: builtins.str,
-        vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        edition: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        short_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMicrosoftAD``.
-
-        :param name: The fully qualified domain name for the AWS Managed Microsoft AD directory, such as ``corp.example.com`` . This name will resolve inside your VPC only. It does not need to be publicly resolvable.
-        :param password: The password for the default administrative user named ``Admin`` . If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
-        :param vpc_settings: Specifies the VPC settings of the Microsoft AD directory server in AWS .
-        :param create_alias: Specifies an alias for a directory and assigns the alias to the directory. The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, AWS CloudFormation does not create an alias. .. epigraph:: After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
-        :param edition: AWS Managed Microsoft AD is available in two editions: ``Standard`` and ``Enterprise`` . ``Enterprise`` is the default.
-        :param enable_sso: Whether to enable single sign-on for a Microsoft Active Directory in AWS . Single sign-on allows users in your directory to access certain AWS services from a computer joined to the directory without having to enter their credentials separately. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
-        :param short_name: The NetBIOS name for your domain, such as ``CORP`` . If you don't specify a NetBIOS name, it will default to the first part of your directory DNS. For example, ``CORP`` for the directory DNS ``corp.example.com`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_directoryservice as directoryservice
-            
-            cfn_microsoft_aDProps = directoryservice.CfnMicrosoftADProps(
-                name="name",
-                password="password",
-                vpc_settings=directoryservice.CfnMicrosoftAD.VpcSettingsProperty(
-                    subnet_ids=["subnetIds"],
-                    vpc_id="vpcId"
-                ),
-            
-                # the properties below are optional
-                create_alias=False,
-                edition="edition",
-                enable_sso=False,
-                short_name="shortName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
-            check_type(argname="argument create_alias", value=create_alias, expected_type=type_hints["create_alias"])
-            check_type(argname="argument edition", value=edition, expected_type=type_hints["edition"])
-            check_type(argname="argument enable_sso", value=enable_sso, expected_type=type_hints["enable_sso"])
-            check_type(argname="argument short_name", value=short_name, expected_type=type_hints["short_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "password": password,
-            "vpc_settings": vpc_settings,
-        }
-        if create_alias is not None:
-            self._values["create_alias"] = create_alias
-        if edition is not None:
-            self._values["edition"] = edition
-        if enable_sso is not None:
-            self._values["enable_sso"] = enable_sso
-        if short_name is not None:
-            self._values["short_name"] = short_name
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The fully qualified domain name for the AWS Managed Microsoft AD directory, such as ``corp.example.com`` . This name will resolve inside your VPC only. It does not need to be publicly resolvable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def password(self) -> builtins.str:
-        '''The password for the default administrative user named ``Admin`` .
-
-        If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-password
-        '''
-        result = self._values.get("password")
-        assert result is not None, "Required property 'password' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_settings(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMicrosoftAD.VpcSettingsProperty]:
-        '''Specifies the VPC settings of the Microsoft AD directory server in AWS .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-vpcsettings
-        '''
-        result = self._values.get("vpc_settings")
-        assert result is not None, "Required property 'vpc_settings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMicrosoftAD.VpcSettingsProperty], result)
-
-    @builtins.property
-    def create_alias(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies an alias for a directory and assigns the alias to the directory.
-
-        The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, AWS CloudFormation does not create an alias.
-        .. epigraph::
-
-           After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-createalias
-        '''
-        result = self._values.get("create_alias")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def edition(self) -> typing.Optional[builtins.str]:
-        '''AWS Managed Microsoft AD is available in two editions: ``Standard`` and ``Enterprise`` .
-
-        ``Enterprise`` is the default.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-edition
-        '''
-        result = self._values.get("edition")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_sso(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to enable single sign-on for a Microsoft Active Directory in AWS .
-
-        Single sign-on allows users in your directory to access certain AWS services from a computer joined to the directory without having to enter their credentials separately. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-enablesso
-        '''
-        result = self._values.get("enable_sso")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def short_name(self) -> typing.Optional[builtins.str]:
-        '''The NetBIOS name for your domain, such as ``CORP`` .
-
-        If you don't specify a NetBIOS name, it will default to the first part of your directory DNS. For example, ``CORP`` for the directory DNS ``corp.example.com`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-shortname
-        '''
-        result = self._values.get("short_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMicrosoftADProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISimpleADRef)
 class CfnSimpleAD(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -720,6 +1099,12 @@ class CfnSimpleAD(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleAdRef")
+    def simple_ad_ref(self) -> SimpleADReference:
+        '''A reference to a SimpleAD resource.'''
+        return typing.cast(SimpleADReference, jsii.get(self, "simpleAdRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -914,209 +1299,59 @@ class CfnSimpleAD(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_directoryservice.CfnSimpleADProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "size": "size",
-        "vpc_settings": "vpcSettings",
-        "create_alias": "createAlias",
-        "description": "description",
-        "enable_sso": "enableSso",
-        "password": "password",
-        "short_name": "shortName",
-    },
-)
-class CfnSimpleADProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        size: builtins.str,
-        vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        password: typing.Optional[builtins.str] = None,
-        short_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSimpleAD``.
-
-        :param name: The fully qualified name for the directory, such as ``corp.example.com`` .
-        :param size: The size of the directory. For valid values, see `CreateDirectory <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_CreateDirectory.html>`_ in the *AWS Directory Service API Reference* .
-        :param vpc_settings: A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.
-        :param create_alias: If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory. The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, this property is set to ``false`` . .. epigraph:: After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
-        :param description: A description for the directory.
-        :param enable_sso: Whether to enable single sign-on for a directory. If you don't specify a value, AWS CloudFormation disables single sign-on by default.
-        :param password: The password for the directory administrator. The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password. If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
-        :param short_name: The NetBIOS name of the directory, such as ``CORP`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_directoryservice as directoryservice
-            
-            cfn_simple_aDProps = directoryservice.CfnSimpleADProps(
-                name="name",
-                size="size",
-                vpc_settings=directoryservice.CfnSimpleAD.VpcSettingsProperty(
-                    subnet_ids=["subnetIds"],
-                    vpc_id="vpcId"
-                ),
-            
-                # the properties below are optional
-                create_alias=False,
-                description="description",
-                enable_sso=False,
-                password="password",
-                short_name="shortName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument size", value=size, expected_type=type_hints["size"])
-            check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
-            check_type(argname="argument create_alias", value=create_alias, expected_type=type_hints["create_alias"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_sso", value=enable_sso, expected_type=type_hints["enable_sso"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument short_name", value=short_name, expected_type=type_hints["short_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "size": size,
-            "vpc_settings": vpc_settings,
-        }
-        if create_alias is not None:
-            self._values["create_alias"] = create_alias
-        if description is not None:
-            self._values["description"] = description
-        if enable_sso is not None:
-            self._values["enable_sso"] = enable_sso
-        if password is not None:
-            self._values["password"] = password
-        if short_name is not None:
-            self._values["short_name"] = short_name
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The fully qualified name for the directory, such as ``corp.example.com`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def size(self) -> builtins.str:
-        '''The size of the directory.
-
-        For valid values, see `CreateDirectory <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_CreateDirectory.html>`_ in the *AWS Directory Service API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-size
-        '''
-        result = self._values.get("size")
-        assert result is not None, "Required property 'size' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_settings(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSimpleAD.VpcSettingsProperty]:
-        '''A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-vpcsettings
-        '''
-        result = self._values.get("vpc_settings")
-        assert result is not None, "Required property 'vpc_settings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSimpleAD.VpcSettingsProperty], result)
-
-    @builtins.property
-    def create_alias(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory.
-
-        The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, this property is set to ``false`` .
-        .. epigraph::
-
-           After an alias has been created, it cannot be deleted or reused, so this operation should only be used when absolutely necessary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-createalias
-        '''
-        result = self._values.get("create_alias")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the directory.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_sso(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to enable single sign-on for a directory.
-
-        If you don't specify a value, AWS CloudFormation disables single sign-on by default.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-enablesso
-        '''
-        result = self._values.get("enable_sso")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''The password for the directory administrator.
-
-        The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password.
-
-        If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *AWS Directory Service API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def short_name(self) -> typing.Optional[builtins.str]:
-        '''The NetBIOS name of the directory, such as ``CORP`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-shortname
-        '''
-        result = self._values.get("short_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSimpleADProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnMicrosoftAD",
     "CfnMicrosoftADProps",
     "CfnSimpleAD",
     "CfnSimpleADProps",
+    "IMicrosoftADRef",
+    "ISimpleADRef",
+    "MicrosoftADReference",
+    "SimpleADReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f(
+    *,
+    name: builtins.str,
+    password: builtins.str,
+    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    edition: typing.Optional[builtins.str] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    short_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b(
+    *,
+    name: builtins.str,
+    size: builtins.str,
+    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    password: typing.Optional[builtins.str] = None,
+    short_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87926942461161142db4f29e45b6509705307b341cbee4e13425e89dd6d7a6cb(
+    *,
+    microsoft_ad_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ce047bbaa7d3cead147e75cd32e8186f454046cde6052ecdfa453720325835(
+    *,
+    directory_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__bd6139d8d11b9a68029fab0f5bc46297bfd5088edc6674f022f826f902974540(
     scope: _constructs_77d1e7e8.Construct,
@@ -1191,19 +1426,6 @@ def _typecheckingstub__87466c9ba298d42dc628a07b7127a241f6cb9e589e939fff261e0dd1c
     *,
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f(
-    *,
-    name: builtins.str,
-    password: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    edition: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    short_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1288,20 +1510,6 @@ def _typecheckingstub__c8735fadd5f261261242f08594a8935a9e3119659f4d14301a33cd4a4
     *,
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b(
-    *,
-    name: builtins.str,
-    size: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    password: typing.Optional[builtins.str] = None,
-    short_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

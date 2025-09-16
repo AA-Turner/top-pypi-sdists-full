@@ -116,11 +116,8 @@ def tree_add_scale(
   """
   scalar = jnp.asarray(scalar)
   return jax.tree.map(
-      lambda x, y: None if x is None else x + scalar.astype(x.dtype) * y,
-      tree_x,
-      tree_y,
-      is_leaf=lambda x: x is None,
-  )
+      lambda x, y: (None if x is None else (x + scalar * y)),
+      tree_x, tree_y, is_leaf=lambda x: x is None)
 
 
 _vdot = functools.partial(jnp.vdot, precision=jax.lax.Precision.HIGHEST)
@@ -181,6 +178,32 @@ def tree_max(tree: Any) -> chex.Numeric:
   maxes = jax.tree.map(jnp.max, tree)
   # initializer=-jnp.inf should work but pytype wants a jax.Array.
   return jax.tree.reduce(jnp.maximum, maxes, initializer=jnp.array(-jnp.inf))
+
+
+def tree_min(tree: Any) -> chex.Numeric:
+  """Compute the min of all the elements in a pytree.
+
+  Args:
+    tree: pytree.
+
+  Returns:
+    a scalar value.
+  """
+  mins = jax.tree.map(jnp.min, tree)
+  # initializer=jnp.inf should work but pytype wants a jax.Array.
+  return jax.tree.reduce(jnp.minimum, mins, initializer=jnp.array(jnp.inf))
+
+
+def tree_size(tree: Any) -> int:
+  r"""Total size of a pytree.
+
+  Args:
+    tree: pytree
+
+  Returns:
+    the total size of the pytree.
+  """
+  return sum(jnp.size(leaf) for leaf in jax.tree.leaves(tree))
 
 
 def tree_conj(tree: Any) -> Any:
@@ -400,3 +423,32 @@ def tree_where(condition, tree_x, tree_y):
     tree_x or tree_y depending on condition.
   """
   return jax.tree.map(lambda x, y: jnp.where(condition, x, y), tree_x, tree_y)
+
+
+def tree_allclose(
+    a: Any,
+    b: Any,
+    rtol: jax.typing.ArrayLike = 1e-05,
+    atol: jax.typing.ArrayLike = 1e-08,
+    equal_nan: bool = False
+):
+  """Check whether two trees are element-wise approximately equal within a tolerance.
+
+  See :func:`jax.numpy.allclose` for the equivalent on arrays.
+
+  Args:
+    a: a tree
+    b: a tree
+    rtol: relative tolerance used for approximate equality
+    atol: absolute tolerance used for approximate equality
+    equal_nan: boolean indicating whether NaNs are treated as equal
+
+  Returns:
+    a boolean value.
+  """  # noqa: E501
+  def f(a, b):
+    return jnp.allclose(a, b, rtol=rtol, atol=atol, equal_nan=equal_nan)
+  tree = jax.tree.map(f, a, b)
+  leaves = jax.tree.leaves(tree)
+  result = functools.reduce(operator.and_, leaves, True)
+  return result

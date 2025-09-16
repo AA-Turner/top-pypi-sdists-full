@@ -9,7 +9,6 @@
 """
 It provides Cell class.
 """
-import copy
 import collections
 import functools
 import numpy as np
@@ -17,7 +16,7 @@ import schedula as sh
 from .parser import Parser
 from .ranges import Ranges, _assemble_values, _shape, _get_indices_intersection
 from .tokens.operand import Error, XlError, range2parts, _re_ref, _index2col
-from .functions import replace_empty
+from .functions import replace_empty, DSP
 
 CELL = sh.Token('Cell')
 
@@ -74,7 +73,7 @@ def format_output(rng, value):
 
 
 class Cell:
-    parser = Parser()
+    parser = Parser(True)
 
     def __init__(self, reference, value, context=None, check_formula=True,
                  replace_missing_ref=True, raise_anchor=False):
@@ -85,9 +84,9 @@ class Cell:
                 reference, context=context, raise_anchor=raise_anchor
             )
             r = self.range.ranges[0]
-            context = sh.combine_dicts(context or {}, base={
-                'cr': r['r1'], 'cc': r['n1']
-            })
+            context = sh.combine_dicts(context or {}, sh.selector(
+                ('filename', 'sheet'), r, allow_miss=True
+            ), base={'cr': r['r1'], 'cc': r['n1']})
             self.output = r['name']
         self.builder, self.value = None, sh.EMPTY
         prs = self.parser
@@ -126,6 +125,8 @@ class Cell:
         for k, rng in self.func.inputs.items():
             if k in references or rng is sh.NONE:
                 get(inp, k, default=list).append(k)
+            elif k is DSP:
+                get(inp, sh.SELF, default=list).append(DSP)
             else:
                 try:
                     for r in rng.ranges:
@@ -287,8 +288,8 @@ class RangesAssembler:
 
     def __call__(self, *cells):
         base = self.range.ranges[0]
+        out = np.empty(_shape(**base), object)
         if sh.SELF in self.inputs:
-            out = np.empty(_shape(**base), object)
             out[:] = sh.EMPTY
             ists = self.inputs[sh.SELF]
             sol = cells[-1].solution
@@ -302,8 +303,6 @@ class RangesAssembler:
                     if isinstance(sol[n], Ranges):
                         v = v.value
                     out[i, j] = v
-        else:
-            out = np.empty(_shape(**base), object)
         for c, ind in zip(cells, self.inputs.values()):
             if ind:
                 out[ind[0], ind[1]] = c.value

@@ -8,7 +8,7 @@ from typing import Optional, Sequence, Tuple
 import click
 
 from launchable.utils.click import DATETIME_WITH_TZ, validate_past_datetime
-from launchable.utils.link import LinkKind, capture_link
+from launchable.utils.link import capture_links
 from launchable.utils.tracking import Tracking, TrackingClient
 
 from ...utils.click import KEY_VALUE
@@ -181,25 +181,17 @@ def session(
 
     flavor_dict = dict(flavor)
 
-    payload = {
-        "flavors": flavor_dict,
-        "isObservation": is_observation,
-        "noBuild": is_no_build,
-        "lineage": lineage,
-        "testSuite": test_suite,
-        "timestamp": timestamp.isoformat() if timestamp else None,
-    }
-
-    _links = capture_link(os.environ)
-    for link in links:
-        _links.append({
-            "title": link[0],
-            "url": link[1],
-            "kind": LinkKind.CUSTOM_LINK.name,
-        })
-    payload["links"] = _links
-
     try:
+        payload = {
+            "flavors": flavor_dict,
+            "isObservation": is_observation,
+            "noBuild": is_no_build,
+            "lineage": lineage,
+            "testSuite": test_suite,
+            "timestamp": timestamp.isoformat() if timestamp else None,
+            "links": capture_links(links, os.environ),
+        }
+
         sub_path = "builds/{}/test_sessions".format(build_name)
         res = client.request("post", sub_path, payload=payload)
 

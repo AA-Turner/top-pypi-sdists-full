@@ -6884,7 +6884,14 @@ class DbtCloudUpdateConnectionDetails(sgqlc.types.Input):
 
 class ExtendedDataSourceInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("data_source", "dw_id", "where_condition", "segments", "connection_uuid")
+    __field_names__ = (
+        "data_source",
+        "dw_id",
+        "where_condition",
+        "segments",
+        "connection_uuid",
+        "timeout",
+    )
     data_source = sgqlc.types.Field(
         sgqlc.types.non_null(DataSourceUnionInput), graphql_name="dataSource"
     )
@@ -6903,6 +6910,9 @@ class ExtendedDataSourceInput(sgqlc.types.Input):
 
     connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
     """Connection UUID for the data source."""
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+    """Timeout for the SQL query."""
 
 
 class FieldMetricFilterInput(sgqlc.types.Input):
@@ -10477,6 +10487,7 @@ class IMonitor(sgqlc.types.Interface):
         "tags",
         "data_quality_dimension",
         "is_ootb_replacement",
+        "timeout",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -10668,6 +10679,9 @@ class IMonitor(sgqlc.types.Interface):
     """(experimental) Returns if this monitor replaces the default ootb
     detector.
     """
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+    """Timeout for the SQL query"""
 
 
 class IMonitorStatus(sgqlc.types.Interface):
@@ -15179,6 +15193,7 @@ class Connection(sgqlc.types.Type):
         "connection_identifiers",
         "job_errors",
         "resolved_connection_type",
+        "sql_job_timeout_maximum",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -15267,6 +15282,11 @@ class Connection(sgqlc.types.Type):
 
     resolved_connection_type = sgqlc.types.Field(String, graphql_name="resolvedConnectionType")
     """Identifies the connection type"""
+
+    sql_job_timeout_maximum = sgqlc.types.Field(Int, graphql_name="sqlJobTimeoutMaximum")
+    """The maximum timeout for SQL jobs that can be set for this
+    connection
+    """
 
 
 class ConnectionIdentifier(sgqlc.types.Type):
@@ -20179,6 +20199,7 @@ class ExtendedDataSource(sgqlc.types.Type):
         "where_condition",
         "segments",
         "connection_uuid",
+        "timeout",
         "uuid",
         "segment_count_hint",
     )
@@ -20200,6 +20221,9 @@ class ExtendedDataSource(sgqlc.types.Type):
 
     connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
     """Connection UUID for the data source."""
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+    """Timeout for the SQL query."""
 
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the data source."""
@@ -26017,6 +26041,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
             )
         ),
@@ -26062,6 +26087,7 @@ class Mutation(sgqlc.types.Type):
     * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
       use schedule instead)
     * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
     """
@@ -32849,6 +32875,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
                 (
                     "variable_definitions",
@@ -32924,6 +32951,7 @@ class Mutation(sgqlc.types.Type):
     * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
       use schedule instead)
     * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
     * `variable_definitions` (`[VariableDefinitionInput!]`): Possible
@@ -33052,6 +33080,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
                 (
                     "variable_definitions",
@@ -33127,6 +33156,7 @@ class Mutation(sgqlc.types.Type):
     * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
       use schedule instead)
     * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
     * `variable_definitions` (`[VariableDefinitionInput!]`): Possible
@@ -33429,6 +33459,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
                 (
                     "variable_definitions",
@@ -33487,6 +33518,7 @@ class Mutation(sgqlc.types.Type):
       days (default: `false`)
     * `sql` (`String!`): Custom SQL query to run
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `uuid` (`UUID`): UUID of the rule, to update an existing rule
     * `variable_definitions` (`[VariableDefinitionInput!]`): Possible
       variable values for SQL query. Allows specifying runtime
@@ -34572,6 +34604,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
             )
         ),
@@ -34620,6 +34653,7 @@ class Mutation(sgqlc.types.Type):
       use schedule instead)
     * `table_mcons` (`[String]!`): MCON of tables to monitor
     * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
     """
@@ -35519,6 +35553,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 (
                     "use_partition_clause",
                     sgqlc.types.Arg(Boolean, graphql_name="usePartitionClause", default=False),
@@ -35585,6 +35620,7 @@ class Mutation(sgqlc.types.Type):
       configuration and false positives might be detected for up to 35
       days (default: `false`)
     * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
+    * `timeout` (`Int`): Timeout for the SQL query
     * `use_partition_clause` (`Boolean`): Whether to use automatic
       partition filter in query (default: `false`)
     * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
@@ -35666,6 +35702,10 @@ class Mutation(sgqlc.types.Type):
                     "filters",
                     sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
                 ),
+                (
+                    "high_segment_count",
+                    sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
+                ),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -35735,6 +35775,9 @@ class Mutation(sgqlc.types.Type):
       audiences for failures
     * `filters` (`FilterGroupInput`): Structured SQL filtering
       conditions to apply to query
+    * `high_segment_count` (`Boolean`): Flag to apply additional
+      limits which increase the supported segment count (default:
+      `false`)
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
     * `priority` (`String`): The default priority for alerts involving
@@ -43210,6 +43253,7 @@ class Query(sgqlc.types.Type):
         "get_servicenow_incident_fields",
         "get_servicenow_users",
         "get_servicenow_integrations",
+        "get_servicenow_reference_values",
         "test_servicenow_credentials",
         "get_jira_integrations",
         "search_jira_users",
@@ -46223,6 +46267,40 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID`): Filter by integration ID
+    """
+
+    get_servicenow_reference_values = sgqlc.types.Field(
+        sgqlc.types.list_of("ServiceNowChoiceOutput"),
+        graphql_name="getServicenowReferenceValues",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                (
+                    "field_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fieldName", default=None
+                    ),
+                ),
+                ("query", sgqlc.types.Arg(String, graphql_name="query", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get possible values for an incident field when the
+    field is a reference type. Pass the field name and an optional
+    query to filter by label.
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): The integration ID
+    * `field_name` (`String!`): Incident field name of the reference
+    * `query` (`String`): Optional filter for label
+    * `limit` (`Int`): Optional limit (default 100)
     """
 
     test_servicenow_credentials = sgqlc.types.Field(
@@ -65111,7 +65189,7 @@ class TransformFunction(sgqlc.types.Type):
         "supported_connections",
         "response_format",
         "category",
-        "standard_prompt",
+        "prompt",
         "score_field",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
@@ -65138,7 +65216,7 @@ class TransformFunction(sgqlc.types.Type):
 
     category = sgqlc.types.Field(String, graphql_name="category")
 
-    standard_prompt = sgqlc.types.Field(String, graphql_name="standardPrompt")
+    prompt = sgqlc.types.Field(String, graphql_name="prompt")
 
     score_field = sgqlc.types.Field(String, graphql_name="scoreField")
 
@@ -69667,6 +69745,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "is_ootb_replacement",
         "is_migrated_from_field_quality",
         "connection_id",
+        "timeout",
         "mc_sql",
         "tags",
         "data_quality_dimension",
@@ -69944,6 +70023,9 @@ class CustomRule(sgqlc.types.Type, Node):
 
     connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
     """The connection UUID associated with the rule"""
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+    """Timeout for the SQL query"""
 
     mc_sql = sgqlc.types.Field(String, graphql_name="mcSql")
     """SQL query for the monitor"""
@@ -73023,6 +73105,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "notify_rule_run_failure",
         "agent_span_filters",
         "filters",
+        "connection_id",
+        "timeout",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -73241,6 +73325,12 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     filters = sgqlc.types.Field(FilterGroup, graphql_name="filters")
     """filters used on the monitor"""
+
+    connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
+    """The connection UUID associated with the monitor"""
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+    """Timeout for the SQL query"""
 
 
 class Monitor(

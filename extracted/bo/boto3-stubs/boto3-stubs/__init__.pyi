@@ -393,7 +393,6 @@ from mypy_boto3_sesv2.client import SESV2Client
 from mypy_boto3_shield.client import ShieldClient
 from mypy_boto3_signer.client import SignerClient
 from mypy_boto3_simspaceweaver.client import SimSpaceWeaverClient
-from mypy_boto3_sms.client import SMSClient
 from mypy_boto3_snow_device_management.client import SnowDeviceManagementClient
 from mypy_boto3_snowball.client import SnowballClient
 from mypy_boto3_sns.client import SNSClient
@@ -7022,24 +7021,6 @@ def client(
 ) -> SimSpaceWeaverClient:
     """
     Create client for SimSpaceWeaver service.
-    """
-
-@overload
-def client(
-    service_name: Literal["sms"],
-    region_name: str | None = ...,
-    api_version: str | None = ...,
-    use_ssl: bool | None = ...,
-    verify: bool | str | None = ...,
-    endpoint_url: str | None = ...,
-    aws_access_key_id: str | None = ...,
-    aws_secret_access_key: str | None = ...,
-    aws_session_token: str | None = ...,
-    config: Config | None = ...,
-    aws_account_id: str | None = ...,
-) -> SMSClient:
-    """
-    Create client for SMS service.
     """
 
 @overload

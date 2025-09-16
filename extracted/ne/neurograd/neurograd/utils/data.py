@@ -8,6 +8,10 @@ import glob
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import cv2
+import os
+import psutil
+import warnings
+
 
 # Try to import DALI first - this determines our capabilities
 try:
@@ -88,9 +92,9 @@ try:
 
 except ImportError:
     DALI_AVAILABLE = False
-    # MODIFIED: Always require DALI for this GPU-only version
-    raise ImportError("NVIDIA DALI is required for this GPU-only version. "
-                     "Install with: pip install --extra-index-url https://developer.download.nvidia.com/compute/redist nvidia-dali-cuda120")
+    warnings.warn("INFO: NVIDIA DALI not available. Falling back to OpenCV-based implementation."
+                  "For maximum performance, install with: "
+                  "pip install --extra-index-url https://developer.download.nvidia.com/compute/redist nvidia-dali-cuda120")
 
 # Image file extensions
 IMG_EXTS = (
@@ -165,6 +169,10 @@ class ImageFolder(Dataset):
 
         self.images: List[str] = []
         self.targets: List[str] = []
+        self.dont_use_mmap = is_on_network_drive(self.root)
+        if self.dont_use_mmap:
+            warnings.warn("ImageFolder dataset directory appears to be on a network drive / non-local storage. "
+                          "Performance will be severely impacted. Consider copying data locally.", UserWarning)
         self._collect_paths()
 
         # Check if we have any images
@@ -186,7 +194,7 @@ class ImageFolder(Dataset):
         # Convert targets to numeric labels
         self.numeric_targets = [self.target_mapping[t] for t in self.targets]
 
-        print(f"ImageFolder initialized: {len(self)} samples, {self.num_classes} classes")
+        # print(f"ImageFolder initialized: {len(self)} samples, {self.num_classes} classes")
 
     def get_class_name(self, class_idx: int) -> str:
         """Get class name from class index"""
@@ -246,20 +254,26 @@ class ImageFolder(Dataset):
 
 
     def get_dali_pipeline(self, batch_size: int, shuffle: bool = True, 
-                          device: str = "gpu", num_threads: int = 4, 
-                          seed: int = 42):
-        """Create optimized DALI pipeline for this dataset (GPU-only version)"""
+                          device: str = "cpu", num_threads: int = 4, 
+                          prefetch: int = 2, seed: int = 42):
+        """Create optimized DALI pipeline for this dataset (only when DALI is available)"""
+        if not DALI_AVAILABLE:
+            return None
+            
         if isinstance(self.img_transform, Pipeline):
             return self.img_transform
 
-        # MODIFIED: Force GPU device
-        device = "gpu"
+        is_gpu = device == "gpu"
         h, w = self.img_shape or (224, 224)
-        
-        @pipeline_def(batch_size=batch_size, num_threads=num_threads, device_id=0, seed=seed)
+        @pipeline_def(batch_size=batch_size, num_threads=num_threads, device_id=0 if is_gpu else None, seed=seed,
+                      prefetch_queue_depth=prefetch)
         def image_pipeline():
-            images, labels = fn.readers.file(files=self.images, labels=self.numeric_targets, random_shuffle=shuffle, name="Reader")
-            images = fn.decoders.image(images, device="mixed", output_type=types.RGB)
+            images, labels = fn.readers.file(files=self.images, labels=self.numeric_targets, 
+                                             random_shuffle=shuffle, name="Reader",
+                                             initial_fill=4096, read_ahead=True,
+                                             dont_use_mmap=self.dont_use_mmap, # Crucial for network storage
+                                             )
+            images = fn.decoders.image(images, device="mixed" if is_gpu else "cpu", output_type=types.RGB)
             images = fn.resize(images, resize_x=w, resize_y=h, interp_type=types.INTERP_LINEAR)
             
             if self.img_transform and callable(self.img_transform):
@@ -281,13 +295,89 @@ class ImageFolder(Dataset):
             return images, labels
 
         pipeline = image_pipeline()
-        pipeline.build()
         return pipeline
 
-    # MODIFIED: Remove OpenCV fallback methods since we're GPU-only
+    def _apply_img_transform(self, arr: np.ndarray) -> np.ndarray:
+        """Apply image transforms (OpenCV fallback path)"""
+        if self.img_transform is None:
+            return arr
+            
+        if isinstance(self.img_transform, Pipeline):
+            warnings.warn("WARNING: DALI Pipeline transform provided but running in fallback numpy/OpenCV mode. "
+                          "Cannot apply Pipeline to ndarray; skipping transform.", UserWarning)
+            return arr
+            
+        try:
+            out = self.img_transform(image=arr)
+            if isinstance(out, dict) and "image" in out:
+                return out["image"]
+            return out
+        except TypeError:
+            pass
+
+        try:
+            return self.img_transform(arr)
+        except Exception as e:
+            warnings.warn(f"WARNING: img_transform callable raised an exception: {e}. Returning original image.", UserWarning)
+            return arr
+
+    def _load_image_opencv(self, path: str) -> np.ndarray:
+        """Load image using OpenCV (fallback implementation)"""
+        mode = (self.img_mode or "RGB").upper()
+        if mode in ("L", "GRAY", "GREY", "GRAYSCALE"):
+            flag = cv2.IMREAD_GRAYSCALE
+        elif mode == "RGBA":
+            flag = cv2.IMREAD_UNCHANGED
+        else:
+            flag = cv2.IMREAD_COLOR
+        
+        try:
+            flag |= cv2.IMREAD_IGNORE_ORIENTATION
+        except Exception:
+            pass
+
+        arr = cv2.imread(path, flag)
+        if arr is None:
+            raise ValueError(f"Failed to read image: {path}")
+
+        if mode == "RGB" and arr.ndim == 3 and arr.shape[2] == 3:
+            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
+        elif mode == "RGBA" and arr.ndim == 3 and arr.shape[2] == 4:
+            arr = cv2.cvtColor(arr, cv2.COLOR_BGRA2RGBA)
+
+        if self.img_shape is not None:
+            h, w = self.img_shape
+            arr = cv2.resize(arr, (int(w), int(h)), interpolation=cv2.INTER_LINEAR)
+        
+        if arr.ndim == 2:
+            arr = arr[:, :, None]
+        
+        if self.img_transform:
+            arr = self._apply_img_transform(arr)
+        
+        if self.chw and arr.ndim == 3:
+            arr = np.transpose(arr, (2, 0, 1))
+        
+        if self.img_normalize:
+            arr = arr.astype(np.float32) / 255.0
+        else:
+            arr = arr.astype(np.float32)
+        
+        return arr
+
     def __getitem__(self, idx: int):
-        """Get single item - NOT SUPPORTED in GPU-only version"""
-        raise NotImplementedError("Individual item access not supported in GPU-only version. Use DataLoader.")
+        """Get single item - uses OpenCV fallback"""
+        img_path = self.images[idx]
+        target = self.numeric_targets[idx]
+        image = self._load_image_opencv(img_path)
+        
+        if self.one_hot_targets:
+            target = self.one_hot_mapping[target]
+            target_dtype = float32
+        else:
+            target_dtype = self.target_dtype
+        
+        return Tensor(image, dtype=self.img_dtype), Tensor(target, dtype=target_dtype)
 
     def shuffle(self, seed: Optional[int] = None):
         """Shuffle the dataset"""
@@ -300,126 +390,181 @@ class ImageFolder(Dataset):
         return len(self.images)
 
     def __iter__(self):
-        raise NotImplementedError("Direct iteration not supported in GPU-only version. Use DataLoader.")
+        for i in range(len(self)):
+            yield self[i]
 
     def __str__(self):
         return (f"ImageFolder(root='{self.root}', samples={len(self)}, "
                 f"classes={self.num_classes})")
 
     def __repr__(self):
+        shape = tuple(self[0][0].shape) if len(self) > 0 else None
         return (f"ImageFolder(root='{self.root}', samples={len(self)}, "
-                f"classes={self.num_classes}, GPU-only)")
+                f"classes={self.num_classes}, shape={shape})")
 
 
 class DataLoader:
     """
-    DataLoader that uses DALI GPU pipeline exclusively.
-    All init parameters are kept for compatibility but device is forced to GPU.
+    DataLoader that handles all data loading parameters, with an efficient DALI backend
+    and a multithreaded OpenCV fallback.
     """
     def __init__(
         self,
         dataset: Union[ImageFolder, Dataset],
         batch_size: int = 32,
         shuffle: bool = True,
-        device: str = "cpu",  # Kept for compatibility but ignored
+        device: str = "gpu",
         num_workers: int = None,
-        prefetch_batches: int = 2,  # Kept for compatibility but ignored
+        prefetch_batches: int = 2,
         drop_last: bool = False,
         seed: Optional[int] = None,
     ):
-        # MODIFIED: Only support ImageFolder datasets in GPU-only version
-        if not isinstance(dataset, ImageFolder):
-            raise TypeError("GPU-only DataLoader only supports ImageFolder datasets")
-            
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
-        # MODIFIED: Always force GPU device
-        self.device = "gpu"
+        self.device = "gpu" if device in ["gpu", "cuda"] else "cpu"
         self.num_workers = os.cpu_count() if num_workers is None else max(0, int(num_workers))
-        self.prefetch_batches = max(0, int(prefetch_batches))  # Kept for compatibility
+        self.prefetch_batches = max(0, int(prefetch_batches))
         self.drop_last = drop_last
-        self.seed = seed or 42
+        self.seed = seed
         
         self._pipeline = None
         self._dali_iter = None
+        self._executor: Optional[ThreadPoolExecutor] = None
         
-        # MODIFIED: Always try GPU memory preallocation
-        try:
-            PreallocateDeviceMemory(int(0.5 * 1024**3), 0)
-            PreallocatePinnedMemory(int(0.25 * 1024**3))
-        except Exception as e: 
-            print(f"WARNING: DALI memory preallocation failed: {e}")
+        if DALI_AVAILABLE:
+            try:
+                if self.device == "gpu": PreallocateDeviceMemory(int(0.5 * 1024**3), 0)
+                PreallocatePinnedMemory(int(0.25 * 1024**3))
+            except Exception as e: warnings.warn(f"WARNING: DALI memory preallocation failed: {e}")
         
-        # MODIFIED: Always use DALI
-        self.use_dali = True
-        self._init_dali_pipeline()
+        self.use_dali = DALI_AVAILABLE and isinstance(dataset, ImageFolder)
+        if self.use_dali:
+            self._init_dali_pipeline()
         
-        if not self._pipeline:
-            raise RuntimeError("Failed to initialize DALI GPU pipeline")
+        if self.device == "gpu" and not self.use_dali:
+            warnings.warn("WARNING: GPU device requested but DALI not available. Using CPU fallback.")
+            self.device = "cpu"
 
     def _init_dali_pipeline(self):
-        """Initialize DALI GPU pipeline"""
+        if not self.use_dali: return
         self._pipeline = self.dataset.get_dali_pipeline(
-            batch_size=self.batch_size, 
-            shuffle=self.shuffle, 
-            device="gpu",  # Always GPU
-            num_threads=self.num_workers, 
-            seed=self.seed
-        )
+            batch_size=self.batch_size, shuffle=self.shuffle, device=self.device,
+            num_threads=self.num_workers, prefetch=self.prefetch_batches, seed=self.seed)
         if self._pipeline:
             policy = LastBatchPolicy.DROP if self.drop_last else LastBatchPolicy.PARTIAL
-            self._dali_iter = DALIGenericIterator(
-                self._pipeline, 
-                ["images", "labels"], 
-                policy, 
-                reader_name="Reader"
-            )
-            print(f"DALI GPU pipeline initialized: batch_size={self.batch_size}, num_threads={self.num_workers}")
+            self._dali_iter = DALIGenericIterator(self._pipeline, ["images", "labels"], policy, reader_name="Reader")
+            # print(f"DALI pipeline initialized: batch_size={self.batch_size}, device={self.device}, num_threads={self.num_workers}")
 
     def __len__(self):
         n = len(self.dataset)
         return n // self.batch_size if self.drop_last else math.ceil(n / self.batch_size)
 
     def __iter__(self):
-        """Always use DALI GPU iterator"""
-        if self._dali_iter:
+        if self.use_dali and self._dali_iter:
             self._dali_iter.reset()
             return self._dali_iterator()
-        else:
-            raise RuntimeError("DALI iterator not initialized")
+        return self._regular_iterator()
 
     def reset(self):
-        """Reset the DALI iterator"""
-        if self._dali_iter:
+        """
+        Resets the internal iterator, particularly for the DALI pipeline.
+        This allows re-iteration over the dataset from the beginning without
+        recreating the DataLoader.
+        """
+        if self.use_dali and self._dali_iter:
             self._dali_iter.reset()
+        # For the regular iterator, a new one is created on each __iter__ call,
+        # so an explicit reset is not strictly necessary in the same way.
+
     
     def _dali_iterator(self):
-        """DALI GPU iterator"""
         for data in self._dali_iter:
             # The pipeline outputs DALI Tensors which are extracted from the output dictionary.
             images_tensor = data[0]["images"]  # This is a TensorListGPU containing the batch
             labels_tensor = data[0]["labels"]  # This is a TensorListGPU containing the batch
             
-            # MODIFIED: Always use GPU (cupy) conversion
-            import cupy as cp
-            # For GPU TensorList, convert to cupy arrays
-            images_array = cp.asarray(images_tensor.as_tensor())
-            labels_array = cp.asarray(labels_tensor.as_tensor())
-            
-            X = Tensor(images_array, dtype=self.dataset.img_dtype)
-            y = Tensor(labels_array, dtype=self.dataset.target_dtype if not self.dataset.one_hot_targets else float32)
+            # Convert DALI TensorList to proper arrays
+            if self.device == 'gpu':
+                import cupy as cp
+                # For GPU TensorList, convert to cupy arrays
+                images_array = cp.asarray(images_tensor.as_tensor())
+                labels_array = cp.asarray(labels_tensor.as_tensor())
+                
+                X = Tensor(images_array, dtype=self.dataset.img_dtype)
+                y = Tensor(labels_array, dtype=self.dataset.target_dtype if not self.dataset.one_hot_targets else float32)
+            else: # CPU device
+                # For CPU TensorList, convert to numpy array
+                X = Tensor(images_tensor.as_array(), dtype=self.dataset.img_dtype)
+                y = Tensor(labels_tensor.as_array(), dtype=self.dataset.target_dtype if not self.dataset.one_hot_targets else float32)
     
             yield X, y
+            
+    def _regular_iterator(self):
+        """Fallback iterator with threading and prefetching."""
+        batches = list(self._batch_indices())
+        window = deque()
+        next_to_submit = 0
+        total = len(batches)
 
-    # MODIFIED: Remove fallback iterator methods
+        for _ in range(min(self.prefetch_batches, total)):
+            futs = self._schedule_batch(batches[next_to_submit])
+            window.append(futs)
+            next_to_submit += 1
+
+        for _ in range(total):
+            if not window:
+                futs = self._schedule_batch(batches[next_to_submit])
+                window.append(futs)
+                next_to_submit += 1
+
+            futs = window.popleft()
+
+            if next_to_submit < total:
+                next_futs = self._schedule_batch(batches[next_to_submit])
+                window.append(next_futs)
+                next_to_submit += 1
+
+            yield self._gather_batch(futs)
+
+    def _batch_indices(self):
+        n = len(self.dataset)
+        order = list(range(n))
+        if self.shuffle:
+            random.Random(self.seed).shuffle(order)
+        
+        limit = (n // self.batch_size) * self.batch_size if self.drop_last else n
+        for start in range(0, limit, self.batch_size):
+            end = min(start + self.batch_size, n)
+            yield order[start:end]
+
+    def _ensure_executor(self):
+        if self.num_workers > 0 and self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=self.num_workers)
+
+    def _schedule_batch(self, idxs):
+        if self.num_workers > 0:
+            self._ensure_executor()
+            return [self._executor.submit(self.dataset.__getitem__, i) for i in idxs]
+        return [self.dataset[i] for i in idxs]
+
+    def _gather_batch(self, futures_or_results):
+        if self.num_workers > 0:
+            batch = [f.result() for f in futures_or_results]
+        else:
+            batch = futures_or_results
+        
+        Xs, ys = zip(*batch)
+        return Tensor(xp.stack([x.data for x in Xs])), Tensor(xp.stack([y.data for y in ys]))
+
     def close(self):
-        """Close resources (GPU-only version has no executor to close)"""
-        pass
+        if self._executor is not None:
+            self._executor.shutdown(wait=True)
+            self._executor = None
 
 
 def create_dali_transforms(
-    device: str = "cpu",  # Kept for compatibility but forced to GPU
+    device: str = "gpu",
     brightness: float = 0.0,
     contrast: float = 0.0,
     saturation: float = 0.0,
@@ -429,10 +574,12 @@ def create_dali_transforms(
     rotation_angle: float = 0.0
 ):
     """
-    Create common DALI augmentation transforms (GPU-only version).
+    Create common DALI augmentation transforms.
+    Returns None if DALI is not available.
     """
-    # MODIFIED: Always use GPU device
-    device = "gpu"
+    if not DALI_AVAILABLE:
+        warnings.warn("WARNING: DALI not available. Transform creation skipped.")
+        return None
         
     def apply_transforms(images):
         if brightness or contrast or saturation or hue:
@@ -455,3 +602,33 @@ def create_dali_transforms(
         return images
     
     return apply_transforms
+
+
+
+
+def is_on_network_drive(path_to_check: str) -> bool:
+    """
+    Detects if the given path is on a network-mounted filesystem.
+    """
+    if not os.path.exists(path_to_check):
+        raise FileNotFoundError(f"Path does not exist: {path_to_check}")
+    NETWORK_FS_TYPES = [
+        "nfs", "nfs4", "nfsd", "cifs", "smbfs", "smb", "smb2", "smb3",
+        "fuse.sshfs", "fuse.gcsfuse", "fuse.s3fs"
+    ]
+    target_path = os.path.abspath(path_to_check)
+    partitions = psutil.disk_partitions(all=True)
+    # Find the most specific mount point for the path
+    longest_match = None
+    for p in partitions:
+        if target_path.startswith(p.mountpoint):
+            if longest_match is None or len(p.mountpoint) > len(longest_match.mountpoint):
+                longest_match = p
+    if longest_match is None:
+        # Could not find any mount, assume local
+        return False
+    fs_type = longest_match.fstype.lower()
+    if fs_type in NETWORK_FS_TYPES:
+        return True
+    # Overlay is usually local (Docker /tmp), so treat it as local
+    return False

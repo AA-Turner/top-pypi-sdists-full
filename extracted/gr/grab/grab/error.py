@@ -14,14 +14,10 @@ Exception
     |-> GrabTooManyRedirectsError
     |-> GrabInvalidUrl
     |-> GrabInternalError
-
-Exception
-| -> weblib.error.WeblibError
-     |-> DataNotFound <- IndexError
+    |-> DataNotFound
 """
 
 from __future__ import absolute_import
-from weblib.error import DataNotFound  # noqa pylint: disable=unused-import
 
 
 class GrabError(Exception):
@@ -102,4 +98,16 @@ class GrabInvalidUrl(GrabError):
 
 
 class GrabInternalError(OriginalExceptionError, GrabError):
+    pass
+
+
+class DataNotFound(GrabError):
+    pass
+
+
+class InvalidResponseError(OriginalExceptionError, GrabError):
+    pass
+
+
+class InvalidResponseHeaderError(InvalidResponseError):
     pass

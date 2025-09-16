@@ -26,12 +26,11 @@ from distutils.errors import DistutilsExecError
 from distutils.errors import DistutilsPlatformError
 
 from setuptools import Extension
-from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
 
 
-version = '7.3'
+version = '8.0'
 
 
 class optional_build_ext(build_ext):
@@ -102,14 +101,14 @@ TESTS_REQUIRE = [
     'zope.configuration',
     'zope.location',
     'zope.testing',
-    'zope.testrunner',
+    'zope.testrunner >= 6.4',
 ]
 
 
 setup(name='zope.security',
       version=version,
       author='Zope Foundation and Contributors',
-      author_email='zope-dev@zope.org',
+      author_email='zope-dev@zope.dev',
       description='Zope Security Framework',
       long_description=(
           read('README.rst')
@@ -124,7 +123,6 @@ setup(name='zope.security',
           'License :: OSI Approved :: Zope Public License',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -144,22 +142,23 @@ setup(name='zope.security',
                             '/zope.security/issues'),
           'Sources': 'https://github.com/zopefoundation/zope.security',
       },
-      license='ZPL 2.1',
-      packages=find_packages('src'),
+      license='ZPL-2.1',
+      # we need the following two parameters because we compile C code,
+      # otherwise only the shared library is installed:
       package_dir={'': 'src'},
-      namespace_packages=['zope'],
+      packages=['zope.security',],
       cmdclass={
           'build_ext': optional_build_ext,
       },
       ext_modules=ext_modules,
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       install_requires=[
           'setuptools',
           'zope.component',
           'zope.i18nmessageid',
           'zope.interface',
           'zope.location',
-          'zope.proxy >= 5.2',
+          'zope.proxy >= 6.1',
           'zope.schema >= 4.2.0',
       ],
       extras_require={

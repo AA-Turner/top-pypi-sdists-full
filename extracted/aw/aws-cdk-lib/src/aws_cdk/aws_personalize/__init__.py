@@ -66,7 +66,896 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnDatasetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "domain": "domain",
+        "kms_key_arn": "kmsKeyArn",
+        "role_arn": "roleArn",
+    },
+)
+class CfnDatasetGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        domain: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatasetGroup``.
+
+        :param name: The name of the dataset group.
+        :param domain: The domain of a Domain dataset group.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
+        :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key. Supplying an IAM role is only valid when also specifying a KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_dataset_group_props = personalize.CfnDatasetGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                domain="domain",
+                kms_key_arn="kmsKeyArn",
+                role_arn="roleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fdb6f95ecf2ddb96752e4bd6a7d092a5e469f7a7350a52b8a17e2840cb0ff7b)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if domain is not None:
+            self._values["domain"] = domain
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''The domain of a Domain dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key.
+
+        Supplying an IAM role is only valid when also specifying a KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "dataset_type": "datasetType",
+        "name": "name",
+        "schema_arn": "schemaArn",
+        "dataset_import_job": "datasetImportJob",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        dataset_type: builtins.str,
+        name: builtins.str,
+        schema_arn: builtins.str,
+        dataset_import_job: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.DatasetImportJobProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group.
+        :param dataset_type: One of the following values:. - Interactions - Items - Users .. epigraph:: You can't use CloudFormation to create an Action Interactions or Actions dataset.
+        :param name: The name of the dataset.
+        :param schema_arn: The ARN of the associated schema.
+        :param dataset_import_job: Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset. If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            # data_source: Any
+            
+            cfn_dataset_props = personalize.CfnDatasetProps(
+                dataset_group_arn="datasetGroupArn",
+                dataset_type="datasetType",
+                name="name",
+                schema_arn="schemaArn",
+            
+                # the properties below are optional
+                dataset_import_job=personalize.CfnDataset.DatasetImportJobProperty(
+                    dataset_arn="datasetArn",
+                    dataset_import_job_arn="datasetImportJobArn",
+                    data_source=data_source,
+                    job_name="jobName",
+                    role_arn="roleArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1521e383)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
+            check_type(argname="argument dataset_import_job", value=dataset_import_job, expected_type=type_hints["dataset_import_job"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "dataset_type": dataset_type,
+            "name": name,
+            "schema_arn": schema_arn,
+        }
+        if dataset_import_job is not None:
+            self._values["dataset_import_job"] = dataset_import_job
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_type(self) -> builtins.str:
+        '''One of the following values:.
+
+        - Interactions
+        - Items
+        - Users
+
+        .. epigraph::
+
+           You can't use CloudFormation to create an Action Interactions or Actions dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasettype
+        '''
+        result = self._values.get("dataset_type")
+        assert result is not None, "Required property 'dataset_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schema_arn(self) -> builtins.str:
+        '''The ARN of the associated schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-schemaarn
+        '''
+        result = self._values.get("schema_arn")
+        assert result is not None, "Required property 'schema_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_import_job(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetImportJobProperty"]]:
+        '''Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset.
+
+        If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasetimportjob
+        '''
+        result = self._values.get("dataset_import_job")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetImportJobProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnSchemaProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "schema": "schema", "domain": "domain"},
+)
+class CfnSchemaProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        schema: builtins.str,
+        domain: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSchema``.
+
+        :param name: The name of the schema.
+        :param schema: The schema.
+        :param domain: The domain of a schema that you created for a dataset in a Domain dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_schema_props = personalize.CfnSchemaProps(
+                name="name",
+                schema="schema",
+            
+                # the properties below are optional
+                domain="domain"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c373947e46fb78bb07b658e8d58f6d2395c21ab9e13566c02ecc431ceeabab95)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "schema": schema,
+        }
+        if domain is not None:
+            self._values["domain"] = domain
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schema(self) -> builtins.str:
+        '''The schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-schema
+        '''
+        result = self._values.get("schema")
+        assert result is not None, "Required property 'schema' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''The domain of a schema that you created for a dataset in a Domain dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSchemaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnSolutionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_arn": "datasetGroupArn",
+        "name": "name",
+        "event_type": "eventType",
+        "perform_auto_ml": "performAutoMl",
+        "perform_hpo": "performHpo",
+        "recipe_arn": "recipeArn",
+        "solution_config": "solutionConfig",
+    },
+)
+class CfnSolutionProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_arn: builtins.str,
+        name: builtins.str,
+        event_type: typing.Optional[builtins.str] = None,
+        perform_auto_ml: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        perform_hpo: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        recipe_arn: typing.Optional[builtins.str] = None,
+        solution_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSolution.SolutionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSolution``.
+
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that provides the training data.
+        :param name: The name of the solution.
+        :param event_type: The event type (for example, 'click' or 'like') that is used for training the model. If no ``eventType`` is provided, Amazon Personalize uses all interactions for training with equal weight regardless of type.
+        :param perform_auto_ml: .. epigraph:: We don't recommend enabling automated machine learning. Instead, match your use case to the available Amazon Personalize recipes. For more information, see `Determining your use case. <https://docs.aws.amazon.com/personalize/latest/dg/determining-use-case.html>`_ When true, Amazon Personalize performs a search for the best USER_PERSONALIZATION recipe from the list specified in the solution configuration ( ``recipeArn`` must not be specified). When false (the default), Amazon Personalize uses ``recipeArn`` for training.
+        :param perform_hpo: Whether to perform hyperparameter optimization (HPO) on the chosen recipe. The default is ``false`` .
+        :param recipe_arn: The ARN of the recipe used to create the solution. This is required when ``performAutoML`` is false.
+        :param solution_config: Describes the configuration properties for the solution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            # auto_ml_config: Any
+            # hpo_config: Any
+            
+            cfn_solution_props = personalize.CfnSolutionProps(
+                dataset_group_arn="datasetGroupArn",
+                name="name",
+            
+                # the properties below are optional
+                event_type="eventType",
+                perform_auto_ml=False,
+                perform_hpo=False,
+                recipe_arn="recipeArn",
+                solution_config=personalize.CfnSolution.SolutionConfigProperty(
+                    algorithm_hyper_parameters={
+                        "algorithm_hyper_parameters_key": "algorithmHyperParameters"
+                    },
+                    auto_ml_config=auto_ml_config,
+                    event_value_threshold="eventValueThreshold",
+                    feature_transformation_parameters={
+                        "feature_transformation_parameters_key": "featureTransformationParameters"
+                    },
+                    hpo_config=hpo_config
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69d40d42ad451a741444334b0be64eab69d658504abd7f1a87ae1558ac9c0e2e)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+            check_type(argname="argument perform_auto_ml", value=perform_auto_ml, expected_type=type_hints["perform_auto_ml"])
+            check_type(argname="argument perform_hpo", value=perform_hpo, expected_type=type_hints["perform_hpo"])
+            check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
+            check_type(argname="argument solution_config", value=solution_config, expected_type=type_hints["solution_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+            "name": name,
+        }
+        if event_type is not None:
+            self._values["event_type"] = event_type
+        if perform_auto_ml is not None:
+            self._values["perform_auto_ml"] = perform_auto_ml
+        if perform_hpo is not None:
+            self._values["perform_hpo"] = perform_hpo
+        if recipe_arn is not None:
+            self._values["recipe_arn"] = recipe_arn
+        if solution_config is not None:
+            self._values["solution_config"] = solution_config
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the dataset group that provides the training data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-datasetgrouparn
+        '''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the solution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_type(self) -> typing.Optional[builtins.str]:
+        '''The event type (for example, 'click' or 'like') that is used for training the model.
+
+        If no ``eventType`` is provided, Amazon Personalize uses all interactions for training with equal weight regardless of type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-eventtype
+        '''
+        result = self._values.get("event_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def perform_auto_ml(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''.. epigraph::
+
+   We don't recommend enabling automated machine learning.
+
+        Instead, match your use case to the available Amazon Personalize recipes. For more information, see `Determining your use case. <https://docs.aws.amazon.com/personalize/latest/dg/determining-use-case.html>`_
+
+        When true, Amazon Personalize performs a search for the best USER_PERSONALIZATION recipe from the list specified in the solution configuration ( ``recipeArn`` must not be specified). When false (the default), Amazon Personalize uses ``recipeArn`` for training.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-performautoml
+        '''
+        result = self._values.get("perform_auto_ml")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def perform_hpo(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to perform hyperparameter optimization (HPO) on the chosen recipe.
+
+        The default is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-performhpo
+        '''
+        result = self._values.get("perform_hpo")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def recipe_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the recipe used to create the solution.
+
+        This is required when ``performAutoML`` is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-recipearn
+        '''
+        result = self._values.get("recipe_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def solution_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSolution.SolutionConfigProperty"]]:
+        '''Describes the configuration properties for the solution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-solutionconfig
+        '''
+        result = self._values.get("solution_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSolution.SolutionConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSolutionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.DatasetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_group_arn": "datasetGroupArn"},
+)
+class DatasetGroupReference:
+    def __init__(self, *, dataset_group_arn: builtins.str) -> None:
+        '''A reference to a DatasetGroup resource.
+
+        :param dataset_group_arn: The DatasetGroupArn of the DatasetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            dataset_group_reference = personalize.DatasetGroupReference(
+                dataset_group_arn="datasetGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0111ab5420829b5eda52284476f55214d928519cdb60e5adddb079e66b12ea1a)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+        }
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The DatasetGroupArn of the DatasetGroup resource.'''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.DatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_arn": "datasetArn"},
+)
+class DatasetReference:
+    def __init__(self, *, dataset_arn: builtins.str) -> None:
+        '''A reference to a Dataset resource.
+
+        :param dataset_arn: The DatasetArn of the Dataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            dataset_reference = personalize.DatasetReference(
+                dataset_arn="datasetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a631ec40ee3e715bd5b503c33993066b931675f7b7bd6d2b77ea35d3bf4aa88b)
+            check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_arn": dataset_arn,
+        }
+
+    @builtins.property
+    def dataset_arn(self) -> builtins.str:
+        '''The DatasetArn of the Dataset resource.'''
+        result = self._values.get("dataset_arn")
+        assert result is not None, "Required property 'dataset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_personalize.IDatasetGroupRef")
+class IDatasetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''(experimental) A reference to a DatasetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_personalize.IDatasetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''(experimental) A reference to a DatasetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetGroupReference, jsii.get(self, "datasetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetGroupRef).__jsii_proxy_class__ = lambda : _IDatasetGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_personalize.IDatasetRef")
+class IDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_personalize.IDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_personalize.ISchemaRef")
+class ISchemaRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Schema.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRef")
+    def schema_ref(self) -> "SchemaReference":
+        '''(experimental) A reference to a Schema resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISchemaRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Schema.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_personalize.ISchemaRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRef")
+    def schema_ref(self) -> "SchemaReference":
+        '''(experimental) A reference to a Schema resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SchemaReference", jsii.get(self, "schemaRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISchemaRef).__jsii_proxy_class__ = lambda : _ISchemaRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_personalize.ISolutionRef")
+class ISolutionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Solution.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="solutionRef")
+    def solution_ref(self) -> "SolutionReference":
+        '''(experimental) A reference to a Solution resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISolutionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Solution.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_personalize.ISolutionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="solutionRef")
+    def solution_ref(self) -> "SolutionReference":
+        '''(experimental) A reference to a Solution resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SolutionReference", jsii.get(self, "solutionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISolutionRef).__jsii_proxy_class__ = lambda : _ISolutionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.SchemaReference",
+    jsii_struct_bases=[],
+    name_mapping={"schema_arn": "schemaArn"},
+)
+class SchemaReference:
+    def __init__(self, *, schema_arn: builtins.str) -> None:
+        '''A reference to a Schema resource.
+
+        :param schema_arn: The SchemaArn of the Schema resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            schema_reference = personalize.SchemaReference(
+                schema_arn="schemaArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07111faebd5d5272134c2f5f757d5fc0c8e4bd04cd306ea6f6026d158332a369)
+            check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schema_arn": schema_arn,
+        }
+
+    @builtins.property
+    def schema_arn(self) -> builtins.str:
+        '''The SchemaArn of the Schema resource.'''
+        result = self._values.get("schema_arn")
+        assert result is not None, "Required property 'schema_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SchemaReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.SolutionReference",
+    jsii_struct_bases=[],
+    name_mapping={"solution_arn": "solutionArn"},
+)
+class SolutionReference:
+    def __init__(self, *, solution_arn: builtins.str) -> None:
+        '''A reference to a Solution resource.
+
+        :param solution_arn: The SolutionArn of the Solution resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            solution_reference = personalize.SolutionReference(
+                solution_arn="solutionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23a98a1b9d51582be4f349a42a837dd631b238da49adad0a5c5ac5454e996abe)
+            check_type(argname="argument solution_arn", value=solution_arn, expected_type=type_hints["solution_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "solution_arn": solution_arn,
+        }
+
+    @builtins.property
+    def solution_arn(self) -> builtins.str:
+        '''The SolutionArn of the Solution resource.'''
+        result = self._values.get("solution_arn")
+        assert result is not None, "Required property 'solution_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SolutionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDatasetRef)
 class CfnDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -205,6 +1094,12 @@ class CfnDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''A reference to a Dataset resource.'''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetGroupArn")
@@ -471,7 +1366,7 @@ class CfnDataset(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDatasetGroupRef)
 class CfnDatasetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -576,6 +1471,12 @@ class CfnDatasetGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''A reference to a DatasetGroup resource.'''
+        return typing.cast(DatasetGroupReference, jsii.get(self, "datasetGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the dataset group.'''
@@ -628,263 +1529,7 @@ class CfnDatasetGroup(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnDatasetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "domain": "domain",
-        "kms_key_arn": "kmsKeyArn",
-        "role_arn": "roleArn",
-    },
-)
-class CfnDatasetGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        domain: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDatasetGroup``.
-
-        :param name: The name of the dataset group.
-        :param domain: The domain of a Domain dataset group.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
-        :param role_arn: The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key. Supplying an IAM role is only valid when also specifying a KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_personalize as personalize
-            
-            cfn_dataset_group_props = personalize.CfnDatasetGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                domain="domain",
-                kms_key_arn="kmsKeyArn",
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fdb6f95ecf2ddb96752e4bd6a7d092a5e469f7a7350a52b8a17e2840cb0ff7b)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if domain is not None:
-            self._values["domain"] = domain
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''The domain of a Domain dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS Key Management Service (KMS) key used to encrypt the datasets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the AWS Identity and Access Management (IAM) role that has permissions to access the AWS Key Management Service (KMS) key.
-
-        Supplying an IAM role is only valid when also specifying a KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datasetgroup.html#cfn-personalize-datasetgroup-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_group_arn": "datasetGroupArn",
-        "dataset_type": "datasetType",
-        "name": "name",
-        "schema_arn": "schemaArn",
-        "dataset_import_job": "datasetImportJob",
-    },
-)
-class CfnDatasetProps:
-    def __init__(
-        self,
-        *,
-        dataset_group_arn: builtins.str,
-        dataset_type: builtins.str,
-        name: builtins.str,
-        schema_arn: builtins.str,
-        dataset_import_job: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataset``.
-
-        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group.
-        :param dataset_type: One of the following values:. - Interactions - Items - Users .. epigraph:: You can't use CloudFormation to create an Action Interactions or Actions dataset.
-        :param name: The name of the dataset.
-        :param schema_arn: The ARN of the associated schema.
-        :param dataset_import_job: Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset. If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_personalize as personalize
-            
-            # data_source: Any
-            
-            cfn_dataset_props = personalize.CfnDatasetProps(
-                dataset_group_arn="datasetGroupArn",
-                dataset_type="datasetType",
-                name="name",
-                schema_arn="schemaArn",
-            
-                # the properties below are optional
-                dataset_import_job=personalize.CfnDataset.DatasetImportJobProperty(
-                    dataset_arn="datasetArn",
-                    dataset_import_job_arn="datasetImportJobArn",
-                    data_source=data_source,
-                    job_name="jobName",
-                    role_arn="roleArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1521e383)
-            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
-            check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schema_arn", value=schema_arn, expected_type=type_hints["schema_arn"])
-            check_type(argname="argument dataset_import_job", value=dataset_import_job, expected_type=type_hints["dataset_import_job"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_group_arn": dataset_group_arn,
-            "dataset_type": dataset_type,
-            "name": name,
-            "schema_arn": schema_arn,
-        }
-        if dataset_import_job is not None:
-            self._values["dataset_import_job"] = dataset_import_job
-
-    @builtins.property
-    def dataset_group_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasetgrouparn
-        '''
-        result = self._values.get("dataset_group_arn")
-        assert result is not None, "Required property 'dataset_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dataset_type(self) -> builtins.str:
-        '''One of the following values:.
-
-        - Interactions
-        - Items
-        - Users
-
-        .. epigraph::
-
-           You can't use CloudFormation to create an Action Interactions or Actions dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasettype
-        '''
-        result = self._values.get("dataset_type")
-        assert result is not None, "Required property 'dataset_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schema_arn(self) -> builtins.str:
-        '''The ARN of the associated schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-schemaarn
-        '''
-        result = self._values.get("schema_arn")
-        assert result is not None, "Required property 'schema_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dataset_import_job(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetImportJobProperty]]:
-        '''Describes a job that imports training data from a data source (Amazon S3 bucket) to an Amazon Personalize dataset.
-
-        If you specify a dataset import job as part of a dataset, all dataset import job fields are required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-dataset.html#cfn-personalize-dataset-datasetimportjob
-        '''
-        result = self._values.get("dataset_import_job")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetImportJobProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISchemaRef)
 class CfnSchema(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -991,6 +1636,12 @@ class CfnSchema(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="schemaRef")
+    def schema_ref(self) -> SchemaReference:
+        '''A reference to a Schema resource.'''
+        return typing.cast(SchemaReference, jsii.get(self, "schemaRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the schema.'''
@@ -1030,96 +1681,7 @@ class CfnSchema(
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnSchemaProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "schema": "schema", "domain": "domain"},
-)
-class CfnSchemaProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        schema: builtins.str,
-        domain: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSchema``.
-
-        :param name: The name of the schema.
-        :param schema: The schema.
-        :param domain: The domain of a schema that you created for a dataset in a Domain dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_personalize as personalize
-            
-            cfn_schema_props = personalize.CfnSchemaProps(
-                name="name",
-                schema="schema",
-            
-                # the properties below are optional
-                domain="domain"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c373947e46fb78bb07b658e8d58f6d2395c21ab9e13566c02ecc431ceeabab95)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "schema": schema,
-        }
-        if domain is not None:
-            self._values["domain"] = domain
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schema(self) -> builtins.str:
-        '''The schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-schema
-        '''
-        result = self._values.get("schema")
-        assert result is not None, "Required property 'schema' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''The domain of a schema that you created for a dataset in a Domain dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-schema.html#cfn-personalize-schema-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSchemaProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISolutionRef)
 class CfnSolution(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1254,6 +1816,12 @@ class CfnSolution(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="solutionRef")
+    def solution_ref(self) -> SolutionReference:
+        '''A reference to a Solution resource.'''
+        return typing.cast(SolutionReference, jsii.get(self, "solutionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetGroupArn")
@@ -2215,194 +2783,6 @@ class CfnSolution(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_personalize.CfnSolutionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_group_arn": "datasetGroupArn",
-        "name": "name",
-        "event_type": "eventType",
-        "perform_auto_ml": "performAutoMl",
-        "perform_hpo": "performHpo",
-        "recipe_arn": "recipeArn",
-        "solution_config": "solutionConfig",
-    },
-)
-class CfnSolutionProps:
-    def __init__(
-        self,
-        *,
-        dataset_group_arn: builtins.str,
-        name: builtins.str,
-        event_type: typing.Optional[builtins.str] = None,
-        perform_auto_ml: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        perform_hpo: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        recipe_arn: typing.Optional[builtins.str] = None,
-        solution_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSolution.SolutionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSolution``.
-
-        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that provides the training data.
-        :param name: The name of the solution.
-        :param event_type: The event type (for example, 'click' or 'like') that is used for training the model. If no ``eventType`` is provided, Amazon Personalize uses all interactions for training with equal weight regardless of type.
-        :param perform_auto_ml: .. epigraph:: We don't recommend enabling automated machine learning. Instead, match your use case to the available Amazon Personalize recipes. For more information, see `Determining your use case. <https://docs.aws.amazon.com/personalize/latest/dg/determining-use-case.html>`_ When true, Amazon Personalize performs a search for the best USER_PERSONALIZATION recipe from the list specified in the solution configuration ( ``recipeArn`` must not be specified). When false (the default), Amazon Personalize uses ``recipeArn`` for training.
-        :param perform_hpo: Whether to perform hyperparameter optimization (HPO) on the chosen recipe. The default is ``false`` .
-        :param recipe_arn: The ARN of the recipe used to create the solution. This is required when ``performAutoML`` is false.
-        :param solution_config: Describes the configuration properties for the solution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_personalize as personalize
-            
-            # auto_ml_config: Any
-            # hpo_config: Any
-            
-            cfn_solution_props = personalize.CfnSolutionProps(
-                dataset_group_arn="datasetGroupArn",
-                name="name",
-            
-                # the properties below are optional
-                event_type="eventType",
-                perform_auto_ml=False,
-                perform_hpo=False,
-                recipe_arn="recipeArn",
-                solution_config=personalize.CfnSolution.SolutionConfigProperty(
-                    algorithm_hyper_parameters={
-                        "algorithm_hyper_parameters_key": "algorithmHyperParameters"
-                    },
-                    auto_ml_config=auto_ml_config,
-                    event_value_threshold="eventValueThreshold",
-                    feature_transformation_parameters={
-                        "feature_transformation_parameters_key": "featureTransformationParameters"
-                    },
-                    hpo_config=hpo_config
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69d40d42ad451a741444334b0be64eab69d658504abd7f1a87ae1558ac9c0e2e)
-            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
-            check_type(argname="argument perform_auto_ml", value=perform_auto_ml, expected_type=type_hints["perform_auto_ml"])
-            check_type(argname="argument perform_hpo", value=perform_hpo, expected_type=type_hints["perform_hpo"])
-            check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
-            check_type(argname="argument solution_config", value=solution_config, expected_type=type_hints["solution_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_group_arn": dataset_group_arn,
-            "name": name,
-        }
-        if event_type is not None:
-            self._values["event_type"] = event_type
-        if perform_auto_ml is not None:
-            self._values["perform_auto_ml"] = perform_auto_ml
-        if perform_hpo is not None:
-            self._values["perform_hpo"] = perform_hpo
-        if recipe_arn is not None:
-            self._values["recipe_arn"] = recipe_arn
-        if solution_config is not None:
-            self._values["solution_config"] = solution_config
-
-    @builtins.property
-    def dataset_group_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the dataset group that provides the training data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-datasetgrouparn
-        '''
-        result = self._values.get("dataset_group_arn")
-        assert result is not None, "Required property 'dataset_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the solution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_type(self) -> typing.Optional[builtins.str]:
-        '''The event type (for example, 'click' or 'like') that is used for training the model.
-
-        If no ``eventType`` is provided, Amazon Personalize uses all interactions for training with equal weight regardless of type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-eventtype
-        '''
-        result = self._values.get("event_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def perform_auto_ml(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''.. epigraph::
-
-   We don't recommend enabling automated machine learning.
-
-        Instead, match your use case to the available Amazon Personalize recipes. For more information, see `Determining your use case. <https://docs.aws.amazon.com/personalize/latest/dg/determining-use-case.html>`_
-
-        When true, Amazon Personalize performs a search for the best USER_PERSONALIZATION recipe from the list specified in the solution configuration ( ``recipeArn`` must not be specified). When false (the default), Amazon Personalize uses ``recipeArn`` for training.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-performautoml
-        '''
-        result = self._values.get("perform_auto_ml")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def perform_hpo(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to perform hyperparameter optimization (HPO) on the chosen recipe.
-
-        The default is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-performhpo
-        '''
-        result = self._values.get("perform_hpo")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def recipe_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the recipe used to create the solution.
-
-        This is required when ``performAutoML`` is false.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-recipearn
-        '''
-        result = self._values.get("recipe_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def solution_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSolution.SolutionConfigProperty]]:
-        '''Describes the configuration properties for the solution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-solution.html#cfn-personalize-solution-solutionconfig
-        '''
-        result = self._values.get("solution_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSolution.SolutionConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSolutionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDataset",
     "CfnDatasetGroup",
@@ -2412,9 +2792,88 @@ __all__ = [
     "CfnSchemaProps",
     "CfnSolution",
     "CfnSolutionProps",
+    "DatasetGroupReference",
+    "DatasetReference",
+    "IDatasetGroupRef",
+    "IDatasetRef",
+    "ISchemaRef",
+    "ISolutionRef",
+    "SchemaReference",
+    "SolutionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__7fdb6f95ecf2ddb96752e4bd6a7d092a5e469f7a7350a52b8a17e2840cb0ff7b(
+    *,
+    name: builtins.str,
+    domain: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1521e383(
+    *,
+    dataset_group_arn: builtins.str,
+    dataset_type: builtins.str,
+    name: builtins.str,
+    schema_arn: builtins.str,
+    dataset_import_job: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c373947e46fb78bb07b658e8d58f6d2395c21ab9e13566c02ecc431ceeabab95(
+    *,
+    name: builtins.str,
+    schema: builtins.str,
+    domain: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69d40d42ad451a741444334b0be64eab69d658504abd7f1a87ae1558ac9c0e2e(
+    *,
+    dataset_group_arn: builtins.str,
+    name: builtins.str,
+    event_type: typing.Optional[builtins.str] = None,
+    perform_auto_ml: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    perform_hpo: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    recipe_arn: typing.Optional[builtins.str] = None,
+    solution_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSolution.SolutionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0111ab5420829b5eda52284476f55214d928519cdb60e5adddb079e66b12ea1a(
+    *,
+    dataset_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a631ec40ee3e715bd5b503c33993066b931675f7b7bd6d2b77ea35d3bf4aa88b(
+    *,
+    dataset_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07111faebd5d5272134c2f5f757d5fc0c8e4bd04cd306ea6f6026d158332a369(
+    *,
+    schema_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23a98a1b9d51582be4f349a42a837dd631b238da49adad0a5c5ac5454e996abe(
+    *,
+    solution_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__8515dadec60af65aa740f35c8bee6bc85dafa7634c6b2270232bfa824452ebce(
     scope: _constructs_77d1e7e8.Construct,
@@ -2537,27 +2996,6 @@ def _typecheckingstub__659a9057a0256ba90eedec4d65dd5e9b7f237704a3d6394737385f671
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7fdb6f95ecf2ddb96752e4bd6a7d092a5e469f7a7350a52b8a17e2840cb0ff7b(
-    *,
-    name: builtins.str,
-    domain: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1521e383(
-    *,
-    dataset_group_arn: builtins.str,
-    dataset_type: builtins.str,
-    name: builtins.str,
-    schema_arn: builtins.str,
-    dataset_import_job: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b3e6ed202aec99faa9e93f3070998170cf57a57c87cb52aa42c8c64b4f4b03d3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2595,15 +3033,6 @@ def _typecheckingstub__40ebe60cce6584e9de09b70c4a40099a56d4dfb618d3261f5454c033a
 
 def _typecheckingstub__fd4dc7d475cc6aef4202a8b9c451fd060bb3acc449768ed082a56731ceaec724(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c373947e46fb78bb07b658e8d58f6d2395c21ab9e13566c02ecc431ceeabab95(
-    *,
-    name: builtins.str,
-    schema: builtins.str,
-    domain: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2753,19 +3182,6 @@ def _typecheckingstub__ced9838e4439e4bc1ac0405cb84c759dc1da0cf5422f515a7b0d86711
     event_value_threshold: typing.Optional[builtins.str] = None,
     feature_transformation_parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     hpo_config: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69d40d42ad451a741444334b0be64eab69d658504abd7f1a87ae1558ac9c0e2e(
-    *,
-    dataset_group_arn: builtins.str,
-    name: builtins.str,
-    event_type: typing.Optional[builtins.str] = None,
-    perform_auto_ml: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    perform_hpo: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    recipe_arn: typing.Optional[builtins.str] = None,
-    solution_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSolution.SolutionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

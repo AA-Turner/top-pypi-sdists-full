@@ -310,6 +310,7 @@ from lusid.models.custom_entity_entity import CustomEntityEntity
 from lusid.models.custom_entity_field import CustomEntityField
 from lusid.models.custom_entity_field_definition import CustomEntityFieldDefinition
 from lusid.models.custom_entity_id import CustomEntityId
+from lusid.models.custom_entity_properties import CustomEntityProperties
 from lusid.models.custom_entity_request import CustomEntityRequest
 from lusid.models.custom_entity_response import CustomEntityResponse
 from lusid.models.custom_entity_type import CustomEntityType
@@ -854,6 +855,7 @@ from lusid.models.previous_share_class_breakdown import PreviousShareClassBreakd
 from lusid.models.pricing_context import PricingContext
 from lusid.models.pricing_model import PricingModel
 from lusid.models.pricing_options import PricingOptions
+from lusid.models.primary_schedule import PrimarySchedule
 from lusid.models.processed_command import ProcessedCommand
 from lusid.models.property_definition import PropertyDefinition
 from lusid.models.property_definition_entity import PropertyDefinitionEntity
@@ -1600,6 +1602,7 @@ __all__ = [
     "CustomEntityField",
     "CustomEntityFieldDefinition",
     "CustomEntityId",
+    "CustomEntityProperties",
     "CustomEntityRequest",
     "CustomEntityResponse",
     "CustomEntityType",
@@ -2144,6 +2147,7 @@ __all__ = [
     "PricingContext",
     "PricingModel",
     "PricingOptions",
+    "PrimarySchedule",
     "ProcessedCommand",
     "PropertyDefinition",
     "PropertyDefinitionEntity",

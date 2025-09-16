@@ -69,7 +69,1365 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.CfnConnectorProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_mode": "connectionMode",
+        "connector_profile_name": "connectorProfileName",
+        "connector_type": "connectorType",
+        "connector_label": "connectorLabel",
+        "connector_profile_config": "connectorProfileConfig",
+        "kms_arn": "kmsArn",
+    },
+)
+class CfnConnectorProfileProps:
+    def __init__(
+        self,
+        *,
+        connection_mode: builtins.str,
+        connector_profile_name: builtins.str,
+        connector_type: builtins.str,
+        connector_label: typing.Optional[builtins.str] = None,
+        connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnectorProfile.ConnectorProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnectorProfile``.
+
+        :param connection_mode: Indicates the connection mode and if it is public or private.
+        :param connector_profile_name: The name of the connector profile. The name is unique for each ``ConnectorProfile`` in the AWS account .
+        :param connector_type: The type of connector, such as Salesforce, Amplitude, and so on.
+        :param connector_label: The label for the connector profile being created.
+        :param connector_profile_config: Defines the connector-specific configuration and credentials.
+        :param kms_arn: The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption. This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            cfn_connector_profile_props = appflow.CfnConnectorProfileProps(
+                connection_mode="connectionMode",
+                connector_profile_name="connectorProfileName",
+                connector_type="connectorType",
+            
+                # the properties below are optional
+                connector_label="connectorLabel",
+                connector_profile_config=appflow.CfnConnectorProfile.ConnectorProfileConfigProperty(
+                    connector_profile_credentials=appflow.CfnConnectorProfile.ConnectorProfileCredentialsProperty(
+                        amplitude=appflow.CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty(
+                            api_key="apiKey",
+                            secret_key="secretKey"
+                        ),
+                        custom_connector=appflow.CfnConnectorProfile.CustomConnectorProfileCredentialsProperty(
+                            authentication_type="authenticationType",
+            
+                            # the properties below are optional
+                            api_key=appflow.CfnConnectorProfile.ApiKeyCredentialsProperty(
+                                api_key="apiKey",
+            
+                                # the properties below are optional
+                                api_secret_key="apiSecretKey"
+                            ),
+                            basic=appflow.CfnConnectorProfile.BasicAuthCredentialsProperty(
+                                password="password",
+                                username="username"
+                            ),
+                            custom=appflow.CfnConnectorProfile.CustomAuthCredentialsProperty(
+                                custom_authentication_type="customAuthenticationType",
+            
+                                # the properties below are optional
+                                credentials_map={
+                                    "credentials_map_key": "credentialsMap"
+                                }
+                            ),
+                            oauth2=appflow.CfnConnectorProfile.OAuth2CredentialsProperty(
+                                access_token="accessToken",
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                                o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                    auth_code="authCode",
+                                    redirect_uri="redirectUri"
+                                ),
+                                refresh_token="refreshToken"
+                            )
+                        ),
+                        datadog=appflow.CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty(
+                            api_key="apiKey",
+                            application_key="applicationKey"
+                        ),
+                        dynatrace=appflow.CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty(
+                            api_token="apiToken"
+                        ),
+                        google_analytics=appflow.CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+            
+                            # the properties below are optional
+                            access_token="accessToken",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            ),
+                            refresh_token="refreshToken"
+                        ),
+                        infor_nexus=appflow.CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty(
+                            access_key_id="accessKeyId",
+                            datakey="datakey",
+                            secret_access_key="secretAccessKey",
+                            user_id="userId"
+                        ),
+                        marketo=appflow.CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+            
+                            # the properties below are optional
+                            access_token="accessToken",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            )
+                        ),
+                        pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
+                            access_token="accessToken",
+                            client_credentials_arn="clientCredentialsArn",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            ),
+                            refresh_token="refreshToken"
+                        ),
+                        redshift=appflow.CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty(
+                            password="password",
+                            username="username"
+                        ),
+                        salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
+                            access_token="accessToken",
+                            client_credentials_arn="clientCredentialsArn",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            ),
+                            jwt_token="jwtToken",
+                            o_auth2_grant_type="oAuth2GrantType",
+                            refresh_token="refreshToken"
+                        ),
+                        sapo_data=appflow.CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty(
+                            basic_auth_credentials=appflow.CfnConnectorProfile.BasicAuthCredentialsProperty(
+                                password="password",
+                                username="username"
+                            ),
+                            o_auth_credentials=appflow.CfnConnectorProfile.OAuthCredentialsProperty(
+                                access_token="accessToken",
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                                connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                    auth_code="authCode",
+                                    redirect_uri="redirectUri"
+                                ),
+                                refresh_token="refreshToken"
+                            )
+                        ),
+                        service_now=appflow.CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty(
+                            o_auth2_credentials=appflow.CfnConnectorProfile.OAuth2CredentialsProperty(
+                                access_token="accessToken",
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                                o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                    auth_code="authCode",
+                                    redirect_uri="redirectUri"
+                                ),
+                                refresh_token="refreshToken"
+                            ),
+                            password="password",
+                            username="username"
+                        ),
+                        singular=appflow.CfnConnectorProfile.SingularConnectorProfileCredentialsProperty(
+                            api_key="apiKey"
+                        ),
+                        slack=appflow.CfnConnectorProfile.SlackConnectorProfileCredentialsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+            
+                            # the properties below are optional
+                            access_token="accessToken",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            )
+                        ),
+                        snowflake=appflow.CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty(
+                            password="password",
+                            username="username"
+                        ),
+                        trendmicro=appflow.CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty(
+                            api_secret_key="apiSecretKey"
+                        ),
+                        veeva=appflow.CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty(
+                            password="password",
+                            username="username"
+                        ),
+                        zendesk=appflow.CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+            
+                            # the properties below are optional
+                            access_token="accessToken",
+                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
+                                auth_code="authCode",
+                                redirect_uri="redirectUri"
+                            )
+                        )
+                    ),
+                    connector_profile_properties=appflow.CfnConnectorProfile.ConnectorProfilePropertiesProperty(
+                        custom_connector=appflow.CfnConnectorProfile.CustomConnectorProfilePropertiesProperty(
+                            o_auth2_properties=appflow.CfnConnectorProfile.OAuth2PropertiesProperty(
+                                o_auth2_grant_type="oAuth2GrantType",
+                                token_url="tokenUrl",
+                                token_url_custom_properties={
+                                    "token_url_custom_properties_key": "tokenUrlCustomProperties"
+                                }
+                            ),
+                            profile_properties={
+                                "profile_properties_key": "profileProperties"
+                            }
+                        ),
+                        datadog=appflow.CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        dynatrace=appflow.CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        infor_nexus=appflow.CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        marketo=appflow.CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        pardot=appflow.CfnConnectorProfile.PardotConnectorProfilePropertiesProperty(
+                            business_unit_id="businessUnitId",
+            
+                            # the properties below are optional
+                            instance_url="instanceUrl",
+                            is_sandbox_environment=False
+                        ),
+                        redshift=appflow.CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty(
+                            bucket_name="bucketName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            bucket_prefix="bucketPrefix",
+                            cluster_identifier="clusterIdentifier",
+                            data_api_role_arn="dataApiRoleArn",
+                            database_name="databaseName",
+                            database_url="databaseUrl",
+                            is_redshift_serverless=False,
+                            workgroup_name="workgroupName"
+                        ),
+                        salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl",
+                            is_sandbox_environment=False,
+                            use_private_link_for_metadata_and_authorization=False
+                        ),
+                        sapo_data=appflow.CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty(
+                            application_host_url="applicationHostUrl",
+                            application_service_path="applicationServicePath",
+                            client_number="clientNumber",
+                            disable_sso=False,
+                            logon_language="logonLanguage",
+                            o_auth_properties=appflow.CfnConnectorProfile.OAuthPropertiesProperty(
+                                auth_code_url="authCodeUrl",
+                                o_auth_scopes=["oAuthScopes"],
+                                token_url="tokenUrl"
+                            ),
+                            port_number=123,
+                            private_link_service_name="privateLinkServiceName"
+                        ),
+                        service_now=appflow.CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        slack=appflow.CfnConnectorProfile.SlackConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        snowflake=appflow.CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty(
+                            bucket_name="bucketName",
+                            stage="stage",
+                            warehouse="warehouse",
+            
+                            # the properties below are optional
+                            account_name="accountName",
+                            bucket_prefix="bucketPrefix",
+                            private_link_service_name="privateLinkServiceName",
+                            region="region"
+                        ),
+                        veeva=appflow.CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        ),
+                        zendesk=appflow.CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty(
+                            instance_url="instanceUrl"
+                        )
+                    )
+                ),
+                kms_arn="kmsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb)
+            check_type(argname="argument connection_mode", value=connection_mode, expected_type=type_hints["connection_mode"])
+            check_type(argname="argument connector_profile_name", value=connector_profile_name, expected_type=type_hints["connector_profile_name"])
+            check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
+            check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
+            check_type(argname="argument connector_profile_config", value=connector_profile_config, expected_type=type_hints["connector_profile_config"])
+            check_type(argname="argument kms_arn", value=kms_arn, expected_type=type_hints["kms_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_mode": connection_mode,
+            "connector_profile_name": connector_profile_name,
+            "connector_type": connector_type,
+        }
+        if connector_label is not None:
+            self._values["connector_label"] = connector_label
+        if connector_profile_config is not None:
+            self._values["connector_profile_config"] = connector_profile_config
+        if kms_arn is not None:
+            self._values["kms_arn"] = kms_arn
+
+    @builtins.property
+    def connection_mode(self) -> builtins.str:
+        '''Indicates the connection mode and if it is public or private.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectionmode
+        '''
+        result = self._values.get("connection_mode")
+        assert result is not None, "Required property 'connection_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_profile_name(self) -> builtins.str:
+        '''The name of the connector profile.
+
+        The name is unique for each ``ConnectorProfile`` in the AWS account .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorprofilename
+        '''
+        result = self._values.get("connector_profile_name")
+        assert result is not None, "Required property 'connector_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_type(self) -> builtins.str:
+        '''The type of connector, such as Salesforce, Amplitude, and so on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectortype
+        '''
+        result = self._values.get("connector_type")
+        assert result is not None, "Required property 'connector_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_label(self) -> typing.Optional[builtins.str]:
+        '''The label for the connector profile being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorlabel
+        '''
+        result = self._values.get("connector_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def connector_profile_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnectorProfile.ConnectorProfileConfigProperty"]]:
+        '''Defines the connector-specific configuration and credentials.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorprofileconfig
+        '''
+        result = self._values.get("connector_profile_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnectorProfile.ConnectorProfileConfigProperty"]], result)
+
+    @builtins.property
+    def kms_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption.
+
+        This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-kmsarn
+        '''
+        result = self._values.get("kms_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.CfnConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_provisioning_config": "connectorProvisioningConfig",
+        "connector_provisioning_type": "connectorProvisioningType",
+        "connector_label": "connectorLabel",
+        "description": "description",
+    },
+)
+class CfnConnectorProps:
+    def __init__(
+        self,
+        *,
+        connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnector.ConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        connector_provisioning_type: builtins.str,
+        connector_label: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnector``.
+
+        :param connector_provisioning_config: The configuration required for registering the connector.
+        :param connector_provisioning_type: The provisioning type used to register the connector.
+        :param connector_label: The label used for registering the connector.
+        :param description: A description about the connector runtime setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            cfn_connector_props = appflow.CfnConnectorProps(
+                connector_provisioning_config=appflow.CfnConnector.ConnectorProvisioningConfigProperty(
+                    lambda_=appflow.CfnConnector.LambdaConnectorProvisioningConfigProperty(
+                        lambda_arn="lambdaArn"
+                    )
+                ),
+                connector_provisioning_type="connectorProvisioningType",
+            
+                # the properties below are optional
+                connector_label="connectorLabel",
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b)
+            check_type(argname="argument connector_provisioning_config", value=connector_provisioning_config, expected_type=type_hints["connector_provisioning_config"])
+            check_type(argname="argument connector_provisioning_type", value=connector_provisioning_type, expected_type=type_hints["connector_provisioning_type"])
+            check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_provisioning_config": connector_provisioning_config,
+            "connector_provisioning_type": connector_provisioning_type,
+        }
+        if connector_label is not None:
+            self._values["connector_label"] = connector_label
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def connector_provisioning_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConnector.ConnectorProvisioningConfigProperty"]:
+        '''The configuration required for registering the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorprovisioningconfig
+        '''
+        result = self._values.get("connector_provisioning_config")
+        assert result is not None, "Required property 'connector_provisioning_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConnector.ConnectorProvisioningConfigProperty"], result)
+
+    @builtins.property
+    def connector_provisioning_type(self) -> builtins.str:
+        '''The provisioning type used to register the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorprovisioningtype
+        '''
+        result = self._values.get("connector_provisioning_type")
+        assert result is not None, "Required property 'connector_provisioning_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_label(self) -> typing.Optional[builtins.str]:
+        '''The label used for registering the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorlabel
+        '''
+        result = self._values.get("connector_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description about the connector runtime setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.CfnFlowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination_flow_config_list": "destinationFlowConfigList",
+        "flow_name": "flowName",
+        "source_flow_config": "sourceFlowConfig",
+        "tasks": "tasks",
+        "trigger_config": "triggerConfig",
+        "description": "description",
+        "flow_status": "flowStatus",
+        "kms_arn": "kmsArn",
+        "metadata_catalog_config": "metadataCatalogConfig",
+        "tags": "tags",
+    },
+)
+class CfnFlowProps:
+    def __init__(
+        self,
+        *,
+        destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.DestinationFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        flow_name: builtins.str,
+        source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        flow_status: typing.Optional[builtins.str] = None,
+        kms_arn: typing.Optional[builtins.str] = None,
+        metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.MetadataCatalogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlow``.
+
+        :param destination_flow_config_list: The configuration that controls how Amazon AppFlow places data in the destination connector.
+        :param flow_name: The specified name of the flow. Spaces are not allowed. Use underscores (_) or hyphens (-) only.
+        :param source_flow_config: Contains information about the configuration of the source connector used in the flow.
+        :param tasks: A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.
+        :param trigger_config: The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
+        :param description: A user-entered description of the flow.
+        :param flow_status: Sets the status of the flow. You can specify one of the following values:. - **Active** - The flow runs based on the trigger settings that you defined. Active scheduled flows run as scheduled, and active event-triggered flows run when the specified change event occurs. However, active on-demand flows run only when you manually start them by using Amazon AppFlow. - **Suspended** - You can use this option to deactivate an active flow. Scheduled and event-triggered flows will cease to run until you reactive them. This value only affects scheduled and event-triggered flows. It has no effect for on-demand flows. If you omit the FlowStatus parameter, Amazon AppFlow creates the flow with a default status. The default status for on-demand flows is Active. The default status for scheduled and event-triggered flows is Draft, which means they’re not yet active.
+        :param kms_arn: The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption. This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
+        :param metadata_catalog_config: Specifies the configuration that Amazon AppFlow uses when it catalogs your data. When Amazon AppFlow catalogs your data, it stores metadata in a data catalog.
+        :param tags: The tags used to organize, track, or control access for your flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            cfn_flow_props = appflow.CfnFlowProps(
+                destination_flow_config_list=[appflow.CfnFlow.DestinationFlowConfigProperty(
+                    connector_type="connectorType",
+                    destination_connector_properties=appflow.CfnFlow.DestinationConnectorPropertiesProperty(
+                        custom_connector=appflow.CfnFlow.CustomConnectorDestinationPropertiesProperty(
+                            entity_name="entityName",
+            
+                            # the properties below are optional
+                            custom_properties={
+                                "custom_properties_key": "customProperties"
+                            },
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            ),
+                            id_field_names=["idFieldNames"],
+                            write_operation_type="writeOperationType"
+                        ),
+                        event_bridge=appflow.CfnFlow.EventBridgeDestinationPropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            )
+                        ),
+                        lookout_metrics=appflow.CfnFlow.LookoutMetricsDestinationPropertiesProperty(
+                            object="object"
+                        ),
+                        marketo=appflow.CfnFlow.MarketoDestinationPropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            )
+                        ),
+                        redshift=appflow.CfnFlow.RedshiftDestinationPropertiesProperty(
+                            intermediate_bucket_name="intermediateBucketName",
+                            object="object",
+            
+                            # the properties below are optional
+                            bucket_prefix="bucketPrefix",
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            )
+                        ),
+                        s3=appflow.CfnFlow.S3DestinationPropertiesProperty(
+                            bucket_name="bucketName",
+            
+                            # the properties below are optional
+                            bucket_prefix="bucketPrefix",
+                            s3_output_format_config=appflow.CfnFlow.S3OutputFormatConfigProperty(
+                                aggregation_config=appflow.CfnFlow.AggregationConfigProperty(
+                                    aggregation_type="aggregationType",
+                                    target_file_size=123
+                                ),
+                                file_type="fileType",
+                                prefix_config=appflow.CfnFlow.PrefixConfigProperty(
+                                    path_prefix_hierarchy=["pathPrefixHierarchy"],
+                                    prefix_format="prefixFormat",
+                                    prefix_type="prefixType"
+                                ),
+                                preserve_source_data_typing=False
+                            )
+                        ),
+                        salesforce=appflow.CfnFlow.SalesforceDestinationPropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            data_transfer_api="dataTransferApi",
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            ),
+                            id_field_names=["idFieldNames"],
+                            write_operation_type="writeOperationType"
+                        ),
+                        sapo_data=appflow.CfnFlow.SAPODataDestinationPropertiesProperty(
+                            object_path="objectPath",
+            
+                            # the properties below are optional
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            ),
+                            id_field_names=["idFieldNames"],
+                            success_response_handling_config=appflow.CfnFlow.SuccessResponseHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix"
+                            ),
+                            write_operation_type="writeOperationType"
+                        ),
+                        snowflake=appflow.CfnFlow.SnowflakeDestinationPropertiesProperty(
+                            intermediate_bucket_name="intermediateBucketName",
+                            object="object",
+            
+                            # the properties below are optional
+                            bucket_prefix="bucketPrefix",
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            )
+                        ),
+                        upsolver=appflow.CfnFlow.UpsolverDestinationPropertiesProperty(
+                            bucket_name="bucketName",
+                            s3_output_format_config=appflow.CfnFlow.UpsolverS3OutputFormatConfigProperty(
+                                prefix_config=appflow.CfnFlow.PrefixConfigProperty(
+                                    path_prefix_hierarchy=["pathPrefixHierarchy"],
+                                    prefix_format="prefixFormat",
+                                    prefix_type="prefixType"
+                                ),
+            
+                                # the properties below are optional
+                                aggregation_config=appflow.CfnFlow.AggregationConfigProperty(
+                                    aggregation_type="aggregationType",
+                                    target_file_size=123
+                                ),
+                                file_type="fileType"
+                            ),
+            
+                            # the properties below are optional
+                            bucket_prefix="bucketPrefix"
+                        ),
+                        zendesk=appflow.CfnFlow.ZendeskDestinationPropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
+                                bucket_name="bucketName",
+                                bucket_prefix="bucketPrefix",
+                                fail_on_first_error=False
+                            ),
+                            id_field_names=["idFieldNames"],
+                            write_operation_type="writeOperationType"
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    api_version="apiVersion",
+                    connector_profile_name="connectorProfileName"
+                )],
+                flow_name="flowName",
+                source_flow_config=appflow.CfnFlow.SourceFlowConfigProperty(
+                    connector_type="connectorType",
+                    source_connector_properties=appflow.CfnFlow.SourceConnectorPropertiesProperty(
+                        amplitude=appflow.CfnFlow.AmplitudeSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        custom_connector=appflow.CfnFlow.CustomConnectorSourcePropertiesProperty(
+                            entity_name="entityName",
+            
+                            # the properties below are optional
+                            custom_properties={
+                                "custom_properties_key": "customProperties"
+                            },
+                            data_transfer_api=appflow.CfnFlow.DataTransferApiProperty(
+                                name="name",
+                                type="type"
+                            )
+                        ),
+                        datadog=appflow.CfnFlow.DatadogSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        dynatrace=appflow.CfnFlow.DynatraceSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        google_analytics=appflow.CfnFlow.GoogleAnalyticsSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        infor_nexus=appflow.CfnFlow.InforNexusSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        marketo=appflow.CfnFlow.MarketoSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        pardot=appflow.CfnFlow.PardotSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        s3=appflow.CfnFlow.S3SourcePropertiesProperty(
+                            bucket_name="bucketName",
+                            bucket_prefix="bucketPrefix",
+            
+                            # the properties below are optional
+                            s3_input_format_config=appflow.CfnFlow.S3InputFormatConfigProperty(
+                                s3_input_file_type="s3InputFileType"
+                            )
+                        ),
+                        salesforce=appflow.CfnFlow.SalesforceSourcePropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            data_transfer_api="dataTransferApi",
+                            enable_dynamic_field_update=False,
+                            include_deleted_records=False
+                        ),
+                        sapo_data=appflow.CfnFlow.SAPODataSourcePropertiesProperty(
+                            object_path="objectPath",
+            
+                            # the properties below are optional
+                            pagination_config=appflow.CfnFlow.SAPODataPaginationConfigProperty(
+                                max_page_size=123
+                            ),
+                            parallelism_config=appflow.CfnFlow.SAPODataParallelismConfigProperty(
+                                max_parallelism=123
+                            )
+                        ),
+                        service_now=appflow.CfnFlow.ServiceNowSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        singular=appflow.CfnFlow.SingularSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        slack=appflow.CfnFlow.SlackSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        trendmicro=appflow.CfnFlow.TrendmicroSourcePropertiesProperty(
+                            object="object"
+                        ),
+                        veeva=appflow.CfnFlow.VeevaSourcePropertiesProperty(
+                            object="object",
+            
+                            # the properties below are optional
+                            document_type="documentType",
+                            include_all_versions=False,
+                            include_renditions=False,
+                            include_source_files=False
+                        ),
+                        zendesk=appflow.CfnFlow.ZendeskSourcePropertiesProperty(
+                            object="object"
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    api_version="apiVersion",
+                    connector_profile_name="connectorProfileName",
+                    incremental_pull_config=appflow.CfnFlow.IncrementalPullConfigProperty(
+                        datetime_type_field_name="datetimeTypeFieldName"
+                    )
+                ),
+                tasks=[appflow.CfnFlow.TaskProperty(
+                    source_fields=["sourceFields"],
+                    task_type="taskType",
+            
+                    # the properties below are optional
+                    connector_operator=appflow.CfnFlow.ConnectorOperatorProperty(
+                        amplitude="amplitude",
+                        custom_connector="customConnector",
+                        datadog="datadog",
+                        dynatrace="dynatrace",
+                        google_analytics="googleAnalytics",
+                        infor_nexus="inforNexus",
+                        marketo="marketo",
+                        pardot="pardot",
+                        s3="s3",
+                        salesforce="salesforce",
+                        sapo_data="sapoData",
+                        service_now="serviceNow",
+                        singular="singular",
+                        slack="slack",
+                        trendmicro="trendmicro",
+                        veeva="veeva",
+                        zendesk="zendesk"
+                    ),
+                    destination_field="destinationField",
+                    task_properties=[appflow.CfnFlow.TaskPropertiesObjectProperty(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+                trigger_config=appflow.CfnFlow.TriggerConfigProperty(
+                    trigger_type="triggerType",
+            
+                    # the properties below are optional
+                    trigger_properties=appflow.CfnFlow.ScheduledTriggerPropertiesProperty(
+                        schedule_expression="scheduleExpression",
+            
+                        # the properties below are optional
+                        data_pull_mode="dataPullMode",
+                        first_execution_from=123,
+                        flow_error_deactivation_threshold=123,
+                        schedule_end_time=123,
+                        schedule_offset=123,
+                        schedule_start_time=123,
+                        time_zone="timeZone"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                flow_status="flowStatus",
+                kms_arn="kmsArn",
+                metadata_catalog_config=appflow.CfnFlow.MetadataCatalogConfigProperty(
+                    glue_data_catalog=appflow.CfnFlow.GlueDataCatalogProperty(
+                        database_name="databaseName",
+                        role_arn="roleArn",
+                        table_prefix="tablePrefix"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9)
+            check_type(argname="argument destination_flow_config_list", value=destination_flow_config_list, expected_type=type_hints["destination_flow_config_list"])
+            check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
+            check_type(argname="argument source_flow_config", value=source_flow_config, expected_type=type_hints["source_flow_config"])
+            check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
+            check_type(argname="argument trigger_config", value=trigger_config, expected_type=type_hints["trigger_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument flow_status", value=flow_status, expected_type=type_hints["flow_status"])
+            check_type(argname="argument kms_arn", value=kms_arn, expected_type=type_hints["kms_arn"])
+            check_type(argname="argument metadata_catalog_config", value=metadata_catalog_config, expected_type=type_hints["metadata_catalog_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_flow_config_list": destination_flow_config_list,
+            "flow_name": flow_name,
+            "source_flow_config": source_flow_config,
+            "tasks": tasks,
+            "trigger_config": trigger_config,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if flow_status is not None:
+            self._values["flow_status"] = flow_status
+        if kms_arn is not None:
+            self._values["kms_arn"] = kms_arn
+        if metadata_catalog_config is not None:
+            self._values["metadata_catalog_config"] = metadata_catalog_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination_flow_config_list(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.DestinationFlowConfigProperty"]]]:
+        '''The configuration that controls how Amazon AppFlow places data in the destination connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-destinationflowconfiglist
+        '''
+        result = self._values.get("destination_flow_config_list")
+        assert result is not None, "Required property 'destination_flow_config_list' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.DestinationFlowConfigProperty"]]], result)
+
+    @builtins.property
+    def flow_name(self) -> builtins.str:
+        '''The specified name of the flow.
+
+        Spaces are not allowed. Use underscores (_) or hyphens (-) only.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-flowname
+        '''
+        result = self._values.get("flow_name")
+        assert result is not None, "Required property 'flow_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_flow_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceFlowConfigProperty"]:
+        '''Contains information about the configuration of the source connector used in the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-sourceflowconfig
+        '''
+        result = self._values.get("source_flow_config")
+        assert result is not None, "Required property 'source_flow_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceFlowConfigProperty"], result)
+
+    @builtins.property
+    def tasks(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.TaskProperty"]]]:
+        '''A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tasks
+        '''
+        result = self._values.get("tasks")
+        assert result is not None, "Required property 'tasks' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.TaskProperty"]]], result)
+
+    @builtins.property
+    def trigger_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.TriggerConfigProperty"]:
+        '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-triggerconfig
+        '''
+        result = self._values.get("trigger_config")
+        assert result is not None, "Required property 'trigger_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.TriggerConfigProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A user-entered description of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flow_status(self) -> typing.Optional[builtins.str]:
+        '''Sets the status of the flow. You can specify one of the following values:.
+
+        - **Active** - The flow runs based on the trigger settings that you defined. Active scheduled flows run as scheduled, and active event-triggered flows run when the specified change event occurs. However, active on-demand flows run only when you manually start them by using Amazon AppFlow.
+        - **Suspended** - You can use this option to deactivate an active flow. Scheduled and event-triggered flows will cease to run until you reactive them. This value only affects scheduled and event-triggered flows. It has no effect for on-demand flows.
+
+        If you omit the FlowStatus parameter, Amazon AppFlow creates the flow with a default status. The default status for on-demand flows is Active. The default status for scheduled and event-triggered flows is Draft, which means they’re not yet active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-flowstatus
+        '''
+        result = self._values.get("flow_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption.
+
+        This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-kmsarn
+        '''
+        result = self._values.get("kms_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metadata_catalog_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MetadataCatalogConfigProperty"]]:
+        '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data.
+
+        When Amazon AppFlow catalogs your data, it stores metadata in a data catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-metadatacatalogconfig
+        '''
+        result = self._values.get("metadata_catalog_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MetadataCatalogConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for your flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.ConnectorProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_profile_arn": "connectorProfileArn",
+        "connector_profile_name": "connectorProfileName",
+    },
+)
+class ConnectorProfileReference:
+    def __init__(
+        self,
+        *,
+        connector_profile_arn: builtins.str,
+        connector_profile_name: builtins.str,
+    ) -> None:
+        '''A reference to a ConnectorProfile resource.
+
+        :param connector_profile_arn: The ARN of the ConnectorProfile resource.
+        :param connector_profile_name: The ConnectorProfileName of the ConnectorProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            connector_profile_reference = appflow.ConnectorProfileReference(
+                connector_profile_arn="connectorProfileArn",
+                connector_profile_name="connectorProfileName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__733ddc39e85434d7278d266ceb5d15fb0a965c5d154a4f877528e980d73aae80)
+            check_type(argname="argument connector_profile_arn", value=connector_profile_arn, expected_type=type_hints["connector_profile_arn"])
+            check_type(argname="argument connector_profile_name", value=connector_profile_name, expected_type=type_hints["connector_profile_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_profile_arn": connector_profile_arn,
+            "connector_profile_name": connector_profile_name,
+        }
+
+    @builtins.property
+    def connector_profile_arn(self) -> builtins.str:
+        '''The ARN of the ConnectorProfile resource.'''
+        result = self._values.get("connector_profile_arn")
+        assert result is not None, "Required property 'connector_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_profile_name(self) -> builtins.str:
+        '''The ConnectorProfileName of the ConnectorProfile resource.'''
+        result = self._values.get("connector_profile_name")
+        assert result is not None, "Required property 'connector_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.ConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_arn": "connectorArn",
+        "connector_label": "connectorLabel",
+    },
+)
+class ConnectorReference:
+    def __init__(
+        self,
+        *,
+        connector_arn: builtins.str,
+        connector_label: builtins.str,
+    ) -> None:
+        '''A reference to a Connector resource.
+
+        :param connector_arn: The ARN of the Connector resource.
+        :param connector_label: The ConnectorLabel of the Connector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            connector_reference = appflow.ConnectorReference(
+                connector_arn="connectorArn",
+                connector_label="connectorLabel"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d353054801037e3b619e05aaeccb7ec6fa8bd42a24f70a70312b3d166fd73216)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+            "connector_label": connector_label,
+        }
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The ARN of the Connector resource.'''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_label(self) -> builtins.str:
+        '''The ConnectorLabel of the Connector resource.'''
+        result = self._values.get("connector_label")
+        assert result is not None, "Required property 'connector_label' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appflow.FlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn", "flow_name": "flowName"},
+)
+class FlowReference:
+    def __init__(self, *, flow_arn: builtins.str, flow_name: builtins.str) -> None:
+        '''A reference to a Flow resource.
+
+        :param flow_arn: The ARN of the Flow resource.
+        :param flow_name: The FlowName of the Flow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appflow as appflow
+            
+            flow_reference = appflow.FlowReference(
+                flow_arn="flowArn",
+                flow_name="flowName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__910dee97bf4d16db4c0dffc6d35952d5ac72c168c98eeb721236d0a899b92e46)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "flow_name": flow_name,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The ARN of the Flow resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_name(self) -> builtins.str:
+        '''The FlowName of the Flow resource.'''
+        result = self._values.get("flow_name")
+        assert result is not None, "Required property 'flow_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appflow.IConnectorProfileRef")
+class IConnectorProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorProfileRef")
+    def connector_profile_ref(self) -> ConnectorProfileReference:
+        '''(experimental) A reference to a ConnectorProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConnectorProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appflow.IConnectorProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorProfileRef")
+    def connector_profile_ref(self) -> ConnectorProfileReference:
+        '''(experimental) A reference to a ConnectorProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorProfileReference, jsii.get(self, "connectorProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorProfileRef).__jsii_proxy_class__ = lambda : _IConnectorProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appflow.IConnectorRef")
+class IConnectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appflow.IConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_appflow.IFlowRef")
+class IFlowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_appflow.IFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowRef).__jsii_proxy_class__ = lambda : _IFlowRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IConnectorRef)
 class CfnConnector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -179,6 +1537,12 @@ class CfnConnector(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''A reference to a Connector resource.'''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectorProvisioningConfig")
@@ -349,7 +1713,7 @@ class CfnConnector(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IConnectorProfileRef)
 class CfnConnectorProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -727,6 +2091,12 @@ class CfnConnectorProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorProfileRef")
+    def connector_profile_ref(self) -> ConnectorProfileReference:
+        '''A reference to a ConnectorProfile resource.'''
+        return typing.cast(ConnectorProfileReference, jsii.get(self, "connectorProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionMode")
@@ -5657,523 +7027,7 @@ class CfnConnectorProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appflow.CfnConnectorProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connection_mode": "connectionMode",
-        "connector_profile_name": "connectorProfileName",
-        "connector_type": "connectorType",
-        "connector_label": "connectorLabel",
-        "connector_profile_config": "connectorProfileConfig",
-        "kms_arn": "kmsArn",
-    },
-)
-class CfnConnectorProfileProps:
-    def __init__(
-        self,
-        *,
-        connection_mode: builtins.str,
-        connector_profile_name: builtins.str,
-        connector_type: builtins.str,
-        connector_label: typing.Optional[builtins.str] = None,
-        connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnectorProfile``.
-
-        :param connection_mode: Indicates the connection mode and if it is public or private.
-        :param connector_profile_name: The name of the connector profile. The name is unique for each ``ConnectorProfile`` in the AWS account .
-        :param connector_type: The type of connector, such as Salesforce, Amplitude, and so on.
-        :param connector_label: The label for the connector profile being created.
-        :param connector_profile_config: Defines the connector-specific configuration and credentials.
-        :param kms_arn: The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption. This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appflow as appflow
-            
-            cfn_connector_profile_props = appflow.CfnConnectorProfileProps(
-                connection_mode="connectionMode",
-                connector_profile_name="connectorProfileName",
-                connector_type="connectorType",
-            
-                # the properties below are optional
-                connector_label="connectorLabel",
-                connector_profile_config=appflow.CfnConnectorProfile.ConnectorProfileConfigProperty(
-                    connector_profile_credentials=appflow.CfnConnectorProfile.ConnectorProfileCredentialsProperty(
-                        amplitude=appflow.CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty(
-                            api_key="apiKey",
-                            secret_key="secretKey"
-                        ),
-                        custom_connector=appflow.CfnConnectorProfile.CustomConnectorProfileCredentialsProperty(
-                            authentication_type="authenticationType",
-            
-                            # the properties below are optional
-                            api_key=appflow.CfnConnectorProfile.ApiKeyCredentialsProperty(
-                                api_key="apiKey",
-            
-                                # the properties below are optional
-                                api_secret_key="apiSecretKey"
-                            ),
-                            basic=appflow.CfnConnectorProfile.BasicAuthCredentialsProperty(
-                                password="password",
-                                username="username"
-                            ),
-                            custom=appflow.CfnConnectorProfile.CustomAuthCredentialsProperty(
-                                custom_authentication_type="customAuthenticationType",
-            
-                                # the properties below are optional
-                                credentials_map={
-                                    "credentials_map_key": "credentialsMap"
-                                }
-                            ),
-                            oauth2=appflow.CfnConnectorProfile.OAuth2CredentialsProperty(
-                                access_token="accessToken",
-                                client_id="clientId",
-                                client_secret="clientSecret",
-                                o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                    auth_code="authCode",
-                                    redirect_uri="redirectUri"
-                                ),
-                                refresh_token="refreshToken"
-                            )
-                        ),
-                        datadog=appflow.CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty(
-                            api_key="apiKey",
-                            application_key="applicationKey"
-                        ),
-                        dynatrace=appflow.CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty(
-                            api_token="apiToken"
-                        ),
-                        google_analytics=appflow.CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty(
-                            client_id="clientId",
-                            client_secret="clientSecret",
-            
-                            # the properties below are optional
-                            access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            ),
-                            refresh_token="refreshToken"
-                        ),
-                        infor_nexus=appflow.CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty(
-                            access_key_id="accessKeyId",
-                            datakey="datakey",
-                            secret_access_key="secretAccessKey",
-                            user_id="userId"
-                        ),
-                        marketo=appflow.CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty(
-                            client_id="clientId",
-                            client_secret="clientSecret",
-            
-                            # the properties below are optional
-                            access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            )
-                        ),
-                        pardot=appflow.CfnConnectorProfile.PardotConnectorProfileCredentialsProperty(
-                            access_token="accessToken",
-                            client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            ),
-                            refresh_token="refreshToken"
-                        ),
-                        redshift=appflow.CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty(
-                            password="password",
-                            username="username"
-                        ),
-                        salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty(
-                            access_token="accessToken",
-                            client_credentials_arn="clientCredentialsArn",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            ),
-                            jwt_token="jwtToken",
-                            o_auth2_grant_type="oAuth2GrantType",
-                            refresh_token="refreshToken"
-                        ),
-                        sapo_data=appflow.CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty(
-                            basic_auth_credentials=appflow.CfnConnectorProfile.BasicAuthCredentialsProperty(
-                                password="password",
-                                username="username"
-                            ),
-                            o_auth_credentials=appflow.CfnConnectorProfile.OAuthCredentialsProperty(
-                                access_token="accessToken",
-                                client_id="clientId",
-                                client_secret="clientSecret",
-                                connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                    auth_code="authCode",
-                                    redirect_uri="redirectUri"
-                                ),
-                                refresh_token="refreshToken"
-                            )
-                        ),
-                        service_now=appflow.CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty(
-                            o_auth2_credentials=appflow.CfnConnectorProfile.OAuth2CredentialsProperty(
-                                access_token="accessToken",
-                                client_id="clientId",
-                                client_secret="clientSecret",
-                                o_auth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                    auth_code="authCode",
-                                    redirect_uri="redirectUri"
-                                ),
-                                refresh_token="refreshToken"
-                            ),
-                            password="password",
-                            username="username"
-                        ),
-                        singular=appflow.CfnConnectorProfile.SingularConnectorProfileCredentialsProperty(
-                            api_key="apiKey"
-                        ),
-                        slack=appflow.CfnConnectorProfile.SlackConnectorProfileCredentialsProperty(
-                            client_id="clientId",
-                            client_secret="clientSecret",
-            
-                            # the properties below are optional
-                            access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            )
-                        ),
-                        snowflake=appflow.CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty(
-                            password="password",
-                            username="username"
-                        ),
-                        trendmicro=appflow.CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty(
-                            api_secret_key="apiSecretKey"
-                        ),
-                        veeva=appflow.CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty(
-                            password="password",
-                            username="username"
-                        ),
-                        zendesk=appflow.CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty(
-                            client_id="clientId",
-                            client_secret="clientSecret",
-            
-                            # the properties below are optional
-                            access_token="accessToken",
-                            connector_oAuth_request=appflow.CfnConnectorProfile.ConnectorOAuthRequestProperty(
-                                auth_code="authCode",
-                                redirect_uri="redirectUri"
-                            )
-                        )
-                    ),
-                    connector_profile_properties=appflow.CfnConnectorProfile.ConnectorProfilePropertiesProperty(
-                        custom_connector=appflow.CfnConnectorProfile.CustomConnectorProfilePropertiesProperty(
-                            o_auth2_properties=appflow.CfnConnectorProfile.OAuth2PropertiesProperty(
-                                o_auth2_grant_type="oAuth2GrantType",
-                                token_url="tokenUrl",
-                                token_url_custom_properties={
-                                    "token_url_custom_properties_key": "tokenUrlCustomProperties"
-                                }
-                            ),
-                            profile_properties={
-                                "profile_properties_key": "profileProperties"
-                            }
-                        ),
-                        datadog=appflow.CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        dynatrace=appflow.CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        infor_nexus=appflow.CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        marketo=appflow.CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        pardot=appflow.CfnConnectorProfile.PardotConnectorProfilePropertiesProperty(
-                            business_unit_id="businessUnitId",
-            
-                            # the properties below are optional
-                            instance_url="instanceUrl",
-                            is_sandbox_environment=False
-                        ),
-                        redshift=appflow.CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty(
-                            bucket_name="bucketName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            bucket_prefix="bucketPrefix",
-                            cluster_identifier="clusterIdentifier",
-                            data_api_role_arn="dataApiRoleArn",
-                            database_name="databaseName",
-                            database_url="databaseUrl",
-                            is_redshift_serverless=False,
-                            workgroup_name="workgroupName"
-                        ),
-                        salesforce=appflow.CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl",
-                            is_sandbox_environment=False,
-                            use_private_link_for_metadata_and_authorization=False
-                        ),
-                        sapo_data=appflow.CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty(
-                            application_host_url="applicationHostUrl",
-                            application_service_path="applicationServicePath",
-                            client_number="clientNumber",
-                            disable_sso=False,
-                            logon_language="logonLanguage",
-                            o_auth_properties=appflow.CfnConnectorProfile.OAuthPropertiesProperty(
-                                auth_code_url="authCodeUrl",
-                                o_auth_scopes=["oAuthScopes"],
-                                token_url="tokenUrl"
-                            ),
-                            port_number=123,
-                            private_link_service_name="privateLinkServiceName"
-                        ),
-                        service_now=appflow.CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        slack=appflow.CfnConnectorProfile.SlackConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        snowflake=appflow.CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty(
-                            bucket_name="bucketName",
-                            stage="stage",
-                            warehouse="warehouse",
-            
-                            # the properties below are optional
-                            account_name="accountName",
-                            bucket_prefix="bucketPrefix",
-                            private_link_service_name="privateLinkServiceName",
-                            region="region"
-                        ),
-                        veeva=appflow.CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        ),
-                        zendesk=appflow.CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty(
-                            instance_url="instanceUrl"
-                        )
-                    )
-                ),
-                kms_arn="kmsArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb)
-            check_type(argname="argument connection_mode", value=connection_mode, expected_type=type_hints["connection_mode"])
-            check_type(argname="argument connector_profile_name", value=connector_profile_name, expected_type=type_hints["connector_profile_name"])
-            check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
-            check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
-            check_type(argname="argument connector_profile_config", value=connector_profile_config, expected_type=type_hints["connector_profile_config"])
-            check_type(argname="argument kms_arn", value=kms_arn, expected_type=type_hints["kms_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connection_mode": connection_mode,
-            "connector_profile_name": connector_profile_name,
-            "connector_type": connector_type,
-        }
-        if connector_label is not None:
-            self._values["connector_label"] = connector_label
-        if connector_profile_config is not None:
-            self._values["connector_profile_config"] = connector_profile_config
-        if kms_arn is not None:
-            self._values["kms_arn"] = kms_arn
-
-    @builtins.property
-    def connection_mode(self) -> builtins.str:
-        '''Indicates the connection mode and if it is public or private.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectionmode
-        '''
-        result = self._values.get("connection_mode")
-        assert result is not None, "Required property 'connection_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connector_profile_name(self) -> builtins.str:
-        '''The name of the connector profile.
-
-        The name is unique for each ``ConnectorProfile`` in the AWS account .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorprofilename
-        '''
-        result = self._values.get("connector_profile_name")
-        assert result is not None, "Required property 'connector_profile_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connector_type(self) -> builtins.str:
-        '''The type of connector, such as Salesforce, Amplitude, and so on.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectortype
-        '''
-        result = self._values.get("connector_type")
-        assert result is not None, "Required property 'connector_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connector_label(self) -> typing.Optional[builtins.str]:
-        '''The label for the connector profile being created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorlabel
-        '''
-        result = self._values.get("connector_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def connector_profile_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorProfile.ConnectorProfileConfigProperty]]:
-        '''Defines the connector-specific configuration and credentials.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorprofileconfig
-        '''
-        result = self._values.get("connector_profile_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorProfile.ConnectorProfileConfigProperty]], result)
-
-    @builtins.property
-    def kms_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption.
-
-        This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-kmsarn
-        '''
-        result = self._values.get("kms_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appflow.CfnConnectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connector_provisioning_config": "connectorProvisioningConfig",
-        "connector_provisioning_type": "connectorProvisioningType",
-        "connector_label": "connectorLabel",
-        "description": "description",
-    },
-)
-class CfnConnectorProps:
-    def __init__(
-        self,
-        *,
-        connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        connector_provisioning_type: builtins.str,
-        connector_label: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnector``.
-
-        :param connector_provisioning_config: The configuration required for registering the connector.
-        :param connector_provisioning_type: The provisioning type used to register the connector.
-        :param connector_label: The label used for registering the connector.
-        :param description: A description about the connector runtime setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appflow as appflow
-            
-            cfn_connector_props = appflow.CfnConnectorProps(
-                connector_provisioning_config=appflow.CfnConnector.ConnectorProvisioningConfigProperty(
-                    lambda_=appflow.CfnConnector.LambdaConnectorProvisioningConfigProperty(
-                        lambda_arn="lambdaArn"
-                    )
-                ),
-                connector_provisioning_type="connectorProvisioningType",
-            
-                # the properties below are optional
-                connector_label="connectorLabel",
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b)
-            check_type(argname="argument connector_provisioning_config", value=connector_provisioning_config, expected_type=type_hints["connector_provisioning_config"])
-            check_type(argname="argument connector_provisioning_type", value=connector_provisioning_type, expected_type=type_hints["connector_provisioning_type"])
-            check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connector_provisioning_config": connector_provisioning_config,
-            "connector_provisioning_type": connector_provisioning_type,
-        }
-        if connector_label is not None:
-            self._values["connector_label"] = connector_label
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def connector_provisioning_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConnector.ConnectorProvisioningConfigProperty]:
-        '''The configuration required for registering the connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorprovisioningconfig
-        '''
-        result = self._values.get("connector_provisioning_config")
-        assert result is not None, "Required property 'connector_provisioning_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConnector.ConnectorProvisioningConfigProperty], result)
-
-    @builtins.property
-    def connector_provisioning_type(self) -> builtins.str:
-        '''The provisioning type used to register the connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorprovisioningtype
-        '''
-        result = self._values.get("connector_provisioning_type")
-        assert result is not None, "Required property 'connector_provisioning_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connector_label(self) -> typing.Optional[builtins.str]:
-        '''The label used for registering the connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorlabel
-        '''
-        result = self._values.get("connector_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description about the connector runtime setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFlowRef, _ITaggable_36806126)
 class CfnFlow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6603,6 +7457,12 @@ class CfnFlow(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''A reference to a Flow resource.'''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -12220,532 +13080,6 @@ class CfnFlow(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_appflow.CfnFlowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination_flow_config_list": "destinationFlowConfigList",
-        "flow_name": "flowName",
-        "source_flow_config": "sourceFlowConfig",
-        "tasks": "tasks",
-        "trigger_config": "triggerConfig",
-        "description": "description",
-        "flow_status": "flowStatus",
-        "kms_arn": "kmsArn",
-        "metadata_catalog_config": "metadataCatalogConfig",
-        "tags": "tags",
-    },
-)
-class CfnFlowProps:
-    def __init__(
-        self,
-        *,
-        destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        flow_name: builtins.str,
-        source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        flow_status: typing.Optional[builtins.str] = None,
-        kms_arn: typing.Optional[builtins.str] = None,
-        metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlow``.
-
-        :param destination_flow_config_list: The configuration that controls how Amazon AppFlow places data in the destination connector.
-        :param flow_name: The specified name of the flow. Spaces are not allowed. Use underscores (_) or hyphens (-) only.
-        :param source_flow_config: Contains information about the configuration of the source connector used in the flow.
-        :param tasks: A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.
-        :param trigger_config: The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
-        :param description: A user-entered description of the flow.
-        :param flow_status: Sets the status of the flow. You can specify one of the following values:. - **Active** - The flow runs based on the trigger settings that you defined. Active scheduled flows run as scheduled, and active event-triggered flows run when the specified change event occurs. However, active on-demand flows run only when you manually start them by using Amazon AppFlow. - **Suspended** - You can use this option to deactivate an active flow. Scheduled and event-triggered flows will cease to run until you reactive them. This value only affects scheduled and event-triggered flows. It has no effect for on-demand flows. If you omit the FlowStatus parameter, Amazon AppFlow creates the flow with a default status. The default status for on-demand flows is Active. The default status for scheduled and event-triggered flows is Draft, which means they’re not yet active.
-        :param kms_arn: The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption. This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
-        :param metadata_catalog_config: Specifies the configuration that Amazon AppFlow uses when it catalogs your data. When Amazon AppFlow catalogs your data, it stores metadata in a data catalog.
-        :param tags: The tags used to organize, track, or control access for your flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appflow as appflow
-            
-            cfn_flow_props = appflow.CfnFlowProps(
-                destination_flow_config_list=[appflow.CfnFlow.DestinationFlowConfigProperty(
-                    connector_type="connectorType",
-                    destination_connector_properties=appflow.CfnFlow.DestinationConnectorPropertiesProperty(
-                        custom_connector=appflow.CfnFlow.CustomConnectorDestinationPropertiesProperty(
-                            entity_name="entityName",
-            
-                            # the properties below are optional
-                            custom_properties={
-                                "custom_properties_key": "customProperties"
-                            },
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            ),
-                            id_field_names=["idFieldNames"],
-                            write_operation_type="writeOperationType"
-                        ),
-                        event_bridge=appflow.CfnFlow.EventBridgeDestinationPropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            )
-                        ),
-                        lookout_metrics=appflow.CfnFlow.LookoutMetricsDestinationPropertiesProperty(
-                            object="object"
-                        ),
-                        marketo=appflow.CfnFlow.MarketoDestinationPropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            )
-                        ),
-                        redshift=appflow.CfnFlow.RedshiftDestinationPropertiesProperty(
-                            intermediate_bucket_name="intermediateBucketName",
-                            object="object",
-            
-                            # the properties below are optional
-                            bucket_prefix="bucketPrefix",
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            )
-                        ),
-                        s3=appflow.CfnFlow.S3DestinationPropertiesProperty(
-                            bucket_name="bucketName",
-            
-                            # the properties below are optional
-                            bucket_prefix="bucketPrefix",
-                            s3_output_format_config=appflow.CfnFlow.S3OutputFormatConfigProperty(
-                                aggregation_config=appflow.CfnFlow.AggregationConfigProperty(
-                                    aggregation_type="aggregationType",
-                                    target_file_size=123
-                                ),
-                                file_type="fileType",
-                                prefix_config=appflow.CfnFlow.PrefixConfigProperty(
-                                    path_prefix_hierarchy=["pathPrefixHierarchy"],
-                                    prefix_format="prefixFormat",
-                                    prefix_type="prefixType"
-                                ),
-                                preserve_source_data_typing=False
-                            )
-                        ),
-                        salesforce=appflow.CfnFlow.SalesforceDestinationPropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            data_transfer_api="dataTransferApi",
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            ),
-                            id_field_names=["idFieldNames"],
-                            write_operation_type="writeOperationType"
-                        ),
-                        sapo_data=appflow.CfnFlow.SAPODataDestinationPropertiesProperty(
-                            object_path="objectPath",
-            
-                            # the properties below are optional
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            ),
-                            id_field_names=["idFieldNames"],
-                            success_response_handling_config=appflow.CfnFlow.SuccessResponseHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix"
-                            ),
-                            write_operation_type="writeOperationType"
-                        ),
-                        snowflake=appflow.CfnFlow.SnowflakeDestinationPropertiesProperty(
-                            intermediate_bucket_name="intermediateBucketName",
-                            object="object",
-            
-                            # the properties below are optional
-                            bucket_prefix="bucketPrefix",
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            )
-                        ),
-                        upsolver=appflow.CfnFlow.UpsolverDestinationPropertiesProperty(
-                            bucket_name="bucketName",
-                            s3_output_format_config=appflow.CfnFlow.UpsolverS3OutputFormatConfigProperty(
-                                prefix_config=appflow.CfnFlow.PrefixConfigProperty(
-                                    path_prefix_hierarchy=["pathPrefixHierarchy"],
-                                    prefix_format="prefixFormat",
-                                    prefix_type="prefixType"
-                                ),
-            
-                                # the properties below are optional
-                                aggregation_config=appflow.CfnFlow.AggregationConfigProperty(
-                                    aggregation_type="aggregationType",
-                                    target_file_size=123
-                                ),
-                                file_type="fileType"
-                            ),
-            
-                            # the properties below are optional
-                            bucket_prefix="bucketPrefix"
-                        ),
-                        zendesk=appflow.CfnFlow.ZendeskDestinationPropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            error_handling_config=appflow.CfnFlow.ErrorHandlingConfigProperty(
-                                bucket_name="bucketName",
-                                bucket_prefix="bucketPrefix",
-                                fail_on_first_error=False
-                            ),
-                            id_field_names=["idFieldNames"],
-                            write_operation_type="writeOperationType"
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    api_version="apiVersion",
-                    connector_profile_name="connectorProfileName"
-                )],
-                flow_name="flowName",
-                source_flow_config=appflow.CfnFlow.SourceFlowConfigProperty(
-                    connector_type="connectorType",
-                    source_connector_properties=appflow.CfnFlow.SourceConnectorPropertiesProperty(
-                        amplitude=appflow.CfnFlow.AmplitudeSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        custom_connector=appflow.CfnFlow.CustomConnectorSourcePropertiesProperty(
-                            entity_name="entityName",
-            
-                            # the properties below are optional
-                            custom_properties={
-                                "custom_properties_key": "customProperties"
-                            },
-                            data_transfer_api=appflow.CfnFlow.DataTransferApiProperty(
-                                name="name",
-                                type="type"
-                            )
-                        ),
-                        datadog=appflow.CfnFlow.DatadogSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        dynatrace=appflow.CfnFlow.DynatraceSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        google_analytics=appflow.CfnFlow.GoogleAnalyticsSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        infor_nexus=appflow.CfnFlow.InforNexusSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        marketo=appflow.CfnFlow.MarketoSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        pardot=appflow.CfnFlow.PardotSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        s3=appflow.CfnFlow.S3SourcePropertiesProperty(
-                            bucket_name="bucketName",
-                            bucket_prefix="bucketPrefix",
-            
-                            # the properties below are optional
-                            s3_input_format_config=appflow.CfnFlow.S3InputFormatConfigProperty(
-                                s3_input_file_type="s3InputFileType"
-                            )
-                        ),
-                        salesforce=appflow.CfnFlow.SalesforceSourcePropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            data_transfer_api="dataTransferApi",
-                            enable_dynamic_field_update=False,
-                            include_deleted_records=False
-                        ),
-                        sapo_data=appflow.CfnFlow.SAPODataSourcePropertiesProperty(
-                            object_path="objectPath",
-            
-                            # the properties below are optional
-                            pagination_config=appflow.CfnFlow.SAPODataPaginationConfigProperty(
-                                max_page_size=123
-                            ),
-                            parallelism_config=appflow.CfnFlow.SAPODataParallelismConfigProperty(
-                                max_parallelism=123
-                            )
-                        ),
-                        service_now=appflow.CfnFlow.ServiceNowSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        singular=appflow.CfnFlow.SingularSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        slack=appflow.CfnFlow.SlackSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        trendmicro=appflow.CfnFlow.TrendmicroSourcePropertiesProperty(
-                            object="object"
-                        ),
-                        veeva=appflow.CfnFlow.VeevaSourcePropertiesProperty(
-                            object="object",
-            
-                            # the properties below are optional
-                            document_type="documentType",
-                            include_all_versions=False,
-                            include_renditions=False,
-                            include_source_files=False
-                        ),
-                        zendesk=appflow.CfnFlow.ZendeskSourcePropertiesProperty(
-                            object="object"
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    api_version="apiVersion",
-                    connector_profile_name="connectorProfileName",
-                    incremental_pull_config=appflow.CfnFlow.IncrementalPullConfigProperty(
-                        datetime_type_field_name="datetimeTypeFieldName"
-                    )
-                ),
-                tasks=[appflow.CfnFlow.TaskProperty(
-                    source_fields=["sourceFields"],
-                    task_type="taskType",
-            
-                    # the properties below are optional
-                    connector_operator=appflow.CfnFlow.ConnectorOperatorProperty(
-                        amplitude="amplitude",
-                        custom_connector="customConnector",
-                        datadog="datadog",
-                        dynatrace="dynatrace",
-                        google_analytics="googleAnalytics",
-                        infor_nexus="inforNexus",
-                        marketo="marketo",
-                        pardot="pardot",
-                        s3="s3",
-                        salesforce="salesforce",
-                        sapo_data="sapoData",
-                        service_now="serviceNow",
-                        singular="singular",
-                        slack="slack",
-                        trendmicro="trendmicro",
-                        veeva="veeva",
-                        zendesk="zendesk"
-                    ),
-                    destination_field="destinationField",
-                    task_properties=[appflow.CfnFlow.TaskPropertiesObjectProperty(
-                        key="key",
-                        value="value"
-                    )]
-                )],
-                trigger_config=appflow.CfnFlow.TriggerConfigProperty(
-                    trigger_type="triggerType",
-            
-                    # the properties below are optional
-                    trigger_properties=appflow.CfnFlow.ScheduledTriggerPropertiesProperty(
-                        schedule_expression="scheduleExpression",
-            
-                        # the properties below are optional
-                        data_pull_mode="dataPullMode",
-                        first_execution_from=123,
-                        flow_error_deactivation_threshold=123,
-                        schedule_end_time=123,
-                        schedule_offset=123,
-                        schedule_start_time=123,
-                        time_zone="timeZone"
-                    )
-                ),
-            
-                # the properties below are optional
-                description="description",
-                flow_status="flowStatus",
-                kms_arn="kmsArn",
-                metadata_catalog_config=appflow.CfnFlow.MetadataCatalogConfigProperty(
-                    glue_data_catalog=appflow.CfnFlow.GlueDataCatalogProperty(
-                        database_name="databaseName",
-                        role_arn="roleArn",
-                        table_prefix="tablePrefix"
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9)
-            check_type(argname="argument destination_flow_config_list", value=destination_flow_config_list, expected_type=type_hints["destination_flow_config_list"])
-            check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
-            check_type(argname="argument source_flow_config", value=source_flow_config, expected_type=type_hints["source_flow_config"])
-            check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
-            check_type(argname="argument trigger_config", value=trigger_config, expected_type=type_hints["trigger_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument flow_status", value=flow_status, expected_type=type_hints["flow_status"])
-            check_type(argname="argument kms_arn", value=kms_arn, expected_type=type_hints["kms_arn"])
-            check_type(argname="argument metadata_catalog_config", value=metadata_catalog_config, expected_type=type_hints["metadata_catalog_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination_flow_config_list": destination_flow_config_list,
-            "flow_name": flow_name,
-            "source_flow_config": source_flow_config,
-            "tasks": tasks,
-            "trigger_config": trigger_config,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if flow_status is not None:
-            self._values["flow_status"] = flow_status
-        if kms_arn is not None:
-            self._values["kms_arn"] = kms_arn
-        if metadata_catalog_config is not None:
-            self._values["metadata_catalog_config"] = metadata_catalog_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destination_flow_config_list(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.DestinationFlowConfigProperty]]]:
-        '''The configuration that controls how Amazon AppFlow places data in the destination connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-destinationflowconfiglist
-        '''
-        result = self._values.get("destination_flow_config_list")
-        assert result is not None, "Required property 'destination_flow_config_list' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.DestinationFlowConfigProperty]]], result)
-
-    @builtins.property
-    def flow_name(self) -> builtins.str:
-        '''The specified name of the flow.
-
-        Spaces are not allowed. Use underscores (_) or hyphens (-) only.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-flowname
-        '''
-        result = self._values.get("flow_name")
-        assert result is not None, "Required property 'flow_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_flow_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnFlow.SourceFlowConfigProperty]:
-        '''Contains information about the configuration of the source connector used in the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-sourceflowconfig
-        '''
-        result = self._values.get("source_flow_config")
-        assert result is not None, "Required property 'source_flow_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnFlow.SourceFlowConfigProperty], result)
-
-    @builtins.property
-    def tasks(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.TaskProperty]]]:
-        '''A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tasks
-        '''
-        result = self._values.get("tasks")
-        assert result is not None, "Required property 'tasks' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.TaskProperty]]], result)
-
-    @builtins.property
-    def trigger_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnFlow.TriggerConfigProperty]:
-        '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-triggerconfig
-        '''
-        result = self._values.get("trigger_config")
-        assert result is not None, "Required property 'trigger_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnFlow.TriggerConfigProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A user-entered description of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def flow_status(self) -> typing.Optional[builtins.str]:
-        '''Sets the status of the flow. You can specify one of the following values:.
-
-        - **Active** - The flow runs based on the trigger settings that you defined. Active scheduled flows run as scheduled, and active event-triggered flows run when the specified change event occurs. However, active on-demand flows run only when you manually start them by using Amazon AppFlow.
-        - **Suspended** - You can use this option to deactivate an active flow. Scheduled and event-triggered flows will cease to run until you reactive them. This value only affects scheduled and event-triggered flows. It has no effect for on-demand flows.
-
-        If you omit the FlowStatus parameter, Amazon AppFlow creates the flow with a default status. The default status for on-demand flows is Active. The default status for scheduled and event-triggered flows is Draft, which means they’re not yet active.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-flowstatus
-        '''
-        result = self._values.get("flow_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption.
-
-        This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-kmsarn
-        '''
-        result = self._values.get("kms_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def metadata_catalog_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MetadataCatalogConfigProperty]]:
-        '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data.
-
-        When Amazon AppFlow catalogs your data, it stores metadata in a data catalog.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-metadatacatalogconfig
-        '''
-        result = self._values.get("metadata_catalog_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MetadataCatalogConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for your flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConnector",
     "CfnConnectorProfile",
@@ -12753,9 +13087,77 @@ __all__ = [
     "CfnConnectorProps",
     "CfnFlow",
     "CfnFlowProps",
+    "ConnectorProfileReference",
+    "ConnectorReference",
+    "FlowReference",
+    "IConnectorProfileRef",
+    "IConnectorRef",
+    "IFlowRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb(
+    *,
+    connection_mode: builtins.str,
+    connector_profile_name: builtins.str,
+    connector_type: builtins.str,
+    connector_label: typing.Optional[builtins.str] = None,
+    connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b(
+    *,
+    connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    connector_provisioning_type: builtins.str,
+    connector_label: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9(
+    *,
+    destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    flow_name: builtins.str,
+    source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    flow_status: typing.Optional[builtins.str] = None,
+    kms_arn: typing.Optional[builtins.str] = None,
+    metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__733ddc39e85434d7278d266ceb5d15fb0a965c5d154a4f877528e980d73aae80(
+    *,
+    connector_profile_arn: builtins.str,
+    connector_profile_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d353054801037e3b619e05aaeccb7ec6fa8bd42a24f70a70312b3d166fd73216(
+    *,
+    connector_arn: builtins.str,
+    connector_label: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__910dee97bf4d16db4c0dffc6d35952d5ac72c168c98eeb721236d0a899b92e46(
+    *,
+    flow_arn: builtins.str,
+    flow_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6bcd4af5099c6e263b309786f40e217a7b9534ca68e65e020a22b581160f7869(
     scope: _constructs_77d1e7e8.Construct,
@@ -13287,28 +13689,6 @@ def _typecheckingstub__23cdb025a23f9fe29cc4cc49eb6c3c171c1c23d9f0bf22702b88df0eb
 def _typecheckingstub__deb62e66d965f0e26ff87d16ee4c48a202e9421055030e74ae433cbf772a681a(
     *,
     instance_url: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb(
-    *,
-    connection_mode: builtins.str,
-    connector_profile_name: builtins.str,
-    connector_type: builtins.str,
-    connector_label: typing.Optional[builtins.str] = None,
-    connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b(
-    *,
-    connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    connector_provisioning_type: builtins.str,
-    connector_label: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13865,22 +14245,6 @@ def _typecheckingstub__b408dbbead0815b59be3690c6532ce03b6ccc36638f38661f96d1b801
 def _typecheckingstub__97d56d701da8e030ea893f9e410a42eda76f5e8d95fbaeafd8ab06b3ff38829a(
     *,
     object: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9(
-    *,
-    destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    flow_name: builtins.str,
-    source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    flow_status: typing.Optional[builtins.str] = None,
-    kms_arn: typing.Optional[builtins.str] = None,
-    metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

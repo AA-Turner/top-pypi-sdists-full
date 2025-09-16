@@ -41,7 +41,7 @@ pub(crate) async fn check_added_large_files(
     let filter = if args.enforce_all {
         FileFilter::NoFilter
     } else {
-        let add_files = get_staged_files()
+        let add_files = get_staged_files(hook.work_dir())
             .await?
             .into_iter()
             .collect::<FxHashSet<_>>();
@@ -49,7 +49,6 @@ pub(crate) async fn check_added_large_files(
     };
 
     let lfs_files = get_lfs_files(filenames).await?;
-    let lfs_files: FxHashSet<_> = lfs_files.iter().map(Path::new).collect();
 
     let mut tasks = futures::stream::iter(
         filenames

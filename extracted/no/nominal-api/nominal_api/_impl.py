@@ -21586,6 +21586,31 @@ scout_asset_api_AssetTypeDataScopeConfig.__qualname__ = "AssetTypeDataScopeConfi
 scout_asset_api_AssetTypeDataScopeConfig.__module__ = "nominal_api.scout_asset_api"
 
 
+class scout_asset_api_AssetTypesFilter(ConjureBeanType):
+    """returns runs that match any of the provided assetTypes.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_types': ConjureFieldDefinition('assetTypes', List[scout_rids_api_TypeRid])
+        }
+
+    __slots__: List[str] = ['_asset_types']
+
+    def __init__(self, asset_types: List[str]) -> None:
+        self._asset_types = asset_types
+
+    @builtins.property
+    def asset_types(self) -> List[str]:
+        return self._asset_types
+
+
+scout_asset_api_AssetTypesFilter.__name__ = "AssetTypesFilter"
+scout_asset_api_AssetTypesFilter.__qualname__ = "AssetTypesFilter"
+scout_asset_api_AssetTypesFilter.__module__ = "nominal_api.scout_asset_api"
+
+
 class scout_asset_api_ChannelMetadata(ConjureBeanType):
 
     @builtins.classmethod
@@ -21994,11 +22019,15 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     _search_text: Optional[str] = None
     _exact_substring: Optional[str] = None
     _label: Optional[str] = None
+    _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _type_rid: Optional[str] = None
+    _asset_types: Optional["scout_asset_api_AssetTypesFilter"] = None
+    _is_staged: Optional[bool] = None
+    _archived: Optional[bool] = None
     _and_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None
     _or_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None
-    _is_staged: Optional[bool] = None
     _workspace: Optional[str] = None
 
     @builtins.classmethod
@@ -22007,11 +22036,15 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             'search_text': ConjureFieldDefinition('searchText', str),
             'exact_substring': ConjureFieldDefinition('exactSubstring', str),
             'label': ConjureFieldDefinition('label', api_Label),
+            'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'type_rid': ConjureFieldDefinition('typeRid', scout_rids_api_TypeRid),
+            'asset_types': ConjureFieldDefinition('assetTypes', scout_asset_api_AssetTypesFilter),
+            'is_staged': ConjureFieldDefinition('isStaged', bool),
+            'archived': ConjureFieldDefinition('archived', bool),
             'and_': ConjureFieldDefinition('and', List[scout_asset_api_SearchAssetsQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_asset_api_SearchAssetsQuery]),
-            'is_staged': ConjureFieldDefinition('isStaged', bool),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
         }
 
@@ -22020,16 +22053,20 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             search_text: Optional[str] = None,
             exact_substring: Optional[str] = None,
             label: Optional[str] = None,
+            labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             type_rid: Optional[str] = None,
+            asset_types: Optional["scout_asset_api_AssetTypesFilter"] = None,
+            is_staged: Optional[bool] = None,
+            archived: Optional[bool] = None,
             and_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None,
             or_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None,
-            is_staged: Optional[bool] = None,
             workspace: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (search_text is not None) + (exact_substring is not None) + (label is not None) + (property is not None) + (type_rid is not None) + (and_ is not None) + (or_ is not None) + (is_staged is not None) + (workspace is not None) != 1:
+            if (search_text is not None) + (exact_substring is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (type_rid is not None) + (asset_types is not None) + (is_staged is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if search_text is not None:
@@ -22041,21 +22078,33 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             if label is not None:
                 self._label = label
                 self._type = 'label'
+            if labels is not None:
+                self._labels = labels
+                self._type = 'labels'
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if properties is not None:
+                self._properties = properties
+                self._type = 'properties'
             if type_rid is not None:
                 self._type_rid = type_rid
                 self._type = 'typeRid'
+            if asset_types is not None:
+                self._asset_types = asset_types
+                self._type = 'assetTypes'
+            if is_staged is not None:
+                self._is_staged = is_staged
+                self._type = 'isStaged'
+            if archived is not None:
+                self._archived = archived
+                self._type = 'archived'
             if and_ is not None:
                 self._and_ = and_
                 self._type = 'and'
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
-            if is_staged is not None:
-                self._is_staged = is_staged
-                self._type = 'isStaged'
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
@@ -22075,16 +22124,41 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._label = label
             self._type = 'label'
+        elif type_of_union == 'labels':
+            if labels is None:
+                raise ValueError('a union value must not be None')
+            self._labels = labels
+            self._type = 'labels'
         elif type_of_union == 'property':
             if property is None:
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'properties':
+            if properties is None:
+                raise ValueError('a union value must not be None')
+            self._properties = properties
+            self._type = 'properties'
         elif type_of_union == 'typeRid':
             if type_rid is None:
                 raise ValueError('a union value must not be None')
             self._type_rid = type_rid
             self._type = 'typeRid'
+        elif type_of_union == 'assetTypes':
+            if asset_types is None:
+                raise ValueError('a union value must not be None')
+            self._asset_types = asset_types
+            self._type = 'assetTypes'
+        elif type_of_union == 'isStaged':
+            if is_staged is None:
+                raise ValueError('a union value must not be None')
+            self._is_staged = is_staged
+            self._type = 'isStaged'
+        elif type_of_union == 'archived':
+            if archived is None:
+                raise ValueError('a union value must not be None')
+            self._archived = archived
+            self._type = 'archived'
         elif type_of_union == 'and':
             if and_ is None:
                 raise ValueError('a union value must not be None')
@@ -22095,11 +22169,6 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
-        elif type_of_union == 'isStaged':
-            if is_staged is None:
-                raise ValueError('a union value must not be None')
-            self._is_staged = is_staged
-            self._type = 'isStaged'
         elif type_of_union == 'workspace':
             if workspace is None:
                 raise ValueError('a union value must not be None')
@@ -22121,12 +22190,32 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
+    def labels(self) -> Optional["scout_rids_api_LabelsFilter"]:
+        return self._labels
+
+    @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
 
     @builtins.property
+    def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
+        return self._properties
+
+    @builtins.property
     def type_rid(self) -> Optional[str]:
         return self._type_rid
+
+    @builtins.property
+    def asset_types(self) -> Optional["scout_asset_api_AssetTypesFilter"]:
+        return self._asset_types
+
+    @builtins.property
+    def is_staged(self) -> Optional[bool]:
+        return self._is_staged
+
+    @builtins.property
+    def archived(self) -> Optional[bool]:
+        return self._archived
 
     @builtins.property
     def and_(self) -> Optional[List["scout_asset_api_SearchAssetsQuery"]]:
@@ -22135,10 +22224,6 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     @builtins.property
     def or_(self) -> Optional[List["scout_asset_api_SearchAssetsQuery"]]:
         return self._or_
-
-    @builtins.property
-    def is_staged(self) -> Optional[bool]:
-        return self._is_staged
 
     @builtins.property
     def workspace(self) -> Optional[str]:
@@ -22153,16 +22238,24 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             return visitor._exact_substring(self.exact_substring)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
+        if self._type == 'labels' and self.labels is not None:
+            return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'properties' and self.properties is not None:
+            return visitor._properties(self.properties)
         if self._type == 'typeRid' and self.type_rid is not None:
             return visitor._type_rid(self.type_rid)
+        if self._type == 'assetTypes' and self.asset_types is not None:
+            return visitor._asset_types(self.asset_types)
+        if self._type == 'isStaged' and self.is_staged is not None:
+            return visitor._is_staged(self.is_staged)
+        if self._type == 'archived' and self.archived is not None:
+            return visitor._archived(self.archived)
         if self._type == 'and' and self.and_ is not None:
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
-        if self._type == 'isStaged' and self.is_staged is not None:
-            return visitor._is_staged(self.is_staged)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
 
@@ -22187,11 +22280,31 @@ class scout_asset_api_SearchAssetsQueryVisitor:
         pass
 
     @abstractmethod
+    def _labels(self, labels: "scout_rids_api_LabelsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _property(self, property: "api_Property") -> Any:
         pass
 
     @abstractmethod
+    def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _type_rid(self, type_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _asset_types(self, asset_types: "scout_asset_api_AssetTypesFilter") -> Any:
+        pass
+
+    @abstractmethod
+    def _is_staged(self, is_staged: bool) -> Any:
+        pass
+
+    @abstractmethod
+    def _archived(self, archived: bool) -> Any:
         pass
 
     @abstractmethod
@@ -22200,10 +22313,6 @@ class scout_asset_api_SearchAssetsQueryVisitor:
 
     @abstractmethod
     def _or(self, or_: List["scout_asset_api_SearchAssetsQuery"]) -> Any:
-        pass
-
-    @abstractmethod
-    def _is_staged(self, is_staged: bool) -> Any:
         pass
 
     @abstractmethod
@@ -22498,8 +22607,6 @@ class scout_asset_api_SearchTypesRequest(ConjureBeanType):
 
     @builtins.property
     def archived_statuses(self) -> Optional[List["api_ArchivedStatus"]]:
-        """Default search status is NOT_ARCHIVED if none are provided. Allows for including archived assets in search.
-        """
         return self._archived_statuses
 
 
@@ -35470,7 +35577,9 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
     _or_: Optional[List["scout_checks_api_ChecklistSearchQuery"]] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
+    _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _author_rid: Optional[str] = None
     _assignee_rid: Optional[str] = None
     _is_published: Optional[bool] = None
@@ -35486,7 +35595,9 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             'or_': ConjureFieldDefinition('or', List[scout_checks_api_ChecklistSearchQuery]),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
+            'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'author_rid': ConjureFieldDefinition('authorRid', scout_rids_api_UserRid),
             'assignee_rid': ConjureFieldDefinition('assigneeRid', scout_rids_api_UserRid),
             'is_published': ConjureFieldDefinition('isPublished', bool),
@@ -35502,7 +35613,9 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             or_: Optional[List["scout_checks_api_ChecklistSearchQuery"]] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
+            labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             author_rid: Optional[str] = None,
             assignee_rid: Optional[str] = None,
             is_published: Optional[bool] = None,
@@ -35513,7 +35626,7 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (property is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -35528,9 +35641,15 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             if label is not None:
                 self._label = label
                 self._type = 'label'
+            if labels is not None:
+                self._labels = labels
+                self._type = 'labels'
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if properties is not None:
+                self._properties = properties
+                self._type = 'properties'
             if author_rid is not None:
                 self._author_rid = author_rid
                 self._type = 'authorRid'
@@ -35573,11 +35692,21 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._label = label
             self._type = 'label'
+        elif type_of_union == 'labels':
+            if labels is None:
+                raise ValueError('a union value must not be None')
+            self._labels = labels
+            self._type = 'labels'
         elif type_of_union == 'property':
             if property is None:
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'properties':
+            if properties is None:
+                raise ValueError('a union value must not be None')
+            self._properties = properties
+            self._type = 'properties'
         elif type_of_union == 'authorRid':
             if author_rid is None:
                 raise ValueError('a union value must not be None')
@@ -35631,8 +35760,16 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
+    def labels(self) -> Optional["scout_rids_api_LabelsFilter"]:
+        return self._labels
+
+    @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
+
+    @builtins.property
+    def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
+        return self._properties
 
     @builtins.property
     def author_rid(self) -> Optional[str]:
@@ -35673,8 +35810,12 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             return visitor._search_text(self.search_text)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
+        if self._type == 'labels' and self.labels is not None:
+            return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'properties' and self.properties is not None:
+            return visitor._properties(self.properties)
         if self._type == 'authorRid' and self.author_rid is not None:
             return visitor._author_rid(self.author_rid)
         if self._type == 'assigneeRid' and self.assignee_rid is not None:
@@ -35715,7 +35856,15 @@ class scout_checks_api_ChecklistSearchQueryVisitor:
         pass
 
     @abstractmethod
+    def _labels(self, labels: "scout_rids_api_LabelsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
         pass
 
     @abstractmethod
@@ -46912,6 +47061,60 @@ scout_compute_api_FftWindow.__qualname__ = "FftWindow"
 scout_compute_api_FftWindow.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_FilterByExpressionSeries(ConjureBeanType):
+    """Keeps points from the base series where the boolean expression evaluates to true. Only outputs timestamps 
+where all input series have an entry for that timestamp, or a value can be filled using the interpolation 
+configuration.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'base': ConjureFieldDefinition('base', scout_compute_api_LocalVariableName),
+            'inputs': ConjureFieldDefinition('inputs', Dict[scout_compute_api_LocalVariableName, scout_compute_api_NumericSeries]),
+            'expression': ConjureFieldDefinition('expression', str),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_base', '_inputs', '_expression', '_interpolation_configuration']
+
+    def __init__(self, base: str, expression: str, inputs: Dict[str, "scout_compute_api_NumericSeries"], interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._base = base
+        self._inputs = inputs
+        self._expression = expression
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def base(self) -> str:
+        """The variable name for the series that will be returned by this filter. The expression can filter points 
+conditional on multiple series. The base defines which series' points will be returned after applying all the filters.
+        """
+        return self._base
+
+    @builtins.property
+    def inputs(self) -> Dict[str, "scout_compute_api_NumericSeries"]:
+        """A map containing all the numeric series present in the expression.
+        """
+        return self._inputs
+
+    @builtins.property
+    def expression(self) -> str:
+        """An expression that evaluates to a boolean. For example - a > 5.
+        """
+        return self._expression
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_FilterByExpressionSeries.__name__ = "FilterByExpressionSeries"
+scout_compute_api_FilterByExpressionSeries.__qualname__ = "FilterByExpressionSeries"
+scout_compute_api_FilterByExpressionSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_FirstPointMatchingCondition(ConjureBeanType):
     """The first point in the output range will be the first point where the condition evaluates to true.
     """
@@ -49877,6 +50080,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None
     _select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None
     _aggregate_under_ranges: Optional["scout_compute_api_AggregateUnderRangesSeries"] = None
+    _filter_by_expression: Optional["scout_compute_api_FilterByExpressionSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -49915,7 +50119,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'approximate_filter': ConjureFieldDefinition('approximateFilter', scout_compute_api_NumericApproximateFilterSeries),
             'select1d_array_index': ConjureFieldDefinition('select1dArrayIndex', scout_compute_api_SelectIndexFrom1dNumericArraySeries),
             'select_newest_points': ConjureFieldDefinition('selectNewestPoints', scout_compute_api_SelectNewestPointsSeries),
-            'aggregate_under_ranges': ConjureFieldDefinition('aggregateUnderRanges', scout_compute_api_AggregateUnderRangesSeries)
+            'aggregate_under_ranges': ConjureFieldDefinition('aggregateUnderRanges', scout_compute_api_AggregateUnderRangesSeries),
+            'filter_by_expression': ConjureFieldDefinition('filterByExpression', scout_compute_api_FilterByExpressionSeries)
         }
 
     def __init__(
@@ -49955,10 +50160,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None,
             select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None,
             aggregate_under_ranges: Optional["scout_compute_api_AggregateUnderRangesSeries"] = None,
+            filter_by_expression: Optional["scout_compute_api_FilterByExpressionSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -50066,6 +50272,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if aggregate_under_ranges is not None:
                 self._aggregate_under_ranges = aggregate_under_ranges
                 self._type = 'aggregateUnderRanges'
+            if filter_by_expression is not None:
+                self._filter_by_expression = filter_by_expression
+                self._type = 'filterByExpression'
 
         elif type_of_union == 'aggregate':
             if aggregate is None:
@@ -50242,6 +50451,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._aggregate_under_ranges = aggregate_under_ranges
             self._type = 'aggregateUnderRanges'
+        elif type_of_union == 'filterByExpression':
+            if filter_by_expression is None:
+                raise ValueError('a union value must not be None')
+            self._filter_by_expression = filter_by_expression
+            self._type = 'filterByExpression'
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
@@ -50383,6 +50597,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     def aggregate_under_ranges(self) -> Optional["scout_compute_api_AggregateUnderRangesSeries"]:
         return self._aggregate_under_ranges
 
+    @builtins.property
+    def filter_by_expression(self) -> Optional["scout_compute_api_FilterByExpressionSeries"]:
+        return self._filter_by_expression
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_NumericSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_NumericSeriesVisitor'.format(visitor.__class__.__name__))
@@ -50456,6 +50674,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._select_newest_points(self.select_newest_points)
         if self._type == 'aggregateUnderRanges' and self.aggregate_under_ranges is not None:
             return visitor._aggregate_under_ranges(self.aggregate_under_ranges)
+        if self._type == 'filterByExpression' and self.filter_by_expression is not None:
+            return visitor._filter_by_expression(self.filter_by_expression)
 
 
 scout_compute_api_NumericSeries.__name__ = "NumericSeries"
@@ -50603,6 +50823,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _aggregate_under_ranges(self, aggregate_under_ranges: "scout_compute_api_AggregateUnderRangesSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _filter_by_expression(self, filter_by_expression: "scout_compute_api_FilterByExpressionSeries") -> Any:
         pass
 
 
@@ -59655,6 +59879,47 @@ scout_compute_resolved_api_FftNode.__qualname__ = "FftNode"
 scout_compute_resolved_api_FftNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_FilterByExpressionSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'base': ConjureFieldDefinition('base', scout_compute_api_LocalVariableName),
+            'inputs': ConjureFieldDefinition('inputs', Dict[scout_compute_api_LocalVariableName, scout_compute_resolved_api_NumericSeriesNode]),
+            'expression': ConjureFieldDefinition('expression', str),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_base', '_inputs', '_expression', '_interpolation_configuration']
+
+    def __init__(self, base: str, expression: str, inputs: Dict[str, "scout_compute_resolved_api_NumericSeriesNode"], interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration") -> None:
+        self._base = base
+        self._inputs = inputs
+        self._expression = expression
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def base(self) -> str:
+        return self._base
+
+    @builtins.property
+    def inputs(self) -> Dict[str, "scout_compute_resolved_api_NumericSeriesNode"]:
+        return self._inputs
+
+    @builtins.property
+    def expression(self) -> str:
+        return self._expression
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_FilterByExpressionSeriesNode.__name__ = "FilterByExpressionSeriesNode"
+scout_compute_resolved_api_FilterByExpressionSeriesNode.__qualname__ = "FilterByExpressionSeriesNode"
+scout_compute_resolved_api_FilterByExpressionSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ForwardFillInterpolation(ConjureBeanType):
 
     @builtins.classmethod
@@ -60971,6 +61236,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None
     _newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None
     _ranges_numeric_aggregation_to_numeric: Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"] = None
+    _filter_by_expression: Optional["scout_compute_resolved_api_FilterByExpressionSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -61006,7 +61272,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'array_select': ConjureFieldDefinition('arraySelect', scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode),
             'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_resolved_api_AbsoluteTimestampSeriesNode),
             'newest_points': ConjureFieldDefinition('newestPoints', scout_compute_resolved_api_SelectNewestPointsSeriesNode),
-            'ranges_numeric_aggregation_to_numeric': ConjureFieldDefinition('rangesNumericAggregationToNumeric', scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode)
+            'ranges_numeric_aggregation_to_numeric': ConjureFieldDefinition('rangesNumericAggregationToNumeric', scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode),
+            'filter_by_expression': ConjureFieldDefinition('filterByExpression', scout_compute_resolved_api_FilterByExpressionSeriesNode)
         }
 
     def __init__(
@@ -61043,10 +61310,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None,
             newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None,
             ranges_numeric_aggregation_to_numeric: Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"] = None,
+            filter_by_expression: Optional["scout_compute_resolved_api_FilterByExpressionSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) != 1:
+            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if arithmetic is not None:
@@ -61145,6 +61413,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if ranges_numeric_aggregation_to_numeric is not None:
                 self._ranges_numeric_aggregation_to_numeric = ranges_numeric_aggregation_to_numeric
                 self._type = 'rangesNumericAggregationToNumeric'
+            if filter_by_expression is not None:
+                self._filter_by_expression = filter_by_expression
+                self._type = 'filterByExpression'
 
         elif type_of_union == 'arithmetic':
             if arithmetic is None:
@@ -61306,6 +61577,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._ranges_numeric_aggregation_to_numeric = ranges_numeric_aggregation_to_numeric
             self._type = 'rangesNumericAggregationToNumeric'
+        elif type_of_union == 'filterByExpression':
+            if filter_by_expression is None:
+                raise ValueError('a union value must not be None')
+            self._filter_by_expression = filter_by_expression
+            self._type = 'filterByExpression'
 
     @builtins.property
     def arithmetic(self) -> Optional["scout_compute_resolved_api_ArithmeticSeriesNode"]:
@@ -61435,6 +61711,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def ranges_numeric_aggregation_to_numeric(self) -> Optional["scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode"]:
         return self._ranges_numeric_aggregation_to_numeric
 
+    @builtins.property
+    def filter_by_expression(self) -> Optional["scout_compute_resolved_api_FilterByExpressionSeriesNode"]:
+        return self._filter_by_expression
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -61502,6 +61782,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._newest_points(self.newest_points)
         if self._type == 'rangesNumericAggregationToNumeric' and self.ranges_numeric_aggregation_to_numeric is not None:
             return visitor._ranges_numeric_aggregation_to_numeric(self.ranges_numeric_aggregation_to_numeric)
+        if self._type == 'filterByExpression' and self.filter_by_expression is not None:
+            return visitor._filter_by_expression(self.filter_by_expression)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -61637,6 +61919,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _ranges_numeric_aggregation_to_numeric(self, ranges_numeric_aggregation_to_numeric: "scout_compute_resolved_api_RangesNumericAggregationToNumericSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _filter_by_expression(self, filter_by_expression: "scout_compute_resolved_api_FilterByExpressionSeriesNode") -> Any:
         pass
 
 
@@ -76261,6 +76547,37 @@ scout_metadata_StringArrayLengthQuery.__qualname__ = "StringArrayLengthQuery"
 scout_metadata_StringArrayLengthQuery.__module__ = "nominal_api.scout_metadata"
 
 
+class scout_notebook_api_AssetsFilter(ConjureBeanType):
+    """for an exact match, use the exactAssetRids filter
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', api_SetOperator),
+            'assets': ConjureFieldDefinition('assets', List[scout_rids_api_AssetRid])
+        }
+
+    __slots__: List[str] = ['_operator', '_assets']
+
+    def __init__(self, assets: List[str], operator: "api_SetOperator") -> None:
+        self._operator = operator
+        self._assets = assets
+
+    @builtins.property
+    def operator(self) -> "api_SetOperator":
+        return self._operator
+
+    @builtins.property
+    def assets(self) -> List[str]:
+        return self._assets
+
+
+scout_notebook_api_AssetsFilter.__name__ = "AssetsFilter"
+scout_notebook_api_AssetsFilter.__qualname__ = "AssetsFilter"
+scout_notebook_api_AssetsFilter.__module__ = "nominal_api.scout_notebook_api"
+
+
 class scout_notebook_api_ChartWithOverlays(ConjureBeanType):
 
     @builtins.classmethod
@@ -76781,6 +77098,60 @@ scout_notebook_api_NotebookType.__qualname__ = "NotebookType"
 scout_notebook_api_NotebookType.__module__ = "nominal_api.scout_notebook_api"
 
 
+class scout_notebook_api_NotebookTypesFilter(ConjureBeanType):
+    """returns notebooks that match any of the provided notebook types
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'types': ConjureFieldDefinition('types', List[scout_notebook_api_NotebookType])
+        }
+
+    __slots__: List[str] = ['_types']
+
+    def __init__(self, types: List["scout_notebook_api_NotebookType"]) -> None:
+        self._types = types
+
+    @builtins.property
+    def types(self) -> List["scout_notebook_api_NotebookType"]:
+        return self._types
+
+
+scout_notebook_api_NotebookTypesFilter.__name__ = "NotebookTypesFilter"
+scout_notebook_api_NotebookTypesFilter.__qualname__ = "NotebookTypesFilter"
+scout_notebook_api_NotebookTypesFilter.__module__ = "nominal_api.scout_notebook_api"
+
+
+class scout_notebook_api_RunsFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', api_SetOperator),
+            'runs': ConjureFieldDefinition('runs', List[scout_run_api_RunRid])
+        }
+
+    __slots__: List[str] = ['_operator', '_runs']
+
+    def __init__(self, operator: "api_SetOperator", runs: List[str]) -> None:
+        self._operator = operator
+        self._runs = runs
+
+    @builtins.property
+    def operator(self) -> "api_SetOperator":
+        return self._operator
+
+    @builtins.property
+    def runs(self) -> List[str]:
+        return self._runs
+
+
+scout_notebook_api_RunsFilter.__name__ = "RunsFilter"
+scout_notebook_api_RunsFilter.__qualname__ = "RunsFilter"
+scout_notebook_api_RunsFilter.__module__ = "nominal_api.scout_notebook_api"
+
+
 class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     _and_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None
     _or_: Optional[List["scout_notebook_api_SearchNotebooksQuery"]] = None
@@ -76788,12 +77159,17 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
+    _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _asset_rid: Optional[str] = None
+    _asset_rids: Optional["scout_notebook_api_AssetsFilter"] = None
     _exact_asset_rids: Optional[List[str]] = None
     _author_rid: Optional[str] = None
     _run_rid: Optional[str] = None
+    _run_rids: Optional["scout_notebook_api_RunsFilter"] = None
     _notebook_type: Optional["scout_notebook_api_NotebookType"] = None
+    _notebook_types: Optional["scout_notebook_api_NotebookTypesFilter"] = None
     _draft_state: Optional[bool] = None
     _archived: Optional[bool] = None
     _workspace: Optional[str] = None
@@ -76809,12 +77185,17 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
+            'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'asset_rids': ConjureFieldDefinition('assetRids', scout_notebook_api_AssetsFilter),
             'exact_asset_rids': ConjureFieldDefinition('exactAssetRids', List[scout_rids_api_AssetRid]),
             'author_rid': ConjureFieldDefinition('authorRid', scout_rids_api_UserRid),
             'run_rid': ConjureFieldDefinition('runRid', scout_run_api_RunRid),
+            'run_rids': ConjureFieldDefinition('runRids', scout_notebook_api_RunsFilter),
             'notebook_type': ConjureFieldDefinition('notebookType', scout_notebook_api_NotebookType),
+            'notebook_types': ConjureFieldDefinition('notebookTypes', scout_notebook_api_NotebookTypesFilter),
             'draft_state': ConjureFieldDefinition('draftState', bool),
             'archived': ConjureFieldDefinition('archived', bool),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
@@ -76830,12 +77211,17 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
+            labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             asset_rid: Optional[str] = None,
+            asset_rids: Optional["scout_notebook_api_AssetsFilter"] = None,
             exact_asset_rids: Optional[List[str]] = None,
             author_rid: Optional[str] = None,
             run_rid: Optional[str] = None,
+            run_rids: Optional["scout_notebook_api_RunsFilter"] = None,
             notebook_type: Optional["scout_notebook_api_NotebookType"] = None,
+            notebook_types: Optional["scout_notebook_api_NotebookTypesFilter"] = None,
             draft_state: Optional[bool] = None,
             archived: Optional[bool] = None,
             workspace: Optional[str] = None,
@@ -76844,7 +77230,7 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (asset_rid is not None) + (exact_asset_rids is not None) + (author_rid is not None) + (run_rid is not None) + (notebook_type is not None) + (draft_state is not None) + (archived is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (asset_rid is not None) + (asset_rids is not None) + (exact_asset_rids is not None) + (author_rid is not None) + (run_rid is not None) + (run_rids is not None) + (notebook_type is not None) + (notebook_types is not None) + (draft_state is not None) + (archived is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -76865,12 +77251,21 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             if label is not None:
                 self._label = label
                 self._type = 'label'
+            if labels is not None:
+                self._labels = labels
+                self._type = 'labels'
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if properties is not None:
+                self._properties = properties
+                self._type = 'properties'
             if asset_rid is not None:
                 self._asset_rid = asset_rid
                 self._type = 'assetRid'
+            if asset_rids is not None:
+                self._asset_rids = asset_rids
+                self._type = 'assetRids'
             if exact_asset_rids is not None:
                 self._exact_asset_rids = exact_asset_rids
                 self._type = 'exactAssetRids'
@@ -76880,9 +77275,15 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
             if run_rid is not None:
                 self._run_rid = run_rid
                 self._type = 'runRid'
+            if run_rids is not None:
+                self._run_rids = run_rids
+                self._type = 'runRids'
             if notebook_type is not None:
                 self._notebook_type = notebook_type
                 self._type = 'notebookType'
+            if notebook_types is not None:
+                self._notebook_types = notebook_types
+                self._type = 'notebookTypes'
             if draft_state is not None:
                 self._draft_state = draft_state
                 self._type = 'draftState'
@@ -76929,16 +77330,31 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._label = label
             self._type = 'label'
+        elif type_of_union == 'labels':
+            if labels is None:
+                raise ValueError('a union value must not be None')
+            self._labels = labels
+            self._type = 'labels'
         elif type_of_union == 'property':
             if property is None:
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'properties':
+            if properties is None:
+                raise ValueError('a union value must not be None')
+            self._properties = properties
+            self._type = 'properties'
         elif type_of_union == 'assetRid':
             if asset_rid is None:
                 raise ValueError('a union value must not be None')
             self._asset_rid = asset_rid
             self._type = 'assetRid'
+        elif type_of_union == 'assetRids':
+            if asset_rids is None:
+                raise ValueError('a union value must not be None')
+            self._asset_rids = asset_rids
+            self._type = 'assetRids'
         elif type_of_union == 'exactAssetRids':
             if exact_asset_rids is None:
                 raise ValueError('a union value must not be None')
@@ -76954,11 +77370,21 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._run_rid = run_rid
             self._type = 'runRid'
+        elif type_of_union == 'runRids':
+            if run_rids is None:
+                raise ValueError('a union value must not be None')
+            self._run_rids = run_rids
+            self._type = 'runRids'
         elif type_of_union == 'notebookType':
             if notebook_type is None:
                 raise ValueError('a union value must not be None')
             self._notebook_type = notebook_type
             self._type = 'notebookType'
+        elif type_of_union == 'notebookTypes':
+            if notebook_types is None:
+                raise ValueError('a union value must not be None')
+            self._notebook_types = notebook_types
+            self._type = 'notebookTypes'
         elif type_of_union == 'draftState':
             if draft_state is None:
                 raise ValueError('a union value must not be None')
@@ -77012,17 +77438,29 @@ class scout_notebook_api_SearchNotebooksQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
+    def labels(self) -> Optional["scout_rids_api_LabelsFilter"]:
+        return self._labels
+
+    @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
+
+    @builtins.property
+    def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
+        return self._properties
 
     @builtins.property
     def asset_rid(self) -> Optional[str]:
         return self._asset_rid
 
     @builtins.property
+    def asset_rids(self) -> Optional["scout_notebook_api_AssetsFilter"]:
+        return self._asset_rids
+
+    @builtins.property
     def exact_asset_rids(self) -> Optional[List[str]]:
         """Requires the set of assets in the query to exactly match the set of assets in the notebook.
-To do a partial match, use an "and" on AssetRid queries.
+To do a partial match, use an assetRids query.
         """
         return self._exact_asset_rids
 
@@ -77035,8 +77473,16 @@ To do a partial match, use an "and" on AssetRid queries.
         return self._run_rid
 
     @builtins.property
+    def run_rids(self) -> Optional["scout_notebook_api_RunsFilter"]:
+        return self._run_rids
+
+    @builtins.property
     def notebook_type(self) -> Optional["scout_notebook_api_NotebookType"]:
         return self._notebook_type
+
+    @builtins.property
+    def notebook_types(self) -> Optional["scout_notebook_api_NotebookTypesFilter"]:
+        return self._notebook_types
 
     @builtins.property
     def draft_state(self) -> Optional[bool]:
@@ -77073,18 +77519,28 @@ To do a partial match, use an "and" on AssetRid queries.
             return visitor._search_text(self.search_text)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
+        if self._type == 'labels' and self.labels is not None:
+            return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'properties' and self.properties is not None:
+            return visitor._properties(self.properties)
         if self._type == 'assetRid' and self.asset_rid is not None:
             return visitor._asset_rid(self.asset_rid)
+        if self._type == 'assetRids' and self.asset_rids is not None:
+            return visitor._asset_rids(self.asset_rids)
         if self._type == 'exactAssetRids' and self.exact_asset_rids is not None:
             return visitor._exact_asset_rids(self.exact_asset_rids)
         if self._type == 'authorRid' and self.author_rid is not None:
             return visitor._author_rid(self.author_rid)
         if self._type == 'runRid' and self.run_rid is not None:
             return visitor._run_rid(self.run_rid)
+        if self._type == 'runRids' and self.run_rids is not None:
+            return visitor._run_rids(self.run_rids)
         if self._type == 'notebookType' and self.notebook_type is not None:
             return visitor._notebook_type(self.notebook_type)
+        if self._type == 'notebookTypes' and self.notebook_types is not None:
+            return visitor._notebook_types(self.notebook_types)
         if self._type == 'draftState' and self.draft_state is not None:
             return visitor._draft_state(self.draft_state)
         if self._type == 'archived' and self.archived is not None:
@@ -77129,11 +77585,23 @@ class scout_notebook_api_SearchNotebooksQueryVisitor:
         pass
 
     @abstractmethod
+    def _labels(self, labels: "scout_rids_api_LabelsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _property(self, property: "api_Property") -> Any:
         pass
 
     @abstractmethod
+    def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _asset_rid(self, asset_rid: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _asset_rids(self, asset_rids: "scout_notebook_api_AssetsFilter") -> Any:
         pass
 
     @abstractmethod
@@ -77149,7 +77617,15 @@ class scout_notebook_api_SearchNotebooksQueryVisitor:
         pass
 
     @abstractmethod
+    def _run_rids(self, run_rids: "scout_notebook_api_RunsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _notebook_type(self, notebook_type: "scout_notebook_api_NotebookType") -> Any:
+        pass
+
+    @abstractmethod
+    def _notebook_types(self, notebook_types: "scout_notebook_api_NotebookTypesFilter") -> Any:
         pass
 
     @abstractmethod
@@ -77646,6 +78122,35 @@ scout_rids_api_ClosedWithIgnoreAlertState.__qualname__ = "ClosedWithIgnoreAlertS
 scout_rids_api_ClosedWithIgnoreAlertState.__module__ = "nominal_api.scout_rids_api"
 
 
+class scout_rids_api_LabelsFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', api_SetOperator),
+            'labels': ConjureFieldDefinition('labels', List[api_Label])
+        }
+
+    __slots__: List[str] = ['_operator', '_labels']
+
+    def __init__(self, labels: List[str], operator: "api_SetOperator") -> None:
+        self._operator = operator
+        self._labels = labels
+
+    @builtins.property
+    def operator(self) -> "api_SetOperator":
+        return self._operator
+
+    @builtins.property
+    def labels(self) -> List[str]:
+        return self._labels
+
+
+scout_rids_api_LabelsFilter.__name__ = "LabelsFilter"
+scout_rids_api_LabelsFilter.__qualname__ = "LabelsFilter"
+scout_rids_api_LabelsFilter.__module__ = "nominal_api.scout_rids_api"
+
+
 class scout_rids_api_PendingReviewAlertState(ConjureBeanType):
 
     @builtins.classmethod
@@ -77660,6 +78165,35 @@ class scout_rids_api_PendingReviewAlertState(ConjureBeanType):
 scout_rids_api_PendingReviewAlertState.__name__ = "PendingReviewAlertState"
 scout_rids_api_PendingReviewAlertState.__qualname__ = "PendingReviewAlertState"
 scout_rids_api_PendingReviewAlertState.__module__ = "nominal_api.scout_rids_api"
+
+
+class scout_rids_api_PropertiesFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', api_PropertyName),
+            'values': ConjureFieldDefinition('values', List[api_PropertyValue])
+        }
+
+    __slots__: List[str] = ['_name', '_values']
+
+    def __init__(self, name: str, values: List[str]) -> None:
+        self._name = name
+        self._values = values
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def values(self) -> List[str]:
+        return self._values
+
+
+scout_rids_api_PropertiesFilter.__name__ = "PropertiesFilter"
+scout_rids_api_PropertiesFilter.__qualname__ = "PropertiesFilter"
+scout_rids_api_PropertiesFilter.__module__ = "nominal_api.scout_rids_api"
 
 
 class scout_rids_api_UserDuration(ConjureBeanType):
@@ -78563,35 +79097,6 @@ scout_run_api_GetRunsByAssetResponse.__qualname__ = "GetRunsByAssetResponse"
 scout_run_api_GetRunsByAssetResponse.__module__ = "nominal_api.scout_run_api"
 
 
-class scout_run_api_LabelsFilter(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'operator': ConjureFieldDefinition('operator', api_SetOperator),
-            'labels': ConjureFieldDefinition('labels', List[api_Label])
-        }
-
-    __slots__: List[str] = ['_operator', '_labels']
-
-    def __init__(self, labels: List[str], operator: "api_SetOperator") -> None:
-        self._operator = operator
-        self._labels = labels
-
-    @builtins.property
-    def operator(self) -> "api_SetOperator":
-        return self._operator
-
-    @builtins.property
-    def labels(self) -> List[str]:
-        return self._labels
-
-
-scout_run_api_LabelsFilter.__name__ = "LabelsFilter"
-scout_run_api_LabelsFilter.__qualname__ = "LabelsFilter"
-scout_run_api_LabelsFilter.__module__ = "nominal_api.scout_run_api"
-
-
 class scout_run_api_Link(ConjureBeanType):
 
     @builtins.classmethod
@@ -78666,35 +79171,6 @@ class scout_run_api_PresetTimeframeFilter(ConjureBeanType):
 scout_run_api_PresetTimeframeFilter.__name__ = "PresetTimeframeFilter"
 scout_run_api_PresetTimeframeFilter.__qualname__ = "PresetTimeframeFilter"
 scout_run_api_PresetTimeframeFilter.__module__ = "nominal_api.scout_run_api"
-
-
-class scout_run_api_PropertiesFilter(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'name': ConjureFieldDefinition('name', api_PropertyName),
-            'values': ConjureFieldDefinition('values', List[api_PropertyValue])
-        }
-
-    __slots__: List[str] = ['_name', '_values']
-
-    def __init__(self, name: str, values: List[str]) -> None:
-        self._name = name
-        self._values = values
-
-    @builtins.property
-    def name(self) -> str:
-        return self._name
-
-    @builtins.property
-    def values(self) -> List[str]:
-        return self._values
-
-
-scout_run_api_PropertiesFilter.__name__ = "PropertiesFilter"
-scout_run_api_PropertiesFilter.__qualname__ = "PropertiesFilter"
-scout_run_api_PropertiesFilter.__module__ = "nominal_api.scout_run_api"
 
 
 class scout_run_api_RefNameAndType(ConjureBeanType):
@@ -79074,9 +79550,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     _assets: Optional["scout_run_api_AssetsFilter"] = None
     _is_single_asset: Optional[bool] = None
     _label: Optional[str] = None
-    _labels: Optional["scout_run_api_LabelsFilter"] = None
+    _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
-    _properties: Optional["scout_run_api_PropertiesFilter"] = None
+    _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None
     _data_source_ref_name: Optional[str] = None
     _data_source: Optional["scout_run_api_DataSource"] = None
@@ -79103,9 +79579,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             'assets': ConjureFieldDefinition('assets', scout_run_api_AssetsFilter),
             'is_single_asset': ConjureFieldDefinition('isSingleAsset', bool),
             'label': ConjureFieldDefinition('label', api_Label),
-            'labels': ConjureFieldDefinition('labels', scout_run_api_LabelsFilter),
+            'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
-            'properties': ConjureFieldDefinition('properties', scout_run_api_PropertiesFilter),
+            'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'data_source_series_tag': ConjureFieldDefinition('dataSourceSeriesTag', scout_run_api_DataSourceSeriesTag),
             'data_source_ref_name': ConjureFieldDefinition('dataSourceRefName', scout_api_DataSourceRefName),
             'data_source': ConjureFieldDefinition('dataSource', scout_run_api_DataSource),
@@ -79132,9 +79608,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             assets: Optional["scout_run_api_AssetsFilter"] = None,
             is_single_asset: Optional[bool] = None,
             label: Optional[str] = None,
-            labels: Optional["scout_run_api_LabelsFilter"] = None,
+            labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
-            properties: Optional["scout_run_api_PropertiesFilter"] = None,
+            properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None,
             data_source_ref_name: Optional[str] = None,
             data_source: Optional["scout_run_api_DataSource"] = None,
@@ -79403,7 +79879,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
-    def labels(self) -> Optional["scout_run_api_LabelsFilter"]:
+    def labels(self) -> Optional["scout_rids_api_LabelsFilter"]:
         return self._labels
 
     @builtins.property
@@ -79411,7 +79887,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._property
 
     @builtins.property
-    def properties(self) -> Optional["scout_run_api_PropertiesFilter"]:
+    def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
         return self._properties
 
     @builtins.property
@@ -79567,7 +80043,7 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
-    def _labels(self, labels: "scout_run_api_LabelsFilter") -> Any:
+    def _labels(self, labels: "scout_rids_api_LabelsFilter") -> Any:
         pass
 
     @abstractmethod
@@ -79575,7 +80051,7 @@ class scout_run_api_SearchQueryVisitor:
         pass
 
     @abstractmethod
-    def _properties(self, properties: "scout_run_api_PropertiesFilter") -> Any:
+    def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
         pass
 
     @abstractmethod
@@ -82124,7 +82600,9 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
+    _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _created_by: Optional[str] = None
     _is_archived: Optional[bool] = None
     _is_published: Optional[bool] = None
@@ -82141,7 +82619,9 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
+            'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'is_archived': ConjureFieldDefinition('isArchived', bool),
             'is_published': ConjureFieldDefinition('isPublished', bool),
@@ -82158,7 +82638,9 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
+            labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             created_by: Optional[str] = None,
             is_archived: Optional[bool] = None,
             is_published: Optional[bool] = None,
@@ -82168,7 +82650,7 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (created_by is not None) + (is_archived is not None) + (is_published is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (exact_match is not None) + (search_text is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (created_by is not None) + (is_archived is not None) + (is_published is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -82189,9 +82671,15 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             if label is not None:
                 self._label = label
                 self._type = 'label'
+            if labels is not None:
+                self._labels = labels
+                self._type = 'labels'
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if properties is not None:
+                self._properties = properties
+                self._type = 'properties'
             if created_by is not None:
                 self._created_by = created_by
                 self._type = 'createdBy'
@@ -82241,11 +82729,21 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._label = label
             self._type = 'label'
+        elif type_of_union == 'labels':
+            if labels is None:
+                raise ValueError('a union value must not be None')
+            self._labels = labels
+            self._type = 'labels'
         elif type_of_union == 'property':
             if property is None:
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'properties':
+            if properties is None:
+                raise ValueError('a union value must not be None')
+            self._properties = properties
+            self._type = 'properties'
         elif type_of_union == 'createdBy':
             if created_by is None:
                 raise ValueError('a union value must not be None')
@@ -82306,8 +82804,16 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
         return self._label
 
     @builtins.property
+    def labels(self) -> Optional["scout_rids_api_LabelsFilter"]:
+        return self._labels
+
+    @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
+
+    @builtins.property
+    def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
+        return self._properties
 
     @builtins.property
     def created_by(self) -> Optional[str]:
@@ -82348,8 +82854,12 @@ class scout_template_api_SearchTemplatesQuery(ConjureUnionType):
             return visitor._search_text(self.search_text)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
+        if self._type == 'labels' and self.labels is not None:
+            return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'properties' and self.properties is not None:
+            return visitor._properties(self.properties)
         if self._type == 'createdBy' and self.created_by is not None:
             return visitor._created_by(self.created_by)
         if self._type == 'isArchived' and self.is_archived is not None:
@@ -82396,7 +82906,15 @@ class scout_template_api_SearchTemplatesQueryVisitor:
         pass
 
     @abstractmethod
+    def _labels(self, labels: "scout_rids_api_LabelsFilter") -> Any:
+        pass
+
+    @abstractmethod
     def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
         pass
 
     @abstractmethod

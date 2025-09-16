@@ -1961,6 +1961,8 @@ fxtbl - update table with correct columns
                         CompareUI()
                     elif what.lower() in ['bhtrsa','business hours tax rates scheduled and appointments']:
                         BhTrSa_Gui()
+                    elif what.lower() in ['networth ui','nwui']:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).networth_ui()
                     elif what.lower() in ["#"+str(0),*[i for i in generate_cmds(startcmd=["phonebook","phnbk"],endCmd=["",])]]:
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).phonebook()
 

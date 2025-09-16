@@ -32,6 +32,7 @@ from optax.tree_utils._state_utils import tree_map_params
 from optax.tree_utils._state_utils import tree_set
 from optax.tree_utils._tree_math import tree_add
 from optax.tree_utils._tree_math import tree_add_scale
+from optax.tree_utils._tree_math import tree_allclose
 from optax.tree_utils._tree_math import tree_batch_shape
 from optax.tree_utils._tree_math import tree_bias_correction
 from optax.tree_utils._tree_math import tree_clip
@@ -39,11 +40,13 @@ from optax.tree_utils._tree_math import tree_conj
 from optax.tree_utils._tree_math import tree_div
 from optax.tree_utils._tree_math import tree_full_like
 from optax.tree_utils._tree_math import tree_max
+from optax.tree_utils._tree_math import tree_min
 from optax.tree_utils._tree_math import tree_mul
 from optax.tree_utils._tree_math import tree_norm
 from optax.tree_utils._tree_math import tree_ones_like
 from optax.tree_utils._tree_math import tree_real
 from optax.tree_utils._tree_math import tree_scale
+from optax.tree_utils._tree_math import tree_size
 from optax.tree_utils._tree_math import tree_sub
 from optax.tree_utils._tree_math import tree_sum
 from optax.tree_utils._tree_math import tree_update_infinity_moment
@@ -94,7 +97,9 @@ if typing.TYPE_CHECKING:
   tree_linf_norm = functools.partial(tree_norm, ord='inf')
 
 else:
-  from optax._src.deprecations import deprecation_getattr as _deprecation_getattr
+  # pylint: disable=line-too-long
+  from optax._src.deprecations import deprecation_getattr as _deprecation_getattr  # noqa: E501
+  # pylint: enable=line-too-long
 
   __getattr__ = _deprecation_getattr(__name__, _deprecations)
   del _deprecation_getattr

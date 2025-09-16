@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-iotevents-alpha",
-    "version": "2.214.0.a0",
+    "version": "2.215.0.a0",
     "description": "The CDK Construct Library for AWS::IoTEvents",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_iotevents_alpha._jsii": [
-            "aws-iotevents-alpha@2.214.0-alpha.0.jsii.tgz"
+            "aws-iotevents-alpha@2.215.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_iotevents_alpha": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.214.0, <3.0.0",
+        "aws-cdk-lib>=2.215.0, <3.0.0",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",

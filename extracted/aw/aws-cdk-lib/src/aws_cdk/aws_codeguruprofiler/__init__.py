@@ -83,327 +83,6 @@ from .. import (
 from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnProfilingGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup",
-):
-    '''Creates a profiling group.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html
-    :cloudformationResource: AWS::CodeGuruProfiler::ProfilingGroup
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codeguruprofiler as codeguruprofiler
-        
-        # agent_permissions: Any
-        
-        cfn_profiling_group = codeguruprofiler.CfnProfilingGroup(self, "MyCfnProfilingGroup",
-            profiling_group_name="profilingGroupName",
-        
-            # the properties below are optional
-            agent_permissions=agent_permissions,
-            anomaly_detection_notification_configuration=[codeguruprofiler.CfnProfilingGroup.ChannelProperty(
-                channel_uri="channelUri",
-        
-                # the properties below are optional
-                channel_id="channelId"
-            )],
-            compute_platform="computePlatform",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        profiling_group_name: builtins.str,
-        agent_permissions: typing.Any = None,
-        anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        compute_platform: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param profiling_group_name: The name of the profiling group.
-        :param agent_permissions: The agent permissions attached to this profiling group. This action group grants ``ConfigureAgent`` and ``PostAgentProfile`` permissions to perform actions required by the profiling agent. The Json consists of key ``Principals`` . *Principals* : A list of string ARNs for the roles and users you want to grant access to the profiling group. Wildcards are not supported in the ARNs. You are allowed to provide up to 50 ARNs. An empty list is not permitted. This is a required key. For more information, see `Resource-based policies in CodeGuru Profiler <https://docs.aws.amazon.com/codeguru/latest/profiler-ug/resource-based-policies.html>`_ in the *Amazon CodeGuru Profiler user guide* , `ConfigureAgent <https://docs.aws.amazon.com/codeguru/latest/profiler-api/API_ConfigureAgent.html>`_ , and `PostAgentProfile <https://docs.aws.amazon.com/codeguru/latest/profiler-api/API_PostAgentProfile.html>`_ .
-        :param anomaly_detection_notification_configuration: Adds anomaly notifications for a profiling group.
-        :param compute_platform: The compute platform of the profiling group. Use ``AWSLambda`` if your application runs on AWS Lambda. Use ``Default`` if your application runs on a compute platform that is not AWS Lambda , such an Amazon EC2 instance, an on-premises server, or a different platform. If not specified, ``Default`` is used. This property is immutable.
-        :param tags: A list of tags to add to the created profiling group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b239b8bf)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnProfilingGroupProps(
-            profiling_group_name=profiling_group_name,
-            agent_permissions=agent_permissions,
-            anomaly_detection_notification_configuration=anomaly_detection_notification_configuration,
-            compute_platform=compute_platform,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24a556687187f3fa5c9bf014559a3a117b65e51abfce2431cb066434dd4eaa44)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fafc590c253689aa6dbe3ece2a14715971b41a0287ac3abea2185200d7448965)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The full Amazon Resource Name (ARN) for that profiling group.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="profilingGroupName")
-    def profiling_group_name(self) -> builtins.str:
-        '''The name of the profiling group.'''
-        return typing.cast(builtins.str, jsii.get(self, "profilingGroupName"))
-
-    @profiling_group_name.setter
-    def profiling_group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="agentPermissions")
-    def agent_permissions(self) -> typing.Any:
-        '''The agent permissions attached to this profiling group.'''
-        return typing.cast(typing.Any, jsii.get(self, "agentPermissions"))
-
-    @agent_permissions.setter
-    def agent_permissions(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentPermissions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="anomalyDetectionNotificationConfiguration")
-    def anomaly_detection_notification_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]]:
-        '''Adds anomaly notifications for a profiling group.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]], jsii.get(self, "anomalyDetectionNotificationConfiguration"))
-
-    @anomaly_detection_notification_configuration.setter
-    def anomaly_detection_notification_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectionNotificationConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="computePlatform")
-    def compute_platform(self) -> typing.Optional[builtins.str]:
-        '''The compute platform of the profiling group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "computePlatform"))
-
-    @compute_platform.setter
-    def compute_platform(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb7972df8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags to add to the created profiling group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup.AgentPermissionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"principals": "principals"},
-    )
-    class AgentPermissionsProperty:
-        def __init__(self, *, principals: typing.Sequence[builtins.str]) -> None:
-            '''The agent permissions attached to this profiling group.
-
-            :param principals: The principals for the agent permissions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-agentpermissions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codeguruprofiler as codeguruprofiler
-                
-                agent_permissions_property = codeguruprofiler.CfnProfilingGroup.AgentPermissionsProperty(
-                    principals=["principals"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__811cebbf9ff71c6cdc0a3e6f6073b243f3749069770de9b6715845db6a859300)
-                check_type(argname="argument principals", value=principals, expected_type=type_hints["principals"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "principals": principals,
-            }
-
-        @builtins.property
-        def principals(self) -> typing.List[builtins.str]:
-            '''The principals for the agent permissions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-agentpermissions.html#cfn-codeguruprofiler-profilinggroup-agentpermissions-principals
-            '''
-            result = self._values.get("principals")
-            assert result is not None, "Required property 'principals' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AgentPermissionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup.ChannelProperty",
-        jsii_struct_bases=[],
-        name_mapping={"channel_uri": "channelUri", "channel_id": "channelId"},
-    )
-    class ChannelProperty:
-        def __init__(
-            self,
-            *,
-            channel_uri: builtins.str,
-            channel_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Notification medium for users to get alerted for events that occur in application profile.
-
-            We support SNS topic as a notification channel.
-
-            :param channel_uri: The channel URI.
-            :param channel_id: The channel ID.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codeguruprofiler as codeguruprofiler
-                
-                channel_property = codeguruprofiler.CfnProfilingGroup.ChannelProperty(
-                    channel_uri="channelUri",
-                
-                    # the properties below are optional
-                    channel_id="channelId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b77617e3)
-                check_type(argname="argument channel_uri", value=channel_uri, expected_type=type_hints["channel_uri"])
-                check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "channel_uri": channel_uri,
-            }
-            if channel_id is not None:
-                self._values["channel_id"] = channel_id
-
-        @builtins.property
-        def channel_uri(self) -> builtins.str:
-            '''The channel URI.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html#cfn-codeguruprofiler-profilinggroup-channel-channeluri
-            '''
-            result = self._values.get("channel_uri")
-            assert result is not None, "Required property 'channel_uri' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def channel_id(self) -> typing.Optional[builtins.str]:
-            '''The channel ID.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html#cfn-codeguruprofiler-profilinggroup-channel-channelid
-            '''
-            result = self._values.get("channel_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ChannelProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroupProps",
     jsii_struct_bases=[],
@@ -421,7 +100,7 @@ class CfnProfilingGroupProps:
         *,
         profiling_group_name: builtins.str,
         agent_permissions: typing.Any = None,
-        anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         compute_platform: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -509,13 +188,13 @@ class CfnProfilingGroupProps:
     @builtins.property
     def anomaly_detection_notification_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProfilingGroup.ChannelProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]]:
         '''Adds anomaly notifications for a profiling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html#cfn-codeguruprofiler-profilinggroup-anomalydetectionnotificationconfiguration
         '''
         result = self._values.get("anomaly_detection_notification_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProfilingGroup.ChannelProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]], result)
 
     @builtins.property
     def compute_platform(self) -> typing.Optional[builtins.str]:
@@ -676,6 +355,46 @@ class _IProfilingGroupProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IProfilingGroup).__jsii_proxy_class__ = lambda : _IProfilingGroupProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_codeguruprofiler.IProfilingGroupRef")
+class IProfilingGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ProfilingGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="profilingGroupRef")
+    def profiling_group_ref(self) -> "ProfilingGroupReference":
+        '''(experimental) A reference to a ProfilingGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProfilingGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ProfilingGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codeguruprofiler.IProfilingGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="profilingGroupRef")
+    def profiling_group_ref(self) -> "ProfilingGroupReference":
+        '''(experimental) A reference to a ProfilingGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProfilingGroupReference", jsii.get(self, "profilingGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProfilingGroupRef).__jsii_proxy_class__ = lambda : _IProfilingGroupRefProxy
 
 
 @jsii.implements(IProfilingGroup)
@@ -891,16 +610,490 @@ class ProfilingGroupProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codeguruprofiler.ProfilingGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "profiling_group_arn": "profilingGroupArn",
+        "profiling_group_name": "profilingGroupName",
+    },
+)
+class ProfilingGroupReference:
+    def __init__(
+        self,
+        *,
+        profiling_group_arn: builtins.str,
+        profiling_group_name: builtins.str,
+    ) -> None:
+        '''A reference to a ProfilingGroup resource.
+
+        :param profiling_group_arn: The ARN of the ProfilingGroup resource.
+        :param profiling_group_name: The ProfilingGroupName of the ProfilingGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codeguruprofiler as codeguruprofiler
+            
+            profiling_group_reference = codeguruprofiler.ProfilingGroupReference(
+                profiling_group_arn="profilingGroupArn",
+                profiling_group_name="profilingGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5017949e9e21fc106c911a316621c8841b4409a997c8d86e3df1b9b565bd46ad)
+            check_type(argname="argument profiling_group_arn", value=profiling_group_arn, expected_type=type_hints["profiling_group_arn"])
+            check_type(argname="argument profiling_group_name", value=profiling_group_name, expected_type=type_hints["profiling_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profiling_group_arn": profiling_group_arn,
+            "profiling_group_name": profiling_group_name,
+        }
+
+    @builtins.property
+    def profiling_group_arn(self) -> builtins.str:
+        '''The ARN of the ProfilingGroup resource.'''
+        result = self._values.get("profiling_group_arn")
+        assert result is not None, "Required property 'profiling_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profiling_group_name(self) -> builtins.str:
+        '''The ProfilingGroupName of the ProfilingGroup resource.'''
+        result = self._values.get("profiling_group_name")
+        assert result is not None, "Required property 'profiling_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProfilingGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IProfilingGroupRef, _ITaggable_36806126)
+class CfnProfilingGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup",
+):
+    '''Creates a profiling group.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html
+    :cloudformationResource: AWS::CodeGuruProfiler::ProfilingGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codeguruprofiler as codeguruprofiler
+        
+        # agent_permissions: Any
+        
+        cfn_profiling_group = codeguruprofiler.CfnProfilingGroup(self, "MyCfnProfilingGroup",
+            profiling_group_name="profilingGroupName",
+        
+            # the properties below are optional
+            agent_permissions=agent_permissions,
+            anomaly_detection_notification_configuration=[codeguruprofiler.CfnProfilingGroup.ChannelProperty(
+                channel_uri="channelUri",
+        
+                # the properties below are optional
+                channel_id="channelId"
+            )],
+            compute_platform="computePlatform",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        profiling_group_name: builtins.str,
+        agent_permissions: typing.Any = None,
+        anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        compute_platform: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param profiling_group_name: The name of the profiling group.
+        :param agent_permissions: The agent permissions attached to this profiling group. This action group grants ``ConfigureAgent`` and ``PostAgentProfile`` permissions to perform actions required by the profiling agent. The Json consists of key ``Principals`` . *Principals* : A list of string ARNs for the roles and users you want to grant access to the profiling group. Wildcards are not supported in the ARNs. You are allowed to provide up to 50 ARNs. An empty list is not permitted. This is a required key. For more information, see `Resource-based policies in CodeGuru Profiler <https://docs.aws.amazon.com/codeguru/latest/profiler-ug/resource-based-policies.html>`_ in the *Amazon CodeGuru Profiler user guide* , `ConfigureAgent <https://docs.aws.amazon.com/codeguru/latest/profiler-api/API_ConfigureAgent.html>`_ , and `PostAgentProfile <https://docs.aws.amazon.com/codeguru/latest/profiler-api/API_PostAgentProfile.html>`_ .
+        :param anomaly_detection_notification_configuration: Adds anomaly notifications for a profiling group.
+        :param compute_platform: The compute platform of the profiling group. Use ``AWSLambda`` if your application runs on AWS Lambda. Use ``Default`` if your application runs on a compute platform that is not AWS Lambda , such an Amazon EC2 instance, an on-premises server, or a different platform. If not specified, ``Default`` is used. This property is immutable.
+        :param tags: A list of tags to add to the created profiling group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b239b8bf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnProfilingGroupProps(
+            profiling_group_name=profiling_group_name,
+            agent_permissions=agent_permissions,
+            anomaly_detection_notification_configuration=anomaly_detection_notification_configuration,
+            compute_platform=compute_platform,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24a556687187f3fa5c9bf014559a3a117b65e51abfce2431cb066434dd4eaa44)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fafc590c253689aa6dbe3ece2a14715971b41a0287ac3abea2185200d7448965)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The full Amazon Resource Name (ARN) for that profiling group.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="profilingGroupRef")
+    def profiling_group_ref(self) -> ProfilingGroupReference:
+        '''A reference to a ProfilingGroup resource.'''
+        return typing.cast(ProfilingGroupReference, jsii.get(self, "profilingGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="profilingGroupName")
+    def profiling_group_name(self) -> builtins.str:
+        '''The name of the profiling group.'''
+        return typing.cast(builtins.str, jsii.get(self, "profilingGroupName"))
+
+    @profiling_group_name.setter
+    def profiling_group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="agentPermissions")
+    def agent_permissions(self) -> typing.Any:
+        '''The agent permissions attached to this profiling group.'''
+        return typing.cast(typing.Any, jsii.get(self, "agentPermissions"))
+
+    @agent_permissions.setter
+    def agent_permissions(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "agentPermissions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="anomalyDetectionNotificationConfiguration")
+    def anomaly_detection_notification_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]]:
+        '''Adds anomaly notifications for a profiling group.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]], jsii.get(self, "anomalyDetectionNotificationConfiguration"))
+
+    @anomaly_detection_notification_configuration.setter
+    def anomaly_detection_notification_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProfilingGroup.ChannelProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "anomalyDetectionNotificationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="computePlatform")
+    def compute_platform(self) -> typing.Optional[builtins.str]:
+        '''The compute platform of the profiling group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "computePlatform"))
+
+    @compute_platform.setter
+    def compute_platform(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb7972df8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags to add to the created profiling group.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup.AgentPermissionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"principals": "principals"},
+    )
+    class AgentPermissionsProperty:
+        def __init__(self, *, principals: typing.Sequence[builtins.str]) -> None:
+            '''The agent permissions attached to this profiling group.
+
+            :param principals: The principals for the agent permissions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-agentpermissions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codeguruprofiler as codeguruprofiler
+                
+                agent_permissions_property = codeguruprofiler.CfnProfilingGroup.AgentPermissionsProperty(
+                    principals=["principals"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__811cebbf9ff71c6cdc0a3e6f6073b243f3749069770de9b6715845db6a859300)
+                check_type(argname="argument principals", value=principals, expected_type=type_hints["principals"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "principals": principals,
+            }
+
+        @builtins.property
+        def principals(self) -> typing.List[builtins.str]:
+            '''The principals for the agent permissions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-agentpermissions.html#cfn-codeguruprofiler-profilinggroup-agentpermissions-principals
+            '''
+            result = self._values.get("principals")
+            assert result is not None, "Required property 'principals' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AgentPermissionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup.ChannelProperty",
+        jsii_struct_bases=[],
+        name_mapping={"channel_uri": "channelUri", "channel_id": "channelId"},
+    )
+    class ChannelProperty:
+        def __init__(
+            self,
+            *,
+            channel_uri: builtins.str,
+            channel_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Notification medium for users to get alerted for events that occur in application profile.
+
+            We support SNS topic as a notification channel.
+
+            :param channel_uri: The channel URI.
+            :param channel_id: The channel ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codeguruprofiler as codeguruprofiler
+                
+                channel_property = codeguruprofiler.CfnProfilingGroup.ChannelProperty(
+                    channel_uri="channelUri",
+                
+                    # the properties below are optional
+                    channel_id="channelId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b77617e3)
+                check_type(argname="argument channel_uri", value=channel_uri, expected_type=type_hints["channel_uri"])
+                check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "channel_uri": channel_uri,
+            }
+            if channel_id is not None:
+                self._values["channel_id"] = channel_id
+
+        @builtins.property
+        def channel_uri(self) -> builtins.str:
+            '''The channel URI.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html#cfn-codeguruprofiler-profilinggroup-channel-channeluri
+            '''
+            result = self._values.get("channel_uri")
+            assert result is not None, "Required property 'channel_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def channel_id(self) -> typing.Optional[builtins.str]:
+            '''The channel ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeguruprofiler-profilinggroup-channel.html#cfn-codeguruprofiler-profilinggroup-channel-channelid
+            '''
+            result = self._values.get("channel_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ChannelProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 __all__ = [
     "CfnProfilingGroup",
     "CfnProfilingGroupProps",
     "ComputePlatform",
     "IProfilingGroup",
+    "IProfilingGroupRef",
     "ProfilingGroup",
     "ProfilingGroupProps",
+    "ProfilingGroupReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__b0311e48a474ca90384078ca3a0759f5a58ab45163d3da706301f20c5207756e(
+    *,
+    profiling_group_name: builtins.str,
+    agent_permissions: typing.Any = None,
+    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    compute_platform: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eef65bccc91bd6f83597064fade053f490648802b0350f9227188dc1487b758(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fad88677a83439824b5289f835fd0b41a038abaadbb21252ece4a01a245e1033(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__455d9f8e0fda8271257c6c1025ea87ea065d36bfefe7d63f702c45b526cc1976(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    compute_platform: typing.Optional[ComputePlatform] = None,
+    profiling_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b91b6e9dff0c314a77924dad57869cdc71781e124518a42fbbb57612c6f29d4b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    profiling_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__833a9e7894a97394ac1565daa3d417cd81e363776254c84ac034b459e478c491(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    profiling_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18fa54053affb91d59e1ada2098754620fc3f0b31a3be3a82e08a29b665655f4(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f78934894(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4843108164af294aabe875088a5b93297a7983cba8b4e8af4a9bcae0fb6659c(
+    *,
+    compute_platform: typing.Optional[ComputePlatform] = None,
+    profiling_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5017949e9e21fc106c911a316621c8841b4409a997c8d86e3df1b9b565bd46ad(
+    *,
+    profiling_group_arn: builtins.str,
+    profiling_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b239b8bf(
     scope: _constructs_77d1e7e8.Construct,
@@ -968,75 +1161,6 @@ def _typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b
     *,
     channel_uri: builtins.str,
     channel_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b0311e48a474ca90384078ca3a0759f5a58ab45163d3da706301f20c5207756e(
-    *,
-    profiling_group_name: builtins.str,
-    agent_permissions: typing.Any = None,
-    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    compute_platform: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8eef65bccc91bd6f83597064fade053f490648802b0350f9227188dc1487b758(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fad88677a83439824b5289f835fd0b41a038abaadbb21252ece4a01a245e1033(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__455d9f8e0fda8271257c6c1025ea87ea065d36bfefe7d63f702c45b526cc1976(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    compute_platform: typing.Optional[ComputePlatform] = None,
-    profiling_group_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b91b6e9dff0c314a77924dad57869cdc71781e124518a42fbbb57612c6f29d4b(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    profiling_group_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__833a9e7894a97394ac1565daa3d417cd81e363776254c84ac034b459e478c491(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    profiling_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__18fa54053affb91d59e1ada2098754620fc3f0b31a3be3a82e08a29b665655f4(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f78934894(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b4843108164af294aabe875088a5b93297a7983cba8b4e8af4a9bcae0fb6659c(
-    *,
-    compute_platform: typing.Optional[ComputePlatform] = None,
-    profiling_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

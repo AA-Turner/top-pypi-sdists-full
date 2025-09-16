@@ -78,13 +78,855 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "networking": "networking",
+        "scheduler": "scheduler",
+        "size": "size",
+        "name": "name",
+        "slurm_configuration": "slurmConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        networking: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.NetworkingProperty", typing.Dict[builtins.str, typing.Any]]],
+        scheduler: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.SchedulerProperty", typing.Dict[builtins.str, typing.Any]]],
+        size: builtins.str,
+        name: typing.Optional[builtins.str] = None,
+        slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param networking: The networking configuration for the cluster's control plane.
+        :param scheduler: The cluster management and job scheduling software associated with the cluster.
+        :param size: The size of the cluster. - ``SMALL`` : 32 compute nodes and 256 jobs - ``MEDIUM`` : 512 compute nodes and 8192 jobs - ``LARGE`` : 2048 compute nodes and 16,384 jobs
+        :param name: The name that identifies the cluster.
+        :param slurm_configuration: Additional options related to the Slurm scheduler.
+        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            cfn_cluster_props = pcs.CfnClusterProps(
+                networking=pcs.CfnCluster.NetworkingProperty(
+                    network_type="networkType",
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                ),
+                scheduler=pcs.CfnCluster.SchedulerProperty(
+                    type="type",
+                    version="version"
+                ),
+                size="size",
+            
+                # the properties below are optional
+                name="name",
+                slurm_configuration=pcs.CfnCluster.SlurmConfigurationProperty(
+                    accounting=pcs.CfnCluster.AccountingProperty(
+                        mode="mode",
+            
+                        # the properties below are optional
+                        default_purge_time_in_days=123
+                    ),
+                    auth_key=pcs.CfnCluster.AuthKeyProperty(
+                        secret_arn="secretArn",
+                        secret_version="secretVersion"
+                    ),
+                    scale_down_idle_time_in_seconds=123,
+                    slurm_custom_settings=[pcs.CfnCluster.SlurmCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )]
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1acc8d7c41893eaa3f211b6514471817eb607a349cab301161899ae592f0bdf0)
+            check_type(argname="argument networking", value=networking, expected_type=type_hints["networking"])
+            check_type(argname="argument scheduler", value=scheduler, expected_type=type_hints["scheduler"])
+            check_type(argname="argument size", value=size, expected_type=type_hints["size"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "networking": networking,
+            "scheduler": scheduler,
+            "size": size,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if slurm_configuration is not None:
+            self._values["slurm_configuration"] = slurm_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def networking(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.NetworkingProperty"]:
+        '''The networking configuration for the cluster's control plane.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-networking
+        '''
+        result = self._values.get("networking")
+        assert result is not None, "Required property 'networking' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.NetworkingProperty"], result)
+
+    @builtins.property
+    def scheduler(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.SchedulerProperty"]:
+        '''The cluster management and job scheduling software associated with the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-scheduler
+        '''
+        result = self._values.get("scheduler")
+        assert result is not None, "Required property 'scheduler' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.SchedulerProperty"], result)
+
+    @builtins.property
+    def size(self) -> builtins.str:
+        '''The size of the cluster.
+
+        - ``SMALL`` : 32 compute nodes and 256 jobs
+        - ``MEDIUM`` : 512 compute nodes and 8192 jobs
+        - ``LARGE`` : 2048 compute nodes and 16,384 jobs
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-size
+        '''
+        result = self._values.get("size")
+        assert result is not None, "Required property 'size' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name that identifies the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def slurm_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.SlurmConfigurationProperty"]]:
+        '''Additional options related to the Slurm scheduler.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-slurmconfiguration
+        '''
+        result = self._values.get("slurm_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.SlurmConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''1 or more tags added to the resource.
+
+        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_id": "clusterId",
+        "custom_launch_template": "customLaunchTemplate",
+        "iam_instance_profile_arn": "iamInstanceProfileArn",
+        "instance_configs": "instanceConfigs",
+        "scaling_configuration": "scalingConfiguration",
+        "subnet_ids": "subnetIds",
+        "ami_id": "amiId",
+        "name": "name",
+        "purchase_option": "purchaseOption",
+        "slurm_configuration": "slurmConfiguration",
+        "spot_options": "spotOptions",
+        "tags": "tags",
+    },
+)
+class CfnComputeNodeGroupProps:
+    def __init__(
+        self,
+        *,
+        cluster_id: builtins.str,
+        custom_launch_template: typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
+        iam_instance_profile_arn: builtins.str,
+        instance_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeNodeGroup.InstanceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        scaling_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeNodeGroup.ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        subnet_ids: typing.Sequence[builtins.str],
+        ami_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        purchase_option: typing.Optional[builtins.str] = None,
+        slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeNodeGroup.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        spot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputeNodeGroup.SpotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComputeNodeGroup``.
+
+        :param cluster_id: The ID of the cluster of the compute node group.
+        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
+        :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have the ``pcs:RegisterComputeNodeGroupInstance`` permission and the role name must start with ``AWSPCS`` or must have the path ``/aws-pcs/`` . For more information, see `IAM instance profiles for AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/security-instance-profiles.html>`_ in the *AWS PCS User Guide* .
+        :param instance_configs: A list of EC2 instance configurations that AWS AWS PCS can provision in the compute node group.
+        :param scaling_configuration: Specifies the boundaries of the compute node group auto scaling.
+        :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
+        :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
+        :param name: The name that identifies the compute node group.
+        :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS AWS PCS supports On-Demand and Spot instances. For more information, see `Instance purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . If you don't provide this option, it defaults to On-Demand.
+        :param slurm_configuration: Additional options related to the Slurm scheduler.
+        :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
+        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            cfn_compute_node_group_props = pcs.CfnComputeNodeGroupProps(
+                cluster_id="clusterId",
+                custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
+                    version="version",
+            
+                    # the properties below are optional
+                    template_id="templateId"
+                ),
+                iam_instance_profile_arn="iamInstanceProfileArn",
+                instance_configs=[pcs.CfnComputeNodeGroup.InstanceConfigProperty(
+                    instance_type="instanceType"
+                )],
+                scaling_configuration=pcs.CfnComputeNodeGroup.ScalingConfigurationProperty(
+                    max_instance_count=123,
+                    min_instance_count=123
+                ),
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                ami_id="amiId",
+                name="name",
+                purchase_option="purchaseOption",
+                slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
+                    slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )]
+                ),
+                spot_options=pcs.CfnComputeNodeGroup.SpotOptionsProperty(
+                    allocation_strategy="allocationStrategy"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d)
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument custom_launch_template", value=custom_launch_template, expected_type=type_hints["custom_launch_template"])
+            check_type(argname="argument iam_instance_profile_arn", value=iam_instance_profile_arn, expected_type=type_hints["iam_instance_profile_arn"])
+            check_type(argname="argument instance_configs", value=instance_configs, expected_type=type_hints["instance_configs"])
+            check_type(argname="argument scaling_configuration", value=scaling_configuration, expected_type=type_hints["scaling_configuration"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument purchase_option", value=purchase_option, expected_type=type_hints["purchase_option"])
+            check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
+            check_type(argname="argument spot_options", value=spot_options, expected_type=type_hints["spot_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_id": cluster_id,
+            "custom_launch_template": custom_launch_template,
+            "iam_instance_profile_arn": iam_instance_profile_arn,
+            "instance_configs": instance_configs,
+            "scaling_configuration": scaling_configuration,
+            "subnet_ids": subnet_ids,
+        }
+        if ami_id is not None:
+            self._values["ami_id"] = ami_id
+        if name is not None:
+            self._values["name"] = name
+        if purchase_option is not None:
+            self._values["purchase_option"] = purchase_option
+        if slurm_configuration is not None:
+            self._values["slurm_configuration"] = slurm_configuration
+        if spot_options is not None:
+            self._values["spot_options"] = spot_options
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_id(self) -> builtins.str:
+        '''The ID of the cluster of the compute node group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-clusterid
+        '''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_launch_template(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]:
+        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-customlaunchtemplate
+        '''
+        result = self._values.get("custom_launch_template")
+        assert result is not None, "Required property 'custom_launch_template' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.CustomLaunchTemplateProperty"], result)
+
+    @builtins.property
+    def iam_instance_profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances.
+
+        The role contained in your instance profile must have the ``pcs:RegisterComputeNodeGroupInstance`` permission and the role name must start with ``AWSPCS`` or must have the path ``/aws-pcs/`` . For more information, see `IAM instance profiles for AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/security-instance-profiles.html>`_ in the *AWS PCS User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-iaminstanceprofilearn
+        '''
+        result = self._values.get("iam_instance_profile_arn")
+        assert result is not None, "Required property 'iam_instance_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_configs(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.InstanceConfigProperty"]]]:
+        '''A list of EC2 instance configurations that AWS AWS PCS can provision in the compute node group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-instanceconfigs
+        '''
+        result = self._values.get("instance_configs")
+        assert result is not None, "Required property 'instance_configs' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.InstanceConfigProperty"]]], result)
+
+    @builtins.property
+    def scaling_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.ScalingConfigurationProperty"]:
+        '''Specifies the boundaries of the compute node group auto scaling.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-scalingconfiguration
+        '''
+        result = self._values.get("scaling_configuration")
+        assert result is not None, "Required property 'scaling_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.ScalingConfigurationProperty"], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''The list of subnet IDs where instances are provisioned by the compute node group.
+
+        The subnets must be in the same VPC as the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def ami_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances.
+
+        If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-amiid
+        '''
+        result = self._values.get("ami_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name that identifies the compute node group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def purchase_option(self) -> typing.Optional[builtins.str]:
+        '''Specifies how EC2 instances are purchased on your behalf.
+
+        AWS AWS PCS supports On-Demand and Spot instances. For more information, see `Instance purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . If you don't provide this option, it defaults to On-Demand.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-purchaseoption
+        '''
+        result = self._values.get("purchase_option")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def slurm_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SlurmConfigurationProperty"]]:
+        '''Additional options related to the Slurm scheduler.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-slurmconfiguration
+        '''
+        result = self._values.get("slurm_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SlurmConfigurationProperty"]], result)
+
+    @builtins.property
+    def spot_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SpotOptionsProperty"]]:
+        '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-spotoptions
+        '''
+        result = self._values.get("spot_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SpotOptionsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''1 or more tags added to the resource.
+
+        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComputeNodeGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.CfnQueueProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_id": "clusterId",
+        "compute_node_group_configurations": "computeNodeGroupConfigurations",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnQueueProps:
+    def __init__(
+        self,
+        *,
+        cluster_id: builtins.str,
+        compute_node_group_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnQueue.ComputeNodeGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQueue``.
+
+        :param cluster_id: The ID of the cluster of the queue.
+        :param compute_node_group_configurations: The list of compute node group configurations associated with the queue. Queues assign jobs to associated compute node groups.
+        :param name: The name that identifies the queue.
+        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            cfn_queue_props = pcs.CfnQueueProps(
+                cluster_id="clusterId",
+            
+                # the properties below are optional
+                compute_node_group_configurations=[pcs.CfnQueue.ComputeNodeGroupConfigurationProperty(
+                    compute_node_group_id="computeNodeGroupId"
+                )],
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4211e23057aa9883cd55dc7f797abf7f4ad0554424bd2d7d7cfce123004b8557)
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument compute_node_group_configurations", value=compute_node_group_configurations, expected_type=type_hints["compute_node_group_configurations"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_id": cluster_id,
+        }
+        if compute_node_group_configurations is not None:
+            self._values["compute_node_group_configurations"] = compute_node_group_configurations
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_id(self) -> builtins.str:
+        '''The ID of the cluster of the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-clusterid
+        '''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def compute_node_group_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnQueue.ComputeNodeGroupConfigurationProperty"]]]]:
+        '''The list of compute node group configurations associated with the queue.
+
+        Queues assign jobs to associated compute node groups.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-computenodegroupconfigurations
+        '''
+        result = self._values.get("compute_node_group_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnQueue.ComputeNodeGroupConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name that identifies the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''1 or more tags added to the resource.
+
+        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQueueProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.ClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn"},
+)
+class ClusterReference:
+    def __init__(self, *, cluster_arn: builtins.str) -> None:
+        '''A reference to a Cluster resource.
+
+        :param cluster_arn: The Arn of the Cluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            cluster_reference = pcs.ClusterReference(
+                cluster_arn="clusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80b9a736e4119188cdf494df5b57ca23cb47176927e2354fd0e63a7e958c58ea)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Arn of the Cluster resource.'''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.ComputeNodeGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"compute_node_group_arn": "computeNodeGroupArn"},
+)
+class ComputeNodeGroupReference:
+    def __init__(self, *, compute_node_group_arn: builtins.str) -> None:
+        '''A reference to a ComputeNodeGroup resource.
+
+        :param compute_node_group_arn: The Arn of the ComputeNodeGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            compute_node_group_reference = pcs.ComputeNodeGroupReference(
+                compute_node_group_arn="computeNodeGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9b9395e74aa18409e6cf946002b53eeefe8d34680c56446f04e005388c4e009)
+            check_type(argname="argument compute_node_group_arn", value=compute_node_group_arn, expected_type=type_hints["compute_node_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compute_node_group_arn": compute_node_group_arn,
+        }
+
+    @builtins.property
+    def compute_node_group_arn(self) -> builtins.str:
+        '''The Arn of the ComputeNodeGroup resource.'''
+        result = self._values.get("compute_node_group_arn")
+        assert result is not None, "Required property 'compute_node_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComputeNodeGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcs.IClusterRef")
+class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcs.IClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcs.IComputeNodeGroupRef")
+class IComputeNodeGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ComputeNodeGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="computeNodeGroupRef")
+    def compute_node_group_ref(self) -> ComputeNodeGroupReference:
+        '''(experimental) A reference to a ComputeNodeGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IComputeNodeGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ComputeNodeGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcs.IComputeNodeGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="computeNodeGroupRef")
+    def compute_node_group_ref(self) -> ComputeNodeGroupReference:
+        '''(experimental) A reference to a ComputeNodeGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ComputeNodeGroupReference, jsii.get(self, "computeNodeGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IComputeNodeGroupRef).__jsii_proxy_class__ = lambda : _IComputeNodeGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcs.IQueueRef")
+class IQueueRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueueRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcs.IQueueRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueueReference", jsii.get(self, "queueRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueueRef).__jsii_proxy_class__ = lambda : _IQueueRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcs.QueueReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue_arn": "queueArn"},
+)
+class QueueReference:
+    def __init__(self, *, queue_arn: builtins.str) -> None:
+        '''A reference to a Queue resource.
+
+        :param queue_arn: The Arn of the Queue resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcs as pcs
+            
+            queue_reference = pcs.QueueReference(
+                queue_arn="queueArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0802ca5ce5a51a515ed6ccc3580b3cc36bb0bad329fe5b6a9a3f208ffa1cc5ae)
+            check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue_arn": queue_arn,
+        }
+
+    @builtins.property
+    def queue_arn(self) -> builtins.str:
+        '''The Arn of the Queue resource.'''
+        result = self._values.get("queue_arn")
+        assert result is not None, "Required property 'queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueueReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggableV2_4e6798f8)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_pcs.CfnCluster",
 ):
-    '''The ``AWS::PCS::Cluster`` resource creates an AWS PCS cluster.
+    '''Creates an AWS PCS cluster resource.
+
+    For more information, see `Creating a cluster in AWS Parallel Computing Service <https://docs.aws.amazon.com/pcs/latest/userguide/working-with_clusters_create.html>`_ in the *AWS PCS User Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html
     :cloudformationResource: AWS::PCS::Cluster
@@ -150,7 +992,7 @@ class CfnCluster(
         :param id: Construct identifier for this resource (unique in its scope).
         :param networking: The networking configuration for the cluster's control plane.
         :param scheduler: The cluster management and job scheduling software associated with the cluster.
-        :param size: The size of the cluster.
+        :param size: The size of the cluster. - ``SMALL`` : 32 compute nodes and 256 jobs - ``MEDIUM`` : 512 compute nodes and 8192 jobs - ``LARGE`` : 2048 compute nodes and 16,384 jobs
         :param name: The name that identifies the cluster.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
         :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
@@ -241,7 +1083,9 @@ class CfnCluster(
     def attr_status(self) -> builtins.str:
         '''The provisioning status of the cluster.
 
-        The provisioning status doesn't indicate the overall health of the cluster.
+        .. epigraph::
+
+           The provisioning status doesn't indicate the overall health of the cluster. > The resource enters the ``SUSPENDING`` and ``SUSPENDED`` states when the scheduler is beyond end of life and we have suspended the cluster. When in these states, you can't use the cluster. The cluster controller is down and all compute instances are terminated. The resources still count toward your service quotas. You can delete a resource if its status is ``SUSPENDED`` . For more information, see `Frequently asked questions about Slurm versions in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-versions_faq.html>`_ in the *AWS PCS User Guide* .
 
         :cloudformationAttribute: Status
         '''
@@ -257,6 +1101,12 @@ class CfnCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''A reference to a Cluster resource.'''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="networking")
@@ -371,10 +1221,8 @@ class CfnCluster(
         ) -> None:
             '''The accounting configuration includes configurable settings for Slurm accounting.
 
-            It's a property of the ``ClusterSlurmConfiguration`` object.
-
             :param mode: The default value for ``mode`` is ``STANDARD`` . A value of ``STANDARD`` means Slurm accounting is enabled. Default: - "NONE"
-            :param default_purge_time_in_days: The default value for all purge settings for ``slurmdbd.conf`` . For more information, see the `slurmdbd.conf documentation at SchedMD <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurmdbd.conf.html>`_ . The default value ``-1`` means there is no purge time and records persist as long as the cluster exists. .. epigraph:: ``0`` isn't a valid value. Default: - -1
+            :param default_purge_time_in_days: The default value for all purge settings for ``slurmdbd.conf`` . For more information, see the `slurmdbd.conf documentation at SchedMD <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurmdbd.conf.html>`_ . The default value for ``defaultPurgeTimeInDays`` is ``-1`` . A value of ``-1`` means there is no purge time and records persist as long as the cluster exists. .. epigraph:: ``0`` isn't a valid value. Default: - -1
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-accounting.html
             :exampleMetadata: fixture=_generated
@@ -420,7 +1268,9 @@ class CfnCluster(
         def default_purge_time_in_days(self) -> typing.Optional[jsii.Number]:
             '''The default value for all purge settings for ``slurmdbd.conf`` . For more information, see the `slurmdbd.conf documentation at SchedMD <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurmdbd.conf.html>`_ .
 
-            The default value ``-1`` means there is no purge time and records persist as long as the cluster exists.
+            The default value for ``defaultPurgeTimeInDays`` is ``-1`` .
+
+            A value of ``-1`` means there is no purge time and records persist as long as the cluster exists.
             .. epigraph::
 
                ``0`` isn't a valid value.
@@ -457,7 +1307,7 @@ class CfnCluster(
         ) -> None:
             '''The shared Slurm key for authentication, also known as the *cluster secret* .
 
-            :param secret_arn: The Amazon Resource Name (ARN) of the shared Slurm key.
+            :param secret_arn: The Amazon Resource Name (ARN) of the the shared Slurm key.
             :param secret_version: The version of the shared Slurm key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-authkey.html
@@ -485,7 +1335,7 @@ class CfnCluster(
 
         @builtins.property
         def secret_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the shared Slurm key.
+            '''The Amazon Resource Name (ARN) of the the shared Slurm key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-authkey.html#cfn-pcs-cluster-authkey-secretarn
             '''
@@ -537,11 +1387,11 @@ class CfnCluster(
         ) -> None:
             '''An endpoint available for interaction with the scheduler.
 
-            :param port: The endpoint's connection port number.
+            :param port: The endpoint's connection port number. Example: ``1234``
             :param private_ip_address: For clusters that use IPv4, this is the endpoint's private IP address. Example: ``10.1.2.3`` For clusters configured to use IPv6, this is an empty string.
             :param type: Indicates the type of endpoint running at the specific IP address.
             :param ipv6_address: The endpoint's IPv6 address. Example: ``2001:db8::1``
-            :param public_ip_address: The endpoint's public IP address.
+            :param public_ip_address: The endpoint's public IP address. Example: ``192.0.2.1``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html
             :exampleMetadata: fixture=_generated
@@ -582,6 +1432,8 @@ class CfnCluster(
         @builtins.property
         def port(self) -> builtins.str:
             '''The endpoint's connection port number.
+
+            Example: ``1234``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html#cfn-pcs-cluster-endpoint-port
             '''
@@ -628,6 +1480,8 @@ class CfnCluster(
         def public_ip_address(self) -> typing.Optional[builtins.str]:
             '''The endpoint's public IP address.
 
+            Example: ``192.0.2.1``
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html#cfn-pcs-cluster-endpoint-publicipaddress
             '''
             result = self._values.get("public_ip_address")
@@ -656,7 +1510,7 @@ class CfnCluster(
             code: typing.Optional[builtins.str] = None,
             message: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''An error that occurred during resource provisioning.
+            '''An error that occurred during resource creation.
 
             :param code: The short-form error code.
             :param message: The detailed error information.
@@ -734,8 +1588,8 @@ class CfnCluster(
             '''The networking configuration for the cluster's control plane.
 
             :param network_type: The IP address version the cluster uses. The default is ``IPV4`` .
-            :param security_group_ids: The list of security group IDs associated with the Elastic Network Interface (ENI) created in subnets.
-            :param subnet_ids: The list of subnet IDs where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources. The subnet must have an available IP address, cannot reside in AWS Outposts, AWS Wavelength, or an AWS Local Zone. AWS PCS currently supports only 1 subnet in this list.
+            :param security_group_ids: The list of security group IDs associated with the Elastic Network Interface (ENI) created in subnets. The following rules are required: - Inbound rule 1 - Protocol: All - Ports: All - Source: Self - Outbound rule 1 - Protocol: All - Ports: All - Destination: 0.0.0.0/0 (IPv4) or ::/0 (IPv6) - Outbound rule 2 - Protocol: All - Ports: All - Destination: Self
+            :param subnet_ids: The ID of the subnet where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources. The subnet must have an available IP address, cannot reside in AWS Outposts , AWS Wavelength , or an AWS Local Zone. Example: ``subnet-abcd1234``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-networking.html
             :exampleMetadata: fixture=_generated
@@ -780,6 +1634,21 @@ class CfnCluster(
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The list of security group IDs associated with the Elastic Network Interface (ENI) created in subnets.
 
+            The following rules are required:
+
+            - Inbound rule 1
+            - Protocol: All
+            - Ports: All
+            - Source: Self
+            - Outbound rule 1
+            - Protocol: All
+            - Ports: All
+            - Destination: 0.0.0.0/0 (IPv4) or ::/0 (IPv6)
+            - Outbound rule 2
+            - Protocol: All
+            - Ports: All
+            - Destination: Self
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-networking.html#cfn-pcs-cluster-networking-securitygroupids
             '''
             result = self._values.get("security_group_ids")
@@ -787,9 +1656,11 @@ class CfnCluster(
 
         @builtins.property
         def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of subnet IDs where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources.
+            '''The ID of the subnet where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources.
 
-            The subnet must have an available IP address, cannot reside in AWS Outposts, AWS Wavelength, or an AWS Local Zone. AWS PCS currently supports only 1 subnet in this list.
+            The subnet must have an available IP address, cannot reside in AWS Outposts , AWS Wavelength , or an AWS Local Zone.
+
+            Example: ``subnet-abcd1234``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-networking.html#cfn-pcs-cluster-networking-subnetids
             '''
@@ -817,7 +1688,7 @@ class CfnCluster(
             '''The cluster management and job scheduling software associated with the cluster.
 
             :param type: The software AWS PCS uses to manage cluster scaling and job scheduling.
-            :param version: The version of the specified scheduling software that AWS PCS uses to manage cluster scaling and job scheduling.
+            :param version: The version of the specified scheduling software that AWS PCS uses to manage cluster scaling and job scheduling. For more information, see `Slurm versions in AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/slurm-versions.html>`_ in the *AWS PCS User Guide* . Valid Values: ``23.11 | 24.05 | 24.11``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-scheduler.html
             :exampleMetadata: fixture=_generated
@@ -855,6 +1726,10 @@ class CfnCluster(
         @builtins.property
         def version(self) -> builtins.str:
             '''The version of the specified scheduling software that AWS PCS uses to manage cluster scaling and job scheduling.
+
+            For more information, see `Slurm versions in AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/slurm-versions.html>`_ in the *AWS PCS User Guide* .
+
+            Valid Values: ``23.11 | 24.05 | 24.11``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-scheduler.html#cfn-pcs-cluster-scheduler-version
             '''
@@ -895,8 +1770,8 @@ class CfnCluster(
             '''Additional options related to the Slurm scheduler.
 
             :param accounting: The accounting configuration includes configurable settings for Slurm accounting.
-            :param auth_key: The shared Slurm key for authentication, also known as the cluster secret.
-            :param scale_down_idle_time_in_seconds: The time before an idle node is scaled down.
+            :param auth_key: The shared Slurm key for authentication, also known as the *cluster secret* .
+            :param scale_down_idle_time_in_seconds: The time (in seconds) before an idle node is scaled down. Default: ``600``
             :param slurm_custom_settings: Additional Slurm-specific configuration that directly maps to Slurm settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html
@@ -957,7 +1832,7 @@ class CfnCluster(
         def auth_key(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.AuthKeyProperty"]]:
-            '''The shared Slurm key for authentication, also known as the cluster secret.
+            '''The shared Slurm key for authentication, also known as the *cluster secret* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html#cfn-pcs-cluster-slurmconfiguration-authkey
             '''
@@ -966,7 +1841,9 @@ class CfnCluster(
 
         @builtins.property
         def scale_down_idle_time_in_seconds(self) -> typing.Optional[jsii.Number]:
-            '''The time before an idle node is scaled down.
+            '''The time (in seconds) before an idle node is scaled down.
+
+            Default: ``600``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html#cfn-pcs-cluster-slurmconfiguration-scaledownidletimeinseconds
             '''
@@ -1012,7 +1889,7 @@ class CfnCluster(
         ) -> None:
             '''Additional settings that directly map to Slurm settings.
 
-            :param parameter_name: AWS PCS supports configuration of the following Slurm parameters:. - For *clusters* - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_ - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_ - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_ - For *compute node groups* - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_ - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
+            :param parameter_name: AWS PCS supports configuration of the following Slurm parameters:. - For *clusters* - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_ - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_ - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_ - ```AccountingStorageEnforce`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_AccountingStorageEnforce>`_ .. epigraph:: AWS PCS supports a subset of the options for ``AccountingStorageEnforce`` . For more information, see `Slurm accounting in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-accounting.html>`_ in the *AWS PCS User Guide* . - For *compute node groups* - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_ - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
             :param parameter_value: The values for the configured Slurm settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmcustomsetting.html
@@ -1046,6 +1923,12 @@ class CfnCluster(
             - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_
             - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_
             - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_
+            - ```AccountingStorageEnforce`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_AccountingStorageEnforce>`_
+
+            .. epigraph::
+
+               AWS PCS supports a subset of the options for ``AccountingStorageEnforce`` . For more information, see `Slurm accounting in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-accounting.html>`_ in the *AWS PCS User Guide* .
+
             - For *compute node groups*
             - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
             - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
@@ -1078,187 +1961,15 @@ class CfnCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcs.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "networking": "networking",
-        "scheduler": "scheduler",
-        "size": "size",
-        "name": "name",
-        "slurm_configuration": "slurmConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        networking: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.NetworkingProperty, typing.Dict[builtins.str, typing.Any]]],
-        scheduler: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SchedulerProperty, typing.Dict[builtins.str, typing.Any]]],
-        size: builtins.str,
-        name: typing.Optional[builtins.str] = None,
-        slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param networking: The networking configuration for the cluster's control plane.
-        :param scheduler: The cluster management and job scheduling software associated with the cluster.
-        :param size: The size of the cluster.
-        :param name: The name that identifies the cluster.
-        :param slurm_configuration: Additional options related to the Slurm scheduler.
-        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcs as pcs
-            
-            cfn_cluster_props = pcs.CfnClusterProps(
-                networking=pcs.CfnCluster.NetworkingProperty(
-                    network_type="networkType",
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                ),
-                scheduler=pcs.CfnCluster.SchedulerProperty(
-                    type="type",
-                    version="version"
-                ),
-                size="size",
-            
-                # the properties below are optional
-                name="name",
-                slurm_configuration=pcs.CfnCluster.SlurmConfigurationProperty(
-                    accounting=pcs.CfnCluster.AccountingProperty(
-                        mode="mode",
-            
-                        # the properties below are optional
-                        default_purge_time_in_days=123
-                    ),
-                    auth_key=pcs.CfnCluster.AuthKeyProperty(
-                        secret_arn="secretArn",
-                        secret_version="secretVersion"
-                    ),
-                    scale_down_idle_time_in_seconds=123,
-                    slurm_custom_settings=[pcs.CfnCluster.SlurmCustomSettingProperty(
-                        parameter_name="parameterName",
-                        parameter_value="parameterValue"
-                    )]
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1acc8d7c41893eaa3f211b6514471817eb607a349cab301161899ae592f0bdf0)
-            check_type(argname="argument networking", value=networking, expected_type=type_hints["networking"])
-            check_type(argname="argument scheduler", value=scheduler, expected_type=type_hints["scheduler"])
-            check_type(argname="argument size", value=size, expected_type=type_hints["size"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "networking": networking,
-            "scheduler": scheduler,
-            "size": size,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if slurm_configuration is not None:
-            self._values["slurm_configuration"] = slurm_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def networking(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCluster.NetworkingProperty]:
-        '''The networking configuration for the cluster's control plane.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-networking
-        '''
-        result = self._values.get("networking")
-        assert result is not None, "Required property 'networking' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCluster.NetworkingProperty], result)
-
-    @builtins.property
-    def scheduler(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCluster.SchedulerProperty]:
-        '''The cluster management and job scheduling software associated with the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-scheduler
-        '''
-        result = self._values.get("scheduler")
-        assert result is not None, "Required property 'scheduler' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCluster.SchedulerProperty], result)
-
-    @builtins.property
-    def size(self) -> builtins.str:
-        '''The size of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-size
-        '''
-        result = self._values.get("size")
-        assert result is not None, "Required property 'size' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name that identifies the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def slurm_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.SlurmConfigurationProperty]]:
-        '''Additional options related to the Slurm scheduler.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-slurmconfiguration
-        '''
-        result = self._values.get("slurm_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.SlurmConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''1 or more tags added to the resource.
-
-        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-cluster.html#cfn-pcs-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IComputeNodeGroupRef, _ITaggableV2_4e6798f8)
 class CfnComputeNodeGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup",
 ):
-    '''The ``AWS::PCS::ComputeNodeGroup`` resource creates an AWS PCS compute node group.
+    '''Creates an AWS PCS compute node group resource.
+
+    For more information, see `Creating a compute node group in AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/working-with_cng_create.html>`_ in the *AWS PCS User Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html
     :cloudformationResource: AWS::PCS::ComputeNodeGroup
@@ -1330,15 +2041,15 @@ class CfnComputeNodeGroup(
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_id: The ID of the cluster of the compute node group.
         :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
-        :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have pcs:RegisterComputeNodeGroupInstance permissions attached to provision instances correctly.
-        :param instance_configs: A list of EC2 instance configurations that AWS PCS can provision in the compute node group.
+        :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have the ``pcs:RegisterComputeNodeGroupInstance`` permission and the role name must start with ``AWSPCS`` or must have the path ``/aws-pcs/`` . For more information, see `IAM instance profiles for AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/security-instance-profiles.html>`_ in the *AWS PCS User Guide* .
+        :param instance_configs: A list of EC2 instance configurations that AWS AWS PCS can provision in the compute node group.
         :param scaling_configuration: Specifies the boundaries of the compute node group auto scaling.
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
         :param name: The name that identifies the compute node group.
-        :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand and Spot instances. For more information, see Instance purchasing options in the Amazon Elastic Compute Cloud User Guide. If you don't provide this option, it defaults to On-Demand.
+        :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS AWS PCS supports On-Demand and Spot instances. For more information, see `Instance purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . If you don't provide this option, it defaults to On-Demand.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
-        :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` .
+        :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
         :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
         '''
         if __debug__:
@@ -1424,7 +2135,9 @@ class CfnComputeNodeGroup(
     def attr_status(self) -> builtins.str:
         '''The provisioning status of the compute node group.
 
-        The provisioning status doesn't indicate the overall health of the compute node group.
+        .. epigraph::
+
+           The provisioning status doesn't indicate the overall health of the compute node group. > The resource enters the ``SUSPENDING`` and ``SUSPENDED`` states when the scheduler is beyond end of life and we have suspended the cluster. When in these states, you can't use the cluster. The cluster controller is down and all compute instances are terminated. The resources still count toward your service quotas. You can delete a resource if its status is ``SUSPENDED`` . For more information, see `Frequently asked questions about Slurm versions in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-versions_faq.html>`_ in the *AWS PCS User Guide* .
 
         :cloudformationAttribute: Status
         '''
@@ -1440,6 +2153,12 @@ class CfnComputeNodeGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="computeNodeGroupRef")
+    def compute_node_group_ref(self) -> ComputeNodeGroupReference:
+        '''A reference to a ComputeNodeGroup resource.'''
+        return typing.cast(ComputeNodeGroupReference, jsii.get(self, "computeNodeGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -1490,7 +2209,7 @@ class CfnComputeNodeGroup(
     def instance_configs(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.InstanceConfigProperty"]]]:
-        '''A list of EC2 instance configurations that AWS PCS can provision in the compute node group.'''
+        '''A list of EC2 instance configurations that AWS AWS PCS can provision in the compute node group.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.InstanceConfigProperty"]]], jsii.get(self, "instanceConfigs"))
 
     @instance_configs.setter
@@ -1596,7 +2315,7 @@ class CfnComputeNodeGroup(
     def spot_options(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SpotOptionsProperty"]]:
-        '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` .'''
+        '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComputeNodeGroup.SpotOptionsProperty"]], jsii.get(self, "spotOptions"))
 
     @spot_options.setter
@@ -1710,7 +2429,7 @@ class CfnComputeNodeGroup(
             code: typing.Optional[builtins.str] = None,
             message: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The list of errors that occurred during compute node group provisioning.
+            '''An error that occurred during resource creation.
 
             :param code: The short-form error code.
             :param message: The detailed error information.
@@ -1976,7 +2695,7 @@ class CfnComputeNodeGroup(
         ) -> None:
             '''Additional settings that directly map to Slurm settings.
 
-            :param parameter_name: AWS PCS supports configuration of the following Slurm parameters:. - For *clusters* - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_ - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_ - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_ - For *compute node groups* - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_ - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
+            :param parameter_name: AWS PCS supports configuration of the following Slurm parameters:. - For *clusters* - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_ - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_ - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_ - ```AccountingStorageEnforce`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_AccountingStorageEnforce>`_ .. epigraph:: AWS PCS supports a subset of the options for ``AccountingStorageEnforce`` . For more information, see `Slurm accounting in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-accounting.html>`_ in the *AWS PCS User Guide* . - For *compute node groups* - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_ - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
             :param parameter_value: The values for the configured Slurm settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-slurmcustomsetting.html
@@ -2010,6 +2729,12 @@ class CfnComputeNodeGroup(
             - ```Prolog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Prolog_1>`_
             - ```Epilog`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Epilog_1>`_
             - ```SelectTypeParameters`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_SelectTypeParameters>`_
+            - ```AccountingStorageEnforce`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_AccountingStorageEnforce>`_
+
+            .. epigraph::
+
+               AWS PCS supports a subset of the options for ``AccountingStorageEnforce`` . For more information, see `Slurm accounting in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-accounting.html>`_ in the *AWS PCS User Guide* .
+
             - For *compute node groups*
             - ```Weight`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
             - ```RealMemory`` <https://docs.aws.amazon.com/https://slurm.schedmd.com/slurm.conf.html#OPT_Weight>`_
@@ -2052,9 +2777,9 @@ class CfnComputeNodeGroup(
             *,
             allocation_strategy: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` .
+            '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
 
-            :param allocation_strategy: The Amazon EC2 allocation strategy AWS PCS uses to provision EC2 instances. AWS PCS supports lowest price, capacity optimized, and price capacity optimized. If you don't provide this option, it defaults to price capacity optimized.
+            :param allocation_strategy: The Amazon EC2 allocation strategy AWS AWS PCS uses to provision EC2 instances. AWS AWS PCS supports *lowest price* , *capacity optimized* , and *price capacity optimized* . For more information, see `Use allocation strategies to determine how EC2 Fleet or Spot Fleet fulfills Spot and On-Demand capacity <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-allocation-strategy.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . If you don't provide this option, it defaults to *price capacity optimized* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-spotoptions.html
             :exampleMetadata: fixture=_generated
@@ -2078,9 +2803,9 @@ class CfnComputeNodeGroup(
 
         @builtins.property
         def allocation_strategy(self) -> typing.Optional[builtins.str]:
-            '''The Amazon EC2 allocation strategy AWS PCS uses to provision EC2 instances.
+            '''The Amazon EC2 allocation strategy AWS AWS PCS uses to provision EC2 instances.
 
-            AWS PCS supports lowest price, capacity optimized, and price capacity optimized. If you don't provide this option, it defaults to price capacity optimized.
+            AWS AWS PCS supports *lowest price* , *capacity optimized* , and *price capacity optimized* . For more information, see `Use allocation strategies to determine how EC2 Fleet or Spot Fleet fulfills Spot and On-Demand capacity <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-allocation-strategy.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . If you don't provide this option, it defaults to *price capacity optimized* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-spotoptions.html#cfn-pcs-computenodegroup-spotoptions-allocationstrategy
             '''
@@ -2099,289 +2824,15 @@ class CfnComputeNodeGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_id": "clusterId",
-        "custom_launch_template": "customLaunchTemplate",
-        "iam_instance_profile_arn": "iamInstanceProfileArn",
-        "instance_configs": "instanceConfigs",
-        "scaling_configuration": "scalingConfiguration",
-        "subnet_ids": "subnetIds",
-        "ami_id": "amiId",
-        "name": "name",
-        "purchase_option": "purchaseOption",
-        "slurm_configuration": "slurmConfiguration",
-        "spot_options": "spotOptions",
-        "tags": "tags",
-    },
-)
-class CfnComputeNodeGroupProps:
-    def __init__(
-        self,
-        *,
-        cluster_id: builtins.str,
-        custom_launch_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
-        iam_instance_profile_arn: builtins.str,
-        instance_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.InstanceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        scaling_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        subnet_ids: typing.Sequence[builtins.str],
-        ami_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        purchase_option: typing.Optional[builtins.str] = None,
-        slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        spot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnComputeNodeGroup``.
-
-        :param cluster_id: The ID of the cluster of the compute node group.
-        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
-        :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have pcs:RegisterComputeNodeGroupInstance permissions attached to provision instances correctly.
-        :param instance_configs: A list of EC2 instance configurations that AWS PCS can provision in the compute node group.
-        :param scaling_configuration: Specifies the boundaries of the compute node group auto scaling.
-        :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
-        :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
-        :param name: The name that identifies the compute node group.
-        :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand and Spot instances. For more information, see Instance purchasing options in the Amazon Elastic Compute Cloud User Guide. If you don't provide this option, it defaults to On-Demand.
-        :param slurm_configuration: Additional options related to the Slurm scheduler.
-        :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` .
-        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcs as pcs
-            
-            cfn_compute_node_group_props = pcs.CfnComputeNodeGroupProps(
-                cluster_id="clusterId",
-                custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                    version="version",
-            
-                    # the properties below are optional
-                    template_id="templateId"
-                ),
-                iam_instance_profile_arn="iamInstanceProfileArn",
-                instance_configs=[pcs.CfnComputeNodeGroup.InstanceConfigProperty(
-                    instance_type="instanceType"
-                )],
-                scaling_configuration=pcs.CfnComputeNodeGroup.ScalingConfigurationProperty(
-                    max_instance_count=123,
-                    min_instance_count=123
-                ),
-                subnet_ids=["subnetIds"],
-            
-                # the properties below are optional
-                ami_id="amiId",
-                name="name",
-                purchase_option="purchaseOption",
-                slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
-                    slurm_custom_settings=[pcs.CfnComputeNodeGroup.SlurmCustomSettingProperty(
-                        parameter_name="parameterName",
-                        parameter_value="parameterValue"
-                    )]
-                ),
-                spot_options=pcs.CfnComputeNodeGroup.SpotOptionsProperty(
-                    allocation_strategy="allocationStrategy"
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d)
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-            check_type(argname="argument custom_launch_template", value=custom_launch_template, expected_type=type_hints["custom_launch_template"])
-            check_type(argname="argument iam_instance_profile_arn", value=iam_instance_profile_arn, expected_type=type_hints["iam_instance_profile_arn"])
-            check_type(argname="argument instance_configs", value=instance_configs, expected_type=type_hints["instance_configs"])
-            check_type(argname="argument scaling_configuration", value=scaling_configuration, expected_type=type_hints["scaling_configuration"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument purchase_option", value=purchase_option, expected_type=type_hints["purchase_option"])
-            check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
-            check_type(argname="argument spot_options", value=spot_options, expected_type=type_hints["spot_options"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_id": cluster_id,
-            "custom_launch_template": custom_launch_template,
-            "iam_instance_profile_arn": iam_instance_profile_arn,
-            "instance_configs": instance_configs,
-            "scaling_configuration": scaling_configuration,
-            "subnet_ids": subnet_ids,
-        }
-        if ami_id is not None:
-            self._values["ami_id"] = ami_id
-        if name is not None:
-            self._values["name"] = name
-        if purchase_option is not None:
-            self._values["purchase_option"] = purchase_option
-        if slurm_configuration is not None:
-            self._values["slurm_configuration"] = slurm_configuration
-        if spot_options is not None:
-            self._values["spot_options"] = spot_options
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def cluster_id(self) -> builtins.str:
-        '''The ID of the cluster of the compute node group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-clusterid
-        '''
-        result = self._values.get("cluster_id")
-        assert result is not None, "Required property 'cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_launch_template(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.CustomLaunchTemplateProperty]:
-        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-customlaunchtemplate
-        '''
-        result = self._values.get("custom_launch_template")
-        assert result is not None, "Required property 'custom_launch_template' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.CustomLaunchTemplateProperty], result)
-
-    @builtins.property
-    def iam_instance_profile_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances.
-
-        The role contained in your instance profile must have pcs:RegisterComputeNodeGroupInstance permissions attached to provision instances correctly.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-iaminstanceprofilearn
-        '''
-        result = self._values.get("iam_instance_profile_arn")
-        assert result is not None, "Required property 'iam_instance_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_configs(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.InstanceConfigProperty]]]:
-        '''A list of EC2 instance configurations that AWS PCS can provision in the compute node group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-instanceconfigs
-        '''
-        result = self._values.get("instance_configs")
-        assert result is not None, "Required property 'instance_configs' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.InstanceConfigProperty]]], result)
-
-    @builtins.property
-    def scaling_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.ScalingConfigurationProperty]:
-        '''Specifies the boundaries of the compute node group auto scaling.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-scalingconfiguration
-        '''
-        result = self._values.get("scaling_configuration")
-        assert result is not None, "Required property 'scaling_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.ScalingConfigurationProperty], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''The list of subnet IDs where instances are provisioned by the compute node group.
-
-        The subnets must be in the same VPC as the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def ami_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances.
-
-        If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-amiid
-        '''
-        result = self._values.get("ami_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name that identifies the compute node group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def purchase_option(self) -> typing.Optional[builtins.str]:
-        '''Specifies how EC2 instances are purchased on your behalf.
-
-        AWS PCS supports On-Demand and Spot instances. For more information, see Instance purchasing options in the Amazon Elastic Compute Cloud User Guide. If you don't provide this option, it defaults to On-Demand.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-purchaseoption
-        '''
-        result = self._values.get("purchase_option")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def slurm_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.SlurmConfigurationProperty]]:
-        '''Additional options related to the Slurm scheduler.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-slurmconfiguration
-        '''
-        result = self._values.get("slurm_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.SlurmConfigurationProperty]], result)
-
-    @builtins.property
-    def spot_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.SpotOptionsProperty]]:
-        '''Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-spotoptions
-        '''
-        result = self._values.get("spot_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComputeNodeGroup.SpotOptionsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''1 or more tags added to the resource.
-
-        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnComputeNodeGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IQueueRef, _ITaggableV2_4e6798f8)
 class CfnQueue(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_pcs.CfnQueue",
 ):
-    '''The ``AWS::PCS::Queue`` resource creates an AWS PCS queue.
+    '''Creates an AWS PCS queue resource.
+
+    For more information, see `Creating a queue in AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/working-with_queues_create.html>`_ in the *AWS PCS User Guide* .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html
     :cloudformationResource: AWS::PCS::Queue
@@ -2500,7 +2951,9 @@ class CfnQueue(
     def attr_status(self) -> builtins.str:
         '''The provisioning status of the queue.
 
-        The provisioning status doesn't indicate the overall health of the queue.
+        .. epigraph::
+
+           The provisioning status doesn't indicate the overall health of the queue. > The resource enters the ``SUSPENDING`` and ``SUSPENDED`` states when the scheduler is beyond end of life and we have suspended the cluster. When in these states, you can't use the cluster. The cluster controller is down and all compute instances are terminated. The resources still count toward your service quotas. You can delete a resource if its status is ``SUSPENDED`` . For more information, see `Frequently asked questions about Slurm versions in AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/slurm-versions_faq.html>`_ in the *AWS PCS User Guide* .
 
         :cloudformationAttribute: Status
         '''
@@ -2516,6 +2969,12 @@ class CfnQueue(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> QueueReference:
+        '''A reference to a Queue resource.'''
+        return typing.cast(QueueReference, jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -2644,7 +3103,7 @@ class CfnQueue(
             code: typing.Optional[builtins.str] = None,
             message: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''An error that occurred during resource provisioning.
+            '''An error that occurred during resource creation.
 
             :param code: The short-form error code.
             :param message: The detailed error information.
@@ -2703,125 +3162,6 @@ class CfnQueue(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcs.CfnQueueProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_id": "clusterId",
-        "compute_node_group_configurations": "computeNodeGroupConfigurations",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnQueueProps:
-    def __init__(
-        self,
-        *,
-        cluster_id: builtins.str,
-        compute_node_group_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.ComputeNodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnQueue``.
-
-        :param cluster_id: The ID of the cluster of the queue.
-        :param compute_node_group_configurations: The list of compute node group configurations associated with the queue. Queues assign jobs to associated compute node groups.
-        :param name: The name that identifies the queue.
-        :param tags: 1 or more tags added to the resource. Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcs as pcs
-            
-            cfn_queue_props = pcs.CfnQueueProps(
-                cluster_id="clusterId",
-            
-                # the properties below are optional
-                compute_node_group_configurations=[pcs.CfnQueue.ComputeNodeGroupConfigurationProperty(
-                    compute_node_group_id="computeNodeGroupId"
-                )],
-                name="name",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4211e23057aa9883cd55dc7f797abf7f4ad0554424bd2d7d7cfce123004b8557)
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-            check_type(argname="argument compute_node_group_configurations", value=compute_node_group_configurations, expected_type=type_hints["compute_node_group_configurations"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_id": cluster_id,
-        }
-        if compute_node_group_configurations is not None:
-            self._values["compute_node_group_configurations"] = compute_node_group_configurations
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def cluster_id(self) -> builtins.str:
-        '''The ID of the cluster of the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-clusterid
-        '''
-        result = self._values.get("cluster_id")
-        assert result is not None, "Required property 'cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def compute_node_group_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnQueue.ComputeNodeGroupConfigurationProperty]]]]:
-        '''The list of compute node group configurations associated with the queue.
-
-        Queues assign jobs to associated compute node groups.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-computenodegroupconfigurations
-        '''
-        result = self._values.get("compute_node_group_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnQueue.ComputeNodeGroupConfigurationProperty]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name that identifies the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''1 or more tags added to the resource.
-
-        Each tag consists of a tag key and tag value. The tag value is optional and can be an empty string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-queue.html#cfn-pcs-queue-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnQueueProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnCluster",
     "CfnClusterProps",
@@ -2829,9 +3169,76 @@ __all__ = [
     "CfnComputeNodeGroupProps",
     "CfnQueue",
     "CfnQueueProps",
+    "ClusterReference",
+    "ComputeNodeGroupReference",
+    "IClusterRef",
+    "IComputeNodeGroupRef",
+    "IQueueRef",
+    "QueueReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1acc8d7c41893eaa3f211b6514471817eb607a349cab301161899ae592f0bdf0(
+    *,
+    networking: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.NetworkingProperty, typing.Dict[builtins.str, typing.Any]]],
+    scheduler: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SchedulerProperty, typing.Dict[builtins.str, typing.Any]]],
+    size: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+    slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d(
+    *,
+    cluster_id: builtins.str,
+    custom_launch_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
+    iam_instance_profile_arn: builtins.str,
+    instance_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.InstanceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    scaling_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    subnet_ids: typing.Sequence[builtins.str],
+    ami_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    purchase_option: typing.Optional[builtins.str] = None,
+    slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    spot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4211e23057aa9883cd55dc7f797abf7f4ad0554424bd2d7d7cfce123004b8557(
+    *,
+    cluster_id: builtins.str,
+    compute_node_group_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.ComputeNodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80b9a736e4119188cdf494df5b57ca23cb47176927e2354fd0e63a7e958c58ea(
+    *,
+    cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9b9395e74aa18409e6cf946002b53eeefe8d34680c56446f04e005388c4e009(
+    *,
+    compute_node_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0802ca5ce5a51a515ed6ccc3580b3cc36bb0bad329fe5b6a9a3f208ffa1cc5ae(
+    *,
+    queue_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f3eeeaf566612baca2013a4f6d5c60484ee36ebc0edd307d32ef21991c170b65(
     scope: _constructs_77d1e7e8.Construct,
@@ -2961,18 +3368,6 @@ def _typecheckingstub__b9d168abcd7adc19d99485fc5db81c30bba87bb255608ac3a4487d1a1
     *,
     parameter_name: builtins.str,
     parameter_value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1acc8d7c41893eaa3f211b6514471817eb607a349cab301161899ae592f0bdf0(
-    *,
-    networking: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.NetworkingProperty, typing.Dict[builtins.str, typing.Any]]],
-    scheduler: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SchedulerProperty, typing.Dict[builtins.str, typing.Any]]],
-    size: builtins.str,
-    name: typing.Optional[builtins.str] = None,
-    slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3134,24 +3529,6 @@ def _typecheckingstub__adf4042ef194d53ff84c49fd66b8d9e370cc1fb06ce3e5dfca9c196a9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d(
-    *,
-    cluster_id: builtins.str,
-    custom_launch_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
-    iam_instance_profile_arn: builtins.str,
-    instance_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.InstanceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    scaling_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    subnet_ids: typing.Sequence[builtins.str],
-    ami_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    purchase_option: typing.Optional[builtins.str] = None,
-    slurm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    spot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__456edeb02414f262683a35f15a1fae223f92feec590d98024478f680e3249bdd(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3211,16 +3588,6 @@ def _typecheckingstub__5e51eb0cec81203da74b9b3c33259135afec8fef04327498ab79338af
     *,
     code: typing.Optional[builtins.str] = None,
     message: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4211e23057aa9883cd55dc7f797abf7f4ad0554424bd2d7d7cfce123004b8557(
-    *,
-    cluster_id: builtins.str,
-    compute_node_group_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.ComputeNodeGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

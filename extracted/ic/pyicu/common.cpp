@@ -645,35 +645,6 @@ int isInstance(PyObject *arg, classid id, PyTypeObject *type)
     return 0;
 }
 
-UObject **pl2cpa(PyObject *arg, size_t *len, classid id, PyTypeObject *type)
-{
-    if (PySequence_Check(arg))
-    {
-        *len = (int) PySequence_Size(arg);
-        UObject **array = (UObject **) calloc(*len, sizeof(UObject *));
-
-        for (size_t i = 0; i < *len; i++) {
-            PyObject *obj = PySequence_GetItem(arg, i);
-
-            if (isInstance(obj, id, type))
-            {
-                array[i] = ((t_uobject *) obj)->object;
-                Py_DECREF(obj);
-            }
-            else
-            {
-                Py_DECREF(obj);
-                free(array);
-                return NULL;
-            }
-        }
-
-        return array;
-    }
-
-    return NULL;
-}
-
 PyObject *cpa2pl(UObject **array, size_t len, PyObject *(*wrap)(UObject *, int))
 {
     PyObject *list = PyList_New(len);

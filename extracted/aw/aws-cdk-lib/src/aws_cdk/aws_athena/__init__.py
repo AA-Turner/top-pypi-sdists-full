@@ -70,328 +70,53 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnCapacityReservation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation",
-):
-    '''Specifies a capacity reservation with the provided name and number of requested data processing units.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.CapacityReservationReference",
+    jsii_struct_bases=[],
+    name_mapping={"capacity_reservation_arn": "capacityReservationArn"},
+)
+class CapacityReservationReference:
+    def __init__(self, *, capacity_reservation_arn: builtins.str) -> None:
+        '''A reference to a CapacityReservation resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-capacityreservation.html
-    :cloudformationResource: AWS::Athena::CapacityReservation
-    :exampleMetadata: fixture=_generated
+        :param capacity_reservation_arn: The Arn of the CapacityReservation resource.
 
-    Example::
+        :exampleMetadata: fixture=_generated
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_athena as athena
-        
-        cfn_capacity_reservation = athena.CfnCapacityReservation(self, "MyCfnCapacityReservation",
-            name="name",
-            target_dpus=123,
-        
-            # the properties below are optional
-            capacity_assignment_configuration=athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty(
-                capacity_assignments=[athena.CfnCapacityReservation.CapacityAssignmentProperty(
-                    workgroup_names=["workgroupNames"]
-                )]
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
+        Example::
 
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        target_dpus: jsii.Number,
-        capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapacityReservation.CapacityAssignmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the capacity reservation.
-        :param target_dpus: The number of data processing units requested.
-        :param capacity_assignment_configuration: Assigns Athena workgroups (and hence their queries) to capacity reservations. A capacity reservation can have only one capacity assignment configuration, but the capacity assignment configuration can be made up of multiple individual assignments. Each assignment specifies how Athena queries can consume capacity from the capacity reservation that their workgroup is mapped to.
-        :param tags: An array of key-value pairs to apply to the capacity reservation. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7458bc9b2513dcdcbd6a0f9a6fcf8ad6ac0dd26405dc0f98526c7739ed69c27c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCapacityReservationProps(
-            name=name,
-            target_dpus=target_dpus,
-            capacity_assignment_configuration=capacity_assignment_configuration,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bcae353c3f5a5e1be964ca831d796ba8924d38d98e4da35f1f4249f28af0833)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53690919665793c02b948caf7c04a9ead8e6a42334d1d9e82cc4e52fcb473d8)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAllocatedDpus")
-    def attr_allocated_dpus(self) -> jsii.Number:
-        '''The number of data processing units currently allocated.
-
-        :cloudformationAttribute: AllocatedDpus
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrAllocatedDpus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the capacity reservation.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationTime")
-    def attr_creation_time(self) -> builtins.str:
-        '''The time in UTC epoch millis when the capacity reservation was created.
-
-        :cloudformationAttribute: CreationTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrLastSuccessfulAllocationTime")
-    def attr_last_successful_allocation_time(self) -> builtins.str:
-        '''The time of the most recent capacity allocation that succeeded.
-
-        :cloudformationAttribute: LastSuccessfulAllocationTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastSuccessfulAllocationTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The status of the capacity reservation.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the capacity reservation.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e52ca03df32f93c24d4644e58482808fd84da5af0a6c8aad6cd35c472aacb8c4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetDpus")
-    def target_dpus(self) -> jsii.Number:
-        '''The number of data processing units requested.'''
-        return typing.cast(jsii.Number, jsii.get(self, "targetDpus"))
-
-    @target_dpus.setter
-    def target_dpus(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__673e63d688637c639118c4ff9bd95f6fb3efe1b1a0c8e2ca1005cd0aec265b52)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetDpus", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="capacityAssignmentConfiguration")
-    def capacity_assignment_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]]:
-        '''Assigns Athena workgroups (and hence their queries) to capacity reservations.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]], jsii.get(self, "capacityAssignmentConfiguration"))
-
-    @capacity_assignment_configuration.setter
-    def capacity_assignment_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a48300257a027470aa2568c3011be47c3a12de78febb9a5d2cbc29c8489c9470)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capacityAssignmentConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the capacity reservation.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2d5ea5f595f96f7b9cd5f389257bb6c2960294d98f1ab6ad6a6c1ab211b6a2d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"capacity_assignments": "capacityAssignments"},
-    )
-    class CapacityAssignmentConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            capacity_assignments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapacityReservation.CapacityAssignmentProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        ) -> None:
-            '''Assigns Athena workgroups (and hence their queries) to capacity reservations.
-
-            A capacity reservation can have only one capacity assignment configuration, but the capacity assignment configuration can be made up of multiple individual assignments. Each assignment specifies how Athena queries can consume capacity from the capacity reservation that their workgroup is mapped to.
-
-            :param capacity_assignments: The list of assignments that make up the capacity assignment configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignmentconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_athena as athena
-                
-                capacity_assignment_configuration_property = athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty(
-                    capacity_assignments=[athena.CfnCapacityReservation.CapacityAssignmentProperty(
-                        workgroup_names=["workgroupNames"]
-                    )]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__db76e33e02ec05ffa8974dcc161a2bc5a3765035346802d58d4dfe7853a80348)
-                check_type(argname="argument capacity_assignments", value=capacity_assignments, expected_type=type_hints["capacity_assignments"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "capacity_assignments": capacity_assignments,
-            }
-
-        @builtins.property
-        def capacity_assignments(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentProperty"]]]:
-            '''The list of assignments that make up the capacity assignment configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignmentconfiguration.html#cfn-athena-capacityreservation-capacityassignmentconfiguration-capacityassignments
-            '''
-            result = self._values.get("capacity_assignments")
-            assert result is not None, "Required property 'capacity_assignments' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentProperty"]]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CapacityAssignmentConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            capacity_reservation_reference = athena.CapacityReservationReference(
+                capacity_reservation_arn="capacityReservationArn"
             )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dd7ae778acd8a386ad992c2ee7b59fe3867130addf3ab0e4fd4e5a18480a895)
+            check_type(argname="argument capacity_reservation_arn", value=capacity_reservation_arn, expected_type=type_hints["capacity_reservation_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capacity_reservation_arn": capacity_reservation_arn,
+        }
 
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation.CapacityAssignmentProperty",
-        jsii_struct_bases=[],
-        name_mapping={"workgroup_names": "workgroupNames"},
-    )
-    class CapacityAssignmentProperty:
-        def __init__(self, *, workgroup_names: typing.Sequence[builtins.str]) -> None:
-            '''A mapping between one or more workgroups and a capacity reservation.
+    @builtins.property
+    def capacity_reservation_arn(self) -> builtins.str:
+        '''The Arn of the CapacityReservation resource.'''
+        result = self._values.get("capacity_reservation_arn")
+        assert result is not None, "Required property 'capacity_reservation_arn' is missing"
+        return typing.cast(builtins.str, result)
 
-            :param workgroup_names: The list of workgroup names for the capacity assignment.
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignment.html
-            :exampleMetadata: fixture=_generated
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_athena as athena
-                
-                capacity_assignment_property = athena.CfnCapacityReservation.CapacityAssignmentProperty(
-                    workgroup_names=["workgroupNames"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e658c20843cc693ef5569c20bee6d431a496b10c7009acb64986e6a31ca21df2)
-                check_type(argname="argument workgroup_names", value=workgroup_names, expected_type=type_hints["workgroup_names"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "workgroup_names": workgroup_names,
-            }
-
-        @builtins.property
-        def workgroup_names(self) -> typing.List[builtins.str]:
-            '''The list of workgroup names for the capacity assignment.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignment.html#cfn-athena-capacityreservation-capacityassignment-workgroupnames
-            '''
-            result = self._values.get("workgroup_names")
-            assert result is not None, "Required property 'workgroup_names' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CapacityAssignmentProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
+    def __repr__(self) -> str:
+        return "CapacityReservationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -410,7 +135,7 @@ class CfnCapacityReservationProps:
         *,
         name: builtins.str,
         target_dpus: jsii.Number,
-        capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityReservation.CapacityAssignmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapacityReservation.CapacityAssignmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCapacityReservation``.
@@ -483,7 +208,7 @@ class CfnCapacityReservationProps:
     @builtins.property
     def capacity_assignment_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCapacityReservation.CapacityAssignmentConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]]:
         '''Assigns Athena workgroups (and hence their queries) to capacity reservations.
 
         A capacity reservation can have only one capacity assignment configuration, but the capacity assignment configuration can be made up of multiple individual assignments. Each assignment specifies how Athena queries can consume capacity from the capacity reservation that their workgroup is mapped to.
@@ -491,7 +216,7 @@ class CfnCapacityReservationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-capacityreservation.html#cfn-athena-capacityreservation-capacityassignmentconfiguration
         '''
         result = self._values.get("capacity_assignment_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCapacityReservation.CapacityAssignmentConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -514,239 +239,6 @@ class CfnCapacityReservationProps:
         return "CfnCapacityReservationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDataCatalog(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_athena.CfnDataCatalog",
-):
-    '''The AWS::Athena::DataCatalog resource specifies an Amazon Athena data catalog, which contains a name, description, type, parameters, and tags.
-
-    For more information, see `DataCatalog <https://docs.aws.amazon.com/athena/latest/APIReference/API_DataCatalog.html>`_ in the *Amazon Athena API Reference* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-datacatalog.html
-    :cloudformationResource: AWS::Athena::DataCatalog
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_athena as athena
-        
-        cfn_data_catalog = athena.CfnDataCatalog(self, "MyCfnDataCatalog",
-            name="name",
-            type="type",
-        
-            # the properties below are optional
-            connection_type="connectionType",
-            description="description",
-            error="error",
-            parameters={
-                "parameters_key": "parameters"
-            },
-            status="status",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        type: builtins.str,
-        connection_type: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        error: typing.Optional[builtins.str] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the data catalog. The catalog name must be unique for the AWS account and can use a maximum of 128 alphanumeric, underscore, at sign, or hyphen characters.
-        :param type: The type of data catalog: ``LAMBDA`` for a federated catalog, ``GLUE`` for AWS Glue Catalog, or ``HIVE`` for an external hive metastore.
-        :param connection_type: The type of connection for a ``FEDERATED`` data catalog (for example, ``REDSHIFT`` , ``MYSQL`` , or ``SQLSERVER`` ). For information about individual connectors, see `Available data source connectors <https://docs.aws.amazon.com/athena/latest/ug/connectors-available.html>`_ .
-        :param description: A description of the data catalog.
-        :param error: Text of the error that occurred during data catalog creation or deletion.
-        :param parameters: Specifies the Lambda function or functions to use for creating the data catalog. This is a mapping whose values depend on the catalog type. - For the ``HIVE`` data catalog type, use the following syntax. The ``metadata-function`` parameter is required. ``The sdk-version`` parameter is optional and defaults to the currently supported version. ``metadata-function= *lambda_arn* , sdk-version= *version_number*`` - For the ``LAMBDA`` data catalog type, use one of the following sets of required parameters, but not both. - If you have one Lambda function that processes metadata and another for reading the actual data, use the following syntax. Both parameters are required. ``metadata-function= *lambda_arn* , record-function= *lambda_arn*`` - If you have a composite Lambda function that processes both metadata and data, use the following syntax to specify your Lambda function. ``function= *lambda_arn*`` - The ``GLUE`` type takes a catalog ID parameter and is required. The ``*catalog_id*`` is the account ID of the AWS account to which the AWS Glue Data Catalog belongs. ``catalog-id= *catalog_id*`` - The ``GLUE`` data catalog type also applies to the default ``AwsDataCatalog`` that already exists in your account, of which you can have only one and cannot modify. - The ``FEDERATED`` data catalog type uses one of the following parameters, but not both. Use ``connection-arn`` for an existing AWS Glue connection. Use ``connection-type`` and ``connection-properties`` to specify the configuration setting for a new connection. - ``connection-arn: *<glue_connection_arn_to_reuse>*`` - ``lambda-role-arn`` (optional): The execution role to use for the Lambda function. If not provided, one is created. - ``connection-type:MYSQL|REDSHIFT|...., connection-properties:" *<json_string>* "`` For *``<json_string>``* , use escaped JSON text, as in the following example. ``"{\\"spill_bucket\\":\\"my_spill\\",\\"spill_prefix\\":\\"athena-spill\\",\\"host\\":\\"abc12345.snowflakecomputing.com\\",\\"port\\":\\"1234\\",\\"warehouse\\":\\"DEV_WH\\",\\"database\\":\\"TEST\\",\\"schema\\":\\"PUBLIC\\",\\"SecretArn\\":\\"arn:aws:secretsmanager:ap-south-1:111122223333:secret:snowflake-XHb67j\\"}"``
-        :param status: The status of the creation or deletion of the data catalog. - The ``LAMBDA`` , ``GLUE`` , and ``HIVE`` data catalog types are created synchronously. Their status is either ``CREATE_COMPLETE`` or ``CREATE_FAILED`` . - The ``FEDERATED`` data catalog type is created asynchronously. Data catalog creation status: - ``CREATE_IN_PROGRESS`` : Federated data catalog creation in progress. - ``CREATE_COMPLETE`` : Data catalog creation complete. - ``CREATE_FAILED`` : Data catalog could not be created. - ``CREATE_FAILED_CLEANUP_IN_PROGRESS`` : Federated data catalog creation failed and is being removed. - ``CREATE_FAILED_CLEANUP_COMPLETE`` : Federated data catalog creation failed and was removed. - ``CREATE_FAILED_CLEANUP_FAILED`` : Federated data catalog creation failed but could not be removed. Data catalog deletion status: - ``DELETE_IN_PROGRESS`` : Federated data catalog deletion in progress. - ``DELETE_COMPLETE`` : Federated data catalog deleted. - ``DELETE_FAILED`` : Federated data catalog could not be deleted.
-        :param tags: The tags (key-value pairs) to associate with this resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05023d61a95576869568bc095d9889b971a9d8c061cba5833a71f44231f3b9e8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDataCatalogProps(
-            name=name,
-            type=type,
-            connection_type=connection_type,
-            description=description,
-            error=error,
-            parameters=parameters,
-            status=status,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70484df33f57719ba2197f7ae86dd846651ec89bd9dc9853fbc4fff3bb342b5e)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53b184d971619ad9ceb2925488e914f96ae85a3537cc1bbc7fcec083c3c925b5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the data catalog.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1608b3146e652acde24c1f4fa9b482be4691d7f18e63abae7294e6d2be79cd57)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> builtins.str:
-        '''The type of data catalog: ``LAMBDA`` for a federated catalog, ``GLUE`` for AWS Glue Catalog, or ``HIVE`` for an external hive metastore.'''
-        return typing.cast(builtins.str, jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__648f5f258b71a886cda692ac680360ffcaf9aa72e0b747dc0986bc6a3da0b9c8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionType")
-    def connection_type(self) -> typing.Optional[builtins.str]:
-        '''The type of connection for a ``FEDERATED`` data catalog (for example, ``REDSHIFT`` , ``MYSQL`` , or ``SQLSERVER`` ).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectionType"))
-
-    @connection_type.setter
-    def connection_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cff13c1978bd5799618709da26f9846763b1ac2ec6cab029c70620a67c55093a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the data catalog.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da91751e350be071e1bcad20db12b8878ad53b907a7422a55f53fa3951e8f509)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="error")
-    def error(self) -> typing.Optional[builtins.str]:
-        '''Text of the error that occurred during data catalog creation or deletion.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "error"))
-
-    @error.setter
-    def error(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d548d02ca24f2ba4149dd152142567beb4e778d9ac5d70541231145411044585)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "error", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Specifies the Lambda function or functions to use for creating the data catalog.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(
-        self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c7bec0cee9cc93380a50923dfa0015a801db986ded37e98f7318cd85af887ed)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the creation or deletion of the data catalog.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3f1a6fa1564ab3d7f58459f2b7ab271070b72c718de2a0142f755faa882bec3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags (key-value pairs) to associate with this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__732720a85a91adafa344b33afc56917f285d76d3c81b8851c7f46aee8ac4b31f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -980,179 +472,6 @@ class CfnDataCatalogProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnNamedQuery(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_athena.CfnNamedQuery",
-):
-    '''The ``AWS::Athena::NamedQuery`` resource specifies an Amazon Athena saved query, where ``QueryString`` contains the SQL query statements that make up the query.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-namedquery.html
-    :cloudformationResource: AWS::Athena::NamedQuery
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_athena as athena
-        
-        cfn_named_query = athena.CfnNamedQuery(self, "MyCfnNamedQuery",
-            database="database",
-            query_string="queryString",
-        
-            # the properties below are optional
-            description="description",
-            name="name",
-            work_group="workGroup"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        database: builtins.str,
-        query_string: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        work_group: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param database: The database to which the query belongs.
-        :param query_string: The SQL statements that make up the query.
-        :param description: The query description.
-        :param name: The query name.
-        :param work_group: The name of the workgroup that contains the named query.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70a6acd727802c2fa7a22438ae44b6660590077a4f16a3e6add10721d6e8db0a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnNamedQueryProps(
-            database=database,
-            query_string=query_string,
-            description=description,
-            name=name,
-            work_group=work_group,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddec5e38097efea59697e1d796fb6a6d88b7ddece86ca310e4558dddfdb308b6)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf59ed9b65b480c5d847ba252258084274a9caf2a33c0d357ec8831f81ecba20)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrNamedQueryId")
-    def attr_named_query_id(self) -> builtins.str:
-        '''The unique ID of the query.
-
-        :cloudformationAttribute: NamedQueryId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrNamedQueryId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="database")
-    def database(self) -> builtins.str:
-        '''The database to which the query belongs.'''
-        return typing.cast(builtins.str, jsii.get(self, "database"))
-
-    @database.setter
-    def database(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__501cd8c10c3d115e2f7cac0d6afe0b38bf2af9f4c2baa50fa99e8e7ba4327165)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "database", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="queryString")
-    def query_string(self) -> builtins.str:
-        '''The SQL statements that make up the query.'''
-        return typing.cast(builtins.str, jsii.get(self, "queryString"))
-
-    @query_string.setter
-    def query_string(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c663852da3bf6abca104187294becf5134a8fc1a2d9f25c6701872f41fde8ba9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The query description.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a745e34dd545f8dc388bc187b5819d2ef704db543656d96e0b9de86430379e1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The query name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bff191aa3a040eb433f325a55450844fa2a74753c5b7cc84413e2cda83bd7d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="workGroup")
-    def work_group(self) -> typing.Optional[builtins.str]:
-        '''The name of the workgroup that contains the named query.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workGroup"))
-
-    @work_group.setter
-    def work_group(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bb682c36871b1c9d1ea3cca54fdda6bd4c9a2175d91b4bcc2aff8385207d037)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workGroup", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_athena.CfnNamedQueryProps",
     jsii_struct_bases=[],
@@ -1278,153 +597,6 @@ class CfnNamedQueryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnPreparedStatement(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_athena.CfnPreparedStatement",
-):
-    '''Specifies a prepared statement for use with SQL queries in Athena.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-preparedstatement.html
-    :cloudformationResource: AWS::Athena::PreparedStatement
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_athena as athena
-        
-        cfn_prepared_statement = athena.CfnPreparedStatement(self, "MyCfnPreparedStatement",
-            query_statement="queryStatement",
-            statement_name="statementName",
-            work_group="workGroup",
-        
-            # the properties below are optional
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        query_statement: builtins.str,
-        statement_name: builtins.str,
-        work_group: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param query_statement: The query string for the prepared statement.
-        :param statement_name: The name of the prepared statement.
-        :param work_group: The workgroup to which the prepared statement belongs.
-        :param description: The description of the prepared statement.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c4c8a39ce9fb61cd606b4abe521c05c0c7c27caa382a68b361cf3be632c8c83)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPreparedStatementProps(
-            query_statement=query_statement,
-            statement_name=statement_name,
-            work_group=work_group,
-            description=description,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a69017370b966513d7ca221de45e0ee04038dba0f3e2b7a738436d078d1c48c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0b1adefc3ae78288ead2138671ccc59867e63261ac6fa2f2ea32a85d1c2805f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="queryStatement")
-    def query_statement(self) -> builtins.str:
-        '''The query string for the prepared statement.'''
-        return typing.cast(builtins.str, jsii.get(self, "queryStatement"))
-
-    @query_statement.setter
-    def query_statement(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18c5e047fd7a10b962ddfc814e209cbca4ff1a422c2293eb18b16d83af0711a1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryStatement", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="statementName")
-    def statement_name(self) -> builtins.str:
-        '''The name of the prepared statement.'''
-        return typing.cast(builtins.str, jsii.get(self, "statementName"))
-
-    @statement_name.setter
-    def statement_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dda65d001efb04fb60a14b983d53ba4365b21f672e62245cf7f61199a432872)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statementName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="workGroup")
-    def work_group(self) -> builtins.str:
-        '''The workgroup to which the prepared statement belongs.'''
-        return typing.cast(builtins.str, jsii.get(self, "workGroup"))
-
-    @work_group.setter
-    def work_group(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99d939bc99487519bb0415ef8ada649107f8686d2077741c486620ecf3af8996)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workGroup", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the prepared statement.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f39b664043d33c495a721144bc0de55a433122a4024bcbb066c229ec4cf1fe8b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_athena.CfnPreparedStatementProps",
     jsii_struct_bases=[],
@@ -1534,7 +706,1571 @@ class CfnPreparedStatementProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.CfnWorkGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "recursive_delete_option": "recursiveDeleteOption",
+        "state": "state",
+        "tags": "tags",
+        "work_group_configuration": "workGroupConfiguration",
+        "work_group_configuration_updates": "workGroupConfigurationUpdates",
+    },
+)
+class CfnWorkGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        recursive_delete_option: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        work_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.WorkGroupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        work_group_configuration_updates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.WorkGroupConfigurationUpdatesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkGroup``.
+
+        :param name: The workgroup name.
+        :param description: The workgroup description.
+        :param recursive_delete_option: The option to delete a workgroup and its contents even if the workgroup contains any named queries. The default is false.
+        :param state: The state of the workgroup: ENABLED or DISABLED.
+        :param tags: The tags (key-value pairs) to associate with this resource.
+        :param work_group_configuration: The configuration of the workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether Amazon CloudWatch Metrics are enabled for the workgroup, and the limit for the amount of bytes scanned (cutoff) per query, if it is specified. The ``EnforceWorkGroupConfiguration`` option determines whether workgroup settings override client-side query settings.
+        :param work_group_configuration_updates: (deprecated) The configuration information that will be updated for this workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether the Amazon CloudWatch Metrics are enabled for the workgroup, whether the workgroup settings override the client-side settings, and the data usage limit for the amount of bytes scanned per query, if it is specified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            cfn_work_group_props = athena.CfnWorkGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                recursive_delete_option=False,
+                state="state",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                work_group_configuration=athena.CfnWorkGroup.WorkGroupConfigurationProperty(
+                    additional_configuration="additionalConfiguration",
+                    bytes_scanned_cutoff_per_query=123,
+                    customer_content_encryption_configuration=athena.CfnWorkGroup.CustomerContentEncryptionConfigurationProperty(
+                        kms_key="kmsKey"
+                    ),
+                    enforce_work_group_configuration=False,
+                    engine_version=athena.CfnWorkGroup.EngineVersionProperty(
+                        effective_engine_version="effectiveEngineVersion",
+                        selected_engine_version="selectedEngineVersion"
+                    ),
+                    execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
+                    publish_cloud_watch_metrics_enabled=False,
+                    requester_pays_enabled=False,
+                    result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
+                        acl_configuration=athena.CfnWorkGroup.AclConfigurationProperty(
+                            s3_acl_option="s3AclOption"
+                        ),
+                        encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
+                            encryption_option="encryptionOption",
+            
+                            # the properties below are optional
+                            kms_key="kmsKey"
+                        ),
+                        expected_bucket_owner="expectedBucketOwner",
+                        output_location="outputLocation"
+                    )
+                ),
+                work_group_configuration_updates=athena.CfnWorkGroup.WorkGroupConfigurationUpdatesProperty(
+                    additional_configuration="additionalConfiguration",
+                    bytes_scanned_cutoff_per_query=123,
+                    customer_content_encryption_configuration=athena.CfnWorkGroup.CustomerContentEncryptionConfigurationProperty(
+                        kms_key="kmsKey"
+                    ),
+                    enforce_work_group_configuration=False,
+                    engine_version=athena.CfnWorkGroup.EngineVersionProperty(
+                        effective_engine_version="effectiveEngineVersion",
+                        selected_engine_version="selectedEngineVersion"
+                    ),
+                    execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
+                    publish_cloud_watch_metrics_enabled=False,
+                    remove_bytes_scanned_cutoff_per_query=False,
+                    remove_customer_content_encryption_configuration=False,
+                    requester_pays_enabled=False,
+                    result_configuration_updates=athena.CfnWorkGroup.ResultConfigurationUpdatesProperty(
+                        acl_configuration=athena.CfnWorkGroup.AclConfigurationProperty(
+                            s3_acl_option="s3AclOption"
+                        ),
+                        encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
+                            encryption_option="encryptionOption",
+            
+                            # the properties below are optional
+                            kms_key="kmsKey"
+                        ),
+                        expected_bucket_owner="expectedBucketOwner",
+                        output_location="outputLocation",
+                        remove_acl_configuration=False,
+                        remove_encryption_configuration=False,
+                        remove_expected_bucket_owner=False,
+                        remove_output_location=False
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a4bfef13ffe779b4b820a3b9c0da8391485059087230747da25d5f8e5c9c4c3)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument recursive_delete_option", value=recursive_delete_option, expected_type=type_hints["recursive_delete_option"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument work_group_configuration", value=work_group_configuration, expected_type=type_hints["work_group_configuration"])
+            check_type(argname="argument work_group_configuration_updates", value=work_group_configuration_updates, expected_type=type_hints["work_group_configuration_updates"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if recursive_delete_option is not None:
+            self._values["recursive_delete_option"] = recursive_delete_option
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+        if work_group_configuration is not None:
+            self._values["work_group_configuration"] = work_group_configuration
+        if work_group_configuration_updates is not None:
+            self._values["work_group_configuration_updates"] = work_group_configuration_updates
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The workgroup name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The workgroup description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recursive_delete_option(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The option to delete a workgroup and its contents even if the workgroup contains any named queries.
+
+        The default is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-recursivedeleteoption
+        '''
+        result = self._values.get("recursive_delete_option")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the workgroup: ENABLED or DISABLED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags (key-value pairs) to associate with this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def work_group_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.WorkGroupConfigurationProperty"]]:
+        '''The configuration of the workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether Amazon CloudWatch Metrics are enabled for the workgroup, and the limit for the amount of bytes scanned (cutoff) per query, if it is specified.
+
+        The ``EnforceWorkGroupConfiguration`` option determines whether workgroup settings override client-side query settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-workgroupconfiguration
+        '''
+        result = self._values.get("work_group_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.WorkGroupConfigurationProperty"]], result)
+
+    @builtins.property
+    def work_group_configuration_updates(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.WorkGroupConfigurationUpdatesProperty"]]:
+        '''(deprecated) The configuration information that will be updated for this workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether the Amazon CloudWatch Metrics are enabled for the workgroup, whether the workgroup settings override the client-side settings, and the data usage limit for the amount of bytes scanned per query, if it is specified.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-workgroupconfigurationupdates
+        :stability: deprecated
+        '''
+        result = self._values.get("work_group_configuration_updates")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.WorkGroupConfigurationUpdatesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.DataCatalogReference",
+    jsii_struct_bases=[],
+    name_mapping={"data_catalog_name": "dataCatalogName"},
+)
+class DataCatalogReference:
+    def __init__(self, *, data_catalog_name: builtins.str) -> None:
+        '''A reference to a DataCatalog resource.
+
+        :param data_catalog_name: The Name of the DataCatalog resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            data_catalog_reference = athena.DataCatalogReference(
+                data_catalog_name="dataCatalogName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0aec09d8477091c659ac4494af21cfe192386cd7dfa11a19a094a352489281f3)
+            check_type(argname="argument data_catalog_name", value=data_catalog_name, expected_type=type_hints["data_catalog_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_catalog_name": data_catalog_name,
+        }
+
+    @builtins.property
+    def data_catalog_name(self) -> builtins.str:
+        '''The Name of the DataCatalog resource.'''
+        result = self._values.get("data_catalog_name")
+        assert result is not None, "Required property 'data_catalog_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataCatalogReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_athena.ICapacityReservationRef")
+class ICapacityReservationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityReservationRef")
+    def capacity_reservation_ref(self) -> CapacityReservationReference:
+        '''(experimental) A reference to a CapacityReservation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICapacityReservationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_athena.ICapacityReservationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityReservationRef")
+    def capacity_reservation_ref(self) -> CapacityReservationReference:
+        '''(experimental) A reference to a CapacityReservation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CapacityReservationReference, jsii.get(self, "capacityReservationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICapacityReservationRef).__jsii_proxy_class__ = lambda : _ICapacityReservationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_athena.IDataCatalogRef")
+class IDataCatalogRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataCatalog.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataCatalogRef")
+    def data_catalog_ref(self) -> DataCatalogReference:
+        '''(experimental) A reference to a DataCatalog resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataCatalogRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataCatalog.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_athena.IDataCatalogRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataCatalogRef")
+    def data_catalog_ref(self) -> DataCatalogReference:
+        '''(experimental) A reference to a DataCatalog resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataCatalogReference, jsii.get(self, "dataCatalogRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataCatalogRef).__jsii_proxy_class__ = lambda : _IDataCatalogRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_athena.INamedQueryRef")
+class INamedQueryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a NamedQuery.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="namedQueryRef")
+    def named_query_ref(self) -> "NamedQueryReference":
+        '''(experimental) A reference to a NamedQuery resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INamedQueryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NamedQuery.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_athena.INamedQueryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="namedQueryRef")
+    def named_query_ref(self) -> "NamedQueryReference":
+        '''(experimental) A reference to a NamedQuery resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NamedQueryReference", jsii.get(self, "namedQueryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INamedQueryRef).__jsii_proxy_class__ = lambda : _INamedQueryRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_athena.IPreparedStatementRef")
+class IPreparedStatementRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PreparedStatement.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="preparedStatementRef")
+    def prepared_statement_ref(self) -> "PreparedStatementReference":
+        '''(experimental) A reference to a PreparedStatement resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPreparedStatementRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PreparedStatement.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_athena.IPreparedStatementRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="preparedStatementRef")
+    def prepared_statement_ref(self) -> "PreparedStatementReference":
+        '''(experimental) A reference to a PreparedStatement resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PreparedStatementReference", jsii.get(self, "preparedStatementRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPreparedStatementRef).__jsii_proxy_class__ = lambda : _IPreparedStatementRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_athena.IWorkGroupRef")
+class IWorkGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a WorkGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroupRef")
+    def work_group_ref(self) -> "WorkGroupReference":
+        '''(experimental) A reference to a WorkGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_athena.IWorkGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroupRef")
+    def work_group_ref(self) -> "WorkGroupReference":
+        '''(experimental) A reference to a WorkGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkGroupReference", jsii.get(self, "workGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkGroupRef).__jsii_proxy_class__ = lambda : _IWorkGroupRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.NamedQueryReference",
+    jsii_struct_bases=[],
+    name_mapping={"named_query_id": "namedQueryId"},
+)
+class NamedQueryReference:
+    def __init__(self, *, named_query_id: builtins.str) -> None:
+        '''A reference to a NamedQuery resource.
+
+        :param named_query_id: The NamedQueryId of the NamedQuery resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            named_query_reference = athena.NamedQueryReference(
+                named_query_id="namedQueryId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a20d0fe66ad3e4e0bf169d79c8b19ab98d1ae67013ebf8516864a59475adf151)
+            check_type(argname="argument named_query_id", value=named_query_id, expected_type=type_hints["named_query_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "named_query_id": named_query_id,
+        }
+
+    @builtins.property
+    def named_query_id(self) -> builtins.str:
+        '''The NamedQueryId of the NamedQuery resource.'''
+        result = self._values.get("named_query_id")
+        assert result is not None, "Required property 'named_query_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NamedQueryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.PreparedStatementReference",
+    jsii_struct_bases=[],
+    name_mapping={"statement_name": "statementName", "work_group": "workGroup"},
+)
+class PreparedStatementReference:
+    def __init__(
+        self,
+        *,
+        statement_name: builtins.str,
+        work_group: builtins.str,
+    ) -> None:
+        '''A reference to a PreparedStatement resource.
+
+        :param statement_name: The StatementName of the PreparedStatement resource.
+        :param work_group: The WorkGroup of the PreparedStatement resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            prepared_statement_reference = athena.PreparedStatementReference(
+                statement_name="statementName",
+                work_group="workGroup"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7cdbc9828dfe0d4a43e3b4e8dd5ac4117560ca3ea31c99c0d4e01a466706b534)
+            check_type(argname="argument statement_name", value=statement_name, expected_type=type_hints["statement_name"])
+            check_type(argname="argument work_group", value=work_group, expected_type=type_hints["work_group"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "statement_name": statement_name,
+            "work_group": work_group,
+        }
+
+    @builtins.property
+    def statement_name(self) -> builtins.str:
+        '''The StatementName of the PreparedStatement resource.'''
+        result = self._values.get("statement_name")
+        assert result is not None, "Required property 'statement_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def work_group(self) -> builtins.str:
+        '''The WorkGroup of the PreparedStatement resource.'''
+        result = self._values.get("work_group")
+        assert result is not None, "Required property 'work_group' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PreparedStatementReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.WorkGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"work_group_name": "workGroupName"},
+)
+class WorkGroupReference:
+    def __init__(self, *, work_group_name: builtins.str) -> None:
+        '''A reference to a WorkGroup resource.
+
+        :param work_group_name: The Name of the WorkGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            work_group_reference = athena.WorkGroupReference(
+                work_group_name="workGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32f7e251e5ffdc709dee47e2283b8f9587cf0f15e248071bb854f11f18a7e598)
+            check_type(argname="argument work_group_name", value=work_group_name, expected_type=type_hints["work_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "work_group_name": work_group_name,
+        }
+
+    @builtins.property
+    def work_group_name(self) -> builtins.str:
+        '''The Name of the WorkGroup resource.'''
+        result = self._values.get("work_group_name")
+        assert result is not None, "Required property 'work_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ICapacityReservationRef, _ITaggableV2_4e6798f8)
+class CfnCapacityReservation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation",
+):
+    '''Specifies a capacity reservation with the provided name and number of requested data processing units.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-capacityreservation.html
+    :cloudformationResource: AWS::Athena::CapacityReservation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_capacity_reservation = athena.CfnCapacityReservation(self, "MyCfnCapacityReservation",
+            name="name",
+            target_dpus=123,
+        
+            # the properties below are optional
+            capacity_assignment_configuration=athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty(
+                capacity_assignments=[athena.CfnCapacityReservation.CapacityAssignmentProperty(
+                    workgroup_names=["workgroupNames"]
+                )]
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        target_dpus: jsii.Number,
+        capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapacityReservation.CapacityAssignmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the capacity reservation.
+        :param target_dpus: The number of data processing units requested.
+        :param capacity_assignment_configuration: Assigns Athena workgroups (and hence their queries) to capacity reservations. A capacity reservation can have only one capacity assignment configuration, but the capacity assignment configuration can be made up of multiple individual assignments. Each assignment specifies how Athena queries can consume capacity from the capacity reservation that their workgroup is mapped to.
+        :param tags: An array of key-value pairs to apply to the capacity reservation. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7458bc9b2513dcdcbd6a0f9a6fcf8ad6ac0dd26405dc0f98526c7739ed69c27c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCapacityReservationProps(
+            name=name,
+            target_dpus=target_dpus,
+            capacity_assignment_configuration=capacity_assignment_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bcae353c3f5a5e1be964ca831d796ba8924d38d98e4da35f1f4249f28af0833)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c53690919665793c02b948caf7c04a9ead8e6a42334d1d9e82cc4e52fcb473d8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAllocatedDpus")
+    def attr_allocated_dpus(self) -> jsii.Number:
+        '''The number of data processing units currently allocated.
+
+        :cloudformationAttribute: AllocatedDpus
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAllocatedDpus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the capacity reservation.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time in UTC epoch millis when the capacity reservation was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastSuccessfulAllocationTime")
+    def attr_last_successful_allocation_time(self) -> builtins.str:
+        '''The time of the most recent capacity allocation that succeeded.
+
+        :cloudformationAttribute: LastSuccessfulAllocationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastSuccessfulAllocationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the capacity reservation.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityReservationRef")
+    def capacity_reservation_ref(self) -> CapacityReservationReference:
+        '''A reference to a CapacityReservation resource.'''
+        return typing.cast(CapacityReservationReference, jsii.get(self, "capacityReservationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the capacity reservation.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e52ca03df32f93c24d4644e58482808fd84da5af0a6c8aad6cd35c472aacb8c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetDpus")
+    def target_dpus(self) -> jsii.Number:
+        '''The number of data processing units requested.'''
+        return typing.cast(jsii.Number, jsii.get(self, "targetDpus"))
+
+    @target_dpus.setter
+    def target_dpus(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__673e63d688637c639118c4ff9bd95f6fb3efe1b1a0c8e2ca1005cd0aec265b52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetDpus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityAssignmentConfiguration")
+    def capacity_assignment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]]:
+        '''Assigns Athena workgroups (and hence their queries) to capacity reservations.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]], jsii.get(self, "capacityAssignmentConfiguration"))
+
+    @capacity_assignment_configuration.setter
+    def capacity_assignment_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a48300257a027470aa2568c3011be47c3a12de78febb9a5d2cbc29c8489c9470)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capacityAssignmentConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to the capacity reservation.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2d5ea5f595f96f7b9cd5f389257bb6c2960294d98f1ab6ad6a6c1ab211b6a2d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"capacity_assignments": "capacityAssignments"},
+    )
+    class CapacityAssignmentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            capacity_assignments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapacityReservation.CapacityAssignmentProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Assigns Athena workgroups (and hence their queries) to capacity reservations.
+
+            A capacity reservation can have only one capacity assignment configuration, but the capacity assignment configuration can be made up of multiple individual assignments. Each assignment specifies how Athena queries can consume capacity from the capacity reservation that their workgroup is mapped to.
+
+            :param capacity_assignments: The list of assignments that make up the capacity assignment configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignmentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_athena as athena
+                
+                capacity_assignment_configuration_property = athena.CfnCapacityReservation.CapacityAssignmentConfigurationProperty(
+                    capacity_assignments=[athena.CfnCapacityReservation.CapacityAssignmentProperty(
+                        workgroup_names=["workgroupNames"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__db76e33e02ec05ffa8974dcc161a2bc5a3765035346802d58d4dfe7853a80348)
+                check_type(argname="argument capacity_assignments", value=capacity_assignments, expected_type=type_hints["capacity_assignments"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "capacity_assignments": capacity_assignments,
+            }
+
+        @builtins.property
+        def capacity_assignments(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentProperty"]]]:
+            '''The list of assignments that make up the capacity assignment configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignmentconfiguration.html#cfn-athena-capacityreservation-capacityassignmentconfiguration-capacityassignments
+            '''
+            result = self._values.get("capacity_assignments")
+            assert result is not None, "Required property 'capacity_assignments' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapacityReservation.CapacityAssignmentProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityAssignmentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_athena.CfnCapacityReservation.CapacityAssignmentProperty",
+        jsii_struct_bases=[],
+        name_mapping={"workgroup_names": "workgroupNames"},
+    )
+    class CapacityAssignmentProperty:
+        def __init__(self, *, workgroup_names: typing.Sequence[builtins.str]) -> None:
+            '''A mapping between one or more workgroups and a capacity reservation.
+
+            :param workgroup_names: The list of workgroup names for the capacity assignment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignment.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_athena as athena
+                
+                capacity_assignment_property = athena.CfnCapacityReservation.CapacityAssignmentProperty(
+                    workgroup_names=["workgroupNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e658c20843cc693ef5569c20bee6d431a496b10c7009acb64986e6a31ca21df2)
+                check_type(argname="argument workgroup_names", value=workgroup_names, expected_type=type_hints["workgroup_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "workgroup_names": workgroup_names,
+            }
+
+        @builtins.property
+        def workgroup_names(self) -> typing.List[builtins.str]:
+            '''The list of workgroup names for the capacity assignment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-capacityreservation-capacityassignment.html#cfn-athena-capacityreservation-capacityassignment-workgroupnames
+            '''
+            result = self._values.get("workgroup_names")
+            assert result is not None, "Required property 'workgroup_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityAssignmentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IDataCatalogRef, _ITaggable_36806126)
+class CfnDataCatalog(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnDataCatalog",
+):
+    '''The AWS::Athena::DataCatalog resource specifies an Amazon Athena data catalog, which contains a name, description, type, parameters, and tags.
+
+    For more information, see `DataCatalog <https://docs.aws.amazon.com/athena/latest/APIReference/API_DataCatalog.html>`_ in the *Amazon Athena API Reference* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-datacatalog.html
+    :cloudformationResource: AWS::Athena::DataCatalog
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_data_catalog = athena.CfnDataCatalog(self, "MyCfnDataCatalog",
+            name="name",
+            type="type",
+        
+            # the properties below are optional
+            connection_type="connectionType",
+            description="description",
+            error="error",
+            parameters={
+                "parameters_key": "parameters"
+            },
+            status="status",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        type: builtins.str,
+        connection_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        error: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the data catalog. The catalog name must be unique for the AWS account and can use a maximum of 128 alphanumeric, underscore, at sign, or hyphen characters.
+        :param type: The type of data catalog: ``LAMBDA`` for a federated catalog, ``GLUE`` for AWS Glue Catalog, or ``HIVE`` for an external hive metastore.
+        :param connection_type: The type of connection for a ``FEDERATED`` data catalog (for example, ``REDSHIFT`` , ``MYSQL`` , or ``SQLSERVER`` ). For information about individual connectors, see `Available data source connectors <https://docs.aws.amazon.com/athena/latest/ug/connectors-available.html>`_ .
+        :param description: A description of the data catalog.
+        :param error: Text of the error that occurred during data catalog creation or deletion.
+        :param parameters: Specifies the Lambda function or functions to use for creating the data catalog. This is a mapping whose values depend on the catalog type. - For the ``HIVE`` data catalog type, use the following syntax. The ``metadata-function`` parameter is required. ``The sdk-version`` parameter is optional and defaults to the currently supported version. ``metadata-function= *lambda_arn* , sdk-version= *version_number*`` - For the ``LAMBDA`` data catalog type, use one of the following sets of required parameters, but not both. - If you have one Lambda function that processes metadata and another for reading the actual data, use the following syntax. Both parameters are required. ``metadata-function= *lambda_arn* , record-function= *lambda_arn*`` - If you have a composite Lambda function that processes both metadata and data, use the following syntax to specify your Lambda function. ``function= *lambda_arn*`` - The ``GLUE`` type takes a catalog ID parameter and is required. The ``*catalog_id*`` is the account ID of the AWS account to which the AWS Glue Data Catalog belongs. ``catalog-id= *catalog_id*`` - The ``GLUE`` data catalog type also applies to the default ``AwsDataCatalog`` that already exists in your account, of which you can have only one and cannot modify. - The ``FEDERATED`` data catalog type uses one of the following parameters, but not both. Use ``connection-arn`` for an existing AWS Glue connection. Use ``connection-type`` and ``connection-properties`` to specify the configuration setting for a new connection. - ``connection-arn: *<glue_connection_arn_to_reuse>*`` - ``lambda-role-arn`` (optional): The execution role to use for the Lambda function. If not provided, one is created. - ``connection-type:MYSQL|REDSHIFT|...., connection-properties:" *<json_string>* "`` For *``<json_string>``* , use escaped JSON text, as in the following example. ``"{\\"spill_bucket\\":\\"my_spill\\",\\"spill_prefix\\":\\"athena-spill\\",\\"host\\":\\"abc12345.snowflakecomputing.com\\",\\"port\\":\\"1234\\",\\"warehouse\\":\\"DEV_WH\\",\\"database\\":\\"TEST\\",\\"schema\\":\\"PUBLIC\\",\\"SecretArn\\":\\"arn:aws:secretsmanager:ap-south-1:111122223333:secret:snowflake-XHb67j\\"}"``
+        :param status: The status of the creation or deletion of the data catalog. - The ``LAMBDA`` , ``GLUE`` , and ``HIVE`` data catalog types are created synchronously. Their status is either ``CREATE_COMPLETE`` or ``CREATE_FAILED`` . - The ``FEDERATED`` data catalog type is created asynchronously. Data catalog creation status: - ``CREATE_IN_PROGRESS`` : Federated data catalog creation in progress. - ``CREATE_COMPLETE`` : Data catalog creation complete. - ``CREATE_FAILED`` : Data catalog could not be created. - ``CREATE_FAILED_CLEANUP_IN_PROGRESS`` : Federated data catalog creation failed and is being removed. - ``CREATE_FAILED_CLEANUP_COMPLETE`` : Federated data catalog creation failed and was removed. - ``CREATE_FAILED_CLEANUP_FAILED`` : Federated data catalog creation failed but could not be removed. Data catalog deletion status: - ``DELETE_IN_PROGRESS`` : Federated data catalog deletion in progress. - ``DELETE_COMPLETE`` : Federated data catalog deleted. - ``DELETE_FAILED`` : Federated data catalog could not be deleted.
+        :param tags: The tags (key-value pairs) to associate with this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05023d61a95576869568bc095d9889b971a9d8c061cba5833a71f44231f3b9e8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDataCatalogProps(
+            name=name,
+            type=type,
+            connection_type=connection_type,
+            description=description,
+            error=error,
+            parameters=parameters,
+            status=status,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70484df33f57719ba2197f7ae86dd846651ec89bd9dc9853fbc4fff3bb342b5e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53b184d971619ad9ceb2925488e914f96ae85a3537cc1bbc7fcec083c3c925b5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataCatalogRef")
+    def data_catalog_ref(self) -> DataCatalogReference:
+        '''A reference to a DataCatalog resource.'''
+        return typing.cast(DataCatalogReference, jsii.get(self, "dataCatalogRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the data catalog.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1608b3146e652acde24c1f4fa9b482be4691d7f18e63abae7294e6d2be79cd57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of data catalog: ``LAMBDA`` for a federated catalog, ``GLUE`` for AWS Glue Catalog, or ``HIVE`` for an external hive metastore.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__648f5f258b71a886cda692ac680360ffcaf9aa72e0b747dc0986bc6a3da0b9c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionType")
+    def connection_type(self) -> typing.Optional[builtins.str]:
+        '''The type of connection for a ``FEDERATED`` data catalog (for example, ``REDSHIFT`` , ``MYSQL`` , or ``SQLSERVER`` ).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectionType"))
+
+    @connection_type.setter
+    def connection_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cff13c1978bd5799618709da26f9846763b1ac2ec6cab029c70620a67c55093a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the data catalog.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da91751e350be071e1bcad20db12b8878ad53b907a7422a55f53fa3951e8f509)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="error")
+    def error(self) -> typing.Optional[builtins.str]:
+        '''Text of the error that occurred during data catalog creation or deletion.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "error"))
+
+    @error.setter
+    def error(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d548d02ca24f2ba4149dd152142567beb4e778d9ac5d70541231145411044585)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "error", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Specifies the Lambda function or functions to use for creating the data catalog.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c7bec0cee9cc93380a50923dfa0015a801db986ded37e98f7318cd85af887ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the creation or deletion of the data catalog.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3f1a6fa1564ab3d7f58459f2b7ab271070b72c718de2a0142f755faa882bec3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags (key-value pairs) to associate with this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__732720a85a91adafa344b33afc56917f285d76d3c81b8851c7f46aee8ac4b31f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, INamedQueryRef)
+class CfnNamedQuery(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnNamedQuery",
+):
+    '''The ``AWS::Athena::NamedQuery`` resource specifies an Amazon Athena saved query, where ``QueryString`` contains the SQL query statements that make up the query.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-namedquery.html
+    :cloudformationResource: AWS::Athena::NamedQuery
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_named_query = athena.CfnNamedQuery(self, "MyCfnNamedQuery",
+            database="database",
+            query_string="queryString",
+        
+            # the properties below are optional
+            description="description",
+            name="name",
+            work_group="workGroup"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        database: builtins.str,
+        query_string: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        work_group: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param database: The database to which the query belongs.
+        :param query_string: The SQL statements that make up the query.
+        :param description: The query description.
+        :param name: The query name.
+        :param work_group: The name of the workgroup that contains the named query.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70a6acd727802c2fa7a22438ae44b6660590077a4f16a3e6add10721d6e8db0a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNamedQueryProps(
+            database=database,
+            query_string=query_string,
+            description=description,
+            name=name,
+            work_group=work_group,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddec5e38097efea59697e1d796fb6a6d88b7ddece86ca310e4558dddfdb308b6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf59ed9b65b480c5d847ba252258084274a9caf2a33c0d357ec8831f81ecba20)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNamedQueryId")
+    def attr_named_query_id(self) -> builtins.str:
+        '''The unique ID of the query.
+
+        :cloudformationAttribute: NamedQueryId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNamedQueryId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="namedQueryRef")
+    def named_query_ref(self) -> NamedQueryReference:
+        '''A reference to a NamedQuery resource.'''
+        return typing.cast(NamedQueryReference, jsii.get(self, "namedQueryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="database")
+    def database(self) -> builtins.str:
+        '''The database to which the query belongs.'''
+        return typing.cast(builtins.str, jsii.get(self, "database"))
+
+    @database.setter
+    def database(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__501cd8c10c3d115e2f7cac0d6afe0b38bf2af9f4c2baa50fa99e8e7ba4327165)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "database", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryString")
+    def query_string(self) -> builtins.str:
+        '''The SQL statements that make up the query.'''
+        return typing.cast(builtins.str, jsii.get(self, "queryString"))
+
+    @query_string.setter
+    def query_string(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c663852da3bf6abca104187294becf5134a8fc1a2d9f25c6701872f41fde8ba9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The query description.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a745e34dd545f8dc388bc187b5819d2ef704db543656d96e0b9de86430379e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The query name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bff191aa3a040eb433f325a55450844fa2a74753c5b7cc84413e2cda83bd7d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroup")
+    def work_group(self) -> typing.Optional[builtins.str]:
+        '''The name of the workgroup that contains the named query.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workGroup"))
+
+    @work_group.setter
+    def work_group(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bb682c36871b1c9d1ea3cca54fdda6bd4c9a2175d91b4bcc2aff8385207d037)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workGroup", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IPreparedStatementRef)
+class CfnPreparedStatement(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnPreparedStatement",
+):
+    '''Specifies a prepared statement for use with SQL queries in Athena.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-preparedstatement.html
+    :cloudformationResource: AWS::Athena::PreparedStatement
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_prepared_statement = athena.CfnPreparedStatement(self, "MyCfnPreparedStatement",
+            query_statement="queryStatement",
+            statement_name="statementName",
+            work_group="workGroup",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        query_statement: builtins.str,
+        statement_name: builtins.str,
+        work_group: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param query_statement: The query string for the prepared statement.
+        :param statement_name: The name of the prepared statement.
+        :param work_group: The workgroup to which the prepared statement belongs.
+        :param description: The description of the prepared statement.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c4c8a39ce9fb61cd606b4abe521c05c0c7c27caa382a68b361cf3be632c8c83)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPreparedStatementProps(
+            query_statement=query_statement,
+            statement_name=statement_name,
+            work_group=work_group,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a69017370b966513d7ca221de45e0ee04038dba0f3e2b7a738436d078d1c48c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0b1adefc3ae78288ead2138671ccc59867e63261ac6fa2f2ea32a85d1c2805f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="preparedStatementRef")
+    def prepared_statement_ref(self) -> PreparedStatementReference:
+        '''A reference to a PreparedStatement resource.'''
+        return typing.cast(PreparedStatementReference, jsii.get(self, "preparedStatementRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queryStatement")
+    def query_statement(self) -> builtins.str:
+        '''The query string for the prepared statement.'''
+        return typing.cast(builtins.str, jsii.get(self, "queryStatement"))
+
+    @query_statement.setter
+    def query_statement(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18c5e047fd7a10b962ddfc814e209cbca4ff1a422c2293eb18b16d83af0711a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryStatement", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="statementName")
+    def statement_name(self) -> builtins.str:
+        '''The name of the prepared statement.'''
+        return typing.cast(builtins.str, jsii.get(self, "statementName"))
+
+    @statement_name.setter
+    def statement_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dda65d001efb04fb60a14b983d53ba4365b21f672e62245cf7f61199a432872)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "statementName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroup")
+    def work_group(self) -> builtins.str:
+        '''The workgroup to which the prepared statement belongs.'''
+        return typing.cast(builtins.str, jsii.get(self, "workGroup"))
+
+    @work_group.setter
+    def work_group(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99d939bc99487519bb0415ef8ada649107f8686d2077741c486620ecf3af8996)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workGroup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the prepared statement.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f39b664043d33c495a721144bc0de55a433122a4024bcbb066c229ec4cf1fe8b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IWorkGroupRef, _ITaggable_36806126)
 class CfnWorkGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1759,6 +2495,12 @@ class CfnWorkGroup(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroupRef")
+    def work_group_ref(self) -> WorkGroupReference:
+        '''A reference to a WorkGroup resource.'''
+        return typing.cast(WorkGroupReference, jsii.get(self, "workGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3136,252 +3878,8 @@ class CfnWorkGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_athena.CfnWorkGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "recursive_delete_option": "recursiveDeleteOption",
-        "state": "state",
-        "tags": "tags",
-        "work_group_configuration": "workGroupConfiguration",
-        "work_group_configuration_updates": "workGroupConfigurationUpdates",
-    },
-)
-class CfnWorkGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        recursive_delete_option: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        work_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        work_group_configuration_updates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationUpdatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkGroup``.
-
-        :param name: The workgroup name.
-        :param description: The workgroup description.
-        :param recursive_delete_option: The option to delete a workgroup and its contents even if the workgroup contains any named queries. The default is false.
-        :param state: The state of the workgroup: ENABLED or DISABLED.
-        :param tags: The tags (key-value pairs) to associate with this resource.
-        :param work_group_configuration: The configuration of the workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether Amazon CloudWatch Metrics are enabled for the workgroup, and the limit for the amount of bytes scanned (cutoff) per query, if it is specified. The ``EnforceWorkGroupConfiguration`` option determines whether workgroup settings override client-side query settings.
-        :param work_group_configuration_updates: (deprecated) The configuration information that will be updated for this workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether the Amazon CloudWatch Metrics are enabled for the workgroup, whether the workgroup settings override the client-side settings, and the data usage limit for the amount of bytes scanned per query, if it is specified.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_athena as athena
-            
-            cfn_work_group_props = athena.CfnWorkGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                recursive_delete_option=False,
-                state="state",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                work_group_configuration=athena.CfnWorkGroup.WorkGroupConfigurationProperty(
-                    additional_configuration="additionalConfiguration",
-                    bytes_scanned_cutoff_per_query=123,
-                    customer_content_encryption_configuration=athena.CfnWorkGroup.CustomerContentEncryptionConfigurationProperty(
-                        kms_key="kmsKey"
-                    ),
-                    enforce_work_group_configuration=False,
-                    engine_version=athena.CfnWorkGroup.EngineVersionProperty(
-                        effective_engine_version="effectiveEngineVersion",
-                        selected_engine_version="selectedEngineVersion"
-                    ),
-                    execution_role="executionRole",
-                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
-                        enabled=False,
-                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
-                            kms_key="kmsKey"
-                        )
-                    ),
-                    publish_cloud_watch_metrics_enabled=False,
-                    requester_pays_enabled=False,
-                    result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
-                        acl_configuration=athena.CfnWorkGroup.AclConfigurationProperty(
-                            s3_acl_option="s3AclOption"
-                        ),
-                        encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
-                            encryption_option="encryptionOption",
-            
-                            # the properties below are optional
-                            kms_key="kmsKey"
-                        ),
-                        expected_bucket_owner="expectedBucketOwner",
-                        output_location="outputLocation"
-                    )
-                ),
-                work_group_configuration_updates=athena.CfnWorkGroup.WorkGroupConfigurationUpdatesProperty(
-                    additional_configuration="additionalConfiguration",
-                    bytes_scanned_cutoff_per_query=123,
-                    customer_content_encryption_configuration=athena.CfnWorkGroup.CustomerContentEncryptionConfigurationProperty(
-                        kms_key="kmsKey"
-                    ),
-                    enforce_work_group_configuration=False,
-                    engine_version=athena.CfnWorkGroup.EngineVersionProperty(
-                        effective_engine_version="effectiveEngineVersion",
-                        selected_engine_version="selectedEngineVersion"
-                    ),
-                    execution_role="executionRole",
-                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
-                        enabled=False,
-                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
-                            kms_key="kmsKey"
-                        )
-                    ),
-                    publish_cloud_watch_metrics_enabled=False,
-                    remove_bytes_scanned_cutoff_per_query=False,
-                    remove_customer_content_encryption_configuration=False,
-                    requester_pays_enabled=False,
-                    result_configuration_updates=athena.CfnWorkGroup.ResultConfigurationUpdatesProperty(
-                        acl_configuration=athena.CfnWorkGroup.AclConfigurationProperty(
-                            s3_acl_option="s3AclOption"
-                        ),
-                        encryption_configuration=athena.CfnWorkGroup.EncryptionConfigurationProperty(
-                            encryption_option="encryptionOption",
-            
-                            # the properties below are optional
-                            kms_key="kmsKey"
-                        ),
-                        expected_bucket_owner="expectedBucketOwner",
-                        output_location="outputLocation",
-                        remove_acl_configuration=False,
-                        remove_encryption_configuration=False,
-                        remove_expected_bucket_owner=False,
-                        remove_output_location=False
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a4bfef13ffe779b4b820a3b9c0da8391485059087230747da25d5f8e5c9c4c3)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument recursive_delete_option", value=recursive_delete_option, expected_type=type_hints["recursive_delete_option"])
-            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument work_group_configuration", value=work_group_configuration, expected_type=type_hints["work_group_configuration"])
-            check_type(argname="argument work_group_configuration_updates", value=work_group_configuration_updates, expected_type=type_hints["work_group_configuration_updates"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if recursive_delete_option is not None:
-            self._values["recursive_delete_option"] = recursive_delete_option
-        if state is not None:
-            self._values["state"] = state
-        if tags is not None:
-            self._values["tags"] = tags
-        if work_group_configuration is not None:
-            self._values["work_group_configuration"] = work_group_configuration
-        if work_group_configuration_updates is not None:
-            self._values["work_group_configuration_updates"] = work_group_configuration_updates
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The workgroup name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The workgroup description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recursive_delete_option(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The option to delete a workgroup and its contents even if the workgroup contains any named queries.
-
-        The default is false.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-recursivedeleteoption
-        '''
-        result = self._values.get("recursive_delete_option")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The state of the workgroup: ENABLED or DISABLED.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-state
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags (key-value pairs) to associate with this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def work_group_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkGroup.WorkGroupConfigurationProperty]]:
-        '''The configuration of the workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether Amazon CloudWatch Metrics are enabled for the workgroup, and the limit for the amount of bytes scanned (cutoff) per query, if it is specified.
-
-        The ``EnforceWorkGroupConfiguration`` option determines whether workgroup settings override client-side query settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-workgroupconfiguration
-        '''
-        result = self._values.get("work_group_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkGroup.WorkGroupConfigurationProperty]], result)
-
-    @builtins.property
-    def work_group_configuration_updates(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkGroup.WorkGroupConfigurationUpdatesProperty]]:
-        '''(deprecated) The configuration information that will be updated for this workgroup, which includes the location in Amazon S3 where query results are stored, the encryption option, if any, used for query results, whether the Amazon CloudWatch Metrics are enabled for the workgroup, whether the workgroup settings override the client-side settings, and the data usage limit for the amount of bytes scanned per query, if it is specified.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-workgroup.html#cfn-athena-workgroup-workgroupconfigurationupdates
-        :stability: deprecated
-        '''
-        result = self._values.get("work_group_configuration_updates")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkGroup.WorkGroupConfigurationUpdatesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "CapacityReservationReference",
     "CfnCapacityReservation",
     "CfnCapacityReservationProps",
     "CfnDataCatalog",
@@ -3392,9 +3890,112 @@ __all__ = [
     "CfnPreparedStatementProps",
     "CfnWorkGroup",
     "CfnWorkGroupProps",
+    "DataCatalogReference",
+    "ICapacityReservationRef",
+    "IDataCatalogRef",
+    "INamedQueryRef",
+    "IPreparedStatementRef",
+    "IWorkGroupRef",
+    "NamedQueryReference",
+    "PreparedStatementReference",
+    "WorkGroupReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__8dd7ae778acd8a386ad992c2ee7b59fe3867130addf3ab0e4fd4e5a18480a895(
+    *,
+    capacity_reservation_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a214961375f078f4b3bde83f338ac59ad879fce3adfb57a29b21cf15190a97f8(
+    *,
+    name: builtins.str,
+    target_dpus: jsii.Number,
+    capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityReservation.CapacityAssignmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2151d2fd30be9f56cebbd5adb97d92e074856a6590b6970f5a1cb707de68d79(
+    *,
+    name: builtins.str,
+    type: builtins.str,
+    connection_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    error: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6843e60f95befbeeac102b484bbd44b76e442a562d520fa09f15e78c6028b865(
+    *,
+    database: builtins.str,
+    query_string: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    work_group: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__709f141308344c291dfca2deddc79eabfe04118b21e11aa37c781298b5454317(
+    *,
+    query_statement: builtins.str,
+    statement_name: builtins.str,
+    work_group: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a4bfef13ffe779b4b820a3b9c0da8391485059087230747da25d5f8e5c9c4c3(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    recursive_delete_option: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    work_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    work_group_configuration_updates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationUpdatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0aec09d8477091c659ac4494af21cfe192386cd7dfa11a19a094a352489281f3(
+    *,
+    data_catalog_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a20d0fe66ad3e4e0bf169d79c8b19ab98d1ae67013ebf8516864a59475adf151(
+    *,
+    named_query_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cdbc9828dfe0d4a43e3b4e8dd5ac4117560ca3ea31c99c0d4e01a466706b534(
+    *,
+    statement_name: builtins.str,
+    work_group: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32f7e251e5ffdc709dee47e2283b8f9587cf0f15e248071bb854f11f18a7e598(
+    *,
+    work_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__7458bc9b2513dcdcbd6a0f9a6fcf8ad6ac0dd26405dc0f98526c7739ed69c27c(
     scope: _constructs_77d1e7e8.Construct,
@@ -3454,16 +4055,6 @@ def _typecheckingstub__db76e33e02ec05ffa8974dcc161a2bc5a3765035346802d58d4dfe785
 def _typecheckingstub__e658c20843cc693ef5569c20bee6d431a496b10c7009acb64986e6a31ca21df2(
     *,
     workgroup_names: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a214961375f078f4b3bde83f338ac59ad879fce3adfb57a29b21cf15190a97f8(
-    *,
-    name: builtins.str,
-    target_dpus: jsii.Number,
-    capacity_assignment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityReservation.CapacityAssignmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3544,20 +4135,6 @@ def _typecheckingstub__732720a85a91adafa344b33afc56917f285d76d3c81b8851c7f46aee8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d2151d2fd30be9f56cebbd5adb97d92e074856a6590b6970f5a1cb707de68d79(
-    *,
-    name: builtins.str,
-    type: builtins.str,
-    connection_type: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    error: typing.Optional[builtins.str] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__70a6acd727802c2fa7a22438ae44b6660590077a4f16a3e6add10721d6e8db0a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3613,17 +4190,6 @@ def _typecheckingstub__9bb682c36871b1c9d1ea3cca54fdda6bd4c9a2175d91b4bcc2aff8385
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6843e60f95befbeeac102b484bbd44b76e442a562d520fa09f15e78c6028b865(
-    *,
-    database: builtins.str,
-    query_string: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    work_group: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2c4c8a39ce9fb61cd606b4abe521c05c0c7c27caa382a68b361cf3be632c8c83(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3668,16 +4234,6 @@ def _typecheckingstub__99d939bc99487519bb0415ef8ada649107f8686d2077741c486620ecf
 
 def _typecheckingstub__f39b664043d33c495a721144bc0de55a433122a4024bcbb066c229ec4cf1fe8b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__709f141308344c291dfca2deddc79eabfe04118b21e11aa37c781298b5454317(
-    *,
-    query_statement: builtins.str,
-    statement_name: builtins.str,
-    work_group: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3850,19 +4406,6 @@ def _typecheckingstub__6d600654f5aa48cb49fd4baf2a677e5f7725dcfa1249836427c1d9f65
     remove_customer_content_encryption_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     result_configuration_updates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ResultConfigurationUpdatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a4bfef13ffe779b4b820a3b9c0da8391485059087230747da25d5f8e5c9c4c3(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    recursive_delete_option: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    work_group_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    work_group_configuration_updates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.WorkGroupConfigurationUpdatesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

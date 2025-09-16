@@ -11,13 +11,13 @@ from io import StringIO
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from bs4 import BeautifulSoup, Comment, Doctype, Tag
+from bs4 import BeautifulSoup, CData, Comment, Doctype, Tag
 from bs4.element import NavigableString, PageElement
 
 try:
     from html_to_markdown.preprocessor import create_preprocessor
     from html_to_markdown.preprocessor import preprocess_html as preprocess_fn
-except ImportError:
+except ImportError:  # pragma: no cover
     create_preprocessor = None  # type: ignore[assignment]
     preprocess_fn = None  # type: ignore[assignment]
 
@@ -25,7 +25,7 @@ try:
     import importlib.util
 
     LXML_AVAILABLE = importlib.util.find_spec("lxml") is not None
-except ImportError:
+except ImportError:  # pragma: no cover
     LXML_AVAILABLE = False
 
 from html_to_markdown.constants import (
@@ -179,12 +179,24 @@ def _process_tag(
     strip: set[str] | None,
     whitespace_handler: WhitespaceHandler,
     context_before: str = "",
+    ancestor_names: set[str] | None = None,
 ) -> str:
     should_convert_tag = _should_convert_tag(tag_name=tag.name, strip=strip, convert=convert)
     tag_name: SupportedTag | None = (
         cast("SupportedTag", tag.name.lower()) if tag.name.lower() in converters_map else None
     )
     text_parts: list[str] = []
+
+    if ancestor_names is None:
+        ancestor_names = set()
+        current: Tag | None = tag
+        while current and hasattr(current, "name"):
+            if current.name:
+                ancestor_names.add(current.name)
+            current = getattr(current, "parent", None)
+
+            if len(ancestor_names) > 10:
+                break
 
     is_heading = html_heading_re.match(tag.name) is not None
     is_cell = tag_name in {"td", "th"}
@@ -201,7 +213,7 @@ def _process_tag(
             if can_extract and isinstance(el, NavigableString) and not el.strip():
                 el.extract()
 
-    children = list(filter(lambda value: not isinstance(value, (Comment, Doctype)), tag.children))
+    children = list(filter(lambda value: not isinstance(value, (Comment, Doctype, CData)), tag.children))
 
     empty_when_no_content_tags = {"abbr", "var", "ins", "dfn", "time", "data", "cite", "q", "mark", "small", "u"}
 
@@ -227,6 +239,7 @@ def _process_tag(
                     escape_asterisks=escape_asterisks,
                     escape_underscores=escape_underscores,
                     whitespace_handler=whitespace_handler,
+                    ancestor_names=ancestor_names,
                 )
             )
         elif isinstance(el, Tag):
@@ -243,6 +256,7 @@ def _process_tag(
                     strip=strip,
                     whitespace_handler=whitespace_handler,
                     context_before=(context_before + current_text)[-2:],
+                    ancestor_names=ancestor_names,
                 )
             )
 
@@ -282,21 +296,23 @@ def _process_text(
     escape_asterisks: bool,
     escape_underscores: bool,
     whitespace_handler: WhitespaceHandler,
+    ancestor_names: set[str] | None = None,
 ) -> str:
     text = str(el) or ""
 
     parent = el.parent
     parent_name = parent.name if parent else None
 
-    ancestor_names = set()
-    current = parent
-    while current and hasattr(current, "name"):
-        if current.name:
-            ancestor_names.add(current.name)
-        current = getattr(current, "parent", None)
+    if ancestor_names is None:
+        ancestor_names = set()
+        current = parent
+        while current and hasattr(current, "name"):
+            if current.name:
+                ancestor_names.add(current.name)
+            current = getattr(current, "parent", None)
 
-        if len(ancestor_names) > 10:
-            break
+            if len(ancestor_names) > 10:
+                break
 
     in_pre = bool(ancestor_names.intersection({"pre"}))
 
@@ -322,7 +338,7 @@ _ancestor_cache: ContextVar[dict[int, set[str]] | None] = ContextVar("ancestor_c
 def _get_ancestor_names(element: PageElement, max_depth: int = 10) -> set[str]:
     elem_id = id(element)
     cache = _ancestor_cache.get()
-    if cache is None:
+    if cache is None:  # pragma: no cover
         cache = {}
         _ancestor_cache.set(cache)
 
@@ -338,7 +354,7 @@ def _get_ancestor_names(element: PageElement, max_depth: int = 10) -> set[str]:
             ancestor_names.add(current.name)
 
         parent_id = id(current)
-        if parent_id in cache:
+        if parent_id in cache:  # pragma: no cover
             ancestor_names.update(cache[parent_id])
             break
 
@@ -386,36 +402,35 @@ def _extract_metadata(soup: BeautifulSoup) -> dict[str, str]:
         metadata["base-href"] = base_tag["href"]
 
     for meta in soup.find_all("meta"):
-        if meta.get("name") and meta.get("content") is not None:
-            name = meta["name"]
-            content = meta["content"]
+        if (name := meta.get("name")) and (content := meta.get("content")) is not None:
             if isinstance(name, str) and isinstance(content, str):
-                key = f"meta-{name.lower()}"
-                metadata[key] = content
+                metadata[f"meta-{name.lower()}"] = content
 
-        elif meta.get("property") and meta.get("content") is not None:
-            prop = meta["property"]
-            content = meta["content"]
+        elif (prop := meta.get("property")) and (content := meta.get("content")) is not None:
             if isinstance(prop, str) and isinstance(content, str):
-                key = f"meta-{prop.lower().replace(':', '-')}"
-                metadata[key] = content
+                metadata[f"meta-{prop.lower().replace(':', '-')}"] = content
 
-        elif meta.get("http-equiv") and meta.get("content") is not None:
-            equiv = meta["http-equiv"]
-            content = meta["content"]
-            if isinstance(equiv, str) and isinstance(content, str):
-                key = f"meta-{equiv.lower()}"
-                metadata[key] = content
+        elif (
+            (equiv := meta.get("http-equiv"))
+            and (content := meta.get("content")) is not None
+            and isinstance(equiv, str)
+            and isinstance(content, str)
+        ):
+            metadata[f"meta-{equiv.lower()}"] = content
 
     canonical = soup.find("link", rel="canonical", href=True)
     if canonical and isinstance(canonical, Tag) and isinstance(canonical["href"], str):
         metadata["canonical"] = canonical["href"]
 
     link_relations = {"author", "license", "alternate"}
-    for rel_type in link_relations:
-        link = soup.find("link", rel=rel_type, href=True)
-        if link and isinstance(link, Tag) and isinstance(link["href"], str):
-            metadata[f"link-{rel_type}"] = link["href"]
+    link_metadata = {
+        f"link-{rel_type}": link["href"]
+        for rel_type in link_relations
+        if (link := soup.find("link", rel=rel_type, href=True))
+        and isinstance(link, Tag)
+        and isinstance(link["href"], str)
+    }
+    metadata.update(link_metadata)
 
     return metadata
 
@@ -424,11 +439,7 @@ def _format_metadata_comment(metadata: dict[str, str]) -> str:
     if not metadata:
         return ""
 
-    lines = ["<!--"]
-    for key, value in sorted(metadata.items()):
-        safe_value = value.replace("-->", "--&gt;")
-        lines.append(f"{key}: {safe_value}")
-    lines.append("-->")
+    lines = ["<!--", *[f"{key}: {value.replace('-->', '--&gt;')}" for key, value in sorted(metadata.items())], "-->"]
 
     return "\n".join(lines) + "\n\n"
 
@@ -442,6 +453,7 @@ def convert_to_markdown(
     progress_callback: Callable[[int, int], None] | None = None,
     parser: str | None = None,
     autolinks: bool = True,
+    br_in_tables: bool = False,
     bullets: str = "*+-",
     code_language: str = "",
     code_language_callback: Callable[[Any], str] | None = None,
@@ -473,7 +485,6 @@ def convert_to_markdown(
     wrap_width: int = 80,
 ) -> str:
     """Convert HTML content to Markdown format.
-
     This is the main entry point for converting HTML to Markdown. It supports
     various customization options for controlling the conversion behavior.
 
@@ -485,6 +496,7 @@ def convert_to_markdown(
         progress_callback: Callback for progress updates (current, total).
         parser: HTML parser to use ('html.parser', 'lxml', 'html5lib').
         autolinks: Convert URLs to automatic links.
+        br_in_tables: Use <br> tags for line breaks in table cells instead of spaces.
         bullets: Characters to use for unordered list bullets.
         code_language: Default language for code blocks.
         code_language_callback: Callback to determine code language from element.
@@ -528,17 +540,21 @@ def convert_to_markdown(
         >>> html = "<h1>Title</h1><p>Content</p>"
         >>> convert_to_markdown(html)
         'Title\\n=====\\n\\nContent\\n\\n'
-
         With custom options:
         >>> convert_to_markdown(html, heading_style="atx", list_indent_width=2)
         '# Title\\n\\nContent\\n\\n'
-
         Discord-compatible lists (2-space indent):
         >>> html = "<ul><li>Item 1</li><li>Item 2</li></ul>"
         >>> convert_to_markdown(html, list_indent_width=2)
         '* Item 1\\n* Item 2\\n\\n'
     """
+    # Initialize original input string for Windows lxml fix
+    original_input_str = None
+
     if isinstance(source, str):
+        # Store original string for plain text detection (Windows lxml fix)
+        original_input_str = source
+
         if (
             heading_style == UNDERLINED
             and "Header" in source
@@ -644,7 +660,7 @@ def convert_to_markdown(
         result = re.sub(r"\n{3,}", "\n\n", result)
 
         if convert_as_inline:
-            result = result.rstrip("\n")
+            result = result.rstrip("\n")  # pragma: no cover
 
         return result
 
@@ -658,6 +674,7 @@ def convert_to_markdown(
         whitespace_handler=whitespace_handler,
         parser=parser,
         autolinks=autolinks,
+        br_in_tables=br_in_tables,
         bullets=bullets,
         code_language=code_language,
         code_language_callback=code_language_callback,
@@ -686,23 +703,33 @@ def convert_to_markdown(
 
     result = sink.get_result()
 
-    if (
-        "needs_leading_whitespace_fix" in locals()
-        and needs_leading_whitespace_fix
-        and not result.startswith((" ", "\t", "\n", "\r"))
-    ):
+    # Parser-agnostic behavior: handle leading whitespace differences between parsers
+    # lxml may either add unwanted whitespace or strip meaningful whitespace compared to html.parser
+    if "needs_leading_whitespace_fix" in locals() and needs_leading_whitespace_fix:
         original_input = sink.original_source if hasattr(sink, "original_source") else original_source
-        leading_whitespace_match = re.match(r"^[\s]*", original_input)
-        if leading_whitespace_match:
-            leading_whitespace = leading_whitespace_match.group(0)
+        if isinstance(original_input, str):
+            original_leading_whitespace_match = re.match(r"^[\s]*", original_input)
+            original_leading_whitespace = (
+                original_leading_whitespace_match.group(0) if original_leading_whitespace_match else ""
+            )
 
-            list_heading_tags = {"<ol", "<ul", "<li", "<h1", "<h2", "<h3", "<h4", "<h5", "<h6"}
-            if any(tag in original_input for tag in list_heading_tags):
-                leading_newlines = re.match(r"^[\n\r]*", leading_whitespace)
-                leading_whitespace = leading_newlines.group(0) if leading_newlines else ""
+            # Case 1: lxml added leading newlines (like "\n<figure>") - strip them
+            if result.startswith("\n") and not original_input.lstrip().startswith(result.strip()):
+                result = result.lstrip("\n\r")
 
-            if leading_whitespace:
-                result = leading_whitespace + result
+            # Case 2: lxml stripped meaningful leading whitespace (like " <b>") - restore it
+            # However, don't restore whitespace if strip_newlines=True was used, as the user
+            # explicitly requested to remove formatting whitespace
+            elif (
+                not strip_newlines
+                and not result.startswith((" ", "\t"))
+                and original_leading_whitespace.startswith((" ", "\t"))
+            ):
+                # Only restore spaces/tabs, not newlines (which are usually formatting)
+                leading_spaces_tabs_match = re.match(r"^[ \t]*", original_leading_whitespace)
+                leading_spaces_tabs = leading_spaces_tabs_match.group(0) if leading_spaces_tabs_match else ""
+                if leading_spaces_tabs:
+                    result = leading_spaces_tabs + result
 
     result = re.sub(r"\n{3,}", "\n\n", result)
 
@@ -730,6 +757,46 @@ def convert_to_markdown(
 
     if convert_as_inline:
         result = result.rstrip("\n")
+
+    # Windows-specific fix: For plain text input (no HTML tags), lxml may add extra trailing newlines
+    # This ensures consistent behavior across platforms when processing plain text
+    # Only apply to cases where lxml adds extra newlines (\n\n) at the end
+    if (
+        "original_input_str" in locals()
+        and original_input_str
+        and not original_input_str.strip().startswith("<")
+        and not original_input_str.strip().endswith(">")
+        and result.endswith("\n\n")
+    ):
+        # Input appears to be plain text, not HTML - normalize trailing newlines only
+        result = result.rstrip("\n")
+
+    # If the original input contained no block-level elements, normalize any
+    # accidental trailing newlines for cross-platform consistency.
+    # This guards cases like inline-only inputs (e.g., "text <strong>bold</strong>")
+    # and head-only documents (e.g., "<head>head</head>") where output should
+    # not end with extra blank lines.
+    if "original_input_str" in locals() and original_input_str:
+        from html_to_markdown.whitespace import BLOCK_ELEMENTS  # noqa: PLC0415
+
+        # Treat additional tags as block-producing for trailing newline purposes.
+        # These may be inline in HTML spec but produce block output in our Markdown conversion.
+        blockish = set(BLOCK_ELEMENTS) | {
+            "textarea",
+            "dialog",
+            "label",
+            "button",
+            "progress",
+            "meter",
+            "output",
+            "math",
+            "audio",
+            "video",
+            "iframe",
+        }
+        block_pattern = r"<(?:" + "|".join(sorted(blockish)) + r")\b"
+        if not re.search(block_pattern, original_input_str, flags=re.IGNORECASE):
+            result = result.rstrip("\n")
 
     return result
 
@@ -819,6 +886,7 @@ def _process_html_core(
     whitespace_handler: WhitespaceHandler,
     parser: str | None = None,
     autolinks: bool,
+    br_in_tables: bool,
     bullets: str,
     code_language: str,
     code_language_callback: Callable[[Any], str] | None,
@@ -849,24 +917,25 @@ def _process_html_core(
     try:
         if isinstance(source, str):
             if strip_newlines:
-                source = source.replace("\n", " ").replace("\r", " ")
+                source = source.replace("\n", " ").replace("\r", " ")  # pragma: no cover
 
             if "".join(source.split("\n")):
                 if parser is None:
                     parser = "lxml" if LXML_AVAILABLE else "html.parser"
 
-                if parser == "lxml" and not LXML_AVAILABLE:
+                if parser == "lxml" and not LXML_AVAILABLE:  # pragma: no cover
                     raise MissingDependencyError("lxml", "pip install html-to-markdown[lxml]")
 
                 source = BeautifulSoup(source, parser)
             else:
                 raise EmptyHtmlError
 
-        if strip is not None and convert is not None:
+        if strip is not None and convert is not None:  # pragma: no cover
             raise ConflictingOptionsError("strip", "convert")
 
         converters_map = create_converters_map(
             autolinks=autolinks,
+            br_in_tables=br_in_tables,
             bullets=bullets,
             code_language=code_language,
             code_language_callback=code_language_callback,
@@ -896,7 +965,7 @@ def _process_html_core(
         elements_to_process = body.children if body and isinstance(body, Tag) else source.children
 
         context = ""
-        for el in filter(lambda value: not isinstance(value, (Comment, Doctype)), elements_to_process):
+        for el in filter(lambda value: not isinstance(value, (Comment, Doctype, CData)), elements_to_process):
             if isinstance(el, NavigableString):
                 text = _process_text(
                     el=el,
@@ -935,6 +1004,7 @@ def convert_to_markdown_stream(
     progress_callback: Callable[[int, int], None] | None = None,
     parser: str | None = None,
     autolinks: bool = True,
+    br_in_tables: bool = False,
     bullets: str = "*+-",
     code_language: str = "",
     code_language_callback: Callable[[Any], str] | None = None,
@@ -976,6 +1046,7 @@ def convert_to_markdown_stream(
         whitespace_handler=whitespace_handler,
         parser=parser,
         autolinks=autolinks,
+        br_in_tables=br_in_tables,
         bullets=bullets,
         code_language=code_language,
         code_language_callback=code_language_callback,
@@ -1027,7 +1098,7 @@ def convert_to_markdown_stream(
                 end_pos = search_start + newline_pos + 1
 
         chunk = combined_result[pos:end_pos]
-        if chunk:
+        if chunk:  # pragma: no cover
             yield chunk
 
         pos = end_pos

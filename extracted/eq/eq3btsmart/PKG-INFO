@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eq3btsmart
-Version: 2.2.0
+Version: 2.3.0
 Summary: Python library to interact with eQ-3 Bluetooth Smart thermostats
 Author-email: Lennard Beers <l.beers@outlook.de>
 Maintainer-email: Lennard Beers <l.beers@outlook.de>

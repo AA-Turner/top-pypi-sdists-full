@@ -69,7 +69,481 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_forecast.CfnDatasetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_group_name": "datasetGroupName",
+        "domain": "domain",
+        "dataset_arns": "datasetArns",
+        "tags": "tags",
+    },
+)
+class CfnDatasetGroupProps:
+    def __init__(
+        self,
+        *,
+        dataset_group_name: builtins.str,
+        domain: builtins.str,
+        dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatasetGroup``.
+
+        :param dataset_group_name: The name of the dataset group.
+        :param domain: The domain associated with the dataset group. When you add a dataset to a dataset group, this value and the value specified for the ``Domain`` parameter of the `CreateDataset <https://docs.aws.amazon.com/forecast/latest/dg/API_CreateDataset.html>`_ operation must match. The ``Domain`` and ``DatasetType`` that you choose determine the fields that must be present in training data that you import to a dataset. For example, if you choose the ``RETAIL`` domain and ``TARGET_TIME_SERIES`` as the ``DatasetType`` , Amazon Forecast requires that ``item_id`` , ``timestamp`` , and ``demand`` fields are present in your data. For more information, see `Dataset groups <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html>`_ .
+        :param dataset_arns: An array of Amazon Resource Names (ARNs) of the datasets that you want to include in the dataset group.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_forecast as forecast
+            
+            cfn_dataset_group_props = forecast.CfnDatasetGroupProps(
+                dataset_group_name="datasetGroupName",
+                domain="domain",
+            
+                # the properties below are optional
+                dataset_arns=["datasetArns"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4)
+            check_type(argname="argument dataset_group_name", value=dataset_group_name, expected_type=type_hints["dataset_group_name"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument dataset_arns", value=dataset_arns, expected_type=type_hints["dataset_arns"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_name": dataset_group_name,
+            "domain": domain,
+        }
+        if dataset_arns is not None:
+            self._values["dataset_arns"] = dataset_arns
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_group_name(self) -> builtins.str:
+        '''The name of the dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-datasetgroupname
+        '''
+        result = self._values.get("dataset_group_name")
+        assert result is not None, "Required property 'dataset_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain(self) -> builtins.str:
+        '''The domain associated with the dataset group.
+
+        When you add a dataset to a dataset group, this value and the value specified for the ``Domain`` parameter of the `CreateDataset <https://docs.aws.amazon.com/forecast/latest/dg/API_CreateDataset.html>`_ operation must match.
+
+        The ``Domain`` and ``DatasetType`` that you choose determine the fields that must be present in training data that you import to a dataset. For example, if you choose the ``RETAIL`` domain and ``TARGET_TIME_SERIES`` as the ``DatasetType`` , Amazon Forecast requires that ``item_id`` , ``timestamp`` , and ``demand`` fields are present in your data. For more information, see `Dataset groups <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-domain
+        '''
+        result = self._values.get("domain")
+        assert result is not None, "Required property 'domain' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of Amazon Resource Names (ARNs) of the datasets that you want to include in the dataset group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-datasetarns
+        '''
+        result = self._values.get("dataset_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_forecast.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_name": "datasetName",
+        "dataset_type": "datasetType",
+        "domain": "domain",
+        "schema": "schema",
+        "data_frequency": "dataFrequency",
+        "encryption_config": "encryptionConfig",
+        "tags": "tags",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        dataset_name: builtins.str,
+        dataset_type: builtins.str,
+        domain: builtins.str,
+        schema: typing.Any,
+        data_frequency: typing.Optional[builtins.str] = None,
+        encryption_config: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnDataset.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param dataset_name: The name of the dataset.
+        :param dataset_type: The dataset type.
+        :param domain: The domain associated with the dataset.
+        :param schema: The schema for the dataset. The schema attributes and their order must match the fields in your data. The dataset ``Domain`` and ``DatasetType`` that you choose determine the minimum required fields in your training data. For information about the required fields for a specific dataset domain and type, see `Dataset Domains and Dataset Types <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-domains-ds-types.html>`_ .
+        :param data_frequency: The frequency of data collection. This parameter is required for RELATED_TIME_SERIES datasets. Valid intervals are an integer followed by Y (Year), M (Month), W (Week), D (Day), H (Hour), and min (Minute). For example, "1D" indicates every day and "15min" indicates every 15 minutes. You cannot specify a value that would overlap with the next larger frequency. That means, for example, you cannot specify a frequency of 60 minutes, because that is equivalent to 1 hour. The valid values for each frequency are the following: - Minute - 1-59 - Hour - 1-23 - Day - 1-6 - Week - 1-4 - Month - 1-11 - Year - 1 Thus, if you want every other week forecasts, specify "2W". Or, if you want quarterly forecasts, you specify "3M".
+        :param encryption_config: A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_forecast as forecast
+            
+            # encryption_config: Any
+            # schema: Any
+            
+            cfn_dataset_props = forecast.CfnDatasetProps(
+                dataset_name="datasetName",
+                dataset_type="datasetType",
+                domain="domain",
+                schema=schema,
+            
+                # the properties below are optional
+                data_frequency="dataFrequency",
+                encryption_config=encryption_config,
+                tags=[forecast.CfnDataset.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a)
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+            check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            check_type(argname="argument data_frequency", value=data_frequency, expected_type=type_hints["data_frequency"])
+            check_type(argname="argument encryption_config", value=encryption_config, expected_type=type_hints["encryption_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_name": dataset_name,
+            "dataset_type": dataset_type,
+            "domain": domain,
+            "schema": schema,
+        }
+        if data_frequency is not None:
+            self._values["data_frequency"] = data_frequency
+        if encryption_config is not None:
+            self._values["encryption_config"] = encryption_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_name(self) -> builtins.str:
+        '''The name of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datasetname
+        '''
+        result = self._values.get("dataset_name")
+        assert result is not None, "Required property 'dataset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_type(self) -> builtins.str:
+        '''The dataset type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datasettype
+        '''
+        result = self._values.get("dataset_type")
+        assert result is not None, "Required property 'dataset_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain(self) -> builtins.str:
+        '''The domain associated with the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-domain
+        '''
+        result = self._values.get("domain")
+        assert result is not None, "Required property 'domain' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schema(self) -> typing.Any:
+        '''The schema for the dataset.
+
+        The schema attributes and their order must match the fields in your data. The dataset ``Domain`` and ``DatasetType`` that you choose determine the minimum required fields in your training data. For information about the required fields for a specific dataset domain and type, see `Dataset Domains and Dataset Types <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-domains-ds-types.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-schema
+        '''
+        result = self._values.get("schema")
+        assert result is not None, "Required property 'schema' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def data_frequency(self) -> typing.Optional[builtins.str]:
+        '''The frequency of data collection. This parameter is required for RELATED_TIME_SERIES datasets.
+
+        Valid intervals are an integer followed by Y (Year), M (Month), W (Week), D (Day), H (Hour), and min (Minute). For example, "1D" indicates every day and "15min" indicates every 15 minutes. You cannot specify a value that would overlap with the next larger frequency. That means, for example, you cannot specify a frequency of 60 minutes, because that is equivalent to 1 hour. The valid values for each frequency are the following:
+
+        - Minute - 1-59
+        - Hour - 1-23
+        - Day - 1-6
+        - Week - 1-4
+        - Month - 1-11
+        - Year - 1
+
+        Thus, if you want every other week forecasts, specify "2W". Or, if you want quarterly forecasts, you specify "3M".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datafrequency
+        '''
+        result = self._values.get("data_frequency")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_config(self) -> typing.Any:
+        '''A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-encryptionconfig
+        '''
+        result = self._values.get("encryption_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnDataset.TagsItemsProperty"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnDataset.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_forecast.DatasetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_group_arn": "datasetGroupArn"},
+)
+class DatasetGroupReference:
+    def __init__(self, *, dataset_group_arn: builtins.str) -> None:
+        '''A reference to a DatasetGroup resource.
+
+        :param dataset_group_arn: The DatasetGroupArn of the DatasetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_forecast as forecast
+            
+            dataset_group_reference = forecast.DatasetGroupReference(
+                dataset_group_arn="datasetGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d1caa734fa6b0c64fc7387a90e42792e68213b90ae90d863a24f9560a1519b8)
+            check_type(argname="argument dataset_group_arn", value=dataset_group_arn, expected_type=type_hints["dataset_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_group_arn": dataset_group_arn,
+        }
+
+    @builtins.property
+    def dataset_group_arn(self) -> builtins.str:
+        '''The DatasetGroupArn of the DatasetGroup resource.'''
+        result = self._values.get("dataset_group_arn")
+        assert result is not None, "Required property 'dataset_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_forecast.DatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_arn": "datasetArn"},
+)
+class DatasetReference:
+    def __init__(self, *, dataset_arn: builtins.str) -> None:
+        '''A reference to a Dataset resource.
+
+        :param dataset_arn: The Arn of the Dataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_forecast as forecast
+            
+            dataset_reference = forecast.DatasetReference(
+                dataset_arn="datasetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f02017b35d0d595abfa29105f16eb3dae48db1655e72680588c8e5b47bc586a)
+            check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_arn": dataset_arn,
+        }
+
+    @builtins.property
+    def dataset_arn(self) -> builtins.str:
+        '''The Arn of the Dataset resource.'''
+        result = self._values.get("dataset_arn")
+        assert result is not None, "Required property 'dataset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_forecast.IDatasetGroupRef")
+class IDatasetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''(experimental) A reference to a DatasetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DatasetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_forecast.IDatasetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''(experimental) A reference to a DatasetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetGroupReference, jsii.get(self, "datasetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetGroupRef).__jsii_proxy_class__ = lambda : _IDatasetGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_forecast.IDatasetRef")
+class IDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_forecast.IDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDatasetRef)
 class CfnDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -208,6 +682,12 @@ class CfnDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''A reference to a Dataset resource.'''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetName")
@@ -583,7 +1063,7 @@ class CfnDataset(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDatasetGroupRef, _ITaggable_36806126)
 class CfnDatasetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -702,6 +1182,12 @@ class CfnDatasetGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="datasetGroupRef")
+    def dataset_group_ref(self) -> DatasetGroupReference:
+        '''A reference to a DatasetGroup resource.'''
+        return typing.cast(DatasetGroupReference, jsii.get(self, "datasetGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -760,310 +1246,55 @@ class CfnDatasetGroup(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_forecast.CfnDatasetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_group_name": "datasetGroupName",
-        "domain": "domain",
-        "dataset_arns": "datasetArns",
-        "tags": "tags",
-    },
-)
-class CfnDatasetGroupProps:
-    def __init__(
-        self,
-        *,
-        dataset_group_name: builtins.str,
-        domain: builtins.str,
-        dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDatasetGroup``.
-
-        :param dataset_group_name: The name of the dataset group.
-        :param domain: The domain associated with the dataset group. When you add a dataset to a dataset group, this value and the value specified for the ``Domain`` parameter of the `CreateDataset <https://docs.aws.amazon.com/forecast/latest/dg/API_CreateDataset.html>`_ operation must match. The ``Domain`` and ``DatasetType`` that you choose determine the fields that must be present in training data that you import to a dataset. For example, if you choose the ``RETAIL`` domain and ``TARGET_TIME_SERIES`` as the ``DatasetType`` , Amazon Forecast requires that ``item_id`` , ``timestamp`` , and ``demand`` fields are present in your data. For more information, see `Dataset groups <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html>`_ .
-        :param dataset_arns: An array of Amazon Resource Names (ARNs) of the datasets that you want to include in the dataset group.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_forecast as forecast
-            
-            cfn_dataset_group_props = forecast.CfnDatasetGroupProps(
-                dataset_group_name="datasetGroupName",
-                domain="domain",
-            
-                # the properties below are optional
-                dataset_arns=["datasetArns"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4)
-            check_type(argname="argument dataset_group_name", value=dataset_group_name, expected_type=type_hints["dataset_group_name"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument dataset_arns", value=dataset_arns, expected_type=type_hints["dataset_arns"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_group_name": dataset_group_name,
-            "domain": domain,
-        }
-        if dataset_arns is not None:
-            self._values["dataset_arns"] = dataset_arns
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dataset_group_name(self) -> builtins.str:
-        '''The name of the dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-datasetgroupname
-        '''
-        result = self._values.get("dataset_group_name")
-        assert result is not None, "Required property 'dataset_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain(self) -> builtins.str:
-        '''The domain associated with the dataset group.
-
-        When you add a dataset to a dataset group, this value and the value specified for the ``Domain`` parameter of the `CreateDataset <https://docs.aws.amazon.com/forecast/latest/dg/API_CreateDataset.html>`_ operation must match.
-
-        The ``Domain`` and ``DatasetType`` that you choose determine the fields that must be present in training data that you import to a dataset. For example, if you choose the ``RETAIL`` domain and ``TARGET_TIME_SERIES`` as the ``DatasetType`` , Amazon Forecast requires that ``item_id`` , ``timestamp`` , and ``demand`` fields are present in your data. For more information, see `Dataset groups <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-domain
-        '''
-        result = self._values.get("domain")
-        assert result is not None, "Required property 'domain' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dataset_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of Amazon Resource Names (ARNs) of the datasets that you want to include in the dataset group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-datasetarns
-        '''
-        result = self._values.get("dataset_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_forecast.CfnDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_name": "datasetName",
-        "dataset_type": "datasetType",
-        "domain": "domain",
-        "schema": "schema",
-        "data_frequency": "dataFrequency",
-        "encryption_config": "encryptionConfig",
-        "tags": "tags",
-    },
-)
-class CfnDatasetProps:
-    def __init__(
-        self,
-        *,
-        dataset_name: builtins.str,
-        dataset_type: builtins.str,
-        domain: builtins.str,
-        schema: typing.Any,
-        data_frequency: typing.Optional[builtins.str] = None,
-        encryption_config: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnDataset.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataset``.
-
-        :param dataset_name: The name of the dataset.
-        :param dataset_type: The dataset type.
-        :param domain: The domain associated with the dataset.
-        :param schema: The schema for the dataset. The schema attributes and their order must match the fields in your data. The dataset ``Domain`` and ``DatasetType`` that you choose determine the minimum required fields in your training data. For information about the required fields for a specific dataset domain and type, see `Dataset Domains and Dataset Types <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-domains-ds-types.html>`_ .
-        :param data_frequency: The frequency of data collection. This parameter is required for RELATED_TIME_SERIES datasets. Valid intervals are an integer followed by Y (Year), M (Month), W (Week), D (Day), H (Hour), and min (Minute). For example, "1D" indicates every day and "15min" indicates every 15 minutes. You cannot specify a value that would overlap with the next larger frequency. That means, for example, you cannot specify a frequency of 60 minutes, because that is equivalent to 1 hour. The valid values for each frequency are the following: - Minute - 1-59 - Hour - 1-23 - Day - 1-6 - Week - 1-4 - Month - 1-11 - Year - 1 Thus, if you want every other week forecasts, specify "2W". Or, if you want quarterly forecasts, you specify "3M".
-        :param encryption_config: A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_forecast as forecast
-            
-            # encryption_config: Any
-            # schema: Any
-            
-            cfn_dataset_props = forecast.CfnDatasetProps(
-                dataset_name="datasetName",
-                dataset_type="datasetType",
-                domain="domain",
-                schema=schema,
-            
-                # the properties below are optional
-                data_frequency="dataFrequency",
-                encryption_config=encryption_config,
-                tags=[forecast.CfnDataset.TagsItemsProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a)
-            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
-            check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
-            check_type(argname="argument data_frequency", value=data_frequency, expected_type=type_hints["data_frequency"])
-            check_type(argname="argument encryption_config", value=encryption_config, expected_type=type_hints["encryption_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_name": dataset_name,
-            "dataset_type": dataset_type,
-            "domain": domain,
-            "schema": schema,
-        }
-        if data_frequency is not None:
-            self._values["data_frequency"] = data_frequency
-        if encryption_config is not None:
-            self._values["encryption_config"] = encryption_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dataset_name(self) -> builtins.str:
-        '''The name of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datasetname
-        '''
-        result = self._values.get("dataset_name")
-        assert result is not None, "Required property 'dataset_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dataset_type(self) -> builtins.str:
-        '''The dataset type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datasettype
-        '''
-        result = self._values.get("dataset_type")
-        assert result is not None, "Required property 'dataset_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain(self) -> builtins.str:
-        '''The domain associated with the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-domain
-        '''
-        result = self._values.get("domain")
-        assert result is not None, "Required property 'domain' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schema(self) -> typing.Any:
-        '''The schema for the dataset.
-
-        The schema attributes and their order must match the fields in your data. The dataset ``Domain`` and ``DatasetType`` that you choose determine the minimum required fields in your training data. For information about the required fields for a specific dataset domain and type, see `Dataset Domains and Dataset Types <https://docs.aws.amazon.com/forecast/latest/dg/howitworks-domains-ds-types.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-schema
-        '''
-        result = self._values.get("schema")
-        assert result is not None, "Required property 'schema' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def data_frequency(self) -> typing.Optional[builtins.str]:
-        '''The frequency of data collection. This parameter is required for RELATED_TIME_SERIES datasets.
-
-        Valid intervals are an integer followed by Y (Year), M (Month), W (Week), D (Day), H (Hour), and min (Minute). For example, "1D" indicates every day and "15min" indicates every 15 minutes. You cannot specify a value that would overlap with the next larger frequency. That means, for example, you cannot specify a frequency of 60 minutes, because that is equivalent to 1 hour. The valid values for each frequency are the following:
-
-        - Minute - 1-59
-        - Hour - 1-23
-        - Day - 1-6
-        - Week - 1-4
-        - Month - 1-11
-        - Year - 1
-
-        Thus, if you want every other week forecasts, specify "2W". Or, if you want quarterly forecasts, you specify "3M".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-datafrequency
-        '''
-        result = self._values.get("data_frequency")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_config(self) -> typing.Any:
-        '''A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-encryptionconfig
-        '''
-        result = self._values.get("encryption_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnDataset.TagsItemsProperty]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-dataset.html#cfn-forecast-dataset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnDataset.TagsItemsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDataset",
     "CfnDatasetGroup",
     "CfnDatasetGroupProps",
     "CfnDatasetProps",
+    "DatasetGroupReference",
+    "DatasetReference",
+    "IDatasetGroupRef",
+    "IDatasetRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4(
+    *,
+    dataset_group_name: builtins.str,
+    domain: builtins.str,
+    dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a(
+    *,
+    dataset_name: builtins.str,
+    dataset_type: builtins.str,
+    domain: builtins.str,
+    schema: typing.Any,
+    data_frequency: typing.Optional[builtins.str] = None,
+    encryption_config: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnDataset.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d1caa734fa6b0c64fc7387a90e42792e68213b90ae90d863a24f9560a1519b8(
+    *,
+    dataset_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f02017b35d0d595abfa29105f16eb3dae48db1655e72680588c8e5b47bc586a(
+    *,
+    dataset_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1b255d6566d3108723fad5445eb36969a47899e6f15f691797cfff629b1678c6(
     scope: _constructs_77d1e7e8.Construct,
@@ -1209,29 +1440,6 @@ def _typecheckingstub__ae3d11cd662c3b30a7b58f2d335f5dada7f4395c8a3b9cf9744bf869e
 
 def _typecheckingstub__8ca2df71e9c6989cff46a364238fa01ea9289ca1eab6c0498f98d265444d51da(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4(
-    *,
-    dataset_group_name: builtins.str,
-    domain: builtins.str,
-    dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a(
-    *,
-    dataset_name: builtins.str,
-    dataset_type: builtins.str,
-    domain: builtins.str,
-    schema: typing.Any,
-    data_frequency: typing.Optional[builtins.str] = None,
-    encryption_config: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnDataset.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

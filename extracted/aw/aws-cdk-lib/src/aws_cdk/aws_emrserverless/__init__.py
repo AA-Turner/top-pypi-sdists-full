@@ -69,7 +69,542 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emrserverless.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "application_id": "applicationId",
+    },
+)
+class ApplicationReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        application_id: builtins.str,
+    ) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ARN of the Application resource.
+        :param application_id: The ApplicationId of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emrserverless as emrserverless
+            
+            application_reference = emrserverless.ApplicationReference(
+                application_arn="applicationArn",
+                application_id="applicationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd5011c969f5299faaa5d7d0bd9336d3c3912512f217b9c7c4e45649a87692fd)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "application_id": application_id,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Application resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emrserverless.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "release_label": "releaseLabel",
+        "type": "type",
+        "architecture": "architecture",
+        "auto_start_configuration": "autoStartConfiguration",
+        "auto_stop_configuration": "autoStopConfiguration",
+        "identity_center_configuration": "identityCenterConfiguration",
+        "image_configuration": "imageConfiguration",
+        "initial_capacity": "initialCapacity",
+        "interactive_configuration": "interactiveConfiguration",
+        "maximum_capacity": "maximumCapacity",
+        "monitoring_configuration": "monitoringConfiguration",
+        "name": "name",
+        "network_configuration": "networkConfiguration",
+        "runtime_configuration": "runtimeConfiguration",
+        "scheduler_configuration": "schedulerConfiguration",
+        "tags": "tags",
+        "worker_type_specifications": "workerTypeSpecifications",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        release_label: builtins.str,
+        type: builtins.str,
+        architecture: typing.Optional[builtins.str] = None,
+        auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AutoStartConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AutoStopConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.IdentityCenterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ImageConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.InitialCapacityConfigKeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.InteractiveConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maximum_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.MaximumAllowedResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.MonitoringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ConfigurationObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scheduler_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.SchedulerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        worker_type_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.WorkerTypeSpecificationInputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param release_label: The EMR release associated with the application.
+        :param type: The type of application, such as Spark or Hive.
+        :param architecture: The CPU architecture of an application.
+        :param auto_start_configuration: The configuration for an application to automatically start on job submission.
+        :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
+        :param identity_center_configuration: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param image_configuration: The image configuration applied to all worker types.
+        :param initial_capacity: The initial capacity of the application.
+        :param interactive_configuration: The interactive configuration object that enables the interactive use cases for an application.
+        :param maximum_capacity: The maximum capacity of the application. This is cumulative across all workers at any given point in time during the lifespan of the application is created. No new resources will be created once any one of the defined limits is hit.
+        :param monitoring_configuration: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param name: The name of the application.
+        :param network_configuration: The network configuration for customer VPC connectivity for the application.
+        :param runtime_configuration: The `Configuration <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_Configuration.html>`_ specifications of an application. Each configuration consists of a classification and properties. You use this parameter when creating or updating an application. To see the runtimeConfiguration object of an application, run the `GetApplication <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_GetApplication.html>`_ API operation.
+        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this application. Supported with release labels emr-7.0.0 and above.
+        :param tags: The tags assigned to the application.
+        :param worker_type_specifications: The specification applied to each worker type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emrserverless as emrserverless
+            
+            # configuration_object_property_: emrserverless.CfnApplication.ConfigurationObjectProperty
+            
+            cfn_application_props = emrserverless.CfnApplicationProps(
+                release_label="releaseLabel",
+                type="type",
+            
+                # the properties below are optional
+                architecture="architecture",
+                auto_start_configuration=emrserverless.CfnApplication.AutoStartConfigurationProperty(
+                    enabled=False
+                ),
+                auto_stop_configuration=emrserverless.CfnApplication.AutoStopConfigurationProperty(
+                    enabled=False,
+                    idle_timeout_minutes=123
+                ),
+                identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
+                    identity_center_instance_arn="identityCenterInstanceArn"
+                ),
+                image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
+                    image_uri="imageUri"
+                ),
+                initial_capacity=[emrserverless.CfnApplication.InitialCapacityConfigKeyValuePairProperty(
+                    key="key",
+                    value=emrserverless.CfnApplication.InitialCapacityConfigProperty(
+                        worker_configuration=emrserverless.CfnApplication.WorkerConfigurationProperty(
+                            cpu="cpu",
+                            memory="memory",
+            
+                            # the properties below are optional
+                            disk="disk",
+                            disk_type="diskType"
+                        ),
+                        worker_count=123
+                    )
+                )],
+                interactive_configuration=emrserverless.CfnApplication.InteractiveConfigurationProperty(
+                    livy_endpoint_enabled=False,
+                    studio_enabled=False
+                ),
+                maximum_capacity=emrserverless.CfnApplication.MaximumAllowedResourcesProperty(
+                    cpu="cpu",
+                    memory="memory",
+            
+                    # the properties below are optional
+                    disk="disk"
+                ),
+                monitoring_configuration=emrserverless.CfnApplication.MonitoringConfigurationProperty(
+                    cloud_watch_logging_configuration=emrserverless.CfnApplication.CloudWatchLoggingConfigurationProperty(
+                        enabled=False,
+                        encryption_key_arn="encryptionKeyArn",
+                        log_group_name="logGroupName",
+                        log_stream_name_prefix="logStreamNamePrefix",
+                        log_type_map=[emrserverless.CfnApplication.LogTypeMapKeyValuePairProperty(
+                            key="key",
+                            value=["value"]
+                        )]
+                    ),
+                    managed_persistence_monitoring_configuration=emrserverless.CfnApplication.ManagedPersistenceMonitoringConfigurationProperty(
+                        enabled=False,
+                        encryption_key_arn="encryptionKeyArn"
+                    ),
+                    prometheus_monitoring_configuration=emrserverless.CfnApplication.PrometheusMonitoringConfigurationProperty(
+                        remote_write_url="remoteWriteUrl"
+                    ),
+                    s3_monitoring_configuration=emrserverless.CfnApplication.S3MonitoringConfigurationProperty(
+                        encryption_key_arn="encryptionKeyArn",
+                        log_uri="logUri"
+                    )
+                ),
+                name="name",
+                network_configuration=emrserverless.CfnApplication.NetworkConfigurationProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                ),
+                runtime_configuration=[emrserverless.CfnApplication.ConfigurationObjectProperty(
+                    classification="classification",
+            
+                    # the properties below are optional
+                    configurations=[configuration_object_property_],
+                    properties={
+                        "properties_key": "properties"
+                    }
+                )],
+                scheduler_configuration=emrserverless.CfnApplication.SchedulerConfigurationProperty(
+                    max_concurrent_runs=123,
+                    queue_timeout_minutes=123
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                worker_type_specifications={
+                    "worker_type_specifications_key": emrserverless.CfnApplication.WorkerTypeSpecificationInputProperty(
+                        image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
+                            image_uri="imageUri"
+                        )
+                    )
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3151e77334ffa97e03663b371e17d90f7842dc4da33dee36252fd84d1ee92ba)
+            check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
+            check_type(argname="argument auto_start_configuration", value=auto_start_configuration, expected_type=type_hints["auto_start_configuration"])
+            check_type(argname="argument auto_stop_configuration", value=auto_stop_configuration, expected_type=type_hints["auto_stop_configuration"])
+            check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
+            check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
+            check_type(argname="argument initial_capacity", value=initial_capacity, expected_type=type_hints["initial_capacity"])
+            check_type(argname="argument interactive_configuration", value=interactive_configuration, expected_type=type_hints["interactive_configuration"])
+            check_type(argname="argument maximum_capacity", value=maximum_capacity, expected_type=type_hints["maximum_capacity"])
+            check_type(argname="argument monitoring_configuration", value=monitoring_configuration, expected_type=type_hints["monitoring_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
+            check_type(argname="argument runtime_configuration", value=runtime_configuration, expected_type=type_hints["runtime_configuration"])
+            check_type(argname="argument scheduler_configuration", value=scheduler_configuration, expected_type=type_hints["scheduler_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument worker_type_specifications", value=worker_type_specifications, expected_type=type_hints["worker_type_specifications"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "release_label": release_label,
+            "type": type,
+        }
+        if architecture is not None:
+            self._values["architecture"] = architecture
+        if auto_start_configuration is not None:
+            self._values["auto_start_configuration"] = auto_start_configuration
+        if auto_stop_configuration is not None:
+            self._values["auto_stop_configuration"] = auto_stop_configuration
+        if identity_center_configuration is not None:
+            self._values["identity_center_configuration"] = identity_center_configuration
+        if image_configuration is not None:
+            self._values["image_configuration"] = image_configuration
+        if initial_capacity is not None:
+            self._values["initial_capacity"] = initial_capacity
+        if interactive_configuration is not None:
+            self._values["interactive_configuration"] = interactive_configuration
+        if maximum_capacity is not None:
+            self._values["maximum_capacity"] = maximum_capacity
+        if monitoring_configuration is not None:
+            self._values["monitoring_configuration"] = monitoring_configuration
+        if name is not None:
+            self._values["name"] = name
+        if network_configuration is not None:
+            self._values["network_configuration"] = network_configuration
+        if runtime_configuration is not None:
+            self._values["runtime_configuration"] = runtime_configuration
+        if scheduler_configuration is not None:
+            self._values["scheduler_configuration"] = scheduler_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if worker_type_specifications is not None:
+            self._values["worker_type_specifications"] = worker_type_specifications
+
+    @builtins.property
+    def release_label(self) -> builtins.str:
+        '''The EMR release associated with the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-releaselabel
+        '''
+        result = self._values.get("release_label")
+        assert result is not None, "Required property 'release_label' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of application, such as Spark or Hive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def architecture(self) -> typing.Optional[builtins.str]:
+        '''The CPU architecture of an application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-architecture
+        '''
+        result = self._values.get("architecture")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_start_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoStartConfigurationProperty"]]:
+        '''The configuration for an application to automatically start on job submission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-autostartconfiguration
+        '''
+        result = self._values.get("auto_start_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoStartConfigurationProperty"]], result)
+
+    @builtins.property
+    def auto_stop_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoStopConfigurationProperty"]]:
+        '''The configuration for an application to automatically stop after a certain amount of time being idle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-autostopconfiguration
+        '''
+        result = self._values.get("auto_stop_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoStopConfigurationProperty"]], result)
+
+    @builtins.property
+    def identity_center_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IdentityCenterConfigurationProperty"]]:
+        '''A configuration specification to be used when provisioning an application.
+
+        A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-identitycenterconfiguration
+        '''
+        result = self._values.get("identity_center_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IdentityCenterConfigurationProperty"]], result)
+
+    @builtins.property
+    def image_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ImageConfigurationInputProperty"]]:
+        '''The image configuration applied to all worker types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-imageconfiguration
+        '''
+        result = self._values.get("image_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ImageConfigurationInputProperty"]], result)
+
+    @builtins.property
+    def initial_capacity(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.InitialCapacityConfigKeyValuePairProperty"]]]]:
+        '''The initial capacity of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-initialcapacity
+        '''
+        result = self._values.get("initial_capacity")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.InitialCapacityConfigKeyValuePairProperty"]]]], result)
+
+    @builtins.property
+    def interactive_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.InteractiveConfigurationProperty"]]:
+        '''The interactive configuration object that enables the interactive use cases for an application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-interactiveconfiguration
+        '''
+        result = self._values.get("interactive_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.InteractiveConfigurationProperty"]], result)
+
+    @builtins.property
+    def maximum_capacity(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaximumAllowedResourcesProperty"]]:
+        '''The maximum capacity of the application.
+
+        This is cumulative across all workers at any given point in time during the lifespan of the application is created. No new resources will be created once any one of the defined limits is hit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-maximumcapacity
+        '''
+        result = self._values.get("maximum_capacity")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaximumAllowedResourcesProperty"]], result)
+
+    @builtins.property
+    def monitoring_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MonitoringConfigurationProperty"]]:
+        '''A configuration specification to be used when provisioning an application.
+
+        A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-monitoringconfiguration
+        '''
+        result = self._values.get("monitoring_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MonitoringConfigurationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.NetworkConfigurationProperty"]]:
+        '''The network configuration for customer VPC connectivity for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-networkconfiguration
+        '''
+        result = self._values.get("network_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.NetworkConfigurationProperty"]], result)
+
+    @builtins.property
+    def runtime_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ConfigurationObjectProperty"]]]]:
+        '''The `Configuration <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_Configuration.html>`_ specifications of an application. Each configuration consists of a classification and properties. You use this parameter when creating or updating an application. To see the runtimeConfiguration object of an application, run the `GetApplication <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_GetApplication.html>`_ API operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-runtimeconfiguration
+        '''
+        result = self._values.get("runtime_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.ConfigurationObjectProperty"]]]], result)
+
+    @builtins.property
+    def scheduler_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.SchedulerConfigurationProperty"]]:
+        '''The scheduler configuration for batch and streaming jobs running on this application.
+
+        Supported with release labels emr-7.0.0 and above.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-schedulerconfiguration
+        '''
+        result = self._values.get("scheduler_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.SchedulerConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def worker_type_specifications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnApplication.WorkerTypeSpecificationInputProperty"]]]]:
+        '''The specification applied to each worker type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-workertypespecifications
+        '''
+        result = self._values.get("worker_type_specifications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnApplication.WorkerTypeSpecificationInputProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emrserverless.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emrserverless.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -289,6 +824,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationId")
@@ -2149,439 +2690,45 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emrserverless.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "release_label": "releaseLabel",
-        "type": "type",
-        "architecture": "architecture",
-        "auto_start_configuration": "autoStartConfiguration",
-        "auto_stop_configuration": "autoStopConfiguration",
-        "identity_center_configuration": "identityCenterConfiguration",
-        "image_configuration": "imageConfiguration",
-        "initial_capacity": "initialCapacity",
-        "interactive_configuration": "interactiveConfiguration",
-        "maximum_capacity": "maximumCapacity",
-        "monitoring_configuration": "monitoringConfiguration",
-        "name": "name",
-        "network_configuration": "networkConfiguration",
-        "runtime_configuration": "runtimeConfiguration",
-        "scheduler_configuration": "schedulerConfiguration",
-        "tags": "tags",
-        "worker_type_specifications": "workerTypeSpecifications",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        release_label: builtins.str,
-        type: builtins.str,
-        architecture: typing.Optional[builtins.str] = None,
-        auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        maximum_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MaximumAllowedResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        scheduler_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.SchedulerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        worker_type_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.WorkerTypeSpecificationInputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param release_label: The EMR release associated with the application.
-        :param type: The type of application, such as Spark or Hive.
-        :param architecture: The CPU architecture of an application.
-        :param auto_start_configuration: The configuration for an application to automatically start on job submission.
-        :param auto_stop_configuration: The configuration for an application to automatically stop after a certain amount of time being idle.
-        :param identity_center_configuration: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
-        :param image_configuration: The image configuration applied to all worker types.
-        :param initial_capacity: The initial capacity of the application.
-        :param interactive_configuration: The interactive configuration object that enables the interactive use cases for an application.
-        :param maximum_capacity: The maximum capacity of the application. This is cumulative across all workers at any given point in time during the lifespan of the application is created. No new resources will be created once any one of the defined limits is hit.
-        :param monitoring_configuration: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
-        :param name: The name of the application.
-        :param network_configuration: The network configuration for customer VPC connectivity for the application.
-        :param runtime_configuration: The `Configuration <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_Configuration.html>`_ specifications of an application. Each configuration consists of a classification and properties. You use this parameter when creating or updating an application. To see the runtimeConfiguration object of an application, run the `GetApplication <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_GetApplication.html>`_ API operation.
-        :param scheduler_configuration: The scheduler configuration for batch and streaming jobs running on this application. Supported with release labels emr-7.0.0 and above.
-        :param tags: The tags assigned to the application.
-        :param worker_type_specifications: The specification applied to each worker type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emrserverless as emrserverless
-            
-            # configuration_object_property_: emrserverless.CfnApplication.ConfigurationObjectProperty
-            
-            cfn_application_props = emrserverless.CfnApplicationProps(
-                release_label="releaseLabel",
-                type="type",
-            
-                # the properties below are optional
-                architecture="architecture",
-                auto_start_configuration=emrserverless.CfnApplication.AutoStartConfigurationProperty(
-                    enabled=False
-                ),
-                auto_stop_configuration=emrserverless.CfnApplication.AutoStopConfigurationProperty(
-                    enabled=False,
-                    idle_timeout_minutes=123
-                ),
-                identity_center_configuration=emrserverless.CfnApplication.IdentityCenterConfigurationProperty(
-                    identity_center_instance_arn="identityCenterInstanceArn"
-                ),
-                image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
-                    image_uri="imageUri"
-                ),
-                initial_capacity=[emrserverless.CfnApplication.InitialCapacityConfigKeyValuePairProperty(
-                    key="key",
-                    value=emrserverless.CfnApplication.InitialCapacityConfigProperty(
-                        worker_configuration=emrserverless.CfnApplication.WorkerConfigurationProperty(
-                            cpu="cpu",
-                            memory="memory",
-            
-                            # the properties below are optional
-                            disk="disk",
-                            disk_type="diskType"
-                        ),
-                        worker_count=123
-                    )
-                )],
-                interactive_configuration=emrserverless.CfnApplication.InteractiveConfigurationProperty(
-                    livy_endpoint_enabled=False,
-                    studio_enabled=False
-                ),
-                maximum_capacity=emrserverless.CfnApplication.MaximumAllowedResourcesProperty(
-                    cpu="cpu",
-                    memory="memory",
-            
-                    # the properties below are optional
-                    disk="disk"
-                ),
-                monitoring_configuration=emrserverless.CfnApplication.MonitoringConfigurationProperty(
-                    cloud_watch_logging_configuration=emrserverless.CfnApplication.CloudWatchLoggingConfigurationProperty(
-                        enabled=False,
-                        encryption_key_arn="encryptionKeyArn",
-                        log_group_name="logGroupName",
-                        log_stream_name_prefix="logStreamNamePrefix",
-                        log_type_map=[emrserverless.CfnApplication.LogTypeMapKeyValuePairProperty(
-                            key="key",
-                            value=["value"]
-                        )]
-                    ),
-                    managed_persistence_monitoring_configuration=emrserverless.CfnApplication.ManagedPersistenceMonitoringConfigurationProperty(
-                        enabled=False,
-                        encryption_key_arn="encryptionKeyArn"
-                    ),
-                    prometheus_monitoring_configuration=emrserverless.CfnApplication.PrometheusMonitoringConfigurationProperty(
-                        remote_write_url="remoteWriteUrl"
-                    ),
-                    s3_monitoring_configuration=emrserverless.CfnApplication.S3MonitoringConfigurationProperty(
-                        encryption_key_arn="encryptionKeyArn",
-                        log_uri="logUri"
-                    )
-                ),
-                name="name",
-                network_configuration=emrserverless.CfnApplication.NetworkConfigurationProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                ),
-                runtime_configuration=[emrserverless.CfnApplication.ConfigurationObjectProperty(
-                    classification="classification",
-            
-                    # the properties below are optional
-                    configurations=[configuration_object_property_],
-                    properties={
-                        "properties_key": "properties"
-                    }
-                )],
-                scheduler_configuration=emrserverless.CfnApplication.SchedulerConfigurationProperty(
-                    max_concurrent_runs=123,
-                    queue_timeout_minutes=123
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                worker_type_specifications={
-                    "worker_type_specifications_key": emrserverless.CfnApplication.WorkerTypeSpecificationInputProperty(
-                        image_configuration=emrserverless.CfnApplication.ImageConfigurationInputProperty(
-                            image_uri="imageUri"
-                        )
-                    )
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3151e77334ffa97e03663b371e17d90f7842dc4da33dee36252fd84d1ee92ba)
-            check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
-            check_type(argname="argument auto_start_configuration", value=auto_start_configuration, expected_type=type_hints["auto_start_configuration"])
-            check_type(argname="argument auto_stop_configuration", value=auto_stop_configuration, expected_type=type_hints["auto_stop_configuration"])
-            check_type(argname="argument identity_center_configuration", value=identity_center_configuration, expected_type=type_hints["identity_center_configuration"])
-            check_type(argname="argument image_configuration", value=image_configuration, expected_type=type_hints["image_configuration"])
-            check_type(argname="argument initial_capacity", value=initial_capacity, expected_type=type_hints["initial_capacity"])
-            check_type(argname="argument interactive_configuration", value=interactive_configuration, expected_type=type_hints["interactive_configuration"])
-            check_type(argname="argument maximum_capacity", value=maximum_capacity, expected_type=type_hints["maximum_capacity"])
-            check_type(argname="argument monitoring_configuration", value=monitoring_configuration, expected_type=type_hints["monitoring_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
-            check_type(argname="argument runtime_configuration", value=runtime_configuration, expected_type=type_hints["runtime_configuration"])
-            check_type(argname="argument scheduler_configuration", value=scheduler_configuration, expected_type=type_hints["scheduler_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument worker_type_specifications", value=worker_type_specifications, expected_type=type_hints["worker_type_specifications"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "release_label": release_label,
-            "type": type,
-        }
-        if architecture is not None:
-            self._values["architecture"] = architecture
-        if auto_start_configuration is not None:
-            self._values["auto_start_configuration"] = auto_start_configuration
-        if auto_stop_configuration is not None:
-            self._values["auto_stop_configuration"] = auto_stop_configuration
-        if identity_center_configuration is not None:
-            self._values["identity_center_configuration"] = identity_center_configuration
-        if image_configuration is not None:
-            self._values["image_configuration"] = image_configuration
-        if initial_capacity is not None:
-            self._values["initial_capacity"] = initial_capacity
-        if interactive_configuration is not None:
-            self._values["interactive_configuration"] = interactive_configuration
-        if maximum_capacity is not None:
-            self._values["maximum_capacity"] = maximum_capacity
-        if monitoring_configuration is not None:
-            self._values["monitoring_configuration"] = monitoring_configuration
-        if name is not None:
-            self._values["name"] = name
-        if network_configuration is not None:
-            self._values["network_configuration"] = network_configuration
-        if runtime_configuration is not None:
-            self._values["runtime_configuration"] = runtime_configuration
-        if scheduler_configuration is not None:
-            self._values["scheduler_configuration"] = scheduler_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if worker_type_specifications is not None:
-            self._values["worker_type_specifications"] = worker_type_specifications
-
-    @builtins.property
-    def release_label(self) -> builtins.str:
-        '''The EMR release associated with the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-releaselabel
-        '''
-        result = self._values.get("release_label")
-        assert result is not None, "Required property 'release_label' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of application, such as Spark or Hive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def architecture(self) -> typing.Optional[builtins.str]:
-        '''The CPU architecture of an application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-architecture
-        '''
-        result = self._values.get("architecture")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_start_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStartConfigurationProperty]]:
-        '''The configuration for an application to automatically start on job submission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-autostartconfiguration
-        '''
-        result = self._values.get("auto_start_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStartConfigurationProperty]], result)
-
-    @builtins.property
-    def auto_stop_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStopConfigurationProperty]]:
-        '''The configuration for an application to automatically stop after a certain amount of time being idle.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-autostopconfiguration
-        '''
-        result = self._values.get("auto_stop_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoStopConfigurationProperty]], result)
-
-    @builtins.property
-    def identity_center_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IdentityCenterConfigurationProperty]]:
-        '''A configuration specification to be used when provisioning an application.
-
-        A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-identitycenterconfiguration
-        '''
-        result = self._values.get("identity_center_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IdentityCenterConfigurationProperty]], result)
-
-    @builtins.property
-    def image_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ImageConfigurationInputProperty]]:
-        '''The image configuration applied to all worker types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-imageconfiguration
-        '''
-        result = self._values.get("image_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ImageConfigurationInputProperty]], result)
-
-    @builtins.property
-    def initial_capacity(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.InitialCapacityConfigKeyValuePairProperty]]]]:
-        '''The initial capacity of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-initialcapacity
-        '''
-        result = self._values.get("initial_capacity")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.InitialCapacityConfigKeyValuePairProperty]]]], result)
-
-    @builtins.property
-    def interactive_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.InteractiveConfigurationProperty]]:
-        '''The interactive configuration object that enables the interactive use cases for an application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-interactiveconfiguration
-        '''
-        result = self._values.get("interactive_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.InteractiveConfigurationProperty]], result)
-
-    @builtins.property
-    def maximum_capacity(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.MaximumAllowedResourcesProperty]]:
-        '''The maximum capacity of the application.
-
-        This is cumulative across all workers at any given point in time during the lifespan of the application is created. No new resources will be created once any one of the defined limits is hit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-maximumcapacity
-        '''
-        result = self._values.get("maximum_capacity")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.MaximumAllowedResourcesProperty]], result)
-
-    @builtins.property
-    def monitoring_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.MonitoringConfigurationProperty]]:
-        '''A configuration specification to be used when provisioning an application.
-
-        A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-monitoringconfiguration
-        '''
-        result = self._values.get("monitoring_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.MonitoringConfigurationProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.NetworkConfigurationProperty]]:
-        '''The network configuration for customer VPC connectivity for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-networkconfiguration
-        '''
-        result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.NetworkConfigurationProperty]], result)
-
-    @builtins.property
-    def runtime_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.ConfigurationObjectProperty]]]]:
-        '''The `Configuration <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_Configuration.html>`_ specifications of an application. Each configuration consists of a classification and properties. You use this parameter when creating or updating an application. To see the runtimeConfiguration object of an application, run the `GetApplication <https://docs.aws.amazon.com/emr-serverless/latest/APIReference/API_GetApplication.html>`_ API operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-runtimeconfiguration
-        '''
-        result = self._values.get("runtime_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.ConfigurationObjectProperty]]]], result)
-
-    @builtins.property
-    def scheduler_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.SchedulerConfigurationProperty]]:
-        '''The scheduler configuration for batch and streaming jobs running on this application.
-
-        Supported with release labels emr-7.0.0 and above.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-schedulerconfiguration
-        '''
-        result = self._values.get("scheduler_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.SchedulerConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def worker_type_specifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnApplication.WorkerTypeSpecificationInputProperty]]]]:
-        '''The specification applied to each worker type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrserverless-application.html#cfn-emrserverless-application-workertypespecifications
-        '''
-        result = self._values.get("worker_type_specifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnApplication.WorkerTypeSpecificationInputProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
+    "IApplicationRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__cd5011c969f5299faaa5d7d0bd9336d3c3912512f217b9c7c4e45649a87692fd(
+    *,
+    application_arn: builtins.str,
+    application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3151e77334ffa97e03663b371e17d90f7842dc4da33dee36252fd84d1ee92ba(
+    *,
+    release_label: builtins.str,
+    type: builtins.str,
+    architecture: typing.Optional[builtins.str] = None,
+    auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    maximum_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MaximumAllowedResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scheduler_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.SchedulerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    worker_type_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.WorkerTypeSpecificationInputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__73910249d55cbd2983a3ea1bb4666acedb0e3e84df9686bbdeecd191b5ae6373(
     scope: _constructs_77d1e7e8.Construct,
@@ -2874,29 +3021,6 @@ def _typecheckingstub__ba87e32273a791ef8b805baf4bc9f2673318df79033c83263f0a9b338
 def _typecheckingstub__cf3faf2221f3ef2b1688f533b0a19ec0f76d5323103fca031607fc17f89bbd0c(
     *,
     image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3151e77334ffa97e03663b371e17d90f7842dc4da33dee36252fd84d1ee92ba(
-    *,
-    release_label: builtins.str,
-    type: builtins.str,
-    architecture: typing.Optional[builtins.str] = None,
-    auto_start_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStartConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_stop_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoStopConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    identity_center_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IdentityCenterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ImageConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    initial_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InitialCapacityConfigKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    interactive_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InteractiveConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    maximum_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MaximumAllowedResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    monitoring_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.MonitoringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    scheduler_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.SchedulerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    worker_type_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.WorkerTypeSpecificationInputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

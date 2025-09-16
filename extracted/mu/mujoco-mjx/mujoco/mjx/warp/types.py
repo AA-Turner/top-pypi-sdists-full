@@ -65,7 +65,6 @@ class BlockDim:
   mul_m_dense: int
   qderiv_actuator_passive_actuation: int
   qderiv_actuator_passive_no_actuation: int
-  qfrc_actuator: int
   ray: int
   segmented_sort: int
   tendon_velocity: int
@@ -94,7 +93,9 @@ class OptionWarp(PyTreeNode):
   graph_conditional: bool
   has_fluid: bool
   is_sparse: bool
+  legacy_gjk: bool
   ls_parallel: bool
+  ls_parallel_min_step: float
   run_collision_detection: bool
   sdf_initpoints: int
   sdf_iterations: int
@@ -137,9 +138,11 @@ class ModelWarp(PyTreeNode):
   has_sdf_geom: bool
   jnt_limited_ball_adr: np.ndarray
   jnt_limited_slide_hinge_adr: np.ndarray
+  light_active: jax.Array
   light_bodyid: np.ndarray
   light_targetbodyid: np.ndarray
   mapM2M: np.ndarray
+  mat_texrepeat: jax.Array
   mesh_polyadr: np.ndarray
   mesh_polymap: np.ndarray
   mesh_polymapadr: np.ndarray
@@ -175,6 +178,7 @@ class ModelWarp(PyTreeNode):
   qM_tiles: Tuple[TileSet, ...]
   rangefinder_sensor_adr: np.ndarray
   sensor_acc_adr: np.ndarray
+  sensor_adr_to_contact_adr: np.ndarray
   sensor_contact_adr: np.ndarray
   sensor_e_kinetic: bool
   sensor_e_potential: bool
@@ -241,13 +245,11 @@ class DataWarp(PyTreeNode):
   efc__Jaref: jax.Array
   efc__Ma: jax.Array
   efc__Mgrad: jax.Array
-  efc__active: jax.Array
   efc__alpha: jax.Array
   efc__aref: jax.Array
   efc__beta: jax.Array
   efc__cholesky_L_tmp: jax.Array
   efc__cholesky_y_tmp: jax.Array
-  efc__condim: jax.Array
   efc__cost: jax.Array
   efc__cost_candidate: jax.Array
   efc__done: jax.Array
@@ -256,24 +258,11 @@ class DataWarp(PyTreeNode):
   efc__gauss: jax.Array
   efc__grad: jax.Array
   efc__grad_dot: jax.Array
-  efc__gtol: jax.Array
   efc__h: jax.Array
-  efc__hi: jax.Array
-  efc__hi_alpha: jax.Array
-  efc__hi_next: jax.Array
-  efc__hi_next_alpha: jax.Array
   efc__id: jax.Array
   efc__jv: jax.Array
-  efc__lo: jax.Array
-  efc__lo_alpha: jax.Array
-  efc__lo_next: jax.Array
-  efc__lo_next_alpha: jax.Array
-  efc__ls_done: jax.Array
   efc__margin: jax.Array
-  efc__mid: jax.Array
-  efc__mid_alpha: jax.Array
   efc__mv: jax.Array
-  efc__p0: jax.Array
   efc__pos: jax.Array
   efc__prev_Mgrad: jax.Array
   efc__prev_cost: jax.Array
@@ -282,12 +271,9 @@ class DataWarp(PyTreeNode):
   efc__quad_gauss: jax.Array
   efc__search: jax.Array
   efc__search_dot: jax.Array
+  efc__state: jax.Array
   efc__type: jax.Array
-  efc__u: jax.Array
-  efc__uu: jax.Array
-  efc__uv: jax.Array
   efc__vel: jax.Array
-  efc__vv: jax.Array
   energy: jax.Array
   energy_vel_mul_m_skip: jax.Array
   epa_face: jax.Array
@@ -365,7 +351,6 @@ class DataWarp(PyTreeNode):
   ten_Jdot: jax.Array
   ten_actfrc: jax.Array
   ten_bias_coef: jax.Array
-  ten_length: jax.Array
   ten_velocity: jax.Array
   ten_wrapadr: jax.Array
   ten_wrapnum: jax.Array
@@ -390,10 +375,6 @@ DATA_NON_VMAP = {
     'contact__solref',
     'contact__solreffriction',
     'contact__worldid',
-    'efc__u',
-    'efc__uu',
-    'efc__uv',
-    'efc__vv',
     'epa_face',
     'epa_horizon',
     'epa_index',
@@ -483,13 +464,11 @@ _NDIM = {
         'efc__Jaref': 2,
         'efc__Ma': 2,
         'efc__Mgrad': 2,
-        'efc__active': 2,
         'efc__alpha': 1,
         'efc__aref': 2,
         'efc__beta': 1,
         'efc__cholesky_L_tmp': 3,
         'efc__cholesky_y_tmp': 2,
-        'efc__condim': 2,
         'efc__cost': 1,
         'efc__cost_candidate': 2,
         'efc__done': 1,
@@ -498,24 +477,11 @@ _NDIM = {
         'efc__gauss': 1,
         'efc__grad': 2,
         'efc__grad_dot': 1,
-        'efc__gtol': 1,
         'efc__h': 3,
-        'efc__hi': 2,
-        'efc__hi_alpha': 1,
-        'efc__hi_next': 2,
-        'efc__hi_next_alpha': 1,
         'efc__id': 2,
         'efc__jv': 2,
-        'efc__lo': 2,
-        'efc__lo_alpha': 1,
-        'efc__lo_next': 2,
-        'efc__lo_next_alpha': 1,
-        'efc__ls_done': 1,
         'efc__margin': 2,
-        'efc__mid': 2,
-        'efc__mid_alpha': 1,
         'efc__mv': 2,
-        'efc__p0': 2,
         'efc__pos': 2,
         'efc__prev_Mgrad': 2,
         'efc__prev_cost': 1,
@@ -524,12 +490,9 @@ _NDIM = {
         'efc__quad_gauss': 2,
         'efc__search': 2,
         'efc__search_dot': 1,
+        'efc__state': 2,
         'efc__type': 2,
-        'efc__u': 2,
-        'efc__uu': 1,
-        'efc__uv': 1,
         'efc__vel': 2,
-        'efc__vv': 1,
         'energy': 2,
         'energy_vel_mul_m_skip': 1,
         'epa_face': 3,
@@ -686,7 +649,6 @@ _NDIM = {
         'block_dim__mul_m_dense': 0,
         'block_dim__qderiv_actuator_passive_actuation': 0,
         'block_dim__qderiv_actuator_passive_no_actuation': 0,
-        'block_dim__qfrc_actuator': 0,
         'block_dim__ray': 0,
         'block_dim__segmented_sort': 0,
         'block_dim__tendon_velocity': 0,
@@ -751,7 +713,7 @@ _NDIM = {
         'eq_type': 1,
         'eq_wld_adr': 1,
         'exclude_signature': 1,
-        'flex_bending': 3,
+        'flex_bending': 1,
         'flex_damping': 1,
         'flex_dim': 1,
         'flex_edge': 2,
@@ -812,7 +774,9 @@ _NDIM = {
         'jnt_solref': 3,
         'jnt_stiffness': 2,
         'jnt_type': 1,
+        'light_active': 2,
         'light_bodyid': 1,
+        'light_castshadow': 2,
         'light_dir': 3,
         'light_dir0': 3,
         'light_mode': 1,
@@ -820,8 +784,11 @@ _NDIM = {
         'light_pos0': 3,
         'light_poscom0': 3,
         'light_targetbodyid': 1,
+        'light_type': 2,
         'mapM2M': 1,
         'mat_rgba': 3,
+        'mat_texid': 3,
+        'mat_texrepeat': 3,
         'mesh_face': 2,
         'mesh_faceadr': 1,
         'mesh_graph': 1,
@@ -861,6 +828,7 @@ _NDIM = {
         'njnt': 0,
         'nlight': 0,
         'nlsp': 0,
+        'nmat': 0,
         'nmeshface': 0,
         'nmeshgraph': 0,
         'nmeshpoly': 0,
@@ -897,8 +865,10 @@ _NDIM = {
         'opt__integrator': 0,
         'opt__is_sparse': 0,
         'opt__iterations': 0,
+        'opt__legacy_gjk': 0,
         'opt__ls_iterations': 0,
         'opt__ls_parallel': 0,
+        'opt__ls_parallel_min_step': 0,
         'opt__ls_tolerance': 1,
         'opt__magnetic': 2,
         'opt__run_collision_detection': 0,
@@ -932,6 +902,7 @@ _NDIM = {
         'rangefinder_sensor_adr': 1,
         'sensor_acc_adr': 1,
         'sensor_adr': 1,
+        'sensor_adr_to_contact_adr': 1,
         'sensor_contact_adr': 1,
         'sensor_cutoff': 1,
         'sensor_datatype': 1,
@@ -1013,8 +984,10 @@ _NDIM = {
         'integrator': 0,
         'is_sparse': 0,
         'iterations': 0,
+        'legacy_gjk': 0,
         'ls_iterations': 0,
         'ls_parallel': 0,
+        'ls_parallel_min_step': 0,
         'ls_tolerance': 1,
         'magnetic': 2,
         'run_collision_detection': 0,
@@ -1072,13 +1045,11 @@ _BATCH_DIM = {
         'efc__Jaref': True,
         'efc__Ma': True,
         'efc__Mgrad': True,
-        'efc__active': True,
         'efc__alpha': True,
         'efc__aref': True,
         'efc__beta': True,
         'efc__cholesky_L_tmp': True,
         'efc__cholesky_y_tmp': True,
-        'efc__condim': True,
         'efc__cost': True,
         'efc__cost_candidate': True,
         'efc__done': True,
@@ -1087,24 +1058,11 @@ _BATCH_DIM = {
         'efc__gauss': True,
         'efc__grad': True,
         'efc__grad_dot': True,
-        'efc__gtol': True,
         'efc__h': True,
-        'efc__hi': True,
-        'efc__hi_alpha': True,
-        'efc__hi_next': True,
-        'efc__hi_next_alpha': True,
         'efc__id': True,
         'efc__jv': True,
-        'efc__lo': True,
-        'efc__lo_alpha': True,
-        'efc__lo_next': True,
-        'efc__lo_next_alpha': True,
-        'efc__ls_done': True,
         'efc__margin': True,
-        'efc__mid': True,
-        'efc__mid_alpha': True,
         'efc__mv': True,
-        'efc__p0': True,
         'efc__pos': True,
         'efc__prev_Mgrad': True,
         'efc__prev_cost': True,
@@ -1113,12 +1071,9 @@ _BATCH_DIM = {
         'efc__quad_gauss': True,
         'efc__search': True,
         'efc__search_dot': True,
+        'efc__state': True,
         'efc__type': True,
-        'efc__u': False,
-        'efc__uu': False,
-        'efc__uv': False,
         'efc__vel': True,
-        'efc__vv': False,
         'energy': True,
         'energy_vel_mul_m_skip': True,
         'epa_face': False,
@@ -1275,7 +1230,6 @@ _BATCH_DIM = {
         'block_dim__mul_m_dense': False,
         'block_dim__qderiv_actuator_passive_actuation': False,
         'block_dim__qderiv_actuator_passive_no_actuation': False,
-        'block_dim__qfrc_actuator': False,
         'block_dim__ray': False,
         'block_dim__segmented_sort': False,
         'block_dim__tendon_velocity': False,
@@ -1401,7 +1355,9 @@ _BATCH_DIM = {
         'jnt_solref': True,
         'jnt_stiffness': True,
         'jnt_type': False,
+        'light_active': True,
         'light_bodyid': False,
+        'light_castshadow': True,
         'light_dir': True,
         'light_dir0': True,
         'light_mode': False,
@@ -1409,8 +1365,11 @@ _BATCH_DIM = {
         'light_pos0': True,
         'light_poscom0': True,
         'light_targetbodyid': False,
+        'light_type': True,
         'mapM2M': False,
         'mat_rgba': True,
+        'mat_texid': True,
+        'mat_texrepeat': True,
         'mesh_face': False,
         'mesh_faceadr': False,
         'mesh_graph': False,
@@ -1450,6 +1409,7 @@ _BATCH_DIM = {
         'njnt': False,
         'nlight': False,
         'nlsp': False,
+        'nmat': False,
         'nmeshface': False,
         'nmeshgraph': False,
         'nmeshpoly': False,
@@ -1486,8 +1446,10 @@ _BATCH_DIM = {
         'opt__integrator': False,
         'opt__is_sparse': False,
         'opt__iterations': False,
+        'opt__legacy_gjk': False,
         'opt__ls_iterations': False,
         'opt__ls_parallel': False,
+        'opt__ls_parallel_min_step': False,
         'opt__ls_tolerance': True,
         'opt__magnetic': True,
         'opt__run_collision_detection': False,
@@ -1521,6 +1483,7 @@ _BATCH_DIM = {
         'rangefinder_sensor_adr': False,
         'sensor_acc_adr': False,
         'sensor_adr': False,
+        'sensor_adr_to_contact_adr': False,
         'sensor_contact_adr': False,
         'sensor_cutoff': False,
         'sensor_datatype': False,
@@ -1602,8 +1565,10 @@ _BATCH_DIM = {
         'integrator': False,
         'is_sparse': False,
         'iterations': False,
+        'legacy_gjk': False,
         'ls_iterations': False,
         'ls_parallel': False,
+        'ls_parallel_min_step': False,
         'ls_tolerance': True,
         'magnetic': True,
         'run_collision_detection': False,

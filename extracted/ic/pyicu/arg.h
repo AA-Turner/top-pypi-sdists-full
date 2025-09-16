@@ -385,13 +385,13 @@ template <typename T> class ICUObjectArray {
 private:
     const classid id;
     PyTypeObject *const type;
-    std::unique_ptr<T *, decltype(free) *> *const array;
+    std::unique_ptr<T *[]> *const array;
     size_t *const len;
 
 public:
     ICUObjectArray() = delete;
 
-    explicit ICUObjectArray(classid param1, PyTypeObject *param2, std::unique_ptr<T *, decltype(free) *> *param3, size_t *param4) noexcept
+    explicit ICUObjectArray(classid param1, PyTypeObject *param2, std::unique_ptr<T *[]> *param3, size_t *param4) noexcept
         : id(param1), type(param2), array(param3), len(param4) {}
 
     int parse(PyObject *arg) const
@@ -409,7 +409,7 @@ public:
                 return -1;
         }
 
-        array->reset(reinterpret_cast<T **>(pl2cpa(arg, len, id, type)));
+        *array = pl2cpa<T>(arg, len, id, type);
         if (!array->get())
             return -1;
 
@@ -853,7 +853,7 @@ public:
 };
 
 #define _IS_POD(T)                                      \
-  static_assert(std::is_trivial<T>::value);             \
+  static_assert(std::is_trivially_copyable<T>::value);  \
   static_assert(std::is_standard_layout<T>::value)
 
 _IS_POD(AnyPythonObject);

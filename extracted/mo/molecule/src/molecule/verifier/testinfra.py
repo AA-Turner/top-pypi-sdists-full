@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, cast
 
 from molecule import logger, util
 from molecule.api import Verifier
+from molecule.reporting.definitions import CompletionState
 
 
 if TYPE_CHECKING:
@@ -39,62 +40,7 @@ if TYPE_CHECKING:
 
 
 class Testinfra(Verifier):
-    """`Testinfra`_ is no longer the default test verifier since version 3.0.
-
-    Additional options can be passed to ``testinfra`` through the options
-    dict.  Any option set in this section will override the defaults.
-
-    !!! note
-
-        Molecule will remove any options matching '^[v]+$', and pass ``-vvv``
-        to the underlying ``pytest`` command when executing ``molecule
-        --debug``.
-
-    ``` yaml
-        verifier:
-          name: testinfra
-          options:
-            n: 1
-    ```
-
-    The testing can be disabled by setting ``enabled`` to False.
-
-    ``` yaml
-        verifier:
-          name: testinfra
-          enabled: False
-    ```
-
-    Environment variables can be passed to the verifier.
-
-    ``` yaml
-        verifier:
-          name: testinfra
-          env:
-            FOO: bar
-    ```
-
-    Change path to the test directory.
-
-    ``` yaml
-        verifier:
-          name: testinfra
-          directory: /foo/bar/
-    ```
-
-    Additional tests from another file or directory relative to the scenario's
-    tests directory (supports regexp).
-
-    ``` yaml
-        verifier:
-          name: testinfra
-          additional_files_or_dirs:
-            - ../path/to/test_1.py
-            - ../path/to/test_2.py
-            - ../path/to/directory/*
-    ```
-    .. _`Testinfra`: https://testinfra.readthedocs.io
-    """
+    """The Testinfra verifier."""
 
     def __init__(self, config: Config) -> None:
         """Set up the requirements to execute ``testinfra`` and returns None.
@@ -215,6 +161,7 @@ class Testinfra(Verifier):
         if not self.enabled:
             msg = "Skipping, verifier is disabled."
             self._log.warning(msg)
+            self._config.scenario.results.add_completion(CompletionState.disabled)
             return
 
         if self._config:
@@ -236,12 +183,14 @@ class Testinfra(Verifier):
             env=self.env,
             debug=self._config.debug,
             cwd=Path(self._config.scenario.directory),
+            command_borders=self._config.command_borders,
         )
         if result.returncode == 0:
             msg = "Verifier completed successfully."
             self._log.info(msg)
         else:
-            util.sysexit(result.returncode)
+            msg = "Verifier tests failed"
+            util.sysexit_with_message(msg, code=result.returncode)
 
     def _get_tests(self, action_args: list[str] | None = None) -> list[str]:
         """Walk the verifier's directory for tests.

@@ -383,7 +383,4001 @@ from ..aws_iam import (
 from ..aws_kms import IKey as _IKey_5f11635f
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.CfnScheduleGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "tags": "tags"},
+)
+class CfnScheduleGroupProps:
+    def __init__(
+        self,
+        *,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScheduleGroup``.
+
+        :param name: The name of the schedule group.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_scheduler as scheduler
+            
+            cfn_schedule_group_props = scheduler.CfnScheduleGroupProps(
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schedule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html#cfn-scheduler-schedulegroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html#cfn-scheduler-schedulegroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduleGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.CfnScheduleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flexible_time_window": "flexibleTimeWindow",
+        "schedule_expression": "scheduleExpression",
+        "target": "target",
+        "description": "description",
+        "end_date": "endDate",
+        "group_name": "groupName",
+        "kms_key_arn": "kmsKeyArn",
+        "name": "name",
+        "schedule_expression_timezone": "scheduleExpressionTimezone",
+        "start_date": "startDate",
+        "state": "state",
+    },
+)
+class CfnScheduleProps:
+    def __init__(
+        self,
+        *,
+        flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSchedule.FlexibleTimeWindowProperty", typing.Dict[builtins.str, typing.Any]]],
+        schedule_expression: builtins.str,
+        target: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSchedule.TargetProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        end_date: typing.Optional[builtins.str] = None,
+        group_name: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        schedule_expression_timezone: typing.Optional[builtins.str] = None,
+        start_date: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSchedule``.
+
+        :param flexible_time_window: Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.
+        :param schedule_expression: The expression that defines when the schedule runs. The following formats are supported. - ``at`` expression - ``at(yyyy-mm-ddThh:mm:ss)`` - ``rate`` expression - ``rate(value unit)`` - ``cron`` expression - ``cron(fields)`` You can use ``at`` expressions to create one-time schedules that invoke a target once, at the time and in the time zone, that you specify. You can use ``rate`` and ``cron`` expressions to create recurring schedules. Rate-based schedules are useful when you want to invoke a target at regular intervals, such as every 15 minutes or every five days. Cron-based schedules are useful when you want to invoke a target periodically at a specific time, such as at 8:00 am (UTC+0) every 1st day of the month. A ``cron`` expression consists of six fields separated by white spaces: ``(minutes hours day_of_month month day_of_week year)`` . A ``rate`` expression consists of a *value* as a positive integer, and a *unit* with the following options: ``minute`` | ``minutes`` | ``hour`` | ``hours`` | ``day`` | ``days`` For more information and examples, see `Schedule types on EventBridge Scheduler <https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html>`_ in the *EventBridge Scheduler User Guide* .
+        :param target: The schedule's target details.
+        :param description: The description you specify for the schedule.
+        :param end_date: The date, in UTC, before which the schedule can invoke its target. Depending on the schedule's recurrence expression, invocations might stop on, or before, the ``EndDate`` you specify. EventBridge Scheduler ignores ``EndDate`` for one-time schedules.
+        :param group_name: The name of the schedule group associated with this schedule.
+        :param kms_key_arn: The Amazon Resource Name (ARN) for the customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
+        :param name: The name of the schedule.
+        :param schedule_expression_timezone: The timezone in which the scheduling expression is evaluated.
+        :param start_date: The date, in UTC, after which the schedule can begin invoking its target. Depending on the schedule's recurrence expression, invocations might occur on, or after, the ``StartDate`` you specify. EventBridge Scheduler ignores ``StartDate`` for one-time schedules.
+        :param state: Specifies whether the schedule is enabled or disabled. *Allowed Values* : ``ENABLED`` | ``DISABLED``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_scheduler as scheduler
+            
+            # tags: Any
+            
+            cfn_schedule_props = scheduler.CfnScheduleProps(
+                flexible_time_window=scheduler.CfnSchedule.FlexibleTimeWindowProperty(
+                    mode="mode",
+            
+                    # the properties below are optional
+                    maximum_window_in_minutes=123
+                ),
+                schedule_expression="scheduleExpression",
+                target=scheduler.CfnSchedule.TargetProperty(
+                    arn="arn",
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    dead_letter_config=scheduler.CfnSchedule.DeadLetterConfigProperty(
+                        arn="arn"
+                    ),
+                    ecs_parameters=scheduler.CfnSchedule.EcsParametersProperty(
+                        task_definition_arn="taskDefinitionArn",
+            
+                        # the properties below are optional
+                        capacity_provider_strategy=[scheduler.CfnSchedule.CapacityProviderStrategyItemProperty(
+                            capacity_provider="capacityProvider",
+            
+                            # the properties below are optional
+                            base=123,
+                            weight=123
+                        )],
+                        enable_ecs_managed_tags=False,
+                        enable_execute_command=False,
+                        group="group",
+                        launch_type="launchType",
+                        network_configuration=scheduler.CfnSchedule.NetworkConfigurationProperty(
+                            awsvpc_configuration=scheduler.CfnSchedule.AwsVpcConfigurationProperty(
+                                subnets=["subnets"],
+            
+                                # the properties below are optional
+                                assign_public_ip="assignPublicIp",
+                                security_groups=["securityGroups"]
+                            )
+                        ),
+                        placement_constraints=[scheduler.CfnSchedule.PlacementConstraintProperty(
+                            expression="expression",
+                            type="type"
+                        )],
+                        placement_strategy=[scheduler.CfnSchedule.PlacementStrategyProperty(
+                            field="field",
+                            type="type"
+                        )],
+                        platform_version="platformVersion",
+                        propagate_tags="propagateTags",
+                        reference_id="referenceId",
+                        tags=tags,
+                        task_count=123
+                    ),
+                    event_bridge_parameters=scheduler.CfnSchedule.EventBridgeParametersProperty(
+                        detail_type="detailType",
+                        source="source"
+                    ),
+                    input="input",
+                    kinesis_parameters=scheduler.CfnSchedule.KinesisParametersProperty(
+                        partition_key="partitionKey"
+                    ),
+                    retry_policy=scheduler.CfnSchedule.RetryPolicyProperty(
+                        maximum_event_age_in_seconds=123,
+                        maximum_retry_attempts=123
+                    ),
+                    sage_maker_pipeline_parameters=scheduler.CfnSchedule.SageMakerPipelineParametersProperty(
+                        pipeline_parameter_list=[scheduler.CfnSchedule.SageMakerPipelineParameterProperty(
+                            name="name",
+                            value="value"
+                        )]
+                    ),
+                    sqs_parameters=scheduler.CfnSchedule.SqsParametersProperty(
+                        message_group_id="messageGroupId"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                end_date="endDate",
+                group_name="groupName",
+                kms_key_arn="kmsKeyArn",
+                name="name",
+                schedule_expression_timezone="scheduleExpressionTimezone",
+                start_date="startDate",
+                state="state"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7259f3f17d67e55e8ad4459f637d0d8aa80d57d58cb928f6b0403a6097a4ecf1)
+            check_type(argname="argument flexible_time_window", value=flexible_time_window, expected_type=type_hints["flexible_time_window"])
+            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
+            check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flexible_time_window": flexible_time_window,
+            "schedule_expression": schedule_expression,
+            "target": target,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if end_date is not None:
+            self._values["end_date"] = end_date
+        if group_name is not None:
+            self._values["group_name"] = group_name
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if name is not None:
+            self._values["name"] = name
+        if schedule_expression_timezone is not None:
+            self._values["schedule_expression_timezone"] = schedule_expression_timezone
+        if start_date is not None:
+            self._values["start_date"] = start_date
+        if state is not None:
+            self._values["state"] = state
+
+    @builtins.property
+    def flexible_time_window(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSchedule.FlexibleTimeWindowProperty"]:
+        '''Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-flexibletimewindow
+        '''
+        result = self._values.get("flexible_time_window")
+        assert result is not None, "Required property 'flexible_time_window' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSchedule.FlexibleTimeWindowProperty"], result)
+
+    @builtins.property
+    def schedule_expression(self) -> builtins.str:
+        '''The expression that defines when the schedule runs. The following formats are supported.
+
+        - ``at`` expression - ``at(yyyy-mm-ddThh:mm:ss)``
+        - ``rate`` expression - ``rate(value unit)``
+        - ``cron`` expression - ``cron(fields)``
+
+        You can use ``at`` expressions to create one-time schedules that invoke a target once, at the time and in the time zone, that you specify. You can use ``rate`` and ``cron`` expressions to create recurring schedules. Rate-based schedules are useful when you want to invoke a target at regular intervals, such as every 15 minutes or every five days. Cron-based schedules are useful when you want to invoke a target periodically at a specific time, such as at 8:00 am (UTC+0) every 1st day of the month.
+
+        A ``cron`` expression consists of six fields separated by white spaces: ``(minutes hours day_of_month month day_of_week year)`` .
+
+        A ``rate`` expression consists of a *value* as a positive integer, and a *unit* with the following options: ``minute`` | ``minutes`` | ``hour`` | ``hours`` | ``day`` | ``days``
+
+        For more information and examples, see `Schedule types on EventBridge Scheduler <https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html>`_ in the *EventBridge Scheduler User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression
+        '''
+        result = self._values.get("schedule_expression")
+        assert result is not None, "Required property 'schedule_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSchedule.TargetProperty"]:
+        '''The schedule's target details.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-target
+        '''
+        result = self._values.get("target")
+        assert result is not None, "Required property 'target' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSchedule.TargetProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description you specify for the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def end_date(self) -> typing.Optional[builtins.str]:
+        '''The date, in UTC, before which the schedule can invoke its target.
+
+        Depending on the schedule's recurrence expression, invocations might stop on, or before, the ``EndDate`` you specify.
+        EventBridge Scheduler ignores ``EndDate`` for one-time schedules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-enddate
+        '''
+        result = self._values.get("end_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schedule group associated with this schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-groupname
+        '''
+        result = self._values.get("group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) for the customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule_expression_timezone(self) -> typing.Optional[builtins.str]:
+        '''The timezone in which the scheduling expression is evaluated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpressiontimezone
+        '''
+        result = self._values.get("schedule_expression_timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_date(self) -> typing.Optional[builtins.str]:
+        '''The date, in UTC, after which the schedule can begin invoking its target.
+
+        Depending on the schedule's recurrence expression, invocations might occur on, or after, the ``StartDate`` you specify.
+        EventBridge Scheduler ignores ``StartDate`` for one-time schedules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-startdate
+        '''
+        result = self._values.get("start_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the schedule is enabled or disabled.
+
+        *Allowed Values* : ``ENABLED`` | ``DISABLED``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ContextAttribute(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_scheduler.ContextAttribute",
+):
+    '''A set of convenient static methods representing the Scheduler Context Attributes.
+
+    These Context Attributes keywords can be used inside a ScheduleTargetInput.
+
+    :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-schedule-context-attributes.html
+    '''
+
+    @jsii.member(jsii_name="fromName")
+    @builtins.classmethod
+    def from_name(cls, name: builtins.str) -> builtins.str:
+        '''Escape hatch for other Context Attributes that may be added in the future.
+
+        :param name: - name will replace xxx in <aws.scheduler.xxx>.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3ffc32f8d37e5b3c60f6299c8f15649e00e5778ef81be54ecc2ffbb99ac1bbc)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "fromName", [name]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Convert the path to the field in the event pattern to JSON.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="attemptNumber")
+    def attempt_number(cls) -> builtins.str:
+        '''A counter that identifies the attempt number for the current invocation, for example, 1.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "attemptNumber"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="executionId")
+    def execution_id(cls) -> builtins.str:
+        '''The unique ID that EventBridge Scheduler assigns for each attempted invocation of a target, for example, d32c5kddcf5bb8c3.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "executionId"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="scheduleArn")
+    def schedule_arn(cls) -> builtins.str:
+        '''The ARN of the schedule.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "scheduleArn"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="scheduledTime")
+    def scheduled_time(cls) -> builtins.str:
+        '''The time you specified for the schedule to invoke its target, for example, 2022-03-22T18:59:43Z.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "scheduledTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.CronOptionsWithTimezone",
+    jsii_struct_bases=[_CronOptions_6401a7a0],
+    name_mapping={
+        "day": "day",
+        "hour": "hour",
+        "minute": "minute",
+        "month": "month",
+        "week_day": "weekDay",
+        "year": "year",
+        "time_zone": "timeZone",
+    },
+)
+class CronOptionsWithTimezone(_CronOptions_6401a7a0):
+    def __init__(
+        self,
+        *,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+        year: typing.Optional[builtins.str] = None,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    ) -> None:
+        '''Options to configure a cron expression.
+
+        All fields are strings so you can use complex expressions. Absence of
+        a field implies '*' or '?', whichever one is appropriate.
+
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+        :param year: The year to run this rule at. Default: - Every year
+        :param time_zone: The timezone to run the schedule in. Default: - TimeZone.ETC_UTC
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html#cron-expressions
+        :exampleMetadata: infused
+
+        Example::
+
+            # target: targets.LambdaInvoke
+            
+            
+            rate_based_schedule = Schedule(self, "Schedule",
+                schedule=ScheduleExpression.rate(Duration.minutes(10)),
+                target=target,
+                description="This is a test rate-based schedule"
+            )
+            
+            cron_based_schedule = Schedule(self, "Schedule",
+                schedule=ScheduleExpression.cron(
+                    minute="0",
+                    hour="23",
+                    day="20",
+                    month="11",
+                    time_zone=TimeZone.AMERICA_NEW_YORK
+                ),
+                target=target,
+                description="This is a test cron-based schedule that will run at 11:00 PM, on day 20 of the month, only in November in New York timezone"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c87f71f166be27f7417012dedd810bd7b3cedb2ec7d0a0493ca36f93993f6c5b)
+            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
+            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
+            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
+            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
+            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
+            check_type(argname="argument year", value=year, expected_type=type_hints["year"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if day is not None:
+            self._values["day"] = day
+        if hour is not None:
+            self._values["hour"] = hour
+        if minute is not None:
+            self._values["minute"] = minute
+        if month is not None:
+            self._values["month"] = month
+        if week_day is not None:
+            self._values["week_day"] = week_day
+        if year is not None:
+            self._values["year"] = year
+        if time_zone is not None:
+            self._values["time_zone"] = time_zone
+
+    @builtins.property
+    def day(self) -> typing.Optional[builtins.str]:
+        '''The day of the month to run this rule at.
+
+        :default: - Every day of the month
+        '''
+        result = self._values.get("day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hour(self) -> typing.Optional[builtins.str]:
+        '''The hour to run this rule at.
+
+        :default: - Every hour
+        '''
+        result = self._values.get("hour")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def minute(self) -> typing.Optional[builtins.str]:
+        '''The minute to run this rule at.
+
+        :default: - Every minute
+        '''
+        result = self._values.get("minute")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def month(self) -> typing.Optional[builtins.str]:
+        '''The month to run this rule at.
+
+        :default: - Every month
+        '''
+        result = self._values.get("month")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def week_day(self) -> typing.Optional[builtins.str]:
+        '''The day of the week to run this rule at.
+
+        :default: - Any day of the week
+        '''
+        result = self._values.get("week_day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def year(self) -> typing.Optional[builtins.str]:
+        '''The year to run this rule at.
+
+        :default: - Every year
+        '''
+        result = self._values.get("year")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+        '''The timezone to run the schedule in.
+
+        :default: - TimeZone.ETC_UTC
+        '''
+        result = self._values.get("time_zone")
+        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CronOptionsWithTimezone(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.ISchedule")
+class ISchedule(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Interface representing a created or an imported ``Schedule``.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleArn")
+    def schedule_arn(self) -> builtins.str:
+        '''The arn of the schedule.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleName")
+    def schedule_name(self) -> builtins.str:
+        '''The name of the schedule.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroup")
+    def schedule_group(self) -> typing.Optional["IScheduleGroup"]:
+        '''The schedule group associated with this schedule.'''
+        ...
+
+
+class _IScheduleProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Interface representing a created or an imported ``Schedule``.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.ISchedule"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleArn")
+    def schedule_arn(self) -> builtins.str:
+        '''The arn of the schedule.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleName")
+    def schedule_name(self) -> builtins.str:
+        '''The name of the schedule.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroup")
+    def schedule_group(self) -> typing.Optional["IScheduleGroup"]:
+        '''The schedule group associated with this schedule.'''
+        return typing.cast(typing.Optional["IScheduleGroup"], jsii.get(self, "scheduleGroup"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISchedule).__jsii_proxy_class__ = lambda : _IScheduleProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleGroup")
+class IScheduleGroup(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Interface representing a created or an imported ``ScheduleGroup``.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupArn")
+    def schedule_group_arn(self) -> builtins.str:
+        '''The arn of the schedule group.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupName")
+    def schedule_group_name(self) -> builtins.str:
+        '''The name of the schedule group.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        *actions: builtins.str,
+    ) -> _Grant_a7ae64f8:
+        '''Grant the indicated permissions on this group to the given principal.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantDeleteSchedules")
+    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant delete schedule permission for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantReadSchedules")
+    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant list and get schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantWriteSchedules")
+    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant create and update schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for this group schedules.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricAttempts")
+    def metric_attempts(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for all invocation attempts.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricDropped")
+    def metric_dropped(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
+    def metric_failed_to_be_sent_to_dlq(
+        self,
+        error_code: typing.Optional[builtins.str] = None,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for failed invocations that also failed to deliver to DLQ.
+
+        :param error_code: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricSentToDLQ")
+    def metric_sent_to_dlq(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocations delivered to the DLQ.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricSentToDLQTruncated")
+    def metric_sent_to_dlq_truncated(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricTargetErrors")
+    def metric_target_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricTargetThrottled")
+    def metric_target_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocation failures due to API throttling by the target.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricThrottled")
+    def metric_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+
+        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
+        '''
+        ...
+
+
+class _IScheduleGroupProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Interface representing a created or an imported ``ScheduleGroup``.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleGroup"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupArn")
+    def schedule_group_arn(self) -> builtins.str:
+        '''The arn of the schedule group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupName")
+    def schedule_group_name(self) -> builtins.str:
+        '''The name of the schedule group.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupName"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        *actions: builtins.str,
+    ) -> _Grant_a7ae64f8:
+        '''Grant the indicated permissions on this group to the given principal.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__190f03a36ab90eca0db1bdfd7c06d5891c61b69defb1c7be61f45d771a66e130)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantDeleteSchedules")
+    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant delete schedule permission for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__579ff4205e0ccb1830f899a44fc742e9853277ba0f82091be749e20b4fdbf1c2)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDeleteSchedules", [identity]))
+
+    @jsii.member(jsii_name="grantReadSchedules")
+    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant list and get schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66f280f7a41957c98ada2240887b088985bbe273d1067b2c4f83f8ca69d09aae)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadSchedules", [identity]))
+
+    @jsii.member(jsii_name="grantWriteSchedules")
+    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant create and update schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f189e0a2b180ceb7d47a54524a64df15a2d1c7a5efe1e25873a64a68692c1d18)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWriteSchedules", [identity]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for this group schedules.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1a1c48be5584426072c1f842a1e31e59436e2cefe7df9e84b5a3115ad743d3e)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricAttempts")
+    def metric_attempts(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for all invocation attempts.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAttempts", [props]))
+
+    @jsii.member(jsii_name="metricDropped")
+    def metric_dropped(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDropped", [props]))
+
+    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
+    def metric_failed_to_be_sent_to_dlq(
+        self,
+        error_code: typing.Optional[builtins.str] = None,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for failed invocations that also failed to deliver to DLQ.
+
+        :param error_code: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43e3d3a73dae7296d8e1b29562f7a8fbdf941fb9885fa0ddcc13164e2352e68d)
+            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
+
+    @jsii.member(jsii_name="metricSentToDLQ")
+    def metric_sent_to_dlq(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocations delivered to the DLQ.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQ", [props]))
+
+    @jsii.member(jsii_name="metricSentToDLQTruncated")
+    def metric_sent_to_dlq_truncated(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQTruncated", [props]))
+
+    @jsii.member(jsii_name="metricTargetErrors")
+    def metric_target_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetErrors", [props]))
+
+    @jsii.member(jsii_name="metricTargetThrottled")
+    def metric_target_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocation failures due to API throttling by the target.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetThrottled", [props]))
+
+    @jsii.member(jsii_name="metricThrottled")
+    def metric_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+
+        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottled", [props]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduleGroup).__jsii_proxy_class__ = lambda : _IScheduleGroupProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleGroupRef")
+class IScheduleGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduleGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupRef")
+    def schedule_group_ref(self) -> "ScheduleGroupReference":
+        '''(experimental) A reference to a ScheduleGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduleGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduleGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupRef")
+    def schedule_group_ref(self) -> "ScheduleGroupReference":
+        '''(experimental) A reference to a ScheduleGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduleGroupReference", jsii.get(self, "scheduleGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduleGroupRef).__jsii_proxy_class__ = lambda : _IScheduleGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleRef")
+class IScheduleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Schedule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> "ScheduleReference":
+        '''(experimental) A reference to a Schedule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Schedule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> "ScheduleReference":
+        '''(experimental) A reference to a Schedule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduleReference", jsii.get(self, "scheduleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduleRef).__jsii_proxy_class__ = lambda : _IScheduleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleTarget")
+class IScheduleTarget(typing_extensions.Protocol):
+    '''Interface representing a Event Bridge Schedule Target.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, _schedule: ISchedule) -> "ScheduleTargetConfig":
+        '''Returns the schedule target specification.
+
+        :param _schedule: a schedule the target should be added to.
+        '''
+        ...
+
+
+class _IScheduleTargetProxy:
+    '''Interface representing a Event Bridge Schedule Target.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleTarget"
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, _schedule: ISchedule) -> "ScheduleTargetConfig":
+        '''Returns the schedule target specification.
+
+        :param _schedule: a schedule the target should be added to.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1db14aa1db4d786b1846e49587706992ee79b66245d52b5efebd763ccbd24c94)
+            check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
+        return typing.cast("ScheduleTargetConfig", jsii.invoke(self, "bind", [_schedule]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduleTarget).__jsii_proxy_class__ = lambda : _IScheduleTargetProxy
+
+
+@jsii.implements(ISchedule)
+class Schedule(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_scheduler.Schedule",
+):
+    '''An EventBridge Schedule.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_kinesisfirehose as firehose
+        # delivery_stream: firehose.IDeliveryStream
+        
+        
+        payload = {
+            "Data": "record"
+        }
+        
+        Schedule(self, "Schedule",
+            schedule=ScheduleExpression.rate(Duration.minutes(60)),
+            target=targets.FirehosePutRecord(delivery_stream,
+                input=ScheduleTargetInput.from_object(payload)
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        schedule: "ScheduleExpression",
+        target: IScheduleTarget,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        end: typing.Optional[datetime.datetime] = None,
+        key: typing.Optional[_IKey_5f11635f] = None,
+        schedule_group: typing.Optional[IScheduleGroup] = None,
+        schedule_name: typing.Optional[builtins.str] = None,
+        start: typing.Optional[datetime.datetime] = None,
+        time_window: typing.Optional["TimeWindow"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param schedule: The expression that defines when the schedule runs. Can be either a ``at``, ``rate`` or ``cron`` expression.
+        :param target: The schedule's target details.
+        :param description: The description you specify for the schedule. Default: - no value
+        :param enabled: Indicates whether the schedule is enabled. Default: true
+        :param end: The date, in UTC, before which the schedule can invoke its target. EventBridge Scheduler ignores end for one-time schedules. Default: - no value
+        :param key: The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data. Default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
+        :param schedule_group: The schedule's group. Default: - By default a schedule will be associated with the ``default`` group.
+        :param schedule_name: The name of the schedule. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
+        :param start: The date, in UTC, after which the schedule can begin invoking its target. EventBridge Scheduler ignores start for one-time schedules. Default: - no value
+        :param time_window: A time window during which EventBridge Scheduler invokes the schedule. Default: TimeWindow.off()
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5e74b4c774095daccbb01abe34df777261be2bfce9f7ec773cd8688b17dbb98)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ScheduleProps(
+            schedule=schedule,
+            target=target,
+            description=description,
+            enabled=enabled,
+            end=end,
+            key=key,
+            schedule_group=schedule_group,
+            schedule_name=schedule_name,
+            start=start,
+            time_window=time_window,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromScheduleArn")
+    @builtins.classmethod
+    def from_schedule_arn(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        schedule_arn: builtins.str,
+    ) -> ISchedule:
+        '''Import an existing schedule using the ARN.
+
+        :param scope: -
+        :param id: -
+        :param schedule_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1372455178922293375a1300f4c6e69cee5bc442b16f4036c84aafb7d9332f93)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument schedule_arn", value=schedule_arn, expected_type=type_hints["schedule_arn"])
+        return typing.cast(ISchedule, jsii.sinvoke(cls, "fromScheduleArn", [scope, id, schedule_arn]))
+
+    @jsii.member(jsii_name="metricAll")
+    @builtins.classmethod
+    def metric_all(
+        cls,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for all schedules.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e9697edf3bddfcbab866b7220407b409d24e19d71a4831cc2eae389b626c1d7)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAll", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricAllAttempts")
+    @builtins.classmethod
+    def metric_all_attempts(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for all invocation attempts across all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllAttempts", [props]))
+
+    @jsii.member(jsii_name="metricAllDropped")
+    @builtins.classmethod
+    def metric_all_dropped(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
+
+        Metric is calculated for all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllDropped", [props]))
+
+    @jsii.member(jsii_name="metricAllErrors")
+    @builtins.classmethod
+    def metric_all_errors(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API across all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllErrors", [props]))
+
+    @jsii.member(jsii_name="metricAllFailedToBeSentToDLQ")
+    @builtins.classmethod
+    def metric_all_failed_to_be_sent_to_dlq(
+        cls,
+        error_code: typing.Optional[builtins.str] = None,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for failed invocations that also failed to deliver to DLQ across all schedules.
+
+        :param error_code: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323d651b0d)
+            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllFailedToBeSentToDLQ", [error_code, props]))
+
+    @jsii.member(jsii_name="metricAllSentToDLQ")
+    @builtins.classmethod
+    def metric_all_sent_to_dlq(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocations delivered to the DLQ across all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllSentToDLQ", [props]))
+
+    @jsii.member(jsii_name="metricAllSentToDLQTruncated")
+    @builtins.classmethod
+    def metric_all_sent_to_dlq_truncated(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
+
+        Metric is calculated for all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllSentToDLQTruncated", [props]))
+
+    @jsii.member(jsii_name="metricAllTargetThrottled")
+    @builtins.classmethod
+    def metric_all_target_throttled(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocation failures due to API throttling by the target across all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllTargetThrottled", [props]))
+
+    @jsii.member(jsii_name="metricAllThrottled")
+    @builtins.classmethod
+    def metric_all_throttled(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of invocations that were throttled across all schedules.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+
+        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllThrottled", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleArn")
+    def schedule_arn(self) -> builtins.str:
+        '''The arn of the schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleName")
+    def schedule_name(self) -> builtins.str:
+        '''The name of the schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="key")
+    def key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.'''
+        return typing.cast(typing.Optional[_IKey_5f11635f], jsii.get(self, "key"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroup")
+    def schedule_group(self) -> typing.Optional[IScheduleGroup]:
+        '''The schedule group associated with this schedule.'''
+        return typing.cast(typing.Optional[IScheduleGroup], jsii.get(self, "scheduleGroup"))
+
+
+class ScheduleExpression(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleExpression",
+):
+    '''ScheduleExpression for EventBridge Schedule.
+
+    You can choose from three schedule types when configuring your schedule: rate-based, cron-based, and one-time schedules.
+    Both rate-based and cron-based schedules are recurring schedules.
+
+    :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_kinesisfirehose as firehose
+        # delivery_stream: firehose.IDeliveryStream
+        
+        
+        payload = {
+            "Data": "record"
+        }
+        
+        Schedule(self, "Schedule",
+            schedule=ScheduleExpression.rate(Duration.minutes(60)),
+            target=targets.FirehosePutRecord(delivery_stream,
+                input=ScheduleTargetInput.from_object(payload)
+            )
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="at")
+    @builtins.classmethod
+    def at(
+        cls,
+        date: datetime.datetime,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    ) -> "ScheduleExpression":
+        '''Construct a one-time schedule from a date.
+
+        :param date: The date and time to use. The millisecond part will be ignored.
+        :param time_zone: The time zone to use for interpreting the date. Default: - UTC
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__175909e9c50b88b6e35fc2db4998caa986e6da11a9a20dbde9c02ee1ca0b00b8)
+            check_type(argname="argument date", value=date, expected_type=type_hints["date"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "at", [date, time_zone]))
+
+    @jsii.member(jsii_name="cron")
+    @builtins.classmethod
+    def cron(
+        cls,
+        *,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+        year: typing.Optional[builtins.str] = None,
+    ) -> "ScheduleExpression":
+        '''Create a recurring schedule from a set of cron fields and time zone.
+
+        :param time_zone: The timezone to run the schedule in. Default: - TimeZone.ETC_UTC
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+        :param year: The year to run this rule at. Default: - Every year
+        '''
+        options = CronOptionsWithTimezone(
+            time_zone=time_zone,
+            day=day,
+            hour=hour,
+            minute=minute,
+            month=month,
+            week_day=week_day,
+            year=year,
+        )
+
+        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "cron", [options]))
+
+    @jsii.member(jsii_name="expression")
+    @builtins.classmethod
+    def expression(
+        cls,
+        expression: builtins.str,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
+    ) -> "ScheduleExpression":
+        '''Construct a schedule from a literal schedule expression.
+
+        :param expression: The expression to use. Must be in a format that EventBridge will recognize
+        :param time_zone: The time zone to use for interpreting the expression. Default: - UTC
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21e89766a8d616bfc00e75a22774b5d41c55681b6f5f623f08f201c835dd2902)
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "expression", [expression, time_zone]))
+
+    @jsii.member(jsii_name="rate")
+    @builtins.classmethod
+    def rate(cls, duration: _Duration_4839e8c3) -> "ScheduleExpression":
+        '''Construct a recurring schedule from an interval and a time unit.
+
+        Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
+
+        :param duration: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97a45c9b75fc81cb3d47817d0893dffb28ebc87496c4a4eedb9cf73b57a68cc5)
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "rate", [duration]))
+
+    @builtins.property
+    @jsii.member(jsii_name="expressionString")
+    @abc.abstractmethod
+    def expression_string(self) -> builtins.str:
+        '''Retrieve the expression for this schedule.'''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="timeZone")
+    @abc.abstractmethod
+    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+        '''Retrieve the expression for this schedule.'''
+        ...
+
+
+class _ScheduleExpressionProxy(ScheduleExpression):
+    @builtins.property
+    @jsii.member(jsii_name="expressionString")
+    def expression_string(self) -> builtins.str:
+        '''Retrieve the expression for this schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timeZone")
+    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+        '''Retrieve the expression for this schedule.'''
+        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], jsii.get(self, "timeZone"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, ScheduleExpression).__jsii_proxy_class__ = lambda : _ScheduleExpressionProxy
+
+
+@jsii.implements(IScheduleGroup)
+class ScheduleGroup(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroup",
+):
+    '''A Schedule Group.
+
+    :resource: AWS::Scheduler::ScheduleGroup
+    :exampleMetadata: infused
+
+    Example::
+
+        # target: targets.LambdaInvoke
+        
+        
+        schedule_group = ScheduleGroup(self, "ScheduleGroup",
+            schedule_group_name="MyScheduleGroup"
+        )
+        
+        Schedule(self, "Schedule",
+            schedule=ScheduleExpression.rate(Duration.minutes(10)),
+            target=target,
+            schedule_group=schedule_group
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        schedule_group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param removal_policy: The removal policy for the group. If the group is removed also all schedules are removed. Default: RemovalPolicy.RETAIN
+        :param schedule_group_name: The name of the schedule group. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__736972893d2822201f3b54995126456a9f4766921d769ea7836c13c49c015d53)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ScheduleGroupProps(
+            removal_policy=removal_policy, schedule_group_name=schedule_group_name
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromDefaultScheduleGroup")
+    @builtins.classmethod
+    def from_default_schedule_group(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+    ) -> IScheduleGroup:
+        '''Import a default schedule group.
+
+        :param scope: construct scope.
+        :param id: construct id.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7b5a1fbdcbfd0ad106f45caf1d995619df8d064b8587659c5461157f6e48926)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromDefaultScheduleGroup", [scope, id]))
+
+    @jsii.member(jsii_name="fromScheduleGroupArn")
+    @builtins.classmethod
+    def from_schedule_group_arn(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        schedule_group_arn: builtins.str,
+    ) -> IScheduleGroup:
+        '''Import an external schedule group by ARN.
+
+        :param scope: construct scope.
+        :param id: construct id.
+        :param schedule_group_arn: the ARN of the schedule group to import (e.g. ``arn:aws:scheduler:region:account-id:schedule-group/group-name``).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c77731a2b0fb48c74a722651a8f036cef9066af4a6dd7b73c0b9b2d119bc36d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument schedule_group_arn", value=schedule_group_arn, expected_type=type_hints["schedule_group_arn"])
+        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromScheduleGroupArn", [scope, id, schedule_group_arn]))
+
+    @jsii.member(jsii_name="fromScheduleGroupName")
+    @builtins.classmethod
+    def from_schedule_group_name(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        schedule_group_name: builtins.str,
+    ) -> IScheduleGroup:
+        '''Import an existing schedule group with a given name.
+
+        :param scope: construct scope.
+        :param id: construct id.
+        :param schedule_group_name: the name of the existing schedule group to import.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0eef3cd9167e1bcf64df7282dec1f362eaac5659d22625afac3c28dcc0b7edb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
+        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromScheduleGroupName", [scope, id, schedule_group_name]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        *actions: builtins.str,
+    ) -> _Grant_a7ae64f8:
+        '''Grant the indicated permissions on this schedule group to the given principal.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1603de1685aaaf14ff1514df8394bc631af9b5e6f8b79a44c31ff5e24157a7e0)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantDeleteSchedules")
+    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant delete schedule permission for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15bda48b16b2099393ebcd41e9be05dd66aaf7faaeae1ba65b42220d7667bce5)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDeleteSchedules", [identity]))
+
+    @jsii.member(jsii_name="grantReadSchedules")
+    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant list and get schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55a9d37bafcef8d26af6e888f5ab8b2aef1359b02c7a510049f6e900c986b797)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadSchedules", [identity]))
+
+    @jsii.member(jsii_name="grantWriteSchedules")
+    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant create and update schedule permissions for schedules in this group to the given principal.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2cc2856526773b02c8dfcbfcca6cf534cc4a4b00a0b0de1e8fe166c071534ab)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWriteSchedules", [identity]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for this schedule group.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__634bd225463be60303d9d1588926bbaa9fbd72c940ca54fecf9724d90fdefe64)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricAttempts")
+    def metric_attempts(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for all invocation attempts.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAttempts", [props]))
+
+    @jsii.member(jsii_name="metricDropped")
+    def metric_dropped(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDropped", [props]))
+
+    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
+    def metric_failed_to_be_sent_to_dlq(
+        self,
+        error_code: typing.Optional[builtins.str] = None,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for failed invocations that also failed to deliver to DLQ.
+
+        :param error_code: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca970bf647095b0a6fd282ecce93e19b12761be780f7fac1db8cc3b6f97c0cbf)
+            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
+
+    @jsii.member(jsii_name="metricSentToDLQ")
+    def metric_sent_to_dlq(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocations delivered to the DLQ.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQ", [props]))
+
+    @jsii.member(jsii_name="metricSentToDLQTruncated")
+    def metric_sent_to_dlq_truncated(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQTruncated", [props]))
+
+    @jsii.member(jsii_name="metricTargetErrors")
+    def metric_target_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetErrors", [props]))
+
+    @jsii.member(jsii_name="metricTargetThrottled")
+    def metric_target_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for invocation failures due to API throttling by the target.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetThrottled", [props]))
+
+    @jsii.member(jsii_name="metricThrottled")
+    def metric_throttled(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: - sum over 5 minutes
+
+        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottled", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupArn")
+    def schedule_group_arn(self) -> builtins.str:
+        '''The arn of the schedule group.'''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleGroupName")
+    def schedule_group_name(self) -> builtins.str:
+        '''The name of the schedule group.'''
+        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupName"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "removal_policy": "removalPolicy",
+        "schedule_group_name": "scheduleGroupName",
+    },
+)
+class ScheduleGroupProps:
+    def __init__(
+        self,
+        *,
+        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        schedule_group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for a Schedule Group.
+
+        :param removal_policy: The removal policy for the group. If the group is removed also all schedules are removed. Default: RemovalPolicy.RETAIN
+        :param schedule_group_name: The name of the schedule group. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # target: targets.LambdaInvoke
+            
+            
+            schedule_group = ScheduleGroup(self, "ScheduleGroup",
+                schedule_group_name="MyScheduleGroup"
+            )
+            
+            Schedule(self, "Schedule",
+                schedule=ScheduleExpression.rate(Duration.minutes(10)),
+                target=target,
+                schedule_group=schedule_group
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64bb15c34)
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+            check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
+        if schedule_group_name is not None:
+            self._values["schedule_group_name"] = schedule_group_name
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+        '''The removal policy for the group.
+
+        If the group is removed also all schedules are removed.
+
+        :default: RemovalPolicy.RETAIN
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+
+    @builtins.property
+    def schedule_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schedule group.
+
+        Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed.
+
+        :default: - A unique name will be generated
+        '''
+        result = self._values.get("schedule_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "schedule_group_arn": "scheduleGroupArn",
+        "schedule_group_name": "scheduleGroupName",
+    },
+)
+class ScheduleGroupReference:
+    def __init__(
+        self,
+        *,
+        schedule_group_arn: builtins.str,
+        schedule_group_name: builtins.str,
+    ) -> None:
+        '''A reference to a ScheduleGroup resource.
+
+        :param schedule_group_arn: The ARN of the ScheduleGroup resource.
+        :param schedule_group_name: The Name of the ScheduleGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_scheduler as scheduler
+            
+            schedule_group_reference = scheduler.ScheduleGroupReference(
+                schedule_group_arn="scheduleGroupArn",
+                schedule_group_name="scheduleGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c2d1bfa47bf8204522c2ec3fb4820e1d93712c352fed563bf995d8d0356819e)
+            check_type(argname="argument schedule_group_arn", value=schedule_group_arn, expected_type=type_hints["schedule_group_arn"])
+            check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schedule_group_arn": schedule_group_arn,
+            "schedule_group_name": schedule_group_name,
+        }
+
+    @builtins.property
+    def schedule_group_arn(self) -> builtins.str:
+        '''The ARN of the ScheduleGroup resource.'''
+        result = self._values.get("schedule_group_arn")
+        assert result is not None, "Required property 'schedule_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_group_name(self) -> builtins.str:
+        '''The Name of the ScheduleGroup resource.'''
+        result = self._values.get("schedule_group_name")
+        assert result is not None, "Required property 'schedule_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "schedule": "schedule",
+        "target": "target",
+        "description": "description",
+        "enabled": "enabled",
+        "end": "end",
+        "key": "key",
+        "schedule_group": "scheduleGroup",
+        "schedule_name": "scheduleName",
+        "start": "start",
+        "time_window": "timeWindow",
+    },
+)
+class ScheduleProps:
+    def __init__(
+        self,
+        *,
+        schedule: ScheduleExpression,
+        target: IScheduleTarget,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        end: typing.Optional[datetime.datetime] = None,
+        key: typing.Optional[_IKey_5f11635f] = None,
+        schedule_group: typing.Optional[IScheduleGroup] = None,
+        schedule_name: typing.Optional[builtins.str] = None,
+        start: typing.Optional[datetime.datetime] = None,
+        time_window: typing.Optional["TimeWindow"] = None,
+    ) -> None:
+        '''Construction properties for ``Schedule``.
+
+        :param schedule: The expression that defines when the schedule runs. Can be either a ``at``, ``rate`` or ``cron`` expression.
+        :param target: The schedule's target details.
+        :param description: The description you specify for the schedule. Default: - no value
+        :param enabled: Indicates whether the schedule is enabled. Default: true
+        :param end: The date, in UTC, before which the schedule can invoke its target. EventBridge Scheduler ignores end for one-time schedules. Default: - no value
+        :param key: The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data. Default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
+        :param schedule_group: The schedule's group. Default: - By default a schedule will be associated with the ``default`` group.
+        :param schedule_name: The name of the schedule. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
+        :param start: The date, in UTC, after which the schedule can begin invoking its target. EventBridge Scheduler ignores start for one-time schedules. Default: - no value
+        :param time_window: A time window during which EventBridge Scheduler invokes the schedule. Default: TimeWindow.off()
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_kinesisfirehose as firehose
+            # delivery_stream: firehose.IDeliveryStream
+            
+            
+            payload = {
+                "Data": "record"
+            }
+            
+            Schedule(self, "Schedule",
+                schedule=ScheduleExpression.rate(Duration.minutes(60)),
+                target=targets.FirehosePutRecord(delivery_stream,
+                    input=ScheduleTargetInput.from_object(payload)
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf13677e296f)
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument schedule_group", value=schedule_group, expected_type=type_hints["schedule_group"])
+            check_type(argname="argument schedule_name", value=schedule_name, expected_type=type_hints["schedule_name"])
+            check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+            check_type(argname="argument time_window", value=time_window, expected_type=type_hints["time_window"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schedule": schedule,
+            "target": target,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if end is not None:
+            self._values["end"] = end
+        if key is not None:
+            self._values["key"] = key
+        if schedule_group is not None:
+            self._values["schedule_group"] = schedule_group
+        if schedule_name is not None:
+            self._values["schedule_name"] = schedule_name
+        if start is not None:
+            self._values["start"] = start
+        if time_window is not None:
+            self._values["time_window"] = time_window
+
+    @builtins.property
+    def schedule(self) -> ScheduleExpression:
+        '''The expression that defines when the schedule runs.
+
+        Can be either a ``at``, ``rate``
+        or ``cron`` expression.
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(ScheduleExpression, result)
+
+    @builtins.property
+    def target(self) -> IScheduleTarget:
+        '''The schedule's target details.'''
+        result = self._values.get("target")
+        assert result is not None, "Required property 'target' is missing"
+        return typing.cast(IScheduleTarget, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description you specify for the schedule.
+
+        :default: - no value
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the schedule is enabled.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def end(self) -> typing.Optional[datetime.datetime]:
+        '''The date, in UTC, before which the schedule can invoke its target.
+
+        EventBridge Scheduler ignores end for one-time schedules.
+
+        :default: - no value
+        '''
+        result = self._values.get("end")
+        return typing.cast(typing.Optional[datetime.datetime], result)
+
+    @builtins.property
+    def key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
+
+        :default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
+        '''
+        result = self._values.get("key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    @builtins.property
+    def schedule_group(self) -> typing.Optional[IScheduleGroup]:
+        '''The schedule's group.
+
+        :default: - By default a schedule will be associated with the ``default`` group.
+        '''
+        result = self._values.get("schedule_group")
+        return typing.cast(typing.Optional[IScheduleGroup], result)
+
+    @builtins.property
+    def schedule_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the schedule.
+
+        Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed.
+
+        :default: - A unique name will be generated
+        '''
+        result = self._values.get("schedule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start(self) -> typing.Optional[datetime.datetime]:
+        '''The date, in UTC, after which the schedule can begin invoking its target.
+
+        EventBridge Scheduler ignores start for one-time schedules.
+
+        :default: - no value
+        '''
+        result = self._values.get("start")
+        return typing.cast(typing.Optional[datetime.datetime], result)
+
+    @builtins.property
+    def time_window(self) -> typing.Optional["TimeWindow"]:
+        '''A time window during which EventBridge Scheduler invokes the schedule.
+
+        :default: TimeWindow.off()
+
+        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-schedule-flexible-time-windows.html
+        '''
+        result = self._values.get("time_window")
+        return typing.cast(typing.Optional["TimeWindow"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleReference",
+    jsii_struct_bases=[],
+    name_mapping={"schedule_arn": "scheduleArn", "schedule_name": "scheduleName"},
+)
+class ScheduleReference:
+    def __init__(
+        self,
+        *,
+        schedule_arn: builtins.str,
+        schedule_name: builtins.str,
+    ) -> None:
+        '''A reference to a Schedule resource.
+
+        :param schedule_arn: The ARN of the Schedule resource.
+        :param schedule_name: The Name of the Schedule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_scheduler as scheduler
+            
+            schedule_reference = scheduler.ScheduleReference(
+                schedule_arn="scheduleArn",
+                schedule_name="scheduleName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e66e0270a31ef3e90b248734edef4c2c0376f6582c26547c6093dd92379b0d4)
+            check_type(argname="argument schedule_arn", value=schedule_arn, expected_type=type_hints["schedule_arn"])
+            check_type(argname="argument schedule_name", value=schedule_name, expected_type=type_hints["schedule_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schedule_arn": schedule_arn,
+            "schedule_name": schedule_name,
+        }
+
+    @builtins.property
+    def schedule_arn(self) -> builtins.str:
+        '''The ARN of the Schedule resource.'''
+        result = self._values.get("schedule_arn")
+        assert result is not None, "Required property 'schedule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_name(self) -> builtins.str:
+        '''The Name of the Schedule resource.'''
+        result = self._values.get("schedule_name")
+        assert result is not None, "Required property 'schedule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleTargetConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arn": "arn",
+        "role": "role",
+        "dead_letter_config": "deadLetterConfig",
+        "ecs_parameters": "ecsParameters",
+        "event_bridge_parameters": "eventBridgeParameters",
+        "input": "input",
+        "kinesis_parameters": "kinesisParameters",
+        "retry_policy": "retryPolicy",
+        "sage_maker_pipeline_parameters": "sageMakerPipelineParameters",
+        "sqs_parameters": "sqsParameters",
+    },
+)
+class ScheduleTargetConfig:
+    def __init__(
+        self,
+        *,
+        arn: builtins.str,
+        role: _IRole_235f5d8e,
+        dead_letter_config: typing.Optional[typing.Union["CfnSchedule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        ecs_parameters: typing.Optional[typing.Union["CfnSchedule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        event_bridge_parameters: typing.Optional[typing.Union["CfnSchedule.EventBridgeParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        input: typing.Optional["ScheduleTargetInput"] = None,
+        kinesis_parameters: typing.Optional[typing.Union["CfnSchedule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        retry_policy: typing.Optional[typing.Union["CfnSchedule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        sage_maker_pipeline_parameters: typing.Optional[typing.Union["CfnSchedule.SageMakerPipelineParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        sqs_parameters: typing.Optional[typing.Union["CfnSchedule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Config of a Schedule Target used during initialization of Schedule.
+
+        :param arn: The Amazon Resource Name (ARN) of the target.
+        :param role: Role to use to invoke this event target.
+        :param dead_letter_config: An object that contains information about an Amazon SQS queue that EventBridge Scheduler uses as a dead-letter queue for your schedule. If specified, EventBridge Scheduler delivers failed events that could not be successfully delivered to a target to the queue. Default: - No dead-letter queue
+        :param ecs_parameters: The templated target type for the Amazon ECS RunTask API Operation. Default: - No parameters
+        :param event_bridge_parameters: The templated target type for the EventBridge PutEvents API operation. Default: - No parameters
+        :param input: What input to pass to the target. Default: - No input
+        :param kinesis_parameters: The templated target type for the Amazon Kinesis PutRecord API operation. Default: - No parameters
+        :param retry_policy: A ``RetryPolicy`` object that includes information about the retry policy settings, including the maximum age of an event, and the maximum number of times EventBridge Scheduler will try to deliver the event to a target. Default: - Maximum retry attempts of 185 and maximum age of 86400 seconds (1 day)
+        :param sage_maker_pipeline_parameters: The templated target type for the Amazon SageMaker StartPipelineExecution API operation. Default: - No parameters
+        :param sqs_parameters: The templated target type for the Amazon SQS SendMessage API Operation. Default: - No parameters
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iam as iam
+            from aws_cdk import aws_scheduler as scheduler
+            
+            # role: iam.Role
+            # schedule_target_input: scheduler.ScheduleTargetInput
+            # tags: Any
+            
+            schedule_target_config = scheduler.ScheduleTargetConfig(
+                arn="arn",
+                role=role,
+            
+                # the properties below are optional
+                dead_letter_config=scheduler.CfnSchedule.DeadLetterConfigProperty(
+                    arn="arn"
+                ),
+                ecs_parameters=scheduler.CfnSchedule.EcsParametersProperty(
+                    task_definition_arn="taskDefinitionArn",
+            
+                    # the properties below are optional
+                    capacity_provider_strategy=[scheduler.CfnSchedule.CapacityProviderStrategyItemProperty(
+                        capacity_provider="capacityProvider",
+            
+                        # the properties below are optional
+                        base=123,
+                        weight=123
+                    )],
+                    enable_ecs_managed_tags=False,
+                    enable_execute_command=False,
+                    group="group",
+                    launch_type="launchType",
+                    network_configuration=scheduler.CfnSchedule.NetworkConfigurationProperty(
+                        awsvpc_configuration=scheduler.CfnSchedule.AwsVpcConfigurationProperty(
+                            subnets=["subnets"],
+            
+                            # the properties below are optional
+                            assign_public_ip="assignPublicIp",
+                            security_groups=["securityGroups"]
+                        )
+                    ),
+                    placement_constraints=[scheduler.CfnSchedule.PlacementConstraintProperty(
+                        expression="expression",
+                        type="type"
+                    )],
+                    placement_strategy=[scheduler.CfnSchedule.PlacementStrategyProperty(
+                        field="field",
+                        type="type"
+                    )],
+                    platform_version="platformVersion",
+                    propagate_tags="propagateTags",
+                    reference_id="referenceId",
+                    tags=tags,
+                    task_count=123
+                ),
+                event_bridge_parameters=scheduler.CfnSchedule.EventBridgeParametersProperty(
+                    detail_type="detailType",
+                    source="source"
+                ),
+                input=schedule_target_input,
+                kinesis_parameters=scheduler.CfnSchedule.KinesisParametersProperty(
+                    partition_key="partitionKey"
+                ),
+                retry_policy=scheduler.CfnSchedule.RetryPolicyProperty(
+                    maximum_event_age_in_seconds=123,
+                    maximum_retry_attempts=123
+                ),
+                sage_maker_pipeline_parameters=scheduler.CfnSchedule.SageMakerPipelineParametersProperty(
+                    pipeline_parameter_list=[scheduler.CfnSchedule.SageMakerPipelineParameterProperty(
+                        name="name",
+                        value="value"
+                    )]
+                ),
+                sqs_parameters=scheduler.CfnSchedule.SqsParametersProperty(
+                    message_group_id="messageGroupId"
+                )
+            )
+        '''
+        if isinstance(dead_letter_config, dict):
+            dead_letter_config = CfnSchedule.DeadLetterConfigProperty(**dead_letter_config)
+        if isinstance(ecs_parameters, dict):
+            ecs_parameters = CfnSchedule.EcsParametersProperty(**ecs_parameters)
+        if isinstance(event_bridge_parameters, dict):
+            event_bridge_parameters = CfnSchedule.EventBridgeParametersProperty(**event_bridge_parameters)
+        if isinstance(kinesis_parameters, dict):
+            kinesis_parameters = CfnSchedule.KinesisParametersProperty(**kinesis_parameters)
+        if isinstance(retry_policy, dict):
+            retry_policy = CfnSchedule.RetryPolicyProperty(**retry_policy)
+        if isinstance(sage_maker_pipeline_parameters, dict):
+            sage_maker_pipeline_parameters = CfnSchedule.SageMakerPipelineParametersProperty(**sage_maker_pipeline_parameters)
+        if isinstance(sqs_parameters, dict):
+            sqs_parameters = CfnSchedule.SqsParametersProperty(**sqs_parameters)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39b25a1f04a872a013c3ee593bb9140da10796639b130bc7f2461018358c6292)
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
+            check_type(argname="argument ecs_parameters", value=ecs_parameters, expected_type=type_hints["ecs_parameters"])
+            check_type(argname="argument event_bridge_parameters", value=event_bridge_parameters, expected_type=type_hints["event_bridge_parameters"])
+            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+            check_type(argname="argument kinesis_parameters", value=kinesis_parameters, expected_type=type_hints["kinesis_parameters"])
+            check_type(argname="argument retry_policy", value=retry_policy, expected_type=type_hints["retry_policy"])
+            check_type(argname="argument sage_maker_pipeline_parameters", value=sage_maker_pipeline_parameters, expected_type=type_hints["sage_maker_pipeline_parameters"])
+            check_type(argname="argument sqs_parameters", value=sqs_parameters, expected_type=type_hints["sqs_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "arn": arn,
+            "role": role,
+        }
+        if dead_letter_config is not None:
+            self._values["dead_letter_config"] = dead_letter_config
+        if ecs_parameters is not None:
+            self._values["ecs_parameters"] = ecs_parameters
+        if event_bridge_parameters is not None:
+            self._values["event_bridge_parameters"] = event_bridge_parameters
+        if input is not None:
+            self._values["input"] = input
+        if kinesis_parameters is not None:
+            self._values["kinesis_parameters"] = kinesis_parameters
+        if retry_policy is not None:
+            self._values["retry_policy"] = retry_policy
+        if sage_maker_pipeline_parameters is not None:
+            self._values["sage_maker_pipeline_parameters"] = sage_maker_pipeline_parameters
+        if sqs_parameters is not None:
+            self._values["sqs_parameters"] = sqs_parameters
+
+    @builtins.property
+    def arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the target.'''
+        result = self._values.get("arn")
+        assert result is not None, "Required property 'arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role(self) -> _IRole_235f5d8e:
+        '''Role to use to invoke this event target.'''
+        result = self._values.get("role")
+        assert result is not None, "Required property 'role' is missing"
+        return typing.cast(_IRole_235f5d8e, result)
+
+    @builtins.property
+    def dead_letter_config(
+        self,
+    ) -> typing.Optional["CfnSchedule.DeadLetterConfigProperty"]:
+        '''An object that contains information about an Amazon SQS queue that EventBridge Scheduler uses as a dead-letter queue for your schedule.
+
+        If specified, EventBridge Scheduler delivers failed events that could not be successfully delivered to a target to the queue.
+
+        :default: - No dead-letter queue
+        '''
+        result = self._values.get("dead_letter_config")
+        return typing.cast(typing.Optional["CfnSchedule.DeadLetterConfigProperty"], result)
+
+    @builtins.property
+    def ecs_parameters(self) -> typing.Optional["CfnSchedule.EcsParametersProperty"]:
+        '''The templated target type for the Amazon ECS RunTask API Operation.
+
+        :default: - No parameters
+        '''
+        result = self._values.get("ecs_parameters")
+        return typing.cast(typing.Optional["CfnSchedule.EcsParametersProperty"], result)
+
+    @builtins.property
+    def event_bridge_parameters(
+        self,
+    ) -> typing.Optional["CfnSchedule.EventBridgeParametersProperty"]:
+        '''The templated target type for the EventBridge PutEvents API operation.
+
+        :default: - No parameters
+        '''
+        result = self._values.get("event_bridge_parameters")
+        return typing.cast(typing.Optional["CfnSchedule.EventBridgeParametersProperty"], result)
+
+    @builtins.property
+    def input(self) -> typing.Optional["ScheduleTargetInput"]:
+        '''What input to pass to the target.
+
+        :default: - No input
+        '''
+        result = self._values.get("input")
+        return typing.cast(typing.Optional["ScheduleTargetInput"], result)
+
+    @builtins.property
+    def kinesis_parameters(
+        self,
+    ) -> typing.Optional["CfnSchedule.KinesisParametersProperty"]:
+        '''The templated target type for the Amazon Kinesis PutRecord API operation.
+
+        :default: - No parameters
+        '''
+        result = self._values.get("kinesis_parameters")
+        return typing.cast(typing.Optional["CfnSchedule.KinesisParametersProperty"], result)
+
+    @builtins.property
+    def retry_policy(self) -> typing.Optional["CfnSchedule.RetryPolicyProperty"]:
+        '''A ``RetryPolicy`` object that includes information about the retry policy settings, including the maximum age of an event, and the maximum number of times EventBridge Scheduler will try to deliver the event to a target.
+
+        :default: - Maximum retry attempts of 185 and maximum age of 86400 seconds (1 day)
+        '''
+        result = self._values.get("retry_policy")
+        return typing.cast(typing.Optional["CfnSchedule.RetryPolicyProperty"], result)
+
+    @builtins.property
+    def sage_maker_pipeline_parameters(
+        self,
+    ) -> typing.Optional["CfnSchedule.SageMakerPipelineParametersProperty"]:
+        '''The templated target type for the Amazon SageMaker StartPipelineExecution API operation.
+
+        :default: - No parameters
+        '''
+        result = self._values.get("sage_maker_pipeline_parameters")
+        return typing.cast(typing.Optional["CfnSchedule.SageMakerPipelineParametersProperty"], result)
+
+    @builtins.property
+    def sqs_parameters(self) -> typing.Optional["CfnSchedule.SqsParametersProperty"]:
+        '''The templated target type for the Amazon SQS SendMessage API Operation.
+
+        :default: - No parameters
+        '''
+        result = self._values.get("sqs_parameters")
+        return typing.cast(typing.Optional["CfnSchedule.SqsParametersProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleTargetConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ScheduleTargetInput(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleTargetInput",
+):
+    '''The text or well-formed JSON input passed to the target of the schedule.
+
+    Tokens and ContextAttribute may be used in the input.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_sns as sns
+        
+        
+        topic = sns.Topic(self, "Topic")
+        
+        payload = {
+            "message": "Hello scheduler!"
+        }
+        
+        target = targets.SnsPublish(topic,
+            input=ScheduleTargetInput.from_object(payload)
+        )
+        
+        Schedule(self, "Schedule",
+            schedule=ScheduleExpression.rate(Duration.hours(1)),
+            target=target
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="fromObject")
+    @builtins.classmethod
+    def from_object(cls, obj: typing.Any) -> "ScheduleTargetInput":
+        '''Pass a JSON object to the target.
+
+        The object will be transformed into a well-formed JSON string in the final template.
+
+        :param obj: object to use to convert to JSON to use as input for the target.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fdac9a672a0bc2eb981e9971ac41140aa1074946d827f45e5c9d4d78673f0cd)
+            check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
+        return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
+
+    @jsii.member(jsii_name="fromText")
+    @builtins.classmethod
+    def from_text(cls, text: builtins.str) -> "ScheduleTargetInput":
+        '''Pass simple text to the target.
+
+        For passing complex values like JSON object to a target use method
+        ``ScheduleTargetInput.fromObject()`` instead.
+
+        :param text: Text to use as the input for the target.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0925fac0caa3d8fe93a0fe4320d4f08133f45e33174afd1af78bf68282a68524)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(self, schedule: ISchedule) -> builtins.str:
+        '''Return the input properties for this input object.
+
+        :param schedule: -
+        '''
+        ...
+
+
+class _ScheduleTargetInputProxy(ScheduleTargetInput):
+    @jsii.member(jsii_name="bind")
+    def bind(self, schedule: ISchedule) -> builtins.str:
+        '''Return the input properties for this input object.
+
+        :param schedule: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399d6d4527)
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+        return typing.cast(builtins.str, jsii.invoke(self, "bind", [schedule]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, ScheduleTargetInput).__jsii_proxy_class__ = lambda : _ScheduleTargetInputProxy
+
+
+class TimeWindow(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_scheduler.TimeWindow",
+):
+    '''A time window during which EventBridge Scheduler invokes the schedule.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # target: targets.LambdaInvoke
+        
+        
+        schedule = Schedule(self, "Schedule",
+            schedule=ScheduleExpression.rate(Duration.hours(12)),
+            target=target,
+            time_window=TimeWindow.flexible(Duration.hours(10))
+        )
+    '''
+
+    @jsii.member(jsii_name="flexible")
+    @builtins.classmethod
+    def flexible(cls, max_window: _Duration_4839e8c3) -> "TimeWindow":
+        '''TimeWindow is enabled.
+
+        :param max_window: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511)
+            check_type(argname="argument max_window", value=max_window, expected_type=type_hints["max_window"])
+        return typing.cast("TimeWindow", jsii.sinvoke(cls, "flexible", [max_window]))
+
+    @jsii.member(jsii_name="off")
+    @builtins.classmethod
+    def off(cls) -> "TimeWindow":
+        '''TimeWindow is disabled.'''
+        return typing.cast("TimeWindow", jsii.sinvoke(cls, "off", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        '''Determines whether the schedule is invoked within a flexible time window.'''
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxWindow")
+    def max_window(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The maximum time window during which the schedule can be invoked.
+
+        Must be between 1 to 1440 minutes.
+
+        :default: - no value
+        '''
+        return typing.cast(typing.Optional[_Duration_4839e8c3], jsii.get(self, "maxWindow"))
+
+
+@jsii.implements(_IInspectable_c2943556, IScheduleRef)
 class CfnSchedule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -593,6 +4587,12 @@ class CfnSchedule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> ScheduleReference:
+        '''A reference to a Schedule resource.'''
+        return typing.cast(ScheduleReference, jsii.get(self, "scheduleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flexibleTimeWindow")
@@ -2280,7 +6280,7 @@ class CfnSchedule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IScheduleGroupRef, _ITaggable_36806126)
 class CfnScheduleGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2407,6 +6407,12 @@ class CfnScheduleGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="scheduleGroupRef")
+    def schedule_group_ref(self) -> ScheduleGroupReference:
+        '''A reference to a ScheduleGroup resource.'''
+        return typing.cast(ScheduleGroupReference, jsii.get(self, "scheduleGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -2439,3785 +6445,6 @@ class CfnScheduleGroup(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.CfnScheduleGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "tags": "tags"},
-)
-class CfnScheduleGroupProps:
-    def __init__(
-        self,
-        *,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScheduleGroup``.
-
-        :param name: The name of the schedule group.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_scheduler as scheduler
-            
-            cfn_schedule_group_props = scheduler.CfnScheduleGroupProps(
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schedule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html#cfn-scheduler-schedulegroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedulegroup.html#cfn-scheduler-schedulegroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduleGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.CfnScheduleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "flexible_time_window": "flexibleTimeWindow",
-        "schedule_expression": "scheduleExpression",
-        "target": "target",
-        "description": "description",
-        "end_date": "endDate",
-        "group_name": "groupName",
-        "kms_key_arn": "kmsKeyArn",
-        "name": "name",
-        "schedule_expression_timezone": "scheduleExpressionTimezone",
-        "start_date": "startDate",
-        "state": "state",
-    },
-)
-class CfnScheduleProps:
-    def __init__(
-        self,
-        *,
-        flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
-        schedule_expression: builtins.str,
-        target: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        end_date: typing.Optional[builtins.str] = None,
-        group_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        schedule_expression_timezone: typing.Optional[builtins.str] = None,
-        start_date: typing.Optional[builtins.str] = None,
-        state: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSchedule``.
-
-        :param flexible_time_window: Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.
-        :param schedule_expression: The expression that defines when the schedule runs. The following formats are supported. - ``at`` expression - ``at(yyyy-mm-ddThh:mm:ss)`` - ``rate`` expression - ``rate(value unit)`` - ``cron`` expression - ``cron(fields)`` You can use ``at`` expressions to create one-time schedules that invoke a target once, at the time and in the time zone, that you specify. You can use ``rate`` and ``cron`` expressions to create recurring schedules. Rate-based schedules are useful when you want to invoke a target at regular intervals, such as every 15 minutes or every five days. Cron-based schedules are useful when you want to invoke a target periodically at a specific time, such as at 8:00 am (UTC+0) every 1st day of the month. A ``cron`` expression consists of six fields separated by white spaces: ``(minutes hours day_of_month month day_of_week year)`` . A ``rate`` expression consists of a *value* as a positive integer, and a *unit* with the following options: ``minute`` | ``minutes`` | ``hour`` | ``hours`` | ``day`` | ``days`` For more information and examples, see `Schedule types on EventBridge Scheduler <https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html>`_ in the *EventBridge Scheduler User Guide* .
-        :param target: The schedule's target details.
-        :param description: The description you specify for the schedule.
-        :param end_date: The date, in UTC, before which the schedule can invoke its target. Depending on the schedule's recurrence expression, invocations might stop on, or before, the ``EndDate`` you specify. EventBridge Scheduler ignores ``EndDate`` for one-time schedules.
-        :param group_name: The name of the schedule group associated with this schedule.
-        :param kms_key_arn: The Amazon Resource Name (ARN) for the customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
-        :param name: The name of the schedule.
-        :param schedule_expression_timezone: The timezone in which the scheduling expression is evaluated.
-        :param start_date: The date, in UTC, after which the schedule can begin invoking its target. Depending on the schedule's recurrence expression, invocations might occur on, or after, the ``StartDate`` you specify. EventBridge Scheduler ignores ``StartDate`` for one-time schedules.
-        :param state: Specifies whether the schedule is enabled or disabled. *Allowed Values* : ``ENABLED`` | ``DISABLED``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_scheduler as scheduler
-            
-            # tags: Any
-            
-            cfn_schedule_props = scheduler.CfnScheduleProps(
-                flexible_time_window=scheduler.CfnSchedule.FlexibleTimeWindowProperty(
-                    mode="mode",
-            
-                    # the properties below are optional
-                    maximum_window_in_minutes=123
-                ),
-                schedule_expression="scheduleExpression",
-                target=scheduler.CfnSchedule.TargetProperty(
-                    arn="arn",
-                    role_arn="roleArn",
-            
-                    # the properties below are optional
-                    dead_letter_config=scheduler.CfnSchedule.DeadLetterConfigProperty(
-                        arn="arn"
-                    ),
-                    ecs_parameters=scheduler.CfnSchedule.EcsParametersProperty(
-                        task_definition_arn="taskDefinitionArn",
-            
-                        # the properties below are optional
-                        capacity_provider_strategy=[scheduler.CfnSchedule.CapacityProviderStrategyItemProperty(
-                            capacity_provider="capacityProvider",
-            
-                            # the properties below are optional
-                            base=123,
-                            weight=123
-                        )],
-                        enable_ecs_managed_tags=False,
-                        enable_execute_command=False,
-                        group="group",
-                        launch_type="launchType",
-                        network_configuration=scheduler.CfnSchedule.NetworkConfigurationProperty(
-                            awsvpc_configuration=scheduler.CfnSchedule.AwsVpcConfigurationProperty(
-                                subnets=["subnets"],
-            
-                                # the properties below are optional
-                                assign_public_ip="assignPublicIp",
-                                security_groups=["securityGroups"]
-                            )
-                        ),
-                        placement_constraints=[scheduler.CfnSchedule.PlacementConstraintProperty(
-                            expression="expression",
-                            type="type"
-                        )],
-                        placement_strategy=[scheduler.CfnSchedule.PlacementStrategyProperty(
-                            field="field",
-                            type="type"
-                        )],
-                        platform_version="platformVersion",
-                        propagate_tags="propagateTags",
-                        reference_id="referenceId",
-                        tags=tags,
-                        task_count=123
-                    ),
-                    event_bridge_parameters=scheduler.CfnSchedule.EventBridgeParametersProperty(
-                        detail_type="detailType",
-                        source="source"
-                    ),
-                    input="input",
-                    kinesis_parameters=scheduler.CfnSchedule.KinesisParametersProperty(
-                        partition_key="partitionKey"
-                    ),
-                    retry_policy=scheduler.CfnSchedule.RetryPolicyProperty(
-                        maximum_event_age_in_seconds=123,
-                        maximum_retry_attempts=123
-                    ),
-                    sage_maker_pipeline_parameters=scheduler.CfnSchedule.SageMakerPipelineParametersProperty(
-                        pipeline_parameter_list=[scheduler.CfnSchedule.SageMakerPipelineParameterProperty(
-                            name="name",
-                            value="value"
-                        )]
-                    ),
-                    sqs_parameters=scheduler.CfnSchedule.SqsParametersProperty(
-                        message_group_id="messageGroupId"
-                    )
-                ),
-            
-                # the properties below are optional
-                description="description",
-                end_date="endDate",
-                group_name="groupName",
-                kms_key_arn="kmsKeyArn",
-                name="name",
-                schedule_expression_timezone="scheduleExpressionTimezone",
-                start_date="startDate",
-                state="state"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7259f3f17d67e55e8ad4459f637d0d8aa80d57d58cb928f6b0403a6097a4ecf1)
-            check_type(argname="argument flexible_time_window", value=flexible_time_window, expected_type=type_hints["flexible_time_window"])
-            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
-            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
-            check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
-            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "flexible_time_window": flexible_time_window,
-            "schedule_expression": schedule_expression,
-            "target": target,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if end_date is not None:
-            self._values["end_date"] = end_date
-        if group_name is not None:
-            self._values["group_name"] = group_name
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if name is not None:
-            self._values["name"] = name
-        if schedule_expression_timezone is not None:
-            self._values["schedule_expression_timezone"] = schedule_expression_timezone
-        if start_date is not None:
-            self._values["start_date"] = start_date
-        if state is not None:
-            self._values["state"] = state
-
-    @builtins.property
-    def flexible_time_window(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSchedule.FlexibleTimeWindowProperty]:
-        '''Allows you to configure a time window during which EventBridge Scheduler invokes the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-flexibletimewindow
-        '''
-        result = self._values.get("flexible_time_window")
-        assert result is not None, "Required property 'flexible_time_window' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSchedule.FlexibleTimeWindowProperty], result)
-
-    @builtins.property
-    def schedule_expression(self) -> builtins.str:
-        '''The expression that defines when the schedule runs. The following formats are supported.
-
-        - ``at`` expression - ``at(yyyy-mm-ddThh:mm:ss)``
-        - ``rate`` expression - ``rate(value unit)``
-        - ``cron`` expression - ``cron(fields)``
-
-        You can use ``at`` expressions to create one-time schedules that invoke a target once, at the time and in the time zone, that you specify. You can use ``rate`` and ``cron`` expressions to create recurring schedules. Rate-based schedules are useful when you want to invoke a target at regular intervals, such as every 15 minutes or every five days. Cron-based schedules are useful when you want to invoke a target periodically at a specific time, such as at 8:00 am (UTC+0) every 1st day of the month.
-
-        A ``cron`` expression consists of six fields separated by white spaces: ``(minutes hours day_of_month month day_of_week year)`` .
-
-        A ``rate`` expression consists of a *value* as a positive integer, and a *unit* with the following options: ``minute`` | ``minutes`` | ``hour`` | ``hours`` | ``day`` | ``days``
-
-        For more information and examples, see `Schedule types on EventBridge Scheduler <https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html>`_ in the *EventBridge Scheduler User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression
-        '''
-        result = self._values.get("schedule_expression")
-        assert result is not None, "Required property 'schedule_expression' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target(self) -> typing.Union[_IResolvable_da3f097b, CfnSchedule.TargetProperty]:
-        '''The schedule's target details.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-target
-        '''
-        result = self._values.get("target")
-        assert result is not None, "Required property 'target' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSchedule.TargetProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description you specify for the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def end_date(self) -> typing.Optional[builtins.str]:
-        '''The date, in UTC, before which the schedule can invoke its target.
-
-        Depending on the schedule's recurrence expression, invocations might stop on, or before, the ``EndDate`` you specify.
-        EventBridge Scheduler ignores ``EndDate`` for one-time schedules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-enddate
-        '''
-        result = self._values.get("end_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schedule group associated with this schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-groupname
-        '''
-        result = self._values.get("group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) for the customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule_expression_timezone(self) -> typing.Optional[builtins.str]:
-        '''The timezone in which the scheduling expression is evaluated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpressiontimezone
-        '''
-        result = self._values.get("schedule_expression_timezone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_date(self) -> typing.Optional[builtins.str]:
-        '''The date, in UTC, after which the schedule can begin invoking its target.
-
-        Depending on the schedule's recurrence expression, invocations might occur on, or after, the ``StartDate`` you specify.
-        EventBridge Scheduler ignores ``StartDate`` for one-time schedules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-startdate
-        '''
-        result = self._values.get("start_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether the schedule is enabled or disabled.
-
-        *Allowed Values* : ``ENABLED`` | ``DISABLED``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-state
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class ContextAttribute(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_scheduler.ContextAttribute",
-):
-    '''A set of convenient static methods representing the Scheduler Context Attributes.
-
-    These Context Attributes keywords can be used inside a ScheduleTargetInput.
-
-    :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-schedule-context-attributes.html
-    '''
-
-    @jsii.member(jsii_name="fromName")
-    @builtins.classmethod
-    def from_name(cls, name: builtins.str) -> builtins.str:
-        '''Escape hatch for other Context Attributes that may be added in the future.
-
-        :param name: - name will replace xxx in <aws.scheduler.xxx>.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3ffc32f8d37e5b3c60f6299c8f15649e00e5778ef81be54ecc2ffbb99ac1bbc)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "fromName", [name]))
-
-    @jsii.member(jsii_name="toString")
-    def to_string(self) -> builtins.str:
-        '''Convert the path to the field in the event pattern to JSON.'''
-        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="attemptNumber")
-    def attempt_number(cls) -> builtins.str:
-        '''A counter that identifies the attempt number for the current invocation, for example, 1.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "attemptNumber"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="executionId")
-    def execution_id(cls) -> builtins.str:
-        '''The unique ID that EventBridge Scheduler assigns for each attempted invocation of a target, for example, d32c5kddcf5bb8c3.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "executionId"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="scheduleArn")
-    def schedule_arn(cls) -> builtins.str:
-        '''The ARN of the schedule.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "scheduleArn"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="scheduledTime")
-    def scheduled_time(cls) -> builtins.str:
-        '''The time you specified for the schedule to invoke its target, for example, 2022-03-22T18:59:43Z.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "scheduledTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.CronOptionsWithTimezone",
-    jsii_struct_bases=[_CronOptions_6401a7a0],
-    name_mapping={
-        "day": "day",
-        "hour": "hour",
-        "minute": "minute",
-        "month": "month",
-        "week_day": "weekDay",
-        "year": "year",
-        "time_zone": "timeZone",
-    },
-)
-class CronOptionsWithTimezone(_CronOptions_6401a7a0):
-    def __init__(
-        self,
-        *,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-        year: typing.Optional[builtins.str] = None,
-        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
-    ) -> None:
-        '''Options to configure a cron expression.
-
-        All fields are strings so you can use complex expressions. Absence of
-        a field implies '*' or '?', whichever one is appropriate.
-
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-        :param year: The year to run this rule at. Default: - Every year
-        :param time_zone: The timezone to run the schedule in. Default: - TimeZone.ETC_UTC
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html#cron-expressions
-        :exampleMetadata: infused
-
-        Example::
-
-            # target: targets.LambdaInvoke
-            
-            
-            rate_based_schedule = Schedule(self, "Schedule",
-                schedule=ScheduleExpression.rate(Duration.minutes(10)),
-                target=target,
-                description="This is a test rate-based schedule"
-            )
-            
-            cron_based_schedule = Schedule(self, "Schedule",
-                schedule=ScheduleExpression.cron(
-                    minute="0",
-                    hour="23",
-                    day="20",
-                    month="11",
-                    time_zone=TimeZone.AMERICA_NEW_YORK
-                ),
-                target=target,
-                description="This is a test cron-based schedule that will run at 11:00 PM, on day 20 of the month, only in November in New York timezone"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87f71f166be27f7417012dedd810bd7b3cedb2ec7d0a0493ca36f93993f6c5b)
-            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
-            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
-            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
-            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
-            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
-            check_type(argname="argument year", value=year, expected_type=type_hints["year"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if day is not None:
-            self._values["day"] = day
-        if hour is not None:
-            self._values["hour"] = hour
-        if minute is not None:
-            self._values["minute"] = minute
-        if month is not None:
-            self._values["month"] = month
-        if week_day is not None:
-            self._values["week_day"] = week_day
-        if year is not None:
-            self._values["year"] = year
-        if time_zone is not None:
-            self._values["time_zone"] = time_zone
-
-    @builtins.property
-    def day(self) -> typing.Optional[builtins.str]:
-        '''The day of the month to run this rule at.
-
-        :default: - Every day of the month
-        '''
-        result = self._values.get("day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hour(self) -> typing.Optional[builtins.str]:
-        '''The hour to run this rule at.
-
-        :default: - Every hour
-        '''
-        result = self._values.get("hour")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def minute(self) -> typing.Optional[builtins.str]:
-        '''The minute to run this rule at.
-
-        :default: - Every minute
-        '''
-        result = self._values.get("minute")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def month(self) -> typing.Optional[builtins.str]:
-        '''The month to run this rule at.
-
-        :default: - Every month
-        '''
-        result = self._values.get("month")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def week_day(self) -> typing.Optional[builtins.str]:
-        '''The day of the week to run this rule at.
-
-        :default: - Any day of the week
-        '''
-        result = self._values.get("week_day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def year(self) -> typing.Optional[builtins.str]:
-        '''The year to run this rule at.
-
-        :default: - Every year
-        '''
-        result = self._values.get("year")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
-        '''The timezone to run the schedule in.
-
-        :default: - TimeZone.ETC_UTC
-        '''
-        result = self._values.get("time_zone")
-        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CronOptionsWithTimezone(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.ISchedule")
-class ISchedule(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface representing a created or an imported ``Schedule``.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleArn")
-    def schedule_arn(self) -> builtins.str:
-        '''The arn of the schedule.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleName")
-    def schedule_name(self) -> builtins.str:
-        '''The name of the schedule.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroup")
-    def schedule_group(self) -> typing.Optional["IScheduleGroup"]:
-        '''The schedule group associated with this schedule.'''
-        ...
-
-
-class _IScheduleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface representing a created or an imported ``Schedule``.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.ISchedule"
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleArn")
-    def schedule_arn(self) -> builtins.str:
-        '''The arn of the schedule.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleName")
-    def schedule_name(self) -> builtins.str:
-        '''The name of the schedule.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroup")
-    def schedule_group(self) -> typing.Optional["IScheduleGroup"]:
-        '''The schedule group associated with this schedule.'''
-        return typing.cast(typing.Optional["IScheduleGroup"], jsii.get(self, "scheduleGroup"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISchedule).__jsii_proxy_class__ = lambda : _IScheduleProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleGroup")
-class IScheduleGroup(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface representing a created or an imported ``ScheduleGroup``.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupArn")
-    def schedule_group_arn(self) -> builtins.str:
-        '''The arn of the schedule group.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupName")
-    def schedule_group_name(self) -> builtins.str:
-        '''The name of the schedule group.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this group to the given principal.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantDeleteSchedules")
-    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant delete schedule permission for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantReadSchedules")
-    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant list and get schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantWriteSchedules")
-    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant create and update schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        ...
-
-    @jsii.member(jsii_name="metric")
-    def metric(
-        self,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for this group schedules.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricAttempts")
-    def metric_attempts(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for all invocation attempts.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricDropped")
-    def metric_dropped(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
-    def metric_failed_to_be_sent_to_dlq(
-        self,
-        error_code: typing.Optional[builtins.str] = None,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for failed invocations that also failed to deliver to DLQ.
-
-        :param error_code: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricSentToDLQ")
-    def metric_sent_to_dlq(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocations delivered to the DLQ.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricSentToDLQTruncated")
-    def metric_sent_to_dlq_truncated(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricTargetErrors")
-    def metric_target_errors(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricTargetThrottled")
-    def metric_target_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocation failures due to API throttling by the target.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricThrottled")
-    def metric_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-
-        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
-        '''
-        ...
-
-
-class _IScheduleGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface representing a created or an imported ``ScheduleGroup``.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleGroup"
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupArn")
-    def schedule_group_arn(self) -> builtins.str:
-        '''The arn of the schedule group.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupName")
-    def schedule_group_name(self) -> builtins.str:
-        '''The name of the schedule group.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupName"))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this group to the given principal.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__190f03a36ab90eca0db1bdfd7c06d5891c61b69defb1c7be61f45d771a66e130)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.member(jsii_name="grantDeleteSchedules")
-    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant delete schedule permission for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579ff4205e0ccb1830f899a44fc742e9853277ba0f82091be749e20b4fdbf1c2)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDeleteSchedules", [identity]))
-
-    @jsii.member(jsii_name="grantReadSchedules")
-    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant list and get schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66f280f7a41957c98ada2240887b088985bbe273d1067b2c4f83f8ca69d09aae)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadSchedules", [identity]))
-
-    @jsii.member(jsii_name="grantWriteSchedules")
-    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant create and update schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f189e0a2b180ceb7d47a54524a64df15a2d1c7a5efe1e25873a64a68692c1d18)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWriteSchedules", [identity]))
-
-    @jsii.member(jsii_name="metric")
-    def metric(
-        self,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for this group schedules.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1a1c48be5584426072c1f842a1e31e59436e2cefe7df9e84b5a3115ad743d3e)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
-
-    @jsii.member(jsii_name="metricAttempts")
-    def metric_attempts(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for all invocation attempts.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAttempts", [props]))
-
-    @jsii.member(jsii_name="metricDropped")
-    def metric_dropped(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDropped", [props]))
-
-    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
-    def metric_failed_to_be_sent_to_dlq(
-        self,
-        error_code: typing.Optional[builtins.str] = None,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for failed invocations that also failed to deliver to DLQ.
-
-        :param error_code: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43e3d3a73dae7296d8e1b29562f7a8fbdf941fb9885fa0ddcc13164e2352e68d)
-            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
-
-    @jsii.member(jsii_name="metricSentToDLQ")
-    def metric_sent_to_dlq(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocations delivered to the DLQ.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQ", [props]))
-
-    @jsii.member(jsii_name="metricSentToDLQTruncated")
-    def metric_sent_to_dlq_truncated(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQTruncated", [props]))
-
-    @jsii.member(jsii_name="metricTargetErrors")
-    def metric_target_errors(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetErrors", [props]))
-
-    @jsii.member(jsii_name="metricTargetThrottled")
-    def metric_target_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocation failures due to API throttling by the target.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetThrottled", [props]))
-
-    @jsii.member(jsii_name="metricThrottled")
-    def metric_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-
-        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottled", [props]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IScheduleGroup).__jsii_proxy_class__ = lambda : _IScheduleGroupProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_scheduler.IScheduleTarget")
-class IScheduleTarget(typing_extensions.Protocol):
-    '''Interface representing a Event Bridge Schedule Target.'''
-
-    @jsii.member(jsii_name="bind")
-    def bind(self, _schedule: ISchedule) -> "ScheduleTargetConfig":
-        '''Returns the schedule target specification.
-
-        :param _schedule: a schedule the target should be added to.
-        '''
-        ...
-
-
-class _IScheduleTargetProxy:
-    '''Interface representing a Event Bridge Schedule Target.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_scheduler.IScheduleTarget"
-
-    @jsii.member(jsii_name="bind")
-    def bind(self, _schedule: ISchedule) -> "ScheduleTargetConfig":
-        '''Returns the schedule target specification.
-
-        :param _schedule: a schedule the target should be added to.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db14aa1db4d786b1846e49587706992ee79b66245d52b5efebd763ccbd24c94)
-            check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast("ScheduleTargetConfig", jsii.invoke(self, "bind", [_schedule]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IScheduleTarget).__jsii_proxy_class__ = lambda : _IScheduleTargetProxy
-
-
-@jsii.implements(ISchedule)
-class Schedule(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_scheduler.Schedule",
-):
-    '''An EventBridge Schedule.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_kinesisfirehose as firehose
-        # delivery_stream: firehose.IDeliveryStream
-        
-        
-        payload = {
-            "Data": "record"
-        }
-        
-        Schedule(self, "Schedule",
-            schedule=ScheduleExpression.rate(Duration.minutes(60)),
-            target=targets.FirehosePutRecord(delivery_stream,
-                input=ScheduleTargetInput.from_object(payload)
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        schedule: "ScheduleExpression",
-        target: IScheduleTarget,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        end: typing.Optional[datetime.datetime] = None,
-        key: typing.Optional[_IKey_5f11635f] = None,
-        schedule_group: typing.Optional[IScheduleGroup] = None,
-        schedule_name: typing.Optional[builtins.str] = None,
-        start: typing.Optional[datetime.datetime] = None,
-        time_window: typing.Optional["TimeWindow"] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param schedule: The expression that defines when the schedule runs. Can be either a ``at``, ``rate`` or ``cron`` expression.
-        :param target: The schedule's target details.
-        :param description: The description you specify for the schedule. Default: - no value
-        :param enabled: Indicates whether the schedule is enabled. Default: true
-        :param end: The date, in UTC, before which the schedule can invoke its target. EventBridge Scheduler ignores end for one-time schedules. Default: - no value
-        :param key: The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data. Default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
-        :param schedule_group: The schedule's group. Default: - By default a schedule will be associated with the ``default`` group.
-        :param schedule_name: The name of the schedule. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
-        :param start: The date, in UTC, after which the schedule can begin invoking its target. EventBridge Scheduler ignores start for one-time schedules. Default: - no value
-        :param time_window: A time window during which EventBridge Scheduler invokes the schedule. Default: TimeWindow.off()
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5e74b4c774095daccbb01abe34df777261be2bfce9f7ec773cd8688b17dbb98)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ScheduleProps(
-            schedule=schedule,
-            target=target,
-            description=description,
-            enabled=enabled,
-            end=end,
-            key=key,
-            schedule_group=schedule_group,
-            schedule_name=schedule_name,
-            start=start,
-            time_window=time_window,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromScheduleArn")
-    @builtins.classmethod
-    def from_schedule_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        schedule_arn: builtins.str,
-    ) -> ISchedule:
-        '''Import an existing schedule using the ARN.
-
-        :param scope: -
-        :param id: -
-        :param schedule_arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1372455178922293375a1300f4c6e69cee5bc442b16f4036c84aafb7d9332f93)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument schedule_arn", value=schedule_arn, expected_type=type_hints["schedule_arn"])
-        return typing.cast(ISchedule, jsii.sinvoke(cls, "fromScheduleArn", [scope, id, schedule_arn]))
-
-    @jsii.member(jsii_name="metricAll")
-    @builtins.classmethod
-    def metric_all(
-        cls,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for all schedules.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9697edf3bddfcbab866b7220407b409d24e19d71a4831cc2eae389b626c1d7)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAll", [metric_name, props]))
-
-    @jsii.member(jsii_name="metricAllAttempts")
-    @builtins.classmethod
-    def metric_all_attempts(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for all invocation attempts across all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllAttempts", [props]))
-
-    @jsii.member(jsii_name="metricAllDropped")
-    @builtins.classmethod
-    def metric_all_dropped(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
-
-        Metric is calculated for all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllDropped", [props]))
-
-    @jsii.member(jsii_name="metricAllErrors")
-    @builtins.classmethod
-    def metric_all_errors(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API across all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllErrors", [props]))
-
-    @jsii.member(jsii_name="metricAllFailedToBeSentToDLQ")
-    @builtins.classmethod
-    def metric_all_failed_to_be_sent_to_dlq(
-        cls,
-        error_code: typing.Optional[builtins.str] = None,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for failed invocations that also failed to deliver to DLQ across all schedules.
-
-        :param error_code: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__897a723a752bdf5a7cbd4dc9c673edd8862b55def0dfc20984054c323d651b0d)
-            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllFailedToBeSentToDLQ", [error_code, props]))
-
-    @jsii.member(jsii_name="metricAllSentToDLQ")
-    @builtins.classmethod
-    def metric_all_sent_to_dlq(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocations delivered to the DLQ across all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllSentToDLQ", [props]))
-
-    @jsii.member(jsii_name="metricAllSentToDLQTruncated")
-    @builtins.classmethod
-    def metric_all_sent_to_dlq_truncated(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
-
-        Metric is calculated for all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllSentToDLQTruncated", [props]))
-
-    @jsii.member(jsii_name="metricAllTargetThrottled")
-    @builtins.classmethod
-    def metric_all_target_throttled(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocation failures due to API throttling by the target across all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllTargetThrottled", [props]))
-
-    @jsii.member(jsii_name="metricAllThrottled")
-    @builtins.classmethod
-    def metric_all_throttled(
-        cls,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of invocations that were throttled across all schedules.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-
-        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.sinvoke(cls, "metricAllThrottled", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleArn")
-    def schedule_arn(self) -> builtins.str:
-        '''The arn of the schedule.'''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleName")
-    def schedule_name(self) -> builtins.str:
-        '''The name of the schedule.'''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="key")
-    def key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.'''
-        return typing.cast(typing.Optional[_IKey_5f11635f], jsii.get(self, "key"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroup")
-    def schedule_group(self) -> typing.Optional[IScheduleGroup]:
-        '''The schedule group associated with this schedule.'''
-        return typing.cast(typing.Optional[IScheduleGroup], jsii.get(self, "scheduleGroup"))
-
-
-class ScheduleExpression(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleExpression",
-):
-    '''ScheduleExpression for EventBridge Schedule.
-
-    You can choose from three schedule types when configuring your schedule: rate-based, cron-based, and one-time schedules.
-    Both rate-based and cron-based schedules are recurring schedules.
-
-    :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_kinesisfirehose as firehose
-        # delivery_stream: firehose.IDeliveryStream
-        
-        
-        payload = {
-            "Data": "record"
-        }
-        
-        Schedule(self, "Schedule",
-            schedule=ScheduleExpression.rate(Duration.minutes(60)),
-            target=targets.FirehosePutRecord(delivery_stream,
-                input=ScheduleTargetInput.from_object(payload)
-            )
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="at")
-    @builtins.classmethod
-    def at(
-        cls,
-        date: datetime.datetime,
-        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
-    ) -> "ScheduleExpression":
-        '''Construct a one-time schedule from a date.
-
-        :param date: The date and time to use. The millisecond part will be ignored.
-        :param time_zone: The time zone to use for interpreting the date. Default: - UTC
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__175909e9c50b88b6e35fc2db4998caa986e6da11a9a20dbde9c02ee1ca0b00b8)
-            check_type(argname="argument date", value=date, expected_type=type_hints["date"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "at", [date, time_zone]))
-
-    @jsii.member(jsii_name="cron")
-    @builtins.classmethod
-    def cron(
-        cls,
-        *,
-        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-        year: typing.Optional[builtins.str] = None,
-    ) -> "ScheduleExpression":
-        '''Create a recurring schedule from a set of cron fields and time zone.
-
-        :param time_zone: The timezone to run the schedule in. Default: - TimeZone.ETC_UTC
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-        :param year: The year to run this rule at. Default: - Every year
-        '''
-        options = CronOptionsWithTimezone(
-            time_zone=time_zone,
-            day=day,
-            hour=hour,
-            minute=minute,
-            month=month,
-            week_day=week_day,
-            year=year,
-        )
-
-        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "cron", [options]))
-
-    @jsii.member(jsii_name="expression")
-    @builtins.classmethod
-    def expression(
-        cls,
-        expression: builtins.str,
-        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
-    ) -> "ScheduleExpression":
-        '''Construct a schedule from a literal schedule expression.
-
-        :param expression: The expression to use. Must be in a format that EventBridge will recognize
-        :param time_zone: The time zone to use for interpreting the expression. Default: - UTC
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21e89766a8d616bfc00e75a22774b5d41c55681b6f5f623f08f201c835dd2902)
-            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "expression", [expression, time_zone]))
-
-    @jsii.member(jsii_name="rate")
-    @builtins.classmethod
-    def rate(cls, duration: _Duration_4839e8c3) -> "ScheduleExpression":
-        '''Construct a recurring schedule from an interval and a time unit.
-
-        Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
-
-        :param duration: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97a45c9b75fc81cb3d47817d0893dffb28ebc87496c4a4eedb9cf73b57a68cc5)
-            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-        return typing.cast("ScheduleExpression", jsii.sinvoke(cls, "rate", [duration]))
-
-    @builtins.property
-    @jsii.member(jsii_name="expressionString")
-    @abc.abstractmethod
-    def expression_string(self) -> builtins.str:
-        '''Retrieve the expression for this schedule.'''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="timeZone")
-    @abc.abstractmethod
-    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
-        '''Retrieve the expression for this schedule.'''
-        ...
-
-
-class _ScheduleExpressionProxy(ScheduleExpression):
-    @builtins.property
-    @jsii.member(jsii_name="expressionString")
-    def expression_string(self) -> builtins.str:
-        '''Retrieve the expression for this schedule.'''
-        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
-
-    @builtins.property
-    @jsii.member(jsii_name="timeZone")
-    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
-        '''Retrieve the expression for this schedule.'''
-        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], jsii.get(self, "timeZone"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, ScheduleExpression).__jsii_proxy_class__ = lambda : _ScheduleExpressionProxy
-
-
-@jsii.implements(IScheduleGroup)
-class ScheduleGroup(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroup",
-):
-    '''A Schedule Group.
-
-    :resource: AWS::Scheduler::ScheduleGroup
-    :exampleMetadata: infused
-
-    Example::
-
-        # target: targets.LambdaInvoke
-        
-        
-        schedule_group = ScheduleGroup(self, "ScheduleGroup",
-            schedule_group_name="MyScheduleGroup"
-        )
-        
-        Schedule(self, "Schedule",
-            schedule=ScheduleExpression.rate(Duration.minutes(10)),
-            target=target,
-            schedule_group=schedule_group
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-        schedule_group_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param removal_policy: The removal policy for the group. If the group is removed also all schedules are removed. Default: RemovalPolicy.RETAIN
-        :param schedule_group_name: The name of the schedule group. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__736972893d2822201f3b54995126456a9f4766921d769ea7836c13c49c015d53)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ScheduleGroupProps(
-            removal_policy=removal_policy, schedule_group_name=schedule_group_name
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromDefaultScheduleGroup")
-    @builtins.classmethod
-    def from_default_schedule_group(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-    ) -> IScheduleGroup:
-        '''Import a default schedule group.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7b5a1fbdcbfd0ad106f45caf1d995619df8d064b8587659c5461157f6e48926)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromDefaultScheduleGroup", [scope, id]))
-
-    @jsii.member(jsii_name="fromScheduleGroupArn")
-    @builtins.classmethod
-    def from_schedule_group_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        schedule_group_arn: builtins.str,
-    ) -> IScheduleGroup:
-        '''Import an external schedule group by ARN.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param schedule_group_arn: the ARN of the schedule group to import (e.g. ``arn:aws:scheduler:region:account-id:schedule-group/group-name``).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c77731a2b0fb48c74a722651a8f036cef9066af4a6dd7b73c0b9b2d119bc36d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument schedule_group_arn", value=schedule_group_arn, expected_type=type_hints["schedule_group_arn"])
-        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromScheduleGroupArn", [scope, id, schedule_group_arn]))
-
-    @jsii.member(jsii_name="fromScheduleGroupName")
-    @builtins.classmethod
-    def from_schedule_group_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        schedule_group_name: builtins.str,
-    ) -> IScheduleGroup:
-        '''Import an existing schedule group with a given name.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param schedule_group_name: the name of the existing schedule group to import.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0eef3cd9167e1bcf64df7282dec1f362eaac5659d22625afac3c28dcc0b7edb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
-        return typing.cast(IScheduleGroup, jsii.sinvoke(cls, "fromScheduleGroupName", [scope, id, schedule_group_name]))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the indicated permissions on this schedule group to the given principal.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1603de1685aaaf14ff1514df8394bc631af9b5e6f8b79a44c31ff5e24157a7e0)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.member(jsii_name="grantDeleteSchedules")
-    def grant_delete_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant delete schedule permission for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15bda48b16b2099393ebcd41e9be05dd66aaf7faaeae1ba65b42220d7667bce5)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantDeleteSchedules", [identity]))
-
-    @jsii.member(jsii_name="grantReadSchedules")
-    def grant_read_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant list and get schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a9d37bafcef8d26af6e888f5ab8b2aef1359b02c7a510049f6e900c986b797)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadSchedules", [identity]))
-
-    @jsii.member(jsii_name="grantWriteSchedules")
-    def grant_write_schedules(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant create and update schedule permissions for schedules in this group to the given principal.
-
-        :param identity: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2cc2856526773b02c8dfcbfcca6cf534cc4a4b00a0b0de1e8fe166c071534ab)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWriteSchedules", [identity]))
-
-    @jsii.member(jsii_name="metric")
-    def metric(
-        self,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for this schedule group.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__634bd225463be60303d9d1588926bbaa9fbd72c940ca54fecf9724d90fdefe64)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
-
-    @jsii.member(jsii_name="metricAttempts")
-    def metric_attempts(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for all invocation attempts.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAttempts", [props]))
-
-    @jsii.member(jsii_name="metricDropped")
-    def metric_dropped(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for dropped invocations when EventBridge Scheduler stops attempting to invoke the target after a schedule's retry policy has been exhausted.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDropped", [props]))
-
-    @jsii.member(jsii_name="metricFailedToBeSentToDLQ")
-    def metric_failed_to_be_sent_to_dlq(
-        self,
-        error_code: typing.Optional[builtins.str] = None,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for failed invocations that also failed to deliver to DLQ.
-
-        :param error_code: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca970bf647095b0a6fd282ecce93e19b12761be780f7fac1db8cc3b6f97c0cbf)
-            check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFailedToBeSentToDLQ", [error_code, props]))
-
-    @jsii.member(jsii_name="metricSentToDLQ")
-    def metric_sent_to_dlq(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocations delivered to the DLQ.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQ", [props]))
-
-    @jsii.member(jsii_name="metricSentToDLQTruncated")
-    def metric_sent_to_dlq_truncated(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for delivery of failed invocations to DLQ when the payload of the event sent to the DLQ exceeds the maximum size allowed by Amazon SQS.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSentToDLQTruncated", [props]))
-
-    @jsii.member(jsii_name="metricTargetErrors")
-    def metric_target_errors(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Emitted when the target returns an exception after EventBridge Scheduler calls the target API.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetErrors", [props]))
-
-    @jsii.member(jsii_name="metricTargetThrottled")
-    def metric_target_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for invocation failures due to API throttling by the target.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricTargetThrottled", [props]))
-
-    @jsii.member(jsii_name="metricThrottled")
-    def metric_throttled(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of invocations that were throttled because it exceeds your service quotas.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: - sum over 5 minutes
-
-        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/scheduler-quotas.html
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricThrottled", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupArn")
-    def schedule_group_arn(self) -> builtins.str:
-        '''The arn of the schedule group.'''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="scheduleGroupName")
-    def schedule_group_name(self) -> builtins.str:
-        '''The name of the schedule group.'''
-        return typing.cast(builtins.str, jsii.get(self, "scheduleGroupName"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "removal_policy": "removalPolicy",
-        "schedule_group_name": "scheduleGroupName",
-    },
-)
-class ScheduleGroupProps:
-    def __init__(
-        self,
-        *,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-        schedule_group_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for a Schedule Group.
-
-        :param removal_policy: The removal policy for the group. If the group is removed also all schedules are removed. Default: RemovalPolicy.RETAIN
-        :param schedule_group_name: The name of the schedule group. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # target: targets.LambdaInvoke
-            
-            
-            schedule_group = ScheduleGroup(self, "ScheduleGroup",
-                schedule_group_name="MyScheduleGroup"
-            )
-            
-            Schedule(self, "Schedule",
-                schedule=ScheduleExpression.rate(Duration.minutes(10)),
-                target=target,
-                schedule_group=schedule_group
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64bb15c34)
-            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
-            check_type(argname="argument schedule_group_name", value=schedule_group_name, expected_type=type_hints["schedule_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if removal_policy is not None:
-            self._values["removal_policy"] = removal_policy
-        if schedule_group_name is not None:
-            self._values["schedule_group_name"] = schedule_group_name
-
-    @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
-        '''The removal policy for the group.
-
-        If the group is removed also all schedules are removed.
-
-        :default: RemovalPolicy.RETAIN
-        '''
-        result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
-
-    @builtins.property
-    def schedule_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schedule group.
-
-        Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed.
-
-        :default: - A unique name will be generated
-        '''
-        result = self._values.get("schedule_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ScheduleGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "schedule": "schedule",
-        "target": "target",
-        "description": "description",
-        "enabled": "enabled",
-        "end": "end",
-        "key": "key",
-        "schedule_group": "scheduleGroup",
-        "schedule_name": "scheduleName",
-        "start": "start",
-        "time_window": "timeWindow",
-    },
-)
-class ScheduleProps:
-    def __init__(
-        self,
-        *,
-        schedule: ScheduleExpression,
-        target: IScheduleTarget,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        end: typing.Optional[datetime.datetime] = None,
-        key: typing.Optional[_IKey_5f11635f] = None,
-        schedule_group: typing.Optional[IScheduleGroup] = None,
-        schedule_name: typing.Optional[builtins.str] = None,
-        start: typing.Optional[datetime.datetime] = None,
-        time_window: typing.Optional["TimeWindow"] = None,
-    ) -> None:
-        '''Construction properties for ``Schedule``.
-
-        :param schedule: The expression that defines when the schedule runs. Can be either a ``at``, ``rate`` or ``cron`` expression.
-        :param target: The schedule's target details.
-        :param description: The description you specify for the schedule. Default: - no value
-        :param enabled: Indicates whether the schedule is enabled. Default: true
-        :param end: The date, in UTC, before which the schedule can invoke its target. EventBridge Scheduler ignores end for one-time schedules. Default: - no value
-        :param key: The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data. Default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
-        :param schedule_group: The schedule's group. Default: - By default a schedule will be associated with the ``default`` group.
-        :param schedule_name: The name of the schedule. Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed. Default: - A unique name will be generated
-        :param start: The date, in UTC, after which the schedule can begin invoking its target. EventBridge Scheduler ignores start for one-time schedules. Default: - no value
-        :param time_window: A time window during which EventBridge Scheduler invokes the schedule. Default: TimeWindow.off()
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_kinesisfirehose as firehose
-            # delivery_stream: firehose.IDeliveryStream
-            
-            
-            payload = {
-                "Data": "record"
-            }
-            
-            Schedule(self, "Schedule",
-                schedule=ScheduleExpression.rate(Duration.minutes(60)),
-                target=targets.FirehosePutRecord(delivery_stream,
-                    input=ScheduleTargetInput.from_object(payload)
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf13677e296f)
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument end", value=end, expected_type=type_hints["end"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument schedule_group", value=schedule_group, expected_type=type_hints["schedule_group"])
-            check_type(argname="argument schedule_name", value=schedule_name, expected_type=type_hints["schedule_name"])
-            check_type(argname="argument start", value=start, expected_type=type_hints["start"])
-            check_type(argname="argument time_window", value=time_window, expected_type=type_hints["time_window"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "schedule": schedule,
-            "target": target,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if end is not None:
-            self._values["end"] = end
-        if key is not None:
-            self._values["key"] = key
-        if schedule_group is not None:
-            self._values["schedule_group"] = schedule_group
-        if schedule_name is not None:
-            self._values["schedule_name"] = schedule_name
-        if start is not None:
-            self._values["start"] = start
-        if time_window is not None:
-            self._values["time_window"] = time_window
-
-    @builtins.property
-    def schedule(self) -> ScheduleExpression:
-        '''The expression that defines when the schedule runs.
-
-        Can be either a ``at``, ``rate``
-        or ``cron`` expression.
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(ScheduleExpression, result)
-
-    @builtins.property
-    def target(self) -> IScheduleTarget:
-        '''The schedule's target details.'''
-        result = self._values.get("target")
-        assert result is not None, "Required property 'target' is missing"
-        return typing.cast(IScheduleTarget, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description you specify for the schedule.
-
-        :default: - no value
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the schedule is enabled.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def end(self) -> typing.Optional[datetime.datetime]:
-        '''The date, in UTC, before which the schedule can invoke its target.
-
-        EventBridge Scheduler ignores end for one-time schedules.
-
-        :default: - no value
-        '''
-        result = self._values.get("end")
-        return typing.cast(typing.Optional[datetime.datetime], result)
-
-    @builtins.property
-    def key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The customer managed KMS key that EventBridge Scheduler will use to encrypt and decrypt your data.
-
-        :default: - All events in Scheduler are encrypted with a key that AWS owns and manages.
-        '''
-        result = self._values.get("key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    @builtins.property
-    def schedule_group(self) -> typing.Optional[IScheduleGroup]:
-        '''The schedule's group.
-
-        :default: - By default a schedule will be associated with the ``default`` group.
-        '''
-        result = self._values.get("schedule_group")
-        return typing.cast(typing.Optional[IScheduleGroup], result)
-
-    @builtins.property
-    def schedule_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the schedule.
-
-        Up to 64 letters (uppercase and lowercase), numbers, hyphens, underscores and dots are allowed.
-
-        :default: - A unique name will be generated
-        '''
-        result = self._values.get("schedule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start(self) -> typing.Optional[datetime.datetime]:
-        '''The date, in UTC, after which the schedule can begin invoking its target.
-
-        EventBridge Scheduler ignores start for one-time schedules.
-
-        :default: - no value
-        '''
-        result = self._values.get("start")
-        return typing.cast(typing.Optional[datetime.datetime], result)
-
-    @builtins.property
-    def time_window(self) -> typing.Optional["TimeWindow"]:
-        '''A time window during which EventBridge Scheduler invokes the schedule.
-
-        :default: TimeWindow.off()
-
-        :see: https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-schedule-flexible-time-windows.html
-        '''
-        result = self._values.get("time_window")
-        return typing.cast(typing.Optional["TimeWindow"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ScheduleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleTargetConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arn": "arn",
-        "role": "role",
-        "dead_letter_config": "deadLetterConfig",
-        "ecs_parameters": "ecsParameters",
-        "event_bridge_parameters": "eventBridgeParameters",
-        "input": "input",
-        "kinesis_parameters": "kinesisParameters",
-        "retry_policy": "retryPolicy",
-        "sage_maker_pipeline_parameters": "sageMakerPipelineParameters",
-        "sqs_parameters": "sqsParameters",
-    },
-)
-class ScheduleTargetConfig:
-    def __init__(
-        self,
-        *,
-        arn: builtins.str,
-        role: _IRole_235f5d8e,
-        dead_letter_config: typing.Optional[typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        ecs_parameters: typing.Optional[typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        event_bridge_parameters: typing.Optional[typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        input: typing.Optional["ScheduleTargetInput"] = None,
-        kinesis_parameters: typing.Optional[typing.Union[CfnSchedule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        retry_policy: typing.Optional[typing.Union[CfnSchedule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        sage_maker_pipeline_parameters: typing.Optional[typing.Union[CfnSchedule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        sqs_parameters: typing.Optional[typing.Union[CfnSchedule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Config of a Schedule Target used during initialization of Schedule.
-
-        :param arn: The Amazon Resource Name (ARN) of the target.
-        :param role: Role to use to invoke this event target.
-        :param dead_letter_config: An object that contains information about an Amazon SQS queue that EventBridge Scheduler uses as a dead-letter queue for your schedule. If specified, EventBridge Scheduler delivers failed events that could not be successfully delivered to a target to the queue. Default: - No dead-letter queue
-        :param ecs_parameters: The templated target type for the Amazon ECS RunTask API Operation. Default: - No parameters
-        :param event_bridge_parameters: The templated target type for the EventBridge PutEvents API operation. Default: - No parameters
-        :param input: What input to pass to the target. Default: - No input
-        :param kinesis_parameters: The templated target type for the Amazon Kinesis PutRecord API operation. Default: - No parameters
-        :param retry_policy: A ``RetryPolicy`` object that includes information about the retry policy settings, including the maximum age of an event, and the maximum number of times EventBridge Scheduler will try to deliver the event to a target. Default: - Maximum retry attempts of 185 and maximum age of 86400 seconds (1 day)
-        :param sage_maker_pipeline_parameters: The templated target type for the Amazon SageMaker StartPipelineExecution API operation. Default: - No parameters
-        :param sqs_parameters: The templated target type for the Amazon SQS SendMessage API Operation. Default: - No parameters
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            from aws_cdk import aws_scheduler as scheduler
-            
-            # role: iam.Role
-            # schedule_target_input: scheduler.ScheduleTargetInput
-            # tags: Any
-            
-            schedule_target_config = scheduler.ScheduleTargetConfig(
-                arn="arn",
-                role=role,
-            
-                # the properties below are optional
-                dead_letter_config=scheduler.CfnSchedule.DeadLetterConfigProperty(
-                    arn="arn"
-                ),
-                ecs_parameters=scheduler.CfnSchedule.EcsParametersProperty(
-                    task_definition_arn="taskDefinitionArn",
-            
-                    # the properties below are optional
-                    capacity_provider_strategy=[scheduler.CfnSchedule.CapacityProviderStrategyItemProperty(
-                        capacity_provider="capacityProvider",
-            
-                        # the properties below are optional
-                        base=123,
-                        weight=123
-                    )],
-                    enable_ecs_managed_tags=False,
-                    enable_execute_command=False,
-                    group="group",
-                    launch_type="launchType",
-                    network_configuration=scheduler.CfnSchedule.NetworkConfigurationProperty(
-                        awsvpc_configuration=scheduler.CfnSchedule.AwsVpcConfigurationProperty(
-                            subnets=["subnets"],
-            
-                            # the properties below are optional
-                            assign_public_ip="assignPublicIp",
-                            security_groups=["securityGroups"]
-                        )
-                    ),
-                    placement_constraints=[scheduler.CfnSchedule.PlacementConstraintProperty(
-                        expression="expression",
-                        type="type"
-                    )],
-                    placement_strategy=[scheduler.CfnSchedule.PlacementStrategyProperty(
-                        field="field",
-                        type="type"
-                    )],
-                    platform_version="platformVersion",
-                    propagate_tags="propagateTags",
-                    reference_id="referenceId",
-                    tags=tags,
-                    task_count=123
-                ),
-                event_bridge_parameters=scheduler.CfnSchedule.EventBridgeParametersProperty(
-                    detail_type="detailType",
-                    source="source"
-                ),
-                input=schedule_target_input,
-                kinesis_parameters=scheduler.CfnSchedule.KinesisParametersProperty(
-                    partition_key="partitionKey"
-                ),
-                retry_policy=scheduler.CfnSchedule.RetryPolicyProperty(
-                    maximum_event_age_in_seconds=123,
-                    maximum_retry_attempts=123
-                ),
-                sage_maker_pipeline_parameters=scheduler.CfnSchedule.SageMakerPipelineParametersProperty(
-                    pipeline_parameter_list=[scheduler.CfnSchedule.SageMakerPipelineParameterProperty(
-                        name="name",
-                        value="value"
-                    )]
-                ),
-                sqs_parameters=scheduler.CfnSchedule.SqsParametersProperty(
-                    message_group_id="messageGroupId"
-                )
-            )
-        '''
-        if isinstance(dead_letter_config, dict):
-            dead_letter_config = CfnSchedule.DeadLetterConfigProperty(**dead_letter_config)
-        if isinstance(ecs_parameters, dict):
-            ecs_parameters = CfnSchedule.EcsParametersProperty(**ecs_parameters)
-        if isinstance(event_bridge_parameters, dict):
-            event_bridge_parameters = CfnSchedule.EventBridgeParametersProperty(**event_bridge_parameters)
-        if isinstance(kinesis_parameters, dict):
-            kinesis_parameters = CfnSchedule.KinesisParametersProperty(**kinesis_parameters)
-        if isinstance(retry_policy, dict):
-            retry_policy = CfnSchedule.RetryPolicyProperty(**retry_policy)
-        if isinstance(sage_maker_pipeline_parameters, dict):
-            sage_maker_pipeline_parameters = CfnSchedule.SageMakerPipelineParametersProperty(**sage_maker_pipeline_parameters)
-        if isinstance(sqs_parameters, dict):
-            sqs_parameters = CfnSchedule.SqsParametersProperty(**sqs_parameters)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39b25a1f04a872a013c3ee593bb9140da10796639b130bc7f2461018358c6292)
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
-            check_type(argname="argument ecs_parameters", value=ecs_parameters, expected_type=type_hints["ecs_parameters"])
-            check_type(argname="argument event_bridge_parameters", value=event_bridge_parameters, expected_type=type_hints["event_bridge_parameters"])
-            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
-            check_type(argname="argument kinesis_parameters", value=kinesis_parameters, expected_type=type_hints["kinesis_parameters"])
-            check_type(argname="argument retry_policy", value=retry_policy, expected_type=type_hints["retry_policy"])
-            check_type(argname="argument sage_maker_pipeline_parameters", value=sage_maker_pipeline_parameters, expected_type=type_hints["sage_maker_pipeline_parameters"])
-            check_type(argname="argument sqs_parameters", value=sqs_parameters, expected_type=type_hints["sqs_parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "arn": arn,
-            "role": role,
-        }
-        if dead_letter_config is not None:
-            self._values["dead_letter_config"] = dead_letter_config
-        if ecs_parameters is not None:
-            self._values["ecs_parameters"] = ecs_parameters
-        if event_bridge_parameters is not None:
-            self._values["event_bridge_parameters"] = event_bridge_parameters
-        if input is not None:
-            self._values["input"] = input
-        if kinesis_parameters is not None:
-            self._values["kinesis_parameters"] = kinesis_parameters
-        if retry_policy is not None:
-            self._values["retry_policy"] = retry_policy
-        if sage_maker_pipeline_parameters is not None:
-            self._values["sage_maker_pipeline_parameters"] = sage_maker_pipeline_parameters
-        if sqs_parameters is not None:
-            self._values["sqs_parameters"] = sqs_parameters
-
-    @builtins.property
-    def arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the target.'''
-        result = self._values.get("arn")
-        assert result is not None, "Required property 'arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role(self) -> _IRole_235f5d8e:
-        '''Role to use to invoke this event target.'''
-        result = self._values.get("role")
-        assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_IRole_235f5d8e, result)
-
-    @builtins.property
-    def dead_letter_config(
-        self,
-    ) -> typing.Optional[CfnSchedule.DeadLetterConfigProperty]:
-        '''An object that contains information about an Amazon SQS queue that EventBridge Scheduler uses as a dead-letter queue for your schedule.
-
-        If specified, EventBridge Scheduler delivers failed events that could not be successfully delivered to a target to the queue.
-
-        :default: - No dead-letter queue
-        '''
-        result = self._values.get("dead_letter_config")
-        return typing.cast(typing.Optional[CfnSchedule.DeadLetterConfigProperty], result)
-
-    @builtins.property
-    def ecs_parameters(self) -> typing.Optional[CfnSchedule.EcsParametersProperty]:
-        '''The templated target type for the Amazon ECS RunTask API Operation.
-
-        :default: - No parameters
-        '''
-        result = self._values.get("ecs_parameters")
-        return typing.cast(typing.Optional[CfnSchedule.EcsParametersProperty], result)
-
-    @builtins.property
-    def event_bridge_parameters(
-        self,
-    ) -> typing.Optional[CfnSchedule.EventBridgeParametersProperty]:
-        '''The templated target type for the EventBridge PutEvents API operation.
-
-        :default: - No parameters
-        '''
-        result = self._values.get("event_bridge_parameters")
-        return typing.cast(typing.Optional[CfnSchedule.EventBridgeParametersProperty], result)
-
-    @builtins.property
-    def input(self) -> typing.Optional["ScheduleTargetInput"]:
-        '''What input to pass to the target.
-
-        :default: - No input
-        '''
-        result = self._values.get("input")
-        return typing.cast(typing.Optional["ScheduleTargetInput"], result)
-
-    @builtins.property
-    def kinesis_parameters(
-        self,
-    ) -> typing.Optional[CfnSchedule.KinesisParametersProperty]:
-        '''The templated target type for the Amazon Kinesis PutRecord API operation.
-
-        :default: - No parameters
-        '''
-        result = self._values.get("kinesis_parameters")
-        return typing.cast(typing.Optional[CfnSchedule.KinesisParametersProperty], result)
-
-    @builtins.property
-    def retry_policy(self) -> typing.Optional[CfnSchedule.RetryPolicyProperty]:
-        '''A ``RetryPolicy`` object that includes information about the retry policy settings, including the maximum age of an event, and the maximum number of times EventBridge Scheduler will try to deliver the event to a target.
-
-        :default: - Maximum retry attempts of 185 and maximum age of 86400 seconds (1 day)
-        '''
-        result = self._values.get("retry_policy")
-        return typing.cast(typing.Optional[CfnSchedule.RetryPolicyProperty], result)
-
-    @builtins.property
-    def sage_maker_pipeline_parameters(
-        self,
-    ) -> typing.Optional[CfnSchedule.SageMakerPipelineParametersProperty]:
-        '''The templated target type for the Amazon SageMaker StartPipelineExecution API operation.
-
-        :default: - No parameters
-        '''
-        result = self._values.get("sage_maker_pipeline_parameters")
-        return typing.cast(typing.Optional[CfnSchedule.SageMakerPipelineParametersProperty], result)
-
-    @builtins.property
-    def sqs_parameters(self) -> typing.Optional[CfnSchedule.SqsParametersProperty]:
-        '''The templated target type for the Amazon SQS SendMessage API Operation.
-
-        :default: - No parameters
-        '''
-        result = self._values.get("sqs_parameters")
-        return typing.cast(typing.Optional[CfnSchedule.SqsParametersProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ScheduleTargetConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class ScheduleTargetInput(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_scheduler.ScheduleTargetInput",
-):
-    '''The text or well-formed JSON input passed to the target of the schedule.
-
-    Tokens and ContextAttribute may be used in the input.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_sns as sns
-        
-        
-        topic = sns.Topic(self, "Topic")
-        
-        payload = {
-            "message": "Hello scheduler!"
-        }
-        
-        target = targets.SnsPublish(topic,
-            input=ScheduleTargetInput.from_object(payload)
-        )
-        
-        Schedule(self, "Schedule",
-            schedule=ScheduleExpression.rate(Duration.hours(1)),
-            target=target
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="fromObject")
-    @builtins.classmethod
-    def from_object(cls, obj: typing.Any) -> "ScheduleTargetInput":
-        '''Pass a JSON object to the target.
-
-        The object will be transformed into a well-formed JSON string in the final template.
-
-        :param obj: object to use to convert to JSON to use as input for the target.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fdac9a672a0bc2eb981e9971ac41140aa1074946d827f45e5c9d4d78673f0cd)
-            check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
-        return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
-
-    @jsii.member(jsii_name="fromText")
-    @builtins.classmethod
-    def from_text(cls, text: builtins.str) -> "ScheduleTargetInput":
-        '''Pass simple text to the target.
-
-        For passing complex values like JSON object to a target use method
-        ``ScheduleTargetInput.fromObject()`` instead.
-
-        :param text: Text to use as the input for the target.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0925fac0caa3d8fe93a0fe4320d4f08133f45e33174afd1af78bf68282a68524)
-            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
-        return typing.cast("ScheduleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
-
-    @jsii.member(jsii_name="bind")
-    @abc.abstractmethod
-    def bind(self, schedule: ISchedule) -> builtins.str:
-        '''Return the input properties for this input object.
-
-        :param schedule: -
-        '''
-        ...
-
-
-class _ScheduleTargetInputProxy(ScheduleTargetInput):
-    @jsii.member(jsii_name="bind")
-    def bind(self, schedule: ISchedule) -> builtins.str:
-        '''Return the input properties for this input object.
-
-        :param schedule: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399d6d4527)
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-        return typing.cast(builtins.str, jsii.invoke(self, "bind", [schedule]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, ScheduleTargetInput).__jsii_proxy_class__ = lambda : _ScheduleTargetInputProxy
-
-
-class TimeWindow(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_scheduler.TimeWindow",
-):
-    '''A time window during which EventBridge Scheduler invokes the schedule.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # target: targets.LambdaInvoke
-        
-        
-        schedule = Schedule(self, "Schedule",
-            schedule=ScheduleExpression.rate(Duration.hours(12)),
-            target=target,
-            time_window=TimeWindow.flexible(Duration.hours(10))
-        )
-    '''
-
-    @jsii.member(jsii_name="flexible")
-    @builtins.classmethod
-    def flexible(cls, max_window: _Duration_4839e8c3) -> "TimeWindow":
-        '''TimeWindow is enabled.
-
-        :param max_window: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511)
-            check_type(argname="argument max_window", value=max_window, expected_type=type_hints["max_window"])
-        return typing.cast("TimeWindow", jsii.sinvoke(cls, "flexible", [max_window]))
-
-    @jsii.member(jsii_name="off")
-    @builtins.classmethod
-    def off(cls) -> "TimeWindow":
-        '''TimeWindow is disabled.'''
-        return typing.cast("TimeWindow", jsii.sinvoke(cls, "off", []))
-
-    @builtins.property
-    @jsii.member(jsii_name="mode")
-    def mode(self) -> builtins.str:
-        '''Determines whether the schedule is invoked within a flexible time window.'''
-        return typing.cast(builtins.str, jsii.get(self, "mode"))
-
-    @builtins.property
-    @jsii.member(jsii_name="maxWindow")
-    def max_window(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The maximum time window during which the schedule can be invoked.
-
-        Must be between 1 to 1440 minutes.
-
-        :default: - no value
-        '''
-        return typing.cast(typing.Optional[_Duration_4839e8c3], jsii.get(self, "maxWindow"))
-
-
 __all__ = [
     "CfnSchedule",
     "CfnScheduleGroup",
@@ -6227,286 +6454,22 @@ __all__ = [
     "CronOptionsWithTimezone",
     "ISchedule",
     "IScheduleGroup",
+    "IScheduleGroupRef",
+    "IScheduleRef",
     "IScheduleTarget",
     "Schedule",
     "ScheduleExpression",
     "ScheduleGroup",
     "ScheduleGroupProps",
+    "ScheduleGroupReference",
     "ScheduleProps",
+    "ScheduleReference",
     "ScheduleTargetConfig",
     "ScheduleTargetInput",
     "TimeWindow",
 ]
 
 publication.publish()
-
-def _typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099f516ea4(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
-    schedule_expression: builtins.str,
-    target: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    end_date: typing.Optional[builtins.str] = None,
-    group_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    schedule_expression_timezone: typing.Optional[builtins.str] = None,
-    start_date: typing.Optional[builtins.str] = None,
-    state: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__859c33780944a757aa0069dfe861a7f9ee3aaa6d51b1881276590d23b3cbc11d(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1c9dd58f37a9f244d09bdbca3ac4ea0869a0855a2cb760325d51c0d8beed730d(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a(
-    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.FlexibleTimeWindowProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c216f94db(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78(
-    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.TargetProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5864139b51db95ec1c3e6c947b577675bb4f83133b1f5476864d71c4009c2386(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c3d0ae7ef525e3a588544a09eb7ec3271c357974ae47f41180a7aeb9086e2594(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1860ec4ad4204d90b7f2756ff633582f92f7f97d174b16a7da8e36811ebdc98(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c65947df9a6be40d839d971ea07ff6a85493b9cfbab03c61fc17e54bdd0e9276(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eb6bd8d80ac829e96128e011c87e852bfea080bdcd859bfdf98c7874542dc1b5(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eb337d25b9d34da19dbe88b72514ea1e1e7a235cd91b7597abecd038498e11a9(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38fc94567c401ce05bf3ed2461327df25f05b71764228be5a3f95fec0573d007(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__986ef975482735e4fbf46592da626ebfd4ca9636ad053fe886d40f9856d1483e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4be9629f7b1d55fb08861d6713480d5fa198e6e40012bcf701a627e532032afb(
-    *,
-    subnets: typing.Sequence[builtins.str],
-    assign_public_ip: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d8897162eaa13dfb81dc83e782d5936ed604f09ed623574ad9d0fabc4a1ab7e(
-    *,
-    capacity_provider: builtins.str,
-    base: typing.Optional[jsii.Number] = None,
-    weight: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__147909ee33401019ceeec9c9c260dd3ac0812db04c597e1b63c26f0608f61069(
-    *,
-    arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9dc612a243a7e6a4107ac15e844d139b177440cb37d514af299c8365e71f4cf1(
-    *,
-    task_definition_arn: builtins.str,
-    capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    group: typing.Optional[builtins.str] = None,
-    launch_type: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    placement_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    platform_version: typing.Optional[builtins.str] = None,
-    propagate_tags: typing.Optional[builtins.str] = None,
-    reference_id: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-    task_count: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f0e0c05434c8347bffb5179e8c9bc22fdc3ff4fdae681d5b9d995e0f7c8c1900(
-    *,
-    detail_type: builtins.str,
-    source: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d4dffb710d1a3208f37cc6de0f2cddceb53e1178391bdc54cfedb8ca6626ec4(
-    *,
-    mode: builtins.str,
-    maximum_window_in_minutes: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__21a3b10246bef07a2f7fc56bf58e08c66b0fd77f7770804a87bf867fa8541cbb(
-    *,
-    partition_key: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__428ddbfd1435a3560f182001dfcf151c620cba65c309e87341f84eb7d60ba492(
-    *,
-    awsvpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb19941ef1169a4cc78daf82b7ea64663f5a28f890fbeded34448dd3f0a3c16f(
-    *,
-    expression: typing.Optional[builtins.str] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2d9dc80c7a08a059d79aa3db1c44bcc28c84872422d6fd991bbca1124a384865(
-    *,
-    field: typing.Optional[builtins.str] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb66e495a2f0291cd0e58a71fc127fa67ed8d10f2d977b132a1770f7b3a1f92d(
-    *,
-    maximum_event_age_in_seconds: typing.Optional[jsii.Number] = None,
-    maximum_retry_attempts: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0c29c10cb7c0592826b32a3dc5e923a7c8d2f8b6bd9a0fe45759d650269d9f4d(
-    *,
-    name: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0de727f226b2279098ba22fdf1aa02e57d81187ed9063acc8d789604e1a7f88(
-    *,
-    pipeline_parameter_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__13762215f810c9b64aba5ce7769b7babcff69eaa35d5d19f712b7515022da7fb(
-    *,
-    message_group_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bd5d0419478021d0554d24683f11134f17bb914856367055c32d004d8348a516(
-    *,
-    arn: builtins.str,
-    role_arn: builtins.str,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ecs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_bridge_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    input: typing.Optional[builtins.str] = None,
-    kinesis_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retry_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sqs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__55d5637c9b973d98ef3a23b13bf274e0a35bc07dfc27542f9b7185600a26a15e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e179ed3a5ae801985e05b869adcf8daec39217aada45fa23844dd021dea92bda(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a163f755c33c470bd9bc8ba9ec2282566382000d7a5adbc8bba7aa9bd8e707d3(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8a636529(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__e9ebba0a3ae0883796e2ff900e8a82e62b8e0870420b26e180905979808a13e7(
     *,
@@ -6809,6 +6772,14 @@ def _typecheckingstub__00f616ddd843f7dab1625531f0a0666a403b81004bd707155fc676f64
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4c2d1bfa47bf8204522c2ec3fb4820e1d93712c352fed563bf995d8d0356819e(
+    *,
+    schedule_group_arn: builtins.str,
+    schedule_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf13677e296f(
     *,
     schedule: ScheduleExpression,
@@ -6821,6 +6792,14 @@ def _typecheckingstub__f1a1cbc6cf4c30e6930150f969adcdfef2b116842e4bcb34a1adcf136
     schedule_name: typing.Optional[builtins.str] = None,
     start: typing.Optional[datetime.datetime] = None,
     time_window: typing.Optional[TimeWindow] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e66e0270a31ef3e90b248734edef4c2c0376f6582c26547c6093dd92379b0d4(
+    *,
+    schedule_arn: builtins.str,
+    schedule_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6861,6 +6840,274 @@ def _typecheckingstub__a35be52ccc2276f18b489131a0846e36e39c8e364f156c20793828399
 
 def _typecheckingstub__6dd8fc85f0f89b4cd8d1345003a4cdf1c778546716260aab856c858e92935511(
     max_window: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__503b74ac170f15626de2456b6f8c40d2cdc1ab21574c821e051517099f516ea4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    flexible_time_window: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.FlexibleTimeWindowProperty, typing.Dict[builtins.str, typing.Any]]],
+    schedule_expression: builtins.str,
+    target: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.TargetProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    end_date: typing.Optional[builtins.str] = None,
+    group_name: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    schedule_expression_timezone: typing.Optional[builtins.str] = None,
+    start_date: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__859c33780944a757aa0069dfe861a7f9ee3aaa6d51b1881276590d23b3cbc11d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c9dd58f37a9f244d09bdbca3ac4ea0869a0855a2cb760325d51c0d8beed730d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a(
+    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.FlexibleTimeWindowProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c216f94db(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78(
+    value: typing.Union[_IResolvable_da3f097b, CfnSchedule.TargetProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5864139b51db95ec1c3e6c947b577675bb4f83133b1f5476864d71c4009c2386(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3d0ae7ef525e3a588544a09eb7ec3271c357974ae47f41180a7aeb9086e2594(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1860ec4ad4204d90b7f2756ff633582f92f7f97d174b16a7da8e36811ebdc98(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c65947df9a6be40d839d971ea07ff6a85493b9cfbab03c61fc17e54bdd0e9276(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb6bd8d80ac829e96128e011c87e852bfea080bdcd859bfdf98c7874542dc1b5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb337d25b9d34da19dbe88b72514ea1e1e7a235cd91b7597abecd038498e11a9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38fc94567c401ce05bf3ed2461327df25f05b71764228be5a3f95fec0573d007(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__986ef975482735e4fbf46592da626ebfd4ca9636ad053fe886d40f9856d1483e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4be9629f7b1d55fb08861d6713480d5fa198e6e40012bcf701a627e532032afb(
+    *,
+    subnets: typing.Sequence[builtins.str],
+    assign_public_ip: typing.Optional[builtins.str] = None,
+    security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d8897162eaa13dfb81dc83e782d5936ed604f09ed623574ad9d0fabc4a1ab7e(
+    *,
+    capacity_provider: builtins.str,
+    base: typing.Optional[jsii.Number] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__147909ee33401019ceeec9c9c260dd3ac0812db04c597e1b63c26f0608f61069(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9dc612a243a7e6a4107ac15e844d139b177440cb37d514af299c8365e71f4cf1(
+    *,
+    task_definition_arn: builtins.str,
+    capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    group: typing.Optional[builtins.str] = None,
+    launch_type: typing.Optional[builtins.str] = None,
+    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    placement_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    placement_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.PlacementStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    platform_version: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    reference_id: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+    task_count: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0e0c05434c8347bffb5179e8c9bc22fdc3ff4fdae681d5b9d995e0f7c8c1900(
+    *,
+    detail_type: builtins.str,
+    source: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d4dffb710d1a3208f37cc6de0f2cddceb53e1178391bdc54cfedb8ca6626ec4(
+    *,
+    mode: builtins.str,
+    maximum_window_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21a3b10246bef07a2f7fc56bf58e08c66b0fd77f7770804a87bf867fa8541cbb(
+    *,
+    partition_key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__428ddbfd1435a3560f182001dfcf151c620cba65c309e87341f84eb7d60ba492(
+    *,
+    awsvpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.AwsVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb19941ef1169a4cc78daf82b7ea64663f5a28f890fbeded34448dd3f0a3c16f(
+    *,
+    expression: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d9dc80c7a08a059d79aa3db1c44bcc28c84872422d6fd991bbca1124a384865(
+    *,
+    field: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb66e495a2f0291cd0e58a71fc127fa67ed8d10f2d977b132a1770f7b3a1f92d(
+    *,
+    maximum_event_age_in_seconds: typing.Optional[jsii.Number] = None,
+    maximum_retry_attempts: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c29c10cb7c0592826b32a3dc5e923a7c8d2f8b6bd9a0fe45759d650269d9f4d(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0de727f226b2279098ba22fdf1aa02e57d81187ed9063acc8d789604e1a7f88(
+    *,
+    pipeline_parameter_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13762215f810c9b64aba5ce7769b7babcff69eaa35d5d19f712b7515022da7fb(
+    *,
+    message_group_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd5d0419478021d0554d24683f11134f17bb914856367055c32d004d8348a516(
+    *,
+    arn: builtins.str,
+    role_arn: builtins.str,
+    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ecs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.EventBridgeParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input: typing.Optional[builtins.str] = None,
+    kinesis_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retry_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55d5637c9b973d98ef3a23b13bf274e0a35bc07dfc27542f9b7185600a26a15e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e179ed3a5ae801985e05b869adcf8daec39217aada45fa23844dd021dea92bda(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a163f755c33c470bd9bc8ba9ec2282566382000d7a5adbc8bba7aa9bd8e707d3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8a636529(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass

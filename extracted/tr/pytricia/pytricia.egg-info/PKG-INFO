@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytricia
-Version: 1.2.0
+Version: 1.3.0
 Summary: An efficient IP address storage and lookup module for Python.
 Home-page: https://github.com/jsommers/pytricia
 Author: Joel Sommers

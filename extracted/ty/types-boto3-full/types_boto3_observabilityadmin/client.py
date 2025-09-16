@@ -26,25 +26,33 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListCentralizationRulesForOrganizationPaginator,
     ListResourceTelemetryForOrganizationPaginator,
     ListResourceTelemetryPaginator,
     ListTelemetryRulesForOrganizationPaginator,
     ListTelemetryRulesPaginator,
 )
 from .type_defs import (
+    CreateCentralizationRuleForOrganizationInputTypeDef,
+    CreateCentralizationRuleForOrganizationOutputTypeDef,
     CreateTelemetryRuleForOrganizationInputTypeDef,
     CreateTelemetryRuleForOrganizationOutputTypeDef,
     CreateTelemetryRuleInputTypeDef,
     CreateTelemetryRuleOutputTypeDef,
+    DeleteCentralizationRuleForOrganizationInputTypeDef,
     DeleteTelemetryRuleForOrganizationInputTypeDef,
     DeleteTelemetryRuleInputTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetCentralizationRuleForOrganizationInputTypeDef,
+    GetCentralizationRuleForOrganizationOutputTypeDef,
     GetTelemetryEvaluationStatusForOrganizationOutputTypeDef,
     GetTelemetryEvaluationStatusOutputTypeDef,
     GetTelemetryRuleForOrganizationInputTypeDef,
     GetTelemetryRuleForOrganizationOutputTypeDef,
     GetTelemetryRuleInputTypeDef,
     GetTelemetryRuleOutputTypeDef,
+    ListCentralizationRulesForOrganizationInputTypeDef,
+    ListCentralizationRulesForOrganizationOutputTypeDef,
     ListResourceTelemetryForOrganizationInputTypeDef,
     ListResourceTelemetryForOrganizationOutputTypeDef,
     ListResourceTelemetryInputTypeDef,
@@ -57,6 +65,8 @@ from .type_defs import (
     ListTelemetryRulesOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateCentralizationRuleForOrganizationInputTypeDef,
+    UpdateCentralizationRuleForOrganizationOutputTypeDef,
     UpdateTelemetryRuleForOrganizationInputTypeDef,
     UpdateTelemetryRuleForOrganizationOutputTypeDef,
     UpdateTelemetryRuleInputTypeDef,
@@ -123,6 +133,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#generate_presigned_url)
         """
 
+    def create_centralization_rule_for_organization(
+        self, **kwargs: Unpack[CreateCentralizationRuleForOrganizationInputTypeDef]
+    ) -> CreateCentralizationRuleForOrganizationOutputTypeDef:
+        """
+        Creates a centralization rule that applies across an Amazon Web Services
+        Organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/create_centralization_rule_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#create_centralization_rule_for_organization)
+        """
+
     def create_telemetry_rule(
         self, **kwargs: Unpack[CreateTelemetryRuleInputTypeDef]
     ) -> CreateTelemetryRuleOutputTypeDef:
@@ -145,6 +166,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#create_telemetry_rule_for_organization)
         """
 
+    def delete_centralization_rule_for_organization(
+        self, **kwargs: Unpack[DeleteCentralizationRuleForOrganizationInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an organization-wide centralization rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/delete_centralization_rule_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#delete_centralization_rule_for_organization)
+        """
+
     def delete_telemetry_rule(
         self, **kwargs: Unpack[DeleteTelemetryRuleInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -163,6 +194,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/delete_telemetry_rule_for_organization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#delete_telemetry_rule_for_organization)
+        """
+
+    def get_centralization_rule_for_organization(
+        self, **kwargs: Unpack[GetCentralizationRuleForOrganizationInputTypeDef]
+    ) -> GetCentralizationRuleForOrganizationOutputTypeDef:
+        """
+        Retrieves the details of a specific organization centralization rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_centralization_rule_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#get_centralization_rule_for_organization)
         """
 
     def get_telemetry_evaluation_status(self) -> GetTelemetryEvaluationStatusOutputTypeDef:
@@ -204,6 +245,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_telemetry_rule_for_organization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#get_telemetry_rule_for_organization)
+        """
+
+    def list_centralization_rules_for_organization(
+        self, **kwargs: Unpack[ListCentralizationRulesForOrganizationInputTypeDef]
+    ) -> ListCentralizationRulesForOrganizationOutputTypeDef:
+        """
+        Lists all centralization rules in your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_centralization_rules_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#list_centralization_rules_for_organization)
         """
 
     def list_resource_telemetry(
@@ -314,6 +365,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#untag_resource)
         """
 
+    def update_centralization_rule_for_organization(
+        self, **kwargs: Unpack[UpdateCentralizationRuleForOrganizationInputTypeDef]
+    ) -> UpdateCentralizationRuleForOrganizationOutputTypeDef:
+        """
+        Updates an existing centralization rule that applies across an Amazon Web
+        Services Organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/update_centralization_rule_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#update_centralization_rule_for_organization)
+        """
+
     def update_telemetry_rule(
         self, **kwargs: Unpack[UpdateTelemetryRuleInputTypeDef]
     ) -> UpdateTelemetryRuleOutputTypeDef:
@@ -333,6 +395,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/update_telemetry_rule_for_organization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#update_telemetry_rule_for_organization)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_centralization_rules_for_organization"]
+    ) -> ListCentralizationRulesForOrganizationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

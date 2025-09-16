@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.3.2+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-09T09:20:35.493035                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-09-16T01:38:51.198439                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.card_utilities.injector
     import metaflow.decorators
+    import metaflow.mf_extensions.outerbounds.plugins.card_utilities.injector
 
 from ...metaflow_current import current as current
 from ...mf_extensions.outerbounds.plugins.ollama import constants as constants

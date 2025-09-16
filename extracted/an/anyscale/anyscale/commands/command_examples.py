@@ -588,7 +588,7 @@ id: cld_123
 name: my-cloud
 created_at: 2022-10-18 05:12:13.335803+00:00
 is_default: true
-deployments:
+resources:
 - cloud_resource_id: cldrsrc_123
   name: vm-aws-us-west-2
   provider: AWS

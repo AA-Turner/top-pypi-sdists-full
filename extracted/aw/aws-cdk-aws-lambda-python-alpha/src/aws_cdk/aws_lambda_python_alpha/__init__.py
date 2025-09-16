@@ -966,14 +966,14 @@ class PythonFunction(
         application_log_level: typing.Optional[builtins.str] = None,
         application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
         architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
+        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef] = None,
         current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
         dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
         events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
         filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,
@@ -1221,14 +1221,14 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         application_log_level: typing.Optional[builtins.str] = None,
         application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
         architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
+        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef] = None,
         current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
         dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
         events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
         filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,
@@ -1655,13 +1655,13 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
     @builtins.property
     def code_signing_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig]:
+    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef]:
         '''Code signing config associated with this function.
 
         :default: - Not Sign the Code
         '''
         result = self._values.get("code_signing_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef], result)
 
     @builtins.property
     def current_version_options(
@@ -1734,13 +1734,15 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def environment_encryption(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def environment_encryption(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''The AWS KMS key that's used to encrypt your function's environment variables.
 
         :default: - AWS Lambda creates and uses an AWS managed customer master key (CMK).
         '''
         result = self._values.get("environment_encryption")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def ephemeral_storage_size(self) -> typing.Optional[_aws_cdk_ceddda9d.Size]:
@@ -2549,14 +2551,14 @@ def _typecheckingstub__5537a9d2877d6e8ff1275d2f45fdfd2900b726517ad0fa1c220fba47a
     application_log_level: typing.Optional[builtins.str] = None,
     application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
     architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-    code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
+    code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef] = None,
     current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
     dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
     dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
     description: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
     events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
     filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,
@@ -2609,14 +2611,14 @@ def _typecheckingstub__637cd4e3d3f8768a5067bfaaca86ae334c7670354dabddcb67008214b
     application_log_level: typing.Optional[builtins.str] = None,
     application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
     architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-    code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
+    code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfigRef] = None,
     current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
     dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
     dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
     description: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
     events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
     filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,

@@ -69,7 +69,536 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "copy_tags": "copyTags",
+        "create_interval": "createInterval",
+        "cross_region_copy_targets": "crossRegionCopyTargets",
+        "default_policy": "defaultPolicy",
+        "description": "description",
+        "exclusions": "exclusions",
+        "execution_role_arn": "executionRoleArn",
+        "extend_deletion": "extendDeletion",
+        "policy_details": "policyDetails",
+        "retain_interval": "retainInterval",
+        "state": "state",
+        "tags": "tags",
+    },
+)
+class CfnLifecyclePolicyProps:
+    def __init__(
+        self,
+        *,
+        copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        create_interval: typing.Optional[jsii.Number] = None,
+        cross_region_copy_targets: typing.Any = None,
+        default_policy: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLifecyclePolicy.ExclusionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        extend_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        policy_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLifecyclePolicy.PolicyDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retain_interval: typing.Optional[jsii.Number] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLifecyclePolicy``.
+
+        :param copy_tags: *[Default policies only]* Indicates whether the policy should copy tags from the source resource to the snapshot or AMI. If you do not specify a value, the default is ``false`` . Default: false
+        :param create_interval: *[Default policies only]* Specifies how often the policy should run and create snapshots or AMIs. The creation frequency can range from 1 to 7 days. If you do not specify a value, the default is 1. Default: 1
+        :param cross_region_copy_targets: *[Default policies only]* Specifies destination Regions for snapshot or AMI copies. You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
+        :param default_policy: *[Default policies only]* Specify the type of default policy to create. - To create a default policy for EBS snapshots, that creates snapshots of all volumes in the Region that do not have recent backups, specify ``VOLUME`` . - To create a default policy for EBS-backed AMIs, that creates EBS-backed AMIs from all instances in the Region that do not have recent backups, specify ``INSTANCE`` .
+        :param description: A description of the lifecycle policy. The characters ^[0-9A-Za-z _-]+$ are supported.
+        :param exclusions: *[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs. The policy will not create snapshots or AMIs for target resources that match any of the specified exclusion parameters.
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role used to run the operations specified by the lifecycle policy.
+        :param extend_deletion: *[Default policies only]* Defines the snapshot or AMI retention behavior for the policy if the source volume or instance is deleted, or if the policy enters the error, disabled, or deleted state. By default ( *ExtendDeletion=false* ): - If a source resource is deleted, Amazon Data Lifecycle Manager will continue to delete previously created snapshots or AMIs, up to but not including the last one, based on the specified retention period. If you want Amazon Data Lifecycle Manager to delete all snapshots or AMIs, including the last one, specify ``true`` . - If a policy enters the error, disabled, or deleted state, Amazon Data Lifecycle Manager stops deleting snapshots and AMIs. If you want Amazon Data Lifecycle Manager to continue deleting snapshots or AMIs, including the last one, if the policy enters one of these states, specify ``true`` . If you enable extended deletion ( *ExtendDeletion=true* ), you override both default behaviors simultaneously. If you do not specify a value, the default is ``false`` . Default: false
+        :param policy_details: The configuration details of the lifecycle policy. .. epigraph:: If you create a default policy, you can specify the request parameters either in the request body, or in the PolicyDetails request structure, but not both.
+        :param retain_interval: *[Default policies only]* Specifies how long the policy should retain snapshots or AMIs before deleting them. The retention period can range from 2 to 14 days, but it must be greater than the creation frequency to ensure that the policy retains at least 1 snapshot or AMI at any given time. If you do not specify a value, the default is 7. Default: 7
+        :param state: The activation state of the lifecycle policy.
+        :param tags: The tags to apply to the lifecycle policy during creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dlm as dlm
+            
+            # cross_region_copy_targets: Any
+            # exclude_tags: Any
+            # exclude_volume_types: Any
+            
+            cfn_lifecycle_policy_props = dlm.CfnLifecyclePolicyProps(
+                copy_tags=False,
+                create_interval=123,
+                cross_region_copy_targets=cross_region_copy_targets,
+                default_policy="defaultPolicy",
+                description="description",
+                exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
+                    exclude_boot_volumes=False,
+                    exclude_tags=exclude_tags,
+                    exclude_volume_types=exclude_volume_types
+                ),
+                execution_role_arn="executionRoleArn",
+                extend_deletion=False,
+                policy_details=dlm.CfnLifecyclePolicy.PolicyDetailsProperty(
+                    actions=[dlm.CfnLifecyclePolicy.ActionProperty(
+                        cross_region_copy=[dlm.CfnLifecyclePolicy.CrossRegionCopyActionProperty(
+                            encryption_configuration=dlm.CfnLifecyclePolicy.EncryptionConfigurationProperty(
+                                encrypted=False,
+            
+                                # the properties below are optional
+                                cmk_arn="cmkArn"
+                            ),
+                            target="target",
+            
+                            # the properties below are optional
+                            retain_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyRetainRuleProperty(
+                                interval=123,
+                                interval_unit="intervalUnit"
+                            )
+                        )],
+                        name="name"
+                    )],
+                    copy_tags=False,
+                    create_interval=123,
+                    cross_region_copy_targets=cross_region_copy_targets,
+                    event_source=dlm.CfnLifecyclePolicy.EventSourceProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        parameters=dlm.CfnLifecyclePolicy.EventParametersProperty(
+                            event_type="eventType",
+                            snapshot_owner=["snapshotOwner"],
+            
+                            # the properties below are optional
+                            description_regex="descriptionRegex"
+                        )
+                    ),
+                    exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
+                        exclude_boot_volumes=False,
+                        exclude_tags=exclude_tags,
+                        exclude_volume_types=exclude_volume_types
+                    ),
+                    extend_deletion=False,
+                    parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
+                        exclude_boot_volume=False,
+                        exclude_data_volume_tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        no_reboot=False
+                    ),
+                    policy_language="policyLanguage",
+                    policy_type="policyType",
+                    resource_locations=["resourceLocations"],
+                    resource_type="resourceType",
+                    resource_types=["resourceTypes"],
+                    retain_interval=123,
+                    schedules=[dlm.CfnLifecyclePolicy.ScheduleProperty(
+                        archive_rule=dlm.CfnLifecyclePolicy.ArchiveRuleProperty(
+                            retain_rule=dlm.CfnLifecyclePolicy.ArchiveRetainRuleProperty(
+                                retention_archive_tier=dlm.CfnLifecyclePolicy.RetentionArchiveTierProperty(
+                                    count=123,
+                                    interval=123,
+                                    interval_unit="intervalUnit"
+                                )
+                            )
+                        ),
+                        copy_tags=False,
+                        create_rule=dlm.CfnLifecyclePolicy.CreateRuleProperty(
+                            cron_expression="cronExpression",
+                            interval=123,
+                            interval_unit="intervalUnit",
+                            location="location",
+                            scripts=[dlm.CfnLifecyclePolicy.ScriptProperty(
+                                execute_operation_on_script_failure=False,
+                                execution_handler="executionHandler",
+                                execution_handler_service="executionHandlerService",
+                                execution_timeout=123,
+                                maximum_retry_count=123,
+                                stages=["stages"]
+                            )],
+                            times=["times"]
+                        ),
+                        cross_region_copy_rules=[dlm.CfnLifecyclePolicy.CrossRegionCopyRuleProperty(
+                            encrypted=False,
+            
+                            # the properties below are optional
+                            cmk_arn="cmkArn",
+                            copy_tags=False,
+                            deprecate_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyDeprecateRuleProperty(
+                                interval=123,
+                                interval_unit="intervalUnit"
+                            ),
+                            retain_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyRetainRuleProperty(
+                                interval=123,
+                                interval_unit="intervalUnit"
+                            ),
+                            target="target",
+                            target_region="targetRegion"
+                        )],
+                        deprecate_rule=dlm.CfnLifecyclePolicy.DeprecateRuleProperty(
+                            count=123,
+                            interval=123,
+                            interval_unit="intervalUnit"
+                        ),
+                        fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                            availability_zones=["availabilityZones"],
+                            count=123,
+                            interval=123,
+                            interval_unit="intervalUnit"
+                        ),
+                        name="name",
+                        retain_rule=dlm.CfnLifecyclePolicy.RetainRuleProperty(
+                            count=123,
+                            interval=123,
+                            interval_unit="intervalUnit"
+                        ),
+                        share_rules=[dlm.CfnLifecyclePolicy.ShareRuleProperty(
+                            target_accounts=["targetAccounts"],
+                            unshare_interval=123,
+                            unshare_interval_unit="unshareIntervalUnit"
+                        )],
+                        tags_to_add=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        variable_tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    target_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                retain_interval=123,
+                state="state",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1414bd7f3e80e837a7b73bfb6d11bcc9e29191c357de74fe96a8efcfd1e89072)
+            check_type(argname="argument copy_tags", value=copy_tags, expected_type=type_hints["copy_tags"])
+            check_type(argname="argument create_interval", value=create_interval, expected_type=type_hints["create_interval"])
+            check_type(argname="argument cross_region_copy_targets", value=cross_region_copy_targets, expected_type=type_hints["cross_region_copy_targets"])
+            check_type(argname="argument default_policy", value=default_policy, expected_type=type_hints["default_policy"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument exclusions", value=exclusions, expected_type=type_hints["exclusions"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument extend_deletion", value=extend_deletion, expected_type=type_hints["extend_deletion"])
+            check_type(argname="argument policy_details", value=policy_details, expected_type=type_hints["policy_details"])
+            check_type(argname="argument retain_interval", value=retain_interval, expected_type=type_hints["retain_interval"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if copy_tags is not None:
+            self._values["copy_tags"] = copy_tags
+        if create_interval is not None:
+            self._values["create_interval"] = create_interval
+        if cross_region_copy_targets is not None:
+            self._values["cross_region_copy_targets"] = cross_region_copy_targets
+        if default_policy is not None:
+            self._values["default_policy"] = default_policy
+        if description is not None:
+            self._values["description"] = description
+        if exclusions is not None:
+            self._values["exclusions"] = exclusions
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if extend_deletion is not None:
+            self._values["extend_deletion"] = extend_deletion
+        if policy_details is not None:
+            self._values["policy_details"] = policy_details
+        if retain_interval is not None:
+            self._values["retain_interval"] = retain_interval
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def copy_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''*[Default policies only]* Indicates whether the policy should copy tags from the source resource to the snapshot or AMI.
+
+        If you do not specify a value, the default is ``false`` .
+
+        Default: false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-copytags
+        '''
+        result = self._values.get("copy_tags")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def create_interval(self) -> typing.Optional[jsii.Number]:
+        '''*[Default policies only]* Specifies how often the policy should run and create snapshots or AMIs.
+
+        The creation frequency can range from 1 to 7 days. If you do not specify a value, the default is 1.
+
+        Default: 1
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-createinterval
+        '''
+        result = self._values.get("create_interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def cross_region_copy_targets(self) -> typing.Any:
+        '''*[Default policies only]* Specifies destination Regions for snapshot or AMI copies.
+
+        You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-crossregioncopytargets
+        '''
+        result = self._values.get("cross_region_copy_targets")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def default_policy(self) -> typing.Optional[builtins.str]:
+        '''*[Default policies only]* Specify the type of default policy to create.
+
+        - To create a default policy for EBS snapshots, that creates snapshots of all volumes in the Region that do not have recent backups, specify ``VOLUME`` .
+        - To create a default policy for EBS-backed AMIs, that creates EBS-backed AMIs from all instances in the Region that do not have recent backups, specify ``INSTANCE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-defaultpolicy
+        '''
+        result = self._values.get("default_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the lifecycle policy.
+
+        The characters ^[0-9A-Za-z _-]+$ are supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exclusions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.ExclusionsProperty"]]:
+        '''*[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs.
+
+        The policy will not create snapshots or AMIs for target resources that match any of the specified exclusion parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-exclusions
+        '''
+        result = self._values.get("exclusions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.ExclusionsProperty"]], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role used to run the operations specified by the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def extend_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''*[Default policies only]* Defines the snapshot or AMI retention behavior for the policy if the source volume or instance is deleted, or if the policy enters the error, disabled, or deleted state.
+
+        By default ( *ExtendDeletion=false* ):
+
+        - If a source resource is deleted, Amazon Data Lifecycle Manager will continue to delete previously created snapshots or AMIs, up to but not including the last one, based on the specified retention period. If you want Amazon Data Lifecycle Manager to delete all snapshots or AMIs, including the last one, specify ``true`` .
+        - If a policy enters the error, disabled, or deleted state, Amazon Data Lifecycle Manager stops deleting snapshots and AMIs. If you want Amazon Data Lifecycle Manager to continue deleting snapshots or AMIs, including the last one, if the policy enters one of these states, specify ``true`` .
+
+        If you enable extended deletion ( *ExtendDeletion=true* ), you override both default behaviors simultaneously.
+
+        If you do not specify a value, the default is ``false`` .
+
+        Default: false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-extenddeletion
+        '''
+        result = self._values.get("extend_deletion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def policy_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.PolicyDetailsProperty"]]:
+        '''The configuration details of the lifecycle policy.
+
+        .. epigraph::
+
+           If you create a default policy, you can specify the request parameters either in the request body, or in the PolicyDetails request structure, but not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-policydetails
+        '''
+        result = self._values.get("policy_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLifecyclePolicy.PolicyDetailsProperty"]], result)
+
+    @builtins.property
+    def retain_interval(self) -> typing.Optional[jsii.Number]:
+        '''*[Default policies only]* Specifies how long the policy should retain snapshots or AMIs before deleting them.
+
+        The retention period can range from 2 to 14 days, but it must be greater than the creation frequency to ensure that the policy retains at least 1 snapshot or AMI at any given time. If you do not specify a value, the default is 7.
+
+        Default: 7
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-retaininterval
+        '''
+        result = self._values.get("retain_interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The activation state of the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to apply to the lifecycle policy during creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dlm.ILifecyclePolicyRef")
+class ILifecyclePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILifecyclePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dlm.ILifecyclePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LifecyclePolicyReference", jsii.get(self, "lifecyclePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _ILifecyclePolicyRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dlm.LifecyclePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "lifecycle_policy_arn": "lifecyclePolicyArn",
+        "lifecycle_policy_id": "lifecyclePolicyId",
+    },
+)
+class LifecyclePolicyReference:
+    def __init__(
+        self,
+        *,
+        lifecycle_policy_arn: builtins.str,
+        lifecycle_policy_id: builtins.str,
+    ) -> None:
+        '''A reference to a LifecyclePolicy resource.
+
+        :param lifecycle_policy_arn: The ARN of the LifecyclePolicy resource.
+        :param lifecycle_policy_id: The Id of the LifecyclePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dlm as dlm
+            
+            lifecycle_policy_reference = dlm.LifecyclePolicyReference(
+                lifecycle_policy_arn="lifecyclePolicyArn",
+                lifecycle_policy_id="lifecyclePolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86d95ddb01c82f684243173850dd7fd0c766b59a3b7142eb16de5b24ba4c9542)
+            check_type(argname="argument lifecycle_policy_arn", value=lifecycle_policy_arn, expected_type=type_hints["lifecycle_policy_arn"])
+            check_type(argname="argument lifecycle_policy_id", value=lifecycle_policy_id, expected_type=type_hints["lifecycle_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lifecycle_policy_arn": lifecycle_policy_arn,
+            "lifecycle_policy_id": lifecycle_policy_id,
+        }
+
+    @builtins.property
+    def lifecycle_policy_arn(self) -> builtins.str:
+        '''The ARN of the LifecyclePolicy resource.'''
+        result = self._values.get("lifecycle_policy_arn")
+        assert result is not None, "Required property 'lifecycle_policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lifecycle_policy_id(self) -> builtins.str:
+        '''The Id of the LifecyclePolicy resource.'''
+        result = self._values.get("lifecycle_policy_id")
+        assert result is not None, "Required property 'lifecycle_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LifecyclePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ILifecyclePolicyRef, _ITaggable_36806126)
 class CfnLifecyclePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -354,6 +883,12 @@ class CfnLifecyclePolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> LifecyclePolicyReference:
+        '''A reference to a LifecyclePolicy resource.'''
+        return typing.cast(LifecyclePolicyReference, jsii.get(self, "lifecyclePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3325,433 +3860,40 @@ class CfnLifecyclePolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "copy_tags": "copyTags",
-        "create_interval": "createInterval",
-        "cross_region_copy_targets": "crossRegionCopyTargets",
-        "default_policy": "defaultPolicy",
-        "description": "description",
-        "exclusions": "exclusions",
-        "execution_role_arn": "executionRoleArn",
-        "extend_deletion": "extendDeletion",
-        "policy_details": "policyDetails",
-        "retain_interval": "retainInterval",
-        "state": "state",
-        "tags": "tags",
-    },
-)
-class CfnLifecyclePolicyProps:
-    def __init__(
-        self,
-        *,
-        copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        create_interval: typing.Optional[jsii.Number] = None,
-        cross_region_copy_targets: typing.Any = None,
-        default_policy: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        execution_role_arn: typing.Optional[builtins.str] = None,
-        extend_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        policy_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        retain_interval: typing.Optional[jsii.Number] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLifecyclePolicy``.
-
-        :param copy_tags: *[Default policies only]* Indicates whether the policy should copy tags from the source resource to the snapshot or AMI. If you do not specify a value, the default is ``false`` . Default: false
-        :param create_interval: *[Default policies only]* Specifies how often the policy should run and create snapshots or AMIs. The creation frequency can range from 1 to 7 days. If you do not specify a value, the default is 1. Default: 1
-        :param cross_region_copy_targets: *[Default policies only]* Specifies destination Regions for snapshot or AMI copies. You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
-        :param default_policy: *[Default policies only]* Specify the type of default policy to create. - To create a default policy for EBS snapshots, that creates snapshots of all volumes in the Region that do not have recent backups, specify ``VOLUME`` . - To create a default policy for EBS-backed AMIs, that creates EBS-backed AMIs from all instances in the Region that do not have recent backups, specify ``INSTANCE`` .
-        :param description: A description of the lifecycle policy. The characters ^[0-9A-Za-z _-]+$ are supported.
-        :param exclusions: *[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs. The policy will not create snapshots or AMIs for target resources that match any of the specified exclusion parameters.
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role used to run the operations specified by the lifecycle policy.
-        :param extend_deletion: *[Default policies only]* Defines the snapshot or AMI retention behavior for the policy if the source volume or instance is deleted, or if the policy enters the error, disabled, or deleted state. By default ( *ExtendDeletion=false* ): - If a source resource is deleted, Amazon Data Lifecycle Manager will continue to delete previously created snapshots or AMIs, up to but not including the last one, based on the specified retention period. If you want Amazon Data Lifecycle Manager to delete all snapshots or AMIs, including the last one, specify ``true`` . - If a policy enters the error, disabled, or deleted state, Amazon Data Lifecycle Manager stops deleting snapshots and AMIs. If you want Amazon Data Lifecycle Manager to continue deleting snapshots or AMIs, including the last one, if the policy enters one of these states, specify ``true`` . If you enable extended deletion ( *ExtendDeletion=true* ), you override both default behaviors simultaneously. If you do not specify a value, the default is ``false`` . Default: false
-        :param policy_details: The configuration details of the lifecycle policy. .. epigraph:: If you create a default policy, you can specify the request parameters either in the request body, or in the PolicyDetails request structure, but not both.
-        :param retain_interval: *[Default policies only]* Specifies how long the policy should retain snapshots or AMIs before deleting them. The retention period can range from 2 to 14 days, but it must be greater than the creation frequency to ensure that the policy retains at least 1 snapshot or AMI at any given time. If you do not specify a value, the default is 7. Default: 7
-        :param state: The activation state of the lifecycle policy.
-        :param tags: The tags to apply to the lifecycle policy during creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dlm as dlm
-            
-            # cross_region_copy_targets: Any
-            # exclude_tags: Any
-            # exclude_volume_types: Any
-            
-            cfn_lifecycle_policy_props = dlm.CfnLifecyclePolicyProps(
-                copy_tags=False,
-                create_interval=123,
-                cross_region_copy_targets=cross_region_copy_targets,
-                default_policy="defaultPolicy",
-                description="description",
-                exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
-                    exclude_boot_volumes=False,
-                    exclude_tags=exclude_tags,
-                    exclude_volume_types=exclude_volume_types
-                ),
-                execution_role_arn="executionRoleArn",
-                extend_deletion=False,
-                policy_details=dlm.CfnLifecyclePolicy.PolicyDetailsProperty(
-                    actions=[dlm.CfnLifecyclePolicy.ActionProperty(
-                        cross_region_copy=[dlm.CfnLifecyclePolicy.CrossRegionCopyActionProperty(
-                            encryption_configuration=dlm.CfnLifecyclePolicy.EncryptionConfigurationProperty(
-                                encrypted=False,
-            
-                                # the properties below are optional
-                                cmk_arn="cmkArn"
-                            ),
-                            target="target",
-            
-                            # the properties below are optional
-                            retain_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyRetainRuleProperty(
-                                interval=123,
-                                interval_unit="intervalUnit"
-                            )
-                        )],
-                        name="name"
-                    )],
-                    copy_tags=False,
-                    create_interval=123,
-                    cross_region_copy_targets=cross_region_copy_targets,
-                    event_source=dlm.CfnLifecyclePolicy.EventSourceProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        parameters=dlm.CfnLifecyclePolicy.EventParametersProperty(
-                            event_type="eventType",
-                            snapshot_owner=["snapshotOwner"],
-            
-                            # the properties below are optional
-                            description_regex="descriptionRegex"
-                        )
-                    ),
-                    exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
-                        exclude_boot_volumes=False,
-                        exclude_tags=exclude_tags,
-                        exclude_volume_types=exclude_volume_types
-                    ),
-                    extend_deletion=False,
-                    parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
-                        exclude_boot_volume=False,
-                        exclude_data_volume_tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        no_reboot=False
-                    ),
-                    policy_language="policyLanguage",
-                    policy_type="policyType",
-                    resource_locations=["resourceLocations"],
-                    resource_type="resourceType",
-                    resource_types=["resourceTypes"],
-                    retain_interval=123,
-                    schedules=[dlm.CfnLifecyclePolicy.ScheduleProperty(
-                        archive_rule=dlm.CfnLifecyclePolicy.ArchiveRuleProperty(
-                            retain_rule=dlm.CfnLifecyclePolicy.ArchiveRetainRuleProperty(
-                                retention_archive_tier=dlm.CfnLifecyclePolicy.RetentionArchiveTierProperty(
-                                    count=123,
-                                    interval=123,
-                                    interval_unit="intervalUnit"
-                                )
-                            )
-                        ),
-                        copy_tags=False,
-                        create_rule=dlm.CfnLifecyclePolicy.CreateRuleProperty(
-                            cron_expression="cronExpression",
-                            interval=123,
-                            interval_unit="intervalUnit",
-                            location="location",
-                            scripts=[dlm.CfnLifecyclePolicy.ScriptProperty(
-                                execute_operation_on_script_failure=False,
-                                execution_handler="executionHandler",
-                                execution_handler_service="executionHandlerService",
-                                execution_timeout=123,
-                                maximum_retry_count=123,
-                                stages=["stages"]
-                            )],
-                            times=["times"]
-                        ),
-                        cross_region_copy_rules=[dlm.CfnLifecyclePolicy.CrossRegionCopyRuleProperty(
-                            encrypted=False,
-            
-                            # the properties below are optional
-                            cmk_arn="cmkArn",
-                            copy_tags=False,
-                            deprecate_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyDeprecateRuleProperty(
-                                interval=123,
-                                interval_unit="intervalUnit"
-                            ),
-                            retain_rule=dlm.CfnLifecyclePolicy.CrossRegionCopyRetainRuleProperty(
-                                interval=123,
-                                interval_unit="intervalUnit"
-                            ),
-                            target="target",
-                            target_region="targetRegion"
-                        )],
-                        deprecate_rule=dlm.CfnLifecyclePolicy.DeprecateRuleProperty(
-                            count=123,
-                            interval=123,
-                            interval_unit="intervalUnit"
-                        ),
-                        fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
-                            availability_zones=["availabilityZones"],
-                            count=123,
-                            interval=123,
-                            interval_unit="intervalUnit"
-                        ),
-                        name="name",
-                        retain_rule=dlm.CfnLifecyclePolicy.RetainRuleProperty(
-                            count=123,
-                            interval=123,
-                            interval_unit="intervalUnit"
-                        ),
-                        share_rules=[dlm.CfnLifecyclePolicy.ShareRuleProperty(
-                            target_accounts=["targetAccounts"],
-                            unshare_interval=123,
-                            unshare_interval_unit="unshareIntervalUnit"
-                        )],
-                        tags_to_add=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        variable_tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    target_tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                retain_interval=123,
-                state="state",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1414bd7f3e80e837a7b73bfb6d11bcc9e29191c357de74fe96a8efcfd1e89072)
-            check_type(argname="argument copy_tags", value=copy_tags, expected_type=type_hints["copy_tags"])
-            check_type(argname="argument create_interval", value=create_interval, expected_type=type_hints["create_interval"])
-            check_type(argname="argument cross_region_copy_targets", value=cross_region_copy_targets, expected_type=type_hints["cross_region_copy_targets"])
-            check_type(argname="argument default_policy", value=default_policy, expected_type=type_hints["default_policy"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument exclusions", value=exclusions, expected_type=type_hints["exclusions"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument extend_deletion", value=extend_deletion, expected_type=type_hints["extend_deletion"])
-            check_type(argname="argument policy_details", value=policy_details, expected_type=type_hints["policy_details"])
-            check_type(argname="argument retain_interval", value=retain_interval, expected_type=type_hints["retain_interval"])
-            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if copy_tags is not None:
-            self._values["copy_tags"] = copy_tags
-        if create_interval is not None:
-            self._values["create_interval"] = create_interval
-        if cross_region_copy_targets is not None:
-            self._values["cross_region_copy_targets"] = cross_region_copy_targets
-        if default_policy is not None:
-            self._values["default_policy"] = default_policy
-        if description is not None:
-            self._values["description"] = description
-        if exclusions is not None:
-            self._values["exclusions"] = exclusions
-        if execution_role_arn is not None:
-            self._values["execution_role_arn"] = execution_role_arn
-        if extend_deletion is not None:
-            self._values["extend_deletion"] = extend_deletion
-        if policy_details is not None:
-            self._values["policy_details"] = policy_details
-        if retain_interval is not None:
-            self._values["retain_interval"] = retain_interval
-        if state is not None:
-            self._values["state"] = state
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def copy_tags(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''*[Default policies only]* Indicates whether the policy should copy tags from the source resource to the snapshot or AMI.
-
-        If you do not specify a value, the default is ``false`` .
-
-        Default: false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-copytags
-        '''
-        result = self._values.get("copy_tags")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def create_interval(self) -> typing.Optional[jsii.Number]:
-        '''*[Default policies only]* Specifies how often the policy should run and create snapshots or AMIs.
-
-        The creation frequency can range from 1 to 7 days. If you do not specify a value, the default is 1.
-
-        Default: 1
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-createinterval
-        '''
-        result = self._values.get("create_interval")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def cross_region_copy_targets(self) -> typing.Any:
-        '''*[Default policies only]* Specifies destination Regions for snapshot or AMI copies.
-
-        You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-crossregioncopytargets
-        '''
-        result = self._values.get("cross_region_copy_targets")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def default_policy(self) -> typing.Optional[builtins.str]:
-        '''*[Default policies only]* Specify the type of default policy to create.
-
-        - To create a default policy for EBS snapshots, that creates snapshots of all volumes in the Region that do not have recent backups, specify ``VOLUME`` .
-        - To create a default policy for EBS-backed AMIs, that creates EBS-backed AMIs from all instances in the Region that do not have recent backups, specify ``INSTANCE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-defaultpolicy
-        '''
-        result = self._values.get("default_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the lifecycle policy.
-
-        The characters ^[0-9A-Za-z _-]+$ are supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def exclusions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.ExclusionsProperty]]:
-        '''*[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs.
-
-        The policy will not create snapshots or AMIs for target resources that match any of the specified exclusion parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-exclusions
-        '''
-        result = self._values.get("exclusions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.ExclusionsProperty]], result)
-
-    @builtins.property
-    def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role used to run the operations specified by the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def extend_deletion(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''*[Default policies only]* Defines the snapshot or AMI retention behavior for the policy if the source volume or instance is deleted, or if the policy enters the error, disabled, or deleted state.
-
-        By default ( *ExtendDeletion=false* ):
-
-        - If a source resource is deleted, Amazon Data Lifecycle Manager will continue to delete previously created snapshots or AMIs, up to but not including the last one, based on the specified retention period. If you want Amazon Data Lifecycle Manager to delete all snapshots or AMIs, including the last one, specify ``true`` .
-        - If a policy enters the error, disabled, or deleted state, Amazon Data Lifecycle Manager stops deleting snapshots and AMIs. If you want Amazon Data Lifecycle Manager to continue deleting snapshots or AMIs, including the last one, if the policy enters one of these states, specify ``true`` .
-
-        If you enable extended deletion ( *ExtendDeletion=true* ), you override both default behaviors simultaneously.
-
-        If you do not specify a value, the default is ``false`` .
-
-        Default: false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-extenddeletion
-        '''
-        result = self._values.get("extend_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def policy_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.PolicyDetailsProperty]]:
-        '''The configuration details of the lifecycle policy.
-
-        .. epigraph::
-
-           If you create a default policy, you can specify the request parameters either in the request body, or in the PolicyDetails request structure, but not both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-policydetails
-        '''
-        result = self._values.get("policy_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.PolicyDetailsProperty]], result)
-
-    @builtins.property
-    def retain_interval(self) -> typing.Optional[jsii.Number]:
-        '''*[Default policies only]* Specifies how long the policy should retain snapshots or AMIs before deleting them.
-
-        The retention period can range from 2 to 14 days, but it must be greater than the creation frequency to ensure that the policy retains at least 1 snapshot or AMI at any given time. If you do not specify a value, the default is 7.
-
-        Default: 7
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-retaininterval
-        '''
-        result = self._values.get("retain_interval")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The activation state of the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-state
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to apply to the lifecycle policy during creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnLifecyclePolicy",
     "CfnLifecyclePolicyProps",
+    "ILifecyclePolicyRef",
+    "LifecyclePolicyReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1414bd7f3e80e837a7b73bfb6d11bcc9e29191c357de74fe96a8efcfd1e89072(
+    *,
+    copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    create_interval: typing.Optional[jsii.Number] = None,
+    cross_region_copy_targets: typing.Any = None,
+    default_policy: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    extend_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    policy_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retain_interval: typing.Optional[jsii.Number] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86d95ddb01c82f684243173850dd7fd0c766b59a3b7142eb16de5b24ba4c9542(
+    *,
+    lifecycle_policy_arn: builtins.str,
+    lifecycle_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__2602533fbe79433bf8a3cb4984e0ec983ab5d121243f4d319dfc6038c8b96bb3(
     scope: _constructs_77d1e7e8.Construct,
@@ -4065,24 +4207,6 @@ def _typecheckingstub__17018411aa866dc818102e8981736b177dd1a23646009ebb8d8cbe6a3
     target_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
     unshare_interval: typing.Optional[jsii.Number] = None,
     unshare_interval_unit: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1414bd7f3e80e837a7b73bfb6d11bcc9e29191c357de74fe96a8efcfd1e89072(
-    *,
-    copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    create_interval: typing.Optional[jsii.Number] = None,
-    cross_region_copy_targets: typing.Any = None,
-    default_policy: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    execution_role_arn: typing.Optional[builtins.str] = None,
-    extend_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    policy_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.PolicyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retain_interval: typing.Optional[jsii.Number] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

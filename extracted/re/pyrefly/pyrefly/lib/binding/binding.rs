@@ -97,7 +97,7 @@ assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassBaseType, 3);
-assert_words!(BindingClassMetadata, 7);
+assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
@@ -320,8 +320,8 @@ pub enum Key {
     Global(Name),
     /// I am defined in this module at this location.
     Definition(ShortIdentifier),
-    /// I am declared in this module at this location (for globals and nonlocals).
-    Declaration(ShortIdentifier),
+    /// I am a mutable capture (`global` or `nonlocal`) declared at this location.
+    MutableCapture(ShortIdentifier),
     /// I am a name assignment that is also a first use of some other name assign.
     ///
     /// My raw definition contains unpinned placeholder types from both myself
@@ -382,7 +382,7 @@ impl Ranged for Key {
             Self::Import(_, r) => *r,
             Self::Global(_) => TextRange::default(),
             Self::Definition(x) => x.range(),
-            Self::Declaration(x) => x.range(),
+            Self::MutableCapture(x) => x.range(),
             Self::UpstreamPinnedDefinition(x) => x.range(),
             Self::PinnedDefinition(x) => x.range(),
             Self::FacetAssign(x) => x.range(),
@@ -414,7 +414,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Import(n, r) => write!(f, "Key::Import({n} {})", ctx.display(r)),
             Self::Global(n) => write!(f, "Key::Global({n})"),
             Self::Definition(x) => write!(f, "Key::Definition({})", short(x)),
-            Self::Declaration(x) => write!(f, "Key::Declaration({})", short(x)),
+            Self::MutableCapture(x) => write!(f, "Key::Declaration({})", short(x)),
             Self::UpstreamPinnedDefinition(x) => {
                 write!(f, "Key::UpstreamPinnedDefinition({})", short(x))
             }
@@ -1226,6 +1226,8 @@ pub enum Binding {
     ),
     /// A type alias declared with the `type` soft keyword
     ScopedTypeAlias(Name, Option<TypeParams>, Box<Expr>),
+    /// A type alias declared with the `TypeAliasType` constructor
+    TypeAliasType(Option<Idx<KeyAnnotation>>, Identifier, Box<ExprCall>),
     /// An entry in a MatchMapping. The Key looks up the value being matched, the Expr is the key we're extracting.
     PatternMatchMapping(Expr, Idx<Key>),
     /// An entry in a MatchClass. The Key looks up the value being matched, the Expr is the class name.
@@ -1414,6 +1416,9 @@ impl DisplayWith<Bindings> for Binding {
                     m.display(expr)
                 )
             }
+            Self::TypeAliasType(a, name, x) => {
+                write!(f, "TypeAliasType({}, {name}, {})", ann(a), m.display(x))
+            }
             Self::PatternMatchMapping(mapping_key, binding_key) => {
                 write!(
                     f,
@@ -1535,7 +1540,9 @@ impl Binding {
             }
             Binding::ClassDef(_, _) => Some(SymbolKind::Class),
             Binding::Module(_, _, _) => Some(SymbolKind::Module),
-            Binding::ScopedTypeAlias(_, _, _) => Some(SymbolKind::TypeAlias),
+            Binding::ScopedTypeAlias(_, _, _) | Binding::TypeAliasType(_, _, _) => {
+                Some(SymbolKind::TypeAlias)
+            }
             Binding::NameAssign(name, _, _) if name.as_str() == name.to_uppercase() => {
                 Some(SymbolKind::Constant)
             }

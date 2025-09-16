@@ -1142,32 +1142,24 @@ static PyObject *t_breakiterator_getRuleStatusVec(t_breakiterator *self)
 
     if (status == U_BUFFER_OVERFLOW_ERROR)
     {
-        int32_t *buffer = (int32_t *) calloc(count, sizeof(int32_t));
+        std::unique_ptr<int32_t[]> buffer(new int32_t[count]);
 
-        if (buffer == NULL)
+        if (!buffer.get())
             return PyErr_NoMemory();
 
         status = U_ZERO_ERROR;
-        count = self->object->getRuleStatusVec(buffer, count, status);
+        count = self->object->getRuleStatusVec(buffer.get(), count, status);
 
         if (U_FAILURE(status))
-        {
-            free(buffer);
             return ICUException(status).reportError();
-        }
 
         PyObject *tuple = PyTuple_New(count);
 
         if (!tuple)
-        {
-            free(buffer);
             return NULL;
-        }
 
         for (int i = 0; i < count; ++i)
             PyTuple_SET_ITEM(tuple, i, PyInt_FromLong(buffer[i]));
-
-        free(buffer);
 
         return tuple;
     }

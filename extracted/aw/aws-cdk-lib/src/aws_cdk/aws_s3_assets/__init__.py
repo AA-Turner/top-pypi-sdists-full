@@ -261,7 +261,7 @@ from .. import (
     SymlinkFollowMode as _SymlinkFollowMode_047ec1f6,
 )
 from ..aws_iam import IGrantable as _IGrantable_71c4f5de
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_s3 import IBucket as _IBucket_42e086fd
 
 
@@ -299,7 +299,7 @@ class Asset(
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
         bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -486,7 +486,7 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     ) -> None:
         '''
         :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
@@ -689,13 +689,13 @@ class AssetOptions(_AssetOptions_9cd3031e, _FileCopyOptions_e03e2a30):
         return typing.cast(typing.Optional[typing.List[_IGrantable_71c4f5de]], result)
 
     @builtins.property
-    def source_kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def source_kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''The ARN of the KMS key used to encrypt the handler code.
 
         :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
         '''
         result = self._values.get("source_kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -739,7 +739,7 @@ class AssetProps(AssetOptions):
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         path: builtins.str,
     ) -> None:
         '''
@@ -947,13 +947,13 @@ class AssetProps(AssetOptions):
         return typing.cast(typing.Optional[typing.List[_IGrantable_71c4f5de]], result)
 
     @builtins.property
-    def source_kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def source_kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''The ARN of the KMS key used to encrypt the handler code.
 
         :default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
         '''
         result = self._values.get("source_kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     @builtins.property
     def path(self) -> builtins.str:
@@ -996,7 +996,7 @@ def _typecheckingstub__00df81fd3b746cf2ee52c0e7a23b6fdc1b45db97673ca7e25a9651e7e
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
     bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1031,7 +1031,7 @@ def _typecheckingstub__11950fe0327642dd25ddfeb2c620bb33847718475fe489bf003d096a0
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1047,7 +1047,7 @@ def _typecheckingstub__f879318d3885bc2e9c71c124fac7ad5a955812e438be7c03244c3aad7
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     path: builtins.str,
 ) -> None:
     """Type checking stubs"""

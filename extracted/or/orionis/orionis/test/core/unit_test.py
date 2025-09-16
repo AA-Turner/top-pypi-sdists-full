@@ -17,6 +17,7 @@ from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
 from orionis.foundation.contracts.application import IApplication
+from orionis.services.introspection.concretes.reflection import ReflectionConcrete
 from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.support.performance.contracts.counter import IPerformanceCounter
 from orionis.test.contracts.test_result import IOrionisTestResult
@@ -27,21 +28,12 @@ from orionis.test.exceptions import OrionisTestValueError, OrionisTestFailureExc
 from orionis.test.output.printer import TestPrinter
 from orionis.test.records.logs import TestLogs
 from orionis.test.validators import (
-    ValidBasePath,
-    ValidExecutionMode,
-    ValidFailFast,
-    ValidFolderPath,
-    ValidModuleName,
-    ValidNamePattern,
-    ValidPattern,
-    ValidPersistentDriver,
-    ValidPersistent,
-    ValidThrowException,
-    ValidVerbosity,
-    ValidWebReport,
-    ValidWorkers,
+    ValidBasePath, ValidExecutionMode, ValidFailFast, ValidFolderPath,
+    ValidModuleName, ValidNamePattern, ValidPattern, ValidPersistentDriver,
+    ValidPersistent, ValidThrowException, ValidVerbosity, ValidWebReport, ValidWorkers,
 )
 from orionis.test.view.render import TestingResultRender
+import asyncio
 
 class UnitTest(IUnitTest):
     """
@@ -521,72 +513,6 @@ class UnitTest(IUnitTest):
                 "Please ensure the test case is correctly defined and contains valid test methods."
             )
 
-    def __isDecoratedMethod(
-        self,
-        test_case: unittest.TestCase
-    ) -> bool:
-        """
-        Determines whether the test method of a given test case is decorated (i.e., wrapped by one or more Python decorators).
-
-        This method inspects the test method associated with the provided `unittest.TestCase` instance to detect the presence of decorators.
-        It traverses the decorator chain by following the `__wrapped__` attribute, which is set by Python's `functools.wraps` or similar mechanisms.
-        Decorators are identified by the existence of the `__wrapped__` attribute, and their names are collected from the `__qualname__` or `__name__` attributes.
-
-        Parameters
-        ----------
-        test_case : unittest.TestCase
-            The test case instance whose test method will be checked for decorators.
-
-        Returns
-        -------
-        bool
-            True if the test method has one or more decorators applied (i.e., if any decorators are found in the chain).
-            False if the test method is not decorated or if no test method is found.
-
-        Notes
-        -----
-        - The method checks for decorators by traversing the `__wrapped__` attribute chain.
-        - Decorator names are collected for informational purposes but are not returned.
-        - If the test method is not decorated, or if no test method is found, the method returns False.
-        - This method does not modify the test case or its method; it only inspects for decoration.
-        """
-
-        # Retrieve the test method from the test case's class using the test method name
-        test_method = getattr(test_case.__class__, getattr(test_case, "_testMethodName"), None)
-
-        # List to store decorator names found during traversal
-        decorators = []
-
-        # Check if the method has the __wrapped__ attribute, indicating it is decorated
-        if hasattr(test_method, '__wrapped__'):
-
-            # Start with the outermost decorated method
-            original = test_method
-
-            # Traverse the decorator chain by following __wrapped__ attributes
-            while hasattr(original, '__wrapped__'):
-
-                # Collect decorator name information for tracking purposes
-                if hasattr(original, '__qualname__'):
-
-                    # Prefer __qualname__ for detailed naming information
-                    decorators.append(original.__qualname__)
-
-                elif hasattr(original, '__name__'):
-
-                    # Fall back to __name__ if __qualname__ is not available
-                    decorators.append(original.__name__)
-
-                # Move to the next level in the decorator chain
-                original = original.__wrapped__
-
-        # Return True if any decorators were found during the traversal
-        if decorators:
-            return True
-
-        # Return False if no decorators are found or if the method is not decorated
-        return False
-
     def __loadTests(
         self
     ) -> None:
@@ -667,10 +593,7 @@ class UnitTest(IUnitTest):
 
                         # Categorize and resolve test dependencies efficiently
                         target_list = debug_tests if self.__withDebugger(test) else normal_tests
-                        resolved_test = test
-                        if not self.__isDecoratedMethod(test):
-                            resolved_test = self.__resolveTestDependencies(test)
-                        target_list.append(resolved_test)
+                        target_list.append(self.__resolveTestDependencies(test))
 
                     # If no tests are found, raise an error
                     if not flat_tests:
@@ -715,12 +638,13 @@ class UnitTest(IUnitTest):
         test_case: unittest.TestCase
     ) -> bool:
         """
-        Check if the given test case contains any debugging or dump calls.
+        Determine if the given test case contains debugging or dump calls.
 
-        This method inspects the source code of the provided test case to determine
-        whether it contains any lines that invoke debugging or dump functions, as
-        specified by the internal `__debbug_keywords` list (e.g., 'self.dd', 'self.dump').
-        It ignores commented lines and only considers actual code statements.
+        This method inspects the source code of the test method and common setup/teardown methods
+        (such as `setUp`, `tearDown`, `onSetup`, `onTeardown`) for the presence of any keywords
+        specified in the internal `__debbug_keywords` list (e.g., 'self.dd', 'self.dump').
+        Commented lines are ignored during inspection. If any debug keyword is found, the method
+        disables live console output and returns True.
 
         Parameters
         ----------
@@ -730,48 +654,66 @@ class UnitTest(IUnitTest):
         Returns
         -------
         bool
-            True if any debug or dump keyword is found in the test case source code,
-            or if the internal debug flag (`__debbug`) is set. False otherwise.
+            True if any debug or dump keyword is found in the test case source code;
+            False otherwise.
 
         Notes
         -----
-        - The method uses reflection to retrieve the source code of the test case.
-        - Lines that are commented out are skipped during inspection.
-        - If an error occurs during source code retrieval or inspection, the method returns False.
+        - Uses `inspect.getsource` to retrieve the source code of relevant methods.
+        - Ignores lines that are commented out.
+        - If an error occurs during source code retrieval or inspection, returns False.
+        - If a debug keyword is found, disables live console output for the test run.
         """
-
         try:
 
-            # Retrieve the source code of the test case using reflection
-            method_name = getattr(test_case, "_testMethodName", None)
+            # Gather method names to inspect: main test method and common setup/teardown hooks
+            rf_instance = ReflectionInstance(test_case)
+            method_name = rf_instance.getAttribute("_testMethodName")
+            extra_methods = ["setUp", "tearDown", "onSetup", "onTeardown"]
+            method_names_to_check = [method_name] if method_name else []
+            method_names_to_check += [m for m in extra_methods if rf_instance.hasMethod(m)]
 
-            # If a method name is found, proceed to inspect its source code
-            if method_name:
+            # Inspect each method's source code for debug keywords
+            for mname in method_names_to_check:
 
-                # Get the source code of the specific test method
-                source = inspect.getsource(getattr(test_case, method_name))
+                # Skip if method name is None
+                if not mname:
+                    continue
 
-                # Check each line of the source code
+                try:
+
+                    # Retrieve the source code of the method
+                    source = rf_instance.getSourceCode(mname)
+
+                except Exception:
+
+                    # Skip if source cannot be retrieved
+                    continue
+
+                # Inspect each line of the source code
                 for line in source.splitlines():
 
-                    # Strip leading and trailing whitespace from the line
+                    # Strip leading/trailing whitespace for accurate matching
                     stripped = line.strip()
 
-                    # Skip lines that are commented out
+                    # Ignore commented lines
                     if stripped.startswith('#') or re.match(r'^\s*#', line):
                         continue
 
-                    # If any debug keyword is present in the line, return True
+                    # Check for any debug keyword in the line
                     if any(keyword in line for keyword in self.__debbug_keywords):
-                        self.__live_console = False if self.__live_console is True else self.__live_console
+
+                        # Disable live console output if a debug keyword is found
+                        if self.__live_console is True:
+                            self.__live_console = False
                         return True
 
         except Exception:
 
-            # If any error occurs during inspection, return False
+            # On any error during inspection, return False
             return False
 
-        # No debug keywords found; return False
+        # No debug keywords found in any inspected method
         return False
 
     def run(
@@ -943,10 +885,10 @@ class UnitTest(IUnitTest):
         """
         Inject dependencies into a single test case if required, returning a TestSuite containing the resolved test case.
 
-        This method uses reflection to inspect the test method's dependencies. If all dependencies are resolved,
-        it injects them using the application's resolver. If there are unresolved dependencies, the original test case
-        is returned as-is. Decorated methods and failed imports are also returned without modification. The returned
-        TestSuite contains the test case with dependencies injected if applicable.
+        This method uses reflection to inspect the test method for dependency requirements. If dependencies are resolved,
+        it injects them into the test method. Supports both synchronous and asynchronous test methods: async methods are
+        wrapped to run in an event loop. If dependencies cannot be resolved, the original test case is returned as-is
+        within a TestSuite.
 
         Parameters
         ----------
@@ -956,7 +898,7 @@ class UnitTest(IUnitTest):
         Returns
         -------
         unittest.TestSuite
-            A TestSuite containing the test case with dependencies injected if required.
+            A TestSuite containing the test case with injected dependencies if resolution is successful.
             If dependency injection is not possible or fails, the original test case is returned as-is within the suite.
 
         Raises
@@ -966,10 +908,10 @@ class UnitTest(IUnitTest):
 
         Notes
         -----
-        - Uses reflection to determine method dependencies.
+        - Uses ReflectionInstance to determine method dependencies.
         - If dependencies are resolved, injects them into the test method.
+        - Supports async test methods by running them in an event loop.
         - If dependencies are unresolved or an error occurs, the original test case is returned.
-        - The returned value is always a unittest.TestSuite containing the test case (with or without injected dependencies).
         """
 
         # Create a new TestSuite to hold the resolved test case
@@ -977,46 +919,74 @@ class UnitTest(IUnitTest):
 
         try:
 
-            # Get the reflection instance for the test case
+            # Use reflection to inspect the test case for dependency requirements
             rf_instance = ReflectionInstance(test_case)
+            method_name = rf_instance.getAttribute("_testMethodName", None)
 
-            # Get the test method name
-            method_name = getattr(test_case, "_testMethodName", None)
+            # If no method name is found, return the original test case
+            if not method_name:
+                return test_case
 
-            # Get method dependencies (resolved and unresolved)
+            # Get the method dependencies using the dependency injection system
             dependencies = rf_instance.getMethodDependencies(method_name)
 
-            # If there are unresolved dependencies, return the original test case as-is
+            # If there are unresolved dependencies, return the original test case
             if dependencies.unresolved:
                 return test_case
 
-            # If there are resolved dependencies, inject them into the test method
+            # If dependencies are resolved, inject them into the test method
             if dependencies.resolved:
 
-                # Get the test class and original method
-                test_class = rf_instance.getClass()
-                original_method = getattr(test_class, method_name)
+                # Get the test case class
+                test_cls = rf_instance.getClass()
 
-                # Resolve dependencies using the application container
-                resolved_args = self.__app.resolveDependencyArguments(rf_instance.getClassName(), dependencies)
+                # Create a ReflectionConcrete instance for the test case class
+                rf_concrete = ReflectionConcrete(test_cls)
 
-                # Define a wrapper function to inject dependencies
-                def wrapper(self_instance):
-                    return original_method(self_instance, **resolved_args)
+                # Get the original test method
+                original_method = rf_concrete.getAttribute(method_name)
 
-                # Bind the wrapped method to the test case instance
-                bound_method = wrapper.__get__(test_case, test_case.__class__)
-                setattr(test_case, method_name, bound_method)
+                # Resolve the actual arguments to inject
+                resolved_args = self.__app.resolveDependencyArguments(
+                    rf_instance.getClassName(),
+                    dependencies
+                )
 
-            # Add the test case to the suite (with injected dependencies if applicable)
-            suite.addTest(test_case)
+                # If the test method is asynchronous, wrap it to run in an event loop
+                if asyncio.iscoroutinefunction(original_method):
 
-            # Return the TestSuite containing the resolved test case
+                    # Define an async wrapper to inject dependencies
+                    async def async_wrapper(self_instance):
+                        return await original_method(self_instance, **resolved_args)
+
+                    # Wrap with a sync function for unittest compatibility
+                    def sync_wrapper(self_instance):
+                        return asyncio.run(async_wrapper(self_instance))
+
+                    # Bind the wrapped method to the test case instance
+                    bound_method = sync_wrapper.__get__(test_case, test_cls)
+
+                else:
+
+                    # For synchronous methods, inject dependencies directly
+                    def wrapper(self_instance):
+                        return original_method(self_instance, **resolved_args)
+
+                    # Bind the wrapped method to the test case instance
+                    bound_method = wrapper.__get__(test_case, test_cls)
+
+                # Replace the test method with the dependency-injected version
+                rf_instance.setMethod(method_name, bound_method)
+
+            # Add the (possibly resolved) test case to the suite
+            suite.addTest(rf_instance.getInstance())
+
+            # Return the suite containing the resolved test case
             return suite
 
         except Exception:
 
-            # On any error, return the original test case without injection
+            # On error, return the original test case
             return test_case
 
     def __runTestsSequentially(

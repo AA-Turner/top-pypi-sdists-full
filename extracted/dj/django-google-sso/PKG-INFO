@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-google-sso
-Version: 9.0.0
+Version: 9.0.1
 Summary: Easily add Google Authentication to your Django Projects
 License: MIT
+License-File: LICENSE
 Keywords: google,django,sso
 Author: Chris Maillefaud
 Author-email: chrismaille@users.noreply.github.com
@@ -20,6 +21,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: django (>=4.2)
 Requires-Dist: google-auth
 Requires-Dist: google-auth-httplib2

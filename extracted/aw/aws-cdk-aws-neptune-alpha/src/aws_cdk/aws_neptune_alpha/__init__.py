@@ -597,7 +597,7 @@ class DatabaseClusterProps:
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
         instances: typing.Optional[jsii.Number] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         parameter_group: typing.Optional["IParameterGroup"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
@@ -934,7 +934,7 @@ class DatabaseClusterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key for storage encryption.
 
         :default: - default master key.
@@ -942,7 +942,7 @@ class DatabaseClusterProps:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def parameter_group(self) -> typing.Optional["IParameterGroup"]:
@@ -1691,6 +1691,15 @@ class EngineVersion(
         :stability: experimental
         '''
         return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_5_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_4_5_1")
+    def V1_4_5_1(cls) -> "EngineVersion":
+        '''(experimental) Neptune engine version 1.4.5.1.
+
+        :stability: experimental
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "V1_4_5_1"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -4232,7 +4241,7 @@ class DatabaseCluster(
         iam_authentication: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
         instances: typing.Optional[jsii.Number] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         parameter_group: typing.Optional[IParameterGroup] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
@@ -4632,7 +4641,7 @@ def _typecheckingstub__63d33cb2d1c6c36d5e1d56bf6c1f72cfb156352d25be7b41fc33242c4
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
     instances: typing.Optional[jsii.Number] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     parameter_group: typing.Optional[IParameterGroup] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
@@ -4967,7 +4976,7 @@ def _typecheckingstub__370e47923dd9feae8a77db6ef8837b69539ec23a3bf085a5df3d68068
     iam_authentication: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
     instances: typing.Optional[jsii.Number] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     parameter_group: typing.Optional[IParameterGroup] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,

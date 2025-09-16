@@ -245,24 +245,56 @@ class ReflectionConcrete(IReflectionConcrete):
         """
         return self._concrete.__bases__
 
-    def getSourceCode(self) -> str:
+    def getSourceCode(self, method: str = None) -> str | None:
         """
-        Get the source code of the reflected class.
+        Retrieve the source code for the reflected class or a specific method.
+
+        Parameters
+        ----------
+        method : str, optional
+            The name of the method whose source code should be retrieved. If not provided,
+            the source code of the entire class is returned. If the method name refers to a
+            private method, Python name mangling is handled automatically.
 
         Returns
         -------
-        str
-            The complete source code of the class definition.
+        str or None
+            The source code as a string if available. Returns None if the source code cannot
+            be found (e.g., for built-in or dynamically generated classes/methods), or if the
+            specified method does not exist.
 
-        Raises
-        ------
-        ReflectionValueError
-            If the source code cannot be retrieved (e.g., built-in classes).
+        Notes
+        -----
+        - If `method` is specified and refers to a private method, name mangling is handled automatically.
+        - If the source code cannot be found (e.g., for built-in or dynamically generated classes/methods), None is returned.
+        - If the specified method does not exist in the class, None is returned.
         """
+
         try:
-            return inspect.getsource(self._concrete)
-        except OSError as e:
-            raise ReflectionValueError(f"Could not retrieve source code for '{self._concrete.__name__}': {e}")
+
+            # Return the source code of the entire class
+            if not method:
+                return inspect.getsource(self._concrete)
+
+            # Handle private method name mangling for methods starting with double underscore
+            else:
+
+                # Handle private method name mangling
+                if method.startswith("__") and not method.endswith("__"):
+                    class_name = self.getClassName()
+                    method = f"_{class_name}{method}"
+
+                # Check if the method exists in the class
+                if not self.hasMethod(method):
+                    return None
+
+                # Return the source code of the specified method
+                return inspect.getsource(getattr(self._concrete, method))
+
+        except (TypeError, OSError):
+
+            # Return None if the source code cannot be retrieved (e.g., built-in or dynamic)
+            return None
 
     def getFile(self) -> str:
         """
@@ -317,27 +349,44 @@ class ReflectionConcrete(IReflectionConcrete):
         """
         return attribute in self.getAttributes()
 
-    def getAttribute(self, attribute: str):
+    def getAttribute(self, name: str, default: Any = None) -> Any:
         """
-        Get the value of a specific class attribute.
+        Retrieve the value of a specific class attribute.
+
+        This method attempts to fetch the value of the specified attribute from the class.
+        It first checks the combined attributes dictionary (including public, protected,
+        private, and dunder attributes). If the attribute is not found there, it falls
+        back to using `getattr` on the class itself. If the attribute does not exist,
+        the provided default value is returned.
 
         Parameters
         ----------
-        attribute : str
+        name : str
             The name of the attribute to retrieve.
+        default : Any, optional
+            The value to return if the attribute is not found (default is None).
 
         Returns
         -------
         Any
-            The value of the specified attribute, or None if not found.
+            The value of the specified attribute if found; otherwise, the provided default value.
 
         Raises
         ------
         ReflectionValueError
             If the attribute does not exist or is not accessible.
+
+        Notes
+        -----
+        This method does not raise an exception if the attribute is missing; it returns
+        the default value instead.
         """
+
+        # Get all attributes from the class (public, protected, private, dunder)
         attrs = self.getAttributes()
-        return attrs.get(attribute, None)
+
+        # Try to get the attribute from the attributes dictionary; if not found, use getattr on the class
+        return attrs.get(name, getattr(self._concrete, name, default))
 
     def setAttribute(self, name: str, value) -> bool:
         """
@@ -421,25 +470,36 @@ class ReflectionConcrete(IReflectionConcrete):
 
     def getAttributes(self) -> dict:
         """
-        Get all class attributes regardless of visibility.
+        Retrieve all class attributes across all visibility levels.
 
-        Combines public, protected, private, and dunder attributes into a
-        single dictionary for comprehensive attribute access.
+        This method aggregates and returns a dictionary containing all attributes
+        defined on the reflected class, including public, protected, private (with
+        name mangling resolved), and dunder (magic) attributes. Callable members,
+        static methods, class methods, and properties are excluded from the result.
 
         Returns
         -------
         dict
-            A dictionary mapping attribute names to their values, including
-            all visibility levels (public, protected, private, dunder).
+            A dictionary mapping attribute names (as strings) to their corresponding
+            values. The dictionary includes attributes of all visibility levels:
+            public, protected, private (with name mangling removed), and dunder
+            attributes, but excludes methods and properties. The result is cached
+            after the first call for performance.
         """
 
-        # Combine all attribute types into a single dictionary
-        return {
-            **self.getPublicAttributes(),
-            **self.getProtectedAttributes(),
-            **self.getPrivateAttributes(),
-            **self.getDunderAttributes()
-        }
+        # Use cache to avoid recomputation on subsequent calls
+        if not hasattr(self, "_ReflectionConcrete__cacheGetAttributes"):
+
+            # Merge all attribute dictionaries from different visibility levels
+            self.__cacheGetAttributes = {
+                **self.getPublicAttributes(),
+                **self.getProtectedAttributes(),
+                **self.getPrivateAttributes(),
+                **self.getDunderAttributes()
+            }
+
+        # Return the cached dictionary of all attributes
+        return self.__cacheGetAttributes
 
     def getPublicAttributes(self) -> dict:
         """
@@ -752,27 +812,36 @@ class ReflectionConcrete(IReflectionConcrete):
 
     def getMethods(self) -> List[str]:
         """
-        Get all method names from the reflected class.
+        Retrieve all method names defined in the reflected class, including instance, class, and static methods.
 
-        Combines all types of methods including instance methods, class methods,
-        and static methods with different visibility levels.
+        This method aggregates method names from all visibility levels (public, protected, private) and method types
+        (instance, class, static). The result is cached after the first call to improve performance on subsequent calls.
 
         Returns
         -------
         List[str]
-            A comprehensive list of all method names in the class.
+            A list containing the names of all methods (instance, class, and static) defined in the class,
+            including public, protected, and private methods. The list is cached for efficiency.
         """
-        return [
-            *self.getPublicMethods(),
-            *self.getProtectedMethods(),
-            *self.getPrivateMethods(),
-            *self.getPublicClassMethods(),
-            *self.getProtectedClassMethods(),
-            *self.getPrivateClassMethods(),
-            *self.getPublicStaticMethods(),
-            *self.getProtectedStaticMethods(),
-            *self.getPrivateStaticMethods(),
-        ]
+
+        # Check if the method names have already been cached
+        if not hasattr(self, "_ReflectionConcrete__cacheGetMethods"):
+
+            # Aggregate all method names from different categories and cache the result
+            self.__cacheGetMethods = [
+                *self.getPublicMethods(),
+                *self.getProtectedMethods(),
+                *self.getPrivateMethods(),
+                *self.getPublicClassMethods(),
+                *self.getProtectedClassMethods(),
+                *self.getPrivateClassMethods(),
+                *self.getPublicStaticMethods(),
+                *self.getProtectedStaticMethods(),
+                *self.getPrivateStaticMethods(),
+            ]
+
+        # Return the cached list of method names
+        return self.__cacheGetMethods
 
     def getPublicMethods(self) -> list:
         """

@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides utility functions for image segmentation.
+Define utility functions for image segmentation.
 """
 
 import numpy as np
@@ -96,8 +96,8 @@ def _make_binary_structure(ndim, connectivity):
         elif connectivity == 8:
             footprint = np.ones((3, 3), dtype=int)
         else:
-            raise ValueError(f'Invalid connectivity={connectivity}. '
-                             'Options are 4 or 8.')
+            msg = f'Invalid connectivity={connectivity} -- options are 4 or 8'
+            raise ValueError(msg)
     else:
         footprint = generate_binary_structure(ndim, 1)
 

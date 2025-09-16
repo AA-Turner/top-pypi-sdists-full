@@ -18,8 +18,127 @@ import warnings
 from tencentcloud.common.abstract_model import AbstractModel
 
 
+class AppJobInfo(AbstractModel):
+    r"""安装应用，任务详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Status: 状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Status: int
+        :param _Step: 当前步骤
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Step: int
+        :param _Id: 任务id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Id: int
+        :param _TotalStep: 任务总共步骤数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TotalStep: int
+        :param _StepDesc: 当前步骤详情
+        :type StepDesc: str
+        :param _ErrMsg: 错误信息
+        :type ErrMsg: str
+        """
+        self._Status = None
+        self._Step = None
+        self._Id = None
+        self._TotalStep = None
+        self._StepDesc = None
+        self._ErrMsg = None
+
+    @property
+    def Status(self):
+        r"""状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Step(self):
+        r"""当前步骤
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Step
+
+    @Step.setter
+    def Step(self, Step):
+        self._Step = Step
+
+    @property
+    def Id(self):
+        r"""任务id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def TotalStep(self):
+        r"""任务总共步骤数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TotalStep
+
+    @TotalStep.setter
+    def TotalStep(self, TotalStep):
+        self._TotalStep = TotalStep
+
+    @property
+    def StepDesc(self):
+        r"""当前步骤详情
+        :rtype: str
+        """
+        return self._StepDesc
+
+    @StepDesc.setter
+    def StepDesc(self, StepDesc):
+        self._StepDesc = StepDesc
+
+    @property
+    def ErrMsg(self):
+        r"""错误信息
+        :rtype: str
+        """
+        return self._ErrMsg
+
+    @ErrMsg.setter
+    def ErrMsg(self, ErrMsg):
+        self._ErrMsg = ErrMsg
+
+
+    def _deserialize(self, params):
+        self._Status = params.get("Status")
+        self._Step = params.get("Step")
+        self._Id = params.get("Id")
+        self._TotalStep = params.get("TotalStep")
+        self._StepDesc = params.get("StepDesc")
+        self._ErrMsg = params.get("ErrMsg")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class CheckDeployAppRequest(AbstractModel):
-    """CheckDeployApp请求参数结构体
+    r"""CheckDeployApp请求参数结构体
 
     """
 
@@ -38,7 +157,7 @@ class CheckDeployAppRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -49,7 +168,7 @@ class CheckDeployAppRequest(AbstractModel):
 
     @property
     def Id(self):
-        """应用id
+        r"""应用id
         :rtype: str
         """
         return self._Id
@@ -60,7 +179,7 @@ class CheckDeployAppRequest(AbstractModel):
 
     @property
     def BuildId(self):
-        """构建 Id
+        r"""构建 Id
         :rtype: str
         """
         return self._BuildId
@@ -85,7 +204,7 @@ class CheckDeployAppRequest(AbstractModel):
 
 
 class CheckDeployAppResponse(AbstractModel):
-    """CheckDeployApp返回参数结构体
+    r"""CheckDeployApp返回参数结构体
 
     """
 
@@ -101,7 +220,7 @@ class CheckDeployAppResponse(AbstractModel):
 
     @property
     def Status(self):
-        """状态：success、building、reviewFail、releaseSuccess、underReview
+        r"""状态：success、building、reviewFail、releaseSuccess、underReview
         :rtype: str
         """
         return self._Status
@@ -112,7 +231,7 @@ class CheckDeployAppResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -128,7 +247,7 @@ class CheckDeployAppResponse(AbstractModel):
 
 
 class CreateKnowledgeSetRequest(AbstractModel):
-    """CreateKnowledgeSet请求参数结构体
+    r"""CreateKnowledgeSet请求参数结构体
 
     """
 
@@ -153,7 +272,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -164,7 +283,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Name(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._Name
@@ -175,7 +294,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Title(self):
-        """知识库名称
+        r"""知识库名称
         :rtype: str
         """
         return self._Title
@@ -186,7 +305,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Desc(self):
-        """描述
+        r"""描述
         :rtype: str
         """
         return self._Desc
@@ -197,7 +316,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Meta(self):
-        """知识库的meta信息
+        r"""知识库的meta信息
         :rtype: str
         """
         return self._Meta
@@ -224,7 +343,7 @@ class CreateKnowledgeSetRequest(AbstractModel):
 
 
 class CreateKnowledgeSetResponse(AbstractModel):
-    """CreateKnowledgeSet返回参数结构体
+    r"""CreateKnowledgeSet返回参数结构体
 
     """
 
@@ -237,7 +356,7 @@ class CreateKnowledgeSetResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -252,7 +371,7 @@ class CreateKnowledgeSetResponse(AbstractModel):
 
 
 class DataSourceDetail(AbstractModel):
-    """数据源详情列表
+    r"""数据源详情列表
 
     """
 
@@ -398,7 +517,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Id(self):
-        """数据源 ID
+        r"""数据源 ID
         :rtype: str
         """
         return self._Id
@@ -409,7 +528,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Title(self):
-        """数据源名称
+        r"""数据源名称
         :rtype: str
         """
         return self._Title
@@ -420,7 +539,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Name(self):
-        """数据源标识
+        r"""数据源标识
         :rtype: str
         """
         return self._Name
@@ -431,7 +550,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Type(self):
-        """数据源类型
+        r"""数据源类型
         :rtype: str
         """
         return self._Type
@@ -442,7 +561,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Description(self):
-        """数据源描述
+        r"""数据源描述
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -454,7 +573,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Schema(self):
-        """数据源配置
+        r"""数据源配置
         :rtype: str
         """
         return self._Schema
@@ -465,7 +584,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def CmsProject(self):
-        """cms 项目状态, 0: 重新获取详情信息，1： 不需要重新获取详情信息
+        r"""cms 项目状态, 0: 重新获取详情信息，1： 不需要重新获取详情信息
         :rtype: str
         """
         return self._CmsProject
@@ -476,7 +595,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PkgId(self):
-        """当前为环境 id
+        r"""当前为环境 id
         :rtype: str
         """
         return self._PkgId
@@ -487,7 +606,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def SchemaVersion(self):
-        """schema 版本信息
+        r"""schema 版本信息
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -499,7 +618,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def CreatorId(self):
-        """创建者用户 ID
+        r"""创建者用户 ID
         :rtype: str
         """
         return self._CreatorId
@@ -510,7 +629,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def CreatedAt(self):
-        """创建时间
+        r"""创建时间
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -522,7 +641,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def UpdatedAt(self):
-        """更新时间
+        r"""更新时间
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -534,7 +653,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境 id
+        r"""环境 id
         :rtype: str
         """
         return self._EnvId
@@ -545,7 +664,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def DataSourceVersion(self):
-        """版本
+        r"""版本
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -557,7 +676,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def AppUsageList(self):
-        """所属应用数组
+        r"""所属应用数组
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of DataSourceLinkApp
         """
@@ -569,7 +688,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PublishedAt(self):
-        """发布时间
+        r"""发布时间
         :rtype: str
         """
         return self._PublishedAt
@@ -580,7 +699,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def ChildDataSourceIds(self):
-        """子数据源ids
+        r"""子数据源ids
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of str
         """
@@ -592,7 +711,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Fun(self):
-        """数据源发布信息
+        r"""数据源发布信息
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -604,7 +723,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def ScfStatus(self):
-        """云函数状态 1 Active 2 Creating 3 Updating 4 Deleting  9 Deleted 11 CreatFailed  12 UpdateFailed 13 DeleteFailed 21 UpdateTimeOut
+        r"""云函数状态 1 Active 2 Creating 3 Updating 4 Deleting  9 Deleted 11 CreatFailed  12 UpdateFailed 13 DeleteFailed 21 UpdateTimeOut
         :rtype: int
         """
         return self._ScfStatus
@@ -615,7 +734,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Methods(self):
-        """自定义方法
+        r"""自定义方法
         :rtype: str
         """
         return self._Methods
@@ -626,7 +745,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def ChildDataSourceNames(self):
-        """子数据源名数组
+        r"""子数据源名数组
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of str
         """
@@ -638,7 +757,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def IsNewDataSource(self):
-        """是否旧数据源 1 新 0 旧
+        r"""是否旧数据源 1 新 0 旧
         :rtype: int
         """
         return self._IsNewDataSource
@@ -649,7 +768,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def ViewId(self):
-        """数据源视图id
+        r"""数据源视图id
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -661,7 +780,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Configuration(self):
-        """数据源属性配置
+        r"""数据源属性配置
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -673,7 +792,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def TemplateCode(self):
-        """外部数据源模板code
+        r"""外部数据源模板code
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -685,7 +804,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def Source(self):
-        """外部数据源模板来源 0 空模板 1 腾讯文档 2 腾讯会议 3 企业微信 4 微信电商
+        r"""外部数据源模板来源 0 空模板 1 腾讯文档 2 腾讯会议 3 企业微信 4 微信电商
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -699,7 +818,7 @@ class DataSourceDetail(AbstractModel):
     def PublishVersion(self):
         warnings.warn("parameter `PublishVersion` is deprecated", DeprecationWarning) 
 
-        """发布版本
+        r"""发布版本
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -713,7 +832,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PublishViewId(self):
-        """发布视图id
+        r"""发布视图id
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -725,7 +844,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def SubType(self):
-        """数据源子类型   "database" 标准模型 "custom-database" 自定义模型 "system" 系统模型 "connector" 连接器 "custom-connector" 自定义连接器 "hidden" 隐藏数据源
+        r"""数据源子类型   "database" 标准模型 "custom-database" 自定义模型 "system" 系统模型 "connector" 连接器 "custom-connector" 自定义连接器 "hidden" 隐藏数据源
         :rtype: str
         """
         return self._SubType
@@ -736,7 +855,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def AuthStatus(self):
-        """授权状态  0 授权无效 1 授权有效
+        r"""授权状态  0 授权无效 1 授权有效
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -748,7 +867,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def AuthInfo(self):
-        """数据源授权信息
+        r"""数据源授权信息
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.TicketAuthInfo`
         """
@@ -760,7 +879,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PublishStatus(self):
-        """1发布0未发布
+        r"""1发布0未发布
         :rtype: int
         """
         return self._PublishStatus
@@ -771,7 +890,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def UpdateVersion(self):
-        """更新版本
+        r"""更新版本
         :rtype: int
         """
         return self._UpdateVersion
@@ -782,7 +901,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def RelationFieldList(self):
-        """模型关联关系字段列表
+        r"""模型关联关系字段列表
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of RelationField
         """
@@ -794,7 +913,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def DbInstanceType(self):
-        """db实例类型
+        r"""db实例类型
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -806,7 +925,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PreviewTableName(self):
-        """体验环境db表名
+        r"""体验环境db表名
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -818,7 +937,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def PublishedTableName(self):
-        """正式环境db表名
+        r"""正式环境db表名
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -830,7 +949,7 @@ class DataSourceDetail(AbstractModel):
 
     @property
     def DbSourceType(self):
-        """DB来源类型
+        r"""DB来源类型
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -903,7 +1022,7 @@ class DataSourceDetail(AbstractModel):
 
 
 class DataSourceDetailItems(AbstractModel):
-    """数据详情列表
+    r"""数据详情列表
 
     """
 
@@ -919,7 +1038,7 @@ class DataSourceDetailItems(AbstractModel):
 
     @property
     def Rows(self):
-        """数据详情列表
+        r"""数据详情列表
         :rtype: list of DataSourceDetail
         """
         return self._Rows
@@ -930,7 +1049,7 @@ class DataSourceDetailItems(AbstractModel):
 
     @property
     def Count(self):
-        """数据源列表总个数
+        r"""数据源列表总个数
         :rtype: int
         """
         return self._Count
@@ -959,7 +1078,7 @@ class DataSourceDetailItems(AbstractModel):
 
 
 class DataSourceLinkApp(AbstractModel):
-    """数据源关联App信息
+    r"""数据源关联App信息
 
     """
 
@@ -987,7 +1106,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def Id(self):
-        """应用Id
+        r"""应用Id
         :rtype: str
         """
         return self._Id
@@ -998,7 +1117,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def Title(self):
-        """应用名称
+        r"""应用名称
         :rtype: str
         """
         return self._Title
@@ -1009,7 +1128,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def EditStatusUse(self):
-        """是否编辑状态使用
+        r"""是否编辑状态使用
         :rtype: int
         """
         return self._EditStatusUse
@@ -1020,7 +1139,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def PreviewStatusUse(self):
-        """是否预览状态使用
+        r"""是否预览状态使用
         :rtype: int
         """
         return self._PreviewStatusUse
@@ -1031,7 +1150,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def OnlineStatusUse(self):
-        """是否正式状态使用
+        r"""是否正式状态使用
         :rtype: int
         """
         return self._OnlineStatusUse
@@ -1042,7 +1161,7 @@ class DataSourceLinkApp(AbstractModel):
 
     @property
     def DataSourceId(self):
-        """数据源ID
+        r"""数据源ID
         :rtype: str
         """
         return self._DataSourceId
@@ -1070,7 +1189,7 @@ class DataSourceLinkApp(AbstractModel):
 
 
 class DataSourceQueryOption(AbstractModel):
-    """数据源模糊查询参数
+    r"""数据源模糊查询参数
 
     """
 
@@ -1086,7 +1205,7 @@ class DataSourceQueryOption(AbstractModel):
 
     @property
     def LikeName(self):
-        """数据源标识模糊匹配
+        r"""数据源标识模糊匹配
         :rtype: str
         """
         return self._LikeName
@@ -1097,7 +1216,7 @@ class DataSourceQueryOption(AbstractModel):
 
     @property
     def LikeTitle(self):
-        """数据源名称模糊匹配
+        r"""数据源名称模糊匹配
         :rtype: str
         """
         return self._LikeTitle
@@ -1121,7 +1240,7 @@ class DataSourceQueryOption(AbstractModel):
 
 
 class DeleteAppBindWxAppRequest(AbstractModel):
-    """DeleteAppBindWxApp请求参数结构体
+    r"""DeleteAppBindWxApp请求参数结构体
 
     """
 
@@ -1134,7 +1253,7 @@ class DeleteAppBindWxAppRequest(AbstractModel):
 
     @property
     def WeappId(self):
-        """应用id
+        r"""应用id
         :rtype: str
         """
         return self._WeappId
@@ -1157,7 +1276,7 @@ class DeleteAppBindWxAppRequest(AbstractModel):
 
 
 class DeleteAppBindWxAppResponse(AbstractModel):
-    """DeleteAppBindWxApp返回参数结构体
+    r"""DeleteAppBindWxApp返回参数结构体
 
     """
 
@@ -1170,7 +1289,7 @@ class DeleteAppBindWxAppResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1185,7 +1304,7 @@ class DeleteAppBindWxAppResponse(AbstractModel):
 
 
 class DeleteKnowledgeDocumentSetRequest(AbstractModel):
-    """DeleteKnowledgeDocumentSet请求参数结构体
+    r"""DeleteKnowledgeDocumentSet请求参数结构体
 
     """
 
@@ -1204,7 +1323,7 @@ class DeleteKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -1215,7 +1334,7 @@ class DeleteKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def CollectionView(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._CollectionView
@@ -1226,7 +1345,7 @@ class DeleteKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def Query(self):
-        """删除时制定的条件
+        r"""删除时制定的条件
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DocumentQuery`
         """
         return self._Query
@@ -1253,7 +1372,7 @@ class DeleteKnowledgeDocumentSetRequest(AbstractModel):
 
 
 class DeleteKnowledgeDocumentSetResponse(AbstractModel):
-    """DeleteKnowledgeDocumentSet返回参数结构体
+    r"""DeleteKnowledgeDocumentSet返回参数结构体
 
     """
 
@@ -1269,7 +1388,7 @@ class DeleteKnowledgeDocumentSetResponse(AbstractModel):
 
     @property
     def Data(self):
-        """新增文件返回信息
+        r"""新增文件返回信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DeleteKnowledgeDocumentSetRsp`
         """
         return self._Data
@@ -1280,7 +1399,7 @@ class DeleteKnowledgeDocumentSetResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1298,7 +1417,7 @@ class DeleteKnowledgeDocumentSetResponse(AbstractModel):
 
 
 class DeleteKnowledgeDocumentSetRsp(AbstractModel):
-    """删除文档出参
+    r"""删除文档出参
 
     """
 
@@ -1311,7 +1430,7 @@ class DeleteKnowledgeDocumentSetRsp(AbstractModel):
 
     @property
     def AffectedCount(self):
-        """删除文档数量。
+        r"""删除文档数量。
         :rtype: int
         """
         return self._AffectedCount
@@ -1334,7 +1453,7 @@ class DeleteKnowledgeDocumentSetRsp(AbstractModel):
 
 
 class DeleteKnowledgeSetRequest(AbstractModel):
-    """DeleteKnowledgeSet请求参数结构体
+    r"""DeleteKnowledgeSet请求参数结构体
 
     """
 
@@ -1350,7 +1469,7 @@ class DeleteKnowledgeSetRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -1361,7 +1480,7 @@ class DeleteKnowledgeSetRequest(AbstractModel):
 
     @property
     def Name(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._Name
@@ -1385,7 +1504,7 @@ class DeleteKnowledgeSetRequest(AbstractModel):
 
 
 class DeleteKnowledgeSetResponse(AbstractModel):
-    """DeleteKnowledgeSet返回参数结构体
+    r"""DeleteKnowledgeSet返回参数结构体
 
     """
 
@@ -1398,7 +1517,7 @@ class DeleteKnowledgeSetResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1413,7 +1532,7 @@ class DeleteKnowledgeSetResponse(AbstractModel):
 
 
 class DeployAppRequest(AbstractModel):
-    """DeployApp请求参数结构体
+    r"""DeployApp请求参数结构体
 
     """
 
@@ -1438,7 +1557,7 @@ class DeployAppRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -1449,7 +1568,7 @@ class DeployAppRequest(AbstractModel):
 
     @property
     def Id(self):
-        """应用id
+        r"""应用id
         :rtype: str
         """
         return self._Id
@@ -1460,7 +1579,7 @@ class DeployAppRequest(AbstractModel):
 
     @property
     def Mode(self):
-        """发布体验preview/正式upload
+        r"""发布体验preview/正式upload
         :rtype: str
         """
         return self._Mode
@@ -1471,7 +1590,7 @@ class DeployAppRequest(AbstractModel):
 
     @property
     def BuildType(self):
-        """构建类型：mp、pc、web、adminPortal
+        r"""构建类型：mp、pc、web、adminPortal
         :rtype: str
         """
         return self._BuildType
@@ -1482,7 +1601,7 @@ class DeployAppRequest(AbstractModel):
 
     @property
     def SubAppIds(self):
-        """子包数组
+        r"""子包数组
         :rtype: list of str
         """
         return self._SubAppIds
@@ -1509,7 +1628,7 @@ class DeployAppRequest(AbstractModel):
 
 
 class DeployAppResponse(AbstractModel):
-    """DeployApp返回参数结构体
+    r"""DeployApp返回参数结构体
 
     """
 
@@ -1532,7 +1651,7 @@ class DeployAppResponse(AbstractModel):
 
     @property
     def BuildId(self):
-        """构建id
+        r"""构建id
         :rtype: str
         """
         return self._BuildId
@@ -1543,7 +1662,7 @@ class DeployAppResponse(AbstractModel):
 
     @property
     def DeployErrCode(self):
-        """发布错误code
+        r"""发布错误code
         :rtype: int
         """
         return self._DeployErrCode
@@ -1554,7 +1673,7 @@ class DeployAppResponse(AbstractModel):
 
     @property
     def DeployErrMsg(self):
-        """发布错误信息
+        r"""发布错误信息
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -1566,7 +1685,7 @@ class DeployAppResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1583,8 +1702,216 @@ class DeployAppResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeAppsRequest(AbstractModel):
+    r"""DescribeApps请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Limit: 分页每页个数
+        :type Limit: int
+        :param _Offset: 分页Offset
+        :type Offset: int
+        :param _EnvId: 环境id
+        :type EnvId: str
+        :param _Keyword: 搜索关键词
+        :type Keyword: str
+        :param _AppIds: 应用id
+        :type AppIds: list of str
+        :param _Channel: 来源类型
+        :type Channel: str
+        :param _Type: 1-自定义应用；2-模型应用
+        :type Type: int
+        :param _Favorite: 应用是否收藏
+        :type Favorite: bool
+        """
+        self._Limit = None
+        self._Offset = None
+        self._EnvId = None
+        self._Keyword = None
+        self._AppIds = None
+        self._Channel = None
+        self._Type = None
+        self._Favorite = None
+
+    @property
+    def Limit(self):
+        r"""分页每页个数
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""分页Offset
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def EnvId(self):
+        r"""环境id
+        :rtype: str
+        """
+        return self._EnvId
+
+    @EnvId.setter
+    def EnvId(self, EnvId):
+        self._EnvId = EnvId
+
+    @property
+    def Keyword(self):
+        r"""搜索关键词
+        :rtype: str
+        """
+        return self._Keyword
+
+    @Keyword.setter
+    def Keyword(self, Keyword):
+        self._Keyword = Keyword
+
+    @property
+    def AppIds(self):
+        r"""应用id
+        :rtype: list of str
+        """
+        return self._AppIds
+
+    @AppIds.setter
+    def AppIds(self, AppIds):
+        self._AppIds = AppIds
+
+    @property
+    def Channel(self):
+        r"""来源类型
+        :rtype: str
+        """
+        return self._Channel
+
+    @Channel.setter
+    def Channel(self, Channel):
+        self._Channel = Channel
+
+    @property
+    def Type(self):
+        r"""1-自定义应用；2-模型应用
+        :rtype: int
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Favorite(self):
+        r"""应用是否收藏
+        :rtype: bool
+        """
+        return self._Favorite
+
+    @Favorite.setter
+    def Favorite(self, Favorite):
+        self._Favorite = Favorite
+
+
+    def _deserialize(self, params):
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        self._EnvId = params.get("EnvId")
+        self._Keyword = params.get("Keyword")
+        self._AppIds = params.get("AppIds")
+        self._Channel = params.get("Channel")
+        self._Type = params.get("Type")
+        self._Favorite = params.get("Favorite")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAppsResponse(AbstractModel):
+    r"""DescribeApps返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Weapps: 应用列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Weapps: list of Weapp
+        :param _Count: 应用个数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Count: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Weapps = None
+        self._Count = None
+        self._RequestId = None
+
+    @property
+    def Weapps(self):
+        r"""应用列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Weapp
+        """
+        return self._Weapps
+
+    @Weapps.setter
+    def Weapps(self, Weapps):
+        self._Weapps = Weapps
+
+    @property
+    def Count(self):
+        r"""应用个数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Count
+
+    @Count.setter
+    def Count(self, Count):
+        self._Count = Count
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Weapps") is not None:
+            self._Weapps = []
+            for item in params.get("Weapps"):
+                obj = Weapp()
+                obj._deserialize(item)
+                self._Weapps.append(obj)
+        self._Count = params.get("Count")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeDataSourceListRequest(AbstractModel):
-    """DescribeDataSourceList请求参数结构体
+    r"""DescribeDataSourceList请求参数结构体
 
     """
 
@@ -1648,7 +1975,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def PageSize(self):
-        """每页条数
+        r"""每页条数
         :rtype: int
         """
         return self._PageSize
@@ -1659,7 +1986,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def PageIndex(self):
-        """页码
+        r"""页码
         :rtype: int
         """
         return self._PageIndex
@@ -1670,7 +1997,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境 id
+        r"""环境 id
         :rtype: str
         """
         return self._EnvId
@@ -1681,7 +2008,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def Appids(self):
-        """应用id数组
+        r"""应用id数组
         :rtype: list of str
         """
         return self._Appids
@@ -1692,7 +2019,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def DataSourceIds(self):
-        """数据源id数组
+        r"""数据源id数组
         :rtype: list of str
         """
         return self._DataSourceIds
@@ -1703,7 +2030,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def DataSourceNames(self):
-        """数据源名称数组
+        r"""数据源名称数组
         :rtype: list of str
         """
         return self._DataSourceNames
@@ -1714,7 +2041,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def DataSourceType(self):
-        """数据源类型 database-自建数据源；cloud-integration-自定义数据源
+        r"""数据源类型 database-自建数据源；cloud-integration-自定义数据源
         :rtype: str
         """
         return self._DataSourceType
@@ -1725,7 +2052,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def QueryOption(self):
-        """数据源模糊查询参数
+        r"""数据源模糊查询参数
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DataSourceQueryOption`
         """
         return self._QueryOption
@@ -1736,7 +2063,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def ViewIds(self):
-        """数据源视图Id数组
+        r"""数据源视图Id数组
         :rtype: list of str
         """
         return self._ViewIds
@@ -1747,7 +2074,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def AppLinkStatus(self):
-        """查询未关联应用的数据源，0:未关联，该参数配合 AppIds 参数一块使用
+        r"""查询未关联应用的数据源，0:未关联，该参数配合 AppIds 参数一块使用
         :rtype: int
         """
         return self._AppLinkStatus
@@ -1758,7 +2085,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def QueryBindToApp(self):
-        """查询应用绑定数据源: 0: 否,1: 是
+        r"""查询应用绑定数据源: 0: 否,1: 是
         :rtype: int
         """
         return self._QueryBindToApp
@@ -1769,7 +2096,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def QueryConnector(self):
-        """查询连接器 0 数据模型 1 连接器 2 自定义连接器
+        r"""查询连接器 0 数据模型 1 连接器 2 自定义连接器
         :rtype: int
         """
         return self._QueryConnector
@@ -1780,7 +2107,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def NotQuerySubTypeList(self):
-        """废弃中
+        r"""废弃中
         :rtype: list of str
         """
         return self._NotQuerySubTypeList
@@ -1791,7 +2118,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def ChannelList(self):
-        """查询channelList
+        r"""查询channelList
         :rtype: list of str
         """
         return self._ChannelList
@@ -1802,7 +2129,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def QueryDataSourceRelationList(self):
-        """是否查询数据源关联关系
+        r"""是否查询数据源关联关系
         :rtype: bool
         """
         return self._QueryDataSourceRelationList
@@ -1813,7 +2140,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def DbInstanceType(self):
-        """db实例类型
+        r"""db实例类型
         :rtype: str
         """
         return self._DbInstanceType
@@ -1824,7 +2151,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def DatabaseTableNames(self):
-        """数据库表名列表
+        r"""数据库表名列表
         :rtype: list of str
         """
         return self._DatabaseTableNames
@@ -1835,7 +2162,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
     @property
     def QuerySystemModel(self):
-        """是否查询系统模型，默认为true，需要显示设置为False才能过滤系统模型
+        r"""是否查询系统模型，默认为true，需要显示设置为False才能过滤系统模型
         :rtype: bool
         """
         return self._QuerySystemModel
@@ -1877,7 +2204,7 @@ class DescribeDataSourceListRequest(AbstractModel):
 
 
 class DescribeDataSourceListResponse(AbstractModel):
-    """DescribeDataSourceList返回参数结构体
+    r"""DescribeDataSourceList返回参数结构体
 
     """
 
@@ -1893,7 +2220,7 @@ class DescribeDataSourceListResponse(AbstractModel):
 
     @property
     def Data(self):
-        """data 数据
+        r"""data 数据
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DataSourceDetailItems`
         """
         return self._Data
@@ -1904,7 +2231,7 @@ class DescribeDataSourceListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1922,7 +2249,7 @@ class DescribeDataSourceListResponse(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
-    """DescribeKnowledgeDocumentSetDetail请求参数结构体
+    r"""DescribeKnowledgeDocumentSetDetail请求参数结构体
 
     """
 
@@ -1944,7 +2271,7 @@ class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -1955,7 +2282,7 @@ class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
 
     @property
     def CollectionView(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._CollectionView
@@ -1966,7 +2293,7 @@ class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """文件名
+        r"""文件名
         :rtype: str
         """
         return self._DocumentSetName
@@ -1977,7 +2304,7 @@ class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文件id
+        r"""文件id
         :rtype: str
         """
         return self._DocumentSetId
@@ -2003,7 +2330,7 @@ class DescribeKnowledgeDocumentSetDetailRequest(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetDetailResponse(AbstractModel):
-    """DescribeKnowledgeDocumentSetDetail返回参数结构体
+    r"""DescribeKnowledgeDocumentSetDetail返回参数结构体
 
     """
 
@@ -2019,7 +2346,7 @@ class DescribeKnowledgeDocumentSetDetailResponse(AbstractModel):
 
     @property
     def Data(self):
-        """新增文件返回信息
+        r"""新增文件返回信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DescribeKnowledgeDocumentSetDetailRsp`
         """
         return self._Data
@@ -2030,7 +2357,7 @@ class DescribeKnowledgeDocumentSetDetailResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2048,7 +2375,7 @@ class DescribeKnowledgeDocumentSetDetailResponse(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetDetailRsp(AbstractModel):
-    """上传知识库文档返回结果
+    r"""上传知识库文档返回结果
 
     """
 
@@ -2064,7 +2391,7 @@ class DescribeKnowledgeDocumentSetDetailRsp(AbstractModel):
 
     @property
     def Count(self):
-        """获取的数量。
+        r"""获取的数量。
         :rtype: int
         """
         return self._Count
@@ -2075,7 +2402,7 @@ class DescribeKnowledgeDocumentSetDetailRsp(AbstractModel):
 
     @property
     def DocumentSet(self):
-        """文档信息
+        r"""文档信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.KnowledgeDocumentSet`
         """
         return self._DocumentSet
@@ -2101,7 +2428,7 @@ class DescribeKnowledgeDocumentSetDetailRsp(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetListRequest(AbstractModel):
-    """DescribeKnowledgeDocumentSetList请求参数结构体
+    r"""DescribeKnowledgeDocumentSetList请求参数结构体
 
     """
 
@@ -2120,7 +2447,7 @@ class DescribeKnowledgeDocumentSetListRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -2131,7 +2458,7 @@ class DescribeKnowledgeDocumentSetListRequest(AbstractModel):
 
     @property
     def CollectionView(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._CollectionView
@@ -2142,7 +2469,7 @@ class DescribeKnowledgeDocumentSetListRequest(AbstractModel):
 
     @property
     def Query(self):
-        """查询条件
+        r"""查询条件
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.PageQuery`
         """
         return self._Query
@@ -2169,7 +2496,7 @@ class DescribeKnowledgeDocumentSetListRequest(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetListResponse(AbstractModel):
-    """DescribeKnowledgeDocumentSetList返回参数结构体
+    r"""DescribeKnowledgeDocumentSetList返回参数结构体
 
     """
 
@@ -2185,7 +2512,7 @@ class DescribeKnowledgeDocumentSetListResponse(AbstractModel):
 
     @property
     def Data(self):
-        """新增文件返回信息
+        r"""新增文件返回信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.DescribeKnowledgeDocumentSetListRsp`
         """
         return self._Data
@@ -2196,7 +2523,7 @@ class DescribeKnowledgeDocumentSetListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2214,7 +2541,7 @@ class DescribeKnowledgeDocumentSetListResponse(AbstractModel):
 
 
 class DescribeKnowledgeDocumentSetListRsp(AbstractModel):
-    """删除文档出参
+    r"""删除文档出参
 
     """
 
@@ -2230,7 +2557,7 @@ class DescribeKnowledgeDocumentSetListRsp(AbstractModel):
 
     @property
     def DocumentSets(self):
-        """文件集
+        r"""文件集
         :rtype: list of QureyKnowledgeDocumentSet
         """
         return self._DocumentSets
@@ -2241,7 +2568,7 @@ class DescribeKnowledgeDocumentSetListRsp(AbstractModel):
 
     @property
     def Count(self):
-        """条数
+        r"""条数
         :rtype: int
         """
         return self._Count
@@ -2270,7 +2597,7 @@ class DescribeKnowledgeDocumentSetListRsp(AbstractModel):
 
 
 class DescribeKnowledgeSetListRequest(AbstractModel):
-    """DescribeKnowledgeSetList请求参数结构体
+    r"""DescribeKnowledgeSetList请求参数结构体
 
     """
 
@@ -2298,7 +2625,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -2309,7 +2636,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def Name(self):
-        """知识库标识，精准查询
+        r"""知识库标识，精准查询
         :rtype: str
         """
         return self._Name
@@ -2320,7 +2647,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def Title(self):
-        """知识库名称，精准查询
+        r"""知识库名称，精准查询
         :rtype: str
         """
         return self._Title
@@ -2331,7 +2658,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def Offset(self):
-        """分页起始位
+        r"""分页起始位
         :rtype: int
         """
         return self._Offset
@@ -2342,7 +2669,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def Limit(self):
-        """查询条数
+        r"""查询条数
         :rtype: int
         """
         return self._Limit
@@ -2353,7 +2680,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
     @property
     def QueryMode(self):
-        """NoPage标识不分页
+        r"""NoPage标识不分页
         :rtype: str
         """
         return self._QueryMode
@@ -2381,7 +2708,7 @@ class DescribeKnowledgeSetListRequest(AbstractModel):
 
 
 class DescribeKnowledgeSetListResponse(AbstractModel):
-    """DescribeKnowledgeSetList返回参数结构体
+    r"""DescribeKnowledgeSetList返回参数结构体
 
     """
 
@@ -2397,7 +2724,7 @@ class DescribeKnowledgeSetListResponse(AbstractModel):
 
     @property
     def Data(self):
-        """知识库列表
+        r"""知识库列表
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.KnowledgeSetRsp`
         """
         return self._Data
@@ -2408,7 +2735,7 @@ class DescribeKnowledgeSetListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2425,8 +2752,338 @@ class DescribeKnowledgeSetListResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeRelatedUsersRequest(AbstractModel):
+    r"""DescribeRelatedUsers请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoleId: 角色id
+        :type RoleId: int
+        :param _EnvId: 环境id
+        :type EnvId: str
+        :param _PageNo: 页码
+        :type PageNo: int
+        :param _PageSize: 页面含量
+        :type PageSize: int
+        :param _EnvType: 环境类型
+        :type EnvType: str
+        """
+        self._RoleId = None
+        self._EnvId = None
+        self._PageNo = None
+        self._PageSize = None
+        self._EnvType = None
+
+    @property
+    def RoleId(self):
+        r"""角色id
+        :rtype: int
+        """
+        return self._RoleId
+
+    @RoleId.setter
+    def RoleId(self, RoleId):
+        self._RoleId = RoleId
+
+    @property
+    def EnvId(self):
+        r"""环境id
+        :rtype: str
+        """
+        return self._EnvId
+
+    @EnvId.setter
+    def EnvId(self, EnvId):
+        self._EnvId = EnvId
+
+    @property
+    def PageNo(self):
+        r"""页码
+        :rtype: int
+        """
+        return self._PageNo
+
+    @PageNo.setter
+    def PageNo(self, PageNo):
+        self._PageNo = PageNo
+
+    @property
+    def PageSize(self):
+        r"""页面含量
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+    @property
+    def EnvType(self):
+        r"""环境类型
+        :rtype: str
+        """
+        return self._EnvType
+
+    @EnvType.setter
+    def EnvType(self, EnvType):
+        self._EnvType = EnvType
+
+
+    def _deserialize(self, params):
+        self._RoleId = params.get("RoleId")
+        self._EnvId = params.get("EnvId")
+        self._PageNo = params.get("PageNo")
+        self._PageSize = params.get("PageSize")
+        self._EnvType = params.get("EnvType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRelatedUsersResponse(AbstractModel):
+    r"""DescribeRelatedUsers返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 关联的用户列表
+        :type Data: list of WedaUser
+        :param _Total: 总数
+        :type Total: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._Total = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""关联的用户列表
+        :rtype: list of WedaUser
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def Total(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = []
+            for item in params.get("Data"):
+                obj = WedaUser()
+                obj._deserialize(item)
+                self._Data.append(obj)
+        self._Total = params.get("Total")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeResourceRoleListRequest(AbstractModel):
+    r"""DescribeResourceRoleList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResourceId: 资源id
+        :type ResourceId: str
+        :param _ResourceType: 资源类型
+        :type ResourceType: str
+        :param _EnvType: 预览：pre；非预览：prod
+        :type EnvType: str
+        :param _EnvId: 环境id
+        :type EnvId: str
+        :param _SubType: 子资源类型
+        :type SubType: str
+        :param _PageNo: 页码
+        :type PageNo: int
+        :param _PageSize: 分页大小
+        :type PageSize: int
+        """
+        self._ResourceId = None
+        self._ResourceType = None
+        self._EnvType = None
+        self._EnvId = None
+        self._SubType = None
+        self._PageNo = None
+        self._PageSize = None
+
+    @property
+    def ResourceId(self):
+        r"""资源id
+        :rtype: str
+        """
+        return self._ResourceId
+
+    @ResourceId.setter
+    def ResourceId(self, ResourceId):
+        self._ResourceId = ResourceId
+
+    @property
+    def ResourceType(self):
+        r"""资源类型
+        :rtype: str
+        """
+        return self._ResourceType
+
+    @ResourceType.setter
+    def ResourceType(self, ResourceType):
+        self._ResourceType = ResourceType
+
+    @property
+    def EnvType(self):
+        r"""预览：pre；非预览：prod
+        :rtype: str
+        """
+        return self._EnvType
+
+    @EnvType.setter
+    def EnvType(self, EnvType):
+        self._EnvType = EnvType
+
+    @property
+    def EnvId(self):
+        r"""环境id
+        :rtype: str
+        """
+        return self._EnvId
+
+    @EnvId.setter
+    def EnvId(self, EnvId):
+        self._EnvId = EnvId
+
+    @property
+    def SubType(self):
+        r"""子资源类型
+        :rtype: str
+        """
+        return self._SubType
+
+    @SubType.setter
+    def SubType(self, SubType):
+        self._SubType = SubType
+
+    @property
+    def PageNo(self):
+        r"""页码
+        :rtype: int
+        """
+        return self._PageNo
+
+    @PageNo.setter
+    def PageNo(self, PageNo):
+        self._PageNo = PageNo
+
+    @property
+    def PageSize(self):
+        r"""分页大小
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+
+    def _deserialize(self, params):
+        self._ResourceId = params.get("ResourceId")
+        self._ResourceType = params.get("ResourceType")
+        self._EnvType = params.get("EnvType")
+        self._EnvId = params.get("EnvId")
+        self._SubType = params.get("SubType")
+        self._PageNo = params.get("PageNo")
+        self._PageSize = params.get("PageSize")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeResourceRoleListResponse(AbstractModel):
+    r"""DescribeResourceRoleList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 角色列表
+        :type Data: :class:`tencentcloud.lowcode.v20210108.models.RoleListPage`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""角色列表
+        :rtype: :class:`tencentcloud.lowcode.v20210108.models.RoleListPage`
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = RoleListPage()
+            self._Data._deserialize(params.get("Data"))
+        self._RequestId = params.get("RequestId")
+
+
 class DocumentQuery(AbstractModel):
-    """删除文档时查询入参
+    r"""删除文档时查询入参
 
     """
 
@@ -2445,7 +3102,7 @@ class DocumentQuery(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文件ids
+        r"""文件ids
         :rtype: list of str
         """
         return self._DocumentSetId
@@ -2456,7 +3113,7 @@ class DocumentQuery(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """文件名集合
+        r"""文件名集合
         :rtype: list of str
         """
         return self._DocumentSetName
@@ -2467,7 +3124,7 @@ class DocumentQuery(AbstractModel):
 
     @property
     def Filter(self):
-        """使用创建 CollectionView 指定的 Filter 索引的字段设置查询过滤表达式
+        r"""使用创建 CollectionView 指定的 Filter 索引的字段设置查询过滤表达式
         :rtype: str
         """
         return self._Filter
@@ -2492,7 +3149,7 @@ class DocumentQuery(AbstractModel):
 
 
 class KnowledgeDocumentSet(AbstractModel):
-    """文档信息
+    r"""文档信息
 
     """
 
@@ -2541,7 +3198,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文档id
+        r"""文档id
         :rtype: str
         """
         return self._DocumentSetId
@@ -2552,7 +3209,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """文档名
+        r"""文档名
         :rtype: str
         """
         return self._DocumentSetName
@@ -2563,7 +3220,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def Text(self):
-        """文件完整内容。
+        r"""文件完整内容。
         :rtype: str
         """
         return self._Text
@@ -2574,7 +3231,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def TextPrefix(self):
-        """文件内容前 200个字符。
+        r"""文件内容前 200个字符。
         :rtype: str
         """
         return self._TextPrefix
@@ -2585,7 +3242,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetInfo(self):
-        """文件详情
+        r"""文件详情
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.KnowledgeDocumentSetInfo`
         """
         return self._DocumentSetInfo
@@ -2596,7 +3253,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def SplitterPreprocess(self):
-        """文件拆分信息
+        r"""文件拆分信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.KnowledgeSplitterPreprocess`
         """
         return self._SplitterPreprocess
@@ -2607,7 +3264,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def Name(self):
-        """未使用
+        r"""未使用
         :rtype: str
         """
         return self._Name
@@ -2618,7 +3275,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileTitle(self):
-        """文档标题
+        r"""文档标题
         :rtype: str
         """
         return self._FileTitle
@@ -2629,7 +3286,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileMetaData(self):
-        """文档元信息，必须为jsonstring
+        r"""文档元信息，必须为jsonstring
         :rtype: str
         """
         return self._FileMetaData
@@ -2640,7 +3297,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def Author(self):
-        """作者
+        r"""作者
         :rtype: str
         """
         return self._Author
@@ -2651,7 +3308,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocStatus(self):
-        """上传文件状态
+        r"""上传文件状态
         :rtype: str
         """
         return self._DocStatus
@@ -2662,7 +3319,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def ErrMsg(self):
-        """文件上传失败的具体原因
+        r"""文件上传失败的具体原因
         :rtype: str
         """
         return self._ErrMsg
@@ -2673,7 +3330,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileId(self):
-        """Cos存储文件ID
+        r"""Cos存储文件ID
         :rtype: str
         """
         return self._FileId
@@ -2712,7 +3369,7 @@ class KnowledgeDocumentSet(AbstractModel):
 
 
 class KnowledgeDocumentSetInfo(AbstractModel):
-    """文档信息
+    r"""文档信息
 
     """
 
@@ -2748,7 +3405,7 @@ Ready：文件解析、写入完成。
 
     @property
     def TextLength(self):
-        """文件的字符数。
+        r"""文件的字符数。
         :rtype: int
         """
         return self._TextLength
@@ -2759,7 +3416,7 @@ Ready：文件解析、写入完成。
 
     @property
     def ByteLength(self):
-        """文件的字节数。
+        r"""文件的字节数。
         :rtype: int
         """
         return self._ByteLength
@@ -2770,7 +3427,7 @@ Ready：文件解析、写入完成。
 
     @property
     def IndexedProgress(self):
-        """文件被预处理、Embedding 向量化的进度。
+        r"""文件被预处理、Embedding 向量化的进度。
         :rtype: int
         """
         return self._IndexedProgress
@@ -2781,7 +3438,7 @@ Ready：文件解析、写入完成。
 
     @property
     def IndexedStatus(self):
-        """文件预处理、Embedding 向量化的状态。
+        r"""文件预处理、Embedding 向量化的状态。
 New：等待解析。
 Loading：文件解析中。
 Failure：文件解析、写入出错。
@@ -2797,7 +3454,7 @@ Ready：文件解析、写入完成。
 
     @property
     def CreateTime(self):
-        """文件创建时间。
+        r"""文件创建时间。
         :rtype: str
         """
         return self._CreateTime
@@ -2808,7 +3465,7 @@ Ready：文件解析、写入完成。
 
     @property
     def LastUpdateTime(self):
-        """文件最后更新时间。
+        r"""文件最后更新时间。
         :rtype: str
         """
         return self._LastUpdateTime
@@ -2819,7 +3476,7 @@ Ready：文件解析、写入完成。
 
     @property
     def Keywords(self):
-        """文件关键字。
+        r"""文件关键字。
         :rtype: str
         """
         return self._Keywords
@@ -2848,7 +3505,7 @@ Ready：文件解析、写入完成。
 
 
 class KnowledgeSet(AbstractModel):
-    """知识库信息
+    r"""知识库信息
 
     """
 
@@ -2884,7 +3541,7 @@ ENABLED 已启用
 
     @property
     def Name(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._Name
@@ -2895,7 +3552,7 @@ ENABLED 已启用
 
     @property
     def Title(self):
-        """知识库名称
+        r"""知识库名称
         :rtype: str
         """
         return self._Title
@@ -2906,7 +3563,7 @@ ENABLED 已启用
 
     @property
     def Desc(self):
-        """描述
+        r"""描述
         :rtype: str
         """
         return self._Desc
@@ -2917,7 +3574,7 @@ ENABLED 已启用
 
     @property
     def Active(self):
-        """状态，
+        r"""状态，
 NOT_ENABLED未启用
 ENABLED 已启用
         :rtype: str
@@ -2930,7 +3587,7 @@ ENABLED 已启用
 
     @property
     def CreateTime(self):
-        """创建时间
+        r"""创建时间
         :rtype: str
         """
         return self._CreateTime
@@ -2941,7 +3598,7 @@ ENABLED 已启用
 
     @property
     def UpdateTime(self):
-        """更新时间
+        r"""更新时间
         :rtype: str
         """
         return self._UpdateTime
@@ -2952,7 +3609,7 @@ ENABLED 已启用
 
     @property
     def Meta(self):
-        """知识库的meta信息
+        r"""知识库的meta信息
         :rtype: str
         """
         return self._Meta
@@ -2963,7 +3620,7 @@ ENABLED 已启用
 
     @property
     def TotalSize(self):
-        """知识库容量,单位字节
+        r"""知识库容量,单位字节
         :rtype: str
         """
         return self._TotalSize
@@ -2993,7 +3650,7 @@ ENABLED 已启用
 
 
 class KnowledgeSetRsp(AbstractModel):
-    """查询知识库列表返回
+    r"""查询知识库列表返回
 
     """
 
@@ -3009,7 +3666,7 @@ class KnowledgeSetRsp(AbstractModel):
 
     @property
     def Total(self):
-        """总数
+        r"""总数
         :rtype: int
         """
         return self._Total
@@ -3020,7 +3677,7 @@ class KnowledgeSetRsp(AbstractModel):
 
     @property
     def KnowledgeSets(self):
-        """知识库列表
+        r"""知识库列表
         :rtype: list of KnowledgeSet
         """
         return self._KnowledgeSets
@@ -3049,7 +3706,7 @@ class KnowledgeSetRsp(AbstractModel):
 
 
 class KnowledgeSplitterPreprocess(AbstractModel):
-    """文件拆分信息
+    r"""文件拆分信息
 
     """
 
@@ -3071,7 +3728,7 @@ true：将全文的 keywords 追加到切分后的段落。
 
     @property
     def AppendTitleToChunk(self):
-        """在对文件拆分时，配置是否将 Title 追加到切分后的段落后面一并 Embedding。取值如下所示：
+        r"""在对文件拆分时，配置是否将 Title 追加到切分后的段落后面一并 Embedding。取值如下所示：
 false：不追加。
 true：将段落 Title 追加到切分后的段落。
 
@@ -3085,7 +3742,7 @@ true：将段落 Title 追加到切分后的段落。
 
     @property
     def AppendKeywordsToChunk(self):
-        """在对文件拆分时，配置是否将关键字 keywords 追加到切分后的段落一并 Embedding。取值如下所示：
+        r"""在对文件拆分时，配置是否将关键字 keywords 追加到切分后的段落一并 Embedding。取值如下所示：
 false：不追加。
 true：将全文的 keywords 追加到切分后的段落。
 
@@ -3111,8 +3768,104 @@ true：将全文的 keywords 追加到切分后的段落。
         
 
 
+class OrgResp(AbstractModel):
+    r"""组织架构返回参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _OrgId: 部门id
+        :type OrgId: str
+        :param _OrgName: 部门名称
+        :type OrgName: str
+        :param _OrgIdentity: 部门标识
+        :type OrgIdentity: str
+        :param _Level: 部门层级
+        :type Level: str
+        :param _PrimaryColumn: 主键字段
+        :type PrimaryColumn: str
+        """
+        self._OrgId = None
+        self._OrgName = None
+        self._OrgIdentity = None
+        self._Level = None
+        self._PrimaryColumn = None
+
+    @property
+    def OrgId(self):
+        r"""部门id
+        :rtype: str
+        """
+        return self._OrgId
+
+    @OrgId.setter
+    def OrgId(self, OrgId):
+        self._OrgId = OrgId
+
+    @property
+    def OrgName(self):
+        r"""部门名称
+        :rtype: str
+        """
+        return self._OrgName
+
+    @OrgName.setter
+    def OrgName(self, OrgName):
+        self._OrgName = OrgName
+
+    @property
+    def OrgIdentity(self):
+        r"""部门标识
+        :rtype: str
+        """
+        return self._OrgIdentity
+
+    @OrgIdentity.setter
+    def OrgIdentity(self, OrgIdentity):
+        self._OrgIdentity = OrgIdentity
+
+    @property
+    def Level(self):
+        r"""部门层级
+        :rtype: str
+        """
+        return self._Level
+
+    @Level.setter
+    def Level(self, Level):
+        self._Level = Level
+
+    @property
+    def PrimaryColumn(self):
+        r"""主键字段
+        :rtype: str
+        """
+        return self._PrimaryColumn
+
+    @PrimaryColumn.setter
+    def PrimaryColumn(self, PrimaryColumn):
+        self._PrimaryColumn = PrimaryColumn
+
+
+    def _deserialize(self, params):
+        self._OrgId = params.get("OrgId")
+        self._OrgName = params.get("OrgName")
+        self._OrgIdentity = params.get("OrgIdentity")
+        self._Level = params.get("Level")
+        self._PrimaryColumn = params.get("PrimaryColumn")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class PageQuery(AbstractModel):
-    """查询条件
+    r"""查询条件
 
     """
 
@@ -3144,7 +3897,7 @@ class PageQuery(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文件id数组，表示要查询的文件的所有 ID，支持批量查询，数组元素范围[1,20]。
+        r"""文件id数组，表示要查询的文件的所有 ID，支持批量查询，数组元素范围[1,20]。
         :rtype: list of str
         """
         return self._DocumentSetId
@@ -3155,7 +3908,7 @@ class PageQuery(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """表示要查询的文档名称，支持批量查询，数组元素范围[1,20]。
+        r"""表示要查询的文档名称，支持批量查询，数组元素范围[1,20]。
         :rtype: list of str
         """
         return self._DocumentSetName
@@ -3166,7 +3919,7 @@ class PageQuery(AbstractModel):
 
     @property
     def Limit(self):
-        """取值范围：[1,16384]
+        r"""取值范围：[1,16384]
         :rtype: int
         """
         return self._Limit
@@ -3177,7 +3930,7 @@ class PageQuery(AbstractModel):
 
     @property
     def Offset(self):
-        """设置分页偏移量，用于控制分页查询返回结果的起始位置，方便用户对数据进行分页展示和浏览。
+        r"""设置分页偏移量，用于控制分页查询返回结果的起始位置，方便用户对数据进行分页展示和浏览。
 取值：为 limit 整数倍。
 计算公式：offset=limit*(page-1)。
 例如：当 limit = 10，page = 2 时，分页偏移量 offset = 10 * (2 - 1) = 10，表示从查询结果的第 11 条记录开始返回数据。
@@ -3192,7 +3945,7 @@ class PageQuery(AbstractModel):
 
     @property
     def OutputFields(self):
-        """设置后，其他字段为空值
+        r"""设置后，其他字段为空值
         :rtype: list of str
         """
         return self._OutputFields
@@ -3203,7 +3956,7 @@ class PageQuery(AbstractModel):
 
     @property
     def Filter(self):
-        """使用创建 CollectionView 指定的 Filter 索引的字段设置查询过滤表达式。
+        r"""使用创建 CollectionView 指定的 Filter 索引的字段设置查询过滤表达式。
         :rtype: str
         """
         return self._Filter
@@ -3231,7 +3984,7 @@ class PageQuery(AbstractModel):
 
 
 class PutWxAppIdToWeAppRequest(AbstractModel):
-    """PutWxAppIdToWeApp请求参数结构体
+    r"""PutWxAppIdToWeApp请求参数结构体
 
     """
 
@@ -3247,7 +4000,7 @@ class PutWxAppIdToWeAppRequest(AbstractModel):
 
     @property
     def WeAppId(self):
-        """应用ID
+        r"""应用ID
         :rtype: str
         """
         return self._WeAppId
@@ -3258,7 +4011,7 @@ class PutWxAppIdToWeAppRequest(AbstractModel):
 
     @property
     def WxAppId(self):
-        """微信AppId
+        r"""微信AppId
         :rtype: str
         """
         return self._WxAppId
@@ -3282,7 +4035,7 @@ class PutWxAppIdToWeAppRequest(AbstractModel):
 
 
 class PutWxAppIdToWeAppResponse(AbstractModel):
-    """PutWxAppIdToWeApp返回参数结构体
+    r"""PutWxAppIdToWeApp返回参数结构体
 
     """
 
@@ -3295,7 +4048,7 @@ class PutWxAppIdToWeAppResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3310,7 +4063,7 @@ class PutWxAppIdToWeAppResponse(AbstractModel):
 
 
 class QureyKnowledgeDocumentSet(AbstractModel):
-    """搜索数据的集合
+    r"""搜索数据的集合
 
     """
 
@@ -3356,7 +4109,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文件id
+        r"""文件id
         :rtype: str
         """
         return self._DocumentSetId
@@ -3367,7 +4120,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """文件名
+        r"""文件名
         :rtype: str
         """
         return self._DocumentSetName
@@ -3378,7 +4131,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def TextPrefix(self):
-        """文件内容前 200个字符。
+        r"""文件内容前 200个字符。
         :rtype: str
         """
         return self._TextPrefix
@@ -3389,7 +4142,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def SplitterPreprocess(self):
-        """文件拆分信息
+        r"""文件拆分信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.KnowledgeSplitterPreprocess`
         """
         return self._SplitterPreprocess
@@ -3400,7 +4153,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocumentSetInfo(self):
-        """文件详情
+        r"""文件详情
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.QureyKnowledgeDocumentSetInfo`
         """
         return self._DocumentSetInfo
@@ -3411,7 +4164,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileTitle(self):
-        """文件标题
+        r"""文件标题
         :rtype: str
         """
         return self._FileTitle
@@ -3422,7 +4175,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileMetaData(self):
-        """文件元信息，必须为jsonstring
+        r"""文件元信息，必须为jsonstring
         :rtype: str
         """
         return self._FileMetaData
@@ -3433,7 +4186,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def Name(self):
-        """name
+        r"""name
         :rtype: str
         """
         return self._Name
@@ -3444,7 +4197,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def Author(self):
-        """作者
+        r"""作者
         :rtype: str
         """
         return self._Author
@@ -3455,7 +4208,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def DocStatus(self):
-        """文档上传状态
+        r"""文档上传状态
         :rtype: str
         """
         return self._DocStatus
@@ -3466,7 +4219,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def ErrMsg(self):
-        """上传文件失败时具体的错误消息
+        r"""上传文件失败时具体的错误消息
         :rtype: str
         """
         return self._ErrMsg
@@ -3477,7 +4230,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
     @property
     def FileId(self):
-        """Cos存储文件ID
+        r"""Cos存储文件ID
         :rtype: str
         """
         return self._FileId
@@ -3515,7 +4268,7 @@ class QureyKnowledgeDocumentSet(AbstractModel):
 
 
 class QureyKnowledgeDocumentSetInfo(AbstractModel):
-    """查询文件集合信息详情
+    r"""查询文件集合信息详情
 
     """
 
@@ -3554,7 +4307,7 @@ Ready：文件解析、写入完成。
 
     @property
     def TextLength(self):
-        """文件的字符数。
+        r"""文件的字符数。
         :rtype: int
         """
         return self._TextLength
@@ -3565,7 +4318,7 @@ Ready：文件解析、写入完成。
 
     @property
     def ByteLength(self):
-        """文件的字节数。
+        r"""文件的字节数。
         :rtype: int
         """
         return self._ByteLength
@@ -3576,7 +4329,7 @@ Ready：文件解析、写入完成。
 
     @property
     def IndexedProgress(self):
-        """文件被预处理、Embedding 向量化的进度。
+        r"""文件被预处理、Embedding 向量化的进度。
         :rtype: int
         """
         return self._IndexedProgress
@@ -3587,7 +4340,7 @@ Ready：文件解析、写入完成。
 
     @property
     def IndexedStatus(self):
-        """文件预处理、Embedding 向量化的状态。
+        r"""文件预处理、Embedding 向量化的状态。
 New：等待解析。
 Loading：文件解析中。
 Failure：文件解析、写入出错。
@@ -3603,7 +4356,7 @@ Ready：文件解析、写入完成。
 
     @property
     def IndexedErrorMsg(self):
-        """错误信息
+        r"""错误信息
         :rtype: str
         """
         return self._IndexedErrorMsg
@@ -3614,7 +4367,7 @@ Ready：文件解析、写入完成。
 
     @property
     def CreateTime(self):
-        """文件创建时间。
+        r"""文件创建时间。
         :rtype: str
         """
         return self._CreateTime
@@ -3625,7 +4378,7 @@ Ready：文件解析、写入完成。
 
     @property
     def LastUpdateTime(self):
-        """文件最后更新时间。
+        r"""文件最后更新时间。
         :rtype: str
         """
         return self._LastUpdateTime
@@ -3636,7 +4389,7 @@ Ready：文件解析、写入完成。
 
     @property
     def Keywords(self):
-        """文件关键字。
+        r"""文件关键字。
         :rtype: str
         """
         return self._Keywords
@@ -3666,7 +4419,7 @@ Ready：文件解析、写入完成。
 
 
 class RelationField(AbstractModel):
-    """数据源关联的的信息
+    r"""数据源关联的的信息
 
     """
 
@@ -3685,7 +4438,7 @@ class RelationField(AbstractModel):
 
     @property
     def Field(self):
-        """关联关系字段
+        r"""关联关系字段
         :rtype: str
         """
         return self._Field
@@ -3696,7 +4449,7 @@ class RelationField(AbstractModel):
 
     @property
     def Format(self):
-        """关联关系格式
+        r"""关联关系格式
         :rtype: str
         """
         return self._Format
@@ -3707,7 +4460,7 @@ class RelationField(AbstractModel):
 
     @property
     def RelateDataSourceName(self):
-        """关联数据源名称
+        r"""关联数据源名称
         :rtype: str
         """
         return self._RelateDataSourceName
@@ -3731,8 +4484,205 @@ class RelationField(AbstractModel):
         
 
 
+class RoleGroup(AbstractModel):
+    r"""权限组
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 权限组id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Id: int
+        :param _Name: 权限组名称
+        :type Name: str
+        :param _GroupIdentity: 权限组标识
+        :type GroupIdentity: str
+        :param _GroupDesc: 权限组描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GroupDesc: str
+        :param _CreateTime: 创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreateTime: str
+        :param _UpdateTime: 更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UpdateTime: str
+        :param _RoleList: 角色数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoleList: list of WedaRole
+        """
+        self._Id = None
+        self._Name = None
+        self._GroupIdentity = None
+        self._GroupDesc = None
+        self._CreateTime = None
+        self._UpdateTime = None
+        self._RoleList = None
+
+    @property
+    def Id(self):
+        r"""权限组id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Name(self):
+        r"""权限组名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def GroupIdentity(self):
+        r"""权限组标识
+        :rtype: str
+        """
+        return self._GroupIdentity
+
+    @GroupIdentity.setter
+    def GroupIdentity(self, GroupIdentity):
+        self._GroupIdentity = GroupIdentity
+
+    @property
+    def GroupDesc(self):
+        r"""权限组描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._GroupDesc
+
+    @GroupDesc.setter
+    def GroupDesc(self, GroupDesc):
+        self._GroupDesc = GroupDesc
+
+    @property
+    def CreateTime(self):
+        r"""创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+    @property
+    def RoleList(self):
+        r"""角色数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of WedaRole
+        """
+        return self._RoleList
+
+    @RoleList.setter
+    def RoleList(self, RoleList):
+        self._RoleList = RoleList
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Name = params.get("Name")
+        self._GroupIdentity = params.get("GroupIdentity")
+        self._GroupDesc = params.get("GroupDesc")
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
+        if params.get("RoleList") is not None:
+            self._RoleList = []
+            for item in params.get("RoleList"):
+                obj = WedaRole()
+                obj._deserialize(item)
+                self._RoleList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoleListPage(AbstractModel):
+    r"""角色分页
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoleList: 角色列表
+        :type RoleList: list of WedaRole
+        :param _Total: 总数
+        :type Total: int
+        """
+        self._RoleList = None
+        self._Total = None
+
+    @property
+    def RoleList(self):
+        r"""角色列表
+        :rtype: list of WedaRole
+        """
+        return self._RoleList
+
+    @RoleList.setter
+    def RoleList(self, RoleList):
+        self._RoleList = RoleList
+
+    @property
+    def Total(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+
+    def _deserialize(self, params):
+        if params.get("RoleList") is not None:
+            self._RoleList = []
+            for item in params.get("RoleList"):
+                obj = WedaRole()
+                obj._deserialize(item)
+                self._RoleList.append(obj)
+        self._Total = params.get("Total")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class SearchDocInfo(AbstractModel):
-    """知识库搜索文档信息
+    r"""知识库搜索文档信息
 
     """
 
@@ -3769,7 +4719,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def CollectionViewName(self):
-        """知识库名称
+        r"""知识库名称
         :rtype: str
         """
         return self._CollectionViewName
@@ -3780,7 +4730,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def DocSetId(self):
-        """文档Id
+        r"""文档Id
         :rtype: str
         """
         return self._DocSetId
@@ -3791,7 +4741,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def DocSetName(self):
-        """文档Name
+        r"""文档Name
         :rtype: str
         """
         return self._DocSetName
@@ -3802,7 +4752,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def DocType(self):
-        """文档类型
+        r"""文档类型
         :rtype: str
         """
         return self._DocType
@@ -3813,7 +4763,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def FileTitle(self):
-        """文档标题
+        r"""文档标题
         :rtype: str
         """
         return self._FileTitle
@@ -3824,7 +4774,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def FileMetaData(self):
-        """文档元信息
+        r"""文档元信息
         :rtype: str
         """
         return self._FileMetaData
@@ -3835,7 +4785,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def DocDesc(self):
-        """文档描述
+        r"""文档描述
         :rtype: str
         """
         return self._DocDesc
@@ -3846,7 +4796,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def FileSize(self):
-        """文档大小
+        r"""文档大小
         :rtype: int
         """
         return self._FileSize
@@ -3857,7 +4807,7 @@ class SearchDocInfo(AbstractModel):
 
     @property
     def FileId(self):
-        """Cos存储文件ID
+        r"""Cos存储文件ID
         :rtype: str
         """
         return self._FileId
@@ -3888,7 +4838,7 @@ class SearchDocInfo(AbstractModel):
 
 
 class SearchDocListRequest(AbstractModel):
-    """SearchDocList请求参数结构体
+    r"""SearchDocList请求参数结构体
 
     """
 
@@ -3916,7 +4866,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -3927,7 +4877,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def CollectionView(self):
-        """知识库名称
+        r"""知识库名称
         :rtype: str
         """
         return self._CollectionView
@@ -3938,7 +4888,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def SearchKey(self):
-        """搜索模式
+        r"""搜索模式
         :rtype: str
         """
         return self._SearchKey
@@ -3949,7 +4899,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def SearchValue(self):
-        """搜索值
+        r"""搜索值
         :rtype: str
         """
         return self._SearchValue
@@ -3960,7 +4910,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def PageNo(self):
-        """页码
+        r"""页码
         :rtype: int
         """
         return self._PageNo
@@ -3971,7 +4921,7 @@ class SearchDocListRequest(AbstractModel):
 
     @property
     def PageSize(self):
-        """页大小
+        r"""页大小
         :rtype: int
         """
         return self._PageSize
@@ -3999,7 +4949,7 @@ class SearchDocListRequest(AbstractModel):
 
 
 class SearchDocListResponse(AbstractModel):
-    """SearchDocList返回参数结构体
+    r"""SearchDocList返回参数结构体
 
     """
 
@@ -4015,7 +4965,7 @@ class SearchDocListResponse(AbstractModel):
 
     @property
     def Data(self):
-        """知识库文档搜索数据
+        r"""知识库文档搜索数据
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.SearchDocRsp`
         """
         return self._Data
@@ -4026,7 +4976,7 @@ class SearchDocListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4044,7 +4994,7 @@ class SearchDocListResponse(AbstractModel):
 
 
 class SearchDocRsp(AbstractModel):
-    """知识库文档搜索结果
+    r"""知识库文档搜索结果
 
     """
 
@@ -4060,7 +5010,7 @@ class SearchDocRsp(AbstractModel):
 
     @property
     def DocInfos(self):
-        """文档基本信息
+        r"""文档基本信息
         :rtype: list of SearchDocInfo
         """
         return self._DocInfos
@@ -4071,7 +5021,7 @@ class SearchDocRsp(AbstractModel):
 
     @property
     def Total(self):
-        """文档总数
+        r"""文档总数
         :rtype: int
         """
         return self._Total
@@ -4100,7 +5050,7 @@ class SearchDocRsp(AbstractModel):
 
 
 class TicketAuthInfo(AbstractModel):
-    """数据源授权信息
+    r"""数据源授权信息
 
     """
 
@@ -4113,7 +5063,7 @@ class TicketAuthInfo(AbstractModel):
 
     @property
     def AuthUser(self):
-        """授权用户
+        r"""授权用户
         :rtype: str
         """
         return self._AuthUser
@@ -4136,7 +5086,7 @@ class TicketAuthInfo(AbstractModel):
 
 
 class UpdateKnowledgeSetRequest(AbstractModel):
-    """UpdateKnowledgeSet请求参数结构体
+    r"""UpdateKnowledgeSet请求参数结构体
 
     """
 
@@ -4164,7 +5114,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -4175,7 +5125,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Name(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._Name
@@ -4186,7 +5136,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Title(self):
-        """知识库名称
+        r"""知识库名称
         :rtype: str
         """
         return self._Title
@@ -4197,7 +5147,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Desc(self):
-        """描述
+        r"""描述
         :rtype: str
         """
         return self._Desc
@@ -4208,7 +5158,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Active(self):
-        """状态;ENABLED启用；NOT_ENABLED不启用
+        r"""状态;ENABLED启用；NOT_ENABLED不启用
         :rtype: str
         """
         return self._Active
@@ -4219,7 +5169,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
     @property
     def Meta(self):
-        """知识库的meta信息
+        r"""知识库的meta信息
         :rtype: str
         """
         return self._Meta
@@ -4247,7 +5197,7 @@ class UpdateKnowledgeSetRequest(AbstractModel):
 
 
 class UpdateKnowledgeSetResponse(AbstractModel):
-    """UpdateKnowledgeSet返回参数结构体
+    r"""UpdateKnowledgeSet返回参数结构体
 
     """
 
@@ -4260,7 +5210,7 @@ class UpdateKnowledgeSetResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4275,7 +5225,7 @@ class UpdateKnowledgeSetResponse(AbstractModel):
 
 
 class UploadKnowledgeDocumentSetRequest(AbstractModel):
-    """UploadKnowledgeDocumentSet请求参数结构体
+    r"""UploadKnowledgeDocumentSet请求参数结构体
 
     """
 
@@ -4318,7 +5268,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def EnvId(self):
-        """环境ID
+        r"""环境ID
         :rtype: str
         """
         return self._EnvId
@@ -4329,7 +5279,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def CollectionView(self):
-        """知识库标识
+        r"""知识库标识
         :rtype: str
         """
         return self._CollectionView
@@ -4340,7 +5290,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def FileName(self):
-        """状态;ENABLED启用；NOT_ENABLED不启用
+        r"""状态;ENABLED启用；NOT_ENABLED不启用
         :rtype: str
         """
         return self._FileName
@@ -4351,7 +5301,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def CosUrl(self):
-        """腾讯云文件存储位置的可读地址
+        r"""腾讯云文件存储位置的可读地址
         :rtype: str
         """
         return self._CosUrl
@@ -4362,7 +5312,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def DocumentType(self):
-        """文件类型，例如: .docx, .md
+        r"""文件类型，例如: .docx, .md
         :rtype: str
         """
         return self._DocumentType
@@ -4373,7 +5323,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def DocumentDesc(self):
-        """对文件的描述
+        r"""对文件的描述
         :rtype: str
         """
         return self._DocumentDesc
@@ -4384,7 +5334,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def FileTitle(self):
-        """文件标题
+        r"""文件标题
         :rtype: str
         """
         return self._FileTitle
@@ -4395,7 +5345,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def FileMetaData(self):
-        """文件元信息，为jsonstring
+        r"""文件元信息，为jsonstring
         :rtype: str
         """
         return self._FileMetaData
@@ -4406,7 +5356,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def DocumentSetId(self):
-        """文件id
+        r"""文件id
         :rtype: str
         """
         return self._DocumentSetId
@@ -4417,7 +5367,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def Delimiter(self):
-        """使用 regex 分割文档
+        r"""使用 regex 分割文档
         :rtype: str
         """
         return self._Delimiter
@@ -4428,7 +5378,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
     @property
     def FileId(self):
-        """Cos存储文件ID
+        r"""Cos存储文件ID
         :rtype: str
         """
         return self._FileId
@@ -4461,7 +5411,7 @@ class UploadKnowledgeDocumentSetRequest(AbstractModel):
 
 
 class UploadKnowledgeDocumentSetResponse(AbstractModel):
-    """UploadKnowledgeDocumentSet返回参数结构体
+    r"""UploadKnowledgeDocumentSet返回参数结构体
 
     """
 
@@ -4477,7 +5427,7 @@ class UploadKnowledgeDocumentSetResponse(AbstractModel):
 
     @property
     def Data(self):
-        """新增文件返回信息
+        r"""新增文件返回信息
         :rtype: :class:`tencentcloud.lowcode.v20210108.models.UploadKnowledgeDocumentSetRsp`
         """
         return self._Data
@@ -4488,7 +5438,7 @@ class UploadKnowledgeDocumentSetResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4506,7 +5456,7 @@ class UploadKnowledgeDocumentSetResponse(AbstractModel):
 
 
 class UploadKnowledgeDocumentSetRsp(AbstractModel):
-    """上传知识库文档返回结果
+    r"""上传知识库文档返回结果
 
     """
 
@@ -4533,7 +5483,7 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
     def DocumentSetId(self):
         warnings.warn("parameter `DocumentSetId` is deprecated", DeprecationWarning) 
 
-        """给文件分配的 ID 信息。
+        r"""给文件分配的 ID 信息。
         :rtype: str
         """
         return self._DocumentSetId
@@ -4546,7 +5496,7 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
 
     @property
     def DocumentSetName(self):
-        """文件名
+        r"""文件名
         :rtype: str
         """
         return self._DocumentSetName
@@ -4557,7 +5507,7 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
 
     @property
     def FileTitle(self):
-        """文件标题
+        r"""文件标题
         :rtype: str
         """
         return self._FileTitle
@@ -4568,7 +5518,7 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
 
     @property
     def FileMetaData(self):
-        """文件元信息，为jsonstring
+        r"""文件元信息，为jsonstring
         :rtype: str
         """
         return self._FileMetaData
@@ -4579,7 +5529,7 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
 
     @property
     def FileId(self):
-        """Cos存储文件ID
+        r"""Cos存储文件ID
         :rtype: str
         """
         return self._FileId
@@ -4595,6 +5545,1276 @@ class UploadKnowledgeDocumentSetRsp(AbstractModel):
         self._FileTitle = params.get("FileTitle")
         self._FileMetaData = params.get("FileMetaData")
         self._FileId = params.get("FileId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Weapp(AbstractModel):
+    r"""低码应用详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 应用id
+        :type Id: str
+        :param _Owner: 应用所属者
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Owner: str
+        :param _Name: 标识
+        :type Name: str
+        :param _Description: 描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Description: str
+        :param _Title: 应用名称
+        :type Title: str
+        :param _Env: 环境信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Env: str
+        :param _Status: 状态.
+0:已经安装
+3:安装中
+4:安装失败
+        :type Status: int
+        :param _EnvId: 环境信息
+        :type EnvId: str
+        :param _EnvRegion: 环境地域
+        :type EnvRegion: str
+        :param _PkgId: 资源包
+        :type PkgId: str
+        :param _CmsProject: 应用信息是否安装到cms
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CmsProject: int
+        :param _Channel: 渠道
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Channel: str
+        :param _TemplateId: 模板id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TemplateId: str
+        :param _ExpireTime: 过期时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExpireTime: str
+        :param _CreateTime: 创建时间
+        :type CreateTime: str
+        :param _UpdateTime: 更新时间
+        :type UpdateTime: str
+        :param _Source: 来源
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Source: str
+        :param _IsFree: 是否计费应用
+        :type IsFree: bool
+        :param _ContentType: 应用内容类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ContentType: str
+        :param _AppType: 应用类型，是否为B端应用
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AppType: int
+        :param _AttachAppId: 关联B端一样id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AttachAppId: str
+        :param _EType: 应用类型，是否为企业应用
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EType: int
+        :param _EData: 企业应用数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EData: str
+        :param _LastMpCiId: 最新一次小程序构建id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastMpCiId: str
+        :param _LastMpCiStatus: 最新一次小程序状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastMpCiStatus: str
+        :param _LastWebCiId: 最新一次web构建id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastWebCiId: str
+        :param _LastWebCiStatus: 最新一次web状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastWebCiStatus: str
+        :param _LastDeployTime: 最新部署时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastDeployTime: str
+        :param _FlowId: 安装任务id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type FlowId: int
+        :param _JobInfo: 任务详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :type JobInfo: :class:`tencentcloud.lowcode.v20210108.models.AppJobInfo`
+        :param _Platform: 应用端
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Platform: str
+        :param _LastWebCiMode: 最新一次web构建模式
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastWebCiMode: int
+        :param _LastMpCiMode: 最新一次小程序构建模式
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastMpCiMode: int
+        :param _SceneType: 应用场景化入口类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SceneType: str
+        :param _ClientId: client_Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClientId: str
+        :param _IconUrl: 图标地址
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IconUrl: str
+        :param _FaviconUrl: 页面图标地址
+注意：此字段可能返回 null，表示取不到有效值。
+        :type FaviconUrl: str
+        :param _BackgroundColor: 图标背景色
+注意：此字段可能返回 null，表示取不到有效值。
+        :type BackgroundColor: str
+        :param _Favorite: 应用是否收藏
+        :type Favorite: bool
+        :param _PublishPlatform: 发布平台：web、mp、pc、adminPortal、xPagePC、cloudAdmin
+        :type PublishPlatform: str
+        """
+        self._Id = None
+        self._Owner = None
+        self._Name = None
+        self._Description = None
+        self._Title = None
+        self._Env = None
+        self._Status = None
+        self._EnvId = None
+        self._EnvRegion = None
+        self._PkgId = None
+        self._CmsProject = None
+        self._Channel = None
+        self._TemplateId = None
+        self._ExpireTime = None
+        self._CreateTime = None
+        self._UpdateTime = None
+        self._Source = None
+        self._IsFree = None
+        self._ContentType = None
+        self._AppType = None
+        self._AttachAppId = None
+        self._EType = None
+        self._EData = None
+        self._LastMpCiId = None
+        self._LastMpCiStatus = None
+        self._LastWebCiId = None
+        self._LastWebCiStatus = None
+        self._LastDeployTime = None
+        self._FlowId = None
+        self._JobInfo = None
+        self._Platform = None
+        self._LastWebCiMode = None
+        self._LastMpCiMode = None
+        self._SceneType = None
+        self._ClientId = None
+        self._IconUrl = None
+        self._FaviconUrl = None
+        self._BackgroundColor = None
+        self._Favorite = None
+        self._PublishPlatform = None
+
+    @property
+    def Id(self):
+        r"""应用id
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Owner(self):
+        r"""应用所属者
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Owner
+
+    @Owner.setter
+    def Owner(self, Owner):
+        self._Owner = Owner
+
+    @property
+    def Name(self):
+        r"""标识
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Description(self):
+        r"""描述
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Title(self):
+        r"""应用名称
+        :rtype: str
+        """
+        return self._Title
+
+    @Title.setter
+    def Title(self, Title):
+        self._Title = Title
+
+    @property
+    def Env(self):
+        r"""环境信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Env
+
+    @Env.setter
+    def Env(self, Env):
+        self._Env = Env
+
+    @property
+    def Status(self):
+        r"""状态.
+0:已经安装
+3:安装中
+4:安装失败
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def EnvId(self):
+        r"""环境信息
+        :rtype: str
+        """
+        return self._EnvId
+
+    @EnvId.setter
+    def EnvId(self, EnvId):
+        self._EnvId = EnvId
+
+    @property
+    def EnvRegion(self):
+        r"""环境地域
+        :rtype: str
+        """
+        return self._EnvRegion
+
+    @EnvRegion.setter
+    def EnvRegion(self, EnvRegion):
+        self._EnvRegion = EnvRegion
+
+    @property
+    def PkgId(self):
+        r"""资源包
+        :rtype: str
+        """
+        return self._PkgId
+
+    @PkgId.setter
+    def PkgId(self, PkgId):
+        self._PkgId = PkgId
+
+    @property
+    def CmsProject(self):
+        r"""应用信息是否安装到cms
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._CmsProject
+
+    @CmsProject.setter
+    def CmsProject(self, CmsProject):
+        self._CmsProject = CmsProject
+
+    @property
+    def Channel(self):
+        r"""渠道
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Channel
+
+    @Channel.setter
+    def Channel(self, Channel):
+        self._Channel = Channel
+
+    @property
+    def TemplateId(self):
+        r"""模板id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._TemplateId
+
+    @TemplateId.setter
+    def TemplateId(self, TemplateId):
+        self._TemplateId = TemplateId
+
+    @property
+    def ExpireTime(self):
+        r"""过期时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def CreateTime(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""更新时间
+        :rtype: str
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+    @property
+    def Source(self):
+        r"""来源
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def IsFree(self):
+        r"""是否计费应用
+        :rtype: bool
+        """
+        return self._IsFree
+
+    @IsFree.setter
+    def IsFree(self, IsFree):
+        self._IsFree = IsFree
+
+    @property
+    def ContentType(self):
+        r"""应用内容类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ContentType
+
+    @ContentType.setter
+    def ContentType(self, ContentType):
+        self._ContentType = ContentType
+
+    @property
+    def AppType(self):
+        r"""应用类型，是否为B端应用
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._AppType
+
+    @AppType.setter
+    def AppType(self, AppType):
+        self._AppType = AppType
+
+    @property
+    def AttachAppId(self):
+        r"""关联B端一样id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._AttachAppId
+
+    @AttachAppId.setter
+    def AttachAppId(self, AttachAppId):
+        self._AttachAppId = AttachAppId
+
+    @property
+    def EType(self):
+        r"""应用类型，是否为企业应用
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._EType
+
+    @EType.setter
+    def EType(self, EType):
+        self._EType = EType
+
+    @property
+    def EData(self):
+        r"""企业应用数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._EData
+
+    @EData.setter
+    def EData(self, EData):
+        self._EData = EData
+
+    @property
+    def LastMpCiId(self):
+        r"""最新一次小程序构建id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastMpCiId
+
+    @LastMpCiId.setter
+    def LastMpCiId(self, LastMpCiId):
+        self._LastMpCiId = LastMpCiId
+
+    @property
+    def LastMpCiStatus(self):
+        r"""最新一次小程序状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastMpCiStatus
+
+    @LastMpCiStatus.setter
+    def LastMpCiStatus(self, LastMpCiStatus):
+        self._LastMpCiStatus = LastMpCiStatus
+
+    @property
+    def LastWebCiId(self):
+        r"""最新一次web构建id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastWebCiId
+
+    @LastWebCiId.setter
+    def LastWebCiId(self, LastWebCiId):
+        self._LastWebCiId = LastWebCiId
+
+    @property
+    def LastWebCiStatus(self):
+        r"""最新一次web状态
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastWebCiStatus
+
+    @LastWebCiStatus.setter
+    def LastWebCiStatus(self, LastWebCiStatus):
+        self._LastWebCiStatus = LastWebCiStatus
+
+    @property
+    def LastDeployTime(self):
+        r"""最新部署时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastDeployTime
+
+    @LastDeployTime.setter
+    def LastDeployTime(self, LastDeployTime):
+        self._LastDeployTime = LastDeployTime
+
+    @property
+    def FlowId(self):
+        r"""安装任务id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._FlowId
+
+    @FlowId.setter
+    def FlowId(self, FlowId):
+        self._FlowId = FlowId
+
+    @property
+    def JobInfo(self):
+        r"""任务详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.lowcode.v20210108.models.AppJobInfo`
+        """
+        return self._JobInfo
+
+    @JobInfo.setter
+    def JobInfo(self, JobInfo):
+        self._JobInfo = JobInfo
+
+    @property
+    def Platform(self):
+        r"""应用端
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Platform
+
+    @Platform.setter
+    def Platform(self, Platform):
+        self._Platform = Platform
+
+    @property
+    def LastWebCiMode(self):
+        r"""最新一次web构建模式
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._LastWebCiMode
+
+    @LastWebCiMode.setter
+    def LastWebCiMode(self, LastWebCiMode):
+        self._LastWebCiMode = LastWebCiMode
+
+    @property
+    def LastMpCiMode(self):
+        r"""最新一次小程序构建模式
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._LastMpCiMode
+
+    @LastMpCiMode.setter
+    def LastMpCiMode(self, LastMpCiMode):
+        self._LastMpCiMode = LastMpCiMode
+
+    @property
+    def SceneType(self):
+        r"""应用场景化入口类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SceneType
+
+    @SceneType.setter
+    def SceneType(self, SceneType):
+        self._SceneType = SceneType
+
+    @property
+    def ClientId(self):
+        r"""client_Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClientId
+
+    @ClientId.setter
+    def ClientId(self, ClientId):
+        self._ClientId = ClientId
+
+    @property
+    def IconUrl(self):
+        r"""图标地址
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._IconUrl
+
+    @IconUrl.setter
+    def IconUrl(self, IconUrl):
+        self._IconUrl = IconUrl
+
+    @property
+    def FaviconUrl(self):
+        r"""页面图标地址
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._FaviconUrl
+
+    @FaviconUrl.setter
+    def FaviconUrl(self, FaviconUrl):
+        self._FaviconUrl = FaviconUrl
+
+    @property
+    def BackgroundColor(self):
+        r"""图标背景色
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._BackgroundColor
+
+    @BackgroundColor.setter
+    def BackgroundColor(self, BackgroundColor):
+        self._BackgroundColor = BackgroundColor
+
+    @property
+    def Favorite(self):
+        r"""应用是否收藏
+        :rtype: bool
+        """
+        return self._Favorite
+
+    @Favorite.setter
+    def Favorite(self, Favorite):
+        self._Favorite = Favorite
+
+    @property
+    def PublishPlatform(self):
+        r"""发布平台：web、mp、pc、adminPortal、xPagePC、cloudAdmin
+        :rtype: str
+        """
+        return self._PublishPlatform
+
+    @PublishPlatform.setter
+    def PublishPlatform(self, PublishPlatform):
+        self._PublishPlatform = PublishPlatform
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Owner = params.get("Owner")
+        self._Name = params.get("Name")
+        self._Description = params.get("Description")
+        self._Title = params.get("Title")
+        self._Env = params.get("Env")
+        self._Status = params.get("Status")
+        self._EnvId = params.get("EnvId")
+        self._EnvRegion = params.get("EnvRegion")
+        self._PkgId = params.get("PkgId")
+        self._CmsProject = params.get("CmsProject")
+        self._Channel = params.get("Channel")
+        self._TemplateId = params.get("TemplateId")
+        self._ExpireTime = params.get("ExpireTime")
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
+        self._Source = params.get("Source")
+        self._IsFree = params.get("IsFree")
+        self._ContentType = params.get("ContentType")
+        self._AppType = params.get("AppType")
+        self._AttachAppId = params.get("AttachAppId")
+        self._EType = params.get("EType")
+        self._EData = params.get("EData")
+        self._LastMpCiId = params.get("LastMpCiId")
+        self._LastMpCiStatus = params.get("LastMpCiStatus")
+        self._LastWebCiId = params.get("LastWebCiId")
+        self._LastWebCiStatus = params.get("LastWebCiStatus")
+        self._LastDeployTime = params.get("LastDeployTime")
+        self._FlowId = params.get("FlowId")
+        if params.get("JobInfo") is not None:
+            self._JobInfo = AppJobInfo()
+            self._JobInfo._deserialize(params.get("JobInfo"))
+        self._Platform = params.get("Platform")
+        self._LastWebCiMode = params.get("LastWebCiMode")
+        self._LastMpCiMode = params.get("LastMpCiMode")
+        self._SceneType = params.get("SceneType")
+        self._ClientId = params.get("ClientId")
+        self._IconUrl = params.get("IconUrl")
+        self._FaviconUrl = params.get("FaviconUrl")
+        self._BackgroundColor = params.get("BackgroundColor")
+        self._Favorite = params.get("Favorite")
+        self._PublishPlatform = params.get("PublishPlatform")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WedaRole(AbstractModel):
+    r"""weda角色
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 角色名称
+        :type Name: str
+        :param _RoleIdentity: 角色标识
+        :type RoleIdentity: str
+        :param _Id: 角色id
+        :type Id: int
+        :param _ParentRoleId: 父角色id
+        :type ParentRoleId: int
+        :param _ChildRoleId: 子角色id
+        :type ChildRoleId: int
+        :param _EnvIdentity: 环境标识
+        :type EnvIdentity: str
+        :param _IsReleased: 是否已发布
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsReleased: bool
+        """
+        self._Name = None
+        self._RoleIdentity = None
+        self._Id = None
+        self._ParentRoleId = None
+        self._ChildRoleId = None
+        self._EnvIdentity = None
+        self._IsReleased = None
+
+    @property
+    def Name(self):
+        r"""角色名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def RoleIdentity(self):
+        r"""角色标识
+        :rtype: str
+        """
+        return self._RoleIdentity
+
+    @RoleIdentity.setter
+    def RoleIdentity(self, RoleIdentity):
+        self._RoleIdentity = RoleIdentity
+
+    @property
+    def Id(self):
+        r"""角色id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def ParentRoleId(self):
+        r"""父角色id
+        :rtype: int
+        """
+        return self._ParentRoleId
+
+    @ParentRoleId.setter
+    def ParentRoleId(self, ParentRoleId):
+        self._ParentRoleId = ParentRoleId
+
+    @property
+    def ChildRoleId(self):
+        r"""子角色id
+        :rtype: int
+        """
+        return self._ChildRoleId
+
+    @ChildRoleId.setter
+    def ChildRoleId(self, ChildRoleId):
+        self._ChildRoleId = ChildRoleId
+
+    @property
+    def EnvIdentity(self):
+        r"""环境标识
+        :rtype: str
+        """
+        return self._EnvIdentity
+
+    @EnvIdentity.setter
+    def EnvIdentity(self, EnvIdentity):
+        self._EnvIdentity = EnvIdentity
+
+    @property
+    def IsReleased(self):
+        r"""是否已发布
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._IsReleased
+
+    @IsReleased.setter
+    def IsReleased(self, IsReleased):
+        self._IsReleased = IsReleased
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._RoleIdentity = params.get("RoleIdentity")
+        self._Id = params.get("Id")
+        self._ParentRoleId = params.get("ParentRoleId")
+        self._ChildRoleId = params.get("ChildRoleId")
+        self._EnvIdentity = params.get("EnvIdentity")
+        self._IsReleased = params.get("IsReleased")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WedaUser(AbstractModel):
+    r"""weda用户
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Uin: 腾讯云主账号uin
+        :type Uin: int
+        :param _Name: 名字
+        :type Name: str
+        :param _Env: 环境
+        :type Env: int
+        :param _Type: 类型
+        :type Type: int
+        :param _NickName: 昵称
+        :type NickName: str
+        :param _Email: 邮箱
+        :type Email: str
+        :param _Phone: 手机号
+        :type Phone: str
+        :param _ProjectId: 项目id
+        :type ProjectId: int
+        :param _Uuid: 用户uuid
+        :type Uuid: str
+        :param _Source: 渠道，1:自建；2:企业微信导入
+        :type Source: int
+        :param _OpenId: 微信openid
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OpenId: str
+        :param _RelatedRoles: 关联角色
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RelatedRoles: list of WedaRole
+        :param _WechatUserId: 企业微信userid
+注意：此字段可能返回 null，表示取不到有效值。
+        :type WechatUserId: str
+        :param _InternalUserType: 内部用户类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InternalUserType: int
+        :param _UserId: 微搭用户id
+        :type UserId: int
+        :param _OrgName: 所属部门名称
+        :type OrgName: str
+        :param _UserSchema: 用户schema
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserSchema: str
+        :param _UserExtend: 用户扩展信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserExtend: str
+        :param _IsLicensed: 用户是否授权License
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsLicensed: bool
+        :param _RelatedRoleGroups: 权限组数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RelatedRoleGroups: list of RoleGroup
+        :param _Orgs: 兼岗部门
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Orgs: list of OrgResp
+        :param _MainOrg: 主岗部门
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MainOrg: list of OrgResp
+        :param _ParentUserId: 直属上级
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ParentUserId: int
+        :param _PrimaryColumn: 主列字段
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PrimaryColumn: str
+        :param _AvatarUrl: 用户头像
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AvatarUrl: str
+        :param _LastLoginTime: 最后登录时间
+        :type LastLoginTime: str
+        """
+        self._Uin = None
+        self._Name = None
+        self._Env = None
+        self._Type = None
+        self._NickName = None
+        self._Email = None
+        self._Phone = None
+        self._ProjectId = None
+        self._Uuid = None
+        self._Source = None
+        self._OpenId = None
+        self._RelatedRoles = None
+        self._WechatUserId = None
+        self._InternalUserType = None
+        self._UserId = None
+        self._OrgName = None
+        self._UserSchema = None
+        self._UserExtend = None
+        self._IsLicensed = None
+        self._RelatedRoleGroups = None
+        self._Orgs = None
+        self._MainOrg = None
+        self._ParentUserId = None
+        self._PrimaryColumn = None
+        self._AvatarUrl = None
+        self._LastLoginTime = None
+
+    @property
+    def Uin(self):
+        r"""腾讯云主账号uin
+        :rtype: int
+        """
+        return self._Uin
+
+    @Uin.setter
+    def Uin(self, Uin):
+        self._Uin = Uin
+
+    @property
+    def Name(self):
+        r"""名字
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Env(self):
+        r"""环境
+        :rtype: int
+        """
+        return self._Env
+
+    @Env.setter
+    def Env(self, Env):
+        self._Env = Env
+
+    @property
+    def Type(self):
+        r"""类型
+        :rtype: int
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def NickName(self):
+        r"""昵称
+        :rtype: str
+        """
+        return self._NickName
+
+    @NickName.setter
+    def NickName(self, NickName):
+        self._NickName = NickName
+
+    @property
+    def Email(self):
+        r"""邮箱
+        :rtype: str
+        """
+        return self._Email
+
+    @Email.setter
+    def Email(self, Email):
+        self._Email = Email
+
+    @property
+    def Phone(self):
+        r"""手机号
+        :rtype: str
+        """
+        return self._Phone
+
+    @Phone.setter
+    def Phone(self, Phone):
+        self._Phone = Phone
+
+    @property
+    def ProjectId(self):
+        r"""项目id
+        :rtype: int
+        """
+        return self._ProjectId
+
+    @ProjectId.setter
+    def ProjectId(self, ProjectId):
+        self._ProjectId = ProjectId
+
+    @property
+    def Uuid(self):
+        r"""用户uuid
+        :rtype: str
+        """
+        return self._Uuid
+
+    @Uuid.setter
+    def Uuid(self, Uuid):
+        self._Uuid = Uuid
+
+    @property
+    def Source(self):
+        r"""渠道，1:自建；2:企业微信导入
+        :rtype: int
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def OpenId(self):
+        r"""微信openid
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._OpenId
+
+    @OpenId.setter
+    def OpenId(self, OpenId):
+        self._OpenId = OpenId
+
+    @property
+    def RelatedRoles(self):
+        r"""关联角色
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of WedaRole
+        """
+        return self._RelatedRoles
+
+    @RelatedRoles.setter
+    def RelatedRoles(self, RelatedRoles):
+        self._RelatedRoles = RelatedRoles
+
+    @property
+    def WechatUserId(self):
+        r"""企业微信userid
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._WechatUserId
+
+    @WechatUserId.setter
+    def WechatUserId(self, WechatUserId):
+        self._WechatUserId = WechatUserId
+
+    @property
+    def InternalUserType(self):
+        r"""内部用户类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._InternalUserType
+
+    @InternalUserType.setter
+    def InternalUserType(self, InternalUserType):
+        self._InternalUserType = InternalUserType
+
+    @property
+    def UserId(self):
+        r"""微搭用户id
+        :rtype: int
+        """
+        return self._UserId
+
+    @UserId.setter
+    def UserId(self, UserId):
+        self._UserId = UserId
+
+    @property
+    def OrgName(self):
+        r"""所属部门名称
+        :rtype: str
+        """
+        return self._OrgName
+
+    @OrgName.setter
+    def OrgName(self, OrgName):
+        self._OrgName = OrgName
+
+    @property
+    def UserSchema(self):
+        r"""用户schema
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserSchema
+
+    @UserSchema.setter
+    def UserSchema(self, UserSchema):
+        self._UserSchema = UserSchema
+
+    @property
+    def UserExtend(self):
+        r"""用户扩展信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserExtend
+
+    @UserExtend.setter
+    def UserExtend(self, UserExtend):
+        self._UserExtend = UserExtend
+
+    @property
+    def IsLicensed(self):
+        r"""用户是否授权License
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._IsLicensed
+
+    @IsLicensed.setter
+    def IsLicensed(self, IsLicensed):
+        self._IsLicensed = IsLicensed
+
+    @property
+    def RelatedRoleGroups(self):
+        r"""权限组数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of RoleGroup
+        """
+        return self._RelatedRoleGroups
+
+    @RelatedRoleGroups.setter
+    def RelatedRoleGroups(self, RelatedRoleGroups):
+        self._RelatedRoleGroups = RelatedRoleGroups
+
+    @property
+    def Orgs(self):
+        r"""兼岗部门
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of OrgResp
+        """
+        return self._Orgs
+
+    @Orgs.setter
+    def Orgs(self, Orgs):
+        self._Orgs = Orgs
+
+    @property
+    def MainOrg(self):
+        r"""主岗部门
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of OrgResp
+        """
+        return self._MainOrg
+
+    @MainOrg.setter
+    def MainOrg(self, MainOrg):
+        self._MainOrg = MainOrg
+
+    @property
+    def ParentUserId(self):
+        r"""直属上级
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ParentUserId
+
+    @ParentUserId.setter
+    def ParentUserId(self, ParentUserId):
+        self._ParentUserId = ParentUserId
+
+    @property
+    def PrimaryColumn(self):
+        r"""主列字段
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._PrimaryColumn
+
+    @PrimaryColumn.setter
+    def PrimaryColumn(self, PrimaryColumn):
+        self._PrimaryColumn = PrimaryColumn
+
+    @property
+    def AvatarUrl(self):
+        r"""用户头像
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._AvatarUrl
+
+    @AvatarUrl.setter
+    def AvatarUrl(self, AvatarUrl):
+        self._AvatarUrl = AvatarUrl
+
+    @property
+    def LastLoginTime(self):
+        r"""最后登录时间
+        :rtype: str
+        """
+        return self._LastLoginTime
+
+    @LastLoginTime.setter
+    def LastLoginTime(self, LastLoginTime):
+        self._LastLoginTime = LastLoginTime
+
+
+    def _deserialize(self, params):
+        self._Uin = params.get("Uin")
+        self._Name = params.get("Name")
+        self._Env = params.get("Env")
+        self._Type = params.get("Type")
+        self._NickName = params.get("NickName")
+        self._Email = params.get("Email")
+        self._Phone = params.get("Phone")
+        self._ProjectId = params.get("ProjectId")
+        self._Uuid = params.get("Uuid")
+        self._Source = params.get("Source")
+        self._OpenId = params.get("OpenId")
+        if params.get("RelatedRoles") is not None:
+            self._RelatedRoles = []
+            for item in params.get("RelatedRoles"):
+                obj = WedaRole()
+                obj._deserialize(item)
+                self._RelatedRoles.append(obj)
+        self._WechatUserId = params.get("WechatUserId")
+        self._InternalUserType = params.get("InternalUserType")
+        self._UserId = params.get("UserId")
+        self._OrgName = params.get("OrgName")
+        self._UserSchema = params.get("UserSchema")
+        self._UserExtend = params.get("UserExtend")
+        self._IsLicensed = params.get("IsLicensed")
+        if params.get("RelatedRoleGroups") is not None:
+            self._RelatedRoleGroups = []
+            for item in params.get("RelatedRoleGroups"):
+                obj = RoleGroup()
+                obj._deserialize(item)
+                self._RelatedRoleGroups.append(obj)
+        if params.get("Orgs") is not None:
+            self._Orgs = []
+            for item in params.get("Orgs"):
+                obj = OrgResp()
+                obj._deserialize(item)
+                self._Orgs.append(obj)
+        if params.get("MainOrg") is not None:
+            self._MainOrg = []
+            for item in params.get("MainOrg"):
+                obj = OrgResp()
+                obj._deserialize(item)
+                self._MainOrg.append(obj)
+        self._ParentUserId = params.get("ParentUserId")
+        self._PrimaryColumn = params.get("PrimaryColumn")
+        self._AvatarUrl = params.get("AvatarUrl")
+        self._LastLoginTime = params.get("LastLoginTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

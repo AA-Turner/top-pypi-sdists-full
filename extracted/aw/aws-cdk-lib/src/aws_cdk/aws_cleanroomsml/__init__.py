@@ -79,7 +79,263 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cleanroomsml.CfnTrainingDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "role_arn": "roleArn",
+        "training_data": "trainingData",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnTrainingDatasetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        role_arn: builtins.str,
+        training_data: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTrainingDataset.DatasetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrainingDataset``.
+
+        :param name: The name of the training dataset.
+        :param role_arn: The ARN of the IAM role that Clean Rooms ML can assume to read the data referred to in the ``dataSource`` field of each dataset. Passing a role across accounts is not allowed. If you pass a role that isn't in your account, you get an ``AccessDeniedException`` error.
+        :param training_data: An array of information that lists the Dataset objects, which specifies the dataset type and details on its location and schema. You must provide a role that has read access to these tables.
+        :param description: The description of the training dataset.
+        :param tags: The optional metadata that you apply to the resource to help you categorize and organize them. Each tag consists of a key and an optional value, both of which you define. The following basic restrictions apply to tags: - Maximum number of tags per resource - 50. - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length - 128 Unicode characters in UTF-8. - Maximum value length - 256 Unicode characters in UTF-8. - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cleanroomsml as cleanroomsml
+            
+            cfn_training_dataset_props = cleanroomsml.CfnTrainingDatasetProps(
+                name="name",
+                role_arn="roleArn",
+                training_data=[cleanroomsml.CfnTrainingDataset.DatasetProperty(
+                    input_config=cleanroomsml.CfnTrainingDataset.DatasetInputConfigProperty(
+                        data_source=cleanroomsml.CfnTrainingDataset.DataSourceProperty(
+                            glue_data_source=cleanroomsml.CfnTrainingDataset.GlueDataSourceProperty(
+                                database_name="databaseName",
+                                table_name="tableName",
+            
+                                # the properties below are optional
+                                catalog_id="catalogId"
+                            )
+                        ),
+                        schema=[cleanroomsml.CfnTrainingDataset.ColumnSchemaProperty(
+                            column_name="columnName",
+                            column_types=["columnTypes"]
+                        )]
+                    ),
+                    type="type"
+                )],
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a83ce04ef3c373a0c189c16bb2a7e23aea1fda52268a69a4e97e560d76564547)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument training_data", value=training_data, expected_type=type_hints["training_data"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "role_arn": role_arn,
+            "training_data": training_data,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the training dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that Clean Rooms ML can assume to read the data referred to in the ``dataSource`` field of each dataset.
+
+        Passing a role across accounts is not allowed. If you pass a role that isn't in your account, you get an ``AccessDeniedException`` error.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def training_data(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrainingDataset.DatasetProperty"]]]:
+        '''An array of information that lists the Dataset objects, which specifies the dataset type and details on its location and schema.
+
+        You must provide a role that has read access to these tables.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-trainingdata
+        '''
+        result = self._values.get("training_data")
+        assert result is not None, "Required property 'training_data' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTrainingDataset.DatasetProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the training dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The optional metadata that you apply to the resource to help you categorize and organize them.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        The following basic restrictions apply to tags:
+
+        - Maximum number of tags per resource - 50.
+        - For each resource, each tag key must be unique, and each tag key can have only one value.
+        - Maximum key length - 128 Unicode characters in UTF-8.
+        - Maximum value length - 256 Unicode characters in UTF-8.
+        - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-tags
+        ::
+
+        .
+
+        - Tag keys and values are case sensitive.
+        - Do not use ``aws:`` , ``AWS:`` , or any upper or lowercase combination of such as a prefix for keys as it is reserved. You cannot edit or delete tag keys with this prefix. Values can have this prefix. If a tag value has ``aws`` as its prefix but the key does not, then Clean Rooms ML considers it to be a user tag and will count against the limit of 50 tags. Tags with only the key prefix of ``aws`` do not count against your tags per resource limit.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrainingDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cleanroomsml.ITrainingDatasetRef")
+class ITrainingDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TrainingDataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trainingDatasetRef")
+    def training_dataset_ref(self) -> "TrainingDatasetReference":
+        '''(experimental) A reference to a TrainingDataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrainingDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrainingDataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cleanroomsml.ITrainingDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trainingDatasetRef")
+    def training_dataset_ref(self) -> "TrainingDatasetReference":
+        '''(experimental) A reference to a TrainingDataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrainingDatasetReference", jsii.get(self, "trainingDatasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrainingDatasetRef).__jsii_proxy_class__ = lambda : _ITrainingDatasetRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cleanroomsml.TrainingDatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"training_dataset_arn": "trainingDatasetArn"},
+)
+class TrainingDatasetReference:
+    def __init__(self, *, training_dataset_arn: builtins.str) -> None:
+        '''A reference to a TrainingDataset resource.
+
+        :param training_dataset_arn: The TrainingDatasetArn of the TrainingDataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cleanroomsml as cleanroomsml
+            
+            training_dataset_reference = cleanroomsml.TrainingDatasetReference(
+                training_dataset_arn="trainingDatasetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbfabfac9ec49c151caa44a93cd83b1a8cd999778f477c0d22ba522f8e496b0e)
+            check_type(argname="argument training_dataset_arn", value=training_dataset_arn, expected_type=type_hints["training_dataset_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "training_dataset_arn": training_dataset_arn,
+        }
+
+    @builtins.property
+    def training_dataset_arn(self) -> builtins.str:
+        '''The TrainingDatasetArn of the TrainingDataset resource.'''
+        result = self._values.get("training_dataset_arn")
+        assert result is not None, "Required property 'training_dataset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrainingDatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ITrainingDatasetRef, _ITaggableV2_4e6798f8)
 class CfnTrainingDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -222,6 +478,12 @@ class CfnTrainingDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trainingDatasetRef")
+    def training_dataset_ref(self) -> TrainingDatasetReference:
+        '''A reference to a TrainingDataset resource.'''
+        return typing.cast(TrainingDatasetReference, jsii.get(self, "trainingDatasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -694,179 +956,32 @@ class CfnTrainingDataset(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cleanroomsml.CfnTrainingDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "role_arn": "roleArn",
-        "training_data": "trainingData",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnTrainingDatasetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        role_arn: builtins.str,
-        training_data: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrainingDataset.DatasetProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTrainingDataset``.
-
-        :param name: The name of the training dataset.
-        :param role_arn: The ARN of the IAM role that Clean Rooms ML can assume to read the data referred to in the ``dataSource`` field of each dataset. Passing a role across accounts is not allowed. If you pass a role that isn't in your account, you get an ``AccessDeniedException`` error.
-        :param training_data: An array of information that lists the Dataset objects, which specifies the dataset type and details on its location and schema. You must provide a role that has read access to these tables.
-        :param description: The description of the training dataset.
-        :param tags: The optional metadata that you apply to the resource to help you categorize and organize them. Each tag consists of a key and an optional value, both of which you define. The following basic restrictions apply to tags: - Maximum number of tags per resource - 50. - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length - 128 Unicode characters in UTF-8. - Maximum value length - 256 Unicode characters in UTF-8. - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cleanroomsml as cleanroomsml
-            
-            cfn_training_dataset_props = cleanroomsml.CfnTrainingDatasetProps(
-                name="name",
-                role_arn="roleArn",
-                training_data=[cleanroomsml.CfnTrainingDataset.DatasetProperty(
-                    input_config=cleanroomsml.CfnTrainingDataset.DatasetInputConfigProperty(
-                        data_source=cleanroomsml.CfnTrainingDataset.DataSourceProperty(
-                            glue_data_source=cleanroomsml.CfnTrainingDataset.GlueDataSourceProperty(
-                                database_name="databaseName",
-                                table_name="tableName",
-            
-                                # the properties below are optional
-                                catalog_id="catalogId"
-                            )
-                        ),
-                        schema=[cleanroomsml.CfnTrainingDataset.ColumnSchemaProperty(
-                            column_name="columnName",
-                            column_types=["columnTypes"]
-                        )]
-                    ),
-                    type="type"
-                )],
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a83ce04ef3c373a0c189c16bb2a7e23aea1fda52268a69a4e97e560d76564547)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument training_data", value=training_data, expected_type=type_hints["training_data"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "role_arn": role_arn,
-            "training_data": training_data,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the training dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that Clean Rooms ML can assume to read the data referred to in the ``dataSource`` field of each dataset.
-
-        Passing a role across accounts is not allowed. If you pass a role that isn't in your account, you get an ``AccessDeniedException`` error.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def training_data(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrainingDataset.DatasetProperty]]]:
-        '''An array of information that lists the Dataset objects, which specifies the dataset type and details on its location and schema.
-
-        You must provide a role that has read access to these tables.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-trainingdata
-        '''
-        result = self._values.get("training_data")
-        assert result is not None, "Required property 'training_data' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTrainingDataset.DatasetProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the training dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The optional metadata that you apply to the resource to help you categorize and organize them.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        The following basic restrictions apply to tags:
-
-        - Maximum number of tags per resource - 50.
-        - For each resource, each tag key must be unique, and each tag key can have only one value.
-        - Maximum key length - 128 Unicode characters in UTF-8.
-        - Maximum value length - 256 Unicode characters in UTF-8.
-        - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanroomsml-trainingdataset.html#cfn-cleanroomsml-trainingdataset-tags
-        ::
-
-        .
-
-        - Tag keys and values are case sensitive.
-        - Do not use ``aws:`` , ``AWS:`` , or any upper or lowercase combination of such as a prefix for keys as it is reserved. You cannot edit or delete tag keys with this prefix. Values can have this prefix. If a tag value has ``aws`` as its prefix but the key does not, then Clean Rooms ML considers it to be a user tag and will count against the limit of 50 tags. Tags with only the key prefix of ``aws`` do not count against your tags per resource limit.
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrainingDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnTrainingDataset",
     "CfnTrainingDatasetProps",
+    "ITrainingDatasetRef",
+    "TrainingDatasetReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a83ce04ef3c373a0c189c16bb2a7e23aea1fda52268a69a4e97e560d76564547(
+    *,
+    name: builtins.str,
+    role_arn: builtins.str,
+    training_data: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrainingDataset.DatasetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbfabfac9ec49c151caa44a93cd83b1a8cd999778f477c0d22ba522f8e496b0e(
+    *,
+    training_dataset_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__038c489df01bd94323363a194424fbe900aac226689cefa852a1f05e78d3bf55(
     scope: _constructs_77d1e7e8.Construct,
@@ -959,17 +1074,6 @@ def _typecheckingstub__960bc53c7c406ea248f393051fd58abbf5074d22e0eb6439f849d7558
     database_name: builtins.str,
     table_name: builtins.str,
     catalog_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a83ce04ef3c373a0c189c16bb2a7e23aea1fda52268a69a4e97e560d76564547(
-    *,
-    name: builtins.str,
-    role_arn: builtins.str,
-    training_data: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTrainingDataset.DatasetProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

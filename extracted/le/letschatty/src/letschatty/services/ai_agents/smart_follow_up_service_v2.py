@@ -24,12 +24,14 @@ class SmartFollowUpService:
     def reset_sequence(workflow_link_state: FlowStateAssignedToChat):
         """Reset consecutive count when customer responds"""
         workflow_link_state.consecutive_count = 0
+        workflow_link_state.execution_attempts = 0
 
     @staticmethod
     def increment_followup(workflow_link_state: FlowStateAssignedToChat):
         """Called after sending a follow-up"""
         workflow_link_state.total_followups_sent += 1
         workflow_link_state.consecutive_count += 1
+        workflow_link_state.execution_attempts = 0
         logger.debug(f"Incremented follow up for workflow link state to {workflow_link_state.consecutive_count} and total follow ups sent to {workflow_link_state.total_followups_sent}")
 
     @staticmethod

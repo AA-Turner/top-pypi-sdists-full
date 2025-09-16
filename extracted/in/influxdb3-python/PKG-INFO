@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: influxdb3-python
-Version: 0.15.0
+Version: 0.16.0
 Summary: Community Python client for InfluxDB 3.0
 Home-page: https://github.com/InfluxCommunity/influxdb3-python
 Author: InfluxData
@@ -209,6 +209,11 @@ table = reader.read_all()
 print(table.to_pandas().to_markdown())
 ```
 
+### gRPC compression
+The Python client supports gRPC response compression.  
+If the server chooses to compress query responses (e.g., with gzip), the client
+will automatically decompress them — no extra configuration is required.
+
 ## Windows Users
 Currently, Windows users require an extra installation when querying via Flight natively. This is due to the fact gRPC cannot locate Windows root certificates. To work around this please follow these steps:
 Install `certifi`
@@ -241,6 +246,8 @@ table = client.query(
 print(table.to_pandas())
 ```
 You may also include your own root certificate via this manor aswell.
+
+If connecting to InfluxDB fails with error `DNS resolution failed` when using domain name, example `www.mydomain.com`, then try to set environment variable `GRPC_DNS_RESOLVER=native` to see if it works.
 
 # Contributing
 

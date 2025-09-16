@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wgpu
-Version: 0.23.0
+Version: 0.24.0
 Summary: WebGPU for Python
 Project-URL: Homepage, https://github.com/pygfx/wgpu-py
 Project-URL: Documentation, https://wgpu-py.readthedocs.io
@@ -49,6 +49,7 @@ Requires-Dist: ruff; extra == 'codegen'
 Provides-Extra: dev
 Requires-Dist: anyio; extra == 'dev'
 Requires-Dist: build; extra == 'dev'
+Requires-Dist: glfw; extra == 'dev'
 Requires-Dist: hatchling; extra == 'dev'
 Requires-Dist: imageio; extra == 'dev'
 Requires-Dist: numpy; extra == 'dev'
@@ -56,7 +57,7 @@ Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: psutil; extra == 'dev'
 Requires-Dist: pypng; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: rendercanvas<=2.1.2; extra == 'dev'
+Requires-Dist: rendercanvas; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme; extra == 'dev'
@@ -67,14 +68,11 @@ Provides-Extra: docs
 Requires-Dist: sphinx-rtd-theme; extra == 'docs'
 Requires-Dist: sphinx>7.2; extra == 'docs'
 Provides-Extra: examples
+Requires-Dist: glfw; extra == 'examples'
 Requires-Dist: pypng; extra == 'examples'
-Requires-Dist: rendercanvas<=2.1.2; extra == 'examples'
-Provides-Extra: glfw
-Requires-Dist: glfw>=1.9; extra == 'glfw'
+Requires-Dist: rendercanvas; extra == 'examples'
 Provides-Extra: imgui
-Requires-Dist: imgui-bundle>=1.2.1; extra == 'imgui'
-Provides-Extra: jupyter
-Requires-Dist: jupyter-rfb>=0.4.2; extra == 'jupyter'
+Requires-Dist: imgui-bundle<2,>=1.92.0; extra == 'imgui'
 Provides-Extra: lint
 Requires-Dist: pre-commit; extra == 'lint'
 Requires-Dist: ruff; extra == 'lint'
@@ -84,6 +82,7 @@ Requires-Dist: imageio; extra == 'tests'
 Requires-Dist: numpy; extra == 'tests'
 Requires-Dist: psutil; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
+Requires-Dist: rendercanvas; extra == 'tests'
 Requires-Dist: trio; extra == 'tests'
 Description-Content-Type: text/markdown
 
@@ -149,7 +148,11 @@ API closely resembling the [WebGPU spec](https://gpuweb.github.io/gpuweb/).
 ## Installation
 
 ```
-pip install wgpu glfw
+# Just wgpu
+pip install wgpu
+
+# If you want to render to screen
+pip install wgpu rendercanvas glfw
 ```
 
 Linux users should make sure that **pip >= 20.3**. That should do the
@@ -169,16 +172,13 @@ import wgpu
 To render to the screen you can use a variety of GUI toolkits:
 
 ```py
-# The auto backend selects either the glfw, qt or jupyter backend
-from wgpu.gui.auto import WgpuCanvas, run, call_later
+# The rendercanvas auto backend selects either the glfw, qt, wx, or jupyter backend
+from rendercanvas.auto import RenderCanvas, loop
 
 # Visualizations can be embedded as a widget in a Qt application.
 # Import PySide6, PyQt6, PySide2 or PyQt5 before running the line below.
 # The code will detect and use the library that is imported.
-from wgpu.gui.qt import WgpuCanvas
-
-# Visualizations can be embedded as a widget in a wx application.
-from wgpu.gui.wx import WgpuCanvas
+from rendercanvas.qt import RenderCanvas
 ```
 
 Some functions in the original `wgpu-native` API are async. In the Python API,
@@ -248,7 +248,7 @@ call it to see if an image is produced.
 
 To support this type of testing, ensure the following requirements are met:
 
-* The `WgpuCanvas` class is imported from the `wgpu.gui.auto` module.
+* The `RenderCanvas` class is imported from the `rendercanvas.auto` module.
 * The `canvas` instance is exposed as a global in the module.
 * A rendering callback has been registered with `canvas.request_draw(fn)`.
 

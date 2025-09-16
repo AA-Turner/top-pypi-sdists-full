@@ -69,7 +69,834 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.CfnGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group_name": "groupName",
+        "filter_expression": "filterExpression",
+        "insights_configuration": "insightsConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnGroupProps:
+    def __init__(
+        self,
+        *,
+        group_name: builtins.str,
+        filter_expression: typing.Optional[builtins.str] = None,
+        insights_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.InsightsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGroup``.
+
+        :param group_name: The unique case-sensitive name of the group.
+        :param filter_expression: The filter expression defining the parameters to include traces.
+        :param insights_configuration: The structure containing configurations related to insights. - The InsightsEnabled boolean can be set to true to enable insights for the group or false to disable insights for the group. - The NotificationsEnabled boolean can be set to true to enable insights notifications through Amazon EventBridge for the group.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            cfn_group_props = xray.CfnGroupProps(
+                group_name="groupName",
+            
+                # the properties below are optional
+                filter_expression="filterExpression",
+                insights_configuration=xray.CfnGroup.InsightsConfigurationProperty(
+                    insights_enabled=False,
+                    notifications_enabled=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df933d0182acdb6109d741b7f8c8d1c6c70bf0511060fb40cc94126c9706fea2)
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+            check_type(argname="argument filter_expression", value=filter_expression, expected_type=type_hints["filter_expression"])
+            check_type(argname="argument insights_configuration", value=insights_configuration, expected_type=type_hints["insights_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_name": group_name,
+        }
+        if filter_expression is not None:
+            self._values["filter_expression"] = filter_expression
+        if insights_configuration is not None:
+            self._values["insights_configuration"] = insights_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def group_name(self) -> builtins.str:
+        '''The unique case-sensitive name of the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-groupname
+        '''
+        result = self._values.get("group_name")
+        assert result is not None, "Required property 'group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter_expression(self) -> typing.Optional[builtins.str]:
+        '''The filter expression defining the parameters to include traces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-filterexpression
+        '''
+        result = self._values.get("filter_expression")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def insights_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.InsightsConfigurationProperty"]]:
+        '''The structure containing configurations related to insights.
+
+        - The InsightsEnabled boolean can be set to true to enable insights for the group or false to disable insights for the group.
+        - The NotificationsEnabled boolean can be set to true to enable insights notifications through Amazon EventBridge for the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-insightsconfiguration
+        '''
+        result = self._values.get("insights_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.InsightsConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_document": "policyDocument",
+        "policy_name": "policyName",
+        "bypass_policy_lockout_check": "bypassPolicyLockoutCheck",
+    },
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_document: builtins.str,
+        policy_name: builtins.str,
+        bypass_policy_lockout_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy_document: The resource-based policy document, which can be up to 5kb in size.
+        :param policy_name: The name of the resource-based policy. Must be unique within a specific AWS account.
+        :param bypass_policy_lockout_check: A flag to indicate whether to bypass the resource-based policy lockout safety check.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            cfn_resource_policy_props = xray.CfnResourcePolicyProps(
+                policy_document="policyDocument",
+                policy_name="policyName",
+            
+                # the properties below are optional
+                bypass_policy_lockout_check=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6bf01f8c2bafe7edbe5e11b45f610f28582a393f64724e6ed0ed222de4072781)
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument bypass_policy_lockout_check", value=bypass_policy_lockout_check, expected_type=type_hints["bypass_policy_lockout_check"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_document": policy_document,
+            "policy_name": policy_name,
+        }
+        if bypass_policy_lockout_check is not None:
+            self._values["bypass_policy_lockout_check"] = bypass_policy_lockout_check
+
+    @builtins.property
+    def policy_document(self) -> builtins.str:
+        '''The resource-based policy document, which can be up to 5kb in size.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_name(self) -> builtins.str:
+        '''The name of the resource-based policy.
+
+        Must be unique within a specific AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-policyname
+        '''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bypass_policy_lockout_check(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A flag to indicate whether to bypass the resource-based policy lockout safety check.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-bypasspolicylockoutcheck
+        '''
+        result = self._values.get("bypass_policy_lockout_check")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.CfnSamplingRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "rule_name": "ruleName",
+        "sampling_rule": "samplingRule",
+        "sampling_rule_record": "samplingRuleRecord",
+        "sampling_rule_update": "samplingRuleUpdate",
+        "tags": "tags",
+    },
+)
+class CfnSamplingRuleProps:
+    def __init__(
+        self,
+        *,
+        rule_name: typing.Optional[builtins.str] = None,
+        sampling_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSamplingRule.SamplingRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_rule_record: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSamplingRule.SamplingRuleRecordProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_rule_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSamplingRule.SamplingRuleUpdateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSamplingRule``.
+
+        :param rule_name: (deprecated) The ARN of the sampling rule. Specify a rule by either name or ARN, but not both.
+        :param sampling_rule: The sampling rule to be created or updated.
+        :param sampling_rule_record: 
+        :param sampling_rule_update: 
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            cfn_sampling_rule_props = xray.CfnSamplingRuleProps(
+                rule_name="ruleName",
+                sampling_rule=xray.CfnSamplingRule.SamplingRuleProperty(
+                    fixed_rate=123,
+                    host="host",
+                    http_method="httpMethod",
+                    priority=123,
+                    reservoir_size=123,
+                    resource_arn="resourceArn",
+                    service_name="serviceName",
+                    service_type="serviceType",
+                    url_path="urlPath",
+            
+                    # the properties below are optional
+                    attributes={
+                        "attributes_key": "attributes"
+                    },
+                    rule_arn="ruleArn",
+                    rule_name="ruleName",
+                    version=123
+                ),
+                sampling_rule_record=xray.CfnSamplingRule.SamplingRuleRecordProperty(
+                    created_at="createdAt",
+                    modified_at="modifiedAt",
+                    sampling_rule=xray.CfnSamplingRule.SamplingRuleProperty(
+                        fixed_rate=123,
+                        host="host",
+                        http_method="httpMethod",
+                        priority=123,
+                        reservoir_size=123,
+                        resource_arn="resourceArn",
+                        service_name="serviceName",
+                        service_type="serviceType",
+                        url_path="urlPath",
+            
+                        # the properties below are optional
+                        attributes={
+                            "attributes_key": "attributes"
+                        },
+                        rule_arn="ruleArn",
+                        rule_name="ruleName",
+                        version=123
+                    )
+                ),
+                sampling_rule_update=xray.CfnSamplingRule.SamplingRuleUpdateProperty(
+                    attributes={
+                        "attributes_key": "attributes"
+                    },
+                    fixed_rate=123,
+                    host="host",
+                    http_method="httpMethod",
+                    priority=123,
+                    reservoir_size=123,
+                    resource_arn="resourceArn",
+                    rule_arn="ruleArn",
+                    rule_name="ruleName",
+                    service_name="serviceName",
+                    service_type="serviceType",
+                    url_path="urlPath"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6728191ed28a57c9130311eb26a506218d6fceeade2816c46cf035cf422c06a2)
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument sampling_rule", value=sampling_rule, expected_type=type_hints["sampling_rule"])
+            check_type(argname="argument sampling_rule_record", value=sampling_rule_record, expected_type=type_hints["sampling_rule_record"])
+            check_type(argname="argument sampling_rule_update", value=sampling_rule_update, expected_type=type_hints["sampling_rule_update"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+        if sampling_rule is not None:
+            self._values["sampling_rule"] = sampling_rule
+        if sampling_rule_record is not None:
+            self._values["sampling_rule_record"] = sampling_rule_record
+        if sampling_rule_update is not None:
+            self._values["sampling_rule_update"] = sampling_rule_update
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) The ARN of the sampling rule.
+
+        Specify a rule by either name or ARN, but not both.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-rulename
+        :stability: deprecated
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sampling_rule(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleProperty"]]:
+        '''The sampling rule to be created or updated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingrule
+        '''
+        result = self._values.get("sampling_rule")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleProperty"]], result)
+
+    @builtins.property
+    def sampling_rule_record(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleRecordProperty"]]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingrulerecord
+        :stability: deprecated
+        '''
+        result = self._values.get("sampling_rule_record")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleRecordProperty"]], result)
+
+    @builtins.property
+    def sampling_rule_update(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleUpdateProperty"]]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingruleupdate
+        :stability: deprecated
+        '''
+        result = self._values.get("sampling_rule_update")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSamplingRule.SamplingRuleUpdateProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSamplingRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.CfnTransactionSearchConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={"indexing_percentage": "indexingPercentage"},
+)
+class CfnTransactionSearchConfigProps:
+    def __init__(
+        self,
+        *,
+        indexing_percentage: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTransactionSearchConfig``.
+
+        :param indexing_percentage: Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            cfn_transaction_search_config_props = xray.CfnTransactionSearchConfigProps(
+                indexing_percentage=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b)
+            check_type(argname="argument indexing_percentage", value=indexing_percentage, expected_type=type_hints["indexing_percentage"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if indexing_percentage is not None:
+            self._values["indexing_percentage"] = indexing_percentage
+
+    @builtins.property
+    def indexing_percentage(self) -> typing.Optional[jsii.Number]:
+        '''Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html#cfn-xray-transactionsearchconfig-indexingpercentage
+        '''
+        result = self._values.get("indexing_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTransactionSearchConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.GroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_arn": "groupArn"},
+)
+class GroupReference:
+    def __init__(self, *, group_arn: builtins.str) -> None:
+        '''A reference to a Group resource.
+
+        :param group_arn: The GroupARN of the Group resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            group_reference = xray.GroupReference(
+                group_arn="groupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__581f1a3e514164a374321cd3949221fb35b961cabc454e15fb2f467cb2e9e9ed)
+            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_arn": group_arn,
+        }
+
+    @builtins.property
+    def group_arn(self) -> builtins.str:
+        '''The GroupARN of the Group resource.'''
+        result = self._values.get("group_arn")
+        assert result is not None, "Required property 'group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_xray.IGroupRef")
+class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_xray.IGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_xray.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_xray.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_xray.ISamplingRuleRef")
+class ISamplingRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SamplingRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="samplingRuleRef")
+    def sampling_rule_ref(self) -> "SamplingRuleReference":
+        '''(experimental) A reference to a SamplingRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISamplingRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SamplingRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_xray.ISamplingRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="samplingRuleRef")
+    def sampling_rule_ref(self) -> "SamplingRuleReference":
+        '''(experimental) A reference to a SamplingRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SamplingRuleReference", jsii.get(self, "samplingRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISamplingRuleRef).__jsii_proxy_class__ = lambda : _ISamplingRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_xray.ITransactionSearchConfigRef")
+class ITransactionSearchConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransactionSearchConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="transactionSearchConfigRef")
+    def transaction_search_config_ref(self) -> "TransactionSearchConfigReference":
+        '''(experimental) A reference to a TransactionSearchConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITransactionSearchConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TransactionSearchConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_xray.ITransactionSearchConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="transactionSearchConfigRef")
+    def transaction_search_config_ref(self) -> "TransactionSearchConfigReference":
+        '''(experimental) A reference to a TransactionSearchConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TransactionSearchConfigReference", jsii.get(self, "transactionSearchConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITransactionSearchConfigRef).__jsii_proxy_class__ = lambda : _ITransactionSearchConfigRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_name": "policyName"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, policy_name: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param policy_name: The PolicyName of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            resource_policy_reference = xray.ResourcePolicyReference(
+                policy_name="policyName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7258b84650b2086882acb18ba038648bd3e9546104d408b147c3ab9556e8e680)
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_name": policy_name,
+        }
+
+    @builtins.property
+    def policy_name(self) -> builtins.str:
+        '''The PolicyName of the ResourcePolicy resource.'''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.SamplingRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class SamplingRuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a SamplingRule resource.
+
+        :param rule_arn: The RuleARN of the SamplingRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            sampling_rule_reference = xray.SamplingRuleReference(
+                rule_arn="ruleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cba6544f9b9ed8c51ff4e87ea5d45638fbec5b884c8dea2e0a34ba6b95add312)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
+
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The RuleARN of the SamplingRule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SamplingRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_xray.TransactionSearchConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class TransactionSearchConfigReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a TransactionSearchConfig resource.
+
+        :param account_id: The AccountId of the TransactionSearchConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_xray as xray
+            
+            transaction_search_config_reference = xray.TransactionSearchConfigReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5647dc64396ce5c9bf116068cfd4588b06d136e2e8a6a131daf3d289247d93b)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the TransactionSearchConfig resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransactionSearchConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IGroupRef, _ITaggableV2_4e6798f8)
 class CfnGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -185,6 +1012,12 @@ class CfnGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''A reference to a Group resource.'''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -323,127 +1156,7 @@ class CfnGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_xray.CfnGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "group_name": "groupName",
-        "filter_expression": "filterExpression",
-        "insights_configuration": "insightsConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnGroupProps:
-    def __init__(
-        self,
-        *,
-        group_name: builtins.str,
-        filter_expression: typing.Optional[builtins.str] = None,
-        insights_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.InsightsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGroup``.
-
-        :param group_name: The unique case-sensitive name of the group.
-        :param filter_expression: The filter expression defining the parameters to include traces.
-        :param insights_configuration: The structure containing configurations related to insights. - The InsightsEnabled boolean can be set to true to enable insights for the group or false to disable insights for the group. - The NotificationsEnabled boolean can be set to true to enable insights notifications through Amazon EventBridge for the group.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_xray as xray
-            
-            cfn_group_props = xray.CfnGroupProps(
-                group_name="groupName",
-            
-                # the properties below are optional
-                filter_expression="filterExpression",
-                insights_configuration=xray.CfnGroup.InsightsConfigurationProperty(
-                    insights_enabled=False,
-                    notifications_enabled=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df933d0182acdb6109d741b7f8c8d1c6c70bf0511060fb40cc94126c9706fea2)
-            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-            check_type(argname="argument filter_expression", value=filter_expression, expected_type=type_hints["filter_expression"])
-            check_type(argname="argument insights_configuration", value=insights_configuration, expected_type=type_hints["insights_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group_name": group_name,
-        }
-        if filter_expression is not None:
-            self._values["filter_expression"] = filter_expression
-        if insights_configuration is not None:
-            self._values["insights_configuration"] = insights_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def group_name(self) -> builtins.str:
-        '''The unique case-sensitive name of the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-groupname
-        '''
-        result = self._values.get("group_name")
-        assert result is not None, "Required property 'group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def filter_expression(self) -> typing.Optional[builtins.str]:
-        '''The filter expression defining the parameters to include traces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-filterexpression
-        '''
-        result = self._values.get("filter_expression")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def insights_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.InsightsConfigurationProperty]]:
-        '''The structure containing configurations related to insights.
-
-        - The InsightsEnabled boolean can be set to true to enable insights for the group or false to disable insights for the group.
-        - The NotificationsEnabled boolean can be set to true to enable insights notifications through Amazon EventBridge for the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-insightsconfiguration
-        '''
-        result = self._values.get("insights_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.InsightsConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-group.html#cfn-xray-group-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -536,6 +1249,12 @@ class CfnResourcePolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="policyDocument")
     def policy_document(self) -> builtins.str:
         '''The resource-based policy document, which can be up to 5kb in size.'''
@@ -580,104 +1299,7 @@ class CfnResourcePolicy(
         jsii.set(self, "bypassPolicyLockoutCheck", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_xray.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "policy_document": "policyDocument",
-        "policy_name": "policyName",
-        "bypass_policy_lockout_check": "bypassPolicyLockoutCheck",
-    },
-)
-class CfnResourcePolicyProps:
-    def __init__(
-        self,
-        *,
-        policy_document: builtins.str,
-        policy_name: builtins.str,
-        bypass_policy_lockout_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param policy_document: The resource-based policy document, which can be up to 5kb in size.
-        :param policy_name: The name of the resource-based policy. Must be unique within a specific AWS account.
-        :param bypass_policy_lockout_check: A flag to indicate whether to bypass the resource-based policy lockout safety check.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_xray as xray
-            
-            cfn_resource_policy_props = xray.CfnResourcePolicyProps(
-                policy_document="policyDocument",
-                policy_name="policyName",
-            
-                # the properties below are optional
-                bypass_policy_lockout_check=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bf01f8c2bafe7edbe5e11b45f610f28582a393f64724e6ed0ed222de4072781)
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument bypass_policy_lockout_check", value=bypass_policy_lockout_check, expected_type=type_hints["bypass_policy_lockout_check"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_document": policy_document,
-            "policy_name": policy_name,
-        }
-        if bypass_policy_lockout_check is not None:
-            self._values["bypass_policy_lockout_check"] = bypass_policy_lockout_check
-
-    @builtins.property
-    def policy_document(self) -> builtins.str:
-        '''The resource-based policy document, which can be up to 5kb in size.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The name of the resource-based policy.
-
-        Must be unique within a specific AWS account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-policyname
-        '''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bypass_policy_lockout_check(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A flag to indicate whether to bypass the resource-based policy lockout safety check.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-resourcepolicy.html#cfn-xray-resourcepolicy-bypasspolicylockoutcheck
-        '''
-        result = self._values.get("bypass_policy_lockout_check")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISamplingRuleRef, _ITaggableV2_4e6798f8)
 class CfnSamplingRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -852,6 +1474,12 @@ class CfnSamplingRule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="samplingRuleRef")
+    def sampling_rule_ref(self) -> SamplingRuleReference:
+        '''A reference to a SamplingRule resource.'''
+        return typing.cast(SamplingRuleReference, jsii.get(self, "samplingRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -1570,202 +2198,7 @@ class CfnSamplingRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_xray.CfnSamplingRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "rule_name": "ruleName",
-        "sampling_rule": "samplingRule",
-        "sampling_rule_record": "samplingRuleRecord",
-        "sampling_rule_update": "samplingRuleUpdate",
-        "tags": "tags",
-    },
-)
-class CfnSamplingRuleProps:
-    def __init__(
-        self,
-        *,
-        rule_name: typing.Optional[builtins.str] = None,
-        sampling_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sampling_rule_record: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sampling_rule_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSamplingRule``.
-
-        :param rule_name: (deprecated) The ARN of the sampling rule. Specify a rule by either name or ARN, but not both.
-        :param sampling_rule: The sampling rule to be created or updated.
-        :param sampling_rule_record: 
-        :param sampling_rule_update: 
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_xray as xray
-            
-            cfn_sampling_rule_props = xray.CfnSamplingRuleProps(
-                rule_name="ruleName",
-                sampling_rule=xray.CfnSamplingRule.SamplingRuleProperty(
-                    fixed_rate=123,
-                    host="host",
-                    http_method="httpMethod",
-                    priority=123,
-                    reservoir_size=123,
-                    resource_arn="resourceArn",
-                    service_name="serviceName",
-                    service_type="serviceType",
-                    url_path="urlPath",
-            
-                    # the properties below are optional
-                    attributes={
-                        "attributes_key": "attributes"
-                    },
-                    rule_arn="ruleArn",
-                    rule_name="ruleName",
-                    version=123
-                ),
-                sampling_rule_record=xray.CfnSamplingRule.SamplingRuleRecordProperty(
-                    created_at="createdAt",
-                    modified_at="modifiedAt",
-                    sampling_rule=xray.CfnSamplingRule.SamplingRuleProperty(
-                        fixed_rate=123,
-                        host="host",
-                        http_method="httpMethod",
-                        priority=123,
-                        reservoir_size=123,
-                        resource_arn="resourceArn",
-                        service_name="serviceName",
-                        service_type="serviceType",
-                        url_path="urlPath",
-            
-                        # the properties below are optional
-                        attributes={
-                            "attributes_key": "attributes"
-                        },
-                        rule_arn="ruleArn",
-                        rule_name="ruleName",
-                        version=123
-                    )
-                ),
-                sampling_rule_update=xray.CfnSamplingRule.SamplingRuleUpdateProperty(
-                    attributes={
-                        "attributes_key": "attributes"
-                    },
-                    fixed_rate=123,
-                    host="host",
-                    http_method="httpMethod",
-                    priority=123,
-                    reservoir_size=123,
-                    resource_arn="resourceArn",
-                    rule_arn="ruleArn",
-                    rule_name="ruleName",
-                    service_name="serviceName",
-                    service_type="serviceType",
-                    url_path="urlPath"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6728191ed28a57c9130311eb26a506218d6fceeade2816c46cf035cf422c06a2)
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument sampling_rule", value=sampling_rule, expected_type=type_hints["sampling_rule"])
-            check_type(argname="argument sampling_rule_record", value=sampling_rule_record, expected_type=type_hints["sampling_rule_record"])
-            check_type(argname="argument sampling_rule_update", value=sampling_rule_update, expected_type=type_hints["sampling_rule_update"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-        if sampling_rule is not None:
-            self._values["sampling_rule"] = sampling_rule
-        if sampling_rule_record is not None:
-            self._values["sampling_rule_record"] = sampling_rule_record
-        if sampling_rule_update is not None:
-            self._values["sampling_rule_update"] = sampling_rule_update
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The ARN of the sampling rule.
-
-        Specify a rule by either name or ARN, but not both.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-rulename
-        :stability: deprecated
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sampling_rule(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleProperty]]:
-        '''The sampling rule to be created or updated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingrule
-        '''
-        result = self._values.get("sampling_rule")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleProperty]], result)
-
-    @builtins.property
-    def sampling_rule_record(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleRecordProperty]]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingrulerecord
-        :stability: deprecated
-        '''
-        result = self._values.get("sampling_rule_record")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleRecordProperty]], result)
-
-    @builtins.property
-    def sampling_rule_update(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleUpdateProperty]]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-samplingruleupdate
-        :stability: deprecated
-        '''
-        result = self._values.get("sampling_rule_update")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSamplingRule.SamplingRuleUpdateProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-samplingrule.html#cfn-xray-samplingrule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSamplingRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITransactionSearchConfigRef)
 class CfnTransactionSearchConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1855,6 +2288,12 @@ class CfnTransactionSearchConfig(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="transactionSearchConfigRef")
+    def transaction_search_config_ref(self) -> TransactionSearchConfigReference:
+        '''A reference to a TransactionSearchConfig resource.'''
+        return typing.cast(TransactionSearchConfigReference, jsii.get(self, "transactionSearchConfigRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="indexingPercentage")
     def indexing_percentage(self) -> typing.Optional[jsii.Number]:
         '''Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.'''
@@ -1868,62 +2307,6 @@ class CfnTransactionSearchConfig(
         jsii.set(self, "indexingPercentage", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_xray.CfnTransactionSearchConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={"indexing_percentage": "indexingPercentage"},
-)
-class CfnTransactionSearchConfigProps:
-    def __init__(
-        self,
-        *,
-        indexing_percentage: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTransactionSearchConfig``.
-
-        :param indexing_percentage: Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_xray as xray
-            
-            cfn_transaction_search_config_props = xray.CfnTransactionSearchConfigProps(
-                indexing_percentage=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b)
-            check_type(argname="argument indexing_percentage", value=indexing_percentage, expected_type=type_hints["indexing_percentage"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if indexing_percentage is not None:
-            self._values["indexing_percentage"] = indexing_percentage
-
-    @builtins.property
-    def indexing_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Determines the percentage of traces indexed from CloudWatch Logs to X-Ray.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-xray-transactionsearchconfig.html#cfn-xray-transactionsearchconfig-indexingpercentage
-        '''
-        result = self._values.get("indexing_percentage")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTransactionSearchConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnGroup",
     "CfnGroupProps",
@@ -1933,9 +2316,82 @@ __all__ = [
     "CfnSamplingRuleProps",
     "CfnTransactionSearchConfig",
     "CfnTransactionSearchConfigProps",
+    "GroupReference",
+    "IGroupRef",
+    "IResourcePolicyRef",
+    "ISamplingRuleRef",
+    "ITransactionSearchConfigRef",
+    "ResourcePolicyReference",
+    "SamplingRuleReference",
+    "TransactionSearchConfigReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__df933d0182acdb6109d741b7f8c8d1c6c70bf0511060fb40cc94126c9706fea2(
+    *,
+    group_name: builtins.str,
+    filter_expression: typing.Optional[builtins.str] = None,
+    insights_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.InsightsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bf01f8c2bafe7edbe5e11b45f610f28582a393f64724e6ed0ed222de4072781(
+    *,
+    policy_document: builtins.str,
+    policy_name: builtins.str,
+    bypass_policy_lockout_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6728191ed28a57c9130311eb26a506218d6fceeade2816c46cf035cf422c06a2(
+    *,
+    rule_name: typing.Optional[builtins.str] = None,
+    sampling_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_rule_record: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_rule_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b(
+    *,
+    indexing_percentage: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__581f1a3e514164a374321cd3949221fb35b961cabc454e15fb2f467cb2e9e9ed(
+    *,
+    group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7258b84650b2086882acb18ba038648bd3e9546104d408b147c3ab9556e8e680(
+    *,
+    policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cba6544f9b9ed8c51ff4e87ea5d45638fbec5b884c8dea2e0a34ba6b95add312(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5647dc64396ce5c9bf116068cfd4588b06d136e2e8a6a131daf3d289247d93b(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__79279e4db6118afe6e4c5be4499d44b2aa6c4ddc5a7ee32f6146b2501493c9d6(
     scope: _constructs_77d1e7e8.Construct,
@@ -1993,16 +2449,6 @@ def _typecheckingstub__41527dec5fb77f3f618c6e88ead67e5135576189dbd8c58d81dde45b9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__df933d0182acdb6109d741b7f8c8d1c6c70bf0511060fb40cc94126c9706fea2(
-    *,
-    group_name: builtins.str,
-    filter_expression: typing.Optional[builtins.str] = None,
-    insights_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.InsightsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__09bf223d757229b3cb8cbe48721f48c0cbd4a7746b05a01764790f36345573a0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2040,15 +2486,6 @@ def _typecheckingstub__209c64342e8a5a0263f0a86bbf3fa917b289c6deeccd681fb92a6eb2e
 
 def _typecheckingstub__c7bdbf1a6df4fd529d3e30429951840ab05b0592694020851839a8a2b9e3e104(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6bf01f8c2bafe7edbe5e11b45f610f28582a393f64724e6ed0ed222de4072781(
-    *,
-    policy_document: builtins.str,
-    policy_name: builtins.str,
-    bypass_policy_lockout_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2154,17 +2591,6 @@ def _typecheckingstub__75a672db5b7c76b4aaf3fd52ee6a4e3a911cc745d1728fa77059a1fca
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6728191ed28a57c9130311eb26a506218d6fceeade2816c46cf035cf422c06a2(
-    *,
-    rule_name: typing.Optional[builtins.str] = None,
-    sampling_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sampling_rule_record: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sampling_rule_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRuleUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f4e1a30e946dc148e1f6ca9dc5dce1a4c01ae226f9b2a99f68a6bfd8caeabe51(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2188,13 +2614,6 @@ def _typecheckingstub__60d903fbe1bf5e78e1363dfa2d6b437d90640f9c35b6768d40e132738
 
 def _typecheckingstub__667a8dfa445e5a7771cc889a458d31a28e3722f0192c79d0a77ca783777108dc(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2b1f6ec191fd59be2f27330c4455e3dafefecd89a9d126ea095d2128052987b(
-    *,
-    indexing_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

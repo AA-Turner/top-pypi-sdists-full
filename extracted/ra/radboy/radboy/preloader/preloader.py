@@ -463,6 +463,40 @@ Here:
 						'exec':lambda: price_plus_crv_by_tax(total=True),
 					},
 					f'{uuid1()}':{
+						'cmds':['cylinder volume radius','cylvolrad','cyl vol rad'],
+						'desc':f'obtain the volume of a cylinder using radius',
+						'exec':lambda: volumeCylinderRadius(),
+					},
+					f'{uuid1()}':{
+						'cmds':['cylinder volume diameter','cylvoldiam','cyl vol diam'],
+						'desc':f'obtain the volume of a cylinder using diameter',
+						'exec':lambda: volumeCylinderDiameter(),
+					},
+					f'{uuid1()}':{
+						'cmds':['cone volume radius','conevolrad','cone vol rad'],
+						'desc':f'obtain the volume of a cone using radius, a code is 1/3 of a cylinder at the same height and radius',
+						'exec':lambda: volumeConeRadius(),
+					},
+					f'{uuid1()}':{
+						'cmds':['cone volume diameter','conevoldiam','cone vol diam'],
+						'desc':f'obtain the volume of a cone using diameter, a code is 1/3 of a cylinder at the same height and diameter',
+						'exec':lambda: volumeConeDiameter(),
+					},
+					f'{uuid1()}':{
+						'cmds':['herons formula','hrns fmla'],
+						'desc':f'''
+Heron's formula calculates the area of any 
+triangle given only the lengths of its 
+three sides (a, b, and c). The formula is: 
+Area = √(s(s-a)(s-b)(s-c)). To use it, first
+ calculate the semi-perimeter, s = (a + b 
+ + c) / 2, and then substitute this value 
+ and the side lengths into the formula to 
+ find the area. 
+						''',
+						'exec':lambda: heronsFormula(),
+					},
+					f'{uuid1()}':{
 						'cmds':['tax add',],
 						'desc':'''AddNewTaxRate() -> None
 

@@ -74,7 +74,872 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.AlarmModelReference",
+    jsii_struct_bases=[],
+    name_mapping={"alarm_model_name": "alarmModelName"},
+)
+class AlarmModelReference:
+    def __init__(self, *, alarm_model_name: builtins.str) -> None:
+        '''A reference to a AlarmModel resource.
+
+        :param alarm_model_name: The AlarmModelName of the AlarmModel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotevents as iotevents
+            
+            alarm_model_reference = iotevents.AlarmModelReference(
+                alarm_model_name="alarmModelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b966321e132bbe6d2b2e8169c3b8f1c1bd96752a0892e29a425aa2dd9e847514)
+            check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_model_name": alarm_model_name,
+        }
+
+    @builtins.property
+    def alarm_model_name(self) -> builtins.str:
+        '''The AlarmModelName of the AlarmModel resource.'''
+        result = self._values.get("alarm_model_name")
+        assert result is not None, "Required property 'alarm_model_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlarmModelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.CfnAlarmModelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alarm_rule": "alarmRule",
+        "role_arn": "roleArn",
+        "alarm_capabilities": "alarmCapabilities",
+        "alarm_event_actions": "alarmEventActions",
+        "alarm_model_description": "alarmModelDescription",
+        "alarm_model_name": "alarmModelName",
+        "key": "key",
+        "severity": "severity",
+        "tags": "tags",
+    },
+)
+class CfnAlarmModelProps:
+    def __init__(
+        self,
+        *,
+        alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarmModel.AlarmRuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarmModel.AlarmCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlarmModel.AlarmEventActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        alarm_model_description: typing.Optional[builtins.str] = None,
+        alarm_model_name: typing.Optional[builtins.str] = None,
+        key: typing.Optional[builtins.str] = None,
+        severity: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlarmModel``.
+
+        :param alarm_rule: Defines when your alarm is invoked.
+        :param role_arn: The ARN of the IAM role that allows the alarm to perform actions and access AWS resources. For more information, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param alarm_capabilities: Contains the configuration information of alarm state changes.
+        :param alarm_event_actions: Contains information about one or more alarm actions.
+        :param alarm_model_description: The description of the alarm model.
+        :param alarm_model_name: The name of the alarm model.
+        :param key: An input attribute used as a key to create an alarm. AWS IoT Events routes `inputs <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Input.html>`_ associated with this key to the alarm.
+        :param severity: A non-negative integer that reflects the severity level of the alarm.
+        :param tags: A list of key-value pairs that contain metadata for the alarm model. The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* . You can create up to 50 tags for one alarm model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotevents as iotevents
+            
+            cfn_alarm_model_props = iotevents.CfnAlarmModelProps(
+                alarm_rule=iotevents.CfnAlarmModel.AlarmRuleProperty(
+                    simple_rule=iotevents.CfnAlarmModel.SimpleRuleProperty(
+                        comparison_operator="comparisonOperator",
+                        input_property="inputProperty",
+                        threshold="threshold"
+                    )
+                ),
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                alarm_capabilities=iotevents.CfnAlarmModel.AlarmCapabilitiesProperty(
+                    acknowledge_flow=iotevents.CfnAlarmModel.AcknowledgeFlowProperty(
+                        enabled=False
+                    ),
+                    initialization_configuration=iotevents.CfnAlarmModel.InitializationConfigurationProperty(
+                        disabled_on_initialization=False
+                    )
+                ),
+                alarm_event_actions=iotevents.CfnAlarmModel.AlarmEventActionsProperty(
+                    alarm_actions=[iotevents.CfnAlarmModel.AlarmActionProperty(
+                        dynamo_db=iotevents.CfnAlarmModel.DynamoDBProperty(
+                            hash_key_field="hashKeyField",
+                            hash_key_value="hashKeyValue",
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            hash_key_type="hashKeyType",
+                            operation="operation",
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            ),
+                            payload_field="payloadField",
+                            range_key_field="rangeKeyField",
+                            range_key_type="rangeKeyType",
+                            range_key_value="rangeKeyValue"
+                        ),
+                        dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            )
+                        ),
+                        firehose=iotevents.CfnAlarmModel.FirehoseProperty(
+                            delivery_stream_name="deliveryStreamName",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            ),
+                            separator="separator"
+                        ),
+                        iot_events=iotevents.CfnAlarmModel.IotEventsProperty(
+                            input_name="inputName",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            )
+                        ),
+                        iot_site_wise=iotevents.CfnAlarmModel.IotSiteWiseProperty(
+                            asset_id="assetId",
+                            entry_id="entryId",
+                            property_alias="propertyAlias",
+                            property_id="propertyId",
+                            property_value=iotevents.CfnAlarmModel.AssetPropertyValueProperty(
+                                value=iotevents.CfnAlarmModel.AssetPropertyVariantProperty(
+                                    boolean_value="booleanValue",
+                                    double_value="doubleValue",
+                                    integer_value="integerValue",
+                                    string_value="stringValue"
+                                ),
+            
+                                # the properties below are optional
+                                quality="quality",
+                                timestamp=iotevents.CfnAlarmModel.AssetPropertyTimestampProperty(
+                                    time_in_seconds="timeInSeconds",
+            
+                                    # the properties below are optional
+                                    offset_in_nanos="offsetInNanos"
+                                )
+                            )
+                        ),
+                        iot_topic_publish=iotevents.CfnAlarmModel.IotTopicPublishProperty(
+                            mqtt_topic="mqttTopic",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            )
+                        ),
+                        lambda_=iotevents.CfnAlarmModel.LambdaProperty(
+                            function_arn="functionArn",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            )
+                        ),
+                        sns=iotevents.CfnAlarmModel.SnsProperty(
+                            target_arn="targetArn",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            )
+                        ),
+                        sqs=iotevents.CfnAlarmModel.SqsProperty(
+                            queue_url="queueUrl",
+            
+                            # the properties below are optional
+                            payload=iotevents.CfnAlarmModel.PayloadProperty(
+                                content_expression="contentExpression",
+                                type="type"
+                            ),
+                            use_base64=False
+                        )
+                    )]
+                ),
+                alarm_model_description="alarmModelDescription",
+                alarm_model_name="alarmModelName",
+                key="key",
+                severity=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8)
+            check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument alarm_capabilities", value=alarm_capabilities, expected_type=type_hints["alarm_capabilities"])
+            check_type(argname="argument alarm_event_actions", value=alarm_event_actions, expected_type=type_hints["alarm_event_actions"])
+            check_type(argname="argument alarm_model_description", value=alarm_model_description, expected_type=type_hints["alarm_model_description"])
+            check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_rule": alarm_rule,
+            "role_arn": role_arn,
+        }
+        if alarm_capabilities is not None:
+            self._values["alarm_capabilities"] = alarm_capabilities
+        if alarm_event_actions is not None:
+            self._values["alarm_event_actions"] = alarm_event_actions
+        if alarm_model_description is not None:
+            self._values["alarm_model_description"] = alarm_model_description
+        if alarm_model_name is not None:
+            self._values["alarm_model_name"] = alarm_model_name
+        if key is not None:
+            self._values["key"] = key
+        if severity is not None:
+            self._values["severity"] = severity
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def alarm_rule(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmRuleProperty"]:
+        '''Defines when your alarm is invoked.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmrule
+        '''
+        result = self._values.get("alarm_rule")
+        assert result is not None, "Required property 'alarm_rule' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmRuleProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that allows the alarm to perform actions and access AWS resources.
+
+        For more information, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alarm_capabilities(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmCapabilitiesProperty"]]:
+        '''Contains the configuration information of alarm state changes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmcapabilities
+        '''
+        result = self._values.get("alarm_capabilities")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmCapabilitiesProperty"]], result)
+
+    @builtins.property
+    def alarm_event_actions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmEventActionsProperty"]]:
+        '''Contains information about one or more alarm actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmeventactions
+        '''
+        result = self._values.get("alarm_event_actions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAlarmModel.AlarmEventActionsProperty"]], result)
+
+    @builtins.property
+    def alarm_model_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the alarm model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmmodeldescription
+        '''
+        result = self._values.get("alarm_model_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def alarm_model_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the alarm model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmmodelname
+        '''
+        result = self._values.get("alarm_model_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key(self) -> typing.Optional[builtins.str]:
+        '''An input attribute used as a key to create an alarm.
+
+        AWS IoT Events routes `inputs <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Input.html>`_ associated with this key to the alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-key
+        '''
+        result = self._values.get("key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def severity(self) -> typing.Optional[jsii.Number]:
+        '''A non-negative integer that reflects the severity level of the alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-severity
+        '''
+        result = self._values.get("severity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the alarm model.
+
+        The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* .
+
+        You can create up to 50 tags for one alarm model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAlarmModelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.CfnDetectorModelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "detector_model_definition": "detectorModelDefinition",
+        "role_arn": "roleArn",
+        "detector_model_description": "detectorModelDescription",
+        "detector_model_name": "detectorModelName",
+        "evaluation_method": "evaluationMethod",
+        "key": "key",
+        "tags": "tags",
+    },
+)
+class CfnDetectorModelProps:
+    def __init__(
+        self,
+        *,
+        detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDetectorModel.DetectorModelDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        detector_model_description: typing.Optional[builtins.str] = None,
+        detector_model_name: typing.Optional[builtins.str] = None,
+        evaluation_method: typing.Optional[builtins.str] = None,
+        key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDetectorModel``.
+
+        :param detector_model_definition: Information that defines how a detector operates.
+        :param role_arn: The ARN of the role that grants permission to AWS IoT Events to perform its operations.
+        :param detector_model_description: A brief description of the detector model.
+        :param detector_model_name: The name of the detector model.
+        :param evaluation_method: Information about the order in which events are evaluated and how actions are executed.
+        :param key: The value used to identify a detector instance. When a device or system sends input, a new detector instance with a unique key value is created. AWS IoT Events can continue to route input to its corresponding detector instance based on this identifying information. This parameter uses a JSON-path expression to select the attribute-value pair in the message payload that is used for identification. To route the message to the correct detector instance, the device must send a message payload that contains the same attribute-value.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb)
+            check_type(argname="argument detector_model_definition", value=detector_model_definition, expected_type=type_hints["detector_model_definition"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument detector_model_description", value=detector_model_description, expected_type=type_hints["detector_model_description"])
+            check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
+            check_type(argname="argument evaluation_method", value=evaluation_method, expected_type=type_hints["evaluation_method"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_model_definition": detector_model_definition,
+            "role_arn": role_arn,
+        }
+        if detector_model_description is not None:
+            self._values["detector_model_description"] = detector_model_description
+        if detector_model_name is not None:
+            self._values["detector_model_name"] = detector_model_name
+        if evaluation_method is not None:
+            self._values["evaluation_method"] = evaluation_method
+        if key is not None:
+            self._values["key"] = key
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def detector_model_definition(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDetectorModel.DetectorModelDefinitionProperty"]:
+        '''Information that defines how a detector operates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodeldefinition
+        '''
+        result = self._values.get("detector_model_definition")
+        assert result is not None, "Required property 'detector_model_definition' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDetectorModel.DetectorModelDefinitionProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the role that grants permission to AWS IoT Events to perform its operations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def detector_model_description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the detector model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodeldescription
+        '''
+        result = self._values.get("detector_model_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def detector_model_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the detector model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodelname
+        '''
+        result = self._values.get("detector_model_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def evaluation_method(self) -> typing.Optional[builtins.str]:
+        '''Information about the order in which events are evaluated and how actions are executed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-evaluationmethod
+        '''
+        result = self._values.get("evaluation_method")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def key(self) -> typing.Optional[builtins.str]:
+        '''The value used to identify a detector instance.
+
+        When a device or system sends input, a new detector instance with a unique key value is created. AWS IoT Events can continue to route input to its corresponding detector instance based on this identifying information.
+
+        This parameter uses a JSON-path expression to select the attribute-value pair in the message payload that is used for identification. To route the message to the correct detector instance, the device must send a message payload that contains the same attribute-value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-key
+        '''
+        result = self._values.get("key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDetectorModelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.CfnInputProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input_definition": "inputDefinition",
+        "input_description": "inputDescription",
+        "input_name": "inputName",
+        "tags": "tags",
+    },
+)
+class CfnInputProps:
+    def __init__(
+        self,
+        *,
+        input_definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        input_description: typing.Optional[builtins.str] = None,
+        input_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInput``.
+
+        :param input_definition: The definition of the input.
+        :param input_description: A brief description of the input.
+        :param input_name: The name of the input.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotevents as iotevents
+            
+            cfn_input_props = iotevents.CfnInputProps(
+                input_definition=iotevents.CfnInput.InputDefinitionProperty(
+                    attributes=[iotevents.CfnInput.AttributeProperty(
+                        json_path="jsonPath"
+                    )]
+                ),
+            
+                # the properties below are optional
+                input_description="inputDescription",
+                input_name="inputName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722)
+            check_type(argname="argument input_definition", value=input_definition, expected_type=type_hints["input_definition"])
+            check_type(argname="argument input_description", value=input_description, expected_type=type_hints["input_description"])
+            check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "input_definition": input_definition,
+        }
+        if input_description is not None:
+            self._values["input_description"] = input_description
+        if input_name is not None:
+            self._values["input_name"] = input_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def input_definition(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnInput.InputDefinitionProperty"]:
+        '''The definition of the input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputdefinition
+        '''
+        result = self._values.get("input_definition")
+        assert result is not None, "Required property 'input_definition' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInput.InputDefinitionProperty"], result)
+
+    @builtins.property
+    def input_description(self) -> typing.Optional[builtins.str]:
+        '''A brief description of the input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputdescription
+        '''
+        result = self._values.get("input_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputname
+        '''
+        result = self._values.get("input_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInputProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.DetectorModelReference",
+    jsii_struct_bases=[],
+    name_mapping={"detector_model_name": "detectorModelName"},
+)
+class DetectorModelReference:
+    def __init__(self, *, detector_model_name: builtins.str) -> None:
+        '''A reference to a DetectorModel resource.
+
+        :param detector_model_name: The DetectorModelName of the DetectorModel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotevents as iotevents
+            
+            detector_model_reference = iotevents.DetectorModelReference(
+                detector_model_name="detectorModelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6978df0ad4e6d22a809ff7de57a35864daf1a0e165f8d446c5cbf6544dd98148)
+            check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "detector_model_name": detector_model_name,
+        }
+
+    @builtins.property
+    def detector_model_name(self) -> builtins.str:
+        '''The DetectorModelName of the DetectorModel resource.'''
+        result = self._values.get("detector_model_name")
+        assert result is not None, "Required property 'detector_model_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DetectorModelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotevents.IAlarmModelRef")
+class IAlarmModelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AlarmModel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmModelRef")
+    def alarm_model_ref(self) -> AlarmModelReference:
+        '''(experimental) A reference to a AlarmModel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAlarmModelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AlarmModel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotevents.IAlarmModelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmModelRef")
+    def alarm_model_ref(self) -> AlarmModelReference:
+        '''(experimental) A reference to a AlarmModel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AlarmModelReference, jsii.get(self, "alarmModelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlarmModelRef).__jsii_proxy_class__ = lambda : _IAlarmModelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotevents.IDetectorModelRef")
+class IDetectorModelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DetectorModel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorModelRef")
+    def detector_model_ref(self) -> DetectorModelReference:
+        '''(experimental) A reference to a DetectorModel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDetectorModelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DetectorModel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotevents.IDetectorModelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorModelRef")
+    def detector_model_ref(self) -> DetectorModelReference:
+        '''(experimental) A reference to a DetectorModel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DetectorModelReference, jsii.get(self, "detectorModelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDetectorModelRef).__jsii_proxy_class__ = lambda : _IDetectorModelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotevents.IInputRef")
+class IInputRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Input.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="inputRef")
+    def input_ref(self) -> "InputReference":
+        '''(experimental) A reference to a Input resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInputRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Input.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotevents.IInputRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="inputRef")
+    def input_ref(self) -> "InputReference":
+        '''(experimental) A reference to a Input resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InputReference", jsii.get(self, "inputRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInputRef).__jsii_proxy_class__ = lambda : _IInputRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotevents.InputReference",
+    jsii_struct_bases=[],
+    name_mapping={"input_name": "inputName"},
+)
+class InputReference:
+    def __init__(self, *, input_name: builtins.str) -> None:
+        '''A reference to a Input resource.
+
+        :param input_name: The InputName of the Input resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotevents as iotevents
+            
+            input_reference = iotevents.InputReference(
+                input_name="inputName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91329ac476b8ac877de13e0da6cc879125d9752401c501ae90bfcc9020003c5e)
+            check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "input_name": input_name,
+        }
+
+    @builtins.property
+    def input_name(self) -> builtins.str:
+        '''The InputName of the Input resource.'''
+        result = self._values.get("input_name")
+        assert result is not None, "Required property 'input_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InputReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAlarmModelRef, _ITaggable_36806126)
 class CfnAlarmModel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -308,6 +1173,12 @@ class CfnAlarmModel(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmModelRef")
+    def alarm_model_ref(self) -> AlarmModelReference:
+        '''A reference to a AlarmModel resource.'''
+        return typing.cast(AlarmModelReference, jsii.get(self, "alarmModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2784,334 +3655,7 @@ class CfnAlarmModel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotevents.CfnAlarmModelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "alarm_rule": "alarmRule",
-        "role_arn": "roleArn",
-        "alarm_capabilities": "alarmCapabilities",
-        "alarm_event_actions": "alarmEventActions",
-        "alarm_model_description": "alarmModelDescription",
-        "alarm_model_name": "alarmModelName",
-        "key": "key",
-        "severity": "severity",
-        "tags": "tags",
-    },
-)
-class CfnAlarmModelProps:
-    def __init__(
-        self,
-        *,
-        alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        alarm_model_description: typing.Optional[builtins.str] = None,
-        alarm_model_name: typing.Optional[builtins.str] = None,
-        key: typing.Optional[builtins.str] = None,
-        severity: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAlarmModel``.
-
-        :param alarm_rule: Defines when your alarm is invoked.
-        :param role_arn: The ARN of the IAM role that allows the alarm to perform actions and access AWS resources. For more information, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param alarm_capabilities: Contains the configuration information of alarm state changes.
-        :param alarm_event_actions: Contains information about one or more alarm actions.
-        :param alarm_model_description: The description of the alarm model.
-        :param alarm_model_name: The name of the alarm model.
-        :param key: An input attribute used as a key to create an alarm. AWS IoT Events routes `inputs <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Input.html>`_ associated with this key to the alarm.
-        :param severity: A non-negative integer that reflects the severity level of the alarm.
-        :param tags: A list of key-value pairs that contain metadata for the alarm model. The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* . You can create up to 50 tags for one alarm model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotevents as iotevents
-            
-            cfn_alarm_model_props = iotevents.CfnAlarmModelProps(
-                alarm_rule=iotevents.CfnAlarmModel.AlarmRuleProperty(
-                    simple_rule=iotevents.CfnAlarmModel.SimpleRuleProperty(
-                        comparison_operator="comparisonOperator",
-                        input_property="inputProperty",
-                        threshold="threshold"
-                    )
-                ),
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                alarm_capabilities=iotevents.CfnAlarmModel.AlarmCapabilitiesProperty(
-                    acknowledge_flow=iotevents.CfnAlarmModel.AcknowledgeFlowProperty(
-                        enabled=False
-                    ),
-                    initialization_configuration=iotevents.CfnAlarmModel.InitializationConfigurationProperty(
-                        disabled_on_initialization=False
-                    )
-                ),
-                alarm_event_actions=iotevents.CfnAlarmModel.AlarmEventActionsProperty(
-                    alarm_actions=[iotevents.CfnAlarmModel.AlarmActionProperty(
-                        dynamo_db=iotevents.CfnAlarmModel.DynamoDBProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            operation="operation",
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            ),
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_dBv2=iotevents.CfnAlarmModel.DynamoDBv2Property(
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            )
-                        ),
-                        firehose=iotevents.CfnAlarmModel.FirehoseProperty(
-                            delivery_stream_name="deliveryStreamName",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            ),
-                            separator="separator"
-                        ),
-                        iot_events=iotevents.CfnAlarmModel.IotEventsProperty(
-                            input_name="inputName",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            )
-                        ),
-                        iot_site_wise=iotevents.CfnAlarmModel.IotSiteWiseProperty(
-                            asset_id="assetId",
-                            entry_id="entryId",
-                            property_alias="propertyAlias",
-                            property_id="propertyId",
-                            property_value=iotevents.CfnAlarmModel.AssetPropertyValueProperty(
-                                value=iotevents.CfnAlarmModel.AssetPropertyVariantProperty(
-                                    boolean_value="booleanValue",
-                                    double_value="doubleValue",
-                                    integer_value="integerValue",
-                                    string_value="stringValue"
-                                ),
-            
-                                # the properties below are optional
-                                quality="quality",
-                                timestamp=iotevents.CfnAlarmModel.AssetPropertyTimestampProperty(
-                                    time_in_seconds="timeInSeconds",
-            
-                                    # the properties below are optional
-                                    offset_in_nanos="offsetInNanos"
-                                )
-                            )
-                        ),
-                        iot_topic_publish=iotevents.CfnAlarmModel.IotTopicPublishProperty(
-                            mqtt_topic="mqttTopic",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            )
-                        ),
-                        lambda_=iotevents.CfnAlarmModel.LambdaProperty(
-                            function_arn="functionArn",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            )
-                        ),
-                        sns=iotevents.CfnAlarmModel.SnsProperty(
-                            target_arn="targetArn",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            )
-                        ),
-                        sqs=iotevents.CfnAlarmModel.SqsProperty(
-                            queue_url="queueUrl",
-            
-                            # the properties below are optional
-                            payload=iotevents.CfnAlarmModel.PayloadProperty(
-                                content_expression="contentExpression",
-                                type="type"
-                            ),
-                            use_base64=False
-                        )
-                    )]
-                ),
-                alarm_model_description="alarmModelDescription",
-                alarm_model_name="alarmModelName",
-                key="key",
-                severity=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8)
-            check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument alarm_capabilities", value=alarm_capabilities, expected_type=type_hints["alarm_capabilities"])
-            check_type(argname="argument alarm_event_actions", value=alarm_event_actions, expected_type=type_hints["alarm_event_actions"])
-            check_type(argname="argument alarm_model_description", value=alarm_model_description, expected_type=type_hints["alarm_model_description"])
-            check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alarm_rule": alarm_rule,
-            "role_arn": role_arn,
-        }
-        if alarm_capabilities is not None:
-            self._values["alarm_capabilities"] = alarm_capabilities
-        if alarm_event_actions is not None:
-            self._values["alarm_event_actions"] = alarm_event_actions
-        if alarm_model_description is not None:
-            self._values["alarm_model_description"] = alarm_model_description
-        if alarm_model_name is not None:
-            self._values["alarm_model_name"] = alarm_model_name
-        if key is not None:
-            self._values["key"] = key
-        if severity is not None:
-            self._values["severity"] = severity
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def alarm_rule(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmRuleProperty]:
-        '''Defines when your alarm is invoked.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmrule
-        '''
-        result = self._values.get("alarm_rule")
-        assert result is not None, "Required property 'alarm_rule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmRuleProperty], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that allows the alarm to perform actions and access AWS resources.
-
-        For more information, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def alarm_capabilities(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmCapabilitiesProperty]]:
-        '''Contains the configuration information of alarm state changes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmcapabilities
-        '''
-        result = self._values.get("alarm_capabilities")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmCapabilitiesProperty]], result)
-
-    @builtins.property
-    def alarm_event_actions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmEventActionsProperty]]:
-        '''Contains information about one or more alarm actions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmeventactions
-        '''
-        result = self._values.get("alarm_event_actions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmModel.AlarmEventActionsProperty]], result)
-
-    @builtins.property
-    def alarm_model_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the alarm model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmmodeldescription
-        '''
-        result = self._values.get("alarm_model_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def alarm_model_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the alarm model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-alarmmodelname
-        '''
-        result = self._values.get("alarm_model_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def key(self) -> typing.Optional[builtins.str]:
-        '''An input attribute used as a key to create an alarm.
-
-        AWS IoT Events routes `inputs <https://docs.aws.amazon.com/iotevents/latest/apireference/API_Input.html>`_ associated with this key to the alarm.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-key
-        '''
-        result = self._values.get("key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def severity(self) -> typing.Optional[jsii.Number]:
-        '''A non-negative integer that reflects the severity level of the alarm.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-severity
-        '''
-        result = self._values.get("severity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the alarm model.
-
-        The tags help you manage the alarm model. For more information, see `Tagging your AWS IoT Events resources <https://docs.aws.amazon.com/iotevents/latest/developerguide/tagging-iotevents.html>`_ in the *AWS IoT Events Developer Guide* .
-
-        You can create up to 50 tags for one alarm model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-alarmmodel.html#cfn-iotevents-alarmmodel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAlarmModelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDetectorModelRef, _ITaggable_36806126)
 class CfnDetectorModel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3213,6 +3757,12 @@ class CfnDetectorModel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorModelRef")
+    def detector_model_ref(self) -> DetectorModelReference:
+        '''A reference to a DetectorModel resource.'''
+        return typing.cast(DetectorModelReference, jsii.get(self, "detectorModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6767,158 +7317,7 @@ class CfnDetectorModel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotevents.CfnDetectorModelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "detector_model_definition": "detectorModelDefinition",
-        "role_arn": "roleArn",
-        "detector_model_description": "detectorModelDescription",
-        "detector_model_name": "detectorModelName",
-        "evaluation_method": "evaluationMethod",
-        "key": "key",
-        "tags": "tags",
-    },
-)
-class CfnDetectorModelProps:
-    def __init__(
-        self,
-        *,
-        detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        detector_model_description: typing.Optional[builtins.str] = None,
-        detector_model_name: typing.Optional[builtins.str] = None,
-        evaluation_method: typing.Optional[builtins.str] = None,
-        key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDetectorModel``.
-
-        :param detector_model_definition: Information that defines how a detector operates.
-        :param role_arn: The ARN of the role that grants permission to AWS IoT Events to perform its operations.
-        :param detector_model_description: A brief description of the detector model.
-        :param detector_model_name: The name of the detector model.
-        :param evaluation_method: Information about the order in which events are evaluated and how actions are executed.
-        :param key: The value used to identify a detector instance. When a device or system sends input, a new detector instance with a unique key value is created. AWS IoT Events can continue to route input to its corresponding detector instance based on this identifying information. This parameter uses a JSON-path expression to select the attribute-value pair in the message payload that is used for identification. To route the message to the correct detector instance, the device must send a message payload that contains the same attribute-value.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb)
-            check_type(argname="argument detector_model_definition", value=detector_model_definition, expected_type=type_hints["detector_model_definition"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument detector_model_description", value=detector_model_description, expected_type=type_hints["detector_model_description"])
-            check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
-            check_type(argname="argument evaluation_method", value=evaluation_method, expected_type=type_hints["evaluation_method"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "detector_model_definition": detector_model_definition,
-            "role_arn": role_arn,
-        }
-        if detector_model_description is not None:
-            self._values["detector_model_description"] = detector_model_description
-        if detector_model_name is not None:
-            self._values["detector_model_name"] = detector_model_name
-        if evaluation_method is not None:
-            self._values["evaluation_method"] = evaluation_method
-        if key is not None:
-            self._values["key"] = key
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def detector_model_definition(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDetectorModel.DetectorModelDefinitionProperty]:
-        '''Information that defines how a detector operates.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodeldefinition
-        '''
-        result = self._values.get("detector_model_definition")
-        assert result is not None, "Required property 'detector_model_definition' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDetectorModel.DetectorModelDefinitionProperty], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the role that grants permission to AWS IoT Events to perform its operations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def detector_model_description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the detector model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodeldescription
-        '''
-        result = self._values.get("detector_model_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def detector_model_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the detector model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-detectormodelname
-        '''
-        result = self._values.get("detector_model_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def evaluation_method(self) -> typing.Optional[builtins.str]:
-        '''Information about the order in which events are evaluated and how actions are executed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-evaluationmethod
-        '''
-        result = self._values.get("evaluation_method")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def key(self) -> typing.Optional[builtins.str]:
-        '''The value used to identify a detector instance.
-
-        When a device or system sends input, a new detector instance with a unique key value is created. AWS IoT Events can continue to route input to its corresponding detector instance based on this identifying information.
-
-        This parameter uses a JSON-path expression to select the attribute-value pair in the message payload that is used for identification. To route the message to the correct detector instance, the device must send a message payload that contains the same attribute-value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-key
-        '''
-        result = self._values.get("key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-detectormodel.html#cfn-iotevents-detectormodel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDetectorModelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IInputRef, _ITaggable_36806126)
 class CfnInput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7020,6 +7419,12 @@ class CfnInput(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputRef")
+    def input_ref(self) -> InputReference:
+        '''A reference to a Input resource.'''
+        return typing.cast(InputReference, jsii.get(self, "inputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7205,136 +7610,81 @@ class CfnInput(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotevents.CfnInputProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "input_definition": "inputDefinition",
-        "input_description": "inputDescription",
-        "input_name": "inputName",
-        "tags": "tags",
-    },
-)
-class CfnInputProps:
-    def __init__(
-        self,
-        *,
-        input_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-        input_description: typing.Optional[builtins.str] = None,
-        input_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInput``.
-
-        :param input_definition: The definition of the input.
-        :param input_description: A brief description of the input.
-        :param input_name: The name of the input.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotevents as iotevents
-            
-            cfn_input_props = iotevents.CfnInputProps(
-                input_definition=iotevents.CfnInput.InputDefinitionProperty(
-                    attributes=[iotevents.CfnInput.AttributeProperty(
-                        json_path="jsonPath"
-                    )]
-                ),
-            
-                # the properties below are optional
-                input_description="inputDescription",
-                input_name="inputName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722)
-            check_type(argname="argument input_definition", value=input_definition, expected_type=type_hints["input_definition"])
-            check_type(argname="argument input_description", value=input_description, expected_type=type_hints["input_description"])
-            check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_definition": input_definition,
-        }
-        if input_description is not None:
-            self._values["input_description"] = input_description
-        if input_name is not None:
-            self._values["input_name"] = input_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def input_definition(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnInput.InputDefinitionProperty]:
-        '''The definition of the input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputdefinition
-        '''
-        result = self._values.get("input_definition")
-        assert result is not None, "Required property 'input_definition' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnInput.InputDefinitionProperty], result)
-
-    @builtins.property
-    def input_description(self) -> typing.Optional[builtins.str]:
-        '''A brief description of the input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputdescription
-        '''
-        result = self._values.get("input_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-inputname
-        '''
-        result = self._values.get("input_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotevents-input.html#cfn-iotevents-input-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInputProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AlarmModelReference",
     "CfnAlarmModel",
     "CfnAlarmModelProps",
     "CfnDetectorModel",
     "CfnDetectorModelProps",
     "CfnInput",
     "CfnInputProps",
+    "DetectorModelReference",
+    "IAlarmModelRef",
+    "IDetectorModelRef",
+    "IInputRef",
+    "InputReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__b966321e132bbe6d2b2e8169c3b8f1c1bd96752a0892e29a425aa2dd9e847514(
+    *,
+    alarm_model_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8(
+    *,
+    alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    alarm_model_description: typing.Optional[builtins.str] = None,
+    alarm_model_name: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.str] = None,
+    severity: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb(
+    *,
+    detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    detector_model_description: typing.Optional[builtins.str] = None,
+    detector_model_name: typing.Optional[builtins.str] = None,
+    evaluation_method: typing.Optional[builtins.str] = None,
+    key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722(
+    *,
+    input_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_description: typing.Optional[builtins.str] = None,
+    input_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6978df0ad4e6d22a809ff7de57a35864daf1a0e165f8d446c5cbf6544dd98148(
+    *,
+    detector_model_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91329ac476b8ac877de13e0da6cc879125d9752401c501ae90bfcc9020003c5e(
+    *,
+    input_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__ef7f48b87ae58ab2d16bfb25fbcc61ae8753eb0c9a5b0016eec37a52e79b7a7d(
     scope: _constructs_77d1e7e8.Construct,
@@ -7595,21 +7945,6 @@ def _typecheckingstub__f53bd000fd0e8e8506df9f9b2dcacf36f61e120354ff39131baa459b8
     queue_url: builtins.str,
     payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.PayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_base64: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__20e728f3578307e805cd9079d426bae0a7ec729fb1c6704b7c6c04fd09cce9d8(
-    *,
-    alarm_rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmRuleProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    alarm_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    alarm_event_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmModel.AlarmEventActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    alarm_model_description: typing.Optional[builtins.str] = None,
-    alarm_model_name: typing.Optional[builtins.str] = None,
-    key: typing.Optional[builtins.str] = None,
-    severity: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7912,19 +8247,6 @@ def _typecheckingstub__58cc9b74b1b13a3df88f86605e6204fc4e2bb97b6a508a626a96132e5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1e2611711600761b56c5b9240bfddb7ec561f2c659e9c9866ca3e31a313119eb(
-    *,
-    detector_model_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDetectorModel.DetectorModelDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    detector_model_description: typing.Optional[builtins.str] = None,
-    detector_model_name: typing.Optional[builtins.str] = None,
-    evaluation_method: typing.Optional[builtins.str] = None,
-    key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__11855be4f7bee53ad741f6363d8e68467f417b7f7483fc55460da1fe97129c79(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7983,16 +8305,6 @@ def _typecheckingstub__797d37c850d2f5c2b3a62f58db5353f1f51e8c258592e33a5b8dd7a4b
 def _typecheckingstub__f28aaf2329f3541c2ea510b4c542b475eeb9d677b36275d8bffa1b5c43d44b5d(
     *,
     attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.AttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ece51581a45430852925100971ac147cf205a386827cd21b226948da1b2a722(
-    *,
-    input_definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    input_description: typing.Optional[builtins.str] = None,
-    input_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -70,13 +70,2549 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.AccessPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_policy_arn": "accessPolicyArn",
+        "access_policy_id": "accessPolicyId",
+    },
+)
+class AccessPolicyReference:
+    def __init__(
+        self,
+        *,
+        access_policy_arn: builtins.str,
+        access_policy_id: builtins.str,
+    ) -> None:
+        '''A reference to a AccessPolicy resource.
+
+        :param access_policy_arn: The ARN of the AccessPolicy resource.
+        :param access_policy_id: The AccessPolicyId of the AccessPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            access_policy_reference = iotsitewise.AccessPolicyReference(
+                access_policy_arn="accessPolicyArn",
+                access_policy_id="accessPolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8edb465d52fb3f2296236ace7c25cd991636477863514c93c7e742078b81efd0)
+            check_type(argname="argument access_policy_arn", value=access_policy_arn, expected_type=type_hints["access_policy_arn"])
+            check_type(argname="argument access_policy_id", value=access_policy_id, expected_type=type_hints["access_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_policy_arn": access_policy_arn,
+            "access_policy_id": access_policy_id,
+        }
+
+    @builtins.property
+    def access_policy_arn(self) -> builtins.str:
+        '''The ARN of the AccessPolicy resource.'''
+        result = self._values.get("access_policy_arn")
+        assert result is not None, "Required property 'access_policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_policy_id(self) -> builtins.str:
+        '''The AccessPolicyId of the AccessPolicy resource.'''
+        result = self._values.get("access_policy_id")
+        assert result is not None, "Required property 'access_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.AssetModelReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "asset_model_arn": "assetModelArn",
+        "asset_model_id": "assetModelId",
+    },
+)
+class AssetModelReference:
+    def __init__(
+        self,
+        *,
+        asset_model_arn: builtins.str,
+        asset_model_id: builtins.str,
+    ) -> None:
+        '''A reference to a AssetModel resource.
+
+        :param asset_model_arn: The ARN of the AssetModel resource.
+        :param asset_model_id: The AssetModelId of the AssetModel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            asset_model_reference = iotsitewise.AssetModelReference(
+                asset_model_arn="assetModelArn",
+                asset_model_id="assetModelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__def49041a9a7e8d3ea8d6f7ddbebd124f2ea1546c4e4975041f18926e68133f1)
+            check_type(argname="argument asset_model_arn", value=asset_model_arn, expected_type=type_hints["asset_model_arn"])
+            check_type(argname="argument asset_model_id", value=asset_model_id, expected_type=type_hints["asset_model_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_model_arn": asset_model_arn,
+            "asset_model_id": asset_model_id,
+        }
+
+    @builtins.property
+    def asset_model_arn(self) -> builtins.str:
+        '''The ARN of the AssetModel resource.'''
+        result = self._values.get("asset_model_arn")
+        assert result is not None, "Required property 'asset_model_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_model_id(self) -> builtins.str:
+        '''The AssetModelId of the AssetModel resource.'''
+        result = self._values.get("asset_model_id")
+        assert result is not None, "Required property 'asset_model_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssetModelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.AssetReference",
+    jsii_struct_bases=[],
+    name_mapping={"asset_arn": "assetArn", "asset_id": "assetId"},
+)
+class AssetReference:
+    def __init__(self, *, asset_arn: builtins.str, asset_id: builtins.str) -> None:
+        '''A reference to a Asset resource.
+
+        :param asset_arn: The ARN of the Asset resource.
+        :param asset_id: The AssetId of the Asset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            asset_reference = iotsitewise.AssetReference(
+                asset_arn="assetArn",
+                asset_id="assetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99511a36f0dff197bf82e15afcc37bc35c9cbfede797de39b2854bf1ee1b774c)
+            check_type(argname="argument asset_arn", value=asset_arn, expected_type=type_hints["asset_arn"])
+            check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_arn": asset_arn,
+            "asset_id": asset_id,
+        }
+
+    @builtins.property
+    def asset_arn(self) -> builtins.str:
+        '''The ARN of the Asset resource.'''
+        result = self._values.get("asset_arn")
+        assert result is not None, "Required property 'asset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_id(self) -> builtins.str:
+        '''The AssetId of the Asset resource.'''
+        result = self._values.get("asset_id")
+        assert result is not None, "Required property 'asset_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAccessPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_policy_identity": "accessPolicyIdentity",
+        "access_policy_permission": "accessPolicyPermission",
+        "access_policy_resource": "accessPolicyResource",
+    },
+)
+class CfnAccessPolicyProps:
+    def __init__(
+        self,
+        *,
+        access_policy_identity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPolicy.AccessPolicyIdentityProperty", typing.Dict[builtins.str, typing.Any]]],
+        access_policy_permission: builtins.str,
+        access_policy_resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPolicy.AccessPolicyResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPolicy``.
+
+        :param access_policy_identity: The identity for this access policy. Choose an IAM Identity Center user, an IAM Identity Center group, or an IAM user.
+        :param access_policy_permission: The permission level for this access policy. Note that a project ``ADMINISTRATOR`` is also known as a project owner.
+        :param access_policy_resource: The AWS IoT SiteWise Monitor resource for this access policy. Choose either a portal or a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_access_policy_props = iotsitewise.CfnAccessPolicyProps(
+                access_policy_identity=iotsitewise.CfnAccessPolicy.AccessPolicyIdentityProperty(
+                    iam_role=iotsitewise.CfnAccessPolicy.IamRoleProperty(
+                        arn="arn"
+                    ),
+                    iam_user=iotsitewise.CfnAccessPolicy.IamUserProperty(
+                        arn="arn"
+                    ),
+                    user=iotsitewise.CfnAccessPolicy.UserProperty(
+                        id="id"
+                    )
+                ),
+                access_policy_permission="accessPolicyPermission",
+                access_policy_resource=iotsitewise.CfnAccessPolicy.AccessPolicyResourceProperty(
+                    portal=iotsitewise.CfnAccessPolicy.PortalProperty(
+                        id="id"
+                    ),
+                    project=iotsitewise.CfnAccessPolicy.ProjectProperty(
+                        id="id"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__395192fc212cfba19ac0d48ac6224771ee93f01bee507a5e9571a735a417decd)
+            check_type(argname="argument access_policy_identity", value=access_policy_identity, expected_type=type_hints["access_policy_identity"])
+            check_type(argname="argument access_policy_permission", value=access_policy_permission, expected_type=type_hints["access_policy_permission"])
+            check_type(argname="argument access_policy_resource", value=access_policy_resource, expected_type=type_hints["access_policy_resource"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_policy_identity": access_policy_identity,
+            "access_policy_permission": access_policy_permission,
+            "access_policy_resource": access_policy_resource,
+        }
+
+    @builtins.property
+    def access_policy_identity(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccessPolicy.AccessPolicyIdentityProperty"]:
+        '''The identity for this access policy.
+
+        Choose an IAM Identity Center user, an IAM Identity Center group, or an IAM user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicyidentity
+        '''
+        result = self._values.get("access_policy_identity")
+        assert result is not None, "Required property 'access_policy_identity' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccessPolicy.AccessPolicyIdentityProperty"], result)
+
+    @builtins.property
+    def access_policy_permission(self) -> builtins.str:
+        '''The permission level for this access policy.
+
+        Note that a project ``ADMINISTRATOR`` is also known as a project owner.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicypermission
+        '''
+        result = self._values.get("access_policy_permission")
+        assert result is not None, "Required property 'access_policy_permission' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_policy_resource(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccessPolicy.AccessPolicyResourceProperty"]:
+        '''The AWS IoT SiteWise Monitor resource for this access policy.
+
+        Choose either a portal or a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicyresource
+        '''
+        result = self._values.get("access_policy_resource")
+        assert result is not None, "Required property 'access_policy_resource' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccessPolicy.AccessPolicyResourceProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAssetModelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "asset_model_name": "assetModelName",
+        "asset_model_composite_models": "assetModelCompositeModels",
+        "asset_model_description": "assetModelDescription",
+        "asset_model_external_id": "assetModelExternalId",
+        "asset_model_hierarchies": "assetModelHierarchies",
+        "asset_model_properties": "assetModelProperties",
+        "asset_model_type": "assetModelType",
+        "enforced_asset_model_interface_relationships": "enforcedAssetModelInterfaceRelationships",
+        "tags": "tags",
+    },
+)
+class CfnAssetModelProps:
+    def __init__(
+        self,
+        *,
+        asset_model_name: builtins.str,
+        asset_model_composite_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssetModel.AssetModelCompositeModelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        asset_model_description: typing.Optional[builtins.str] = None,
+        asset_model_external_id: typing.Optional[builtins.str] = None,
+        asset_model_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssetModel.AssetModelHierarchyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        asset_model_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssetModel.AssetModelPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        asset_model_type: typing.Optional[builtins.str] = None,
+        enforced_asset_model_interface_relationships: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssetModel``.
+
+        :param asset_model_name: A unique name for the asset model.
+        :param asset_model_composite_models: The composite models that are part of this asset model. It groups properties (such as attributes, measurements, transforms, and metrics) and child composite models that model parts of your industrial equipment. Each composite model has a type that defines the properties that the composite model supports. Use composite models to define alarms on this asset model. .. epigraph:: When creating custom composite models, you need to use `CreateAssetModelCompositeModel <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_CreateAssetModelCompositeModel.html>`_ . For more information, see `Creating custom composite models (Components) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-custom-composite-models.html>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_model_description: A description for the asset model.
+        :param asset_model_external_id: The external ID of the asset model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_model_hierarchies: The hierarchy definitions of the asset model. Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_model_properties: The property definitions of the asset model. For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model. - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
+        :param enforced_asset_model_interface_relationships: a list of asset model and interface relationships.
+        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_asset_model_props = iotsitewise.CfnAssetModelProps(
+                asset_model_name="assetModelName",
+            
+                # the properties below are optional
+                asset_model_composite_models=[iotsitewise.CfnAssetModel.AssetModelCompositeModelProperty(
+                    name="name",
+                    type="type",
+            
+                    # the properties below are optional
+                    composed_asset_model_id="composedAssetModelId",
+                    composite_model_properties=[iotsitewise.CfnAssetModel.AssetModelPropertyProperty(
+                        data_type="dataType",
+                        name="name",
+                        type=iotsitewise.CfnAssetModel.PropertyTypeProperty(
+                            type_name="typeName",
+            
+                            # the properties below are optional
+                            attribute=iotsitewise.CfnAssetModel.AttributeProperty(
+                                default_value="defaultValue"
+                            ),
+                            metric=iotsitewise.CfnAssetModel.MetricProperty(
+                                expression="expression",
+                                variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
+                                    name="name",
+                                    value=iotsitewise.CfnAssetModel.VariableValueProperty(
+                                        hierarchy_external_id="hierarchyExternalId",
+                                        hierarchy_id="hierarchyId",
+                                        hierarchy_logical_id="hierarchyLogicalId",
+                                        property_external_id="propertyExternalId",
+                                        property_id="propertyId",
+                                        property_logical_id="propertyLogicalId",
+                                        property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
+                                            name="name"
+                                        )]
+                                    )
+                                )],
+                                window=iotsitewise.CfnAssetModel.MetricWindowProperty(
+                                    tumbling=iotsitewise.CfnAssetModel.TumblingWindowProperty(
+                                        interval="interval",
+            
+                                        # the properties below are optional
+                                        offset="offset"
+                                    )
+                                )
+                            ),
+                            transform=iotsitewise.CfnAssetModel.TransformProperty(
+                                expression="expression",
+                                variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
+                                    name="name",
+                                    value=iotsitewise.CfnAssetModel.VariableValueProperty(
+                                        hierarchy_external_id="hierarchyExternalId",
+                                        hierarchy_id="hierarchyId",
+                                        hierarchy_logical_id="hierarchyLogicalId",
+                                        property_external_id="propertyExternalId",
+                                        property_id="propertyId",
+                                        property_logical_id="propertyLogicalId",
+                                        property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
+                                            name="name"
+                                        )]
+                                    )
+                                )]
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        data_type_spec="dataTypeSpec",
+                        external_id="externalId",
+                        id="id",
+                        logical_id="logicalId",
+                        unit="unit"
+                    )],
+                    description="description",
+                    external_id="externalId",
+                    id="id",
+                    parent_asset_model_composite_model_external_id="parentAssetModelCompositeModelExternalId",
+                    path=["path"]
+                )],
+                asset_model_description="assetModelDescription",
+                asset_model_external_id="assetModelExternalId",
+                asset_model_hierarchies=[iotsitewise.CfnAssetModel.AssetModelHierarchyProperty(
+                    child_asset_model_id="childAssetModelId",
+                    name="name",
+            
+                    # the properties below are optional
+                    external_id="externalId",
+                    id="id",
+                    logical_id="logicalId"
+                )],
+                asset_model_properties=[iotsitewise.CfnAssetModel.AssetModelPropertyProperty(
+                    data_type="dataType",
+                    name="name",
+                    type=iotsitewise.CfnAssetModel.PropertyTypeProperty(
+                        type_name="typeName",
+            
+                        # the properties below are optional
+                        attribute=iotsitewise.CfnAssetModel.AttributeProperty(
+                            default_value="defaultValue"
+                        ),
+                        metric=iotsitewise.CfnAssetModel.MetricProperty(
+                            expression="expression",
+                            variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
+                                name="name",
+                                value=iotsitewise.CfnAssetModel.VariableValueProperty(
+                                    hierarchy_external_id="hierarchyExternalId",
+                                    hierarchy_id="hierarchyId",
+                                    hierarchy_logical_id="hierarchyLogicalId",
+                                    property_external_id="propertyExternalId",
+                                    property_id="propertyId",
+                                    property_logical_id="propertyLogicalId",
+                                    property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
+                                        name="name"
+                                    )]
+                                )
+                            )],
+                            window=iotsitewise.CfnAssetModel.MetricWindowProperty(
+                                tumbling=iotsitewise.CfnAssetModel.TumblingWindowProperty(
+                                    interval="interval",
+            
+                                    # the properties below are optional
+                                    offset="offset"
+                                )
+                            )
+                        ),
+                        transform=iotsitewise.CfnAssetModel.TransformProperty(
+                            expression="expression",
+                            variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
+                                name="name",
+                                value=iotsitewise.CfnAssetModel.VariableValueProperty(
+                                    hierarchy_external_id="hierarchyExternalId",
+                                    hierarchy_id="hierarchyId",
+                                    hierarchy_logical_id="hierarchyLogicalId",
+                                    property_external_id="propertyExternalId",
+                                    property_id="propertyId",
+                                    property_logical_id="propertyLogicalId",
+                                    property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
+                                        name="name"
+                                    )]
+                                )
+                            )]
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    data_type_spec="dataTypeSpec",
+                    external_id="externalId",
+                    id="id",
+                    logical_id="logicalId",
+                    unit="unit"
+                )],
+                asset_model_type="assetModelType",
+                enforced_asset_model_interface_relationships=[iotsitewise.CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty(
+                    interface_asset_model_id="interfaceAssetModelId",
+                    property_mappings=[iotsitewise.CfnAssetModel.EnforcedAssetModelInterfacePropertyMappingProperty(
+                        interface_asset_model_property_external_id="interfaceAssetModelPropertyExternalId",
+            
+                        # the properties below are optional
+                        asset_model_property_external_id="assetModelPropertyExternalId",
+                        asset_model_property_logical_id="assetModelPropertyLogicalId"
+                    )]
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4c397ea0e26142735f716b5c92fe1c51048d94b5142d035ce8dc4cb1df79380)
+            check_type(argname="argument asset_model_name", value=asset_model_name, expected_type=type_hints["asset_model_name"])
+            check_type(argname="argument asset_model_composite_models", value=asset_model_composite_models, expected_type=type_hints["asset_model_composite_models"])
+            check_type(argname="argument asset_model_description", value=asset_model_description, expected_type=type_hints["asset_model_description"])
+            check_type(argname="argument asset_model_external_id", value=asset_model_external_id, expected_type=type_hints["asset_model_external_id"])
+            check_type(argname="argument asset_model_hierarchies", value=asset_model_hierarchies, expected_type=type_hints["asset_model_hierarchies"])
+            check_type(argname="argument asset_model_properties", value=asset_model_properties, expected_type=type_hints["asset_model_properties"])
+            check_type(argname="argument asset_model_type", value=asset_model_type, expected_type=type_hints["asset_model_type"])
+            check_type(argname="argument enforced_asset_model_interface_relationships", value=enforced_asset_model_interface_relationships, expected_type=type_hints["enforced_asset_model_interface_relationships"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_model_name": asset_model_name,
+        }
+        if asset_model_composite_models is not None:
+            self._values["asset_model_composite_models"] = asset_model_composite_models
+        if asset_model_description is not None:
+            self._values["asset_model_description"] = asset_model_description
+        if asset_model_external_id is not None:
+            self._values["asset_model_external_id"] = asset_model_external_id
+        if asset_model_hierarchies is not None:
+            self._values["asset_model_hierarchies"] = asset_model_hierarchies
+        if asset_model_properties is not None:
+            self._values["asset_model_properties"] = asset_model_properties
+        if asset_model_type is not None:
+            self._values["asset_model_type"] = asset_model_type
+        if enforced_asset_model_interface_relationships is not None:
+            self._values["enforced_asset_model_interface_relationships"] = enforced_asset_model_interface_relationships
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def asset_model_name(self) -> builtins.str:
+        '''A unique name for the asset model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelname
+        '''
+        result = self._values.get("asset_model_name")
+        assert result is not None, "Required property 'asset_model_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_model_composite_models(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelCompositeModelProperty"]]]]:
+        '''The composite models that are part of this asset model.
+
+        It groups properties (such as attributes, measurements, transforms, and metrics) and child composite models that model parts of your industrial equipment. Each composite model has a type that defines the properties that the composite model supports. Use composite models to define alarms on this asset model.
+        .. epigraph::
+
+           When creating custom composite models, you need to use `CreateAssetModelCompositeModel <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_CreateAssetModelCompositeModel.html>`_ . For more information, see `Creating custom composite models (Components) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-custom-composite-models.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelcompositemodels
+        '''
+        result = self._values.get("asset_model_composite_models")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelCompositeModelProperty"]]]], result)
+
+    @builtins.property
+    def asset_model_description(self) -> typing.Optional[builtins.str]:
+        '''A description for the asset model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodeldescription
+        '''
+        result = self._values.get("asset_model_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_model_external_id(self) -> typing.Optional[builtins.str]:
+        '''The external ID of the asset model.
+
+        For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelexternalid
+        '''
+        result = self._values.get("asset_model_external_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_model_hierarchies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelHierarchyProperty"]]]]:
+        '''The hierarchy definitions of the asset model.
+
+        Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelhierarchies
+        '''
+        result = self._values.get("asset_model_hierarchies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelHierarchyProperty"]]]], result)
+
+    @builtins.property
+    def asset_model_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelPropertyProperty"]]]]:
+        '''The property definitions of the asset model.
+
+        For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelproperties
+        '''
+        result = self._values.get("asset_model_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.AssetModelPropertyProperty"]]]], result)
+
+    @builtins.property
+    def asset_model_type(self) -> typing.Optional[builtins.str]:
+        '''The type of asset model.
+
+        - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model.
+        - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model.
+        - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodeltype
+        '''
+        result = self._values.get("asset_model_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enforced_asset_model_interface_relationships(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty"]]]]:
+        '''a list of asset model and interface relationships.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationships
+        '''
+        result = self._values.get("enforced_asset_model_interface_relationships")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the asset.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssetModelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAssetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "asset_model_id": "assetModelId",
+        "asset_name": "assetName",
+        "asset_description": "assetDescription",
+        "asset_external_id": "assetExternalId",
+        "asset_hierarchies": "assetHierarchies",
+        "asset_properties": "assetProperties",
+        "tags": "tags",
+    },
+)
+class CfnAssetProps:
+    def __init__(
+        self,
+        *,
+        asset_model_id: builtins.str,
+        asset_name: builtins.str,
+        asset_description: typing.Optional[builtins.str] = None,
+        asset_external_id: typing.Optional[builtins.str] = None,
+        asset_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAsset.AssetHierarchyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        asset_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAsset.AssetPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAsset``.
+
+        :param asset_model_id: The ID of the asset model from which to create the asset. This can be either the actual ID in UUID format, or else ``externalId:`` followed by the external ID, if it has one. For more information, see `Referencing objects with external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-id-references>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_name: A friendly name for the asset.
+        :param asset_description: The ID of the asset, in UUID format.
+        :param asset_external_id: The external ID of the asset model composite model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
+        :param asset_hierarchies: A list of asset hierarchies that each contain a ``hierarchyId`` . A hierarchy specifies allowed parent/child asset relationships.
+        :param asset_properties: The list of asset properties for the asset. This object doesn't include properties that you define in composite models. You can find composite model properties in the ``assetCompositeModels`` object.
+        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_asset_props = iotsitewise.CfnAssetProps(
+                asset_model_id="assetModelId",
+                asset_name="assetName",
+            
+                # the properties below are optional
+                asset_description="assetDescription",
+                asset_external_id="assetExternalId",
+                asset_hierarchies=[iotsitewise.CfnAsset.AssetHierarchyProperty(
+                    child_asset_id="childAssetId",
+            
+                    # the properties below are optional
+                    external_id="externalId",
+                    id="id",
+                    logical_id="logicalId"
+                )],
+                asset_properties=[iotsitewise.CfnAsset.AssetPropertyProperty(
+                    alias="alias",
+                    external_id="externalId",
+                    id="id",
+                    logical_id="logicalId",
+                    notification_state="notificationState",
+                    unit="unit"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__306f4833ce13fd25ec4269f2a96d0ee80f11a34f43885f5b4b372569dc9f7931)
+            check_type(argname="argument asset_model_id", value=asset_model_id, expected_type=type_hints["asset_model_id"])
+            check_type(argname="argument asset_name", value=asset_name, expected_type=type_hints["asset_name"])
+            check_type(argname="argument asset_description", value=asset_description, expected_type=type_hints["asset_description"])
+            check_type(argname="argument asset_external_id", value=asset_external_id, expected_type=type_hints["asset_external_id"])
+            check_type(argname="argument asset_hierarchies", value=asset_hierarchies, expected_type=type_hints["asset_hierarchies"])
+            check_type(argname="argument asset_properties", value=asset_properties, expected_type=type_hints["asset_properties"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "asset_model_id": asset_model_id,
+            "asset_name": asset_name,
+        }
+        if asset_description is not None:
+            self._values["asset_description"] = asset_description
+        if asset_external_id is not None:
+            self._values["asset_external_id"] = asset_external_id
+        if asset_hierarchies is not None:
+            self._values["asset_hierarchies"] = asset_hierarchies
+        if asset_properties is not None:
+            self._values["asset_properties"] = asset_properties
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def asset_model_id(self) -> builtins.str:
+        '''The ID of the asset model from which to create the asset.
+
+        This can be either the actual ID in UUID format, or else ``externalId:`` followed by the external ID, if it has one. For more information, see `Referencing objects with external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-id-references>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetmodelid
+        '''
+        result = self._values.get("asset_model_id")
+        assert result is not None, "Required property 'asset_model_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_name(self) -> builtins.str:
+        '''A friendly name for the asset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetname
+        '''
+        result = self._values.get("asset_name")
+        assert result is not None, "Required property 'asset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_description(self) -> typing.Optional[builtins.str]:
+        '''The ID of the asset, in UUID format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetdescription
+        '''
+        result = self._values.get("asset_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_external_id(self) -> typing.Optional[builtins.str]:
+        '''The external ID of the asset model composite model.
+
+        For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetexternalid
+        '''
+        result = self._values.get("asset_external_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def asset_hierarchies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAsset.AssetHierarchyProperty"]]]]:
+        '''A list of asset hierarchies that each contain a ``hierarchyId`` .
+
+        A hierarchy specifies allowed parent/child asset relationships.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assethierarchies
+        '''
+        result = self._values.get("asset_hierarchies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAsset.AssetHierarchyProperty"]]]], result)
+
+    @builtins.property
+    def asset_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAsset.AssetPropertyProperty"]]]]:
+        '''The list of asset properties for the asset.
+
+        This object doesn't include properties that you define in composite models. You can find composite model properties in the ``assetCompositeModels`` object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetproperties
+        '''
+        result = self._values.get("asset_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAsset.AssetPropertyProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the asset.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnComputationModelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "computation_model_configuration": "computationModelConfiguration",
+        "computation_model_data_binding": "computationModelDataBinding",
+        "computation_model_name": "computationModelName",
+        "computation_model_description": "computationModelDescription",
+        "tags": "tags",
+    },
+)
+class CfnComputationModelProps:
+    def __init__(
+        self,
+        *,
+        computation_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputationModel.ComputationModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        computation_model_data_binding: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComputationModel.ComputationModelDataBindingValueProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        computation_model_name: builtins.str,
+        computation_model_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComputationModel``.
+
+        :param computation_model_configuration: The configuration for the computation model.
+        :param computation_model_data_binding: The data binding for the computation model. Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
+        :param computation_model_name: The name of the computation model.
+        :param computation_model_description: The description of the computation model.
+        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            # computation_model_data_binding_value_property_: iotsitewise.CfnComputationModel.ComputationModelDataBindingValueProperty
+            
+            cfn_computation_model_props = iotsitewise.CfnComputationModelProps(
+                computation_model_configuration=iotsitewise.CfnComputationModel.ComputationModelConfigurationProperty(
+                    anomaly_detection=iotsitewise.CfnComputationModel.AnomalyDetectionComputationModelConfigurationProperty(
+                        input_properties="inputProperties",
+                        result_property="resultProperty"
+                    )
+                ),
+                computation_model_data_binding={
+                    "computation_model_data_binding_key": iotsitewise.CfnComputationModel.ComputationModelDataBindingValueProperty(
+                        asset_model_property=iotsitewise.CfnComputationModel.AssetModelPropertyBindingValueProperty(
+                            asset_model_id="assetModelId",
+                            property_id="propertyId"
+                        ),
+                        asset_property=iotsitewise.CfnComputationModel.AssetPropertyBindingValueProperty(
+                            asset_id="assetId",
+                            property_id="propertyId"
+                        ),
+                        list=[computation_model_data_binding_value_property_]
+                    )
+                },
+                computation_model_name="computationModelName",
+            
+                # the properties below are optional
+                computation_model_description="computationModelDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed97b2e804664b4c2090fb09c1141fc63e60c4fbaee41661ef227778c1ed7dd3)
+            check_type(argname="argument computation_model_configuration", value=computation_model_configuration, expected_type=type_hints["computation_model_configuration"])
+            check_type(argname="argument computation_model_data_binding", value=computation_model_data_binding, expected_type=type_hints["computation_model_data_binding"])
+            check_type(argname="argument computation_model_name", value=computation_model_name, expected_type=type_hints["computation_model_name"])
+            check_type(argname="argument computation_model_description", value=computation_model_description, expected_type=type_hints["computation_model_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "computation_model_configuration": computation_model_configuration,
+            "computation_model_data_binding": computation_model_data_binding,
+            "computation_model_name": computation_model_name,
+        }
+        if computation_model_description is not None:
+            self._values["computation_model_description"] = computation_model_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def computation_model_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelConfigurationProperty"]:
+        '''The configuration for the computation model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodelconfiguration
+        '''
+        result = self._values.get("computation_model_configuration")
+        assert result is not None, "Required property 'computation_model_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelConfigurationProperty"], result)
+
+    @builtins.property
+    def computation_model_data_binding(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelDataBindingValueProperty"]]]:
+        '''The data binding for the computation model.
+
+        Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldatabinding
+        '''
+        result = self._values.get("computation_model_data_binding")
+        assert result is not None, "Required property 'computation_model_data_binding' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComputationModel.ComputationModelDataBindingValueProperty"]]], result)
+
+    @builtins.property
+    def computation_model_name(self) -> builtins.str:
+        '''The name of the computation model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodelname
+        '''
+        result = self._values.get("computation_model_name")
+        assert result is not None, "Required property 'computation_model_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def computation_model_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the computation model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldescription
+        '''
+        result = self._values.get("computation_model_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the asset.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComputationModelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnDashboardProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dashboard_definition": "dashboardDefinition",
+        "dashboard_description": "dashboardDescription",
+        "dashboard_name": "dashboardName",
+        "project_id": "projectId",
+        "tags": "tags",
+    },
+)
+class CfnDashboardProps:
+    def __init__(
+        self,
+        *,
+        dashboard_definition: builtins.str,
+        dashboard_description: builtins.str,
+        dashboard_name: builtins.str,
+        project_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDashboard``.
+
+        :param dashboard_definition: The dashboard definition specified in a JSON literal. - AWS IoT SiteWise Monitor (Classic) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-using-aws-cli.html>`_ - AWS IoT SiteWise Monitor (AI-aware) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-ai-dashboard-cli.html>`_ in the *AWS IoT SiteWise User Guide*
+        :param dashboard_description: A description for the dashboard.
+        :param dashboard_name: A friendly name for the dashboard.
+        :param project_id: The ID of the project in which to create the dashboard.
+        :param tags: A list of key-value pairs that contain metadata for the dashboard. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_dashboard_props = iotsitewise.CfnDashboardProps(
+                dashboard_definition="dashboardDefinition",
+                dashboard_description="dashboardDescription",
+                dashboard_name="dashboardName",
+            
+                # the properties below are optional
+                project_id="projectId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e87db1e2d08493321e273557f52f1665d6e8b066bd235aa15fbe6b372c969da)
+            check_type(argname="argument dashboard_definition", value=dashboard_definition, expected_type=type_hints["dashboard_definition"])
+            check_type(argname="argument dashboard_description", value=dashboard_description, expected_type=type_hints["dashboard_description"])
+            check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
+            check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dashboard_definition": dashboard_definition,
+            "dashboard_description": dashboard_description,
+            "dashboard_name": dashboard_name,
+        }
+        if project_id is not None:
+            self._values["project_id"] = project_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dashboard_definition(self) -> builtins.str:
+        '''The dashboard definition specified in a JSON literal.
+
+        - AWS IoT SiteWise Monitor (Classic) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-using-aws-cli.html>`_
+        - AWS IoT SiteWise Monitor (AI-aware) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-ai-dashboard-cli.html>`_
+
+        in the *AWS IoT SiteWise User Guide*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboarddefinition
+        '''
+        result = self._values.get("dashboard_definition")
+        assert result is not None, "Required property 'dashboard_definition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dashboard_description(self) -> builtins.str:
+        '''A description for the dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboarddescription
+        '''
+        result = self._values.get("dashboard_description")
+        assert result is not None, "Required property 'dashboard_description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dashboard_name(self) -> builtins.str:
+        '''A friendly name for the dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboardname
+        '''
+        result = self._values.get("dashboard_name")
+        assert result is not None, "Required property 'dashboard_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the project in which to create the dashboard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-projectid
+        '''
+        result = self._values.get("project_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the dashboard.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDashboardProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_name": "datasetName",
+        "dataset_source": "datasetSource",
+        "dataset_description": "datasetDescription",
+        "tags": "tags",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        dataset_name: builtins.str,
+        dataset_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.DatasetSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        dataset_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param dataset_name: The name of the dataset.
+        :param dataset_source: The data source for the dataset.
+        :param dataset_description: A description about the dataset, and its functionality.
+        :param tags: A list of key-value pairs that contain metadata for the access policy. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_dataset_props = iotsitewise.CfnDatasetProps(
+                dataset_name="datasetName",
+                dataset_source=iotsitewise.CfnDataset.DatasetSourceProperty(
+                    source_format="sourceFormat",
+                    source_type="sourceType",
+            
+                    # the properties below are optional
+                    source_detail=iotsitewise.CfnDataset.SourceDetailProperty(
+                        kendra=iotsitewise.CfnDataset.KendraSourceDetailProperty(
+                            knowledge_base_arn="knowledgeBaseArn",
+                            role_arn="roleArn"
+                        )
+                    )
+                ),
+            
+                # the properties below are optional
+                dataset_description="datasetDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ecfd46cd288d1fcedea054d9db52e78eed5b596789d023c110fcfb9e1e41ff8)
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+            check_type(argname="argument dataset_source", value=dataset_source, expected_type=type_hints["dataset_source"])
+            check_type(argname="argument dataset_description", value=dataset_description, expected_type=type_hints["dataset_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_name": dataset_name,
+            "dataset_source": dataset_source,
+        }
+        if dataset_description is not None:
+            self._values["dataset_description"] = dataset_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_name(self) -> builtins.str:
+        '''The name of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetname
+        '''
+        result = self._values.get("dataset_name")
+        assert result is not None, "Required property 'dataset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_source(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetSourceProperty"]:
+        '''The data source for the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetsource
+        '''
+        result = self._values.get("dataset_source")
+        assert result is not None, "Required property 'dataset_source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetSourceProperty"], result)
+
+    @builtins.property
+    def dataset_description(self) -> typing.Optional[builtins.str]:
+        '''A description about the dataset, and its functionality.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetdescription
+        '''
+        result = self._values.get("dataset_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the access policy.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnGatewayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "gateway_name": "gatewayName",
+        "gateway_platform": "gatewayPlatform",
+        "gateway_capability_summaries": "gatewayCapabilitySummaries",
+        "gateway_version": "gatewayVersion",
+        "tags": "tags",
+    },
+)
+class CfnGatewayProps:
+    def __init__(
+        self,
+        *,
+        gateway_name: builtins.str,
+        gateway_platform: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGateway.GatewayPlatformProperty", typing.Dict[builtins.str, typing.Any]]],
+        gateway_capability_summaries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGateway.GatewayCapabilitySummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        gateway_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGateway``.
+
+        :param gateway_name: A unique name for the gateway.
+        :param gateway_platform: The gateway's platform. You can only specify one platform in a gateway.
+        :param gateway_capability_summaries: A list of gateway capability summaries that each contain a namespace and status. Each gateway capability defines data sources for the gateway. To retrieve a capability configuration's definition, use `DescribeGatewayCapabilityConfiguration <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_DescribeGatewayCapabilityConfiguration.html>`_ .
+        :param gateway_version: The version of the gateway. A value of ``3`` indicates an MQTT-enabled, V3 gateway, while ``2`` indicates a Classic streams, V2 gateway.
+        :param tags: A list of key-value pairs that contain metadata for the gateway. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_gateway_props = iotsitewise.CfnGatewayProps(
+                gateway_name="gatewayName",
+                gateway_platform=iotsitewise.CfnGateway.GatewayPlatformProperty(
+                    greengrass=iotsitewise.CfnGateway.GreengrassProperty(
+                        group_arn="groupArn"
+                    ),
+                    greengrass_v2=iotsitewise.CfnGateway.GreengrassV2Property(
+                        core_device_thing_name="coreDeviceThingName",
+            
+                        # the properties below are optional
+                        core_device_operating_system="coreDeviceOperatingSystem"
+                    ),
+                    siemens_ie=iotsitewise.CfnGateway.SiemensIEProperty(
+                        iot_core_thing_name="iotCoreThingName"
+                    )
+                ),
+            
+                # the properties below are optional
+                gateway_capability_summaries=[iotsitewise.CfnGateway.GatewayCapabilitySummaryProperty(
+                    capability_namespace="capabilityNamespace",
+            
+                    # the properties below are optional
+                    capability_configuration="capabilityConfiguration"
+                )],
+                gateway_version="gatewayVersion",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96b726a7f6953ced23491d12afc63dd3960b8d44e1734397f1db9d45a0cf6793)
+            check_type(argname="argument gateway_name", value=gateway_name, expected_type=type_hints["gateway_name"])
+            check_type(argname="argument gateway_platform", value=gateway_platform, expected_type=type_hints["gateway_platform"])
+            check_type(argname="argument gateway_capability_summaries", value=gateway_capability_summaries, expected_type=type_hints["gateway_capability_summaries"])
+            check_type(argname="argument gateway_version", value=gateway_version, expected_type=type_hints["gateway_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_name": gateway_name,
+            "gateway_platform": gateway_platform,
+        }
+        if gateway_capability_summaries is not None:
+            self._values["gateway_capability_summaries"] = gateway_capability_summaries
+        if gateway_version is not None:
+            self._values["gateway_version"] = gateway_version
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def gateway_name(self) -> builtins.str:
+        '''A unique name for the gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayname
+        '''
+        result = self._values.get("gateway_name")
+        assert result is not None, "Required property 'gateway_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def gateway_platform(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayPlatformProperty"]:
+        '''The gateway's platform.
+
+        You can only specify one platform in a gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayplatform
+        '''
+        result = self._values.get("gateway_platform")
+        assert result is not None, "Required property 'gateway_platform' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayPlatformProperty"], result)
+
+    @builtins.property
+    def gateway_capability_summaries(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayCapabilitySummaryProperty"]]]]:
+        '''A list of gateway capability summaries that each contain a namespace and status.
+
+        Each gateway capability defines data sources for the gateway. To retrieve a capability configuration's definition, use `DescribeGatewayCapabilityConfiguration <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_DescribeGatewayCapabilityConfiguration.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewaycapabilitysummaries
+        '''
+        result = self._values.get("gateway_capability_summaries")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayCapabilitySummaryProperty"]]]], result)
+
+    @builtins.property
+    def gateway_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the gateway.
+
+        A value of ``3`` indicates an MQTT-enabled, V3 gateway, while ``2`` indicates a Classic streams, V2 gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayversion
+        '''
+        result = self._values.get("gateway_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the gateway.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGatewayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnPortalProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "portal_contact_email": "portalContactEmail",
+        "portal_name": "portalName",
+        "role_arn": "roleArn",
+        "alarms": "alarms",
+        "notification_sender_email": "notificationSenderEmail",
+        "portal_auth_mode": "portalAuthMode",
+        "portal_description": "portalDescription",
+        "portal_type": "portalType",
+        "portal_type_configuration": "portalTypeConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnPortalProps:
+    def __init__(
+        self,
+        *,
+        portal_contact_email: builtins.str,
+        portal_name: builtins.str,
+        role_arn: builtins.str,
+        alarms: typing.Any = None,
+        notification_sender_email: typing.Optional[builtins.str] = None,
+        portal_auth_mode: typing.Optional[builtins.str] = None,
+        portal_description: typing.Optional[builtins.str] = None,
+        portal_type: typing.Optional[builtins.str] = None,
+        portal_type_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnPortal.PortalTypeEntryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPortal``.
+
+        :param portal_contact_email: The AWS administrator's contact email address.
+        :param portal_name: A friendly name for the portal.
+        :param role_arn: The `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of a service role that allows the portal's users to access your AWS IoT SiteWise resources on your behalf. For more information, see `Using service roles for AWS IoT SiteWise Monitor <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-service-role.html>`_ in the *AWS IoT SiteWise User Guide* .
+        :param alarms: Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal. You can use the alarm to monitor an asset property and get notified when the asset property value is outside a specified range. For more information, see `Monitoring with alarms <https://docs.aws.amazon.com/iot-sitewise/latest/appguide/monitor-alarms.html>`_ in the *AWS IoT SiteWise Application Guide* .
+        :param notification_sender_email: The email address that sends alarm notifications. .. epigraph:: If you use the `AWS IoT Events managed Lambda function <https://docs.aws.amazon.com/iotevents/latest/developerguide/lambda-support.html>`_ to manage your emails, you must `verify the sender email address in Amazon SES <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html>`_ .
+        :param portal_auth_mode: The service to use to authenticate users to the portal. Choose from the following options:. - ``SSO`` – The portal uses AWS IAM Identity Center to authenticate users and manage user permissions. Before you can create a portal that uses IAM Identity Center, you must enable IAM Identity Center. For more information, see `Enabling IAM Identity Center <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-get-started.html#mon-gs-sso>`_ in the *AWS IoT SiteWise User Guide* . This option is only available in AWS Regions other than the China Regions. - ``IAM`` – The portal uses AWS Identity and Access Management to authenticate users and manage user permissions. You can't change this value after you create a portal. Default: ``SSO``
+        :param portal_description: A description for the portal.
+        :param portal_type: Define the type of portal. The value for AWS IoT SiteWise Monitor (Classic) is ``SITEWISE_PORTAL_V1`` . The value for AWS IoT SiteWise Monitor (AI-aware) is ``SITEWISE_PORTAL_V2`` .
+        :param portal_type_configuration: Map to associate detail of configuration related with a PortalType.
+        :param tags: A list of key-value pairs that contain metadata for the portal. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            # alarms: Any
+            
+            cfn_portal_props = iotsitewise.CfnPortalProps(
+                portal_contact_email="portalContactEmail",
+                portal_name="portalName",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                alarms=alarms,
+                notification_sender_email="notificationSenderEmail",
+                portal_auth_mode="portalAuthMode",
+                portal_description="portalDescription",
+                portal_type="portalType",
+                portal_type_configuration={
+                    "portal_type_configuration_key": iotsitewise.CfnPortal.PortalTypeEntryProperty(
+                        portal_tools=["portalTools"]
+                    )
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db927eff8866e7afa967752c7f48d5d8ab1bd58489a78569b13cac34c81ba650)
+            check_type(argname="argument portal_contact_email", value=portal_contact_email, expected_type=type_hints["portal_contact_email"])
+            check_type(argname="argument portal_name", value=portal_name, expected_type=type_hints["portal_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+            check_type(argname="argument notification_sender_email", value=notification_sender_email, expected_type=type_hints["notification_sender_email"])
+            check_type(argname="argument portal_auth_mode", value=portal_auth_mode, expected_type=type_hints["portal_auth_mode"])
+            check_type(argname="argument portal_description", value=portal_description, expected_type=type_hints["portal_description"])
+            check_type(argname="argument portal_type", value=portal_type, expected_type=type_hints["portal_type"])
+            check_type(argname="argument portal_type_configuration", value=portal_type_configuration, expected_type=type_hints["portal_type_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portal_contact_email": portal_contact_email,
+            "portal_name": portal_name,
+            "role_arn": role_arn,
+        }
+        if alarms is not None:
+            self._values["alarms"] = alarms
+        if notification_sender_email is not None:
+            self._values["notification_sender_email"] = notification_sender_email
+        if portal_auth_mode is not None:
+            self._values["portal_auth_mode"] = portal_auth_mode
+        if portal_description is not None:
+            self._values["portal_description"] = portal_description
+        if portal_type is not None:
+            self._values["portal_type"] = portal_type
+        if portal_type_configuration is not None:
+            self._values["portal_type_configuration"] = portal_type_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def portal_contact_email(self) -> builtins.str:
+        '''The AWS administrator's contact email address.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalcontactemail
+        '''
+        result = self._values.get("portal_contact_email")
+        assert result is not None, "Required property 'portal_contact_email' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def portal_name(self) -> builtins.str:
+        '''A friendly name for the portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalname
+        '''
+        result = self._values.get("portal_name")
+        assert result is not None, "Required property 'portal_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of a service role that allows the portal's users to access your AWS IoT SiteWise resources on your behalf. For more information, see `Using service roles for AWS IoT SiteWise Monitor <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-service-role.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alarms(self) -> typing.Any:
+        '''Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal.
+
+        You can use the alarm to monitor an asset property and get notified when the asset property value is outside a specified range. For more information, see `Monitoring with alarms <https://docs.aws.amazon.com/iot-sitewise/latest/appguide/monitor-alarms.html>`_ in the *AWS IoT SiteWise Application Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-alarms
+        '''
+        result = self._values.get("alarms")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def notification_sender_email(self) -> typing.Optional[builtins.str]:
+        '''The email address that sends alarm notifications.
+
+        .. epigraph::
+
+           If you use the `AWS IoT Events managed Lambda function <https://docs.aws.amazon.com/iotevents/latest/developerguide/lambda-support.html>`_ to manage your emails, you must `verify the sender email address in Amazon SES <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-notificationsenderemail
+        '''
+        result = self._values.get("notification_sender_email")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_auth_mode(self) -> typing.Optional[builtins.str]:
+        '''The service to use to authenticate users to the portal. Choose from the following options:.
+
+        - ``SSO`` – The portal uses AWS IAM Identity Center to authenticate users and manage user permissions. Before you can create a portal that uses IAM Identity Center, you must enable IAM Identity Center. For more information, see `Enabling IAM Identity Center <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-get-started.html#mon-gs-sso>`_ in the *AWS IoT SiteWise User Guide* . This option is only available in AWS Regions other than the China Regions.
+        - ``IAM`` – The portal uses AWS Identity and Access Management to authenticate users and manage user permissions.
+
+        You can't change this value after you create a portal.
+
+        Default: ``SSO``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalauthmode
+        '''
+        result = self._values.get("portal_auth_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_description(self) -> typing.Optional[builtins.str]:
+        '''A description for the portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaldescription
+        '''
+        result = self._values.get("portal_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_type(self) -> typing.Optional[builtins.str]:
+        '''Define the type of portal.
+
+        The value for AWS IoT SiteWise Monitor (Classic) is ``SITEWISE_PORTAL_V1`` . The value for AWS IoT SiteWise Monitor (AI-aware) is ``SITEWISE_PORTAL_V2`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaltype
+        '''
+        result = self._values.get("portal_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_type_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPortal.PortalTypeEntryProperty"]]]]:
+        '''Map to associate detail of configuration related with a PortalType.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaltypeconfiguration
+        '''
+        result = self._values.get("portal_type_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPortal.PortalTypeEntryProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the portal.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPortalProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "portal_id": "portalId",
+        "project_name": "projectName",
+        "asset_ids": "assetIds",
+        "project_description": "projectDescription",
+        "tags": "tags",
+    },
+)
+class CfnProjectProps:
+    def __init__(
+        self,
+        *,
+        portal_id: builtins.str,
+        project_name: builtins.str,
+        asset_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        project_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProject``.
+
+        :param portal_id: The ID of the portal in which to create the project.
+        :param project_name: A friendly name for the project.
+        :param asset_ids: A list that contains the IDs of each asset associated with the project.
+        :param project_description: A description for the project.
+        :param tags: A list of key-value pairs that contain metadata for the project. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_project_props = iotsitewise.CfnProjectProps(
+                portal_id="portalId",
+                project_name="projectName",
+            
+                # the properties below are optional
+                asset_ids=["assetIds"],
+                project_description="projectDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7af827083026086703d7567e7e4a27cf6d5bb590317461231a2e997d42b85e1b)
+            check_type(argname="argument portal_id", value=portal_id, expected_type=type_hints["portal_id"])
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+            check_type(argname="argument asset_ids", value=asset_ids, expected_type=type_hints["asset_ids"])
+            check_type(argname="argument project_description", value=project_description, expected_type=type_hints["project_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portal_id": portal_id,
+            "project_name": project_name,
+        }
+        if asset_ids is not None:
+            self._values["asset_ids"] = asset_ids
+        if project_description is not None:
+            self._values["project_description"] = project_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def portal_id(self) -> builtins.str:
+        '''The ID of the portal in which to create the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-portalid
+        '''
+        result = self._values.get("portal_id")
+        assert result is not None, "Required property 'portal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_name(self) -> builtins.str:
+        '''A friendly name for the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-projectname
+        '''
+        result = self._values.get("project_name")
+        assert result is not None, "Required property 'project_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def asset_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list that contains the IDs of each asset associated with the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-assetids
+        '''
+        result = self._values.get("asset_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def project_description(self) -> typing.Optional[builtins.str]:
+        '''A description for the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-projectdescription
+        '''
+        result = self._values.get("project_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that contain metadata for the project.
+
+        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.ComputationModelReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "computation_model_arn": "computationModelArn",
+        "computation_model_id": "computationModelId",
+    },
+)
+class ComputationModelReference:
+    def __init__(
+        self,
+        *,
+        computation_model_arn: builtins.str,
+        computation_model_id: builtins.str,
+    ) -> None:
+        '''A reference to a ComputationModel resource.
+
+        :param computation_model_arn: The ARN of the ComputationModel resource.
+        :param computation_model_id: The ComputationModelId of the ComputationModel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            computation_model_reference = iotsitewise.ComputationModelReference(
+                computation_model_arn="computationModelArn",
+                computation_model_id="computationModelId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed100a1c48146998c89bfe5537d153c737e9d8584246885c908960cc33deb5fe)
+            check_type(argname="argument computation_model_arn", value=computation_model_arn, expected_type=type_hints["computation_model_arn"])
+            check_type(argname="argument computation_model_id", value=computation_model_id, expected_type=type_hints["computation_model_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "computation_model_arn": computation_model_arn,
+            "computation_model_id": computation_model_id,
+        }
+
+    @builtins.property
+    def computation_model_arn(self) -> builtins.str:
+        '''The ARN of the ComputationModel resource.'''
+        result = self._values.get("computation_model_arn")
+        assert result is not None, "Required property 'computation_model_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def computation_model_id(self) -> builtins.str:
+        '''The ComputationModelId of the ComputationModel resource.'''
+        result = self._values.get("computation_model_id")
+        assert result is not None, "Required property 'computation_model_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComputationModelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.DashboardReference",
+    jsii_struct_bases=[],
+    name_mapping={"dashboard_arn": "dashboardArn", "dashboard_id": "dashboardId"},
+)
+class DashboardReference:
+    def __init__(
+        self,
+        *,
+        dashboard_arn: builtins.str,
+        dashboard_id: builtins.str,
+    ) -> None:
+        '''A reference to a Dashboard resource.
+
+        :param dashboard_arn: The ARN of the Dashboard resource.
+        :param dashboard_id: The DashboardId of the Dashboard resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            dashboard_reference = iotsitewise.DashboardReference(
+                dashboard_arn="dashboardArn",
+                dashboard_id="dashboardId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__428a7f4235a7e905d21407b92da1cf7537ea0fb4a76ea7046d6244a98ef5a217)
+            check_type(argname="argument dashboard_arn", value=dashboard_arn, expected_type=type_hints["dashboard_arn"])
+            check_type(argname="argument dashboard_id", value=dashboard_id, expected_type=type_hints["dashboard_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dashboard_arn": dashboard_arn,
+            "dashboard_id": dashboard_id,
+        }
+
+    @builtins.property
+    def dashboard_arn(self) -> builtins.str:
+        '''The ARN of the Dashboard resource.'''
+        result = self._values.get("dashboard_arn")
+        assert result is not None, "Required property 'dashboard_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dashboard_id(self) -> builtins.str:
+        '''The DashboardId of the Dashboard resource.'''
+        result = self._values.get("dashboard_id")
+        assert result is not None, "Required property 'dashboard_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DashboardReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.DatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_arn": "datasetArn", "dataset_id": "datasetId"},
+)
+class DatasetReference:
+    def __init__(self, *, dataset_arn: builtins.str, dataset_id: builtins.str) -> None:
+        '''A reference to a Dataset resource.
+
+        :param dataset_arn: The ARN of the Dataset resource.
+        :param dataset_id: The DatasetId of the Dataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            dataset_reference = iotsitewise.DatasetReference(
+                dataset_arn="datasetArn",
+                dataset_id="datasetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be9613c5efbdae235d68998ed646f1669f248b54de6f5422c57bc39a87bcdf84)
+            check_type(argname="argument dataset_arn", value=dataset_arn, expected_type=type_hints["dataset_arn"])
+            check_type(argname="argument dataset_id", value=dataset_id, expected_type=type_hints["dataset_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_arn": dataset_arn,
+            "dataset_id": dataset_id,
+        }
+
+    @builtins.property
+    def dataset_arn(self) -> builtins.str:
+        '''The ARN of the Dataset resource.'''
+        result = self._values.get("dataset_arn")
+        assert result is not None, "Required property 'dataset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataset_id(self) -> builtins.str:
+        '''The DatasetId of the Dataset resource.'''
+        result = self._values.get("dataset_id")
+        assert result is not None, "Required property 'dataset_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.GatewayReference",
+    jsii_struct_bases=[],
+    name_mapping={"gateway_id": "gatewayId"},
+)
+class GatewayReference:
+    def __init__(self, *, gateway_id: builtins.str) -> None:
+        '''A reference to a Gateway resource.
+
+        :param gateway_id: The GatewayId of the Gateway resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            gateway_reference = iotsitewise.GatewayReference(
+                gateway_id="gatewayId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbb6f5591e3803c975d75ec7f0d2569ab25d3e2eada03c638e3d8b0b54732a02)
+            check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_id": gateway_id,
+        }
+
+    @builtins.property
+    def gateway_id(self) -> builtins.str:
+        '''The GatewayId of the Gateway resource.'''
+        result = self._values.get("gateway_id")
+        assert result is not None, "Required property 'gateway_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IAccessPolicyRef")
+class IAccessPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''(experimental) A reference to a AccessPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IAccessPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''(experimental) A reference to a AccessPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPolicyReference, jsii.get(self, "accessPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPolicyRef).__jsii_proxy_class__ = lambda : _IAccessPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IAssetModelRef")
+class IAssetModelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AssetModel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assetModelRef")
+    def asset_model_ref(self) -> AssetModelReference:
+        '''(experimental) A reference to a AssetModel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssetModelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AssetModel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IAssetModelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assetModelRef")
+    def asset_model_ref(self) -> AssetModelReference:
+        '''(experimental) A reference to a AssetModel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssetModelReference, jsii.get(self, "assetModelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssetModelRef).__jsii_proxy_class__ = lambda : _IAssetModelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IAssetRef")
+class IAssetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Asset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> AssetReference:
+        '''(experimental) A reference to a Asset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Asset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IAssetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> AssetReference:
+        '''(experimental) A reference to a Asset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssetReference, jsii.get(self, "assetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssetRef).__jsii_proxy_class__ = lambda : _IAssetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IComputationModelRef")
+class IComputationModelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ComputationModel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="computationModelRef")
+    def computation_model_ref(self) -> ComputationModelReference:
+        '''(experimental) A reference to a ComputationModel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IComputationModelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ComputationModel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IComputationModelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="computationModelRef")
+    def computation_model_ref(self) -> ComputationModelReference:
+        '''(experimental) A reference to a ComputationModel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ComputationModelReference, jsii.get(self, "computationModelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IComputationModelRef).__jsii_proxy_class__ = lambda : _IComputationModelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IDashboardRef")
+class IDashboardRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDashboardRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dashboard.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IDashboardRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''(experimental) A reference to a Dashboard resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboardRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IDatasetRef")
+class IDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IGatewayRef")
+class IGatewayRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IGatewayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GatewayReference, jsii.get(self, "gatewayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IPortalRef")
+class IPortalRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Portal.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> "PortalReference":
+        '''(experimental) A reference to a Portal resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortalRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Portal.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IPortalRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> "PortalReference":
+        '''(experimental) A reference to a Portal resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortalReference", jsii.get(self, "portalRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortalRef).__jsii_proxy_class__ = lambda : _IPortalRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotsitewise.IProjectRef")
+class IProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProjectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotsitewise.IProjectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProjectReference", jsii.get(self, "projectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.PortalReference",
+    jsii_struct_bases=[],
+    name_mapping={"portal_arn": "portalArn", "portal_id": "portalId"},
+)
+class PortalReference:
+    def __init__(self, *, portal_arn: builtins.str, portal_id: builtins.str) -> None:
+        '''A reference to a Portal resource.
+
+        :param portal_arn: The ARN of the Portal resource.
+        :param portal_id: The PortalId of the Portal resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            portal_reference = iotsitewise.PortalReference(
+                portal_arn="portalArn",
+                portal_id="portalId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e7faa6782fbc9bec0541172aeb2fc162d359c0ef016b745406a2bf4d5183bbe)
+            check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
+            check_type(argname="argument portal_id", value=portal_id, expected_type=type_hints["portal_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portal_arn": portal_arn,
+            "portal_id": portal_id,
+        }
+
+    @builtins.property
+    def portal_arn(self) -> builtins.str:
+        '''The ARN of the Portal resource.'''
+        result = self._values.get("portal_arn")
+        assert result is not None, "Required property 'portal_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def portal_id(self) -> builtins.str:
+        '''The PortalId of the Portal resource.'''
+        result = self._values.get("portal_id")
+        assert result is not None, "Required property 'portal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortalReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.ProjectReference",
+    jsii_struct_bases=[],
+    name_mapping={"project_arn": "projectArn", "project_id": "projectId"},
+)
+class ProjectReference:
+    def __init__(self, *, project_arn: builtins.str, project_id: builtins.str) -> None:
+        '''A reference to a Project resource.
+
+        :param project_arn: The ARN of the Project resource.
+        :param project_id: The ProjectId of the Project resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            project_reference = iotsitewise.ProjectReference(
+                project_arn="projectArn",
+                project_id="projectId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78c58eeada20ade39887816ce9a2546cddbaeaceea7479881a1106f33054e4a7)
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_arn": project_arn,
+            "project_id": project_id,
+        }
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The ARN of the Project resource.'''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_id(self) -> builtins.str:
+        '''The ProjectId of the Project resource.'''
+        result = self._values.get("project_id")
+        assert result is not None, "Required property 'project_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessPolicyRef)
 class CfnAccessPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAccessPolicy",
 ):
     '''Creates an access policy that grants the specified identity (IAM Identity Center user, IAM Identity Center group, or IAM user) access to the specified AWS IoT SiteWise Monitor portal or project resource.
+
+    .. epigraph::
+
+       Support for access policies that use an SSO Group as the identity is not supported at this time.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html
     :cloudformationResource: AWS::IoTSiteWise::AccessPolicy
@@ -169,6 +2705,12 @@ class CfnAccessPolicy(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''A reference to a AccessPolicy resource.'''
+        return typing.cast(AccessPolicyReference, jsii.get(self, "accessPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAccessPolicyArn")
@@ -685,125 +3227,7 @@ class CfnAccessPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAccessPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_policy_identity": "accessPolicyIdentity",
-        "access_policy_permission": "accessPolicyPermission",
-        "access_policy_resource": "accessPolicyResource",
-    },
-)
-class CfnAccessPolicyProps:
-    def __init__(
-        self,
-        *,
-        access_policy_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
-        access_policy_permission: builtins.str,
-        access_policy_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPolicy``.
-
-        :param access_policy_identity: The identity for this access policy. Choose an IAM Identity Center user, an IAM Identity Center group, or an IAM user.
-        :param access_policy_permission: The permission level for this access policy. Note that a project ``ADMINISTRATOR`` is also known as a project owner.
-        :param access_policy_resource: The AWS IoT SiteWise Monitor resource for this access policy. Choose either a portal or a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_access_policy_props = iotsitewise.CfnAccessPolicyProps(
-                access_policy_identity=iotsitewise.CfnAccessPolicy.AccessPolicyIdentityProperty(
-                    iam_role=iotsitewise.CfnAccessPolicy.IamRoleProperty(
-                        arn="arn"
-                    ),
-                    iam_user=iotsitewise.CfnAccessPolicy.IamUserProperty(
-                        arn="arn"
-                    ),
-                    user=iotsitewise.CfnAccessPolicy.UserProperty(
-                        id="id"
-                    )
-                ),
-                access_policy_permission="accessPolicyPermission",
-                access_policy_resource=iotsitewise.CfnAccessPolicy.AccessPolicyResourceProperty(
-                    portal=iotsitewise.CfnAccessPolicy.PortalProperty(
-                        id="id"
-                    ),
-                    project=iotsitewise.CfnAccessPolicy.ProjectProperty(
-                        id="id"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__395192fc212cfba19ac0d48ac6224771ee93f01bee507a5e9571a735a417decd)
-            check_type(argname="argument access_policy_identity", value=access_policy_identity, expected_type=type_hints["access_policy_identity"])
-            check_type(argname="argument access_policy_permission", value=access_policy_permission, expected_type=type_hints["access_policy_permission"])
-            check_type(argname="argument access_policy_resource", value=access_policy_resource, expected_type=type_hints["access_policy_resource"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_policy_identity": access_policy_identity,
-            "access_policy_permission": access_policy_permission,
-            "access_policy_resource": access_policy_resource,
-        }
-
-    @builtins.property
-    def access_policy_identity(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccessPolicy.AccessPolicyIdentityProperty]:
-        '''The identity for this access policy.
-
-        Choose an IAM Identity Center user, an IAM Identity Center group, or an IAM user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicyidentity
-        '''
-        result = self._values.get("access_policy_identity")
-        assert result is not None, "Required property 'access_policy_identity' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccessPolicy.AccessPolicyIdentityProperty], result)
-
-    @builtins.property
-    def access_policy_permission(self) -> builtins.str:
-        '''The permission level for this access policy.
-
-        Note that a project ``ADMINISTRATOR`` is also known as a project owner.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicypermission
-        '''
-        result = self._values.get("access_policy_permission")
-        assert result is not None, "Required property 'access_policy_permission' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_policy_resource(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccessPolicy.AccessPolicyResourceProperty]:
-        '''The AWS IoT SiteWise Monitor resource for this access policy.
-
-        Choose either a portal or a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-accesspolicy.html#cfn-iotsitewise-accesspolicy-accesspolicyresource
-        '''
-        result = self._values.get("access_policy_resource")
-        assert result is not None, "Required property 'access_policy_resource' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccessPolicy.AccessPolicyResourceProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IAssetRef, _ITaggable_36806126)
 class CfnAsset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -922,6 +3346,12 @@ class CfnAsset(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assetRef")
+    def asset_ref(self) -> AssetReference:
+        '''A reference to a Asset resource.'''
+        return typing.cast(AssetReference, jsii.get(self, "assetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAssetArn")
@@ -1319,7 +3749,7 @@ class CfnAsset(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IAssetModelRef, _ITaggable_36806126)
 class CfnAssetModel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1587,6 +4017,12 @@ class CfnAssetModel(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assetModelRef")
+    def asset_model_ref(self) -> AssetModelReference:
+        '''A reference to a AssetModel resource.'''
+        return typing.cast(AssetModelReference, jsii.get(self, "assetModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAssetModelArn")
@@ -3505,565 +5941,7 @@ class CfnAssetModel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAssetModelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "asset_model_name": "assetModelName",
-        "asset_model_composite_models": "assetModelCompositeModels",
-        "asset_model_description": "assetModelDescription",
-        "asset_model_external_id": "assetModelExternalId",
-        "asset_model_hierarchies": "assetModelHierarchies",
-        "asset_model_properties": "assetModelProperties",
-        "asset_model_type": "assetModelType",
-        "enforced_asset_model_interface_relationships": "enforcedAssetModelInterfaceRelationships",
-        "tags": "tags",
-    },
-)
-class CfnAssetModelProps:
-    def __init__(
-        self,
-        *,
-        asset_model_name: builtins.str,
-        asset_model_composite_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelCompositeModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        asset_model_description: typing.Optional[builtins.str] = None,
-        asset_model_external_id: typing.Optional[builtins.str] = None,
-        asset_model_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        asset_model_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        asset_model_type: typing.Optional[builtins.str] = None,
-        enforced_asset_model_interface_relationships: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAssetModel``.
-
-        :param asset_model_name: A unique name for the asset model.
-        :param asset_model_composite_models: The composite models that are part of this asset model. It groups properties (such as attributes, measurements, transforms, and metrics) and child composite models that model parts of your industrial equipment. Each composite model has a type that defines the properties that the composite model supports. Use composite models to define alarms on this asset model. .. epigraph:: When creating custom composite models, you need to use `CreateAssetModelCompositeModel <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_CreateAssetModelCompositeModel.html>`_ . For more information, see `Creating custom composite models (Components) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-custom-composite-models.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_description: A description for the asset model.
-        :param asset_model_external_id: The external ID of the asset model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_hierarchies: The hierarchy definitions of the asset model. Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_properties: The property definitions of the asset model. For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* . You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_model_type: The type of asset model. - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model. - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model. - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
-        :param enforced_asset_model_interface_relationships: a list of asset model and interface relationships.
-        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_asset_model_props = iotsitewise.CfnAssetModelProps(
-                asset_model_name="assetModelName",
-            
-                # the properties below are optional
-                asset_model_composite_models=[iotsitewise.CfnAssetModel.AssetModelCompositeModelProperty(
-                    name="name",
-                    type="type",
-            
-                    # the properties below are optional
-                    composed_asset_model_id="composedAssetModelId",
-                    composite_model_properties=[iotsitewise.CfnAssetModel.AssetModelPropertyProperty(
-                        data_type="dataType",
-                        name="name",
-                        type=iotsitewise.CfnAssetModel.PropertyTypeProperty(
-                            type_name="typeName",
-            
-                            # the properties below are optional
-                            attribute=iotsitewise.CfnAssetModel.AttributeProperty(
-                                default_value="defaultValue"
-                            ),
-                            metric=iotsitewise.CfnAssetModel.MetricProperty(
-                                expression="expression",
-                                variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
-                                    name="name",
-                                    value=iotsitewise.CfnAssetModel.VariableValueProperty(
-                                        hierarchy_external_id="hierarchyExternalId",
-                                        hierarchy_id="hierarchyId",
-                                        hierarchy_logical_id="hierarchyLogicalId",
-                                        property_external_id="propertyExternalId",
-                                        property_id="propertyId",
-                                        property_logical_id="propertyLogicalId",
-                                        property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
-                                            name="name"
-                                        )]
-                                    )
-                                )],
-                                window=iotsitewise.CfnAssetModel.MetricWindowProperty(
-                                    tumbling=iotsitewise.CfnAssetModel.TumblingWindowProperty(
-                                        interval="interval",
-            
-                                        # the properties below are optional
-                                        offset="offset"
-                                    )
-                                )
-                            ),
-                            transform=iotsitewise.CfnAssetModel.TransformProperty(
-                                expression="expression",
-                                variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
-                                    name="name",
-                                    value=iotsitewise.CfnAssetModel.VariableValueProperty(
-                                        hierarchy_external_id="hierarchyExternalId",
-                                        hierarchy_id="hierarchyId",
-                                        hierarchy_logical_id="hierarchyLogicalId",
-                                        property_external_id="propertyExternalId",
-                                        property_id="propertyId",
-                                        property_logical_id="propertyLogicalId",
-                                        property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
-                                            name="name"
-                                        )]
-                                    )
-                                )]
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        data_type_spec="dataTypeSpec",
-                        external_id="externalId",
-                        id="id",
-                        logical_id="logicalId",
-                        unit="unit"
-                    )],
-                    description="description",
-                    external_id="externalId",
-                    id="id",
-                    parent_asset_model_composite_model_external_id="parentAssetModelCompositeModelExternalId",
-                    path=["path"]
-                )],
-                asset_model_description="assetModelDescription",
-                asset_model_external_id="assetModelExternalId",
-                asset_model_hierarchies=[iotsitewise.CfnAssetModel.AssetModelHierarchyProperty(
-                    child_asset_model_id="childAssetModelId",
-                    name="name",
-            
-                    # the properties below are optional
-                    external_id="externalId",
-                    id="id",
-                    logical_id="logicalId"
-                )],
-                asset_model_properties=[iotsitewise.CfnAssetModel.AssetModelPropertyProperty(
-                    data_type="dataType",
-                    name="name",
-                    type=iotsitewise.CfnAssetModel.PropertyTypeProperty(
-                        type_name="typeName",
-            
-                        # the properties below are optional
-                        attribute=iotsitewise.CfnAssetModel.AttributeProperty(
-                            default_value="defaultValue"
-                        ),
-                        metric=iotsitewise.CfnAssetModel.MetricProperty(
-                            expression="expression",
-                            variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
-                                name="name",
-                                value=iotsitewise.CfnAssetModel.VariableValueProperty(
-                                    hierarchy_external_id="hierarchyExternalId",
-                                    hierarchy_id="hierarchyId",
-                                    hierarchy_logical_id="hierarchyLogicalId",
-                                    property_external_id="propertyExternalId",
-                                    property_id="propertyId",
-                                    property_logical_id="propertyLogicalId",
-                                    property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
-                                        name="name"
-                                    )]
-                                )
-                            )],
-                            window=iotsitewise.CfnAssetModel.MetricWindowProperty(
-                                tumbling=iotsitewise.CfnAssetModel.TumblingWindowProperty(
-                                    interval="interval",
-            
-                                    # the properties below are optional
-                                    offset="offset"
-                                )
-                            )
-                        ),
-                        transform=iotsitewise.CfnAssetModel.TransformProperty(
-                            expression="expression",
-                            variables=[iotsitewise.CfnAssetModel.ExpressionVariableProperty(
-                                name="name",
-                                value=iotsitewise.CfnAssetModel.VariableValueProperty(
-                                    hierarchy_external_id="hierarchyExternalId",
-                                    hierarchy_id="hierarchyId",
-                                    hierarchy_logical_id="hierarchyLogicalId",
-                                    property_external_id="propertyExternalId",
-                                    property_id="propertyId",
-                                    property_logical_id="propertyLogicalId",
-                                    property_path=[iotsitewise.CfnAssetModel.PropertyPathDefinitionProperty(
-                                        name="name"
-                                    )]
-                                )
-                            )]
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    data_type_spec="dataTypeSpec",
-                    external_id="externalId",
-                    id="id",
-                    logical_id="logicalId",
-                    unit="unit"
-                )],
-                asset_model_type="assetModelType",
-                enforced_asset_model_interface_relationships=[iotsitewise.CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty(
-                    interface_asset_model_id="interfaceAssetModelId",
-                    property_mappings=[iotsitewise.CfnAssetModel.EnforcedAssetModelInterfacePropertyMappingProperty(
-                        interface_asset_model_property_external_id="interfaceAssetModelPropertyExternalId",
-            
-                        # the properties below are optional
-                        asset_model_property_external_id="assetModelPropertyExternalId",
-                        asset_model_property_logical_id="assetModelPropertyLogicalId"
-                    )]
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4c397ea0e26142735f716b5c92fe1c51048d94b5142d035ce8dc4cb1df79380)
-            check_type(argname="argument asset_model_name", value=asset_model_name, expected_type=type_hints["asset_model_name"])
-            check_type(argname="argument asset_model_composite_models", value=asset_model_composite_models, expected_type=type_hints["asset_model_composite_models"])
-            check_type(argname="argument asset_model_description", value=asset_model_description, expected_type=type_hints["asset_model_description"])
-            check_type(argname="argument asset_model_external_id", value=asset_model_external_id, expected_type=type_hints["asset_model_external_id"])
-            check_type(argname="argument asset_model_hierarchies", value=asset_model_hierarchies, expected_type=type_hints["asset_model_hierarchies"])
-            check_type(argname="argument asset_model_properties", value=asset_model_properties, expected_type=type_hints["asset_model_properties"])
-            check_type(argname="argument asset_model_type", value=asset_model_type, expected_type=type_hints["asset_model_type"])
-            check_type(argname="argument enforced_asset_model_interface_relationships", value=enforced_asset_model_interface_relationships, expected_type=type_hints["enforced_asset_model_interface_relationships"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "asset_model_name": asset_model_name,
-        }
-        if asset_model_composite_models is not None:
-            self._values["asset_model_composite_models"] = asset_model_composite_models
-        if asset_model_description is not None:
-            self._values["asset_model_description"] = asset_model_description
-        if asset_model_external_id is not None:
-            self._values["asset_model_external_id"] = asset_model_external_id
-        if asset_model_hierarchies is not None:
-            self._values["asset_model_hierarchies"] = asset_model_hierarchies
-        if asset_model_properties is not None:
-            self._values["asset_model_properties"] = asset_model_properties
-        if asset_model_type is not None:
-            self._values["asset_model_type"] = asset_model_type
-        if enforced_asset_model_interface_relationships is not None:
-            self._values["enforced_asset_model_interface_relationships"] = enforced_asset_model_interface_relationships
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def asset_model_name(self) -> builtins.str:
-        '''A unique name for the asset model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelname
-        '''
-        result = self._values.get("asset_model_name")
-        assert result is not None, "Required property 'asset_model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_model_composite_models(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelCompositeModelProperty]]]]:
-        '''The composite models that are part of this asset model.
-
-        It groups properties (such as attributes, measurements, transforms, and metrics) and child composite models that model parts of your industrial equipment. Each composite model has a type that defines the properties that the composite model supports. Use composite models to define alarms on this asset model.
-        .. epigraph::
-
-           When creating custom composite models, you need to use `CreateAssetModelCompositeModel <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_CreateAssetModelCompositeModel.html>`_ . For more information, see `Creating custom composite models (Components) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-custom-composite-models.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelcompositemodels
-        '''
-        result = self._values.get("asset_model_composite_models")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelCompositeModelProperty]]]], result)
-
-    @builtins.property
-    def asset_model_description(self) -> typing.Optional[builtins.str]:
-        '''A description for the asset model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodeldescription
-        '''
-        result = self._values.get("asset_model_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def asset_model_external_id(self) -> typing.Optional[builtins.str]:
-        '''The external ID of the asset model.
-
-        For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelexternalid
-        '''
-        result = self._values.get("asset_model_external_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def asset_model_hierarchies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelHierarchyProperty]]]]:
-        '''The hierarchy definitions of the asset model.
-
-        Each hierarchy specifies an asset model whose assets can be children of any other assets created from this asset model. For more information, see `Asset hierarchies <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-hierarchies.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        You can specify up to 10 hierarchies per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelhierarchies
-        '''
-        result = self._values.get("asset_model_hierarchies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelHierarchyProperty]]]], result)
-
-    @builtins.property
-    def asset_model_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelPropertyProperty]]]]:
-        '''The property definitions of the asset model.
-
-        For more information, see `Asset properties <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/asset-properties.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        You can specify up to 200 properties per asset model. For more information, see `Quotas <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/quotas.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodelproperties
-        '''
-        result = self._values.get("asset_model_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.AssetModelPropertyProperty]]]], result)
-
-    @builtins.property
-    def asset_model_type(self) -> typing.Optional[builtins.str]:
-        '''The type of asset model.
-
-        - *ASSET_MODEL* – (default) An asset model that you can use to create assets. Can't be included as a component in another asset model.
-        - *COMPONENT_MODEL* – A reusable component that you can include in the composite models of other asset models. You can't create assets directly from this type of asset model.
-        - *INTERFACE* – An interface is a type of model that defines a standard structure that can be applied to different asset models.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-assetmodeltype
-        '''
-        result = self._values.get("asset_model_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enforced_asset_model_interface_relationships(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty]]]]:
-        '''a list of asset model and interface relationships.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-enforcedassetmodelinterfacerelationships
-        '''
-        result = self._values.get("enforced_asset_model_interface_relationships")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the asset.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-assetmodel.html#cfn-iotsitewise-assetmodel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssetModelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnAssetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "asset_model_id": "assetModelId",
-        "asset_name": "assetName",
-        "asset_description": "assetDescription",
-        "asset_external_id": "assetExternalId",
-        "asset_hierarchies": "assetHierarchies",
-        "asset_properties": "assetProperties",
-        "tags": "tags",
-    },
-)
-class CfnAssetProps:
-    def __init__(
-        self,
-        *,
-        asset_model_id: builtins.str,
-        asset_name: builtins.str,
-        asset_description: typing.Optional[builtins.str] = None,
-        asset_external_id: typing.Optional[builtins.str] = None,
-        asset_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        asset_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAsset``.
-
-        :param asset_model_id: The ID of the asset model from which to create the asset. This can be either the actual ID in UUID format, or else ``externalId:`` followed by the external ID, if it has one. For more information, see `Referencing objects with external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-id-references>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_name: A friendly name for the asset.
-        :param asset_description: The ID of the asset, in UUID format.
-        :param asset_external_id: The external ID of the asset model composite model. For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
-        :param asset_hierarchies: A list of asset hierarchies that each contain a ``hierarchyId`` . A hierarchy specifies allowed parent/child asset relationships.
-        :param asset_properties: The list of asset properties for the asset. This object doesn't include properties that you define in composite models. You can find composite model properties in the ``assetCompositeModels`` object.
-        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_asset_props = iotsitewise.CfnAssetProps(
-                asset_model_id="assetModelId",
-                asset_name="assetName",
-            
-                # the properties below are optional
-                asset_description="assetDescription",
-                asset_external_id="assetExternalId",
-                asset_hierarchies=[iotsitewise.CfnAsset.AssetHierarchyProperty(
-                    child_asset_id="childAssetId",
-            
-                    # the properties below are optional
-                    external_id="externalId",
-                    id="id",
-                    logical_id="logicalId"
-                )],
-                asset_properties=[iotsitewise.CfnAsset.AssetPropertyProperty(
-                    alias="alias",
-                    external_id="externalId",
-                    id="id",
-                    logical_id="logicalId",
-                    notification_state="notificationState",
-                    unit="unit"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__306f4833ce13fd25ec4269f2a96d0ee80f11a34f43885f5b4b372569dc9f7931)
-            check_type(argname="argument asset_model_id", value=asset_model_id, expected_type=type_hints["asset_model_id"])
-            check_type(argname="argument asset_name", value=asset_name, expected_type=type_hints["asset_name"])
-            check_type(argname="argument asset_description", value=asset_description, expected_type=type_hints["asset_description"])
-            check_type(argname="argument asset_external_id", value=asset_external_id, expected_type=type_hints["asset_external_id"])
-            check_type(argname="argument asset_hierarchies", value=asset_hierarchies, expected_type=type_hints["asset_hierarchies"])
-            check_type(argname="argument asset_properties", value=asset_properties, expected_type=type_hints["asset_properties"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "asset_model_id": asset_model_id,
-            "asset_name": asset_name,
-        }
-        if asset_description is not None:
-            self._values["asset_description"] = asset_description
-        if asset_external_id is not None:
-            self._values["asset_external_id"] = asset_external_id
-        if asset_hierarchies is not None:
-            self._values["asset_hierarchies"] = asset_hierarchies
-        if asset_properties is not None:
-            self._values["asset_properties"] = asset_properties
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def asset_model_id(self) -> builtins.str:
-        '''The ID of the asset model from which to create the asset.
-
-        This can be either the actual ID in UUID format, or else ``externalId:`` followed by the external ID, if it has one. For more information, see `Referencing objects with external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-id-references>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetmodelid
-        '''
-        result = self._values.get("asset_model_id")
-        assert result is not None, "Required property 'asset_model_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_name(self) -> builtins.str:
-        '''A friendly name for the asset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetname
-        '''
-        result = self._values.get("asset_name")
-        assert result is not None, "Required property 'asset_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_description(self) -> typing.Optional[builtins.str]:
-        '''The ID of the asset, in UUID format.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetdescription
-        '''
-        result = self._values.get("asset_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def asset_external_id(self) -> typing.Optional[builtins.str]:
-        '''The external ID of the asset model composite model.
-
-        For more information, see `Using external IDs <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/object-ids.html#external-ids>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetexternalid
-        '''
-        result = self._values.get("asset_external_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def asset_hierarchies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAsset.AssetHierarchyProperty]]]]:
-        '''A list of asset hierarchies that each contain a ``hierarchyId`` .
-
-        A hierarchy specifies allowed parent/child asset relationships.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assethierarchies
-        '''
-        result = self._values.get("asset_hierarchies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAsset.AssetHierarchyProperty]]]], result)
-
-    @builtins.property
-    def asset_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAsset.AssetPropertyProperty]]]]:
-        '''The list of asset properties for the asset.
-
-        This object doesn't include properties that you define in composite models. You can find composite model properties in the ``assetCompositeModels`` object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-assetproperties
-        '''
-        result = self._values.get("asset_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAsset.AssetPropertyProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the asset.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-asset.html#cfn-iotsitewise-asset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IComputationModelRef, _ITaggableV2_4e6798f8)
 class CfnComputationModel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4208,6 +6086,12 @@ class CfnComputationModel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="computationModelRef")
+    def computation_model_ref(self) -> ComputationModelReference:
+        '''A reference to a ComputationModel resource.'''
+        return typing.cast(ComputationModelReference, jsii.get(self, "computationModelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="computationModelConfiguration")
@@ -4673,162 +6557,7 @@ class CfnComputationModel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnComputationModelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "computation_model_configuration": "computationModelConfiguration",
-        "computation_model_data_binding": "computationModelDataBinding",
-        "computation_model_name": "computationModelName",
-        "computation_model_description": "computationModelDescription",
-        "tags": "tags",
-    },
-)
-class CfnComputationModelProps:
-    def __init__(
-        self,
-        *,
-        computation_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        computation_model_data_binding: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelDataBindingValueProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        computation_model_name: builtins.str,
-        computation_model_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnComputationModel``.
-
-        :param computation_model_configuration: The configuration for the computation model.
-        :param computation_model_data_binding: The data binding for the computation model. Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
-        :param computation_model_name: The name of the computation model.
-        :param computation_model_description: The description of the computation model.
-        :param tags: A list of key-value pairs that contain metadata for the asset. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            # computation_model_data_binding_value_property_: iotsitewise.CfnComputationModel.ComputationModelDataBindingValueProperty
-            
-            cfn_computation_model_props = iotsitewise.CfnComputationModelProps(
-                computation_model_configuration=iotsitewise.CfnComputationModel.ComputationModelConfigurationProperty(
-                    anomaly_detection=iotsitewise.CfnComputationModel.AnomalyDetectionComputationModelConfigurationProperty(
-                        input_properties="inputProperties",
-                        result_property="resultProperty"
-                    )
-                ),
-                computation_model_data_binding={
-                    "computation_model_data_binding_key": iotsitewise.CfnComputationModel.ComputationModelDataBindingValueProperty(
-                        asset_model_property=iotsitewise.CfnComputationModel.AssetModelPropertyBindingValueProperty(
-                            asset_model_id="assetModelId",
-                            property_id="propertyId"
-                        ),
-                        asset_property=iotsitewise.CfnComputationModel.AssetPropertyBindingValueProperty(
-                            asset_id="assetId",
-                            property_id="propertyId"
-                        ),
-                        list=[computation_model_data_binding_value_property_]
-                    )
-                },
-                computation_model_name="computationModelName",
-            
-                # the properties below are optional
-                computation_model_description="computationModelDescription",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed97b2e804664b4c2090fb09c1141fc63e60c4fbaee41661ef227778c1ed7dd3)
-            check_type(argname="argument computation_model_configuration", value=computation_model_configuration, expected_type=type_hints["computation_model_configuration"])
-            check_type(argname="argument computation_model_data_binding", value=computation_model_data_binding, expected_type=type_hints["computation_model_data_binding"])
-            check_type(argname="argument computation_model_name", value=computation_model_name, expected_type=type_hints["computation_model_name"])
-            check_type(argname="argument computation_model_description", value=computation_model_description, expected_type=type_hints["computation_model_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "computation_model_configuration": computation_model_configuration,
-            "computation_model_data_binding": computation_model_data_binding,
-            "computation_model_name": computation_model_name,
-        }
-        if computation_model_description is not None:
-            self._values["computation_model_description"] = computation_model_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def computation_model_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelConfigurationProperty]:
-        '''The configuration for the computation model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodelconfiguration
-        '''
-        result = self._values.get("computation_model_configuration")
-        assert result is not None, "Required property 'computation_model_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelConfigurationProperty], result)
-
-    @builtins.property
-    def computation_model_data_binding(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelDataBindingValueProperty]]]:
-        '''The data binding for the computation model.
-
-        Key is a variable name defined in configuration. Value is a ``ComputationModelDataBindingValue`` referenced by the variable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldatabinding
-        '''
-        result = self._values.get("computation_model_data_binding")
-        assert result is not None, "Required property 'computation_model_data_binding' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComputationModel.ComputationModelDataBindingValueProperty]]], result)
-
-    @builtins.property
-    def computation_model_name(self) -> builtins.str:
-        '''The name of the computation model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodelname
-        '''
-        result = self._values.get("computation_model_name")
-        assert result is not None, "Required property 'computation_model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def computation_model_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the computation model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-computationmodeldescription
-        '''
-        result = self._values.get("computation_model_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the asset.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-computationmodel.html#cfn-iotsitewise-computationmodel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnComputationModelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDashboardRef, _ITaggable_36806126)
 class CfnDashboard(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4950,6 +6679,12 @@ class CfnDashboard(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="dashboardRef")
+    def dashboard_ref(self) -> DashboardReference:
+        '''A reference to a Dashboard resource.'''
+        return typing.cast(DashboardReference, jsii.get(self, "dashboardRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -5021,142 +6756,7 @@ class CfnDashboard(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnDashboardProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dashboard_definition": "dashboardDefinition",
-        "dashboard_description": "dashboardDescription",
-        "dashboard_name": "dashboardName",
-        "project_id": "projectId",
-        "tags": "tags",
-    },
-)
-class CfnDashboardProps:
-    def __init__(
-        self,
-        *,
-        dashboard_definition: builtins.str,
-        dashboard_description: builtins.str,
-        dashboard_name: builtins.str,
-        project_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDashboard``.
-
-        :param dashboard_definition: The dashboard definition specified in a JSON literal. - AWS IoT SiteWise Monitor (Classic) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-using-aws-cli.html>`_ - AWS IoT SiteWise Monitor (AI-aware) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-ai-dashboard-cli.html>`_ in the *AWS IoT SiteWise User Guide*
-        :param dashboard_description: A description for the dashboard.
-        :param dashboard_name: A friendly name for the dashboard.
-        :param project_id: The ID of the project in which to create the dashboard.
-        :param tags: A list of key-value pairs that contain metadata for the dashboard. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_dashboard_props = iotsitewise.CfnDashboardProps(
-                dashboard_definition="dashboardDefinition",
-                dashboard_description="dashboardDescription",
-                dashboard_name="dashboardName",
-            
-                # the properties below are optional
-                project_id="projectId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e87db1e2d08493321e273557f52f1665d6e8b066bd235aa15fbe6b372c969da)
-            check_type(argname="argument dashboard_definition", value=dashboard_definition, expected_type=type_hints["dashboard_definition"])
-            check_type(argname="argument dashboard_description", value=dashboard_description, expected_type=type_hints["dashboard_description"])
-            check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
-            check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dashboard_definition": dashboard_definition,
-            "dashboard_description": dashboard_description,
-            "dashboard_name": dashboard_name,
-        }
-        if project_id is not None:
-            self._values["project_id"] = project_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dashboard_definition(self) -> builtins.str:
-        '''The dashboard definition specified in a JSON literal.
-
-        - AWS IoT SiteWise Monitor (Classic) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-using-aws-cli.html>`_
-        - AWS IoT SiteWise Monitor (AI-aware) see `Create dashboards ( AWS CLI ) <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/create-dashboards-ai-dashboard-cli.html>`_
-
-        in the *AWS IoT SiteWise User Guide*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboarddefinition
-        '''
-        result = self._values.get("dashboard_definition")
-        assert result is not None, "Required property 'dashboard_definition' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dashboard_description(self) -> builtins.str:
-        '''A description for the dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboarddescription
-        '''
-        result = self._values.get("dashboard_description")
-        assert result is not None, "Required property 'dashboard_description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dashboard_name(self) -> builtins.str:
-        '''A friendly name for the dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-dashboardname
-        '''
-        result = self._values.get("dashboard_name")
-        assert result is not None, "Required property 'dashboard_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the project in which to create the dashboard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-projectid
-        '''
-        result = self._values.get("project_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the dashboard.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dashboard.html#cfn-iotsitewise-dashboard-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDashboardProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDatasetRef, _ITaggableV2_4e6798f8)
 class CfnDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5289,6 +6889,12 @@ class CfnDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''A reference to a Dataset resource.'''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetName")
@@ -5578,134 +7184,7 @@ class CfnDataset(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_name": "datasetName",
-        "dataset_source": "datasetSource",
-        "dataset_description": "datasetDescription",
-        "tags": "tags",
-    },
-)
-class CfnDatasetProps:
-    def __init__(
-        self,
-        *,
-        dataset_name: builtins.str,
-        dataset_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-        dataset_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataset``.
-
-        :param dataset_name: The name of the dataset.
-        :param dataset_source: The data source for the dataset.
-        :param dataset_description: A description about the dataset, and its functionality.
-        :param tags: A list of key-value pairs that contain metadata for the access policy. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_dataset_props = iotsitewise.CfnDatasetProps(
-                dataset_name="datasetName",
-                dataset_source=iotsitewise.CfnDataset.DatasetSourceProperty(
-                    source_format="sourceFormat",
-                    source_type="sourceType",
-            
-                    # the properties below are optional
-                    source_detail=iotsitewise.CfnDataset.SourceDetailProperty(
-                        kendra=iotsitewise.CfnDataset.KendraSourceDetailProperty(
-                            knowledge_base_arn="knowledgeBaseArn",
-                            role_arn="roleArn"
-                        )
-                    )
-                ),
-            
-                # the properties below are optional
-                dataset_description="datasetDescription",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ecfd46cd288d1fcedea054d9db52e78eed5b596789d023c110fcfb9e1e41ff8)
-            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
-            check_type(argname="argument dataset_source", value=dataset_source, expected_type=type_hints["dataset_source"])
-            check_type(argname="argument dataset_description", value=dataset_description, expected_type=type_hints["dataset_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_name": dataset_name,
-            "dataset_source": dataset_source,
-        }
-        if dataset_description is not None:
-            self._values["dataset_description"] = dataset_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dataset_name(self) -> builtins.str:
-        '''The name of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetname
-        '''
-        result = self._values.get("dataset_name")
-        assert result is not None, "Required property 'dataset_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dataset_source(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetSourceProperty]:
-        '''The data source for the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetsource
-        '''
-        result = self._values.get("dataset_source")
-        assert result is not None, "Required property 'dataset_source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetSourceProperty], result)
-
-    @builtins.property
-    def dataset_description(self) -> typing.Optional[builtins.str]:
-        '''A description about the dataset, and its functionality.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-datasetdescription
-        '''
-        result = self._values.get("dataset_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the access policy.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-dataset.html#cfn-iotsitewise-dataset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IGatewayRef, _ITaggable_36806126)
 class CfnGateway(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5834,6 +7313,12 @@ class CfnGateway(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''A reference to a Gateway resource.'''
+        return typing.cast(GatewayReference, jsii.get(self, "gatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6286,165 +7771,7 @@ class CfnGateway(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnGatewayProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "gateway_name": "gatewayName",
-        "gateway_platform": "gatewayPlatform",
-        "gateway_capability_summaries": "gatewayCapabilitySummaries",
-        "gateway_version": "gatewayVersion",
-        "tags": "tags",
-    },
-)
-class CfnGatewayProps:
-    def __init__(
-        self,
-        *,
-        gateway_name: builtins.str,
-        gateway_platform: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayPlatformProperty, typing.Dict[builtins.str, typing.Any]]],
-        gateway_capability_summaries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayCapabilitySummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        gateway_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGateway``.
-
-        :param gateway_name: A unique name for the gateway.
-        :param gateway_platform: The gateway's platform. You can only specify one platform in a gateway.
-        :param gateway_capability_summaries: A list of gateway capability summaries that each contain a namespace and status. Each gateway capability defines data sources for the gateway. To retrieve a capability configuration's definition, use `DescribeGatewayCapabilityConfiguration <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_DescribeGatewayCapabilityConfiguration.html>`_ .
-        :param gateway_version: The version of the gateway. A value of ``3`` indicates an MQTT-enabled, V3 gateway, while ``2`` indicates a Classic streams, V2 gateway.
-        :param tags: A list of key-value pairs that contain metadata for the gateway. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_gateway_props = iotsitewise.CfnGatewayProps(
-                gateway_name="gatewayName",
-                gateway_platform=iotsitewise.CfnGateway.GatewayPlatformProperty(
-                    greengrass=iotsitewise.CfnGateway.GreengrassProperty(
-                        group_arn="groupArn"
-                    ),
-                    greengrass_v2=iotsitewise.CfnGateway.GreengrassV2Property(
-                        core_device_thing_name="coreDeviceThingName",
-            
-                        # the properties below are optional
-                        core_device_operating_system="coreDeviceOperatingSystem"
-                    ),
-                    siemens_ie=iotsitewise.CfnGateway.SiemensIEProperty(
-                        iot_core_thing_name="iotCoreThingName"
-                    )
-                ),
-            
-                # the properties below are optional
-                gateway_capability_summaries=[iotsitewise.CfnGateway.GatewayCapabilitySummaryProperty(
-                    capability_namespace="capabilityNamespace",
-            
-                    # the properties below are optional
-                    capability_configuration="capabilityConfiguration"
-                )],
-                gateway_version="gatewayVersion",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96b726a7f6953ced23491d12afc63dd3960b8d44e1734397f1db9d45a0cf6793)
-            check_type(argname="argument gateway_name", value=gateway_name, expected_type=type_hints["gateway_name"])
-            check_type(argname="argument gateway_platform", value=gateway_platform, expected_type=type_hints["gateway_platform"])
-            check_type(argname="argument gateway_capability_summaries", value=gateway_capability_summaries, expected_type=type_hints["gateway_capability_summaries"])
-            check_type(argname="argument gateway_version", value=gateway_version, expected_type=type_hints["gateway_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "gateway_name": gateway_name,
-            "gateway_platform": gateway_platform,
-        }
-        if gateway_capability_summaries is not None:
-            self._values["gateway_capability_summaries"] = gateway_capability_summaries
-        if gateway_version is not None:
-            self._values["gateway_version"] = gateway_version
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def gateway_name(self) -> builtins.str:
-        '''A unique name for the gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayname
-        '''
-        result = self._values.get("gateway_name")
-        assert result is not None, "Required property 'gateway_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def gateway_platform(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayPlatformProperty]:
-        '''The gateway's platform.
-
-        You can only specify one platform in a gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayplatform
-        '''
-        result = self._values.get("gateway_platform")
-        assert result is not None, "Required property 'gateway_platform' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayPlatformProperty], result)
-
-    @builtins.property
-    def gateway_capability_summaries(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayCapabilitySummaryProperty]]]]:
-        '''A list of gateway capability summaries that each contain a namespace and status.
-
-        Each gateway capability defines data sources for the gateway. To retrieve a capability configuration's definition, use `DescribeGatewayCapabilityConfiguration <https://docs.aws.amazon.com/iot-sitewise/latest/APIReference/API_DescribeGatewayCapabilityConfiguration.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewaycapabilitysummaries
-        '''
-        result = self._values.get("gateway_capability_summaries")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayCapabilitySummaryProperty]]]], result)
-
-    @builtins.property
-    def gateway_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the gateway.
-
-        A value of ``3`` indicates an MQTT-enabled, V3 gateway, while ``2`` indicates a Classic streams, V2 gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-gatewayversion
-        '''
-        result = self._values.get("gateway_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the gateway.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-gateway.html#cfn-iotsitewise-gateway-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGatewayProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPortalRef, _ITaggable_36806126)
 class CfnPortal(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6613,6 +7940,12 @@ class CfnPortal(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> PortalReference:
+        '''A reference to a Portal resource.'''
+        return typing.cast(PortalReference, jsii.get(self, "portalRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6888,240 +8221,7 @@ class CfnPortal(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnPortalProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "portal_contact_email": "portalContactEmail",
-        "portal_name": "portalName",
-        "role_arn": "roleArn",
-        "alarms": "alarms",
-        "notification_sender_email": "notificationSenderEmail",
-        "portal_auth_mode": "portalAuthMode",
-        "portal_description": "portalDescription",
-        "portal_type": "portalType",
-        "portal_type_configuration": "portalTypeConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnPortalProps:
-    def __init__(
-        self,
-        *,
-        portal_contact_email: builtins.str,
-        portal_name: builtins.str,
-        role_arn: builtins.str,
-        alarms: typing.Any = None,
-        notification_sender_email: typing.Optional[builtins.str] = None,
-        portal_auth_mode: typing.Optional[builtins.str] = None,
-        portal_description: typing.Optional[builtins.str] = None,
-        portal_type: typing.Optional[builtins.str] = None,
-        portal_type_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPortal.PortalTypeEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPortal``.
-
-        :param portal_contact_email: The AWS administrator's contact email address.
-        :param portal_name: A friendly name for the portal.
-        :param role_arn: The `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of a service role that allows the portal's users to access your AWS IoT SiteWise resources on your behalf. For more information, see `Using service roles for AWS IoT SiteWise Monitor <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-service-role.html>`_ in the *AWS IoT SiteWise User Guide* .
-        :param alarms: Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal. You can use the alarm to monitor an asset property and get notified when the asset property value is outside a specified range. For more information, see `Monitoring with alarms <https://docs.aws.amazon.com/iot-sitewise/latest/appguide/monitor-alarms.html>`_ in the *AWS IoT SiteWise Application Guide* .
-        :param notification_sender_email: The email address that sends alarm notifications. .. epigraph:: If you use the `AWS IoT Events managed Lambda function <https://docs.aws.amazon.com/iotevents/latest/developerguide/lambda-support.html>`_ to manage your emails, you must `verify the sender email address in Amazon SES <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html>`_ .
-        :param portal_auth_mode: The service to use to authenticate users to the portal. Choose from the following options:. - ``SSO`` – The portal uses AWS IAM Identity Center to authenticate users and manage user permissions. Before you can create a portal that uses IAM Identity Center, you must enable IAM Identity Center. For more information, see `Enabling IAM Identity Center <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-get-started.html#mon-gs-sso>`_ in the *AWS IoT SiteWise User Guide* . This option is only available in AWS Regions other than the China Regions. - ``IAM`` – The portal uses AWS Identity and Access Management to authenticate users and manage user permissions. You can't change this value after you create a portal. Default: ``SSO``
-        :param portal_description: A description for the portal.
-        :param portal_type: Define the type of portal. The value for AWS IoT SiteWise Monitor (Classic) is ``SITEWISE_PORTAL_V1`` . The value for AWS IoT SiteWise Monitor (AI-aware) is ``SITEWISE_PORTAL_V2`` .
-        :param portal_type_configuration: Map to associate detail of configuration related with a PortalType.
-        :param tags: A list of key-value pairs that contain metadata for the portal. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            # alarms: Any
-            
-            cfn_portal_props = iotsitewise.CfnPortalProps(
-                portal_contact_email="portalContactEmail",
-                portal_name="portalName",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                alarms=alarms,
-                notification_sender_email="notificationSenderEmail",
-                portal_auth_mode="portalAuthMode",
-                portal_description="portalDescription",
-                portal_type="portalType",
-                portal_type_configuration={
-                    "portal_type_configuration_key": iotsitewise.CfnPortal.PortalTypeEntryProperty(
-                        portal_tools=["portalTools"]
-                    )
-                },
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db927eff8866e7afa967752c7f48d5d8ab1bd58489a78569b13cac34c81ba650)
-            check_type(argname="argument portal_contact_email", value=portal_contact_email, expected_type=type_hints["portal_contact_email"])
-            check_type(argname="argument portal_name", value=portal_name, expected_type=type_hints["portal_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
-            check_type(argname="argument notification_sender_email", value=notification_sender_email, expected_type=type_hints["notification_sender_email"])
-            check_type(argname="argument portal_auth_mode", value=portal_auth_mode, expected_type=type_hints["portal_auth_mode"])
-            check_type(argname="argument portal_description", value=portal_description, expected_type=type_hints["portal_description"])
-            check_type(argname="argument portal_type", value=portal_type, expected_type=type_hints["portal_type"])
-            check_type(argname="argument portal_type_configuration", value=portal_type_configuration, expected_type=type_hints["portal_type_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "portal_contact_email": portal_contact_email,
-            "portal_name": portal_name,
-            "role_arn": role_arn,
-        }
-        if alarms is not None:
-            self._values["alarms"] = alarms
-        if notification_sender_email is not None:
-            self._values["notification_sender_email"] = notification_sender_email
-        if portal_auth_mode is not None:
-            self._values["portal_auth_mode"] = portal_auth_mode
-        if portal_description is not None:
-            self._values["portal_description"] = portal_description
-        if portal_type is not None:
-            self._values["portal_type"] = portal_type
-        if portal_type_configuration is not None:
-            self._values["portal_type_configuration"] = portal_type_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def portal_contact_email(self) -> builtins.str:
-        '''The AWS administrator's contact email address.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalcontactemail
-        '''
-        result = self._values.get("portal_contact_email")
-        assert result is not None, "Required property 'portal_contact_email' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def portal_name(self) -> builtins.str:
-        '''A friendly name for the portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalname
-        '''
-        result = self._values.get("portal_name")
-        assert result is not None, "Required property 'portal_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ of a service role that allows the portal's users to access your AWS IoT SiteWise resources on your behalf. For more information, see `Using service roles for AWS IoT SiteWise Monitor <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-service-role.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def alarms(self) -> typing.Any:
-        '''Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal.
-
-        You can use the alarm to monitor an asset property and get notified when the asset property value is outside a specified range. For more information, see `Monitoring with alarms <https://docs.aws.amazon.com/iot-sitewise/latest/appguide/monitor-alarms.html>`_ in the *AWS IoT SiteWise Application Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-alarms
-        '''
-        result = self._values.get("alarms")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def notification_sender_email(self) -> typing.Optional[builtins.str]:
-        '''The email address that sends alarm notifications.
-
-        .. epigraph::
-
-           If you use the `AWS IoT Events managed Lambda function <https://docs.aws.amazon.com/iotevents/latest/developerguide/lambda-support.html>`_ to manage your emails, you must `verify the sender email address in Amazon SES <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/verify-email-addresses.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-notificationsenderemail
-        '''
-        result = self._values.get("notification_sender_email")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def portal_auth_mode(self) -> typing.Optional[builtins.str]:
-        '''The service to use to authenticate users to the portal. Choose from the following options:.
-
-        - ``SSO`` – The portal uses AWS IAM Identity Center to authenticate users and manage user permissions. Before you can create a portal that uses IAM Identity Center, you must enable IAM Identity Center. For more information, see `Enabling IAM Identity Center <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/monitor-get-started.html#mon-gs-sso>`_ in the *AWS IoT SiteWise User Guide* . This option is only available in AWS Regions other than the China Regions.
-        - ``IAM`` – The portal uses AWS Identity and Access Management to authenticate users and manage user permissions.
-
-        You can't change this value after you create a portal.
-
-        Default: ``SSO``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portalauthmode
-        '''
-        result = self._values.get("portal_auth_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def portal_description(self) -> typing.Optional[builtins.str]:
-        '''A description for the portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaldescription
-        '''
-        result = self._values.get("portal_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def portal_type(self) -> typing.Optional[builtins.str]:
-        '''Define the type of portal.
-
-        The value for AWS IoT SiteWise Monitor (Classic) is ``SITEWISE_PORTAL_V1`` . The value for AWS IoT SiteWise Monitor (AI-aware) is ``SITEWISE_PORTAL_V2`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaltype
-        '''
-        result = self._values.get("portal_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def portal_type_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnPortal.PortalTypeEntryProperty]]]]:
-        '''Map to associate detail of configuration related with a PortalType.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-portaltypeconfiguration
-        '''
-        result = self._values.get("portal_type_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnPortal.PortalTypeEntryProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the portal.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-portal.html#cfn-iotsitewise-portal-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPortalProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IProjectRef, _ITaggable_36806126)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7247,6 +8347,12 @@ class CfnProject(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> ProjectReference:
+        '''A reference to a Project resource.'''
+        return typing.cast(ProjectReference, jsii.get(self, "projectRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -7318,137 +8424,10 @@ class CfnProject(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "portal_id": "portalId",
-        "project_name": "projectName",
-        "asset_ids": "assetIds",
-        "project_description": "projectDescription",
-        "tags": "tags",
-    },
-)
-class CfnProjectProps:
-    def __init__(
-        self,
-        *,
-        portal_id: builtins.str,
-        project_name: builtins.str,
-        asset_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        project_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProject``.
-
-        :param portal_id: The ID of the portal in which to create the project.
-        :param project_name: A friendly name for the project.
-        :param asset_ids: A list that contains the IDs of each asset associated with the project.
-        :param project_description: A description for the project.
-        :param tags: A list of key-value pairs that contain metadata for the project. For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotsitewise as iotsitewise
-            
-            cfn_project_props = iotsitewise.CfnProjectProps(
-                portal_id="portalId",
-                project_name="projectName",
-            
-                # the properties below are optional
-                asset_ids=["assetIds"],
-                project_description="projectDescription",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7af827083026086703d7567e7e4a27cf6d5bb590317461231a2e997d42b85e1b)
-            check_type(argname="argument portal_id", value=portal_id, expected_type=type_hints["portal_id"])
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-            check_type(argname="argument asset_ids", value=asset_ids, expected_type=type_hints["asset_ids"])
-            check_type(argname="argument project_description", value=project_description, expected_type=type_hints["project_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "portal_id": portal_id,
-            "project_name": project_name,
-        }
-        if asset_ids is not None:
-            self._values["asset_ids"] = asset_ids
-        if project_description is not None:
-            self._values["project_description"] = project_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def portal_id(self) -> builtins.str:
-        '''The ID of the portal in which to create the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-portalid
-        '''
-        result = self._values.get("portal_id")
-        assert result is not None, "Required property 'portal_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project_name(self) -> builtins.str:
-        '''A friendly name for the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-projectname
-        '''
-        result = self._values.get("project_name")
-        assert result is not None, "Required property 'project_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list that contains the IDs of each asset associated with the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-assetids
-        '''
-        result = self._values.get("asset_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def project_description(self) -> typing.Optional[builtins.str]:
-        '''A description for the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-projectdescription
-        '''
-        result = self._values.get("project_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that contain metadata for the project.
-
-        For more information, see `Tagging your AWS IoT SiteWise resources <https://docs.aws.amazon.com/iot-sitewise/latest/userguide/tag-resources.html>`_ in the *AWS IoT SiteWise User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-project.html#cfn-iotsitewise-project-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessPolicyReference",
+    "AssetModelReference",
+    "AssetReference",
     "CfnAccessPolicy",
     "CfnAccessPolicyProps",
     "CfnAsset",
@@ -7467,9 +8446,202 @@ __all__ = [
     "CfnPortalProps",
     "CfnProject",
     "CfnProjectProps",
+    "ComputationModelReference",
+    "DashboardReference",
+    "DatasetReference",
+    "GatewayReference",
+    "IAccessPolicyRef",
+    "IAssetModelRef",
+    "IAssetRef",
+    "IComputationModelRef",
+    "IDashboardRef",
+    "IDatasetRef",
+    "IGatewayRef",
+    "IPortalRef",
+    "IProjectRef",
+    "PortalReference",
+    "ProjectReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__8edb465d52fb3f2296236ace7c25cd991636477863514c93c7e742078b81efd0(
+    *,
+    access_policy_arn: builtins.str,
+    access_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__def49041a9a7e8d3ea8d6f7ddbebd124f2ea1546c4e4975041f18926e68133f1(
+    *,
+    asset_model_arn: builtins.str,
+    asset_model_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99511a36f0dff197bf82e15afcc37bc35c9cbfede797de39b2854bf1ee1b774c(
+    *,
+    asset_arn: builtins.str,
+    asset_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__395192fc212cfba19ac0d48ac6224771ee93f01bee507a5e9571a735a417decd(
+    *,
+    access_policy_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
+    access_policy_permission: builtins.str,
+    access_policy_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4c397ea0e26142735f716b5c92fe1c51048d94b5142d035ce8dc4cb1df79380(
+    *,
+    asset_model_name: builtins.str,
+    asset_model_composite_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelCompositeModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    asset_model_description: typing.Optional[builtins.str] = None,
+    asset_model_external_id: typing.Optional[builtins.str] = None,
+    asset_model_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    asset_model_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    asset_model_type: typing.Optional[builtins.str] = None,
+    enforced_asset_model_interface_relationships: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__306f4833ce13fd25ec4269f2a96d0ee80f11a34f43885f5b4b372569dc9f7931(
+    *,
+    asset_model_id: builtins.str,
+    asset_name: builtins.str,
+    asset_description: typing.Optional[builtins.str] = None,
+    asset_external_id: typing.Optional[builtins.str] = None,
+    asset_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    asset_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed97b2e804664b4c2090fb09c1141fc63e60c4fbaee41661ef227778c1ed7dd3(
+    *,
+    computation_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    computation_model_data_binding: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelDataBindingValueProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    computation_model_name: builtins.str,
+    computation_model_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e87db1e2d08493321e273557f52f1665d6e8b066bd235aa15fbe6b372c969da(
+    *,
+    dashboard_definition: builtins.str,
+    dashboard_description: builtins.str,
+    dashboard_name: builtins.str,
+    project_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ecfd46cd288d1fcedea054d9db52e78eed5b596789d023c110fcfb9e1e41ff8(
+    *,
+    dataset_name: builtins.str,
+    dataset_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    dataset_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96b726a7f6953ced23491d12afc63dd3960b8d44e1734397f1db9d45a0cf6793(
+    *,
+    gateway_name: builtins.str,
+    gateway_platform: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayPlatformProperty, typing.Dict[builtins.str, typing.Any]]],
+    gateway_capability_summaries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayCapabilitySummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    gateway_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db927eff8866e7afa967752c7f48d5d8ab1bd58489a78569b13cac34c81ba650(
+    *,
+    portal_contact_email: builtins.str,
+    portal_name: builtins.str,
+    role_arn: builtins.str,
+    alarms: typing.Any = None,
+    notification_sender_email: typing.Optional[builtins.str] = None,
+    portal_auth_mode: typing.Optional[builtins.str] = None,
+    portal_description: typing.Optional[builtins.str] = None,
+    portal_type: typing.Optional[builtins.str] = None,
+    portal_type_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPortal.PortalTypeEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7af827083026086703d7567e7e4a27cf6d5bb590317461231a2e997d42b85e1b(
+    *,
+    portal_id: builtins.str,
+    project_name: builtins.str,
+    asset_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    project_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed100a1c48146998c89bfe5537d153c737e9d8584246885c908960cc33deb5fe(
+    *,
+    computation_model_arn: builtins.str,
+    computation_model_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__428a7f4235a7e905d21407b92da1cf7537ea0fb4a76ea7046d6244a98ef5a217(
+    *,
+    dashboard_arn: builtins.str,
+    dashboard_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be9613c5efbdae235d68998ed646f1669f248b54de6f5422c57bc39a87bcdf84(
+    *,
+    dataset_arn: builtins.str,
+    dataset_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbb6f5591e3803c975d75ec7f0d2569ab25d3e2eada03c638e3d8b0b54732a02(
+    *,
+    gateway_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e7faa6782fbc9bec0541172aeb2fc162d359c0ef016b745406a2bf4d5183bbe(
+    *,
+    portal_arn: builtins.str,
+    portal_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78c58eeada20ade39887816ce9a2546cddbaeaceea7479881a1106f33054e4a7(
+    *,
+    project_arn: builtins.str,
+    project_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__531aa21f3bed6dedfd9fce9d7bb67acf86efe74ca96cafedea1800e8112b281b(
     scope: _constructs_77d1e7e8.Construct,
@@ -7560,15 +8732,6 @@ def _typecheckingstub__13bff317a735a1083b2976369b994f0f31c739c79d78584197a9a7372
 def _typecheckingstub__f363729f07f015fc23f72b53be5071c8dc7624eb969069e23f064b035b2c023c(
     *,
     id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__395192fc212cfba19ac0d48ac6224771ee93f01bee507a5e9571a735a417decd(
-    *,
-    access_policy_identity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyIdentityProperty, typing.Dict[builtins.str, typing.Any]]],
-    access_policy_permission: builtins.str,
-    access_policy_resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPolicy.AccessPolicyResourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7881,34 +9044,6 @@ def _typecheckingstub__dfc8a5f6be8f2396701edaddb5e852d356262a49103549dbc6de3a39b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a4c397ea0e26142735f716b5c92fe1c51048d94b5142d035ce8dc4cb1df79380(
-    *,
-    asset_model_name: builtins.str,
-    asset_model_composite_models: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelCompositeModelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    asset_model_description: typing.Optional[builtins.str] = None,
-    asset_model_external_id: typing.Optional[builtins.str] = None,
-    asset_model_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    asset_model_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.AssetModelPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    asset_model_type: typing.Optional[builtins.str] = None,
-    enforced_asset_model_interface_relationships: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssetModel.EnforcedAssetModelInterfaceRelationshipProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__306f4833ce13fd25ec4269f2a96d0ee80f11a34f43885f5b4b372569dc9f7931(
-    *,
-    asset_model_id: builtins.str,
-    asset_name: builtins.str,
-    asset_description: typing.Optional[builtins.str] = None,
-    asset_external_id: typing.Optional[builtins.str] = None,
-    asset_hierarchies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetHierarchyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    asset_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAsset.AssetPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__566bf1711c9dcacb9cb88add46c2c4e157208bdce4a774ccb256a7d21c68de89(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8004,17 +9139,6 @@ def _typecheckingstub__30609777f6bb1d4c3fb4232f9af93dc24089504c669f64d1de9edd24a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ed97b2e804664b4c2090fb09c1141fc63e60c4fbaee41661ef227778c1ed7dd3(
-    *,
-    computation_model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    computation_model_data_binding: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputationModel.ComputationModelDataBindingValueProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    computation_model_name: builtins.str,
-    computation_model_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7408e63e7ba97e630e06dc4a383d275da9719808da2d750b179e27c09b363329(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8066,17 +9190,6 @@ def _typecheckingstub__d621f50afe555c434794e30d38d7e134a8c91ebdac9f42da18c26db60
 
 def _typecheckingstub__c685ecf3c21151b25cdde509c49bdd7b2812d894f5dab8c2fd028d7ea55b28c2(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e87db1e2d08493321e273557f52f1665d6e8b066bd235aa15fbe6b372c969da(
-    *,
-    dashboard_definition: builtins.str,
-    dashboard_description: builtins.str,
-    dashboard_name: builtins.str,
-    project_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8149,16 +9262,6 @@ def _typecheckingstub__5d827c7c36898f2d8c24814838df150d16db4b05143943eaff03575fc
 def _typecheckingstub__7a598d81c202f610ae61fa753a459c38aa834bd6a34e5b7a54eb9f63914b22c7(
     *,
     kendra: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.KendraSourceDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8ecfd46cd288d1fcedea054d9db52e78eed5b596789d023c110fcfb9e1e41ff8(
-    *,
-    dataset_name: builtins.str,
-    dataset_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    dataset_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8253,17 +9356,6 @@ def _typecheckingstub__aaa34ef3ffa417e0d8477bdf5fd83220079621fb80b75a881ad5c04a9
 def _typecheckingstub__c5c36e991ce3543e0259817d60bf936941834dcd087997082364d6b61a83223f(
     *,
     iot_core_thing_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__96b726a7f6953ced23491d12afc63dd3960b8d44e1734397f1db9d45a0cf6793(
-    *,
-    gateway_name: builtins.str,
-    gateway_platform: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayPlatformProperty, typing.Dict[builtins.str, typing.Any]]],
-    gateway_capability_summaries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayCapabilitySummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    gateway_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8373,22 +9465,6 @@ def _typecheckingstub__159de1986a281fe75049e969ee02d9509ce935b8bef35eb415647d6e6
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__db927eff8866e7afa967752c7f48d5d8ab1bd58489a78569b13cac34c81ba650(
-    *,
-    portal_contact_email: builtins.str,
-    portal_name: builtins.str,
-    role_arn: builtins.str,
-    alarms: typing.Any = None,
-    notification_sender_email: typing.Optional[builtins.str] = None,
-    portal_auth_mode: typing.Optional[builtins.str] = None,
-    portal_description: typing.Optional[builtins.str] = None,
-    portal_type: typing.Optional[builtins.str] = None,
-    portal_type_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPortal.PortalTypeEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2ca003aa6daa3e15044d74469428b378e883b1a517620f59fc80331c1a383f15(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8440,17 +9516,6 @@ def _typecheckingstub__80b733624c751f502aeb54f4ab221ff7e5ae55f6bd1e87090cac18105
 
 def _typecheckingstub__bcb700fa41df1dfaa6c4cfad19b3a4f56b9aa96ef4b6e315d990eb0a286b2cdc(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7af827083026086703d7567e7e4a27cf6d5bb590317461231a2e997d42b85e1b(
-    *,
-    portal_id: builtins.str,
-    project_name: builtins.str,
-    asset_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    project_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

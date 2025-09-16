@@ -74,7 +74,6324 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.AgentAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_alias_arn": "agentAliasArn",
+        "agent_alias_id": "agentAliasId",
+        "agent_id": "agentId",
+    },
+)
+class AgentAliasReference:
+    def __init__(
+        self,
+        *,
+        agent_alias_arn: builtins.str,
+        agent_alias_id: builtins.str,
+        agent_id: builtins.str,
+    ) -> None:
+        '''A reference to a AgentAlias resource.
+
+        :param agent_alias_arn: The ARN of the AgentAlias resource.
+        :param agent_alias_id: The AgentAliasId of the AgentAlias resource.
+        :param agent_id: The AgentId of the AgentAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            agent_alias_reference = bedrock.AgentAliasReference(
+                agent_alias_arn="agentAliasArn",
+                agent_alias_id="agentAliasId",
+                agent_id="agentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e47448f8583dccd21280bcb331820c804ddeefeca102e452b1f64820f7f6f79)
+            check_type(argname="argument agent_alias_arn", value=agent_alias_arn, expected_type=type_hints["agent_alias_arn"])
+            check_type(argname="argument agent_alias_id", value=agent_alias_id, expected_type=type_hints["agent_alias_id"])
+            check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_alias_arn": agent_alias_arn,
+            "agent_alias_id": agent_alias_id,
+            "agent_id": agent_id,
+        }
+
+    @builtins.property
+    def agent_alias_arn(self) -> builtins.str:
+        '''The ARN of the AgentAlias resource.'''
+        result = self._values.get("agent_alias_arn")
+        assert result is not None, "Required property 'agent_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_alias_id(self) -> builtins.str:
+        '''The AgentAliasId of the AgentAlias resource.'''
+        result = self._values.get("agent_alias_id")
+        assert result is not None, "Required property 'agent_alias_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_id(self) -> builtins.str:
+        '''The AgentId of the AgentAlias resource.'''
+        result = self._values.get("agent_id")
+        assert result is not None, "Required property 'agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.AgentReference",
+    jsii_struct_bases=[],
+    name_mapping={"agent_arn": "agentArn", "agent_id": "agentId"},
+)
+class AgentReference:
+    def __init__(self, *, agent_arn: builtins.str, agent_id: builtins.str) -> None:
+        '''A reference to a Agent resource.
+
+        :param agent_arn: The ARN of the Agent resource.
+        :param agent_id: The AgentId of the Agent resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            agent_reference = bedrock.AgentReference(
+                agent_arn="agentArn",
+                agent_id="agentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50d08ece42d02a05d10ff33ca072b45159bd484d83686e93931f398657e01039)
+            check_type(argname="argument agent_arn", value=agent_arn, expected_type=type_hints["agent_arn"])
+            check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_arn": agent_arn,
+            "agent_id": agent_id,
+        }
+
+    @builtins.property
+    def agent_arn(self) -> builtins.str:
+        '''The ARN of the Agent resource.'''
+        result = self._values.get("agent_arn")
+        assert result is not None, "Required property 'agent_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_id(self) -> builtins.str:
+        '''The AgentId of the Agent resource.'''
+        result = self._values.get("agent_id")
+        assert result is not None, "Required property 'agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.ApplicationInferenceProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"inference_profile_identifier": "inferenceProfileIdentifier"},
+)
+class ApplicationInferenceProfileReference:
+    def __init__(self, *, inference_profile_identifier: builtins.str) -> None:
+        '''A reference to a ApplicationInferenceProfile resource.
+
+        :param inference_profile_identifier: The InferenceProfileIdentifier of the ApplicationInferenceProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            application_inference_profile_reference = bedrock.ApplicationInferenceProfileReference(
+                inference_profile_identifier="inferenceProfileIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1e33f1faf03b2ffdf8a611069ff76b19f910cfff44e09cc9f0ebaa2b212ddd2)
+            check_type(argname="argument inference_profile_identifier", value=inference_profile_identifier, expected_type=type_hints["inference_profile_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "inference_profile_identifier": inference_profile_identifier,
+        }
+
+    @builtins.property
+    def inference_profile_identifier(self) -> builtins.str:
+        '''The InferenceProfileIdentifier of the ApplicationInferenceProfile resource.'''
+        result = self._values.get("inference_profile_identifier")
+        assert result is not None, "Required property 'inference_profile_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationInferenceProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.AutomatedReasoningPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn"},
+)
+class AutomatedReasoningPolicyReference:
+    def __init__(self, *, policy_arn: builtins.str) -> None:
+        '''A reference to a AutomatedReasoningPolicy resource.
+
+        :param policy_arn: The PolicyArn of the AutomatedReasoningPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            automated_reasoning_policy_reference = bedrock.AutomatedReasoningPolicyReference(
+                policy_arn="policyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f040ca34c6eb17d90bc8668e368444e60ba9f727578cf24b2acb3a258730e286)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The PolicyArn of the AutomatedReasoningPolicy resource.'''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AutomatedReasoningPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.AutomatedReasoningPolicyVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn", "version": "version"},
+)
+class AutomatedReasoningPolicyVersionReference:
+    def __init__(self, *, policy_arn: builtins.str, version: builtins.str) -> None:
+        '''A reference to a AutomatedReasoningPolicyVersion resource.
+
+        :param policy_arn: The PolicyArn of the AutomatedReasoningPolicyVersion resource.
+        :param version: The Version of the AutomatedReasoningPolicyVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            automated_reasoning_policy_version_reference = bedrock.AutomatedReasoningPolicyVersionReference(
+                policy_arn="policyArn",
+                version="version"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea68295c75a050cd7a2ae58ab0086056efc6a2db0323b22e13d6ab735c9fa236)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+            "version": version,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The PolicyArn of the AutomatedReasoningPolicyVersion resource.'''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The Version of the AutomatedReasoningPolicyVersion resource.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AutomatedReasoningPolicyVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.BlueprintReference",
+    jsii_struct_bases=[],
+    name_mapping={"blueprint_arn": "blueprintArn"},
+)
+class BlueprintReference:
+    def __init__(self, *, blueprint_arn: builtins.str) -> None:
+        '''A reference to a Blueprint resource.
+
+        :param blueprint_arn: The BlueprintArn of the Blueprint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            blueprint_reference = bedrock.BlueprintReference(
+                blueprint_arn="blueprintArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb0717503b7ff6a9a6b7f4ae3235a1f50c0ab75ad62cfd9f089c683cb1cc6199)
+            check_type(argname="argument blueprint_arn", value=blueprint_arn, expected_type=type_hints["blueprint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blueprint_arn": blueprint_arn,
+        }
+
+    @builtins.property
+    def blueprint_arn(self) -> builtins.str:
+        '''The BlueprintArn of the Blueprint resource.'''
+        result = self._values.get("blueprint_arn")
+        assert result is not None, "Required property 'blueprint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BlueprintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAgentAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_alias_name": "agentAliasName",
+        "agent_id": "agentId",
+        "description": "description",
+        "routing_configuration": "routingConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnAgentAliasProps:
+    def __init__(
+        self,
+        *,
+        agent_alias_name: builtins.str,
+        agent_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAgentAlias``.
+
+        :param agent_alias_name: The name of the alias of the agent.
+        :param agent_id: The unique identifier of the agent.
+        :param description: The description of the alias of the agent.
+        :param routing_configuration: Contains details about the routing configuration of the alias.
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_agent_alias_props = bedrock.CfnAgentAliasProps(
+                agent_alias_name="agentAliasName",
+                agent_id="agentId",
+            
+                # the properties below are optional
+                description="description",
+                routing_configuration=[bedrock.CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty(
+                    agent_version="agentVersion"
+                )],
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3144a1c66c11b4a2b15be859f361c848648aefb3df04b8fce2befe94f215c68)
+            check_type(argname="argument agent_alias_name", value=agent_alias_name, expected_type=type_hints["agent_alias_name"])
+            check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument routing_configuration", value=routing_configuration, expected_type=type_hints["routing_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_alias_name": agent_alias_name,
+            "agent_id": agent_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if routing_configuration is not None:
+            self._values["routing_configuration"] = routing_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def agent_alias_name(self) -> builtins.str:
+        '''The name of the alias of the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-agentaliasname
+        '''
+        result = self._values.get("agent_alias_name")
+        assert result is not None, "Required property 'agent_alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_id(self) -> builtins.str:
+        '''The unique identifier of the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-agentid
+        '''
+        result = self._values.get("agent_id")
+        assert result is not None, "Required property 'agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the alias of the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def routing_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty"]]]]:
+        '''Contains details about the routing configuration of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-routingconfiguration
+        '''
+        result = self._values.get("routing_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgentAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAgentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_name": "agentName",
+        "action_groups": "actionGroups",
+        "agent_collaboration": "agentCollaboration",
+        "agent_collaborators": "agentCollaborators",
+        "agent_resource_role_arn": "agentResourceRoleArn",
+        "auto_prepare": "autoPrepare",
+        "customer_encryption_key_arn": "customerEncryptionKeyArn",
+        "custom_orchestration": "customOrchestration",
+        "description": "description",
+        "foundation_model": "foundationModel",
+        "guardrail_configuration": "guardrailConfiguration",
+        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
+        "instruction": "instruction",
+        "knowledge_bases": "knowledgeBases",
+        "memory_configuration": "memoryConfiguration",
+        "orchestration_type": "orchestrationType",
+        "prompt_override_configuration": "promptOverrideConfiguration",
+        "skip_resource_in_use_check_on_delete": "skipResourceInUseCheckOnDelete",
+        "tags": "tags",
+        "test_alias_tags": "testAliasTags",
+    },
+)
+class CfnAgentProps:
+    def __init__(
+        self,
+        *,
+        agent_name: builtins.str,
+        action_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.AgentActionGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        agent_collaboration: typing.Optional[builtins.str] = None,
+        agent_collaborators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.AgentCollaboratorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        agent_resource_role_arn: typing.Optional[builtins.str] = None,
+        auto_prepare: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+        custom_orchestration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.CustomOrchestrationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        foundation_model: typing.Optional[builtins.str] = None,
+        guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.GuardrailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        idle_session_ttl_in_seconds: typing.Optional[jsii.Number] = None,
+        instruction: typing.Optional[builtins.str] = None,
+        knowledge_bases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.AgentKnowledgeBaseProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.MemoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        orchestration_type: typing.Optional[builtins.str] = None,
+        prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgent.PromptOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAgent``.
+
+        :param agent_name: The name of the agent.
+        :param action_groups: The action groups that belong to an agent.
+        :param agent_collaboration: The agent's collaboration settings.
+        :param agent_collaborators: List of Agent Collaborators.
+        :param agent_resource_role_arn: The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the agent.
+        :param auto_prepare: Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent. The ``DRAFT`` version can be continually iterated upon during internal development. By default, this value is ``false`` . Default: - false
+        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the AWS KMS key that encrypts the agent.
+        :param custom_orchestration: Contains custom orchestration configurations for the agent.
+        :param description: The description of the agent.
+        :param foundation_model: The foundation model used for orchestration by the agent.
+        :param guardrail_configuration: Details about the guardrail associated with the agent.
+        :param idle_session_ttl_in_seconds: The number of seconds for which Amazon Bedrock keeps information about a user's conversation with the agent. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout.
+        :param instruction: Instructions that tell the agent what it should do and how it should interact with users.
+        :param knowledge_bases: The knowledge bases associated with the agent.
+        :param memory_configuration: Contains memory configuration for the agent.
+        :param orchestration_type: Specifies the orchestration strategy for the agent.
+        :param prompt_override_configuration: Contains configurations to override prompt templates in different parts of an agent sequence. For more information, see `Advanced prompts <https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html>`_ .
+        :param skip_resource_in_use_check_on_delete: Specifies whether to delete the resource even if it's in use. By default, this value is ``false`` . Default: - false
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+        :param test_alias_tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # additional_model_request_fields: Any
+            
+            cfn_agent_props = bedrock.CfnAgentProps(
+                agent_name="agentName",
+            
+                # the properties below are optional
+                action_groups=[bedrock.CfnAgent.AgentActionGroupProperty(
+                    action_group_name="actionGroupName",
+            
+                    # the properties below are optional
+                    action_group_executor=bedrock.CfnAgent.ActionGroupExecutorProperty(
+                        custom_control="customControl",
+                        lambda_="lambda"
+                    ),
+                    action_group_state="actionGroupState",
+                    api_schema=bedrock.CfnAgent.APISchemaProperty(
+                        payload="payload",
+                        s3=bedrock.CfnAgent.S3IdentifierProperty(
+                            s3_bucket_name="s3BucketName",
+                            s3_object_key="s3ObjectKey"
+                        )
+                    ),
+                    description="description",
+                    function_schema=bedrock.CfnAgent.FunctionSchemaProperty(
+                        functions=[bedrock.CfnAgent.FunctionProperty(
+                            name="name",
+            
+                            # the properties below are optional
+                            description="description",
+                            parameters={
+                                "parameters_key": bedrock.CfnAgent.ParameterDetailProperty(
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    description="description",
+                                    required=False
+                                )
+                            },
+                            require_confirmation="requireConfirmation"
+                        )]
+                    ),
+                    parent_action_group_signature="parentActionGroupSignature",
+                    skip_resource_in_use_check_on_delete=False
+                )],
+                agent_collaboration="agentCollaboration",
+                agent_collaborators=[bedrock.CfnAgent.AgentCollaboratorProperty(
+                    agent_descriptor=bedrock.CfnAgent.AgentDescriptorProperty(
+                        alias_arn="aliasArn"
+                    ),
+                    collaboration_instruction="collaborationInstruction",
+                    collaborator_name="collaboratorName",
+            
+                    # the properties below are optional
+                    relay_conversation_history="relayConversationHistory"
+                )],
+                agent_resource_role_arn="agentResourceRoleArn",
+                auto_prepare=False,
+                customer_encryption_key_arn="customerEncryptionKeyArn",
+                custom_orchestration=bedrock.CfnAgent.CustomOrchestrationProperty(
+                    executor=bedrock.CfnAgent.OrchestrationExecutorProperty(
+                        lambda_="lambda"
+                    )
+                ),
+                description="description",
+                foundation_model="foundationModel",
+                guardrail_configuration=bedrock.CfnAgent.GuardrailConfigurationProperty(
+                    guardrail_identifier="guardrailIdentifier",
+                    guardrail_version="guardrailVersion"
+                ),
+                idle_session_ttl_in_seconds=123,
+                instruction="instruction",
+                knowledge_bases=[bedrock.CfnAgent.AgentKnowledgeBaseProperty(
+                    description="description",
+                    knowledge_base_id="knowledgeBaseId",
+            
+                    # the properties below are optional
+                    knowledge_base_state="knowledgeBaseState"
+                )],
+                memory_configuration=bedrock.CfnAgent.MemoryConfigurationProperty(
+                    enabled_memory_types=["enabledMemoryTypes"],
+                    session_summary_configuration=bedrock.CfnAgent.SessionSummaryConfigurationProperty(
+                        max_recent_sessions=123
+                    ),
+                    storage_days=123
+                ),
+                orchestration_type="orchestrationType",
+                prompt_override_configuration=bedrock.CfnAgent.PromptOverrideConfigurationProperty(
+                    prompt_configurations=[bedrock.CfnAgent.PromptConfigurationProperty(
+                        additional_model_request_fields=additional_model_request_fields,
+                        base_prompt_template="basePromptTemplate",
+                        foundation_model="foundationModel",
+                        inference_configuration=bedrock.CfnAgent.InferenceConfigurationProperty(
+                            maximum_length=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_k=123,
+                            top_p=123
+                        ),
+                        parser_mode="parserMode",
+                        prompt_creation_mode="promptCreationMode",
+                        prompt_state="promptState",
+                        prompt_type="promptType"
+                    )],
+            
+                    # the properties below are optional
+                    override_lambda="overrideLambda"
+                ),
+                skip_resource_in_use_check_on_delete=False,
+                tags={
+                    "tags_key": "tags"
+                },
+                test_alias_tags={
+                    "test_alias_tags_key": "testAliasTags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4f714080f6d4f9b0a3fe85a8425a8ba69698695e35d6fbd9d710ca5d99ba6e8)
+            check_type(argname="argument agent_name", value=agent_name, expected_type=type_hints["agent_name"])
+            check_type(argname="argument action_groups", value=action_groups, expected_type=type_hints["action_groups"])
+            check_type(argname="argument agent_collaboration", value=agent_collaboration, expected_type=type_hints["agent_collaboration"])
+            check_type(argname="argument agent_collaborators", value=agent_collaborators, expected_type=type_hints["agent_collaborators"])
+            check_type(argname="argument agent_resource_role_arn", value=agent_resource_role_arn, expected_type=type_hints["agent_resource_role_arn"])
+            check_type(argname="argument auto_prepare", value=auto_prepare, expected_type=type_hints["auto_prepare"])
+            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
+            check_type(argname="argument custom_orchestration", value=custom_orchestration, expected_type=type_hints["custom_orchestration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument foundation_model", value=foundation_model, expected_type=type_hints["foundation_model"])
+            check_type(argname="argument guardrail_configuration", value=guardrail_configuration, expected_type=type_hints["guardrail_configuration"])
+            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
+            check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            check_type(argname="argument knowledge_bases", value=knowledge_bases, expected_type=type_hints["knowledge_bases"])
+            check_type(argname="argument memory_configuration", value=memory_configuration, expected_type=type_hints["memory_configuration"])
+            check_type(argname="argument orchestration_type", value=orchestration_type, expected_type=type_hints["orchestration_type"])
+            check_type(argname="argument prompt_override_configuration", value=prompt_override_configuration, expected_type=type_hints["prompt_override_configuration"])
+            check_type(argname="argument skip_resource_in_use_check_on_delete", value=skip_resource_in_use_check_on_delete, expected_type=type_hints["skip_resource_in_use_check_on_delete"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument test_alias_tags", value=test_alias_tags, expected_type=type_hints["test_alias_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_name": agent_name,
+        }
+        if action_groups is not None:
+            self._values["action_groups"] = action_groups
+        if agent_collaboration is not None:
+            self._values["agent_collaboration"] = agent_collaboration
+        if agent_collaborators is not None:
+            self._values["agent_collaborators"] = agent_collaborators
+        if agent_resource_role_arn is not None:
+            self._values["agent_resource_role_arn"] = agent_resource_role_arn
+        if auto_prepare is not None:
+            self._values["auto_prepare"] = auto_prepare
+        if customer_encryption_key_arn is not None:
+            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
+        if custom_orchestration is not None:
+            self._values["custom_orchestration"] = custom_orchestration
+        if description is not None:
+            self._values["description"] = description
+        if foundation_model is not None:
+            self._values["foundation_model"] = foundation_model
+        if guardrail_configuration is not None:
+            self._values["guardrail_configuration"] = guardrail_configuration
+        if idle_session_ttl_in_seconds is not None:
+            self._values["idle_session_ttl_in_seconds"] = idle_session_ttl_in_seconds
+        if instruction is not None:
+            self._values["instruction"] = instruction
+        if knowledge_bases is not None:
+            self._values["knowledge_bases"] = knowledge_bases
+        if memory_configuration is not None:
+            self._values["memory_configuration"] = memory_configuration
+        if orchestration_type is not None:
+            self._values["orchestration_type"] = orchestration_type
+        if prompt_override_configuration is not None:
+            self._values["prompt_override_configuration"] = prompt_override_configuration
+        if skip_resource_in_use_check_on_delete is not None:
+            self._values["skip_resource_in_use_check_on_delete"] = skip_resource_in_use_check_on_delete
+        if tags is not None:
+            self._values["tags"] = tags
+        if test_alias_tags is not None:
+            self._values["test_alias_tags"] = test_alias_tags
+
+    @builtins.property
+    def agent_name(self) -> builtins.str:
+        '''The name of the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentname
+        '''
+        result = self._values.get("agent_name")
+        assert result is not None, "Required property 'agent_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentActionGroupProperty"]]]]:
+        '''The action groups that belong to an agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-actiongroups
+        '''
+        result = self._values.get("action_groups")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentActionGroupProperty"]]]], result)
+
+    @builtins.property
+    def agent_collaboration(self) -> typing.Optional[builtins.str]:
+        '''The agent's collaboration settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentcollaboration
+        '''
+        result = self._values.get("agent_collaboration")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def agent_collaborators(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentCollaboratorProperty"]]]]:
+        '''List of Agent Collaborators.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentcollaborators
+        '''
+        result = self._values.get("agent_collaborators")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentCollaboratorProperty"]]]], result)
+
+    @builtins.property
+    def agent_resource_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentresourcerolearn
+        '''
+        result = self._values.get("agent_resource_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_prepare(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent.
+
+        The ``DRAFT`` version can be continually iterated upon during internal development. By default, this value is ``false`` .
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-autoprepare
+        '''
+        result = self._values.get("auto_prepare")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS KMS key that encrypts the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-customerencryptionkeyarn
+        '''
+        result = self._values.get("customer_encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_orchestration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.CustomOrchestrationProperty"]]:
+        '''Contains custom orchestration configurations for the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-customorchestration
+        '''
+        result = self._values.get("custom_orchestration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.CustomOrchestrationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def foundation_model(self) -> typing.Optional[builtins.str]:
+        '''The foundation model used for orchestration by the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-foundationmodel
+        '''
+        result = self._values.get("foundation_model")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def guardrail_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.GuardrailConfigurationProperty"]]:
+        '''Details about the guardrail associated with the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-guardrailconfiguration
+        '''
+        result = self._values.get("guardrail_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.GuardrailConfigurationProperty"]], result)
+
+    @builtins.property
+    def idle_session_ttl_in_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds for which Amazon Bedrock keeps information about a user's conversation with the agent.
+
+        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-idlesessionttlinseconds
+        '''
+        result = self._values.get("idle_session_ttl_in_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def instruction(self) -> typing.Optional[builtins.str]:
+        '''Instructions that tell the agent what it should do and how it should interact with users.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-instruction
+        '''
+        result = self._values.get("instruction")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def knowledge_bases(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentKnowledgeBaseProperty"]]]]:
+        '''The knowledge bases associated with the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-knowledgebases
+        '''
+        result = self._values.get("knowledge_bases")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAgent.AgentKnowledgeBaseProperty"]]]], result)
+
+    @builtins.property
+    def memory_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.MemoryConfigurationProperty"]]:
+        '''Contains memory configuration for the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-memoryconfiguration
+        '''
+        result = self._values.get("memory_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.MemoryConfigurationProperty"]], result)
+
+    @builtins.property
+    def orchestration_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies the orchestration strategy for the agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-orchestrationtype
+        '''
+        result = self._values.get("orchestration_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def prompt_override_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.PromptOverrideConfigurationProperty"]]:
+        '''Contains configurations to override prompt templates in different parts of an agent sequence.
+
+        For more information, see `Advanced prompts <https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-promptoverrideconfiguration
+        '''
+        result = self._values.get("prompt_override_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgent.PromptOverrideConfigurationProperty"]], result)
+
+    @builtins.property
+    def skip_resource_in_use_check_on_delete(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to delete the resource even if it's in use.
+
+        By default, this value is ``false`` .
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-skipresourceinusecheckondelete
+        '''
+        result = self._values.get("skip_resource_in_use_check_on_delete")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def test_alias_tags(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-testaliastags
+        '''
+        result = self._values.get("test_alias_tags")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnApplicationInferenceProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "inference_profile_name": "inferenceProfileName",
+        "description": "description",
+        "model_source": "modelSource",
+        "tags": "tags",
+    },
+)
+class CfnApplicationInferenceProfileProps:
+    def __init__(
+        self,
+        *,
+        inference_profile_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        model_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationInferenceProfile``.
+
+        :param inference_profile_name: The name of the inference profile.
+        :param description: The description of the inference profile.
+        :param model_source: Contains configurations for the inference profile to copy as the resource.
+        :param tags: A list of tags associated with the inference profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create or reference an existing L1 CfnApplicationInferenceProfile
+            cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+                inference_profile_name="my-cfn-profile",
+                model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                    copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+                ),
+                description="Profile created via L1 construct"
+            )
+            
+            # Import the L1 construct as an L2 ApplicationInferenceProfile
+            imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
+            
+            # Grant permissions to use the imported profile
+            lambda_function = lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime.PYTHON_3_11,
+                handler="index.handler",
+                code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+            )
+            
+            imported_from_cfn.grant_profile_usage(lambda_function)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__396027668dce29a45dd42acb9bb8358fa9135a15e45d6925e8a78acced3bd78d)
+            check_type(argname="argument inference_profile_name", value=inference_profile_name, expected_type=type_hints["inference_profile_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument model_source", value=model_source, expected_type=type_hints["model_source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "inference_profile_name": inference_profile_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if model_source is not None:
+            self._values["model_source"] = model_source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def inference_profile_name(self) -> builtins.str:
+        '''The name of the inference profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-inferenceprofilename
+        '''
+        result = self._values.get("inference_profile_name")
+        assert result is not None, "Required property 'inference_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the inference profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def model_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty"]]:
+        '''Contains configurations for the inference profile to copy as the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-modelsource
+        '''
+        result = self._values.get("model_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags associated with the inference profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationInferenceProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "policy_definition": "policyDefinition",
+        "tags": "tags",
+    },
+)
+class CfnAutomatedReasoningPolicyProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        policy_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAutomatedReasoningPolicy``.
+
+        :param name: The name of the policy.
+        :param description: The description of the policy.
+        :param policy_definition: The complete policy definition generated by the build workflow, containing all rules, variables, and custom types extracted from the source documents.
+        :param tags: The tags associated with the Automated Reasoning policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_automated_reasoning_policy_props = bedrock.CfnAutomatedReasoningPolicyProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                policy_definition=bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionProperty(
+                    rules=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty(
+                        expression="expression",
+                        id="id",
+            
+                        # the properties below are optional
+                        alternate_expression="alternateExpression"
+                    )],
+                    types=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty(
+                        name="name",
+                        values=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty(
+                            value="value",
+            
+                            # the properties below are optional
+                            description="description"
+                        )],
+            
+                        # the properties below are optional
+                        description="description"
+                    )],
+                    variables=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty(
+                        description="description",
+                        name="name",
+                        type="type"
+                    )],
+                    version="version"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac3482a154da623e7adf7442c24f39d496f44a2190be05b2be944b631c7fd599)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument policy_definition", value=policy_definition, expected_type=type_hints["policy_definition"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if policy_definition is not None:
+            self._values["policy_definition"] = policy_definition
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html#cfn-bedrock-automatedreasoningpolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html#cfn-bedrock-automatedreasoningpolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy_definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionProperty"]]:
+        '''The complete policy definition generated by the build workflow, containing all rules, variables, and custom types extracted from the source documents.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html#cfn-bedrock-automatedreasoningpolicy-policydefinition
+        '''
+        result = self._values.get("policy_definition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the Automated Reasoning policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html#cfn-bedrock-automatedreasoningpolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutomatedReasoningPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicyVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_arn": "policyArn",
+        "last_updated_definition_hash": "lastUpdatedDefinitionHash",
+        "tags": "tags",
+    },
+)
+class CfnAutomatedReasoningPolicyVersionProps:
+    def __init__(
+        self,
+        *,
+        policy_arn: builtins.str,
+        last_updated_definition_hash: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAutomatedReasoningPolicyVersion``.
+
+        :param policy_arn: The Amazon Resource Name (ARN) of the policy.
+        :param last_updated_definition_hash: The hash of the policy definition that was last updated.
+        :param tags: The tags associated with the Automated Reasoning policy version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_automated_reasoning_policy_version_props = bedrock.CfnAutomatedReasoningPolicyVersionProps(
+                policy_arn="policyArn",
+            
+                # the properties below are optional
+                last_updated_definition_hash="lastUpdatedDefinitionHash",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cee4b69d367538a0e70468eccf68214f8756ed820735a9b796a2644e0079b79)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+            check_type(argname="argument last_updated_definition_hash", value=last_updated_definition_hash, expected_type=type_hints["last_updated_definition_hash"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+        }
+        if last_updated_definition_hash is not None:
+            self._values["last_updated_definition_hash"] = last_updated_definition_hash
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html#cfn-bedrock-automatedreasoningpolicyversion-policyarn
+        '''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def last_updated_definition_hash(self) -> typing.Optional[builtins.str]:
+        '''The hash of the policy definition that was last updated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html#cfn-bedrock-automatedreasoningpolicyversion-lastupdateddefinitionhash
+        '''
+        result = self._values.get("last_updated_definition_hash")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the Automated Reasoning policy version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html#cfn-bedrock-automatedreasoningpolicyversion-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutomatedReasoningPolicyVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnBlueprintProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "blueprint_name": "blueprintName",
+        "schema": "schema",
+        "type": "type",
+        "kms_encryption_context": "kmsEncryptionContext",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnBlueprintProps:
+    def __init__(
+        self,
+        *,
+        blueprint_name: builtins.str,
+        schema: typing.Any,
+        type: builtins.str,
+        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBlueprint``.
+
+        :param blueprint_name: The blueprint's name.
+        :param schema: The blueprint's schema.
+        :param type: The blueprint's type.
+        :param kms_encryption_context: Name-value pairs to include as an encryption context.
+        :param kms_key_id: The AWS KMS key to use for encryption.
+        :param tags: List of Tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # schema: Any
+            
+            cfn_blueprint_props = bedrock.CfnBlueprintProps(
+                blueprint_name="blueprintName",
+                schema=schema,
+                type="type",
+            
+                # the properties below are optional
+                kms_encryption_context={
+                    "kms_encryption_context_key": "kmsEncryptionContext"
+                },
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ecf5396de)
+            check_type(argname="argument blueprint_name", value=blueprint_name, expected_type=type_hints["blueprint_name"])
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument kms_encryption_context", value=kms_encryption_context, expected_type=type_hints["kms_encryption_context"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blueprint_name": blueprint_name,
+            "schema": schema,
+            "type": type,
+        }
+        if kms_encryption_context is not None:
+            self._values["kms_encryption_context"] = kms_encryption_context
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def blueprint_name(self) -> builtins.str:
+        '''The blueprint's name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-blueprintname
+        '''
+        result = self._values.get("blueprint_name")
+        assert result is not None, "Required property 'blueprint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schema(self) -> typing.Any:
+        '''The blueprint's schema.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-schema
+        '''
+        result = self._values.get("schema")
+        assert result is not None, "Required property 'schema' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The blueprint's type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Name-value pairs to include as an encryption context.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-kmsencryptioncontext
+        '''
+        result = self._values.get("kms_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS KMS key to use for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''List of Tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBlueprintProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "project_name": "projectName",
+        "custom_output_configuration": "customOutputConfiguration",
+        "kms_encryption_context": "kmsEncryptionContext",
+        "kms_key_id": "kmsKeyId",
+        "override_configuration": "overrideConfiguration",
+        "project_description": "projectDescription",
+        "standard_output_configuration": "standardOutputConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDataAutomationProjectProps:
+    def __init__(
+        self,
+        *,
+        project_name: builtins.str,
+        custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.CustomOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.OverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        project_description: typing.Optional[builtins.str] = None,
+        standard_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.StandardOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataAutomationProject``.
+
+        :param project_name: The project's name.
+        :param custom_output_configuration: Blueprints to apply to objects processed by the project.
+        :param kms_encryption_context: The AWS KMS encryption context to use for encryption.
+        :param kms_key_id: The AWS KMS key to use for encryption.
+        :param override_configuration: Additional settings for the project.
+        :param project_description: The project's description.
+        :param standard_output_configuration: The project's standard output configuration.
+        :param tags: List of Tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_data_automation_project_props = bedrock.CfnDataAutomationProjectProps(
+                project_name="projectName",
+            
+                # the properties below are optional
+                custom_output_configuration=bedrock.CfnDataAutomationProject.CustomOutputConfigurationProperty(
+                    blueprints=[bedrock.CfnDataAutomationProject.BlueprintItemProperty(
+                        blueprint_arn="blueprintArn",
+            
+                        # the properties below are optional
+                        blueprint_stage="blueprintStage",
+                        blueprint_version="blueprintVersion"
+                    )]
+                ),
+                kms_encryption_context={
+                    "kms_encryption_context_key": "kmsEncryptionContext"
+                },
+                kms_key_id="kmsKeyId",
+                override_configuration=bedrock.CfnDataAutomationProject.OverrideConfigurationProperty(
+                    audio=bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    document=bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        ),
+                        splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    image=bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    modality_routing=bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
+                        jpeg="jpeg",
+                        mov="mov",
+                        mp4="mp4",
+                        png="png"
+                    ),
+                    video=bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    )
+                ),
+                project_description="projectDescription",
+                standard_output_configuration=bedrock.CfnDataAutomationProject.StandardOutputConfigurationProperty(
+                    audio=bedrock.CfnDataAutomationProject.AudioStandardOutputConfigurationProperty(
+                        extraction=bedrock.CfnDataAutomationProject.AudioStandardExtractionProperty(
+                            category=bedrock.CfnDataAutomationProject.AudioExtractionCategoryProperty(
+                                state="state",
+            
+                                # the properties below are optional
+                                types=["types"]
+                            )
+                        ),
+                        generative_field=bedrock.CfnDataAutomationProject.AudioStandardGenerativeFieldProperty(
+                            state="state",
+            
+                            # the properties below are optional
+                            types=["types"]
+                        )
+                    ),
+                    document=bedrock.CfnDataAutomationProject.DocumentStandardOutputConfigurationProperty(
+                        extraction=bedrock.CfnDataAutomationProject.DocumentStandardExtractionProperty(
+                            bounding_box=bedrock.CfnDataAutomationProject.DocumentBoundingBoxProperty(
+                                state="state"
+                            ),
+                            granularity=bedrock.CfnDataAutomationProject.DocumentExtractionGranularityProperty(
+                                types=["types"]
+                            )
+                        ),
+                        generative_field=bedrock.CfnDataAutomationProject.DocumentStandardGenerativeFieldProperty(
+                            state="state"
+                        ),
+                        output_format=bedrock.CfnDataAutomationProject.DocumentOutputFormatProperty(
+                            additional_file_format=bedrock.CfnDataAutomationProject.DocumentOutputAdditionalFileFormatProperty(
+                                state="state"
+                            ),
+                            text_format=bedrock.CfnDataAutomationProject.DocumentOutputTextFormatProperty(
+                                types=["types"]
+                            )
+                        )
+                    ),
+                    image=bedrock.CfnDataAutomationProject.ImageStandardOutputConfigurationProperty(
+                        extraction=bedrock.CfnDataAutomationProject.ImageStandardExtractionProperty(
+                            bounding_box=bedrock.CfnDataAutomationProject.ImageBoundingBoxProperty(
+                                state="state"
+                            ),
+                            category=bedrock.CfnDataAutomationProject.ImageExtractionCategoryProperty(
+                                state="state",
+            
+                                # the properties below are optional
+                                types=["types"]
+                            )
+                        ),
+                        generative_field=bedrock.CfnDataAutomationProject.ImageStandardGenerativeFieldProperty(
+                            state="state",
+            
+                            # the properties below are optional
+                            types=["types"]
+                        )
+                    ),
+                    video=bedrock.CfnDataAutomationProject.VideoStandardOutputConfigurationProperty(
+                        extraction=bedrock.CfnDataAutomationProject.VideoStandardExtractionProperty(
+                            bounding_box=bedrock.CfnDataAutomationProject.VideoBoundingBoxProperty(
+                                state="state"
+                            ),
+                            category=bedrock.CfnDataAutomationProject.VideoExtractionCategoryProperty(
+                                state="state",
+            
+                                # the properties below are optional
+                                types=["types"]
+                            )
+                        ),
+                        generative_field=bedrock.CfnDataAutomationProject.VideoStandardGenerativeFieldProperty(
+                            state="state",
+            
+                            # the properties below are optional
+                            types=["types"]
+                        )
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acae67d63fc78195ace949c20ad8c3209d7c1972a999616c83dd5f909bb13ca5)
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+            check_type(argname="argument custom_output_configuration", value=custom_output_configuration, expected_type=type_hints["custom_output_configuration"])
+            check_type(argname="argument kms_encryption_context", value=kms_encryption_context, expected_type=type_hints["kms_encryption_context"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument override_configuration", value=override_configuration, expected_type=type_hints["override_configuration"])
+            check_type(argname="argument project_description", value=project_description, expected_type=type_hints["project_description"])
+            check_type(argname="argument standard_output_configuration", value=standard_output_configuration, expected_type=type_hints["standard_output_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_name": project_name,
+        }
+        if custom_output_configuration is not None:
+            self._values["custom_output_configuration"] = custom_output_configuration
+        if kms_encryption_context is not None:
+            self._values["kms_encryption_context"] = kms_encryption_context
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if override_configuration is not None:
+            self._values["override_configuration"] = override_configuration
+        if project_description is not None:
+            self._values["project_description"] = project_description
+        if standard_output_configuration is not None:
+            self._values["standard_output_configuration"] = standard_output_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def project_name(self) -> builtins.str:
+        '''The project's name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-projectname
+        '''
+        result = self._values.get("project_name")
+        assert result is not None, "Required property 'project_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_output_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.CustomOutputConfigurationProperty"]]:
+        '''Blueprints to apply to objects processed by the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-customoutputconfiguration
+        '''
+        result = self._values.get("custom_output_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.CustomOutputConfigurationProperty"]], result)
+
+    @builtins.property
+    def kms_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The AWS KMS encryption context to use for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-kmsencryptioncontext
+        '''
+        result = self._values.get("kms_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS KMS key to use for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def override_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.OverrideConfigurationProperty"]]:
+        '''Additional settings for the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-overrideconfiguration
+        '''
+        result = self._values.get("override_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.OverrideConfigurationProperty"]], result)
+
+    @builtins.property
+    def project_description(self) -> typing.Optional[builtins.str]:
+        '''The project's description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-projectdescription
+        '''
+        result = self._values.get("project_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def standard_output_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.StandardOutputConfigurationProperty"]]:
+        '''The project's standard output configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-standardoutputconfiguration
+        '''
+        result = self._values.get("standard_output_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.StandardOutputConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''List of Tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataAutomationProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source_configuration": "dataSourceConfiguration",
+        "knowledge_base_id": "knowledgeBaseId",
+        "name": "name",
+        "data_deletion_policy": "dataDeletionPolicy",
+        "description": "description",
+        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        "vector_ingestion_configuration": "vectorIngestionConfiguration",
+    },
+)
+class CfnDataSourceProps:
+    def __init__(
+        self,
+        *,
+        data_source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        knowledge_base_id: builtins.str,
+        name: builtins.str,
+        data_deletion_policy: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.ServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.VectorIngestionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataSource``.
+
+        :param data_source_configuration: The connection configuration for the data source.
+        :param knowledge_base_id: The unique identifier of the knowledge base to which the data source belongs.
+        :param name: The name of the data source.
+        :param data_deletion_policy: The data deletion policy for the data source.
+        :param description: The description of the data source.
+        :param server_side_encryption_configuration: Contains details about the configuration of the server-side encryption.
+        :param vector_ingestion_configuration: Contains details about how to ingest the documents in the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_data_source_props = bedrock.CfnDataSourceProps(
+                data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    confluence_configuration=bedrock.CfnDataSource.ConfluenceDataSourceConfigurationProperty(
+                        source_configuration=bedrock.CfnDataSource.ConfluenceSourceConfigurationProperty(
+                            auth_type="authType",
+                            credentials_secret_arn="credentialsSecretArn",
+                            host_type="hostType",
+                            host_url="hostUrl"
+                        ),
+            
+                        # the properties below are optional
+                        crawler_configuration=bedrock.CfnDataSource.ConfluenceCrawlerConfigurationProperty(
+                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
+                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
+                                        object_type="objectType",
+            
+                                        # the properties below are optional
+                                        exclusion_filters=["exclusionFilters"],
+                                        inclusion_filters=["inclusionFilters"]
+                                    )]
+                                )
+                            )
+                        )
+                    ),
+                    s3_configuration=bedrock.CfnDataSource.S3DataSourceConfigurationProperty(
+                        bucket_arn="bucketArn",
+            
+                        # the properties below are optional
+                        bucket_owner_account_id="bucketOwnerAccountId",
+                        inclusion_prefixes=["inclusionPrefixes"]
+                    ),
+                    salesforce_configuration=bedrock.CfnDataSource.SalesforceDataSourceConfigurationProperty(
+                        source_configuration=bedrock.CfnDataSource.SalesforceSourceConfigurationProperty(
+                            auth_type="authType",
+                            credentials_secret_arn="credentialsSecretArn",
+                            host_url="hostUrl"
+                        ),
+            
+                        # the properties below are optional
+                        crawler_configuration=bedrock.CfnDataSource.SalesforceCrawlerConfigurationProperty(
+                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
+                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
+                                        object_type="objectType",
+            
+                                        # the properties below are optional
+                                        exclusion_filters=["exclusionFilters"],
+                                        inclusion_filters=["inclusionFilters"]
+                                    )]
+                                )
+                            )
+                        )
+                    ),
+                    share_point_configuration=bedrock.CfnDataSource.SharePointDataSourceConfigurationProperty(
+                        source_configuration=bedrock.CfnDataSource.SharePointSourceConfigurationProperty(
+                            auth_type="authType",
+                            credentials_secret_arn="credentialsSecretArn",
+                            domain="domain",
+                            host_type="hostType",
+                            site_urls=["siteUrls"],
+            
+                            # the properties below are optional
+                            tenant_id="tenantId"
+                        ),
+            
+                        # the properties below are optional
+                        crawler_configuration=bedrock.CfnDataSource.SharePointCrawlerConfigurationProperty(
+                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
+                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
+                                        object_type="objectType",
+            
+                                        # the properties below are optional
+                                        exclusion_filters=["exclusionFilters"],
+                                        inclusion_filters=["inclusionFilters"]
+                                    )]
+                                )
+                            )
+                        )
+                    ),
+                    web_configuration=bedrock.CfnDataSource.WebDataSourceConfigurationProperty(
+                        source_configuration=bedrock.CfnDataSource.WebSourceConfigurationProperty(
+                            url_configuration=bedrock.CfnDataSource.UrlConfigurationProperty(
+                                seed_urls=[bedrock.CfnDataSource.SeedUrlProperty(
+                                    url="url"
+                                )]
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        crawler_configuration=bedrock.CfnDataSource.WebCrawlerConfigurationProperty(
+                            crawler_limits=bedrock.CfnDataSource.WebCrawlerLimitsProperty(
+                                max_pages=123,
+                                rate_limit=123
+                            ),
+                            exclusion_filters=["exclusionFilters"],
+                            inclusion_filters=["inclusionFilters"],
+                            scope="scope",
+                            user_agent="userAgent",
+                            user_agent_header="userAgentHeader"
+                        )
+                    )
+                ),
+                knowledge_base_id="knowledgeBaseId",
+                name="name",
+            
+                # the properties below are optional
+                data_deletion_policy="dataDeletionPolicy",
+                description="description",
+                server_side_encryption_configuration=bedrock.CfnDataSource.ServerSideEncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                ),
+                vector_ingestion_configuration=bedrock.CfnDataSource.VectorIngestionConfigurationProperty(
+                    chunking_configuration=bedrock.CfnDataSource.ChunkingConfigurationProperty(
+                        chunking_strategy="chunkingStrategy",
+            
+                        # the properties below are optional
+                        fixed_size_chunking_configuration=bedrock.CfnDataSource.FixedSizeChunkingConfigurationProperty(
+                            max_tokens=123,
+                            overlap_percentage=123
+                        ),
+                        hierarchical_chunking_configuration=bedrock.CfnDataSource.HierarchicalChunkingConfigurationProperty(
+                            level_configurations=[bedrock.CfnDataSource.HierarchicalChunkingLevelConfigurationProperty(
+                                max_tokens=123
+                            )],
+                            overlap_tokens=123
+                        ),
+                        semantic_chunking_configuration=bedrock.CfnDataSource.SemanticChunkingConfigurationProperty(
+                            breakpoint_percentile_threshold=123,
+                            buffer_size=123,
+                            max_tokens=123
+                        )
+                    ),
+                    context_enrichment_configuration=bedrock.CfnDataSource.ContextEnrichmentConfigurationProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        bedrock_foundation_model_configuration=bedrock.CfnDataSource.BedrockFoundationModelContextEnrichmentConfigurationProperty(
+                            enrichment_strategy_configuration=bedrock.CfnDataSource.EnrichmentStrategyConfigurationProperty(
+                                method="method"
+                            ),
+                            model_arn="modelArn"
+                        )
+                    ),
+                    custom_transformation_configuration=bedrock.CfnDataSource.CustomTransformationConfigurationProperty(
+                        intermediate_storage=bedrock.CfnDataSource.IntermediateStorageProperty(
+                            s3_location=bedrock.CfnDataSource.S3LocationProperty(
+                                uri="uri"
+                            )
+                        ),
+                        transformations=[bedrock.CfnDataSource.TransformationProperty(
+                            step_to_apply="stepToApply",
+                            transformation_function=bedrock.CfnDataSource.TransformationFunctionProperty(
+                                transformation_lambda_configuration=bedrock.CfnDataSource.TransformationLambdaConfigurationProperty(
+                                    lambda_arn="lambdaArn"
+                                )
+                            )
+                        )]
+                    ),
+                    parsing_configuration=bedrock.CfnDataSource.ParsingConfigurationProperty(
+                        parsing_strategy="parsingStrategy",
+            
+                        # the properties below are optional
+                        bedrock_data_automation_configuration=bedrock.CfnDataSource.BedrockDataAutomationConfigurationProperty(
+                            parsing_modality="parsingModality"
+                        ),
+                        bedrock_foundation_model_configuration=bedrock.CfnDataSource.BedrockFoundationModelConfigurationProperty(
+                            model_arn="modelArn",
+            
+                            # the properties below are optional
+                            parsing_modality="parsingModality",
+                            parsing_prompt=bedrock.CfnDataSource.ParsingPromptProperty(
+                                parsing_prompt_text="parsingPromptText"
+                            )
+                        )
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c7b62664)
+            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument data_deletion_policy", value=data_deletion_policy, expected_type=type_hints["data_deletion_policy"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            check_type(argname="argument vector_ingestion_configuration", value=vector_ingestion_configuration, expected_type=type_hints["vector_ingestion_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source_configuration": data_source_configuration,
+            "knowledge_base_id": knowledge_base_id,
+            "name": name,
+        }
+        if data_deletion_policy is not None:
+            self._values["data_deletion_policy"] = data_deletion_policy
+        if description is not None:
+            self._values["description"] = description
+        if server_side_encryption_configuration is not None:
+            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+        if vector_ingestion_configuration is not None:
+            self._values["vector_ingestion_configuration"] = vector_ingestion_configuration
+
+    @builtins.property
+    def data_source_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceConfigurationProperty"]:
+        '''The connection configuration for the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-datasourceconfiguration
+        '''
+        result = self._values.get("data_source_configuration")
+        assert result is not None, "Required property 'data_source_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceConfigurationProperty"], result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The unique identifier of the knowledge base to which the data source belongs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-knowledgebaseid
+        '''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_deletion_policy(self) -> typing.Optional[builtins.str]:
+        '''The data deletion policy for the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-datadeletionpolicy
+        '''
+        result = self._values.get("data_deletion_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_side_encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.ServerSideEncryptionConfigurationProperty"]]:
+        '''Contains details about the configuration of the server-side encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-serversideencryptionconfiguration
+        '''
+        result = self._values.get("server_side_encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.ServerSideEncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def vector_ingestion_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.VectorIngestionConfigurationProperty"]]:
+        '''Contains details about how to ingest the documents in the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-vectoringestionconfiguration
+        '''
+        result = self._values.get("vector_ingestion_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.VectorIngestionConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flow_arn": "flowArn",
+        "name": "name",
+        "routing_configuration": "routingConfiguration",
+        "concurrency_configuration": "concurrencyConfiguration",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnFlowAliasProps:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        name: builtins.str,
+        routing_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        concurrency_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowAlias``.
+
+        :param flow_arn: The Amazon Resource Name (ARN) of the alias.
+        :param name: The name of the alias.
+        :param routing_configuration: A list of configurations about the versions that the alias maps to. Currently, you can only specify one.
+        :param concurrency_configuration: The configuration that specifies how nodes in the flow are executed concurrently.
+        :param description: A description of the alias.
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_flow_alias_props = bedrock.CfnFlowAliasProps(
+                flow_arn="flowArn",
+                name="name",
+                routing_configuration=[bedrock.CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty(
+                    flow_version="flowVersion"
+                )],
+            
+                # the properties below are optional
+                concurrency_configuration=bedrock.CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    max_concurrency=123
+                ),
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc38c23ad67fcb375dfaff403a32bd6897c077928003bee3845f452f8e08fb66)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument routing_configuration", value=routing_configuration, expected_type=type_hints["routing_configuration"])
+            check_type(argname="argument concurrency_configuration", value=concurrency_configuration, expected_type=type_hints["concurrency_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "name": name,
+            "routing_configuration": routing_configuration,
+        }
+        if concurrency_configuration is not None:
+            self._values["concurrency_configuration"] = concurrency_configuration
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def routing_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty"]]]:
+        '''A list of configurations about the versions that the alias maps to.
+
+        Currently, you can only specify one.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-routingconfiguration
+        '''
+        result = self._values.get("routing_configuration")
+        assert result is not None, "Required property 'routing_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty"]]], result)
+
+    @builtins.property
+    def concurrency_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty"]]:
+        '''The configuration that specifies how nodes in the flow are executed concurrently.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-concurrencyconfiguration
+        '''
+        result = self._values.get("concurrency_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_role_arn": "executionRoleArn",
+        "name": "name",
+        "customer_encryption_key_arn": "customerEncryptionKeyArn",
+        "definition": "definition",
+        "definition_s3_location": "definitionS3Location",
+        "definition_string": "definitionString",
+        "definition_substitutions": "definitionSubstitutions",
+        "description": "description",
+        "tags": "tags",
+        "test_alias_tags": "testAliasTags",
+    },
+)
+class CfnFlowProps:
+    def __init__(
+        self,
+        *,
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+        definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_string: typing.Optional[builtins.str] = None,
+        definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlow``.
+
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the service role with permissions to create a flow. For more information, see `Create a service row for flows <https://docs.aws.amazon.com/bedrock/latest/userguide/flows-permissions.html>`_ in the Amazon Bedrock User Guide.
+        :param name: The name of the flow.
+        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the KMS key that the flow is encrypted with.
+        :param definition: The definition of the nodes and connections between the nodes in the flow.
+        :param definition_s3_location: The Amazon S3 location of the flow definition.
+        :param definition_string: The definition of the flow as a JSON-formatted string. The string must match the format in `FlowDefinition <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flowdefinition.html>`_ .
+        :param definition_substitutions: A map that specifies the mappings for placeholder variables in the prompt flow definition. This enables the customer to inject values obtained at runtime. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Only supported with the ``DefinitionString`` and ``DefinitionS3Location`` fields. Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
+        :param description: A description of the flow.
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+        :param test_alias_tags: A map of tag keys and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # additional_model_request_fields: Any
+            # collector: Any
+            # flow_definition_property_: bedrock.CfnFlow.FlowDefinitionProperty
+            # input: Any
+            # iterator: Any
+            # loop_input: Any
+            # output: Any
+            
+            cfn_flow_props = bedrock.CfnFlowProps(
+                execution_role_arn="executionRoleArn",
+                name="name",
+            
+                # the properties below are optional
+                customer_encryption_key_arn="customerEncryptionKeyArn",
+                definition=bedrock.CfnFlow.FlowDefinitionProperty(
+                    connections=[bedrock.CfnFlow.FlowConnectionProperty(
+                        name="name",
+                        source="source",
+                        target="target",
+                        type="type",
+            
+                        # the properties below are optional
+                        configuration=bedrock.CfnFlow.FlowConnectionConfigurationProperty(
+                            conditional=bedrock.CfnFlow.FlowConditionalConnectionConfigurationProperty(
+                                condition="condition"
+                            ),
+                            data=bedrock.CfnFlow.FlowDataConnectionConfigurationProperty(
+                                source_output="sourceOutput",
+                                target_input="targetInput"
+                            )
+                        )
+                    )],
+                    nodes=[bedrock.CfnFlow.FlowNodeProperty(
+                        name="name",
+                        type="type",
+            
+                        # the properties below are optional
+                        configuration=bedrock.CfnFlow.FlowNodeConfigurationProperty(
+                            agent=bedrock.CfnFlow.AgentFlowNodeConfigurationProperty(
+                                agent_alias_arn="agentAliasArn"
+                            ),
+                            collector=collector,
+                            condition=bedrock.CfnFlow.ConditionFlowNodeConfigurationProperty(
+                                conditions=[bedrock.CfnFlow.FlowConditionProperty(
+                                    name="name",
+            
+                                    # the properties below are optional
+                                    expression="expression"
+                                )]
+                            ),
+                            inline_code=bedrock.CfnFlow.InlineCodeFlowNodeConfigurationProperty(
+                                code="code",
+                                language="language"
+                            ),
+                            input=input,
+                            iterator=iterator,
+                            knowledge_base=bedrock.CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty(
+                                knowledge_base_id="knowledgeBaseId",
+            
+                                # the properties below are optional
+                                guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
+                                    guardrail_identifier="guardrailIdentifier",
+                                    guardrail_version="guardrailVersion"
+                                ),
+                                inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                model_id="modelId",
+                                number_of_results=123,
+                                orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                    additional_model_request_fields=additional_model_request_fields,
+                                    inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                        latency="latency"
+                                    ),
+                                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    )
+                                ),
+                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                ),
+                                reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                        model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                            model_arn="modelArn",
+            
+                                            # the properties below are optional
+                                            additional_model_request_fields=additional_model_request_fields
+                                        ),
+            
+                                        # the properties below are optional
+                                        metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                            selection_mode="selectionMode",
+            
+                                            # the properties below are optional
+                                            selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )],
+                                                fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )]
+                                            )
+                                        ),
+                                        number_of_reranked_results=123
+                                    )
+                                )
+                            ),
+                            lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
+                                lambda_arn="lambdaArn"
+                            ),
+                            lex=bedrock.CfnFlow.LexFlowNodeConfigurationProperty(
+                                bot_alias_arn="botAliasArn",
+                                locale_id="localeId"
+                            ),
+                            loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                                definition=flow_definition_property_
+                            ),
+                            loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                                continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                    name="name",
+            
+                                    # the properties below are optional
+                                    expression="expression"
+                                ),
+            
+                                # the properties below are optional
+                                max_iterations=123
+                            ),
+                            loop_input=loop_input,
+                            output=output,
+                            prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
+                                source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
+                                    inline=bedrock.CfnFlow.PromptFlowNodeInlineConfigurationProperty(
+                                        model_id="modelId",
+                                        template_configuration=bedrock.CfnFlow.PromptTemplateConfigurationProperty(
+                                            text=bedrock.CfnFlow.TextPromptTemplateConfigurationProperty(
+                                                text="text",
+            
+                                                # the properties below are optional
+                                                input_variables=[bedrock.CfnFlow.PromptInputVariableProperty(
+                                                    name="name"
+                                                )]
+                                            )
+                                        ),
+                                        template_type="templateType",
+            
+                                        # the properties below are optional
+                                        inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                            text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                                max_tokens=123,
+                                                stop_sequences=["stopSequences"],
+                                                temperature=123,
+                                                top_p=123
+                                            )
+                                        )
+                                    ),
+                                    resource=bedrock.CfnFlow.PromptFlowNodeResourceConfigurationProperty(
+                                        prompt_arn="promptArn"
+                                    )
+                                ),
+            
+                                # the properties below are optional
+                                guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
+                                    guardrail_identifier="guardrailIdentifier",
+                                    guardrail_version="guardrailVersion"
+                                )
+                            ),
+                            retrieval=bedrock.CfnFlow.RetrievalFlowNodeConfigurationProperty(
+                                service_configuration=bedrock.CfnFlow.RetrievalFlowNodeServiceConfigurationProperty(
+                                    s3=bedrock.CfnFlow.RetrievalFlowNodeS3ConfigurationProperty(
+                                        bucket_name="bucketName"
+                                    )
+                                )
+                            ),
+                            storage=bedrock.CfnFlow.StorageFlowNodeConfigurationProperty(
+                                service_configuration=bedrock.CfnFlow.StorageFlowNodeServiceConfigurationProperty(
+                                    s3=bedrock.CfnFlow.StorageFlowNodeS3ConfigurationProperty(
+                                        bucket_name="bucketName"
+                                    )
+                                )
+                            )
+                        ),
+                        inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
+                            expression="expression",
+                            name="name",
+                            type="type",
+            
+                            # the properties below are optional
+                            category="category"
+                        )],
+                        outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
+                            name="name",
+                            type="type"
+                        )]
+                    )]
+                ),
+                definition_s3_location=bedrock.CfnFlow.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+            
+                    # the properties below are optional
+                    version="version"
+                ),
+                definition_string="definitionString",
+                definition_substitutions={
+                    "definition_substitutions_key": "definitionSubstitutions"
+                },
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                },
+                test_alias_tags={
+                    "test_alias_tags_key": "testAliasTags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bad8ab7f592d2682a6b9c1a504f97fac9b6e0a7bbbfcf4968c42f3a954576115)
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
+            check_type(argname="argument definition_string", value=definition_string, expected_type=type_hints["definition_string"])
+            check_type(argname="argument definition_substitutions", value=definition_substitutions, expected_type=type_hints["definition_substitutions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument test_alias_tags", value=test_alias_tags, expected_type=type_hints["test_alias_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_role_arn": execution_role_arn,
+            "name": name,
+        }
+        if customer_encryption_key_arn is not None:
+            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
+        if definition is not None:
+            self._values["definition"] = definition
+        if definition_s3_location is not None:
+            self._values["definition_s3_location"] = definition_s3_location
+        if definition_string is not None:
+            self._values["definition_string"] = definition_string
+        if definition_substitutions is not None:
+            self._values["definition_substitutions"] = definition_substitutions
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if test_alias_tags is not None:
+            self._values["test_alias_tags"] = test_alias_tags
+
+    @builtins.property
+    def execution_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the service role with permissions to create a flow.
+
+        For more information, see `Create a service row for flows <https://docs.aws.amazon.com/bedrock/latest/userguide/flows-permissions.html>`_ in the Amazon Bedrock User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        assert result is not None, "Required property 'execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the KMS key that the flow is encrypted with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-customerencryptionkeyarn
+        '''
+        result = self._values.get("customer_encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowDefinitionProperty"]]:
+        '''The definition of the nodes and connections between the nodes in the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definition
+        '''
+        result = self._values.get("definition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowDefinitionProperty"]], result)
+
+    @builtins.property
+    def definition_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.S3LocationProperty"]]:
+        '''The Amazon S3 location of the flow definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitions3location
+        '''
+        result = self._values.get("definition_s3_location")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.S3LocationProperty"]], result)
+
+    @builtins.property
+    def definition_string(self) -> typing.Optional[builtins.str]:
+        '''The definition of the flow as a JSON-formatted string.
+
+        The string must match the format in `FlowDefinition <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flowdefinition.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitionstring
+        '''
+        result = self._values.get("definition_string")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def definition_substitutions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]]:
+        '''A map that specifies the mappings for placeholder variables in the prompt flow definition.
+
+        This enables the customer to inject values obtained at runtime. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Only supported with the ``DefinitionString`` and ``DefinitionS3Location`` fields.
+
+        Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitionsubstitutions
+        '''
+        result = self._values.get("definition_substitutions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def test_alias_tags(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''A map of tag keys and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-testaliastags
+        '''
+        result = self._values.get("test_alias_tags")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn", "description": "description"},
+)
+class CfnFlowVersionProps:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowVersion``.
+
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow that the version belongs to.
+        :param description: The description of the flow version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_flow_version_props = bedrock.CfnFlowVersionProps(
+                flow_arn="flowArn",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdb1a288ced402610e5fe560660fb73b3b45c72bbc494b92403d24f50cdccfb8)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow that the version belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html#cfn-bedrock-flowversion-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the flow version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html#cfn-bedrock-flowversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrailProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "blocked_input_messaging": "blockedInputMessaging",
+        "blocked_outputs_messaging": "blockedOutputsMessaging",
+        "name": "name",
+        "content_policy_config": "contentPolicyConfig",
+        "contextual_grounding_policy_config": "contextualGroundingPolicyConfig",
+        "cross_region_config": "crossRegionConfig",
+        "description": "description",
+        "kms_key_arn": "kmsKeyArn",
+        "sensitive_information_policy_config": "sensitiveInformationPolicyConfig",
+        "tags": "tags",
+        "topic_policy_config": "topicPolicyConfig",
+        "word_policy_config": "wordPolicyConfig",
+    },
+)
+class CfnGuardrailProps:
+    def __init__(
+        self,
+        *,
+        blocked_input_messaging: builtins.str,
+        blocked_outputs_messaging: builtins.str,
+        name: builtins.str,
+        content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContentPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContextualGroundingPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.GuardrailCrossRegionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.SensitiveInformationPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.TopicPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.WordPolicyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGuardrail``.
+
+        :param blocked_input_messaging: The message to return when the guardrail blocks a prompt.
+        :param blocked_outputs_messaging: The message to return when the guardrail blocks a model response.
+        :param name: The name of the guardrail.
+        :param content_policy_config: The content filter policies to configure for the guardrail.
+        :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
+        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases. For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
+        :param description: A description of the guardrail.
+        :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
+        :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
+        :param tags: The tags that you want to attach to the guardrail.
+        :param topic_policy_config: The topic policies to configure for the guardrail.
+        :param word_policy_config: The word policy you configure for the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            import aws_cdk.aws_bedrock as bedrockl1
+            
+            # Import a guardrail created through the L1 CDK CfnGuardrail construct
+            l1guardrail = bedrockl1.CfnGuardrail(self, "MyCfnGuardrail",
+                blocked_input_messaging="blockedInputMessaging",
+                blocked_outputs_messaging="blockedOutputsMessaging",
+                name="namemycfnguardrails",
+                word_policy_config=bedrockl1.CfnGuardrail.WordPolicyConfigProperty(
+                    words_config=[bedrockl1.CfnGuardrail.WordConfigProperty(
+                        text="drugs"
+                    )
+                    ]
+                )
+            )
+            
+            imported_guardrail = bedrock.Guardrail.from_cfn_guardrail(l1guardrail)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d23606a6cea)
+            check_type(argname="argument blocked_input_messaging", value=blocked_input_messaging, expected_type=type_hints["blocked_input_messaging"])
+            check_type(argname="argument blocked_outputs_messaging", value=blocked_outputs_messaging, expected_type=type_hints["blocked_outputs_messaging"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument content_policy_config", value=content_policy_config, expected_type=type_hints["content_policy_config"])
+            check_type(argname="argument contextual_grounding_policy_config", value=contextual_grounding_policy_config, expected_type=type_hints["contextual_grounding_policy_config"])
+            check_type(argname="argument cross_region_config", value=cross_region_config, expected_type=type_hints["cross_region_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument sensitive_information_policy_config", value=sensitive_information_policy_config, expected_type=type_hints["sensitive_information_policy_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument topic_policy_config", value=topic_policy_config, expected_type=type_hints["topic_policy_config"])
+            check_type(argname="argument word_policy_config", value=word_policy_config, expected_type=type_hints["word_policy_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blocked_input_messaging": blocked_input_messaging,
+            "blocked_outputs_messaging": blocked_outputs_messaging,
+            "name": name,
+        }
+        if content_policy_config is not None:
+            self._values["content_policy_config"] = content_policy_config
+        if contextual_grounding_policy_config is not None:
+            self._values["contextual_grounding_policy_config"] = contextual_grounding_policy_config
+        if cross_region_config is not None:
+            self._values["cross_region_config"] = cross_region_config
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if sensitive_information_policy_config is not None:
+            self._values["sensitive_information_policy_config"] = sensitive_information_policy_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if topic_policy_config is not None:
+            self._values["topic_policy_config"] = topic_policy_config
+        if word_policy_config is not None:
+            self._values["word_policy_config"] = word_policy_config
+
+    @builtins.property
+    def blocked_input_messaging(self) -> builtins.str:
+        '''The message to return when the guardrail blocks a prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-blockedinputmessaging
+        '''
+        result = self._values.get("blocked_input_messaging")
+        assert result is not None, "Required property 'blocked_input_messaging' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def blocked_outputs_messaging(self) -> builtins.str:
+        '''The message to return when the guardrail blocks a model response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-blockedoutputsmessaging
+        '''
+        result = self._values.get("blocked_outputs_messaging")
+        assert result is not None, "Required property 'blocked_outputs_messaging' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentPolicyConfigProperty"]]:
+        '''The content filter policies to configure for the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-contentpolicyconfig
+        '''
+        result = self._values.get("content_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def contextual_grounding_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContextualGroundingPolicyConfigProperty"]]:
+        '''Contextual grounding policy config for a guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-contextualgroundingpolicyconfig
+        '''
+        result = self._values.get("contextual_grounding_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContextualGroundingPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def cross_region_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]]:
+        '''The system-defined guardrail profile that you're using with your guardrail.
+
+        Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
+
+        For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-crossregionconfig
+        '''
+        result = self._values.get("cross_region_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.GuardrailCrossRegionConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the AWS KMS key that you use to encrypt the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sensitive_information_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.SensitiveInformationPolicyConfigProperty"]]:
+        '''The sensitive information policy to configure for the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-sensitiveinformationpolicyconfig
+        '''
+        result = self._values.get("sensitive_information_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.SensitiveInformationPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags that you want to attach to the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def topic_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicPolicyConfigProperty"]]:
+        '''The topic policies to configure for the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-topicpolicyconfig
+        '''
+        result = self._values.get("topic_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicPolicyConfigProperty"]], result)
+
+    @builtins.property
+    def word_policy_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.WordPolicyConfigProperty"]]:
+        '''The word policy you configure for the guardrail.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-wordpolicyconfig
+        '''
+        result = self._values.get("word_policy_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.WordPolicyConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGuardrailProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrailVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "guardrail_identifier": "guardrailIdentifier",
+        "description": "description",
+    },
+)
+class CfnGuardrailVersionProps:
+    def __init__(
+        self,
+        *,
+        guardrail_identifier: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGuardrailVersion``.
+
+        :param guardrail_identifier: The unique identifier of the guardrail. This can be an ID or the ARN.
+        :param description: A description of the guardrail version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_guardrail_version_props = bedrock.CfnGuardrailVersionProps(
+                guardrail_identifier="guardrailIdentifier",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e07f1ed805e6d73c6e83274e605414f148ca0a10b6065c654e3b545023b25f84)
+            check_type(argname="argument guardrail_identifier", value=guardrail_identifier, expected_type=type_hints["guardrail_identifier"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_identifier": guardrail_identifier,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def guardrail_identifier(self) -> builtins.str:
+        '''The unique identifier of the guardrail.
+
+        This can be an ID or the ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html#cfn-bedrock-guardrailversion-guardrailidentifier
+        '''
+        result = self._values.get("guardrail_identifier")
+        assert result is not None, "Required property 'guardrail_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the guardrail version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html#cfn-bedrock-guardrailversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGuardrailVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnIntelligentPromptRouterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "fallback_model": "fallbackModel",
+        "models": "models",
+        "prompt_router_name": "promptRouterName",
+        "routing_criteria": "routingCriteria",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnIntelligentPromptRouterProps:
+    def __init__(
+        self,
+        *,
+        fallback_model: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntelligentPromptRouter.PromptRouterTargetModelProperty", typing.Dict[builtins.str, typing.Any]]],
+        models: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntelligentPromptRouter.PromptRouterTargetModelProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        prompt_router_name: builtins.str,
+        routing_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntelligentPromptRouter.RoutingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntelligentPromptRouter``.
+
+        :param fallback_model: The default model to use when the routing criteria is not met.
+        :param models: A list of foundation models that the prompt router can route requests to. At least one model must be specified.
+        :param prompt_router_name: The name of the prompt router. The name must be unique within your AWS account in the current region.
+        :param routing_criteria: Routing criteria for a prompt router.
+        :param description: An optional description of the prompt router to help identify its purpose.
+        :param tags: An array of key-value pairs to apply to this resource as tags. You can use tags to categorize and manage your AWS resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_intelligent_prompt_router_props = bedrock.CfnIntelligentPromptRouterProps(
+                fallback_model=bedrock.CfnIntelligentPromptRouter.PromptRouterTargetModelProperty(
+                    model_arn="modelArn"
+                ),
+                models=[bedrock.CfnIntelligentPromptRouter.PromptRouterTargetModelProperty(
+                    model_arn="modelArn"
+                )],
+                prompt_router_name="promptRouterName",
+                routing_criteria=bedrock.CfnIntelligentPromptRouter.RoutingCriteriaProperty(
+                    response_quality_difference=123
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac97327bebd43ad8b942919c24917e1378d3c55caa8d2363928873ac029be7da)
+            check_type(argname="argument fallback_model", value=fallback_model, expected_type=type_hints["fallback_model"])
+            check_type(argname="argument models", value=models, expected_type=type_hints["models"])
+            check_type(argname="argument prompt_router_name", value=prompt_router_name, expected_type=type_hints["prompt_router_name"])
+            check_type(argname="argument routing_criteria", value=routing_criteria, expected_type=type_hints["routing_criteria"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fallback_model": fallback_model,
+            "models": models,
+            "prompt_router_name": prompt_router_name,
+            "routing_criteria": routing_criteria,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def fallback_model(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.PromptRouterTargetModelProperty"]:
+        '''The default model to use when the routing criteria is not met.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-fallbackmodel
+        '''
+        result = self._values.get("fallback_model")
+        assert result is not None, "Required property 'fallback_model' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.PromptRouterTargetModelProperty"], result)
+
+    @builtins.property
+    def models(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.PromptRouterTargetModelProperty"]]]:
+        '''A list of foundation models that the prompt router can route requests to.
+
+        At least one model must be specified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-models
+        '''
+        result = self._values.get("models")
+        assert result is not None, "Required property 'models' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.PromptRouterTargetModelProperty"]]], result)
+
+    @builtins.property
+    def prompt_router_name(self) -> builtins.str:
+        '''The name of the prompt router.
+
+        The name must be unique within your AWS account in the current region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-promptroutername
+        '''
+        result = self._values.get("prompt_router_name")
+        assert result is not None, "Required property 'prompt_router_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def routing_criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.RoutingCriteriaProperty"]:
+        '''Routing criteria for a prompt router.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-routingcriteria
+        '''
+        result = self._values.get("routing_criteria")
+        assert result is not None, "Required property 'routing_criteria' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIntelligentPromptRouter.RoutingCriteriaProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the prompt router to help identify its purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource as tags.
+
+        You can use tags to categorize and manage your AWS resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntelligentPromptRouterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBaseProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_configuration": "knowledgeBaseConfiguration",
+        "name": "name",
+        "role_arn": "roleArn",
+        "description": "description",
+        "storage_configuration": "storageConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnKnowledgeBaseProps:
+    def __init__(
+        self,
+        *,
+        knowledge_base_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.KnowledgeBaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        role_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnKnowledgeBase.StorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnKnowledgeBase``.
+
+        :param knowledge_base_configuration: Contains details about the embeddings configuration of the knowledge base.
+        :param name: The name of the knowledge base.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the knowledge base.
+        :param description: The description of the knowledge base associated with the inline agent.
+        :param storage_configuration: Contains details about the storage configuration of the knowledge base.
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_knowledge_base_props = bedrock.CfnKnowledgeBaseProps(
+                knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
+                        kendra_index_arn="kendraIndexArn"
+                    ),
+                    sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftConfigurationProperty(
+                            query_engine_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                provisioned_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedConfigurationProperty(
+                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedAuthConfigurationProperty(
+                                        type="type",
+            
+                                        # the properties below are optional
+                                        database_user="databaseUser",
+                                        username_password_secret_arn="usernamePasswordSecretArn"
+                                    ),
+                                    cluster_identifier="clusterIdentifier"
+                                ),
+                                serverless_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessConfigurationProperty(
+                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessAuthConfigurationProperty(
+                                        type="type",
+            
+                                        # the properties below are optional
+                                        username_password_secret_arn="usernamePasswordSecretArn"
+                                    ),
+                                    workgroup_arn="workgroupArn"
+                                )
+                            ),
+                            storage_configurations=[bedrock.CfnKnowledgeBase.RedshiftQueryEngineStorageConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                aws_data_catalog_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineAwsDataCatalogStorageConfigurationProperty(
+                                    table_names=["tableNames"]
+                                ),
+                                redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineRedshiftStorageConfigurationProperty(
+                                    database_name="databaseName"
+                                )
+                            )],
+            
+                            # the properties below are optional
+                            query_generation_configuration=bedrock.CfnKnowledgeBase.QueryGenerationConfigurationProperty(
+                                execution_timeout_seconds=123,
+                                generation_context=bedrock.CfnKnowledgeBase.QueryGenerationContextProperty(
+                                    curated_queries=[bedrock.CfnKnowledgeBase.CuratedQueryProperty(
+                                        natural_language="naturalLanguage",
+                                        sql="sql"
+                                    )],
+                                    tables=[bedrock.CfnKnowledgeBase.QueryGenerationTableProperty(
+                                        name="name",
+            
+                                        # the properties below are optional
+                                        columns=[bedrock.CfnKnowledgeBase.QueryGenerationColumnProperty(
+                                            description="description",
+                                            inclusion="inclusion",
+                                            name="name"
+                                        )],
+                                        description="description",
+                                        inclusion="inclusion"
+                                    )]
+                                )
+                            )
+                        )
+                    ),
+                    vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
+                        embedding_model_arn="embeddingModelArn",
+            
+                        # the properties below are optional
+                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                                dimensions=123,
+                                embedding_data_type="embeddingDataType"
+                            )
+                        ),
+                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
+                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
+                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
+            
+                                # the properties below are optional
+                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
+                                    uri="uri"
+                                )
+                            )]
+                        )
+                    )
+                ),
+                name="name",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                description="description",
+                storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    mongo_db_atlas_configuration=bedrock.CfnKnowledgeBase.MongoDbAtlasConfigurationProperty(
+                        collection_name="collectionName",
+                        credentials_secret_arn="credentialsSecretArn",
+                        database_name="databaseName",
+                        endpoint="endpoint",
+                        field_mapping=bedrock.CfnKnowledgeBase.MongoDbAtlasFieldMappingProperty(
+                            metadata_field="metadataField",
+                            text_field="textField",
+                            vector_field="vectorField"
+                        ),
+                        vector_index_name="vectorIndexName",
+            
+                        # the properties below are optional
+                        endpoint_service_name="endpointServiceName",
+                        text_index_name="textIndexName"
+                    ),
+                    neptune_analytics_configuration=bedrock.CfnKnowledgeBase.NeptuneAnalyticsConfigurationProperty(
+                        field_mapping=bedrock.CfnKnowledgeBase.NeptuneAnalyticsFieldMappingProperty(
+                            metadata_field="metadataField",
+                            text_field="textField"
+                        ),
+                        graph_arn="graphArn"
+                    ),
+                    opensearch_managed_cluster_configuration=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterConfigurationProperty(
+                        domain_arn="domainArn",
+                        domain_endpoint="domainEndpoint",
+                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterFieldMappingProperty(
+                            metadata_field="metadataField",
+                            text_field="textField",
+                            vector_field="vectorField"
+                        ),
+                        vector_index_name="vectorIndexName"
+                    ),
+                    opensearch_serverless_configuration=bedrock.CfnKnowledgeBase.OpenSearchServerlessConfigurationProperty(
+                        collection_arn="collectionArn",
+                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchServerlessFieldMappingProperty(
+                            metadata_field="metadataField",
+                            text_field="textField",
+                            vector_field="vectorField"
+                        ),
+                        vector_index_name="vectorIndexName"
+                    ),
+                    pinecone_configuration=bedrock.CfnKnowledgeBase.PineconeConfigurationProperty(
+                        connection_string="connectionString",
+                        credentials_secret_arn="credentialsSecretArn",
+                        field_mapping=bedrock.CfnKnowledgeBase.PineconeFieldMappingProperty(
+                            metadata_field="metadataField",
+                            text_field="textField"
+                        ),
+            
+                        # the properties below are optional
+                        namespace="namespace"
+                    ),
+                    rds_configuration=bedrock.CfnKnowledgeBase.RdsConfigurationProperty(
+                        credentials_secret_arn="credentialsSecretArn",
+                        database_name="databaseName",
+                        field_mapping=bedrock.CfnKnowledgeBase.RdsFieldMappingProperty(
+                            metadata_field="metadataField",
+                            primary_key_field="primaryKeyField",
+                            text_field="textField",
+                            vector_field="vectorField",
+            
+                            # the properties below are optional
+                            custom_metadata_field="customMetadataField"
+                        ),
+                        resource_arn="resourceArn",
+                        table_name="tableName"
+                    )
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f)
+            check_type(argname="argument knowledge_base_configuration", value=knowledge_base_configuration, expected_type=type_hints["knowledge_base_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_configuration": knowledge_base_configuration,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if storage_configuration is not None:
+            self._values["storage_configuration"] = storage_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def knowledge_base_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.KnowledgeBaseConfigurationProperty"]:
+        '''Contains details about the embeddings configuration of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-knowledgebaseconfiguration
+        '''
+        result = self._values.get("knowledge_base_configuration")
+        assert result is not None, "Required property 'knowledge_base_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.KnowledgeBaseConfigurationProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the knowledge base associated with the inline agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.StorageConfigurationProperty"]]:
+        '''Contains details about the storage configuration of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-storageconfiguration
+        '''
+        result = self._values.get("storage_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnKnowledgeBase.StorageConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnKnowledgeBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnPromptProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "customer_encryption_key_arn": "customerEncryptionKeyArn",
+        "default_variant": "defaultVariant",
+        "description": "description",
+        "tags": "tags",
+        "variants": "variants",
+    },
+)
+class CfnPromptProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+        default_variant: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrompt.PromptVariantProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrompt``.
+
+        :param name: The name of the prompt.
+        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the KMS key that the prompt is encrypted with.
+        :param default_variant: The name of the default variant for the prompt. This value must match the ``name`` field in the relevant `PromptVariant <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PromptVariant.html>`_ object.
+        :param description: The description of the prompt.
+        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+        :param variants: A list of objects, each containing details about a variant of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # additional_model_request_fields: Any
+            # any: Any
+            # auto: Any
+            # json: Any
+            
+            cfn_prompt_props = bedrock.CfnPromptProps(
+                name="name",
+            
+                # the properties below are optional
+                customer_encryption_key_arn="customerEncryptionKeyArn",
+                default_variant="defaultVariant",
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                },
+                variants=[bedrock.CfnPrompt.PromptVariantProperty(
+                    name="name",
+                    template_configuration=bedrock.CfnPrompt.PromptTemplateConfigurationProperty(
+                        chat=bedrock.CfnPrompt.ChatPromptTemplateConfigurationProperty(
+                            messages=[bedrock.CfnPrompt.MessageProperty(
+                                content=[bedrock.CfnPrompt.ContentBlockProperty(
+                                    cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
+                                        type="type"
+                                    ),
+                                    text="text"
+                                )],
+                                role="role"
+                            )],
+            
+                            # the properties below are optional
+                            input_variables=[bedrock.CfnPrompt.PromptInputVariableProperty(
+                                name="name"
+                            )],
+                            system=[bedrock.CfnPrompt.SystemContentBlockProperty(
+                                cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
+                                    type="type"
+                                ),
+                                text="text"
+                            )],
+                            tool_configuration=bedrock.CfnPrompt.ToolConfigurationProperty(
+                                tools=[bedrock.CfnPrompt.ToolProperty(
+                                    cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
+                                        type="type"
+                                    ),
+                                    tool_spec=bedrock.CfnPrompt.ToolSpecificationProperty(
+                                        input_schema=bedrock.CfnPrompt.ToolInputSchemaProperty(
+                                            json=json
+                                        ),
+                                        name="name",
+            
+                                        # the properties below are optional
+                                        description="description"
+                                    )
+                                )],
+            
+                                # the properties below are optional
+                                tool_choice=bedrock.CfnPrompt.ToolChoiceProperty(
+                                    any=any,
+                                    auto=auto,
+                                    tool=bedrock.CfnPrompt.SpecificToolChoiceProperty(
+                                        name="name"
+                                    )
+                                )
+                            )
+                        ),
+                        text=bedrock.CfnPrompt.TextPromptTemplateConfigurationProperty(
+                            cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
+                                type="type"
+                            ),
+                            input_variables=[bedrock.CfnPrompt.PromptInputVariableProperty(
+                                name="name"
+                            )],
+                            text="text",
+                            text_s3_location=bedrock.CfnPrompt.TextS3LocationProperty(
+                                bucket="bucket",
+                                key="key",
+            
+                                # the properties below are optional
+                                version="version"
+                            )
+                        )
+                    ),
+                    template_type="templateType",
+            
+                    # the properties below are optional
+                    additional_model_request_fields=additional_model_request_fields,
+                    gen_ai_resource=bedrock.CfnPrompt.PromptGenAiResourceProperty(
+                        agent=bedrock.CfnPrompt.PromptAgentResourceProperty(
+                            agent_identifier="agentIdentifier"
+                        )
+                    ),
+                    inference_configuration=bedrock.CfnPrompt.PromptInferenceConfigurationProperty(
+                        text=bedrock.CfnPrompt.PromptModelInferenceConfigurationProperty(
+                            max_tokens=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_p=123
+                        )
+                    ),
+                    metadata=[bedrock.CfnPrompt.PromptMetadataEntryProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    model_id="modelId"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae555e4fe530af3f71499cdb465b902eb20b6de3d58aa48f4003015a29807bf9)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
+            check_type(argname="argument default_variant", value=default_variant, expected_type=type_hints["default_variant"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument variants", value=variants, expected_type=type_hints["variants"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if customer_encryption_key_arn is not None:
+            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
+        if default_variant is not None:
+            self._values["default_variant"] = default_variant
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if variants is not None:
+            self._values["variants"] = variants
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the KMS key that the prompt is encrypted with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-customerencryptionkeyarn
+        '''
+        result = self._values.get("customer_encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_variant(self) -> typing.Optional[builtins.str]:
+        '''The name of the default variant for the prompt.
+
+        This value must match the ``name`` field in the relevant `PromptVariant <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PromptVariant.html>`_ object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-defaultvariant
+        '''
+        result = self._values.get("default_variant")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
+
+        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
+        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def variants(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPrompt.PromptVariantProperty"]]]]:
+        '''A list of objects, each containing details about a variant of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-variants
+        '''
+        result = self._values.get("variants")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPrompt.PromptVariantProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPromptProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnPromptVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "prompt_arn": "promptArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnPromptVersionProps:
+    def __init__(
+        self,
+        *,
+        prompt_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPromptVersion``.
+
+        :param prompt_arn: The Amazon Resource Name (ARN) of the version of the prompt.
+        :param description: The description of the prompt version.
+        :param tags: A map of tags attached to the prompt version and their values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_prompt_version_props = bedrock.CfnPromptVersionProps(
+                prompt_arn="promptArn",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c6f04d4bf0b791d1f12be1ce79f791556638376cf77d3bf64ac4995d21603a)
+            check_type(argname="argument prompt_arn", value=prompt_arn, expected_type=type_hints["prompt_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_arn": prompt_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def prompt_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the version of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-promptarn
+        '''
+        result = self._values.get("prompt_arn")
+        assert result is not None, "Required property 'prompt_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the prompt version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of tags attached to the prompt version and their values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPromptVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.DataAutomationProjectReference",
+    jsii_struct_bases=[],
+    name_mapping={"project_arn": "projectArn"},
+)
+class DataAutomationProjectReference:
+    def __init__(self, *, project_arn: builtins.str) -> None:
+        '''A reference to a DataAutomationProject resource.
+
+        :param project_arn: The ProjectArn of the DataAutomationProject resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            data_automation_project_reference = bedrock.DataAutomationProjectReference(
+                project_arn="projectArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0c791641c6718054c80404c34bc8f3f6d8a5988d9e36d07dd429bb3a8304929)
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_arn": project_arn,
+        }
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The ProjectArn of the DataAutomationProject resource.'''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAutomationProjectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.DataSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source_id": "dataSourceId",
+        "knowledge_base_id": "knowledgeBaseId",
+    },
+)
+class DataSourceReference:
+    def __init__(
+        self,
+        *,
+        data_source_id: builtins.str,
+        knowledge_base_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataSource resource.
+
+        :param data_source_id: The DataSourceId of the DataSource resource.
+        :param knowledge_base_id: The KnowledgeBaseId of the DataSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            data_source_reference = bedrock.DataSourceReference(
+                data_source_id="dataSourceId",
+                knowledge_base_id="knowledgeBaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ed6ded1c5fdf18c0ca6b68a2791097666dc376b7a32c3c86e1ae0f72e74dc3e)
+            check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source_id": data_source_id,
+            "knowledge_base_id": knowledge_base_id,
+        }
+
+    @builtins.property
+    def data_source_id(self) -> builtins.str:
+        '''The DataSourceId of the DataSource resource.'''
+        result = self._values.get("data_source_id")
+        assert result is not None, "Required property 'data_source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The KnowledgeBaseId of the DataSource resource.'''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.FlowAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_alias_arn": "flowAliasArn", "flow_arn": "flowArn"},
+)
+class FlowAliasReference:
+    def __init__(self, *, flow_alias_arn: builtins.str, flow_arn: builtins.str) -> None:
+        '''A reference to a FlowAlias resource.
+
+        :param flow_alias_arn: The Arn of the FlowAlias resource.
+        :param flow_arn: The FlowArn of the FlowAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            flow_alias_reference = bedrock.FlowAliasReference(
+                flow_alias_arn="flowAliasArn",
+                flow_arn="flowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d96473b13960acb2c4e451b2f9faa69148ffc7edec72f3cef298f23f0f6d2f9)
+            check_type(argname="argument flow_alias_arn", value=flow_alias_arn, expected_type=type_hints["flow_alias_arn"])
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_alias_arn": flow_alias_arn,
+            "flow_arn": flow_arn,
+        }
+
+    @builtins.property
+    def flow_alias_arn(self) -> builtins.str:
+        '''The Arn of the FlowAlias resource.'''
+        result = self._values.get("flow_alias_arn")
+        assert result is not None, "Required property 'flow_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The FlowArn of the FlowAlias resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.FlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn"},
+)
+class FlowReference:
+    def __init__(self, *, flow_arn: builtins.str) -> None:
+        '''A reference to a Flow resource.
+
+        :param flow_arn: The Arn of the Flow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            flow_reference = bedrock.FlowReference(
+                flow_arn="flowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eba33d43cec79116a23a62c51855e60465d5eba8e779da0732b2afc98ebfd0e0)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Arn of the Flow resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.FlowVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn", "version": "version"},
+)
+class FlowVersionReference:
+    def __init__(self, *, flow_arn: builtins.str, version: builtins.str) -> None:
+        '''A reference to a FlowVersion resource.
+
+        :param flow_arn: The FlowArn of the FlowVersion resource.
+        :param version: The Version of the FlowVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            flow_version_reference = bedrock.FlowVersionReference(
+                flow_arn="flowArn",
+                version="version"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8b93928e94abd7f48d8a7c08db230f540b39c1ea21b1ef6875e4d8767dcf4b6)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "version": version,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The FlowArn of the FlowVersion resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The Version of the FlowVersion resource.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class FoundationModelIdentifier(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.FoundationModelIdentifier",
+):
+    '''The model identifiers for the Bedrock base foundation models.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_bedrock as bedrock
+        
+        
+        model = bedrock.FoundationModel.from_foundation_model_id(self, "Model", bedrock.FoundationModelIdentifier.AMAZON_TITAN_TEXT_G1_EXPRESS_V1)
+        
+        task = tasks.BedrockInvokeModel(self, "Prompt Model",
+            model=model,
+            body=sfn.TaskInput.from_object({
+                "input_text": "Generate a list of five first names.",
+                "text_generation_config": {
+                    "max_token_count": 100,
+                    "temperature": 1
+                }
+            }),
+            result_selector={
+                "names": sfn.JsonPath.string_at("$.Body.results[0].outputText")
+            }
+        )
+    '''
+
+    def __init__(self, model_id: builtins.str) -> None:
+        '''Constructor for foundation model identifier.
+
+        :param model_id: the model identifier.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f232d69e34e8936af6b25fbb89b759790a47e68b671d931582f63554dd4bae52)
+            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+        jsii.create(self.__class__, self, [model_id])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_J2_GRANDE_INSTRUCT")
+    def AI21_J2_GRANDE_INSTRUCT(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-grande-instruct".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_GRANDE_INSTRUCT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_J2_JAMBA_INSTRUCT_V1_0")
+    def AI21_J2_JAMBA_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "ai21.jamba-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_JAMBA_INSTRUCT_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_J2_JUMBO_INSTRUCT")
+    def AI21_J2_JUMBO_INSTRUCT(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-jumbo-instruct".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_JUMBO_INSTRUCT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_J2_MID")
+    def AI21_J2_MID(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-mid".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_MID"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_J2_ULTRA")
+    def AI21_J2_ULTRA(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-ultra".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_ULTRA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_JAMBA_1_5_LARGE_V_1_0")
+    def AI21_JAMBA_1_5_LARGE_V_1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "ai21.jamba-1-5-large-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_LARGE_V_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_JAMBA_1_5_MINI_V_1_0")
+    def AI21_JAMBA_1_5_MINI_V_1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "ai21.jamba-1-5-mini-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_MINI_V_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_MID_V1")
+    def AI21_LABS_JURASSIC_2_MID_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-mid-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_MID_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1")
+    def AI21_LABS_JURASSIC_2_ULTRA_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-ultra-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_ULTRA_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1_0_8K")
+    def AI21_LABS_JURASSIC_2_ULTRA_V1_0_8_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "ai21.j2-ultra-v1:0:8k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_ULTRA_V1_0_8K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_CANVAS_V1_0")
+    def AMAZON_NOVA_CANVAS_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-canvas-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_CANVAS_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0")
+    def AMAZON_NOVA_LITE_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-lite-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0_300_K")
+    def AMAZON_NOVA_LITE_V1_0_300_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-lite-v1:0:300k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0_300_K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0")
+    def AMAZON_NOVA_MICRO_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-micro-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0_128_K")
+    def AMAZON_NOVA_MICRO_V1_0_128_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-micro-v1:0:128k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0_128_K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PREMIER_V1_0")
+    def AMAZON_NOVA_PREMIER_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-premier-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PREMIER_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0")
+    def AMAZON_NOVA_PRO_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-pro-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0_300_K")
+    def AMAZON_NOVA_PRO_V1_0_300_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-pro-v1:0:300k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0_300_K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_0")
+    def AMAZON_NOVA_REEL_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-reel-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_1")
+    def AMAZON_NOVA_REEL_V1_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-reel-v1:1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_SONIC_V1_0")
+    def AMAZON_NOVA_SONIC_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-sonic-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_SONIC_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_RERANK_V1")
+    def AMAZON_RERANK_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.rerank-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_RERANK_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_G1_TEXT_02")
+    def AMAZON_TITAN_EMBED_G1_TEXT_02(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-g1-text-02".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_G1_TEXT_02"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_IMAGE_V1_0")
+    def AMAZON_TITAN_EMBED_IMAGE_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-image-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_IMAGE_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V1_2_8K")
+    def AMAZON_TITAN_EMBED_TEXT_V1_2_8_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-text-v1:2:8k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V1_2_8K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0")
+    def AMAZON_TITAN_EMBED_TEXT_V2_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-text-v2:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0_8K")
+    def AMAZON_TITAN_EMBED_TEXT_V2_0_8_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-text-v2:0:8k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0_8K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1")
+    def AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-text-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_G1_V1")
+    def AMAZON_TITAN_IMAGE_GENERATOR_G1_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-image-generator-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_G1_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V1_0")
+    def AMAZON_TITAN_IMAGE_GENERATOR_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-image-generator-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V2_0")
+    def AMAZON_TITAN_IMAGE_GENERATOR_V2_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-image-generator-v2:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1")
+    def AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-embed-image-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K")
+    def AMAZON_TITAN_TEXT_EXPRESS_V1_0_8_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-express-v1:0:8k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_EXPRESS_V1")
+    def AMAZON_TITAN_TEXT_G1_EXPRESS_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-express-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_EXPRESS_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_LITE_V1")
+    def AMAZON_TITAN_TEXT_G1_LITE_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-lite-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_LITE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1")
+    def AMAZON_TITAN_TEXT_LITE_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-lite-v1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1_0_4K")
+    def AMAZON_TITAN_TEXT_LITE_V1_0_4_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-lite-v1:0:4k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1_0_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_PREMIER_V1")
+    def AMAZON_TITAN_TEXT_PREMIER_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-text-premier-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_PREMIER_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TG1_LARGE")
+    def AMAZON_TITAN_TG1_LARGE(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.titan-tg1-large".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TG1_LARGE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0")
+    def ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-haiku-20241022-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:18k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:200k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:51k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:18k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:200k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51K")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:51k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0")
+    def ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-7-sonnet-20250219-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0")
+    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-haiku-20240307-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200K")
+    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-haiku-20240307-v1:0:200k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K")
+    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-haiku-20240307-v1:0:48k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0")
+    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-opus-20240229-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K")
+    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-opus-20240229-v1:0:12k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K")
+    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-opus-20240229-v1:0:200k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K")
+    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-opus-20240229-v1:0:28k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0")
+    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200K")
+    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0:200k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K")
+    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28_K(
+        cls,
+    ) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0:28k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1")
+    def ANTHROPIC_CLAUDE_INSTANT_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-instant-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1_2_100K")
+    def ANTHROPIC_CLAUDE_INSTANT_V1_2_100_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-instant-v1:2:100k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1_2_100K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-4-1-20250805-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-4-20250514-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
+    def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V1")
+    def ANTHROPIC_CLAUDE_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2")
+    def ANTHROPIC_CLAUDE_V2(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_100K")
+    def ANTHROPIC_CLAUDE_V2_0_100_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2:0:100k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_0_100K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_18K")
+    def ANTHROPIC_CLAUDE_V2_0_18_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2:0:18k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_0_18K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1")
+    def ANTHROPIC_CLAUDE_V2_1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2:1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_18K")
+    def ANTHROPIC_CLAUDE_V2_1_18_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2:1:18k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1_18K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_200K")
+    def ANTHROPIC_CLAUDE_V2_1_200_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "anthropic.claude-v2:1:200k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1_200K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_TEXT_V14_7_4K")
+    def COHERE_COMMAND_LIGHT_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-light-text-v14:7:4k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_TEXT_V14_7_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_V14")
+    def COHERE_COMMAND_LIGHT_V14(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-light-text-v14".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_V14"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_R_PLUS_V1")
+    def COHERE_COMMAND_R_PLUS_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-r-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_PLUS_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_R_V1")
+    def COHERE_COMMAND_R_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-r-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_TEXT_V14_7_4K")
+    def COHERE_COMMAND_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-text-v14:7:4k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_TEXT_V14_7_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_COMMAND_V14")
+    def COHERE_COMMAND_V14(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.command-text-v14".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_V14"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3")
+    def COHERE_EMBED_ENGLISH_V3(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.embed-english-v3".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3_0_512")
+    def COHERE_EMBED_ENGLISH_V3_0_512(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.embed-english-v3:0:512".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3_0_512"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3")
+    def COHERE_EMBED_MULTILINGUAL_V3(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.embed-multilingual-v3".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3_0_512")
+    def COHERE_EMBED_MULTILINGUAL_V3_0_512(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.embed-multilingual-v3:0:512".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3_0_512"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_RERANK_V3_5")
+    def COHERE_RERANK_V3_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "cohere.rerank-v3-5:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_RERANK_V3_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DEEP_SEEK_R1_V1_0")
+    def DEEP_SEEK_R1_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "deepseek.r1-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_R1_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LUMA_RAY_V2_0")
+    def LUMA_RAY_V2_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "luma.ray-v2:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "LUMA_RAY_V2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_13B_CHAT_V1_0_4K")
+    def META_LLAMA_2_13_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-13b-chat-v1:0:4k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_CHAT_V1_0_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_13B_V1")
+    def META_LLAMA_2_13_B_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-13b-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_13B_V1_0_4K")
+    def META_LLAMA_2_13_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-13b-v1:0:4k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_V1_0_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_70B_CHAT_V1_0_4K")
+    def META_LLAMA_2_70_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-70b-chat-v1:0:4k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_CHAT_V1_0_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_70B_V1")
+    def META_LLAMA_2_70_B_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-70b-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_70B_V1_0_4K")
+    def META_LLAMA_2_70_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-70b-v1:0:4k".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_V1_0_4K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_CHAT_13B_V1")
+    def META_LLAMA_2_CHAT_13_B_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-13b-chat-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_CHAT_13B_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_2_CHAT_70B_V1")
+    def META_LLAMA_2_CHAT_70_B_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "meta.llama2-70b-chat-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_CHAT_70B_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_405_INSTRUCT_V1")
+    def META_LLAMA_3_1_405_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-1-405b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_405_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1")
+    def META_LLAMA_3_1_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-1-70b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1_128K")
+    def META_LLAMA_3_1_70_INSTRUCT_V1_128_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-1-70b-instruct-v1:0:128k".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1_128K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V_128K")
+    def META_LLAMA_3_1_8_B_INSTRUCT_V_128_K(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-1-8b-instruct-v1:0:128".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V_128K"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V1")
+    def META_LLAMA_3_1_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-1-8b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_11B_INSTRUCT_V1")
+    def META_LLAMA_3_2_11_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-2-11b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_11B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_1B_INSTRUCT_V1")
+    def META_LLAMA_3_2_1_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-2-1b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_1B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_3B_INSTRUCT_V1")
+    def META_LLAMA_3_2_3_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-2-3b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_3B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_90B_INSTRUCT_V1")
+    def META_LLAMA_3_2_90_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-2-90b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_90B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_3_70B_INSTRUCT_V1")
+    def META_LLAMA_3_3_70_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-3-70b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_3_70B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_70_INSTRUCT_V1")
+    def META_LLAMA_3_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-70b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_70_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_8B_INSTRUCT_V1")
+    def META_LLAMA_3_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama3-8b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_8B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0")
+    def META_LLAMA_4_MAVERICK_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama4-maverick-17b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0")
+    def META_LLAMA_4_SCOUT_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama4-scout-17b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_LARGE_2_V0_1")
+    def MISTRAL_LARGE_2_V0_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.mistral-large-2407-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_2_V0_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_LARGE_V0_1")
+    def MISTRAL_LARGE_V0_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.mistral-large-2402-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_V0_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_MISTRAL_7B_INSTRUCT_V0_2")
+    def MISTRAL_MISTRAL_7_B_INSTRUCT_V0_2(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.mistral-7b-instruct-v0:2".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MISTRAL_7B_INSTRUCT_V0_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1")
+    def MISTRAL_MIXTRAL_8_X7_B_INSTRUCT_V0_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.mixtral-8x7b-instruct-v0:1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_PIXTRAL_LARGE_2502_V1_0")
+    def MISTRAL_PIXTRAL_LARGE_2502_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.pixtral-large-2502-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_PIXTRAL_LARGE_2502_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_SMALL_V0_1")
+    def MISTRAL_SMALL_V0_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "mistral.mistral-small-2402-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_SMALL_V0_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_120B_1")
+    def OPENAI_GPT_OSS_120_B_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-120b-1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_120B_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_20B_1")
+    def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-20b-1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_SD3_5_LARGE_V1_0")
+    def STABILITY_SD3_5_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.sd3-5-large-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_5_LARGE_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_SD3_LARGE_V1_0")
+    def STABILITY_SD3_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.sd3-large-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_LARGE_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL")
+    def STABILITY_STABLE_DIFFUSION_XL(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "stability.stable-diffusion-xl".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V0")
+    def STABILITY_STABLE_DIFFUSION_XL_V0(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "stability.stable-diffusion-xl-v0".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1")
+    def STABILITY_STABLE_DIFFUSION_XL_V1(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "stability.stable-diffusion-xl-v1".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1_0")
+    def STABILITY_STABLE_DIFFUSION_XL_V1_0(cls) -> "FoundationModelIdentifier":
+        '''(deprecated) Base model "stability.stable-diffusion-xl-v1:0".
+
+        :deprecated: use latest version of the model
+
+        :stability: deprecated
+        '''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_0")
+    def STABILITY_STABLE_IMAGE_CORE_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.stable-image-core-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_1")
+    def STABILITY_STABLE_IMAGE_CORE_V1_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.stable-image-core-v1:1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_0")
+    def STABILITY_STABLE_IMAGE_ULTRA_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.stable-image-ultra-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_1")
+    def STABILITY_STABLE_IMAGE_ULTRA_V1_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "stability.stable-image-ultra-v1:1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TWELVELABS_MARENGO_EMBED_2_7_V1_0")
+    def TWELVELABS_MARENGO_EMBED_2_7_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "twelvelabs.marengo-embed-2-7-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_MARENGO_EMBED_2_7_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TWELVELABS_PEGASUS_1_2_V1_0")
+    def TWELVELABS_PEGASUS_1_2_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "twelvelabs.pegasus-1-2-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_PEGASUS_1_2_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WRITER_PALMYRA_X4_V1_0")
+    def WRITER_PALMYRA_X4_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "writer.palmyra-x4-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X4_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WRITER_PALMYRA_X5_V1_0")
+    def WRITER_PALMYRA_X5_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "writer.palmyra-x5-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X5_V1_0"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelId")
+    def model_id(self) -> builtins.str:
+        '''the model identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "modelId"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.GuardrailReference",
+    jsii_struct_bases=[],
+    name_mapping={"guardrail_arn": "guardrailArn"},
+)
+class GuardrailReference:
+    def __init__(self, *, guardrail_arn: builtins.str) -> None:
+        '''A reference to a Guardrail resource.
+
+        :param guardrail_arn: The GuardrailArn of the Guardrail resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            guardrail_reference = bedrock.GuardrailReference(
+                guardrail_arn="guardrailArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bafb7f1a19b7fd3e91af251792e53653c3ac06c552c7a802fe4632250e805a4)
+            check_type(argname="argument guardrail_arn", value=guardrail_arn, expected_type=type_hints["guardrail_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_arn": guardrail_arn,
+        }
+
+    @builtins.property
+    def guardrail_arn(self) -> builtins.str:
+        '''The GuardrailArn of the Guardrail resource.'''
+        result = self._values.get("guardrail_arn")
+        assert result is not None, "Required property 'guardrail_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardrailReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.GuardrailVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"guardrail_id": "guardrailId", "version": "version"},
+)
+class GuardrailVersionReference:
+    def __init__(self, *, guardrail_id: builtins.str, version: builtins.str) -> None:
+        '''A reference to a GuardrailVersion resource.
+
+        :param guardrail_id: The GuardrailId of the GuardrailVersion resource.
+        :param version: The Version of the GuardrailVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            guardrail_version_reference = bedrock.GuardrailVersionReference(
+                guardrail_id="guardrailId",
+                version="version"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88413d684602daaa6d18962e6c3577dfab2b9bf19c4127a8bc686cf1c9f3606e)
+            check_type(argname="argument guardrail_id", value=guardrail_id, expected_type=type_hints["guardrail_id"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_id": guardrail_id,
+            "version": version,
+        }
+
+    @builtins.property
+    def guardrail_id(self) -> builtins.str:
+        '''The GuardrailId of the GuardrailVersion resource.'''
+        result = self._values.get("guardrail_id")
+        assert result is not None, "Required property 'guardrail_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''The Version of the GuardrailVersion resource.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardrailVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IAgentAliasRef")
+class IAgentAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AgentAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentAliasRef")
+    def agent_alias_ref(self) -> AgentAliasReference:
+        '''(experimental) A reference to a AgentAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IAgentAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentAliasRef")
+    def agent_alias_ref(self) -> AgentAliasReference:
+        '''(experimental) A reference to a AgentAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AgentAliasReference, jsii.get(self, "agentAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentAliasRef).__jsii_proxy_class__ = lambda : _IAgentAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IAgentRef")
+class IAgentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Agent.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> AgentReference:
+        '''(experimental) A reference to a Agent resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Agent.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IAgentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> AgentReference:
+        '''(experimental) A reference to a Agent resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AgentReference, jsii.get(self, "agentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentRef).__jsii_proxy_class__ = lambda : _IAgentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IApplicationInferenceProfileRef")
+class IApplicationInferenceProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationInferenceProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationInferenceProfileRef")
+    def application_inference_profile_ref(self) -> ApplicationInferenceProfileReference:
+        '''(experimental) A reference to a ApplicationInferenceProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationInferenceProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationInferenceProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IApplicationInferenceProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationInferenceProfileRef")
+    def application_inference_profile_ref(self) -> ApplicationInferenceProfileReference:
+        '''(experimental) A reference to a ApplicationInferenceProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationInferenceProfileReference, jsii.get(self, "applicationInferenceProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationInferenceProfileRef).__jsii_proxy_class__ = lambda : _IApplicationInferenceProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IAutomatedReasoningPolicyRef")
+class IAutomatedReasoningPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomatedReasoningPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyRef")
+    def automated_reasoning_policy_ref(self) -> AutomatedReasoningPolicyReference:
+        '''(experimental) A reference to a AutomatedReasoningPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAutomatedReasoningPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomatedReasoningPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IAutomatedReasoningPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyRef")
+    def automated_reasoning_policy_ref(self) -> AutomatedReasoningPolicyReference:
+        '''(experimental) A reference to a AutomatedReasoningPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AutomatedReasoningPolicyReference, jsii.get(self, "automatedReasoningPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAutomatedReasoningPolicyRef).__jsii_proxy_class__ = lambda : _IAutomatedReasoningPolicyRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_bedrock.IAutomatedReasoningPolicyVersionRef"
+)
+class IAutomatedReasoningPolicyVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomatedReasoningPolicyVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyVersionRef")
+    def automated_reasoning_policy_version_ref(
+        self,
+    ) -> AutomatedReasoningPolicyVersionReference:
+        '''(experimental) A reference to a AutomatedReasoningPolicyVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAutomatedReasoningPolicyVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomatedReasoningPolicyVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IAutomatedReasoningPolicyVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyVersionRef")
+    def automated_reasoning_policy_version_ref(
+        self,
+    ) -> AutomatedReasoningPolicyVersionReference:
+        '''(experimental) A reference to a AutomatedReasoningPolicyVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AutomatedReasoningPolicyVersionReference, jsii.get(self, "automatedReasoningPolicyVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAutomatedReasoningPolicyVersionRef).__jsii_proxy_class__ = lambda : _IAutomatedReasoningPolicyVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IBlueprintRef")
+class IBlueprintRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Blueprint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> BlueprintReference:
+        '''(experimental) A reference to a Blueprint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBlueprintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Blueprint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IBlueprintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> BlueprintReference:
+        '''(experimental) A reference to a Blueprint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BlueprintReference, jsii.get(self, "blueprintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBlueprintRef).__jsii_proxy_class__ = lambda : _IBlueprintRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IDataAutomationProjectRef")
+class IDataAutomationProjectRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataAutomationProject.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAutomationProjectRef")
+    def data_automation_project_ref(self) -> DataAutomationProjectReference:
+        '''(experimental) A reference to a DataAutomationProject resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataAutomationProjectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataAutomationProject.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IDataAutomationProjectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAutomationProjectRef")
+    def data_automation_project_ref(self) -> DataAutomationProjectReference:
+        '''(experimental) A reference to a DataAutomationProject resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataAutomationProjectReference, jsii.get(self, "dataAutomationProjectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataAutomationProjectRef).__jsii_proxy_class__ = lambda : _IDataAutomationProjectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IDataSourceRef")
+class IDataSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IDataSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IFlowAliasRef")
+class IFlowAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowAliasRef")
+    def flow_alias_ref(self) -> FlowAliasReference:
+        '''(experimental) A reference to a FlowAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IFlowAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowAliasRef")
+    def flow_alias_ref(self) -> FlowAliasReference:
+        '''(experimental) A reference to a FlowAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowAliasReference, jsii.get(self, "flowAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowAliasRef).__jsii_proxy_class__ = lambda : _IFlowAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IFlowRef")
+class IFlowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowRef).__jsii_proxy_class__ = lambda : _IFlowRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IFlowVersionRef")
+class IFlowVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowVersionRef")
+    def flow_version_ref(self) -> FlowVersionReference:
+        '''(experimental) A reference to a FlowVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IFlowVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowVersionRef")
+    def flow_version_ref(self) -> FlowVersionReference:
+        '''(experimental) A reference to a FlowVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowVersionReference, jsii.get(self, "flowVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowVersionRef).__jsii_proxy_class__ = lambda : _IFlowVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IGuardrailRef")
+class IGuardrailRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Guardrail.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailRef")
+    def guardrail_ref(self) -> GuardrailReference:
+        '''(experimental) A reference to a Guardrail resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGuardrailRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Guardrail.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IGuardrailRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailRef")
+    def guardrail_ref(self) -> GuardrailReference:
+        '''(experimental) A reference to a Guardrail resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GuardrailReference, jsii.get(self, "guardrailRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGuardrailRef).__jsii_proxy_class__ = lambda : _IGuardrailRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IGuardrailVersionRef")
+class IGuardrailVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GuardrailVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersionRef")
+    def guardrail_version_ref(self) -> GuardrailVersionReference:
+        '''(experimental) A reference to a GuardrailVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGuardrailVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GuardrailVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IGuardrailVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersionRef")
+    def guardrail_version_ref(self) -> GuardrailVersionReference:
+        '''(experimental) A reference to a GuardrailVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GuardrailVersionReference, jsii.get(self, "guardrailVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGuardrailVersionRef).__jsii_proxy_class__ = lambda : _IGuardrailVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IIntelligentPromptRouterRef")
+class IIntelligentPromptRouterRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntelligentPromptRouter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="intelligentPromptRouterRef")
+    def intelligent_prompt_router_ref(self) -> "IntelligentPromptRouterReference":
+        '''(experimental) A reference to a IntelligentPromptRouter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIntelligentPromptRouterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntelligentPromptRouter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IIntelligentPromptRouterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="intelligentPromptRouterRef")
+    def intelligent_prompt_router_ref(self) -> "IntelligentPromptRouterReference":
+        '''(experimental) A reference to a IntelligentPromptRouter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IntelligentPromptRouterReference", jsii.get(self, "intelligentPromptRouterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIntelligentPromptRouterRef).__jsii_proxy_class__ = lambda : _IIntelligentPromptRouterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IKnowledgeBaseRef")
+class IKnowledgeBaseRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKnowledgeBaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IKnowledgeBaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KnowledgeBaseReference", jsii.get(self, "knowledgeBaseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKnowledgeBaseRef).__jsii_proxy_class__ = lambda : _IKnowledgeBaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IModel")
+class IModel(typing_extensions.Protocol):
+    '''Represents a Bedrock model.
+
+    The model could be a foundation model, a custom model, or a provisioned model.
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> builtins.str:
+        '''The ARN of the model.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrock.html#amazonbedrock-actions-as-permissions
+        '''
+        ...
+
+
+class _IModelProxy:
+    '''Represents a Bedrock model.
+
+    The model could be a foundation model, a custom model, or a provisioned model.
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IModel"
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> builtins.str:
+        '''The ARN of the model.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrock.html#amazonbedrock-actions-as-permissions
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IModel).__jsii_proxy_class__ = lambda : _IModelProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IPromptRef")
+class IPromptRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Prompt.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> "PromptReference":
+        '''(experimental) A reference to a Prompt resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Prompt.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IPromptRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> "PromptReference":
+        '''(experimental) A reference to a Prompt resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PromptReference", jsii.get(self, "promptRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPromptRef).__jsii_proxy_class__ = lambda : _IPromptRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IPromptVersionRef")
+class IPromptVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PromptVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersionRef")
+    def prompt_version_ref(self) -> "PromptVersionReference":
+        '''(experimental) A reference to a PromptVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PromptVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IPromptVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersionRef")
+    def prompt_version_ref(self) -> "PromptVersionReference":
+        '''(experimental) A reference to a PromptVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PromptVersionReference", jsii.get(self, "promptVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPromptVersionRef).__jsii_proxy_class__ = lambda : _IPromptVersionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.IntelligentPromptRouterReference",
+    jsii_struct_bases=[],
+    name_mapping={"prompt_router_arn": "promptRouterArn"},
+)
+class IntelligentPromptRouterReference:
+    def __init__(self, *, prompt_router_arn: builtins.str) -> None:
+        '''A reference to a IntelligentPromptRouter resource.
+
+        :param prompt_router_arn: The PromptRouterArn of the IntelligentPromptRouter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            intelligent_prompt_router_reference = bedrock.IntelligentPromptRouterReference(
+                prompt_router_arn="promptRouterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c21376cf4febfbff6241405227440c05cd26c45cb088c5fd4c33d433dc7c3908)
+            check_type(argname="argument prompt_router_arn", value=prompt_router_arn, expected_type=type_hints["prompt_router_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_router_arn": prompt_router_arn,
+        }
+
+    @builtins.property
+    def prompt_router_arn(self) -> builtins.str:
+        '''The PromptRouterArn of the IntelligentPromptRouter resource.'''
+        result = self._values.get("prompt_router_arn")
+        assert result is not None, "Required property 'prompt_router_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntelligentPromptRouterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.KnowledgeBaseReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_arn": "knowledgeBaseArn",
+        "knowledge_base_id": "knowledgeBaseId",
+    },
+)
+class KnowledgeBaseReference:
+    def __init__(
+        self,
+        *,
+        knowledge_base_arn: builtins.str,
+        knowledge_base_id: builtins.str,
+    ) -> None:
+        '''A reference to a KnowledgeBase resource.
+
+        :param knowledge_base_arn: The ARN of the KnowledgeBase resource.
+        :param knowledge_base_id: The KnowledgeBaseId of the KnowledgeBase resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            knowledge_base_reference = bedrock.KnowledgeBaseReference(
+                knowledge_base_arn="knowledgeBaseArn",
+                knowledge_base_id="knowledgeBaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c89d62eee11012226505e2ac3e6c204aa111886eee8487583525ba0f56e0eb6c)
+            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_arn": knowledge_base_arn,
+            "knowledge_base_id": knowledge_base_id,
+        }
+
+    @builtins.property
+    def knowledge_base_arn(self) -> builtins.str:
+        '''The ARN of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_arn")
+        assert result is not None, "Required property 'knowledge_base_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The KnowledgeBaseId of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KnowledgeBaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.PromptReference",
+    jsii_struct_bases=[],
+    name_mapping={"prompt_arn": "promptArn"},
+)
+class PromptReference:
+    def __init__(self, *, prompt_arn: builtins.str) -> None:
+        '''A reference to a Prompt resource.
+
+        :param prompt_arn: The Arn of the Prompt resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            prompt_reference = bedrock.PromptReference(
+                prompt_arn="promptArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed83b6590af8a59d26d1d69d7019c4ecbe4ad2bdc40434b276ae8b9b5efbcfe2)
+            check_type(argname="argument prompt_arn", value=prompt_arn, expected_type=type_hints["prompt_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_arn": prompt_arn,
+        }
+
+    @builtins.property
+    def prompt_arn(self) -> builtins.str:
+        '''The Arn of the Prompt resource.'''
+        result = self._values.get("prompt_arn")
+        assert result is not None, "Required property 'prompt_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.PromptVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"prompt_version_arn": "promptVersionArn"},
+)
+class PromptVersionReference:
+    def __init__(self, *, prompt_version_arn: builtins.str) -> None:
+        '''A reference to a PromptVersion resource.
+
+        :param prompt_version_arn: The Arn of the PromptVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            prompt_version_reference = bedrock.PromptVersionReference(
+                prompt_version_arn="promptVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f942e3c6e3ace5535ba0e5078e8817f0f35c6618920722a50f958fb7bf19418)
+            check_type(argname="argument prompt_version_arn", value=prompt_version_arn, expected_type=type_hints["prompt_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_version_arn": prompt_version_arn,
+        }
+
+    @builtins.property
+    def prompt_version_arn(self) -> builtins.str:
+        '''The Arn of the PromptVersion resource.'''
+        result = self._values.get("prompt_version_arn")
+        assert result is not None, "Required property 'prompt_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IModel)
+class ProvisionedModel(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.ProvisionedModel",
+):
+    '''A Bedrock provisioned model.
+
+    Note: CloudFormation does not currently support creating Bedrock Provisioned Throughput
+    resources outside of a custom resource. You can import provisioned models created by
+    provisioning throughput in Bedrock outside the CDK or via a custom resource with
+    {@link ProvisionedModel#fromProvisionedModelArn }.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_bedrock as bedrock
+        
+        
+        bedrock.ProvisionedModel.from_provisioned_model_arn(self, "Model", "arn:aws:bedrock:us-east-2:123456789012:provisioned-model/abc-123")
+    '''
+
+    @jsii.member(jsii_name="fromProvisionedModelArn")
+    @builtins.classmethod
+    def from_provisioned_model_arn(
+        cls,
+        _scope: _constructs_77d1e7e8.Construct,
+        _id: builtins.str,
+        provisioned_model_arn: builtins.str,
+    ) -> IModel:
+        '''Import an provisioned model given an ARN.
+
+        :param _scope: -
+        :param _id: -
+        :param provisioned_model_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__729a89649bbbe97643ef676e5c7a3debb583fa04ca31db203a85e9e6631bd8eb)
+            check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
+            check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
+            check_type(argname="argument provisioned_model_arn", value=provisioned_model_arn, expected_type=type_hints["provisioned_model_arn"])
+        return typing.cast(IModel, jsii.sinvoke(cls, "fromProvisionedModelArn", [_scope, _id, provisioned_model_arn]))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> builtins.str:
+        '''The ARN of the provisioned model.'''
+        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
+
+
+@jsii.implements(_IInspectable_c2943556, IAgentRef, _ITaggableV2_4e6798f8)
 class CfnAgent(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -325,6 +6642,12 @@ class CfnAgent(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> AgentReference:
+        '''A reference to a Agent resource.'''
+        return typing.cast(AgentReference, jsii.get(self, "agentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAgentArn")
@@ -2498,7 +8821,7 @@ class CfnAgent(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAgentAliasRef, _ITaggableV2_4e6798f8)
 class CfnAgentAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2600,6 +8923,12 @@ class CfnAgentAlias(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentAliasRef")
+    def agent_alias_ref(self) -> AgentAliasReference:
+        '''A reference to a AgentAlias resource.'''
+        return typing.cast(AgentAliasReference, jsii.get(self, "agentAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAgentAliasArn")
@@ -2897,635 +9226,7 @@ class CfnAgentAlias(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnAgentAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "agent_alias_name": "agentAliasName",
-        "agent_id": "agentId",
-        "description": "description",
-        "routing_configuration": "routingConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnAgentAliasProps:
-    def __init__(
-        self,
-        *,
-        agent_alias_name: builtins.str,
-        agent_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAgentAlias``.
-
-        :param agent_alias_name: The name of the alias of the agent.
-        :param agent_id: The unique identifier of the agent.
-        :param description: The description of the alias of the agent.
-        :param routing_configuration: Contains details about the routing configuration of the alias.
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_agent_alias_props = bedrock.CfnAgentAliasProps(
-                agent_alias_name="agentAliasName",
-                agent_id="agentId",
-            
-                # the properties below are optional
-                description="description",
-                routing_configuration=[bedrock.CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty(
-                    agent_version="agentVersion"
-                )],
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3144a1c66c11b4a2b15be859f361c848648aefb3df04b8fce2befe94f215c68)
-            check_type(argname="argument agent_alias_name", value=agent_alias_name, expected_type=type_hints["agent_alias_name"])
-            check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument routing_configuration", value=routing_configuration, expected_type=type_hints["routing_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "agent_alias_name": agent_alias_name,
-            "agent_id": agent_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if routing_configuration is not None:
-            self._values["routing_configuration"] = routing_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def agent_alias_name(self) -> builtins.str:
-        '''The name of the alias of the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-agentaliasname
-        '''
-        result = self._values.get("agent_alias_name")
-        assert result is not None, "Required property 'agent_alias_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def agent_id(self) -> builtins.str:
-        '''The unique identifier of the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-agentid
-        '''
-        result = self._values.get("agent_id")
-        assert result is not None, "Required property 'agent_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the alias of the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def routing_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty]]]]:
-        '''Contains details about the routing configuration of the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-routingconfiguration
-        '''
-        result = self._values.get("routing_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agentalias.html#cfn-bedrock-agentalias-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAgentAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnAgentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "agent_name": "agentName",
-        "action_groups": "actionGroups",
-        "agent_collaboration": "agentCollaboration",
-        "agent_collaborators": "agentCollaborators",
-        "agent_resource_role_arn": "agentResourceRoleArn",
-        "auto_prepare": "autoPrepare",
-        "customer_encryption_key_arn": "customerEncryptionKeyArn",
-        "custom_orchestration": "customOrchestration",
-        "description": "description",
-        "foundation_model": "foundationModel",
-        "guardrail_configuration": "guardrailConfiguration",
-        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
-        "instruction": "instruction",
-        "knowledge_bases": "knowledgeBases",
-        "memory_configuration": "memoryConfiguration",
-        "orchestration_type": "orchestrationType",
-        "prompt_override_configuration": "promptOverrideConfiguration",
-        "skip_resource_in_use_check_on_delete": "skipResourceInUseCheckOnDelete",
-        "tags": "tags",
-        "test_alias_tags": "testAliasTags",
-    },
-)
-class CfnAgentProps:
-    def __init__(
-        self,
-        *,
-        agent_name: builtins.str,
-        action_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentActionGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        agent_collaboration: typing.Optional[builtins.str] = None,
-        agent_collaborators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentCollaboratorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        agent_resource_role_arn: typing.Optional[builtins.str] = None,
-        auto_prepare: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-        custom_orchestration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.CustomOrchestrationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        foundation_model: typing.Optional[builtins.str] = None,
-        guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.GuardrailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        idle_session_ttl_in_seconds: typing.Optional[jsii.Number] = None,
-        instruction: typing.Optional[builtins.str] = None,
-        knowledge_bases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentKnowledgeBaseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.MemoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        orchestration_type: typing.Optional[builtins.str] = None,
-        prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.PromptOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAgent``.
-
-        :param agent_name: The name of the agent.
-        :param action_groups: The action groups that belong to an agent.
-        :param agent_collaboration: The agent's collaboration settings.
-        :param agent_collaborators: List of Agent Collaborators.
-        :param agent_resource_role_arn: The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the agent.
-        :param auto_prepare: Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent. The ``DRAFT`` version can be continually iterated upon during internal development. By default, this value is ``false`` . Default: - false
-        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the AWS KMS key that encrypts the agent.
-        :param custom_orchestration: Contains custom orchestration configurations for the agent.
-        :param description: The description of the agent.
-        :param foundation_model: The foundation model used for orchestration by the agent.
-        :param guardrail_configuration: Details about the guardrail associated with the agent.
-        :param idle_session_ttl_in_seconds: The number of seconds for which Amazon Bedrock keeps information about a user's conversation with the agent. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout.
-        :param instruction: Instructions that tell the agent what it should do and how it should interact with users.
-        :param knowledge_bases: The knowledge bases associated with the agent.
-        :param memory_configuration: Contains memory configuration for the agent.
-        :param orchestration_type: Specifies the orchestration strategy for the agent.
-        :param prompt_override_configuration: Contains configurations to override prompt templates in different parts of an agent sequence. For more information, see `Advanced prompts <https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html>`_ .
-        :param skip_resource_in_use_check_on_delete: Specifies whether to delete the resource even if it's in use. By default, this value is ``false`` . Default: - false
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-        :param test_alias_tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            # additional_model_request_fields: Any
-            
-            cfn_agent_props = bedrock.CfnAgentProps(
-                agent_name="agentName",
-            
-                # the properties below are optional
-                action_groups=[bedrock.CfnAgent.AgentActionGroupProperty(
-                    action_group_name="actionGroupName",
-            
-                    # the properties below are optional
-                    action_group_executor=bedrock.CfnAgent.ActionGroupExecutorProperty(
-                        custom_control="customControl",
-                        lambda_="lambda"
-                    ),
-                    action_group_state="actionGroupState",
-                    api_schema=bedrock.CfnAgent.APISchemaProperty(
-                        payload="payload",
-                        s3=bedrock.CfnAgent.S3IdentifierProperty(
-                            s3_bucket_name="s3BucketName",
-                            s3_object_key="s3ObjectKey"
-                        )
-                    ),
-                    description="description",
-                    function_schema=bedrock.CfnAgent.FunctionSchemaProperty(
-                        functions=[bedrock.CfnAgent.FunctionProperty(
-                            name="name",
-            
-                            # the properties below are optional
-                            description="description",
-                            parameters={
-                                "parameters_key": bedrock.CfnAgent.ParameterDetailProperty(
-                                    type="type",
-            
-                                    # the properties below are optional
-                                    description="description",
-                                    required=False
-                                )
-                            },
-                            require_confirmation="requireConfirmation"
-                        )]
-                    ),
-                    parent_action_group_signature="parentActionGroupSignature",
-                    skip_resource_in_use_check_on_delete=False
-                )],
-                agent_collaboration="agentCollaboration",
-                agent_collaborators=[bedrock.CfnAgent.AgentCollaboratorProperty(
-                    agent_descriptor=bedrock.CfnAgent.AgentDescriptorProperty(
-                        alias_arn="aliasArn"
-                    ),
-                    collaboration_instruction="collaborationInstruction",
-                    collaborator_name="collaboratorName",
-            
-                    # the properties below are optional
-                    relay_conversation_history="relayConversationHistory"
-                )],
-                agent_resource_role_arn="agentResourceRoleArn",
-                auto_prepare=False,
-                customer_encryption_key_arn="customerEncryptionKeyArn",
-                custom_orchestration=bedrock.CfnAgent.CustomOrchestrationProperty(
-                    executor=bedrock.CfnAgent.OrchestrationExecutorProperty(
-                        lambda_="lambda"
-                    )
-                ),
-                description="description",
-                foundation_model="foundationModel",
-                guardrail_configuration=bedrock.CfnAgent.GuardrailConfigurationProperty(
-                    guardrail_identifier="guardrailIdentifier",
-                    guardrail_version="guardrailVersion"
-                ),
-                idle_session_ttl_in_seconds=123,
-                instruction="instruction",
-                knowledge_bases=[bedrock.CfnAgent.AgentKnowledgeBaseProperty(
-                    description="description",
-                    knowledge_base_id="knowledgeBaseId",
-            
-                    # the properties below are optional
-                    knowledge_base_state="knowledgeBaseState"
-                )],
-                memory_configuration=bedrock.CfnAgent.MemoryConfigurationProperty(
-                    enabled_memory_types=["enabledMemoryTypes"],
-                    session_summary_configuration=bedrock.CfnAgent.SessionSummaryConfigurationProperty(
-                        max_recent_sessions=123
-                    ),
-                    storage_days=123
-                ),
-                orchestration_type="orchestrationType",
-                prompt_override_configuration=bedrock.CfnAgent.PromptOverrideConfigurationProperty(
-                    prompt_configurations=[bedrock.CfnAgent.PromptConfigurationProperty(
-                        additional_model_request_fields=additional_model_request_fields,
-                        base_prompt_template="basePromptTemplate",
-                        foundation_model="foundationModel",
-                        inference_configuration=bedrock.CfnAgent.InferenceConfigurationProperty(
-                            maximum_length=123,
-                            stop_sequences=["stopSequences"],
-                            temperature=123,
-                            top_k=123,
-                            top_p=123
-                        ),
-                        parser_mode="parserMode",
-                        prompt_creation_mode="promptCreationMode",
-                        prompt_state="promptState",
-                        prompt_type="promptType"
-                    )],
-            
-                    # the properties below are optional
-                    override_lambda="overrideLambda"
-                ),
-                skip_resource_in_use_check_on_delete=False,
-                tags={
-                    "tags_key": "tags"
-                },
-                test_alias_tags={
-                    "test_alias_tags_key": "testAliasTags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4f714080f6d4f9b0a3fe85a8425a8ba69698695e35d6fbd9d710ca5d99ba6e8)
-            check_type(argname="argument agent_name", value=agent_name, expected_type=type_hints["agent_name"])
-            check_type(argname="argument action_groups", value=action_groups, expected_type=type_hints["action_groups"])
-            check_type(argname="argument agent_collaboration", value=agent_collaboration, expected_type=type_hints["agent_collaboration"])
-            check_type(argname="argument agent_collaborators", value=agent_collaborators, expected_type=type_hints["agent_collaborators"])
-            check_type(argname="argument agent_resource_role_arn", value=agent_resource_role_arn, expected_type=type_hints["agent_resource_role_arn"])
-            check_type(argname="argument auto_prepare", value=auto_prepare, expected_type=type_hints["auto_prepare"])
-            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
-            check_type(argname="argument custom_orchestration", value=custom_orchestration, expected_type=type_hints["custom_orchestration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument foundation_model", value=foundation_model, expected_type=type_hints["foundation_model"])
-            check_type(argname="argument guardrail_configuration", value=guardrail_configuration, expected_type=type_hints["guardrail_configuration"])
-            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
-            check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
-            check_type(argname="argument knowledge_bases", value=knowledge_bases, expected_type=type_hints["knowledge_bases"])
-            check_type(argname="argument memory_configuration", value=memory_configuration, expected_type=type_hints["memory_configuration"])
-            check_type(argname="argument orchestration_type", value=orchestration_type, expected_type=type_hints["orchestration_type"])
-            check_type(argname="argument prompt_override_configuration", value=prompt_override_configuration, expected_type=type_hints["prompt_override_configuration"])
-            check_type(argname="argument skip_resource_in_use_check_on_delete", value=skip_resource_in_use_check_on_delete, expected_type=type_hints["skip_resource_in_use_check_on_delete"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument test_alias_tags", value=test_alias_tags, expected_type=type_hints["test_alias_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "agent_name": agent_name,
-        }
-        if action_groups is not None:
-            self._values["action_groups"] = action_groups
-        if agent_collaboration is not None:
-            self._values["agent_collaboration"] = agent_collaboration
-        if agent_collaborators is not None:
-            self._values["agent_collaborators"] = agent_collaborators
-        if agent_resource_role_arn is not None:
-            self._values["agent_resource_role_arn"] = agent_resource_role_arn
-        if auto_prepare is not None:
-            self._values["auto_prepare"] = auto_prepare
-        if customer_encryption_key_arn is not None:
-            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
-        if custom_orchestration is not None:
-            self._values["custom_orchestration"] = custom_orchestration
-        if description is not None:
-            self._values["description"] = description
-        if foundation_model is not None:
-            self._values["foundation_model"] = foundation_model
-        if guardrail_configuration is not None:
-            self._values["guardrail_configuration"] = guardrail_configuration
-        if idle_session_ttl_in_seconds is not None:
-            self._values["idle_session_ttl_in_seconds"] = idle_session_ttl_in_seconds
-        if instruction is not None:
-            self._values["instruction"] = instruction
-        if knowledge_bases is not None:
-            self._values["knowledge_bases"] = knowledge_bases
-        if memory_configuration is not None:
-            self._values["memory_configuration"] = memory_configuration
-        if orchestration_type is not None:
-            self._values["orchestration_type"] = orchestration_type
-        if prompt_override_configuration is not None:
-            self._values["prompt_override_configuration"] = prompt_override_configuration
-        if skip_resource_in_use_check_on_delete is not None:
-            self._values["skip_resource_in_use_check_on_delete"] = skip_resource_in_use_check_on_delete
-        if tags is not None:
-            self._values["tags"] = tags
-        if test_alias_tags is not None:
-            self._values["test_alias_tags"] = test_alias_tags
-
-    @builtins.property
-    def agent_name(self) -> builtins.str:
-        '''The name of the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentname
-        '''
-        result = self._values.get("agent_name")
-        assert result is not None, "Required property 'agent_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action_groups(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentActionGroupProperty]]]]:
-        '''The action groups that belong to an agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-actiongroups
-        '''
-        result = self._values.get("action_groups")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentActionGroupProperty]]]], result)
-
-    @builtins.property
-    def agent_collaboration(self) -> typing.Optional[builtins.str]:
-        '''The agent's collaboration settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentcollaboration
-        '''
-        result = self._values.get("agent_collaboration")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def agent_collaborators(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentCollaboratorProperty]]]]:
-        '''List of Agent Collaborators.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentcollaborators
-        '''
-        result = self._values.get("agent_collaborators")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentCollaboratorProperty]]]], result)
-
-    @builtins.property
-    def agent_resource_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-agentresourcerolearn
-        '''
-        result = self._values.get("agent_resource_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_prepare(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent.
-
-        The ``DRAFT`` version can be continually iterated upon during internal development. By default, this value is ``false`` .
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-autoprepare
-        '''
-        result = self._values.get("auto_prepare")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS KMS key that encrypts the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-customerencryptionkeyarn
-        '''
-        result = self._values.get("customer_encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_orchestration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.CustomOrchestrationProperty]]:
-        '''Contains custom orchestration configurations for the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-customorchestration
-        '''
-        result = self._values.get("custom_orchestration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.CustomOrchestrationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def foundation_model(self) -> typing.Optional[builtins.str]:
-        '''The foundation model used for orchestration by the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-foundationmodel
-        '''
-        result = self._values.get("foundation_model")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def guardrail_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.GuardrailConfigurationProperty]]:
-        '''Details about the guardrail associated with the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-guardrailconfiguration
-        '''
-        result = self._values.get("guardrail_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.GuardrailConfigurationProperty]], result)
-
-    @builtins.property
-    def idle_session_ttl_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The number of seconds for which Amazon Bedrock keeps information about a user's conversation with the agent.
-
-        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-idlesessionttlinseconds
-        '''
-        result = self._values.get("idle_session_ttl_in_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def instruction(self) -> typing.Optional[builtins.str]:
-        '''Instructions that tell the agent what it should do and how it should interact with users.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-instruction
-        '''
-        result = self._values.get("instruction")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def knowledge_bases(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentKnowledgeBaseProperty]]]]:
-        '''The knowledge bases associated with the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-knowledgebases
-        '''
-        result = self._values.get("knowledge_bases")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAgent.AgentKnowledgeBaseProperty]]]], result)
-
-    @builtins.property
-    def memory_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.MemoryConfigurationProperty]]:
-        '''Contains memory configuration for the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-memoryconfiguration
-        '''
-        result = self._values.get("memory_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.MemoryConfigurationProperty]], result)
-
-    @builtins.property
-    def orchestration_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies the orchestration strategy for the agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-orchestrationtype
-        '''
-        result = self._values.get("orchestration_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def prompt_override_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.PromptOverrideConfigurationProperty]]:
-        '''Contains configurations to override prompt templates in different parts of an agent sequence.
-
-        For more information, see `Advanced prompts <https://docs.aws.amazon.com/bedrock/latest/userguide/advanced-prompts.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-promptoverrideconfiguration
-        '''
-        result = self._values.get("prompt_override_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgent.PromptOverrideConfigurationProperty]], result)
-
-    @builtins.property
-    def skip_resource_in_use_check_on_delete(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to delete the resource even if it's in use.
-
-        By default, this value is ``false`` .
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-skipresourceinusecheckondelete
-        '''
-        result = self._values.get("skip_resource_in_use_check_on_delete")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def test_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-agent.html#cfn-bedrock-agent-testaliastags
-        '''
-        result = self._values.get("test_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAgentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IApplicationInferenceProfileRef, _ITaggableV2_4e6798f8)
 class CfnApplicationInferenceProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3625,6 +9326,12 @@ class CfnApplicationInferenceProfile(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationInferenceProfileRef")
+    def application_inference_profile_ref(self) -> ApplicationInferenceProfileReference:
+        '''A reference to a ApplicationInferenceProfile resource.'''
+        return typing.cast(ApplicationInferenceProfileReference, jsii.get(self, "applicationInferenceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -3875,126 +9582,957 @@ class CfnApplicationInferenceProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnApplicationInferenceProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "inference_profile_name": "inferenceProfileName",
-        "description": "description",
-        "model_source": "modelSource",
-        "tags": "tags",
-    },
-)
-class CfnApplicationInferenceProfileProps:
+@jsii.implements(_IInspectable_c2943556, IAutomatedReasoningPolicyRef, _ITaggableV2_4e6798f8)
+class CfnAutomatedReasoningPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy",
+):
+    '''Creates an Automated Reasoning policy for Amazon Bedrock Guardrails.
+
+    Automated Reasoning policies use mathematical techniques to detect hallucinations, suggest corrections, and highlight unstated assumptions in the responses of your GenAI application.
+
+    To create a policy, you upload a source document that describes the rules that you're encoding. Automated Reasoning extracts important concepts from the source document that will become variables in the policy and infers policy rules.
+
+    To learn more about creating Automated Reasoning policies, see `Minimize AI hallucinations and deliver up to 99% verification accuracy with Automated Reasoning checks: Now available <https://docs.aws.amazon.com/aws/minimize-ai-hallucinations-and-deliver-up-to-99-verification-accuracy-with-automated-reasoning-checks-now-available/>`_ in the *AWS News Blog* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicy.html
+    :cloudformationResource: AWS::Bedrock::AutomatedReasoningPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_automated_reasoning_policy = bedrock.CfnAutomatedReasoningPolicy(self, "MyCfnAutomatedReasoningPolicy",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            policy_definition=bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionProperty(
+                rules=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty(
+                    expression="expression",
+                    id="id",
+        
+                    # the properties below are optional
+                    alternate_expression="alternateExpression"
+                )],
+                types=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty(
+                    name="name",
+                    values=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty(
+                        value="value",
+        
+                        # the properties below are optional
+                        description="description"
+                    )],
+        
+                    # the properties below are optional
+                    description="description"
+                )],
+                variables=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty(
+                    description="description",
+                    name="name",
+                    type="type"
+                )],
+                version="version"
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
     def __init__(
         self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
         *,
-        inference_profile_name: builtins.str,
+        name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        model_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        policy_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''Properties for defining a ``CfnApplicationInferenceProfile``.
-
-        :param inference_profile_name: The name of the inference profile.
-        :param description: The description of the inference profile.
-        :param model_source: Contains configurations for the inference profile to copy as the resource.
-        :param tags: A list of tags associated with the inference profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html
-        :exampleMetadata: fixture=default infused
-
-        Example::
-
-            # Create or reference an existing L1 CfnApplicationInferenceProfile
-            cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
-                inference_profile_name="my-cfn-profile",
-                model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
-                    copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
-                ),
-                description="Profile created via L1 construct"
-            )
-            
-            # Import the L1 construct as an L2 ApplicationInferenceProfile
-            imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
-            
-            # Grant permissions to use the imported profile
-            lambda_function = lambda_.Function(self, "MyFunction",
-                runtime=lambda_.Runtime.PYTHON_3_11,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
-            )
-            
-            imported_from_cfn.grant_profile_usage(lambda_function)
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the policy.
+        :param description: The description of the policy.
+        :param policy_definition: The complete policy definition generated by the build workflow, containing all rules, variables, and custom types extracted from the source documents.
+        :param tags: The tags associated with the Automated Reasoning policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__396027668dce29a45dd42acb9bb8358fa9135a15e45d6925e8a78acced3bd78d)
-            check_type(argname="argument inference_profile_name", value=inference_profile_name, expected_type=type_hints["inference_profile_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument model_source", value=model_source, expected_type=type_hints["model_source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "inference_profile_name": inference_profile_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if model_source is not None:
-            self._values["model_source"] = model_source
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def inference_profile_name(self) -> builtins.str:
-        '''The name of the inference profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-inferenceprofilename
-        '''
-        result = self._values.get("inference_profile_name")
-        assert result is not None, "Required property 'inference_profile_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the inference profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def model_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty]]:
-        '''Contains configurations for the inference profile to copy as the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-modelsource
-        '''
-        result = self._values.get("model_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags associated with the inference profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationInferenceProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+            type_hints = typing.get_type_hints(_typecheckingstub__6f86a6b32c0b2e6c3a7146930b7eefb6a145c9092c8b647c751b39445152964c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAutomatedReasoningPolicyProps(
+            name=name,
+            description=description,
+            policy_definition=policy_definition,
+            tags=tags,
         )
 
+        jsii.create(self.__class__, self, [scope, id, props])
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d95289264bf61eb2fbd5a92f21159cd51300a002430f07345627e19936c5759)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cce56e9ba2d020d1b0a6bff89eca6d964162c1698a84ffaae0b95858f5c2d3de)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the policy was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDefinitionHash")
+    def attr_definition_hash(self) -> builtins.str:
+        '''A hash of the policy definition used to identify the version.
+
+        :cloudformationAttribute: DefinitionHash
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDefinitionHash"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyArn")
+    def attr_policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the policy.
+
+        :cloudformationAttribute: PolicyArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The unique identifier of the policy.
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the policy was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version of the policy.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyRef")
+    def automated_reasoning_policy_ref(self) -> AutomatedReasoningPolicyReference:
+        '''A reference to a AutomatedReasoningPolicy resource.'''
+        return typing.cast(AutomatedReasoningPolicyReference, jsii.get(self, "automatedReasoningPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3c8290b4050352cfcdb4ab8976b9d781978c34ee46609d3318cdb7a4f1b613f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00e436a5261e5477ed7789ba76a3abf0b3ea73f32ebc0124a5a11c8eceb1753e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDefinition")
+    def policy_definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionProperty"]]:
+        '''The complete policy definition generated by the build workflow, containing all rules, variables, and custom types extracted from the source documents.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionProperty"]], jsii.get(self, "policyDefinition"))
+
+    @policy_definition.setter
+    def policy_definition(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8ff8046b0a2e743393c59b3ad2e1a92082657522f4cabbd1ee4fb71d94444c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDefinition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the Automated Reasoning policy.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca4464b2048b122005e6f9796a6bdf93da3b8b1dd15d6e68063dad6c8cf3e1d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rules": "rules",
+            "types": "types",
+            "variables": "variables",
+            "version": "version",
+        },
+    )
+    class PolicyDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The complete policy definition containing rules, variables, and types.
+
+            :param rules: The collection of rules that define the policy logic.
+            :param types: The custom types defined within the policy definition.
+            :param variables: The variables used within the policy definition.
+            :param version: The version of the policy definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                policy_definition_property = bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionProperty(
+                    rules=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty(
+                        expression="expression",
+                        id="id",
+                
+                        # the properties below are optional
+                        alternate_expression="alternateExpression"
+                    )],
+                    types=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty(
+                        name="name",
+                        values=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty(
+                            value="value",
+                
+                            # the properties below are optional
+                            description="description"
+                        )],
+                
+                        # the properties below are optional
+                        description="description"
+                    )],
+                    variables=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty(
+                        description="description",
+                        name="name",
+                        type="type"
+                    )],
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0c56f4156d2bbf5c9be877a24c873f3b0e2764f76e6a284e17d0db74ae0eadf4)
+                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+                check_type(argname="argument types", value=types, expected_type=type_hints["types"])
+                check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rules is not None:
+                self._values["rules"] = rules
+            if types is not None:
+                self._values["types"] = types
+            if variables is not None:
+                self._values["variables"] = variables
+            if version is not None:
+                self._values["version"] = version
+
+        @builtins.property
+        def rules(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty"]]]]:
+            '''The collection of rules that define the policy logic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html#cfn-bedrock-automatedreasoningpolicy-policydefinition-rules
+            '''
+            result = self._values.get("rules")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty"]]]], result)
+
+        @builtins.property
+        def types(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty"]]]]:
+            '''The custom types defined within the policy definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html#cfn-bedrock-automatedreasoningpolicy-policydefinition-types
+            '''
+            result = self._values.get("types")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty"]]]], result)
+
+        @builtins.property
+        def variables(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty"]]]]:
+            '''The variables used within the policy definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html#cfn-bedrock-automatedreasoningpolicy-policydefinition-variables
+            '''
+            result = self._values.get("variables")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty"]]]], result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''The version of the policy definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinition.html#cfn-bedrock-automatedreasoningpolicy-policydefinition-version
+            '''
+            result = self._values.get("version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "expression": "expression",
+            "id": "id",
+            "alternate_expression": "alternateExpression",
+        },
+    )
+    class PolicyDefinitionRuleProperty:
+        def __init__(
+            self,
+            *,
+            expression: builtins.str,
+            id: builtins.str,
+            alternate_expression: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A rule within the policy definition that defines logical constraints.
+
+            :param expression: The logical expression that defines the rule.
+            :param id: The unique identifier for the policy definition rule.
+            :param alternate_expression: An alternative expression for the policy rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                policy_definition_rule_property = bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty(
+                    expression="expression",
+                    id="id",
+                
+                    # the properties below are optional
+                    alternate_expression="alternateExpression"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cf6052e99156f10a177756c1396042ca9406fc074ef8bc1a0c172b540eda6398)
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument alternate_expression", value=alternate_expression, expected_type=type_hints["alternate_expression"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expression": expression,
+                "id": id,
+            }
+            if alternate_expression is not None:
+                self._values["alternate_expression"] = alternate_expression
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''The logical expression that defines the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionrule-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The unique identifier for the policy definition rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionrule-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def alternate_expression(self) -> typing.Optional[builtins.str]:
+            '''An alternative expression for the policy rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionrule-alternateexpression
+            '''
+            result = self._values.get("alternate_expression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "values": "values",
+            "description": "description",
+        },
+    )
+    class PolicyDefinitionTypeProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            values: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A custom type definition within the policy.
+
+            :param name: The name of a custom type defined in the policy.
+            :param values: The possible values for a custom type defined in the policy.
+            :param description: A description of the custom type defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                policy_definition_type_property = bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty(
+                    name="name",
+                    values=[bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty(
+                        value="value",
+                
+                        # the properties below are optional
+                        description="description"
+                    )],
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7fa57992131b04d71ba223897b580fad842b0f1ec85e1aacc76893689f63c88e)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "values": values,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of a custom type defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontype.html#cfn-bedrock-automatedreasoningpolicy-policydefinitiontype-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty"]]]:
+            '''The possible values for a custom type defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontype.html#cfn-bedrock-automatedreasoningpolicy-policydefinitiontype-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty"]]], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''A description of the custom type defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontype.html#cfn-bedrock-automatedreasoningpolicy-policydefinitiontype-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty",
+        jsii_struct_bases=[],
+        name_mapping={"value": "value", "description": "description"},
+    )
+    class PolicyDefinitionTypeValueProperty:
+        def __init__(
+            self,
+            *,
+            value: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A value associated with a custom type in the policy definition.
+
+            :param value: The value associated with a policy definition type.
+            :param description: A description of the policy definition type value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontypevalue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                policy_definition_type_value_property = bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty(
+                    value="value",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__01be0b027392021b0db4a3fe6be21f31b990446eac421657b3fb212ecb4e9164)
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "value": value,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value associated with a policy definition type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontypevalue.html#cfn-bedrock-automatedreasoningpolicy-policydefinitiontypevalue-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''A description of the policy definition type value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitiontypevalue.html#cfn-bedrock-automatedreasoningpolicy-policydefinitiontypevalue-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionTypeValueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty",
+        jsii_struct_bases=[],
+        name_mapping={"description": "description", "name": "name", "type": "type"},
+    )
+    class PolicyDefinitionVariableProperty:
+        def __init__(
+            self,
+            *,
+            description: builtins.str,
+            name: builtins.str,
+            type: builtins.str,
+        ) -> None:
+            '''A variable defined within the policy that can be used in rules.
+
+            :param description: A description of a variable defined in the policy.
+            :param name: The name of a variable defined in the policy.
+            :param type: The data type of a variable defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionvariable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                policy_definition_variable_property = bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty(
+                    description="description",
+                    name="name",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ee85cb07afcd36e5cf8c64f06dee4c4b09a46ca98e24c137c9f5e7705ea7a218)
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "description": description,
+                "name": name,
+                "type": type,
+            }
+
+        @builtins.property
+        def description(self) -> builtins.str:
+            '''A description of a variable defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionvariable.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionvariable-description
+            '''
+            result = self._values.get("description")
+            assert result is not None, "Required property 'description' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of a variable defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionvariable.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionvariable-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The data type of a variable defined in the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionvariable.html#cfn-bedrock-automatedreasoningpolicy-policydefinitionvariable-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionVariableProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IAutomatedReasoningPolicyVersionRef, _ITaggableV2_4e6798f8)
+class CfnAutomatedReasoningPolicyVersion(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicyVersion",
+):
+    '''Creates a new version of an existing Automated Reasoning policy.
+
+    This allows you to iterate on your policy rules while maintaining previous versions for rollback or comparison purposes.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-automatedreasoningpolicyversion.html
+    :cloudformationResource: AWS::Bedrock::AutomatedReasoningPolicyVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_automated_reasoning_policy_version = bedrock.CfnAutomatedReasoningPolicyVersion(self, "MyCfnAutomatedReasoningPolicyVersion",
+            policy_arn="policyArn",
+        
+            # the properties below are optional
+            last_updated_definition_hash="lastUpdatedDefinitionHash",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        policy_arn: builtins.str,
+        last_updated_definition_hash: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_arn: The Amazon Resource Name (ARN) of the policy.
+        :param last_updated_definition_hash: The hash of the policy definition that was last updated.
+        :param tags: The tags associated with the Automated Reasoning policy version.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09ee6ddbed97d4b82999d7db7a1df9337d207b3eb28355cbbf3c9f7afcc1290c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAutomatedReasoningPolicyVersionProps(
+            policy_arn=policy_arn,
+            last_updated_definition_hash=last_updated_definition_hash,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c197dfab48b83b41ef99f327f4ea022bc36418db2c5dca1871e8795c7c69201e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce7b3f41e9ce328246b89d373df463789c1942424c0e0f779c84cb4343962db4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the policy version was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDefinitionHash")
+    def attr_definition_hash(self) -> builtins.str:
+        '''A hash of the policy definition used to identify the version.
+
+        :cloudformationAttribute: DefinitionHash
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDefinitionHash"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDescription")
+    def attr_description(self) -> builtins.str:
+        '''The description of the policy version.
+
+        :cloudformationAttribute: Description
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the policy version.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The unique identifier of the policy.
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the policy version was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version number of the policy version.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="automatedReasoningPolicyVersionRef")
+    def automated_reasoning_policy_version_ref(
+        self,
+    ) -> AutomatedReasoningPolicyVersionReference:
+        '''A reference to a AutomatedReasoningPolicyVersion resource.'''
+        return typing.cast(AutomatedReasoningPolicyVersionReference, jsii.get(self, "automatedReasoningPolicyVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyArn")
+    def policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyArn"))
+
+    @policy_arn.setter
+    def policy_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6281ba36e05d83a0e3ef064625c15e957bd5d3e09519a667c2bfb83c1a598a36)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdatedDefinitionHash")
+    def last_updated_definition_hash(self) -> typing.Optional[builtins.str]:
+        '''The hash of the policy definition that was last updated.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdatedDefinitionHash"))
+
+    @last_updated_definition_hash.setter
+    def last_updated_definition_hash(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee122c4a5f07fbfeac391064a3628421e70e09529847a606678ed4371d9e7b02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "lastUpdatedDefinitionHash", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the Automated Reasoning policy version.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbfd4db5100e6181e9a990e0416f2608cff6f667b284d927780fa1b079f72a19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IBlueprintRef, _ITaggableV2_4e6798f8)
 class CfnBlueprint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4135,6 +10673,12 @@ class CfnBlueprint(
         return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
 
     @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> BlueprintReference:
+        '''A reference to a Blueprint resource.'''
+        return typing.cast(BlueprintReference, jsii.get(self, "blueprintRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4229,157 +10773,7 @@ class CfnBlueprint(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnBlueprintProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "blueprint_name": "blueprintName",
-        "schema": "schema",
-        "type": "type",
-        "kms_encryption_context": "kmsEncryptionContext",
-        "kms_key_id": "kmsKeyId",
-        "tags": "tags",
-    },
-)
-class CfnBlueprintProps:
-    def __init__(
-        self,
-        *,
-        blueprint_name: builtins.str,
-        schema: typing.Any,
-        type: builtins.str,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBlueprint``.
-
-        :param blueprint_name: The blueprint's name.
-        :param schema: The blueprint's schema.
-        :param type: The blueprint's type.
-        :param kms_encryption_context: Name-value pairs to include as an encryption context.
-        :param kms_key_id: The AWS KMS key to use for encryption.
-        :param tags: List of Tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            # schema: Any
-            
-            cfn_blueprint_props = bedrock.CfnBlueprintProps(
-                blueprint_name="blueprintName",
-                schema=schema,
-                type="type",
-            
-                # the properties below are optional
-                kms_encryption_context={
-                    "kms_encryption_context_key": "kmsEncryptionContext"
-                },
-                kms_key_id="kmsKeyId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ecf5396de)
-            check_type(argname="argument blueprint_name", value=blueprint_name, expected_type=type_hints["blueprint_name"])
-            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument kms_encryption_context", value=kms_encryption_context, expected_type=type_hints["kms_encryption_context"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "blueprint_name": blueprint_name,
-            "schema": schema,
-            "type": type,
-        }
-        if kms_encryption_context is not None:
-            self._values["kms_encryption_context"] = kms_encryption_context
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def blueprint_name(self) -> builtins.str:
-        '''The blueprint's name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-blueprintname
-        '''
-        result = self._values.get("blueprint_name")
-        assert result is not None, "Required property 'blueprint_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schema(self) -> typing.Any:
-        '''The blueprint's schema.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-schema
-        '''
-        result = self._values.get("schema")
-        assert result is not None, "Required property 'schema' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The blueprint's type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kms_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Name-value pairs to include as an encryption context.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-kmsencryptioncontext
-        '''
-        result = self._values.get("kms_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS KMS key to use for encryption.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''List of Tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-blueprint.html#cfn-bedrock-blueprint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBlueprintProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDataAutomationProjectRef, _ITaggableV2_4e6798f8)
 class CfnDataAutomationProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4658,6 +11052,12 @@ class CfnDataAutomationProject(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAutomationProjectRef")
+    def data_automation_project_ref(self) -> DataAutomationProjectReference:
+        '''A reference to a DataAutomationProject resource.'''
+        return typing.cast(DataAutomationProjectReference, jsii.get(self, "dataAutomationProjectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="projectName")
@@ -7332,307 +13732,7 @@ class CfnDataAutomationProject(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "project_name": "projectName",
-        "custom_output_configuration": "customOutputConfiguration",
-        "kms_encryption_context": "kmsEncryptionContext",
-        "kms_key_id": "kmsKeyId",
-        "override_configuration": "overrideConfiguration",
-        "project_description": "projectDescription",
-        "standard_output_configuration": "standardOutputConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnDataAutomationProjectProps:
-    def __init__(
-        self,
-        *,
-        project_name: builtins.str,
-        custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.OverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        project_description: typing.Optional[builtins.str] = None,
-        standard_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.StandardOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataAutomationProject``.
-
-        :param project_name: The project's name.
-        :param custom_output_configuration: Blueprints to apply to objects processed by the project.
-        :param kms_encryption_context: The AWS KMS encryption context to use for encryption.
-        :param kms_key_id: The AWS KMS key to use for encryption.
-        :param override_configuration: Additional settings for the project.
-        :param project_description: The project's description.
-        :param standard_output_configuration: The project's standard output configuration.
-        :param tags: List of Tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_data_automation_project_props = bedrock.CfnDataAutomationProjectProps(
-                project_name="projectName",
-            
-                # the properties below are optional
-                custom_output_configuration=bedrock.CfnDataAutomationProject.CustomOutputConfigurationProperty(
-                    blueprints=[bedrock.CfnDataAutomationProject.BlueprintItemProperty(
-                        blueprint_arn="blueprintArn",
-            
-                        # the properties below are optional
-                        blueprint_stage="blueprintStage",
-                        blueprint_version="blueprintVersion"
-                    )]
-                ),
-                kms_encryption_context={
-                    "kms_encryption_context_key": "kmsEncryptionContext"
-                },
-                kms_key_id="kmsKeyId",
-                override_configuration=bedrock.CfnDataAutomationProject.OverrideConfigurationProperty(
-                    audio=bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
-                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
-                            state="state"
-                        )
-                    ),
-                    document=bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
-                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
-                            state="state"
-                        ),
-                        splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
-                            state="state"
-                        )
-                    ),
-                    image=bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
-                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
-                            state="state"
-                        )
-                    ),
-                    modality_routing=bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
-                        jpeg="jpeg",
-                        mov="mov",
-                        mp4="mp4",
-                        png="png"
-                    ),
-                    video=bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
-                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
-                            state="state"
-                        )
-                    )
-                ),
-                project_description="projectDescription",
-                standard_output_configuration=bedrock.CfnDataAutomationProject.StandardOutputConfigurationProperty(
-                    audio=bedrock.CfnDataAutomationProject.AudioStandardOutputConfigurationProperty(
-                        extraction=bedrock.CfnDataAutomationProject.AudioStandardExtractionProperty(
-                            category=bedrock.CfnDataAutomationProject.AudioExtractionCategoryProperty(
-                                state="state",
-            
-                                # the properties below are optional
-                                types=["types"]
-                            )
-                        ),
-                        generative_field=bedrock.CfnDataAutomationProject.AudioStandardGenerativeFieldProperty(
-                            state="state",
-            
-                            # the properties below are optional
-                            types=["types"]
-                        )
-                    ),
-                    document=bedrock.CfnDataAutomationProject.DocumentStandardOutputConfigurationProperty(
-                        extraction=bedrock.CfnDataAutomationProject.DocumentStandardExtractionProperty(
-                            bounding_box=bedrock.CfnDataAutomationProject.DocumentBoundingBoxProperty(
-                                state="state"
-                            ),
-                            granularity=bedrock.CfnDataAutomationProject.DocumentExtractionGranularityProperty(
-                                types=["types"]
-                            )
-                        ),
-                        generative_field=bedrock.CfnDataAutomationProject.DocumentStandardGenerativeFieldProperty(
-                            state="state"
-                        ),
-                        output_format=bedrock.CfnDataAutomationProject.DocumentOutputFormatProperty(
-                            additional_file_format=bedrock.CfnDataAutomationProject.DocumentOutputAdditionalFileFormatProperty(
-                                state="state"
-                            ),
-                            text_format=bedrock.CfnDataAutomationProject.DocumentOutputTextFormatProperty(
-                                types=["types"]
-                            )
-                        )
-                    ),
-                    image=bedrock.CfnDataAutomationProject.ImageStandardOutputConfigurationProperty(
-                        extraction=bedrock.CfnDataAutomationProject.ImageStandardExtractionProperty(
-                            bounding_box=bedrock.CfnDataAutomationProject.ImageBoundingBoxProperty(
-                                state="state"
-                            ),
-                            category=bedrock.CfnDataAutomationProject.ImageExtractionCategoryProperty(
-                                state="state",
-            
-                                # the properties below are optional
-                                types=["types"]
-                            )
-                        ),
-                        generative_field=bedrock.CfnDataAutomationProject.ImageStandardGenerativeFieldProperty(
-                            state="state",
-            
-                            # the properties below are optional
-                            types=["types"]
-                        )
-                    ),
-                    video=bedrock.CfnDataAutomationProject.VideoStandardOutputConfigurationProperty(
-                        extraction=bedrock.CfnDataAutomationProject.VideoStandardExtractionProperty(
-                            bounding_box=bedrock.CfnDataAutomationProject.VideoBoundingBoxProperty(
-                                state="state"
-                            ),
-                            category=bedrock.CfnDataAutomationProject.VideoExtractionCategoryProperty(
-                                state="state",
-            
-                                # the properties below are optional
-                                types=["types"]
-                            )
-                        ),
-                        generative_field=bedrock.CfnDataAutomationProject.VideoStandardGenerativeFieldProperty(
-                            state="state",
-            
-                            # the properties below are optional
-                            types=["types"]
-                        )
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acae67d63fc78195ace949c20ad8c3209d7c1972a999616c83dd5f909bb13ca5)
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-            check_type(argname="argument custom_output_configuration", value=custom_output_configuration, expected_type=type_hints["custom_output_configuration"])
-            check_type(argname="argument kms_encryption_context", value=kms_encryption_context, expected_type=type_hints["kms_encryption_context"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument override_configuration", value=override_configuration, expected_type=type_hints["override_configuration"])
-            check_type(argname="argument project_description", value=project_description, expected_type=type_hints["project_description"])
-            check_type(argname="argument standard_output_configuration", value=standard_output_configuration, expected_type=type_hints["standard_output_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "project_name": project_name,
-        }
-        if custom_output_configuration is not None:
-            self._values["custom_output_configuration"] = custom_output_configuration
-        if kms_encryption_context is not None:
-            self._values["kms_encryption_context"] = kms_encryption_context
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if override_configuration is not None:
-            self._values["override_configuration"] = override_configuration
-        if project_description is not None:
-            self._values["project_description"] = project_description
-        if standard_output_configuration is not None:
-            self._values["standard_output_configuration"] = standard_output_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def project_name(self) -> builtins.str:
-        '''The project's name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-projectname
-        '''
-        result = self._values.get("project_name")
-        assert result is not None, "Required property 'project_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_output_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.CustomOutputConfigurationProperty]]:
-        '''Blueprints to apply to objects processed by the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-customoutputconfiguration
-        '''
-        result = self._values.get("custom_output_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.CustomOutputConfigurationProperty]], result)
-
-    @builtins.property
-    def kms_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The AWS KMS encryption context to use for encryption.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-kmsencryptioncontext
-        '''
-        result = self._values.get("kms_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS KMS key to use for encryption.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def override_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.OverrideConfigurationProperty]]:
-        '''Additional settings for the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-overrideconfiguration
-        '''
-        result = self._values.get("override_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.OverrideConfigurationProperty]], result)
-
-    @builtins.property
-    def project_description(self) -> typing.Optional[builtins.str]:
-        '''The project's description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-projectdescription
-        '''
-        result = self._values.get("project_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def standard_output_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.StandardOutputConfigurationProperty]]:
-        '''The project's standard output configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-standardoutputconfiguration
-        '''
-        result = self._values.get("standard_output_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAutomationProject.StandardOutputConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''List of Tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationproject.html#cfn-bedrock-dataautomationproject-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataAutomationProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDataSourceRef)
 class CfnDataSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7993,6 +14093,12 @@ class CfnDataSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''A reference to a DataSource resource.'''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataSourceConfiguration")
@@ -11702,350 +17808,7 @@ class CfnDataSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_source_configuration": "dataSourceConfiguration",
-        "knowledge_base_id": "knowledgeBaseId",
-        "name": "name",
-        "data_deletion_policy": "dataDeletionPolicy",
-        "description": "description",
-        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
-        "vector_ingestion_configuration": "vectorIngestionConfiguration",
-    },
-)
-class CfnDataSourceProps:
-    def __init__(
-        self,
-        *,
-        data_source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        knowledge_base_id: builtins.str,
-        name: builtins.str,
-        data_deletion_policy: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataSource``.
-
-        :param data_source_configuration: The connection configuration for the data source.
-        :param knowledge_base_id: The unique identifier of the knowledge base to which the data source belongs.
-        :param name: The name of the data source.
-        :param data_deletion_policy: The data deletion policy for the data source.
-        :param description: The description of the data source.
-        :param server_side_encryption_configuration: Contains details about the configuration of the server-side encryption.
-        :param vector_ingestion_configuration: Contains details about how to ingest the documents in the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_data_source_props = bedrock.CfnDataSourceProps(
-                data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    confluence_configuration=bedrock.CfnDataSource.ConfluenceDataSourceConfigurationProperty(
-                        source_configuration=bedrock.CfnDataSource.ConfluenceSourceConfigurationProperty(
-                            auth_type="authType",
-                            credentials_secret_arn="credentialsSecretArn",
-                            host_type="hostType",
-                            host_url="hostUrl"
-                        ),
-            
-                        # the properties below are optional
-                        crawler_configuration=bedrock.CfnDataSource.ConfluenceCrawlerConfigurationProperty(
-                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
-                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
-                                        object_type="objectType",
-            
-                                        # the properties below are optional
-                                        exclusion_filters=["exclusionFilters"],
-                                        inclusion_filters=["inclusionFilters"]
-                                    )]
-                                )
-                            )
-                        )
-                    ),
-                    s3_configuration=bedrock.CfnDataSource.S3DataSourceConfigurationProperty(
-                        bucket_arn="bucketArn",
-            
-                        # the properties below are optional
-                        bucket_owner_account_id="bucketOwnerAccountId",
-                        inclusion_prefixes=["inclusionPrefixes"]
-                    ),
-                    salesforce_configuration=bedrock.CfnDataSource.SalesforceDataSourceConfigurationProperty(
-                        source_configuration=bedrock.CfnDataSource.SalesforceSourceConfigurationProperty(
-                            auth_type="authType",
-                            credentials_secret_arn="credentialsSecretArn",
-                            host_url="hostUrl"
-                        ),
-            
-                        # the properties below are optional
-                        crawler_configuration=bedrock.CfnDataSource.SalesforceCrawlerConfigurationProperty(
-                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
-                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
-                                        object_type="objectType",
-            
-                                        # the properties below are optional
-                                        exclusion_filters=["exclusionFilters"],
-                                        inclusion_filters=["inclusionFilters"]
-                                    )]
-                                )
-                            )
-                        )
-                    ),
-                    share_point_configuration=bedrock.CfnDataSource.SharePointDataSourceConfigurationProperty(
-                        source_configuration=bedrock.CfnDataSource.SharePointSourceConfigurationProperty(
-                            auth_type="authType",
-                            credentials_secret_arn="credentialsSecretArn",
-                            domain="domain",
-                            host_type="hostType",
-                            site_urls=["siteUrls"],
-            
-                            # the properties below are optional
-                            tenant_id="tenantId"
-                        ),
-            
-                        # the properties below are optional
-                        crawler_configuration=bedrock.CfnDataSource.SharePointCrawlerConfigurationProperty(
-                            filter_configuration=bedrock.CfnDataSource.CrawlFilterConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                pattern_object_filter=bedrock.CfnDataSource.PatternObjectFilterConfigurationProperty(
-                                    filters=[bedrock.CfnDataSource.PatternObjectFilterProperty(
-                                        object_type="objectType",
-            
-                                        # the properties below are optional
-                                        exclusion_filters=["exclusionFilters"],
-                                        inclusion_filters=["inclusionFilters"]
-                                    )]
-                                )
-                            )
-                        )
-                    ),
-                    web_configuration=bedrock.CfnDataSource.WebDataSourceConfigurationProperty(
-                        source_configuration=bedrock.CfnDataSource.WebSourceConfigurationProperty(
-                            url_configuration=bedrock.CfnDataSource.UrlConfigurationProperty(
-                                seed_urls=[bedrock.CfnDataSource.SeedUrlProperty(
-                                    url="url"
-                                )]
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        crawler_configuration=bedrock.CfnDataSource.WebCrawlerConfigurationProperty(
-                            crawler_limits=bedrock.CfnDataSource.WebCrawlerLimitsProperty(
-                                max_pages=123,
-                                rate_limit=123
-                            ),
-                            exclusion_filters=["exclusionFilters"],
-                            inclusion_filters=["inclusionFilters"],
-                            scope="scope",
-                            user_agent="userAgent",
-                            user_agent_header="userAgentHeader"
-                        )
-                    )
-                ),
-                knowledge_base_id="knowledgeBaseId",
-                name="name",
-            
-                # the properties below are optional
-                data_deletion_policy="dataDeletionPolicy",
-                description="description",
-                server_side_encryption_configuration=bedrock.CfnDataSource.ServerSideEncryptionConfigurationProperty(
-                    kms_key_arn="kmsKeyArn"
-                ),
-                vector_ingestion_configuration=bedrock.CfnDataSource.VectorIngestionConfigurationProperty(
-                    chunking_configuration=bedrock.CfnDataSource.ChunkingConfigurationProperty(
-                        chunking_strategy="chunkingStrategy",
-            
-                        # the properties below are optional
-                        fixed_size_chunking_configuration=bedrock.CfnDataSource.FixedSizeChunkingConfigurationProperty(
-                            max_tokens=123,
-                            overlap_percentage=123
-                        ),
-                        hierarchical_chunking_configuration=bedrock.CfnDataSource.HierarchicalChunkingConfigurationProperty(
-                            level_configurations=[bedrock.CfnDataSource.HierarchicalChunkingLevelConfigurationProperty(
-                                max_tokens=123
-                            )],
-                            overlap_tokens=123
-                        ),
-                        semantic_chunking_configuration=bedrock.CfnDataSource.SemanticChunkingConfigurationProperty(
-                            breakpoint_percentile_threshold=123,
-                            buffer_size=123,
-                            max_tokens=123
-                        )
-                    ),
-                    context_enrichment_configuration=bedrock.CfnDataSource.ContextEnrichmentConfigurationProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        bedrock_foundation_model_configuration=bedrock.CfnDataSource.BedrockFoundationModelContextEnrichmentConfigurationProperty(
-                            enrichment_strategy_configuration=bedrock.CfnDataSource.EnrichmentStrategyConfigurationProperty(
-                                method="method"
-                            ),
-                            model_arn="modelArn"
-                        )
-                    ),
-                    custom_transformation_configuration=bedrock.CfnDataSource.CustomTransformationConfigurationProperty(
-                        intermediate_storage=bedrock.CfnDataSource.IntermediateStorageProperty(
-                            s3_location=bedrock.CfnDataSource.S3LocationProperty(
-                                uri="uri"
-                            )
-                        ),
-                        transformations=[bedrock.CfnDataSource.TransformationProperty(
-                            step_to_apply="stepToApply",
-                            transformation_function=bedrock.CfnDataSource.TransformationFunctionProperty(
-                                transformation_lambda_configuration=bedrock.CfnDataSource.TransformationLambdaConfigurationProperty(
-                                    lambda_arn="lambdaArn"
-                                )
-                            )
-                        )]
-                    ),
-                    parsing_configuration=bedrock.CfnDataSource.ParsingConfigurationProperty(
-                        parsing_strategy="parsingStrategy",
-            
-                        # the properties below are optional
-                        bedrock_data_automation_configuration=bedrock.CfnDataSource.BedrockDataAutomationConfigurationProperty(
-                            parsing_modality="parsingModality"
-                        ),
-                        bedrock_foundation_model_configuration=bedrock.CfnDataSource.BedrockFoundationModelConfigurationProperty(
-                            model_arn="modelArn",
-            
-                            # the properties below are optional
-                            parsing_modality="parsingModality",
-                            parsing_prompt=bedrock.CfnDataSource.ParsingPromptProperty(
-                                parsing_prompt_text="parsingPromptText"
-                            )
-                        )
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c7b62664)
-            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
-            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument data_deletion_policy", value=data_deletion_policy, expected_type=type_hints["data_deletion_policy"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
-            check_type(argname="argument vector_ingestion_configuration", value=vector_ingestion_configuration, expected_type=type_hints["vector_ingestion_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_source_configuration": data_source_configuration,
-            "knowledge_base_id": knowledge_base_id,
-            "name": name,
-        }
-        if data_deletion_policy is not None:
-            self._values["data_deletion_policy"] = data_deletion_policy
-        if description is not None:
-            self._values["description"] = description
-        if server_side_encryption_configuration is not None:
-            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
-        if vector_ingestion_configuration is not None:
-            self._values["vector_ingestion_configuration"] = vector_ingestion_configuration
-
-    @builtins.property
-    def data_source_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceConfigurationProperty]:
-        '''The connection configuration for the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-datasourceconfiguration
-        '''
-        result = self._values.get("data_source_configuration")
-        assert result is not None, "Required property 'data_source_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceConfigurationProperty], result)
-
-    @builtins.property
-    def knowledge_base_id(self) -> builtins.str:
-        '''The unique identifier of the knowledge base to which the data source belongs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-knowledgebaseid
-        '''
-        result = self._values.get("knowledge_base_id")
-        assert result is not None, "Required property 'knowledge_base_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_deletion_policy(self) -> typing.Optional[builtins.str]:
-        '''The data deletion policy for the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-datadeletionpolicy
-        '''
-        result = self._values.get("data_deletion_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_side_encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.ServerSideEncryptionConfigurationProperty]]:
-        '''Contains details about the configuration of the server-side encryption.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-serversideencryptionconfiguration
-        '''
-        result = self._values.get("server_side_encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.ServerSideEncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def vector_ingestion_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.VectorIngestionConfigurationProperty]]:
-        '''Contains details about how to ingest the documents in the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-datasource.html#cfn-bedrock-datasource-vectoringestionconfiguration
-        '''
-        result = self._values.get("vector_ingestion_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.VectorIngestionConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IFlowRef, _ITaggableV2_4e6798f8)
 class CfnFlow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12464,6 +18227,12 @@ class CfnFlow(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''A reference to a Flow resource.'''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -17390,7 +23159,7 @@ class CfnFlow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IFlowAliasRef, _ITaggableV2_4e6798f8)
 class CfnFlowAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -17553,6 +23322,12 @@ class CfnFlowAlias(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowAliasRef")
+    def flow_alias_ref(self) -> FlowAliasReference:
+        '''A reference to a FlowAlias resource.'''
+        return typing.cast(FlowAliasReference, jsii.get(self, "flowAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -17782,608 +23557,7 @@ class CfnFlowAlias(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "flow_arn": "flowArn",
-        "name": "name",
-        "routing_configuration": "routingConfiguration",
-        "concurrency_configuration": "concurrencyConfiguration",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnFlowAliasProps:
-    def __init__(
-        self,
-        *,
-        flow_arn: builtins.str,
-        name: builtins.str,
-        routing_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        concurrency_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowAlias``.
-
-        :param flow_arn: The Amazon Resource Name (ARN) of the alias.
-        :param name: The name of the alias.
-        :param routing_configuration: A list of configurations about the versions that the alias maps to. Currently, you can only specify one.
-        :param concurrency_configuration: The configuration that specifies how nodes in the flow are executed concurrently.
-        :param description: A description of the alias.
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_flow_alias_props = bedrock.CfnFlowAliasProps(
-                flow_arn="flowArn",
-                name="name",
-                routing_configuration=[bedrock.CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty(
-                    flow_version="flowVersion"
-                )],
-            
-                # the properties below are optional
-                concurrency_configuration=bedrock.CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    max_concurrency=123
-                ),
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc38c23ad67fcb375dfaff403a32bd6897c077928003bee3845f452f8e08fb66)
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument routing_configuration", value=routing_configuration, expected_type=type_hints["routing_configuration"])
-            check_type(argname="argument concurrency_configuration", value=concurrency_configuration, expected_type=type_hints["concurrency_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "flow_arn": flow_arn,
-            "name": name,
-            "routing_configuration": routing_configuration,
-        }
-        if concurrency_configuration is not None:
-            self._values["concurrency_configuration"] = concurrency_configuration
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def flow_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        assert result is not None, "Required property 'flow_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def routing_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty]]]:
-        '''A list of configurations about the versions that the alias maps to.
-
-        Currently, you can only specify one.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-routingconfiguration
-        '''
-        result = self._values.get("routing_configuration")
-        assert result is not None, "Required property 'routing_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty]]], result)
-
-    @builtins.property
-    def concurrency_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty]]:
-        '''The configuration that specifies how nodes in the flow are executed concurrently.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-concurrencyconfiguration
-        '''
-        result = self._values.get("concurrency_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowalias.html#cfn-bedrock-flowalias-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "execution_role_arn": "executionRoleArn",
-        "name": "name",
-        "customer_encryption_key_arn": "customerEncryptionKeyArn",
-        "definition": "definition",
-        "definition_s3_location": "definitionS3Location",
-        "definition_string": "definitionString",
-        "definition_substitutions": "definitionSubstitutions",
-        "description": "description",
-        "tags": "tags",
-        "test_alias_tags": "testAliasTags",
-    },
-)
-class CfnFlowProps:
-    def __init__(
-        self,
-        *,
-        execution_role_arn: builtins.str,
-        name: builtins.str,
-        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-        definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_string: typing.Optional[builtins.str] = None,
-        definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlow``.
-
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the service role with permissions to create a flow. For more information, see `Create a service row for flows <https://docs.aws.amazon.com/bedrock/latest/userguide/flows-permissions.html>`_ in the Amazon Bedrock User Guide.
-        :param name: The name of the flow.
-        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the KMS key that the flow is encrypted with.
-        :param definition: The definition of the nodes and connections between the nodes in the flow.
-        :param definition_s3_location: The Amazon S3 location of the flow definition.
-        :param definition_string: The definition of the flow as a JSON-formatted string. The string must match the format in `FlowDefinition <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flowdefinition.html>`_ .
-        :param definition_substitutions: A map that specifies the mappings for placeholder variables in the prompt flow definition. This enables the customer to inject values obtained at runtime. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Only supported with the ``DefinitionString`` and ``DefinitionS3Location`` fields. Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
-        :param description: A description of the flow.
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-        :param test_alias_tags: A map of tag keys and values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            # additional_model_request_fields: Any
-            # collector: Any
-            # flow_definition_property_: bedrock.CfnFlow.FlowDefinitionProperty
-            # input: Any
-            # iterator: Any
-            # loop_input: Any
-            # output: Any
-            
-            cfn_flow_props = bedrock.CfnFlowProps(
-                execution_role_arn="executionRoleArn",
-                name="name",
-            
-                # the properties below are optional
-                customer_encryption_key_arn="customerEncryptionKeyArn",
-                definition=bedrock.CfnFlow.FlowDefinitionProperty(
-                    connections=[bedrock.CfnFlow.FlowConnectionProperty(
-                        name="name",
-                        source="source",
-                        target="target",
-                        type="type",
-            
-                        # the properties below are optional
-                        configuration=bedrock.CfnFlow.FlowConnectionConfigurationProperty(
-                            conditional=bedrock.CfnFlow.FlowConditionalConnectionConfigurationProperty(
-                                condition="condition"
-                            ),
-                            data=bedrock.CfnFlow.FlowDataConnectionConfigurationProperty(
-                                source_output="sourceOutput",
-                                target_input="targetInput"
-                            )
-                        )
-                    )],
-                    nodes=[bedrock.CfnFlow.FlowNodeProperty(
-                        name="name",
-                        type="type",
-            
-                        # the properties below are optional
-                        configuration=bedrock.CfnFlow.FlowNodeConfigurationProperty(
-                            agent=bedrock.CfnFlow.AgentFlowNodeConfigurationProperty(
-                                agent_alias_arn="agentAliasArn"
-                            ),
-                            collector=collector,
-                            condition=bedrock.CfnFlow.ConditionFlowNodeConfigurationProperty(
-                                conditions=[bedrock.CfnFlow.FlowConditionProperty(
-                                    name="name",
-            
-                                    # the properties below are optional
-                                    expression="expression"
-                                )]
-                            ),
-                            inline_code=bedrock.CfnFlow.InlineCodeFlowNodeConfigurationProperty(
-                                code="code",
-                                language="language"
-                            ),
-                            input=input,
-                            iterator=iterator,
-                            knowledge_base=bedrock.CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty(
-                                knowledge_base_id="knowledgeBaseId",
-            
-                                # the properties below are optional
-                                guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
-                                    guardrail_identifier="guardrailIdentifier",
-                                    guardrail_version="guardrailVersion"
-                                ),
-                                inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
-                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
-                                        max_tokens=123,
-                                        stop_sequences=["stopSequences"],
-                                        temperature=123,
-                                        top_p=123
-                                    )
-                                ),
-                                model_id="modelId",
-                                number_of_results=123,
-                                orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
-                                    additional_model_request_fields=additional_model_request_fields,
-                                    inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
-                                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
-                                            max_tokens=123,
-                                            stop_sequences=["stopSequences"],
-                                            temperature=123,
-                                            top_p=123
-                                        )
-                                    ),
-                                    performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
-                                        latency="latency"
-                                    ),
-                                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
-                                        text_prompt_template="textPromptTemplate"
-                                    )
-                                ),
-                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
-                                    text_prompt_template="textPromptTemplate"
-                                ),
-                                reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
-                                    type="type",
-            
-                                    # the properties below are optional
-                                    bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
-                                        model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
-                                            model_arn="modelArn",
-            
-                                            # the properties below are optional
-                                            additional_model_request_fields=additional_model_request_fields
-                                        ),
-            
-                                        # the properties below are optional
-                                        metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
-                                            selection_mode="selectionMode",
-            
-                                            # the properties below are optional
-                                            selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
-                                                fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
-                                                    field_name="fieldName"
-                                                )],
-                                                fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
-                                                    field_name="fieldName"
-                                                )]
-                                            )
-                                        ),
-                                        number_of_reranked_results=123
-                                    )
-                                )
-                            ),
-                            lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
-                                lambda_arn="lambdaArn"
-                            ),
-                            lex=bedrock.CfnFlow.LexFlowNodeConfigurationProperty(
-                                bot_alias_arn="botAliasArn",
-                                locale_id="localeId"
-                            ),
-                            loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
-                                definition=flow_definition_property_
-                            ),
-                            loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
-                                continue_condition=bedrock.CfnFlow.FlowConditionProperty(
-                                    name="name",
-            
-                                    # the properties below are optional
-                                    expression="expression"
-                                ),
-            
-                                # the properties below are optional
-                                max_iterations=123
-                            ),
-                            loop_input=loop_input,
-                            output=output,
-                            prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
-                                source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
-                                    inline=bedrock.CfnFlow.PromptFlowNodeInlineConfigurationProperty(
-                                        model_id="modelId",
-                                        template_configuration=bedrock.CfnFlow.PromptTemplateConfigurationProperty(
-                                            text=bedrock.CfnFlow.TextPromptTemplateConfigurationProperty(
-                                                text="text",
-            
-                                                # the properties below are optional
-                                                input_variables=[bedrock.CfnFlow.PromptInputVariableProperty(
-                                                    name="name"
-                                                )]
-                                            )
-                                        ),
-                                        template_type="templateType",
-            
-                                        # the properties below are optional
-                                        inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
-                                            text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
-                                                max_tokens=123,
-                                                stop_sequences=["stopSequences"],
-                                                temperature=123,
-                                                top_p=123
-                                            )
-                                        )
-                                    ),
-                                    resource=bedrock.CfnFlow.PromptFlowNodeResourceConfigurationProperty(
-                                        prompt_arn="promptArn"
-                                    )
-                                ),
-            
-                                # the properties below are optional
-                                guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
-                                    guardrail_identifier="guardrailIdentifier",
-                                    guardrail_version="guardrailVersion"
-                                )
-                            ),
-                            retrieval=bedrock.CfnFlow.RetrievalFlowNodeConfigurationProperty(
-                                service_configuration=bedrock.CfnFlow.RetrievalFlowNodeServiceConfigurationProperty(
-                                    s3=bedrock.CfnFlow.RetrievalFlowNodeS3ConfigurationProperty(
-                                        bucket_name="bucketName"
-                                    )
-                                )
-                            ),
-                            storage=bedrock.CfnFlow.StorageFlowNodeConfigurationProperty(
-                                service_configuration=bedrock.CfnFlow.StorageFlowNodeServiceConfigurationProperty(
-                                    s3=bedrock.CfnFlow.StorageFlowNodeS3ConfigurationProperty(
-                                        bucket_name="bucketName"
-                                    )
-                                )
-                            )
-                        ),
-                        inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
-                            expression="expression",
-                            name="name",
-                            type="type",
-            
-                            # the properties below are optional
-                            category="category"
-                        )],
-                        outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
-                            name="name",
-                            type="type"
-                        )]
-                    )]
-                ),
-                definition_s3_location=bedrock.CfnFlow.S3LocationProperty(
-                    bucket="bucket",
-                    key="key",
-            
-                    # the properties below are optional
-                    version="version"
-                ),
-                definition_string="definitionString",
-                definition_substitutions={
-                    "definition_substitutions_key": "definitionSubstitutions"
-                },
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                },
-                test_alias_tags={
-                    "test_alias_tags_key": "testAliasTags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bad8ab7f592d2682a6b9c1a504f97fac9b6e0a7bbbfcf4968c42f3a954576115)
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
-            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
-            check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
-            check_type(argname="argument definition_string", value=definition_string, expected_type=type_hints["definition_string"])
-            check_type(argname="argument definition_substitutions", value=definition_substitutions, expected_type=type_hints["definition_substitutions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument test_alias_tags", value=test_alias_tags, expected_type=type_hints["test_alias_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "execution_role_arn": execution_role_arn,
-            "name": name,
-        }
-        if customer_encryption_key_arn is not None:
-            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
-        if definition is not None:
-            self._values["definition"] = definition
-        if definition_s3_location is not None:
-            self._values["definition_s3_location"] = definition_s3_location
-        if definition_string is not None:
-            self._values["definition_string"] = definition_string
-        if definition_substitutions is not None:
-            self._values["definition_substitutions"] = definition_substitutions
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if test_alias_tags is not None:
-            self._values["test_alias_tags"] = test_alias_tags
-
-    @builtins.property
-    def execution_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the service role with permissions to create a flow.
-
-        For more information, see `Create a service row for flows <https://docs.aws.amazon.com/bedrock/latest/userguide/flows-permissions.html>`_ in the Amazon Bedrock User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        assert result is not None, "Required property 'execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the KMS key that the flow is encrypted with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-customerencryptionkeyarn
-        '''
-        result = self._values.get("customer_encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def definition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.FlowDefinitionProperty]]:
-        '''The definition of the nodes and connections between the nodes in the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definition
-        '''
-        result = self._values.get("definition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.FlowDefinitionProperty]], result)
-
-    @builtins.property
-    def definition_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.S3LocationProperty]]:
-        '''The Amazon S3 location of the flow definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitions3location
-        '''
-        result = self._values.get("definition_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.S3LocationProperty]], result)
-
-    @builtins.property
-    def definition_string(self) -> typing.Optional[builtins.str]:
-        '''The definition of the flow as a JSON-formatted string.
-
-        The string must match the format in `FlowDefinition <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flowdefinition.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitionstring
-        '''
-        result = self._values.get("definition_string")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def definition_substitutions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]]:
-        '''A map that specifies the mappings for placeholder variables in the prompt flow definition.
-
-        This enables the customer to inject values obtained at runtime. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Only supported with the ``DefinitionString`` and ``DefinitionS3Location`` fields.
-
-        Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-definitionsubstitutions
-        '''
-        result = self._values.get("definition_substitutions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def test_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''A map of tag keys and values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flow.html#cfn-bedrock-flow-testaliastags
-        '''
-        result = self._values.get("test_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowVersionRef)
 class CfnFlowVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -18541,6 +23715,12 @@ class CfnFlowVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowVersionRef")
+    def flow_version_ref(self) -> FlowVersionReference:
+        '''A reference to a FlowVersion resource.'''
+        return typing.cast(FlowVersionReference, jsii.get(self, "flowVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -23154,81 +28334,7 @@ class CfnFlowVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={"flow_arn": "flowArn", "description": "description"},
-)
-class CfnFlowVersionProps:
-    def __init__(
-        self,
-        *,
-        flow_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowVersion``.
-
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow that the version belongs to.
-        :param description: The description of the flow version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_flow_version_props = bedrock.CfnFlowVersionProps(
-                flow_arn="flowArn",
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdb1a288ced402610e5fe560660fb73b3b45c72bbc494b92403d24f50cdccfb8)
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "flow_arn": flow_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def flow_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the flow that the version belongs to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html#cfn-bedrock-flowversion-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        assert result is not None, "Required property 'flow_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the flow version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html#cfn-bedrock-flowversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IGuardrailRef, _ITaggableV2_4e6798f8)
 class CfnGuardrail(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -23443,6 +28549,12 @@ class CfnGuardrail(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailRef")
+    def guardrail_ref(self) -> GuardrailReference:
+        '''A reference to a Guardrail resource.'''
+        return typing.cast(GuardrailReference, jsii.get(self, "guardrailRef"))
 
     @builtins.property
     @jsii.member(jsii_name="blockedInputMessaging")
@@ -25524,256 +30636,7 @@ class CfnGuardrail(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrailProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "blocked_input_messaging": "blockedInputMessaging",
-        "blocked_outputs_messaging": "blockedOutputsMessaging",
-        "name": "name",
-        "content_policy_config": "contentPolicyConfig",
-        "contextual_grounding_policy_config": "contextualGroundingPolicyConfig",
-        "cross_region_config": "crossRegionConfig",
-        "description": "description",
-        "kms_key_arn": "kmsKeyArn",
-        "sensitive_information_policy_config": "sensitiveInformationPolicyConfig",
-        "tags": "tags",
-        "topic_policy_config": "topicPolicyConfig",
-        "word_policy_config": "wordPolicyConfig",
-    },
-)
-class CfnGuardrailProps:
-    def __init__(
-        self,
-        *,
-        blocked_input_messaging: builtins.str,
-        blocked_outputs_messaging: builtins.str,
-        name: builtins.str,
-        content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.TopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.WordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGuardrail``.
-
-        :param blocked_input_messaging: The message to return when the guardrail blocks a prompt.
-        :param blocked_outputs_messaging: The message to return when the guardrail blocks a model response.
-        :param name: The name of the guardrail.
-        :param content_policy_config: The content filter policies to configure for the guardrail.
-        :param contextual_grounding_policy_config: Contextual grounding policy config for a guardrail.
-        :param cross_region_config: The system-defined guardrail profile that you're using with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases. For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
-        :param description: A description of the guardrail.
-        :param kms_key_arn: The ARN of the AWS KMS key that you use to encrypt the guardrail.
-        :param sensitive_information_policy_config: The sensitive information policy to configure for the guardrail.
-        :param tags: The tags that you want to attach to the guardrail.
-        :param topic_policy_config: The topic policies to configure for the guardrail.
-        :param word_policy_config: The word policy you configure for the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html
-        :exampleMetadata: fixture=default infused
-
-        Example::
-
-            import aws_cdk.aws_bedrock as bedrockl1
-            
-            # Import a guardrail created through the L1 CDK CfnGuardrail construct
-            l1guardrail = bedrockl1.CfnGuardrail(self, "MyCfnGuardrail",
-                blocked_input_messaging="blockedInputMessaging",
-                blocked_outputs_messaging="blockedOutputsMessaging",
-                name="namemycfnguardrails",
-                word_policy_config=bedrockl1.CfnGuardrail.WordPolicyConfigProperty(
-                    words_config=[bedrockl1.CfnGuardrail.WordConfigProperty(
-                        text="drugs"
-                    )
-                    ]
-                )
-            )
-            
-            imported_guardrail = bedrock.Guardrail.from_cfn_guardrail(l1guardrail)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d23606a6cea)
-            check_type(argname="argument blocked_input_messaging", value=blocked_input_messaging, expected_type=type_hints["blocked_input_messaging"])
-            check_type(argname="argument blocked_outputs_messaging", value=blocked_outputs_messaging, expected_type=type_hints["blocked_outputs_messaging"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument content_policy_config", value=content_policy_config, expected_type=type_hints["content_policy_config"])
-            check_type(argname="argument contextual_grounding_policy_config", value=contextual_grounding_policy_config, expected_type=type_hints["contextual_grounding_policy_config"])
-            check_type(argname="argument cross_region_config", value=cross_region_config, expected_type=type_hints["cross_region_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument sensitive_information_policy_config", value=sensitive_information_policy_config, expected_type=type_hints["sensitive_information_policy_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument topic_policy_config", value=topic_policy_config, expected_type=type_hints["topic_policy_config"])
-            check_type(argname="argument word_policy_config", value=word_policy_config, expected_type=type_hints["word_policy_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "blocked_input_messaging": blocked_input_messaging,
-            "blocked_outputs_messaging": blocked_outputs_messaging,
-            "name": name,
-        }
-        if content_policy_config is not None:
-            self._values["content_policy_config"] = content_policy_config
-        if contextual_grounding_policy_config is not None:
-            self._values["contextual_grounding_policy_config"] = contextual_grounding_policy_config
-        if cross_region_config is not None:
-            self._values["cross_region_config"] = cross_region_config
-        if description is not None:
-            self._values["description"] = description
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if sensitive_information_policy_config is not None:
-            self._values["sensitive_information_policy_config"] = sensitive_information_policy_config
-        if tags is not None:
-            self._values["tags"] = tags
-        if topic_policy_config is not None:
-            self._values["topic_policy_config"] = topic_policy_config
-        if word_policy_config is not None:
-            self._values["word_policy_config"] = word_policy_config
-
-    @builtins.property
-    def blocked_input_messaging(self) -> builtins.str:
-        '''The message to return when the guardrail blocks a prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-blockedinputmessaging
-        '''
-        result = self._values.get("blocked_input_messaging")
-        assert result is not None, "Required property 'blocked_input_messaging' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def blocked_outputs_messaging(self) -> builtins.str:
-        '''The message to return when the guardrail blocks a model response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-blockedoutputsmessaging
-        '''
-        result = self._values.get("blocked_outputs_messaging")
-        assert result is not None, "Required property 'blocked_outputs_messaging' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def content_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContentPolicyConfigProperty]]:
-        '''The content filter policies to configure for the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-contentpolicyconfig
-        '''
-        result = self._values.get("content_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContentPolicyConfigProperty]], result)
-
-    @builtins.property
-    def contextual_grounding_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContextualGroundingPolicyConfigProperty]]:
-        '''Contextual grounding policy config for a guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-contextualgroundingpolicyconfig
-        '''
-        result = self._values.get("contextual_grounding_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.ContextualGroundingPolicyConfigProperty]], result)
-
-    @builtins.property
-    def cross_region_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]]:
-        '''The system-defined guardrail profile that you're using with your guardrail.
-
-        Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
-
-        For more information, see the `Amazon Bedrock User Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-crossregionconfig
-        '''
-        result = self._values.get("cross_region_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.GuardrailCrossRegionConfigProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the AWS KMS key that you use to encrypt the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sensitive_information_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.SensitiveInformationPolicyConfigProperty]]:
-        '''The sensitive information policy to configure for the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-sensitiveinformationpolicyconfig
-        '''
-        result = self._values.get("sensitive_information_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.SensitiveInformationPolicyConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags that you want to attach to the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def topic_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.TopicPolicyConfigProperty]]:
-        '''The topic policies to configure for the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-topicpolicyconfig
-        '''
-        result = self._values.get("topic_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.TopicPolicyConfigProperty]], result)
-
-    @builtins.property
-    def word_policy_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.WordPolicyConfigProperty]]:
-        '''The word policy you configure for the guardrail.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrail.html#cfn-bedrock-guardrail-wordpolicyconfig
-        '''
-        result = self._values.get("word_policy_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardrail.WordPolicyConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGuardrailProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IGuardrailVersionRef)
 class CfnGuardrailVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -25888,6 +30751,12 @@ class CfnGuardrailVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="guardrailVersionRef")
+    def guardrail_version_ref(self) -> GuardrailVersionReference:
+        '''A reference to a GuardrailVersion resource.'''
+        return typing.cast(GuardrailVersionReference, jsii.get(self, "guardrailVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="guardrailIdentifier")
     def guardrail_identifier(self) -> builtins.str:
         '''The unique identifier of the guardrail.'''
@@ -25914,86 +30783,7 @@ class CfnGuardrailVersion(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrailVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "guardrail_identifier": "guardrailIdentifier",
-        "description": "description",
-    },
-)
-class CfnGuardrailVersionProps:
-    def __init__(
-        self,
-        *,
-        guardrail_identifier: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGuardrailVersion``.
-
-        :param guardrail_identifier: The unique identifier of the guardrail. This can be an ID or the ARN.
-        :param description: A description of the guardrail version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_guardrail_version_props = bedrock.CfnGuardrailVersionProps(
-                guardrail_identifier="guardrailIdentifier",
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e07f1ed805e6d73c6e83274e605414f148ca0a10b6065c654e3b545023b25f84)
-            check_type(argname="argument guardrail_identifier", value=guardrail_identifier, expected_type=type_hints["guardrail_identifier"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "guardrail_identifier": guardrail_identifier,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def guardrail_identifier(self) -> builtins.str:
-        '''The unique identifier of the guardrail.
-
-        This can be an ID or the ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html#cfn-bedrock-guardrailversion-guardrailidentifier
-        '''
-        result = self._values.get("guardrail_identifier")
-        assert result is not None, "Required property 'guardrail_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the guardrail version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-guardrailversion.html#cfn-bedrock-guardrailversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGuardrailVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IIntelligentPromptRouterRef, _ITaggableV2_4e6798f8)
 class CfnIntelligentPromptRouter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -26154,6 +30944,12 @@ class CfnIntelligentPromptRouter(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="intelligentPromptRouterRef")
+    def intelligent_prompt_router_ref(self) -> IntelligentPromptRouterReference:
+        '''A reference to a IntelligentPromptRouter resource.'''
+        return typing.cast(IntelligentPromptRouterReference, jsii.get(self, "intelligentPromptRouterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="fallbackModel")
@@ -26353,169 +31149,7 @@ class CfnIntelligentPromptRouter(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnIntelligentPromptRouterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "fallback_model": "fallbackModel",
-        "models": "models",
-        "prompt_router_name": "promptRouterName",
-        "routing_criteria": "routingCriteria",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnIntelligentPromptRouterProps:
-    def __init__(
-        self,
-        *,
-        fallback_model: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]],
-        models: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        prompt_router_name: builtins.str,
-        routing_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.RoutingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIntelligentPromptRouter``.
-
-        :param fallback_model: The default model to use when the routing criteria is not met.
-        :param models: A list of foundation models that the prompt router can route requests to. At least one model must be specified.
-        :param prompt_router_name: The name of the prompt router. The name must be unique within your AWS account in the current region.
-        :param routing_criteria: Routing criteria for a prompt router.
-        :param description: An optional description of the prompt router to help identify its purpose.
-        :param tags: An array of key-value pairs to apply to this resource as tags. You can use tags to categorize and manage your AWS resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_intelligent_prompt_router_props = bedrock.CfnIntelligentPromptRouterProps(
-                fallback_model=bedrock.CfnIntelligentPromptRouter.PromptRouterTargetModelProperty(
-                    model_arn="modelArn"
-                ),
-                models=[bedrock.CfnIntelligentPromptRouter.PromptRouterTargetModelProperty(
-                    model_arn="modelArn"
-                )],
-                prompt_router_name="promptRouterName",
-                routing_criteria=bedrock.CfnIntelligentPromptRouter.RoutingCriteriaProperty(
-                    response_quality_difference=123
-                ),
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac97327bebd43ad8b942919c24917e1378d3c55caa8d2363928873ac029be7da)
-            check_type(argname="argument fallback_model", value=fallback_model, expected_type=type_hints["fallback_model"])
-            check_type(argname="argument models", value=models, expected_type=type_hints["models"])
-            check_type(argname="argument prompt_router_name", value=prompt_router_name, expected_type=type_hints["prompt_router_name"])
-            check_type(argname="argument routing_criteria", value=routing_criteria, expected_type=type_hints["routing_criteria"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "fallback_model": fallback_model,
-            "models": models,
-            "prompt_router_name": prompt_router_name,
-            "routing_criteria": routing_criteria,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def fallback_model(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.PromptRouterTargetModelProperty]:
-        '''The default model to use when the routing criteria is not met.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-fallbackmodel
-        '''
-        result = self._values.get("fallback_model")
-        assert result is not None, "Required property 'fallback_model' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.PromptRouterTargetModelProperty], result)
-
-    @builtins.property
-    def models(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.PromptRouterTargetModelProperty]]]:
-        '''A list of foundation models that the prompt router can route requests to.
-
-        At least one model must be specified.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-models
-        '''
-        result = self._values.get("models")
-        assert result is not None, "Required property 'models' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.PromptRouterTargetModelProperty]]], result)
-
-    @builtins.property
-    def prompt_router_name(self) -> builtins.str:
-        '''The name of the prompt router.
-
-        The name must be unique within your AWS account in the current region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-promptroutername
-        '''
-        result = self._values.get("prompt_router_name")
-        assert result is not None, "Required property 'prompt_router_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def routing_criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.RoutingCriteriaProperty]:
-        '''Routing criteria for a prompt router.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-routingcriteria
-        '''
-        result = self._values.get("routing_criteria")
-        assert result is not None, "Required property 'routing_criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnIntelligentPromptRouter.RoutingCriteriaProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the prompt router to help identify its purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource as tags.
-
-        You can use tags to categorize and manage your AWS resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-intelligentpromptrouter.html#cfn-bedrock-intelligentpromptrouter-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIntelligentPromptRouterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IKnowledgeBaseRef, _ITaggableV2_4e6798f8)
 class CfnKnowledgeBase(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -26858,6 +31492,12 @@ class CfnKnowledgeBase(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> KnowledgeBaseReference:
+        '''A reference to a KnowledgeBase resource.'''
+        return typing.cast(KnowledgeBaseReference, jsii.get(self, "knowledgeBaseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="knowledgeBaseConfiguration")
@@ -30571,322 +35211,7 @@ class CfnKnowledgeBase(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBaseProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "knowledge_base_configuration": "knowledgeBaseConfiguration",
-        "name": "name",
-        "role_arn": "roleArn",
-        "description": "description",
-        "storage_configuration": "storageConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnKnowledgeBaseProps:
-    def __init__(
-        self,
-        *,
-        knowledge_base_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.KnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        role_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnKnowledgeBase``.
-
-        :param knowledge_base_configuration: Contains details about the embeddings configuration of the knowledge base.
-        :param name: The name of the knowledge base.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the knowledge base.
-        :param description: The description of the knowledge base associated with the inline agent.
-        :param storage_configuration: Contains details about the storage configuration of the knowledge base.
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_knowledge_base_props = bedrock.CfnKnowledgeBaseProps(
-                knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
-                        kendra_index_arn="kendraIndexArn"
-                    ),
-                    sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftConfigurationProperty(
-                            query_engine_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                provisioned_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedConfigurationProperty(
-                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedAuthConfigurationProperty(
-                                        type="type",
-            
-                                        # the properties below are optional
-                                        database_user="databaseUser",
-                                        username_password_secret_arn="usernamePasswordSecretArn"
-                                    ),
-                                    cluster_identifier="clusterIdentifier"
-                                ),
-                                serverless_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessConfigurationProperty(
-                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessAuthConfigurationProperty(
-                                        type="type",
-            
-                                        # the properties below are optional
-                                        username_password_secret_arn="usernamePasswordSecretArn"
-                                    ),
-                                    workgroup_arn="workgroupArn"
-                                )
-                            ),
-                            storage_configurations=[bedrock.CfnKnowledgeBase.RedshiftQueryEngineStorageConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                aws_data_catalog_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineAwsDataCatalogStorageConfigurationProperty(
-                                    table_names=["tableNames"]
-                                ),
-                                redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineRedshiftStorageConfigurationProperty(
-                                    database_name="databaseName"
-                                )
-                            )],
-            
-                            # the properties below are optional
-                            query_generation_configuration=bedrock.CfnKnowledgeBase.QueryGenerationConfigurationProperty(
-                                execution_timeout_seconds=123,
-                                generation_context=bedrock.CfnKnowledgeBase.QueryGenerationContextProperty(
-                                    curated_queries=[bedrock.CfnKnowledgeBase.CuratedQueryProperty(
-                                        natural_language="naturalLanguage",
-                                        sql="sql"
-                                    )],
-                                    tables=[bedrock.CfnKnowledgeBase.QueryGenerationTableProperty(
-                                        name="name",
-            
-                                        # the properties below are optional
-                                        columns=[bedrock.CfnKnowledgeBase.QueryGenerationColumnProperty(
-                                            description="description",
-                                            inclusion="inclusion",
-                                            name="name"
-                                        )],
-                                        description="description",
-                                        inclusion="inclusion"
-                                    )]
-                                )
-                            )
-                        )
-                    ),
-                    vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
-                        embedding_model_arn="embeddingModelArn",
-            
-                        # the properties below are optional
-                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
-                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
-                                dimensions=123,
-                                embedding_data_type="embeddingDataType"
-                            )
-                        ),
-                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
-            
-                                # the properties below are optional
-                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                                    uri="uri"
-                                )
-                            )]
-                        )
-                    )
-                ),
-                name="name",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                description="description",
-                storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    mongo_db_atlas_configuration=bedrock.CfnKnowledgeBase.MongoDbAtlasConfigurationProperty(
-                        collection_name="collectionName",
-                        credentials_secret_arn="credentialsSecretArn",
-                        database_name="databaseName",
-                        endpoint="endpoint",
-                        field_mapping=bedrock.CfnKnowledgeBase.MongoDbAtlasFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName",
-            
-                        # the properties below are optional
-                        endpoint_service_name="endpointServiceName",
-                        text_index_name="textIndexName"
-                    ),
-                    neptune_analytics_configuration=bedrock.CfnKnowledgeBase.NeptuneAnalyticsConfigurationProperty(
-                        field_mapping=bedrock.CfnKnowledgeBase.NeptuneAnalyticsFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField"
-                        ),
-                        graph_arn="graphArn"
-                    ),
-                    opensearch_managed_cluster_configuration=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterConfigurationProperty(
-                        domain_arn="domainArn",
-                        domain_endpoint="domainEndpoint",
-                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName"
-                    ),
-                    opensearch_serverless_configuration=bedrock.CfnKnowledgeBase.OpenSearchServerlessConfigurationProperty(
-                        collection_arn="collectionArn",
-                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchServerlessFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName"
-                    ),
-                    pinecone_configuration=bedrock.CfnKnowledgeBase.PineconeConfigurationProperty(
-                        connection_string="connectionString",
-                        credentials_secret_arn="credentialsSecretArn",
-                        field_mapping=bedrock.CfnKnowledgeBase.PineconeFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField"
-                        ),
-            
-                        # the properties below are optional
-                        namespace="namespace"
-                    ),
-                    rds_configuration=bedrock.CfnKnowledgeBase.RdsConfigurationProperty(
-                        credentials_secret_arn="credentialsSecretArn",
-                        database_name="databaseName",
-                        field_mapping=bedrock.CfnKnowledgeBase.RdsFieldMappingProperty(
-                            metadata_field="metadataField",
-                            primary_key_field="primaryKeyField",
-                            text_field="textField",
-                            vector_field="vectorField",
-            
-                            # the properties below are optional
-                            custom_metadata_field="customMetadataField"
-                        ),
-                        resource_arn="resourceArn",
-                        table_name="tableName"
-                    )
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f)
-            check_type(argname="argument knowledge_base_configuration", value=knowledge_base_configuration, expected_type=type_hints["knowledge_base_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "knowledge_base_configuration": knowledge_base_configuration,
-            "name": name,
-            "role_arn": role_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if storage_configuration is not None:
-            self._values["storage_configuration"] = storage_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def knowledge_base_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.KnowledgeBaseConfigurationProperty]:
-        '''Contains details about the embeddings configuration of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-knowledgebaseconfiguration
-        '''
-        result = self._values.get("knowledge_base_configuration")
-        assert result is not None, "Required property 'knowledge_base_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.KnowledgeBaseConfigurationProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role with permissions to invoke API operations on the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the knowledge base associated with the inline agent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def storage_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.StorageConfigurationProperty]]:
-        '''Contains details about the storage configuration of the knowledge base.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-storageconfiguration
-        '''
-        result = self._values.get("storage_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnKnowledgeBase.StorageConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html#cfn-bedrock-knowledgebase-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnKnowledgeBaseProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPromptRef, _ITaggableV2_4e6798f8)
 class CfnPrompt(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -31136,6 +35461,12 @@ class CfnPrompt(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> PromptReference:
+        '''A reference to a Prompt resource.'''
+        return typing.cast(PromptReference, jsii.get(self, "promptRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -33200,251 +37531,7 @@ class CfnPrompt(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnPromptProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "customer_encryption_key_arn": "customerEncryptionKeyArn",
-        "default_variant": "defaultVariant",
-        "description": "description",
-        "tags": "tags",
-        "variants": "variants",
-    },
-)
-class CfnPromptProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-        default_variant: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrompt.PromptVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPrompt``.
-
-        :param name: The name of the prompt.
-        :param customer_encryption_key_arn: The Amazon Resource Name (ARN) of the KMS key that the prompt is encrypted with.
-        :param default_variant: The name of the default variant for the prompt. This value must match the ``name`` field in the relevant `PromptVariant <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PromptVariant.html>`_ object.
-        :param description: The description of the prompt.
-        :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-        :param variants: A list of objects, each containing details about a variant of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            # additional_model_request_fields: Any
-            # any: Any
-            # auto: Any
-            # json: Any
-            
-            cfn_prompt_props = bedrock.CfnPromptProps(
-                name="name",
-            
-                # the properties below are optional
-                customer_encryption_key_arn="customerEncryptionKeyArn",
-                default_variant="defaultVariant",
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                },
-                variants=[bedrock.CfnPrompt.PromptVariantProperty(
-                    name="name",
-                    template_configuration=bedrock.CfnPrompt.PromptTemplateConfigurationProperty(
-                        chat=bedrock.CfnPrompt.ChatPromptTemplateConfigurationProperty(
-                            messages=[bedrock.CfnPrompt.MessageProperty(
-                                content=[bedrock.CfnPrompt.ContentBlockProperty(
-                                    cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
-                                        type="type"
-                                    ),
-                                    text="text"
-                                )],
-                                role="role"
-                            )],
-            
-                            # the properties below are optional
-                            input_variables=[bedrock.CfnPrompt.PromptInputVariableProperty(
-                                name="name"
-                            )],
-                            system=[bedrock.CfnPrompt.SystemContentBlockProperty(
-                                cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
-                                    type="type"
-                                ),
-                                text="text"
-                            )],
-                            tool_configuration=bedrock.CfnPrompt.ToolConfigurationProperty(
-                                tools=[bedrock.CfnPrompt.ToolProperty(
-                                    cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
-                                        type="type"
-                                    ),
-                                    tool_spec=bedrock.CfnPrompt.ToolSpecificationProperty(
-                                        input_schema=bedrock.CfnPrompt.ToolInputSchemaProperty(
-                                            json=json
-                                        ),
-                                        name="name",
-            
-                                        # the properties below are optional
-                                        description="description"
-                                    )
-                                )],
-            
-                                # the properties below are optional
-                                tool_choice=bedrock.CfnPrompt.ToolChoiceProperty(
-                                    any=any,
-                                    auto=auto,
-                                    tool=bedrock.CfnPrompt.SpecificToolChoiceProperty(
-                                        name="name"
-                                    )
-                                )
-                            )
-                        ),
-                        text=bedrock.CfnPrompt.TextPromptTemplateConfigurationProperty(
-                            cache_point=bedrock.CfnPrompt.CachePointBlockProperty(
-                                type="type"
-                            ),
-                            input_variables=[bedrock.CfnPrompt.PromptInputVariableProperty(
-                                name="name"
-                            )],
-                            text="text",
-                            text_s3_location=bedrock.CfnPrompt.TextS3LocationProperty(
-                                bucket="bucket",
-                                key="key",
-            
-                                # the properties below are optional
-                                version="version"
-                            )
-                        )
-                    ),
-                    template_type="templateType",
-            
-                    # the properties below are optional
-                    additional_model_request_fields=additional_model_request_fields,
-                    gen_ai_resource=bedrock.CfnPrompt.PromptGenAiResourceProperty(
-                        agent=bedrock.CfnPrompt.PromptAgentResourceProperty(
-                            agent_identifier="agentIdentifier"
-                        )
-                    ),
-                    inference_configuration=bedrock.CfnPrompt.PromptInferenceConfigurationProperty(
-                        text=bedrock.CfnPrompt.PromptModelInferenceConfigurationProperty(
-                            max_tokens=123,
-                            stop_sequences=["stopSequences"],
-                            temperature=123,
-                            top_p=123
-                        )
-                    ),
-                    metadata=[bedrock.CfnPrompt.PromptMetadataEntryProperty(
-                        key="key",
-                        value="value"
-                    )],
-                    model_id="modelId"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae555e4fe530af3f71499cdb465b902eb20b6de3d58aa48f4003015a29807bf9)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument customer_encryption_key_arn", value=customer_encryption_key_arn, expected_type=type_hints["customer_encryption_key_arn"])
-            check_type(argname="argument default_variant", value=default_variant, expected_type=type_hints["default_variant"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument variants", value=variants, expected_type=type_hints["variants"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if customer_encryption_key_arn is not None:
-            self._values["customer_encryption_key_arn"] = customer_encryption_key_arn
-        if default_variant is not None:
-            self._values["default_variant"] = default_variant
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if variants is not None:
-            self._values["variants"] = variants
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the KMS key that the prompt is encrypted with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-customerencryptionkeyarn
-        '''
-        result = self._values.get("customer_encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_variant(self) -> typing.Optional[builtins.str]:
-        '''The name of the default variant for the prompt.
-
-        This value must match the ``name`` field in the relevant `PromptVariant <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_PromptVariant.html>`_ object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-defaultvariant
-        '''
-        result = self._values.get("default_variant")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:.
-
-        - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_
-        - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def variants(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPrompt.PromptVariantProperty]]]]:
-        '''A list of objects, each containing details about a variant of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-prompt.html#cfn-bedrock-prompt-variants
-        '''
-        result = self._values.get("variants")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPrompt.PromptVariantProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPromptProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPromptVersionRef, _ITaggableV2_4e6798f8)
 class CfnPromptVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -33624,6 +37711,12 @@ class CfnPromptVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersionRef")
+    def prompt_version_ref(self) -> PromptVersionReference:
+        '''A reference to a PromptVersion resource.'''
+        return typing.cast(PromptVersionReference, jsii.get(self, "promptVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="promptArn")
@@ -35522,1164 +39615,6 @@ class CfnPromptVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_bedrock.CfnPromptVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "prompt_arn": "promptArn",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnPromptVersionProps:
-    def __init__(
-        self,
-        *,
-        prompt_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPromptVersion``.
-
-        :param prompt_arn: The Amazon Resource Name (ARN) of the version of the prompt.
-        :param description: The description of the prompt version.
-        :param tags: A map of tags attached to the prompt version and their values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_prompt_version_props = bedrock.CfnPromptVersionProps(
-                prompt_arn="promptArn",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c6f04d4bf0b791d1f12be1ce79f791556638376cf77d3bf64ac4995d21603a)
-            check_type(argname="argument prompt_arn", value=prompt_arn, expected_type=type_hints["prompt_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "prompt_arn": prompt_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def prompt_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the version of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-promptarn
-        '''
-        result = self._values.get("prompt_arn")
-        assert result is not None, "Required property 'prompt_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the prompt version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A map of tags attached to the prompt version and their values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-promptversion.html#cfn-bedrock-promptversion-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPromptVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class FoundationModelIdentifier(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_bedrock.FoundationModelIdentifier",
-):
-    '''The model identifiers for the Bedrock base foundation models.
-
-    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_bedrock as bedrock
-        
-        
-        model = bedrock.FoundationModel.from_foundation_model_id(self, "Model", bedrock.FoundationModelIdentifier.AMAZON_TITAN_TEXT_G1_EXPRESS_V1)
-        
-        task = tasks.BedrockInvokeModel(self, "Prompt Model",
-            model=model,
-            body=sfn.TaskInput.from_object({
-                "input_text": "Generate a list of five first names.",
-                "text_generation_config": {
-                    "max_token_count": 100,
-                    "temperature": 1
-                }
-            }),
-            result_selector={
-                "names": sfn.JsonPath.string_at("$.Body.results[0].outputText")
-            }
-        )
-    '''
-
-    def __init__(self, model_id: builtins.str) -> None:
-        '''Constructor for foundation model identifier.
-
-        :param model_id: the model identifier.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f232d69e34e8936af6b25fbb89b759790a47e68b671d931582f63554dd4bae52)
-            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
-        jsii.create(self.__class__, self, [model_id])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_J2_GRANDE_INSTRUCT")
-    def AI21_J2_GRANDE_INSTRUCT(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-grande-instruct".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_GRANDE_INSTRUCT"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_J2_JAMBA_INSTRUCT_V1_0")
-    def AI21_J2_JAMBA_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "ai21.jamba-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_JAMBA_INSTRUCT_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_J2_JUMBO_INSTRUCT")
-    def AI21_J2_JUMBO_INSTRUCT(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-jumbo-instruct".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_JUMBO_INSTRUCT"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_J2_MID")
-    def AI21_J2_MID(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-mid".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_MID"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_J2_ULTRA")
-    def AI21_J2_ULTRA(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-ultra".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_ULTRA"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_JAMBA_1_5_LARGE_V_1_0")
-    def AI21_JAMBA_1_5_LARGE_V_1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "ai21.jamba-1-5-large-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_LARGE_V_1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_JAMBA_1_5_MINI_V_1_0")
-    def AI21_JAMBA_1_5_MINI_V_1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "ai21.jamba-1-5-mini-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_MINI_V_1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_MID_V1")
-    def AI21_LABS_JURASSIC_2_MID_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-mid-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_MID_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1")
-    def AI21_LABS_JURASSIC_2_ULTRA_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-ultra-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_ULTRA_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1_0_8K")
-    def AI21_LABS_JURASSIC_2_ULTRA_V1_0_8_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "ai21.j2-ultra-v1:0:8k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_LABS_JURASSIC_2_ULTRA_V1_0_8K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_CANVAS_V1_0")
-    def AMAZON_NOVA_CANVAS_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-canvas-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_CANVAS_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0")
-    def AMAZON_NOVA_LITE_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-lite-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0_300_K")
-    def AMAZON_NOVA_LITE_V1_0_300_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-lite-v1:0:300k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0_300_K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0")
-    def AMAZON_NOVA_MICRO_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-micro-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0_128_K")
-    def AMAZON_NOVA_MICRO_V1_0_128_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-micro-v1:0:128k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0_128_K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_PREMIER_V1_0")
-    def AMAZON_NOVA_PREMIER_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-premier-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PREMIER_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0")
-    def AMAZON_NOVA_PRO_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-pro-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0_300_K")
-    def AMAZON_NOVA_PRO_V1_0_300_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-pro-v1:0:300k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0_300_K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_0")
-    def AMAZON_NOVA_REEL_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-reel-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_1")
-    def AMAZON_NOVA_REEL_V1_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-reel-v1:1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_NOVA_SONIC_V1_0")
-    def AMAZON_NOVA_SONIC_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.nova-sonic-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_SONIC_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_RERANK_V1")
-    def AMAZON_RERANK_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.rerank-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_RERANK_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_G1_TEXT_02")
-    def AMAZON_TITAN_EMBED_G1_TEXT_02(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-g1-text-02".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_G1_TEXT_02"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_IMAGE_V1_0")
-    def AMAZON_TITAN_EMBED_IMAGE_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-image-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_IMAGE_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V1_2_8K")
-    def AMAZON_TITAN_EMBED_TEXT_V1_2_8_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-text-v1:2:8k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V1_2_8K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0")
-    def AMAZON_TITAN_EMBED_TEXT_V2_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-text-v2:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0_8K")
-    def AMAZON_TITAN_EMBED_TEXT_V2_0_8_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-text-v2:0:8k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0_8K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1")
-    def AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-text-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_G1_V1")
-    def AMAZON_TITAN_IMAGE_GENERATOR_G1_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-image-generator-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_G1_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V1_0")
-    def AMAZON_TITAN_IMAGE_GENERATOR_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-image-generator-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V2_0")
-    def AMAZON_TITAN_IMAGE_GENERATOR_V2_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-image-generator-v2:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1")
-    def AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-embed-image-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K")
-    def AMAZON_TITAN_TEXT_EXPRESS_V1_0_8_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-express-v1:0:8k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_EXPRESS_V1")
-    def AMAZON_TITAN_TEXT_G1_EXPRESS_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-express-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_EXPRESS_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_LITE_V1")
-    def AMAZON_TITAN_TEXT_G1_LITE_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-lite-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_LITE_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1")
-    def AMAZON_TITAN_TEXT_LITE_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-lite-v1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1_0_4K")
-    def AMAZON_TITAN_TEXT_LITE_V1_0_4_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-lite-v1:0:4k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1_0_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_PREMIER_V1")
-    def AMAZON_TITAN_TEXT_PREMIER_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-text-premier-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_PREMIER_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="AMAZON_TITAN_TG1_LARGE")
-    def AMAZON_TITAN_TG1_LARGE(cls) -> "FoundationModelIdentifier":
-        '''Base model "amazon.titan-tg1-large".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TG1_LARGE"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0")
-    def ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-haiku-20241022-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:18k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:200k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0:51k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:18k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:200k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51K")
-    def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0:51k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0")
-    def ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-7-sonnet-20250219-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0")
-    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-haiku-20240307-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200K")
-    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-haiku-20240307-v1:0:200k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K")
-    def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-haiku-20240307-v1:0:48k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0")
-    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-opus-20240229-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K")
-    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-opus-20240229-v1:0:12k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K")
-    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-opus-20240229-v1:0:200k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K")
-    def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-opus-20240229-v1:0:28k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0")
-    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200K")
-    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0:200k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K")
-    def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28_K(
-        cls,
-    ) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-3-sonnet-20240229-v1:0:28k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1")
-    def ANTHROPIC_CLAUDE_INSTANT_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-instant-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1_2_100K")
-    def ANTHROPIC_CLAUDE_INSTANT_V1_2_100_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-instant-v1:2:100k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1_2_100K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0")
-    def ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-opus-4-1-20250805-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0")
-    def ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-opus-4-20250514-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
-    def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V1")
-    def ANTHROPIC_CLAUDE_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2")
-    def ANTHROPIC_CLAUDE_V2(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_100K")
-    def ANTHROPIC_CLAUDE_V2_0_100_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2:0:100k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_0_100K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_18K")
-    def ANTHROPIC_CLAUDE_V2_0_18_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2:0:18k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_0_18K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1")
-    def ANTHROPIC_CLAUDE_V2_1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2:1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_18K")
-    def ANTHROPIC_CLAUDE_V2_1_18_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2:1:18k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1_18K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_200K")
-    def ANTHROPIC_CLAUDE_V2_1_200_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "anthropic.claude-v2:1:200k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1_200K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_TEXT_V14_7_4K")
-    def COHERE_COMMAND_LIGHT_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-light-text-v14:7:4k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_TEXT_V14_7_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_V14")
-    def COHERE_COMMAND_LIGHT_V14(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-light-text-v14".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_V14"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_R_PLUS_V1")
-    def COHERE_COMMAND_R_PLUS_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-r-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_PLUS_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_R_V1")
-    def COHERE_COMMAND_R_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-r-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_TEXT_V14_7_4K")
-    def COHERE_COMMAND_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-text-v14:7:4k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_TEXT_V14_7_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_COMMAND_V14")
-    def COHERE_COMMAND_V14(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.command-text-v14".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_V14"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3")
-    def COHERE_EMBED_ENGLISH_V3(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.embed-english-v3".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3_0_512")
-    def COHERE_EMBED_ENGLISH_V3_0_512(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.embed-english-v3:0:512".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3_0_512"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3")
-    def COHERE_EMBED_MULTILINGUAL_V3(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.embed-multilingual-v3".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3_0_512")
-    def COHERE_EMBED_MULTILINGUAL_V3_0_512(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.embed-multilingual-v3:0:512".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3_0_512"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="COHERE_RERANK_V3_5")
-    def COHERE_RERANK_V3_5(cls) -> "FoundationModelIdentifier":
-        '''Base model "cohere.rerank-v3-5:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_RERANK_V3_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="DEEP_SEEK_R1_V1_0")
-    def DEEP_SEEK_R1_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "deepseek.r1-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_R1_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="LUMA_RAY_V2_0")
-    def LUMA_RAY_V2_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "luma.ray-v2:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "LUMA_RAY_V2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_13B_CHAT_V1_0_4K")
-    def META_LLAMA_2_13_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-13b-chat-v1:0:4k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_CHAT_V1_0_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_13B_V1")
-    def META_LLAMA_2_13_B_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-13b-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_13B_V1_0_4K")
-    def META_LLAMA_2_13_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-13b-v1:0:4k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_13B_V1_0_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_70B_CHAT_V1_0_4K")
-    def META_LLAMA_2_70_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-70b-chat-v1:0:4k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_CHAT_V1_0_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_70B_V1")
-    def META_LLAMA_2_70_B_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-70b-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_70B_V1_0_4K")
-    def META_LLAMA_2_70_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-70b-v1:0:4k".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_70B_V1_0_4K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_CHAT_13B_V1")
-    def META_LLAMA_2_CHAT_13_B_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-13b-chat-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_CHAT_13B_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_2_CHAT_70B_V1")
-    def META_LLAMA_2_CHAT_70_B_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "meta.llama2-70b-chat-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_2_CHAT_70B_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_1_405_INSTRUCT_V1")
-    def META_LLAMA_3_1_405_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-1-405b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_405_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1")
-    def META_LLAMA_3_1_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-1-70b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1_128K")
-    def META_LLAMA_3_1_70_INSTRUCT_V1_128_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-1-70b-instruct-v1:0:128k".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1_128K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V_128K")
-    def META_LLAMA_3_1_8_B_INSTRUCT_V_128_K(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-1-8b-instruct-v1:0:128".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V_128K"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V1")
-    def META_LLAMA_3_1_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-1-8b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_2_11B_INSTRUCT_V1")
-    def META_LLAMA_3_2_11_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-2-11b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_11B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_2_1B_INSTRUCT_V1")
-    def META_LLAMA_3_2_1_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-2-1b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_1B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_2_3B_INSTRUCT_V1")
-    def META_LLAMA_3_2_3_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-2-3b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_3B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_2_90B_INSTRUCT_V1")
-    def META_LLAMA_3_2_90_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-2-90b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_90B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_3_70B_INSTRUCT_V1")
-    def META_LLAMA_3_3_70_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-3-70b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_3_70B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_70_INSTRUCT_V1")
-    def META_LLAMA_3_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-70b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_70_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_3_8B_INSTRUCT_V1")
-    def META_LLAMA_3_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama3-8b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_8B_INSTRUCT_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0")
-    def META_LLAMA_4_MAVERICK_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama4-maverick-17b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0")
-    def META_LLAMA_4_SCOUT_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "meta.llama4-scout-17b-instruct-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_LARGE_2_V0_1")
-    def MISTRAL_LARGE_2_V0_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.mistral-large-2407-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_2_V0_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_LARGE_V0_1")
-    def MISTRAL_LARGE_V0_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.mistral-large-2402-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_V0_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_MISTRAL_7B_INSTRUCT_V0_2")
-    def MISTRAL_MISTRAL_7_B_INSTRUCT_V0_2(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.mistral-7b-instruct-v0:2".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MISTRAL_7B_INSTRUCT_V0_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1")
-    def MISTRAL_MIXTRAL_8_X7_B_INSTRUCT_V0_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.mixtral-8x7b-instruct-v0:1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_PIXTRAL_LARGE_2502_V1_0")
-    def MISTRAL_PIXTRAL_LARGE_2502_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.pixtral-large-2502-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_PIXTRAL_LARGE_2502_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="MISTRAL_SMALL_V0_1")
-    def MISTRAL_SMALL_V0_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "mistral.mistral-small-2402-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_SMALL_V0_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENAI_GPT_OSS_120B_1")
-    def OPENAI_GPT_OSS_120_B_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "openai.gpt-oss-120b-1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_120B_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENAI_GPT_OSS_20B_1")
-    def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "openai.gpt-oss-20b-1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_SD3_5_LARGE_V1_0")
-    def STABILITY_SD3_5_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.sd3-5-large-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_5_LARGE_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_SD3_LARGE_V1_0")
-    def STABILITY_SD3_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.sd3-large-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_LARGE_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL")
-    def STABILITY_STABLE_DIFFUSION_XL(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "stability.stable-diffusion-xl".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V0")
-    def STABILITY_STABLE_DIFFUSION_XL_V0(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "stability.stable-diffusion-xl-v0".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1")
-    def STABILITY_STABLE_DIFFUSION_XL_V1(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "stability.stable-diffusion-xl-v1".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1_0")
-    def STABILITY_STABLE_DIFFUSION_XL_V1_0(cls) -> "FoundationModelIdentifier":
-        '''(deprecated) Base model "stability.stable-diffusion-xl-v1:0".
-
-        :deprecated: use latest version of the model
-
-        :stability: deprecated
-        '''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_DIFFUSION_XL_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_0")
-    def STABILITY_STABLE_IMAGE_CORE_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.stable-image-core-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_1")
-    def STABILITY_STABLE_IMAGE_CORE_V1_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.stable-image-core-v1:1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_0")
-    def STABILITY_STABLE_IMAGE_ULTRA_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.stable-image-ultra-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_1")
-    def STABILITY_STABLE_IMAGE_ULTRA_V1_1(cls) -> "FoundationModelIdentifier":
-        '''Base model "stability.stable-image-ultra-v1:1".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="TWELVELABS_MARENGO_EMBED_2_7_V1_0")
-    def TWELVELABS_MARENGO_EMBED_2_7_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "twelvelabs.marengo-embed-2-7-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_MARENGO_EMBED_2_7_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="TWELVELABS_PEGASUS_1_2_V1_0")
-    def TWELVELABS_PEGASUS_1_2_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "twelvelabs.pegasus-1-2-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_PEGASUS_1_2_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="WRITER_PALMYRA_X4_V1_0")
-    def WRITER_PALMYRA_X4_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "writer.palmyra-x4-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X4_V1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="WRITER_PALMYRA_X5_V1_0")
-    def WRITER_PALMYRA_X5_V1_0(cls) -> "FoundationModelIdentifier":
-        '''Base model "writer.palmyra-x5-v1:0".'''
-        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X5_V1_0"))
-
-    @builtins.property
-    @jsii.member(jsii_name="modelId")
-    def model_id(self) -> builtins.str:
-        '''the model identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "modelId"))
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_bedrock.IModel")
-class IModel(typing_extensions.Protocol):
-    '''Represents a Bedrock model.
-
-    The model could be a foundation model, a custom model, or a provisioned model.
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="modelArn")
-    def model_arn(self) -> builtins.str:
-        '''The ARN of the model.
-
-        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrock.html#amazonbedrock-actions-as-permissions
-        '''
-        ...
-
-
-class _IModelProxy:
-    '''Represents a Bedrock model.
-
-    The model could be a foundation model, a custom model, or a provisioned model.
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_bedrock.IModel"
-
-    @builtins.property
-    @jsii.member(jsii_name="modelArn")
-    def model_arn(self) -> builtins.str:
-        '''The ARN of the model.
-
-        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrock.html#amazonbedrock-actions-as-permissions
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IModel).__jsii_proxy_class__ = lambda : _IModelProxy
-
-
-@jsii.implements(IModel)
-class ProvisionedModel(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_bedrock.ProvisionedModel",
-):
-    '''A Bedrock provisioned model.
-
-    Note: CloudFormation does not currently support creating Bedrock Provisioned Throughput
-    resources outside of a custom resource. You can import provisioned models created by
-    provisioning throughput in Bedrock outside the CDK or via a custom resource with
-    {@link ProvisionedModel#fromProvisionedModelArn }.
-
-    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_bedrock as bedrock
-        
-        
-        bedrock.ProvisionedModel.from_provisioned_model_arn(self, "Model", "arn:aws:bedrock:us-east-2:123456789012:provisioned-model/abc-123")
-    '''
-
-    @jsii.member(jsii_name="fromProvisionedModelArn")
-    @builtins.classmethod
-    def from_provisioned_model_arn(
-        cls,
-        _scope: _constructs_77d1e7e8.Construct,
-        _id: builtins.str,
-        provisioned_model_arn: builtins.str,
-    ) -> IModel:
-        '''Import an provisioned model given an ARN.
-
-        :param _scope: -
-        :param _id: -
-        :param provisioned_model_arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__729a89649bbbe97643ef676e5c7a3debb583fa04ca31db203a85e9e6631bd8eb)
-            check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-            check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-            check_type(argname="argument provisioned_model_arn", value=provisioned_model_arn, expected_type=type_hints["provisioned_model_arn"])
-        return typing.cast(IModel, jsii.sinvoke(cls, "fromProvisionedModelArn", [_scope, _id, provisioned_model_arn]))
-
-    @builtins.property
-    @jsii.member(jsii_name="modelArn")
-    def model_arn(self) -> builtins.str:
-        '''The ARN of the provisioned model.'''
-        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
-
-
 @jsii.implements(IModel)
 class FoundationModel(
     metaclass=jsii.JSIIMeta,
@@ -36756,12 +39691,22 @@ class FoundationModel(
 
 
 __all__ = [
+    "AgentAliasReference",
+    "AgentReference",
+    "ApplicationInferenceProfileReference",
+    "AutomatedReasoningPolicyReference",
+    "AutomatedReasoningPolicyVersionReference",
+    "BlueprintReference",
     "CfnAgent",
     "CfnAgentAlias",
     "CfnAgentAliasProps",
     "CfnAgentProps",
     "CfnApplicationInferenceProfile",
     "CfnApplicationInferenceProfileProps",
+    "CfnAutomatedReasoningPolicy",
+    "CfnAutomatedReasoningPolicyProps",
+    "CfnAutomatedReasoningPolicyVersion",
+    "CfnAutomatedReasoningPolicyVersionProps",
     "CfnBlueprint",
     "CfnBlueprintProps",
     "CfnDataAutomationProject",
@@ -36786,13 +39731,395 @@ __all__ = [
     "CfnPromptProps",
     "CfnPromptVersion",
     "CfnPromptVersionProps",
+    "DataAutomationProjectReference",
+    "DataSourceReference",
+    "FlowAliasReference",
+    "FlowReference",
+    "FlowVersionReference",
     "FoundationModel",
     "FoundationModelIdentifier",
+    "GuardrailReference",
+    "GuardrailVersionReference",
+    "IAgentAliasRef",
+    "IAgentRef",
+    "IApplicationInferenceProfileRef",
+    "IAutomatedReasoningPolicyRef",
+    "IAutomatedReasoningPolicyVersionRef",
+    "IBlueprintRef",
+    "IDataAutomationProjectRef",
+    "IDataSourceRef",
+    "IFlowAliasRef",
+    "IFlowRef",
+    "IFlowVersionRef",
+    "IGuardrailRef",
+    "IGuardrailVersionRef",
+    "IIntelligentPromptRouterRef",
+    "IKnowledgeBaseRef",
     "IModel",
+    "IPromptRef",
+    "IPromptVersionRef",
+    "IntelligentPromptRouterReference",
+    "KnowledgeBaseReference",
+    "PromptReference",
+    "PromptVersionReference",
     "ProvisionedModel",
 ]
 
 publication.publish()
+
+def _typecheckingstub__5e47448f8583dccd21280bcb331820c804ddeefeca102e452b1f64820f7f6f79(
+    *,
+    agent_alias_arn: builtins.str,
+    agent_alias_id: builtins.str,
+    agent_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50d08ece42d02a05d10ff33ca072b45159bd484d83686e93931f398657e01039(
+    *,
+    agent_arn: builtins.str,
+    agent_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1e33f1faf03b2ffdf8a611069ff76b19f910cfff44e09cc9f0ebaa2b212ddd2(
+    *,
+    inference_profile_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f040ca34c6eb17d90bc8668e368444e60ba9f727578cf24b2acb3a258730e286(
+    *,
+    policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea68295c75a050cd7a2ae58ab0086056efc6a2db0323b22e13d6ab735c9fa236(
+    *,
+    policy_arn: builtins.str,
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb0717503b7ff6a9a6b7f4ae3235a1f50c0ab75ad62cfd9f089c683cb1cc6199(
+    *,
+    blueprint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3144a1c66c11b4a2b15be859f361c848648aefb3df04b8fce2befe94f215c68(
+    *,
+    agent_alias_name: builtins.str,
+    agent_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4f714080f6d4f9b0a3fe85a8425a8ba69698695e35d6fbd9d710ca5d99ba6e8(
+    *,
+    agent_name: builtins.str,
+    action_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentActionGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    agent_collaboration: typing.Optional[builtins.str] = None,
+    agent_collaborators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentCollaboratorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    agent_resource_role_arn: typing.Optional[builtins.str] = None,
+    auto_prepare: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+    custom_orchestration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.CustomOrchestrationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    foundation_model: typing.Optional[builtins.str] = None,
+    guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.GuardrailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    idle_session_ttl_in_seconds: typing.Optional[jsii.Number] = None,
+    instruction: typing.Optional[builtins.str] = None,
+    knowledge_bases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentKnowledgeBaseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.MemoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    orchestration_type: typing.Optional[builtins.str] = None,
+    prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.PromptOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__396027668dce29a45dd42acb9bb8358fa9135a15e45d6925e8a78acced3bd78d(
+    *,
+    inference_profile_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    model_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac3482a154da623e7adf7442c24f39d496f44a2190be05b2be944b631c7fd599(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    policy_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cee4b69d367538a0e70468eccf68214f8756ed820735a9b796a2644e0079b79(
+    *,
+    policy_arn: builtins.str,
+    last_updated_definition_hash: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ecf5396de(
+    *,
+    blueprint_name: builtins.str,
+    schema: typing.Any,
+    type: builtins.str,
+    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acae67d63fc78195ace949c20ad8c3209d7c1972a999616c83dd5f909bb13ca5(
+    *,
+    project_name: builtins.str,
+    custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.OverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    project_description: typing.Optional[builtins.str] = None,
+    standard_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.StandardOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c7b62664(
+    *,
+    data_source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    knowledge_base_id: builtins.str,
+    name: builtins.str,
+    data_deletion_policy: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc38c23ad67fcb375dfaff403a32bd6897c077928003bee3845f452f8e08fb66(
+    *,
+    flow_arn: builtins.str,
+    name: builtins.str,
+    routing_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    concurrency_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bad8ab7f592d2682a6b9c1a504f97fac9b6e0a7bbbfcf4968c42f3a954576115(
+    *,
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+    definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_string: typing.Optional[builtins.str] = None,
+    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdb1a288ced402610e5fe560660fb73b3b45c72bbc494b92403d24f50cdccfb8(
+    *,
+    flow_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d23606a6cea(
+    *,
+    blocked_input_messaging: builtins.str,
+    blocked_outputs_messaging: builtins.str,
+    name: builtins.str,
+    content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.TopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.WordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e07f1ed805e6d73c6e83274e605414f148ca0a10b6065c654e3b545023b25f84(
+    *,
+    guardrail_identifier: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac97327bebd43ad8b942919c24917e1378d3c55caa8d2363928873ac029be7da(
+    *,
+    fallback_model: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]],
+    models: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    prompt_router_name: builtins.str,
+    routing_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.RoutingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f(
+    *,
+    knowledge_base_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.KnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    role_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae555e4fe530af3f71499cdb465b902eb20b6de3d58aa48f4003015a29807bf9(
+    *,
+    name: builtins.str,
+    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
+    default_variant: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrompt.PromptVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96c6f04d4bf0b791d1f12be1ce79f791556638376cf77d3bf64ac4995d21603a(
+    *,
+    prompt_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0c791641c6718054c80404c34bc8f3f6d8a5988d9e36d07dd429bb3a8304929(
+    *,
+    project_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ed6ded1c5fdf18c0ca6b68a2791097666dc376b7a32c3c86e1ae0f72e74dc3e(
+    *,
+    data_source_id: builtins.str,
+    knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d96473b13960acb2c4e451b2f9faa69148ffc7edec72f3cef298f23f0f6d2f9(
+    *,
+    flow_alias_arn: builtins.str,
+    flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eba33d43cec79116a23a62c51855e60465d5eba8e779da0732b2afc98ebfd0e0(
+    *,
+    flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8b93928e94abd7f48d8a7c08db230f540b39c1ea21b1ef6875e4d8767dcf4b6(
+    *,
+    flow_arn: builtins.str,
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f232d69e34e8936af6b25fbb89b759790a47e68b671d931582f63554dd4bae52(
+    model_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bafb7f1a19b7fd3e91af251792e53653c3ac06c552c7a802fe4632250e805a4(
+    *,
+    guardrail_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88413d684602daaa6d18962e6c3577dfab2b9bf19c4127a8bc686cf1c9f3606e(
+    *,
+    guardrail_id: builtins.str,
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c21376cf4febfbff6241405227440c05cd26c45cb088c5fd4c33d433dc7c3908(
+    *,
+    prompt_router_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c89d62eee11012226505e2ac3e6c204aa111886eee8487583525ba0f56e0eb6c(
+    *,
+    knowledge_base_arn: builtins.str,
+    knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed83b6590af8a59d26d1d69d7019c4ecbe4ad2bdc40434b276ae8b9b5efbcfe2(
+    *,
+    prompt_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f942e3c6e3ace5535ba0e5078e8817f0f35c6618920722a50f958fb7bf19418(
+    *,
+    prompt_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__729a89649bbbe97643ef676e5c7a3debb583fa04ca31db203a85e9e6631bd8eb(
+    _scope: _constructs_77d1e7e8.Construct,
+    _id: builtins.str,
+    provisioned_model_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__facaad57ffe16da42f099d2b7997f3e6fd3b9eba46fd226d8fb5afe286371e74(
     scope: _constructs_77d1e7e8.Construct,
@@ -37186,43 +40513,6 @@ def _typecheckingstub__846d3bcc8614fd45d175f992a20505b220910c107392df0930556bb43
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c3144a1c66c11b4a2b15be859f361c848648aefb3df04b8fce2befe94f215c68(
-    *,
-    agent_alias_name: builtins.str,
-    agent_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentAlias.AgentAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b4f714080f6d4f9b0a3fe85a8425a8ba69698695e35d6fbd9d710ca5d99ba6e8(
-    *,
-    agent_name: builtins.str,
-    action_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentActionGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    agent_collaboration: typing.Optional[builtins.str] = None,
-    agent_collaborators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentCollaboratorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    agent_resource_role_arn: typing.Optional[builtins.str] = None,
-    auto_prepare: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-    custom_orchestration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.CustomOrchestrationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    foundation_model: typing.Optional[builtins.str] = None,
-    guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.GuardrailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    idle_session_ttl_in_seconds: typing.Optional[jsii.Number] = None,
-    instruction: typing.Optional[builtins.str] = None,
-    knowledge_bases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.AgentKnowledgeBaseProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    memory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.MemoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    orchestration_type: typing.Optional[builtins.str] = None,
-    prompt_override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgent.PromptOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    skip_resource_in_use_check_on_delete: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a2222de49518232a3824d971182922daf44d6255370c3805992fca295b2904ad(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37285,12 +40575,136 @@ def _typecheckingstub__4170b8c8243e2096b7c99037eb0c8874b28fe6d08432e8c6fd045defb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__396027668dce29a45dd42acb9bb8358fa9135a15e45d6925e8a78acced3bd78d(
+def _typecheckingstub__6f86a6b32c0b2e6c3a7146930b7eefb6a145c9092c8b647c751b39445152964c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
     *,
-    inference_profile_name: builtins.str,
+    name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    model_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policy_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d95289264bf61eb2fbd5a92f21159cd51300a002430f07345627e19936c5759(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cce56e9ba2d020d1b0a6bff89eca6d964162c1698a84ffaae0b95858f5c2d3de(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3c8290b4050352cfcdb4ab8976b9d781978c34ee46609d3318cdb7a4f1b613f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00e436a5261e5477ed7789ba76a3abf0b3ea73f32ebc0124a5a11c8eceb1753e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8ff8046b0a2e743393c59b3ad2e1a92082657522f4cabbd1ee4fb71d94444c8(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutomatedReasoningPolicy.PolicyDefinitionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca4464b2048b122005e6f9796a6bdf93da3b8b1dd15d6e68063dad6c8cf3e1d5(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c56f4156d2bbf5c9be877a24c873f3b0e2764f76e6a284e17d0db74ae0eadf4(
+    *,
+    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf6052e99156f10a177756c1396042ca9406fc074ef8bc1a0c172b540eda6398(
+    *,
+    expression: builtins.str,
+    id: builtins.str,
+    alternate_expression: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fa57992131b04d71ba223897b580fad842b0f1ec85e1aacc76893689f63c88e(
+    *,
+    name: builtins.str,
+    values: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomatedReasoningPolicy.PolicyDefinitionTypeValueProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01be0b027392021b0db4a3fe6be21f31b990446eac421657b3fb212ecb4e9164(
+    *,
+    value: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee85cb07afcd36e5cf8c64f06dee4c4b09a46ca98e24c137c9f5e7705ea7a218(
+    *,
+    description: builtins.str,
+    name: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09ee6ddbed97d4b82999d7db7a1df9337d207b3eb28355cbbf3c9f7afcc1290c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_arn: builtins.str,
+    last_updated_definition_hash: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c197dfab48b83b41ef99f327f4ea022bc36418db2c5dca1871e8795c7c69201e(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce7b3f41e9ce328246b89d373df463789c1942424c0e0f779c84cb4343962db4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6281ba36e05d83a0e3ef064625c15e957bd5d3e09519a667c2bfb83c1a598a36(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee122c4a5f07fbfeac391064a3628421e70e09529847a606678ed4371d9e7b02(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbfd4db5100e6181e9a990e0416f2608cff6f667b284d927780fa1b079f72a19(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37353,18 +40767,6 @@ def _typecheckingstub__ebfd046b9ca03d7ae283da6715642f11589872c91f5d95bbd3cddd393
 
 def _typecheckingstub__886a403dedf81403e658ca68ff545b86f110fb792ac74080f77b3e5f75ff1205(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf95f6258abad47e6c2fe49a96a1875d9121287a505f3fdb3fd8135ecf5396de(
-    *,
-    blueprint_name: builtins.str,
-    schema: typing.Any,
-    type: builtins.str,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37700,20 +41102,6 @@ def _typecheckingstub__d98976479f1b341fc120b37d7069960429719e93bd9850fb5b89a69a2
     *,
     extraction: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.VideoStandardExtractionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     generative_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.VideoStandardGenerativeFieldProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__acae67d63fc78195ace949c20ad8c3209d7c1972a999616c83dd5f909bb13ca5(
-    *,
-    project_name: builtins.str,
-    custom_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.CustomOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    override_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.OverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    project_description: typing.Optional[builtins.str] = None,
-    standard_output_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.StandardOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38111,19 +41499,6 @@ def _typecheckingstub__b1f60d9766ca17f5c37478ae610f90aa4019525520dc8ade1276a6b78
 def _typecheckingstub__eed5469efe26ecca30b65f76f177d0a63ddfd391d6f79ab740dabde0e6ae1c45(
     *,
     url_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.UrlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c7b62664(
-    *,
-    data_source_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    knowledge_base_id: builtins.str,
-    name: builtins.str,
-    data_deletion_policy: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vector_ingestion_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -38672,34 +42047,6 @@ def _typecheckingstub__d9bd09906b076a991f07230b7803c936ed72845057c5587a1a1b04acf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dc38c23ad67fcb375dfaff403a32bd6897c077928003bee3845f452f8e08fb66(
-    *,
-    flow_arn: builtins.str,
-    name: builtins.str,
-    routing_configuration: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasRoutingConfigurationListItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    concurrency_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bad8ab7f592d2682a6b9c1a504f97fac9b6e0a7bbbfcf4968c42f3a954576115(
-    *,
-    execution_role_arn: builtins.str,
-    name: builtins.str,
-    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-    definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_string: typing.Optional[builtins.str] = None,
-    definition_substitutions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool, _IResolvable_da3f097b]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    test_alias_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e996d6ff14b49f6abcc0d0964d3cd945bc468ee27dceb388effde1a557cebdb9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -39094,14 +42441,6 @@ def _typecheckingstub__22dcdcca4fd22712dd1e018aab8cdc1d772b263b31a53f582a4507260
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bdb1a288ced402610e5fe560660fb73b3b45c72bbc494b92403d24f50cdccfb8(
-    *,
-    flow_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2043b4e3280827dde584095cdad9778bf2076242696d52ba5a39dc96cedb89a0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -39353,24 +42692,6 @@ def _typecheckingstub__40e1ce19bae133dd80df92a2b7a2a8185b6ce800337dbf3519f8449ef
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e16800cc7473874d0d58b13a772dade51a596e19ff440f95ad243d23606a6cea(
-    *,
-    blocked_input_messaging: builtins.str,
-    blocked_outputs_messaging: builtins.str,
-    name: builtins.str,
-    content_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    contextual_grounding_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContextualGroundingPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cross_region_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    sensitive_information_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.SensitiveInformationPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    topic_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.TopicPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    word_policy_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.WordPolicyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__36ecf5d129e05ab832991dd99410df6b80a6d92a33a8570a344c4717a5e44b16(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -39401,14 +42722,6 @@ def _typecheckingstub__bb6556b800cb75d7323d4ca6bf95fd228006a7d0d24d63a8932fa69b2
 
 def _typecheckingstub__ecd63b9edc18f82131a7dcf70341b28d62ff84b82ce14e7e0b84d6b927a52a49(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e07f1ed805e6d73c6e83274e605414f148ca0a10b6065c654e3b545023b25f84(
-    *,
-    guardrail_identifier: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39485,18 +42798,6 @@ def _typecheckingstub__f13c2a7cb42b0b44b093f57856aeb21f6e80f9a98941ae4c0bcca2d34
 def _typecheckingstub__7b122742002952822ca4101c16f95952147a47cfb8a5ad666e4a2aa644ea2023(
     *,
     response_quality_difference: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac97327bebd43ad8b942919c24917e1378d3c55caa8d2363928873ac029be7da(
-    *,
-    fallback_model: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]],
-    models: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.PromptRouterTargetModelProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    prompt_router_name: builtins.str,
-    routing_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntelligentPromptRouter.RoutingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39880,18 +43181,6 @@ def _typecheckingstub__53b08e209954b21c35b746e5eee517d51370af30630f5f17b3e543515
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f(
-    *,
-    knowledge_base_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.KnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    role_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnKnowledgeBase.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e18e8d261c1253349028836b748c30587b9e8fbccc990fd9e707a107967e29ff(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -40130,18 +43419,6 @@ def _typecheckingstub__431488796f561e2bc20a8aab4af239c209e0fc67b16251fa2476c7a19
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ae555e4fe530af3f71499cdb465b902eb20b6de3d58aa48f4003015a29807bf9(
-    *,
-    name: builtins.str,
-    customer_encryption_key_arn: typing.Optional[builtins.str] = None,
-    default_variant: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    variants: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrompt.PromptVariantProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__655fee944eb77092f564ba8ce6cc99b8af558f5e4f24168d280a8d548f092789(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -40345,29 +43622,6 @@ def _typecheckingstub__a871657f8c1c67b1051a412a2df33ba5a43c638e9a607995c5e1c4509
     input_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPromptVersion.ToolInputSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__96c6f04d4bf0b791d1f12be1ce79f791556638376cf77d3bf64ac4995d21603a(
-    *,
-    prompt_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f232d69e34e8936af6b25fbb89b759790a47e68b671d931582f63554dd4bae52(
-    model_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__729a89649bbbe97643ef676e5c7a3debb583fa04ca31db203a85e9e6631bd8eb(
-    _scope: _constructs_77d1e7e8.Construct,
-    _id: builtins.str,
-    provisioned_model_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

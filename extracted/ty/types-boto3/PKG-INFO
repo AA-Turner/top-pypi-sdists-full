@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.40.30
-Summary: Type annotations for boto3 1.40.30 generated with mypy-boto3-builder 8.11.0
+Version: 1.40.31
+Summary: Type annotations for boto3 1.40.31 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.41.0,>=1.40.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.40.30; extra == "boto3"
+Requires-Dist: boto3==1.40.31; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-account<1.41.0,>=1.40.0; extra == "all"
@@ -402,7 +402,6 @@ Requires-Dist: types-boto3-sesv2<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-shield<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-signer<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-simspaceweaver<1.41.0,>=1.40.0; extra == "all"
-Requires-Dist: types-boto3-sms<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-snow-device-management<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-snowball<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: types-boto3-sns<1.41.0,>=1.40.0; extra == "all"
@@ -1187,8 +1186,6 @@ Provides-Extra: signer
 Requires-Dist: types-boto3-signer<1.41.0,>=1.40.0; extra == "signer"
 Provides-Extra: simspaceweaver
 Requires-Dist: types-boto3-simspaceweaver<1.41.0,>=1.40.0; extra == "simspaceweaver"
-Provides-Extra: sms
-Requires-Dist: types-boto3-sms<1.41.0,>=1.40.0; extra == "sms"
 Provides-Extra: snow-device-management
 Requires-Dist: types-boto3-snow-device-management<1.41.0,>=1.40.0; extra == "snow-device-management"
 Provides-Extra: snowball
@@ -1311,7 +1308,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.40.30](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.40.31](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1369,7 +1366,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.30' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.31' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1697,9 +1694,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 413 services in one package
+- `types-boto3[full]` - Type annotations for all 412 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 413 services in separate
+- `types-boto3[all]` - Type annotations for all 412 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2771,8 +2768,6 @@ repository.
 - `types-boto3[simspaceweaver]` - Type annotations for
   [SimSpaceWeaver](https://youtype.github.io/types_boto3_docs/types_boto3_simspaceweaver/)
   service.
-- `types-boto3[sms]` - Type annotations for
-  [SMS](https://youtype.github.io/types_boto3_docs/types_boto3_sms/) service.
 - `types-boto3[snow-device-management]` - Type annotations for
   [SnowDeviceManagement](https://youtype.github.io/types_boto3_docs/types_boto3_snow_device_management/)
   service.

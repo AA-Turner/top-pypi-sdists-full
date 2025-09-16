@@ -78,7 +78,1284 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_authority_arn": "certificateAuthorityArn",
+        "directory_id": "directoryId",
+        "vpc_information": "vpcInformation",
+        "tags": "tags",
+    },
+)
+class CfnConnectorProps:
+    def __init__(
+        self,
+        *,
+        certificate_authority_arn: builtins.str,
+        directory_id: builtins.str,
+        vpc_information: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnector.VpcInformationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnector``.
+
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) of the certificate authority being used.
+        :param directory_id: The identifier of the Active Directory.
+        :param vpc_information: Information of the VPC and security group(s) used with the connector.
+        :param tags: Metadata assigned to a connector consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            cfn_connector_props = pcaconnectorad.CfnConnectorProps(
+                certificate_authority_arn="certificateAuthorityArn",
+                directory_id="directoryId",
+                vpc_information=pcaconnectorad.CfnConnector.VpcInformationProperty(
+                    security_group_ids=["securityGroupIds"],
+            
+                    # the properties below are optional
+                    ip_address_type="ipAddressType"
+                ),
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__564156a907862773b47fafbb1b06e4f9c8e0d3d39ffe5d8235c3d7cc34c92a40)
+            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
+            check_type(argname="argument vpc_information", value=vpc_information, expected_type=type_hints["vpc_information"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_authority_arn": certificate_authority_arn,
+            "directory_id": directory_id,
+            "vpc_information": vpc_information,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def certificate_authority_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the certificate authority being used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-certificateauthorityarn
+        '''
+        result = self._values.get("certificate_authority_arn")
+        assert result is not None, "Required property 'certificate_authority_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def directory_id(self) -> builtins.str:
+        '''The identifier of the Active Directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-directoryid
+        '''
+        result = self._values.get("directory_id")
+        assert result is not None, "Required property 'directory_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_information(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConnector.VpcInformationProperty"]:
+        '''Information of the VPC and security group(s) used with the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-vpcinformation
+        '''
+        result = self._values.get("vpc_information")
+        assert result is not None, "Required property 'vpc_information' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConnector.VpcInformationProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata assigned to a connector consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnDirectoryRegistrationProps",
+    jsii_struct_bases=[],
+    name_mapping={"directory_id": "directoryId", "tags": "tags"},
+)
+class CfnDirectoryRegistrationProps:
+    def __init__(
+        self,
+        *,
+        directory_id: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDirectoryRegistration``.
+
+        :param directory_id: The identifier of the Active Directory.
+        :param tags: Metadata assigned to a directory registration consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            cfn_directory_registration_props = pcaconnectorad.CfnDirectoryRegistrationProps(
+                directory_id="directoryId",
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92354fae5f6aaf222ff6a71438d62db5492fa605cf6c14cfaf2176b801600eb4)
+            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_id": directory_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def directory_id(self) -> builtins.str:
+        '''The identifier of the Active Directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html#cfn-pcaconnectorad-directoryregistration-directoryid
+        '''
+        result = self._values.get("directory_id")
+        assert result is not None, "Required property 'directory_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata assigned to a directory registration consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html#cfn-pcaconnectorad-directoryregistration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDirectoryRegistrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnServicePrincipalNameProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_arn": "connectorArn",
+        "directory_registration_arn": "directoryRegistrationArn",
+    },
+)
+class CfnServicePrincipalNameProps:
+    def __init__(
+        self,
+        *,
+        connector_arn: typing.Optional[builtins.str] = None,
+        directory_registration_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServicePrincipalName``.
+
+        :param connector_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
+        :param directory_registration_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            cfn_service_principal_name_props = pcaconnectorad.CfnServicePrincipalNameProps(
+                connector_arn="connectorArn",
+                directory_registration_arn="directoryRegistrationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if connector_arn is not None:
+            self._values["connector_arn"] = connector_arn
+        if directory_registration_arn is not None:
+            self._values["directory_registration_arn"] = directory_registration_arn
+
+    @builtins.property
+    def connector_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-connectorarn
+        '''
+        result = self._values.get("connector_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def directory_registration_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-directoryregistrationarn
+        '''
+        result = self._values.get("directory_registration_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServicePrincipalNameProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnTemplateGroupAccessControlEntryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_rights": "accessRights",
+        "group_display_name": "groupDisplayName",
+        "group_security_identifier": "groupSecurityIdentifier",
+        "template_arn": "templateArn",
+    },
+)
+class CfnTemplateGroupAccessControlEntryProps:
+    def __init__(
+        self,
+        *,
+        access_rights: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTemplateGroupAccessControlEntry.AccessRightsProperty", typing.Dict[builtins.str, typing.Any]]],
+        group_display_name: builtins.str,
+        group_security_identifier: typing.Optional[builtins.str] = None,
+        template_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTemplateGroupAccessControlEntry``.
+
+        :param access_rights: Permissions to allow or deny an Active Directory group to enroll or autoenroll certificates issued against a template.
+        :param group_display_name: Name of the Active Directory group. This name does not need to match the group name in Active Directory.
+        :param group_security_identifier: Security identifier (SID) of the group object from Active Directory. The SID starts with "S-".
+        :param template_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            cfn_template_group_access_control_entry_props = pcaconnectorad.CfnTemplateGroupAccessControlEntryProps(
+                access_rights=pcaconnectorad.CfnTemplateGroupAccessControlEntry.AccessRightsProperty(
+                    auto_enroll="autoEnroll",
+                    enroll="enroll"
+                ),
+                group_display_name="groupDisplayName",
+            
+                # the properties below are optional
+                group_security_identifier="groupSecurityIdentifier",
+                template_arn="templateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e09aa5b6a189208934626d51a2a4ce72a03a91c1e114f462f32017df55c81f41)
+            check_type(argname="argument access_rights", value=access_rights, expected_type=type_hints["access_rights"])
+            check_type(argname="argument group_display_name", value=group_display_name, expected_type=type_hints["group_display_name"])
+            check_type(argname="argument group_security_identifier", value=group_security_identifier, expected_type=type_hints["group_security_identifier"])
+            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_rights": access_rights,
+            "group_display_name": group_display_name,
+        }
+        if group_security_identifier is not None:
+            self._values["group_security_identifier"] = group_security_identifier
+        if template_arn is not None:
+            self._values["template_arn"] = template_arn
+
+    @builtins.property
+    def access_rights(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnTemplateGroupAccessControlEntry.AccessRightsProperty"]:
+        '''Permissions to allow or deny an Active Directory group to enroll or autoenroll certificates issued against a template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-accessrights
+        '''
+        result = self._values.get("access_rights")
+        assert result is not None, "Required property 'access_rights' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTemplateGroupAccessControlEntry.AccessRightsProperty"], result)
+
+    @builtins.property
+    def group_display_name(self) -> builtins.str:
+        '''Name of the Active Directory group.
+
+        This name does not need to match the group name in Active Directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-groupdisplayname
+        '''
+        result = self._values.get("group_display_name")
+        assert result is not None, "Required property 'group_display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def group_security_identifier(self) -> typing.Optional[builtins.str]:
+        '''Security identifier (SID) of the group object from Active Directory.
+
+        The SID starts with "S-".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-groupsecurityidentifier
+        '''
+        result = self._values.get("group_security_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def template_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-templatearn
+        '''
+        result = self._values.get("template_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTemplateGroupAccessControlEntryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_arn": "connectorArn",
+        "definition": "definition",
+        "name": "name",
+        "reenroll_all_certificate_holders": "reenrollAllCertificateHolders",
+        "tags": "tags",
+    },
+)
+class CfnTemplateProps:
+    def __init__(
+        self,
+        *,
+        connector_arn: builtins.str,
+        definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTemplate.TemplateDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        reenroll_all_certificate_holders: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTemplate``.
+
+        :param connector_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateConnector <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
+        :param definition: Template configuration to define the information included in certificates. Define certificate validity and renewal periods, certificate request handling and enrollment options, key usage extensions, application policies, and cryptography settings.
+        :param name: Name of the templates. Template names must be unique.
+        :param reenroll_all_certificate_holders: This setting allows the major version of a template to be increased automatically. All members of Active Directory groups that are allowed to enroll with a template will receive a new certificate issued using that template.
+        :param tags: Metadata assigned to a template consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            cfn_template_props = pcaconnectorad.CfnTemplateProps(
+                connector_arn="connectorArn",
+                definition=pcaconnectorad.CfnTemplate.TemplateDefinitionProperty(
+                    template_v2=pcaconnectorad.CfnTemplate.TemplateV2Property(
+                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
+                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            ),
+                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            )
+                        ),
+                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV2Property(
+                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
+                            include_symmetric_algorithms=False,
+                            no_security_extension=False,
+                            remove_invalid_certificate_from_personal_store=False,
+                            user_interaction_required=False
+                        ),
+                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV2Property(
+                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
+                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
+                                    data_encipherment=False,
+                                    digital_signature=False,
+                                    key_agreement=False,
+                                    key_encipherment=False,
+                                    non_repudiation=False
+                                ),
+            
+                                # the properties below are optional
+                                critical=False
+                            ),
+            
+                            # the properties below are optional
+                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
+                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
+                                    policy_object_identifier="policyObjectIdentifier",
+                                    policy_type="policyType"
+                                )],
+            
+                                # the properties below are optional
+                                critical=False
+                            )
+                        ),
+                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV2Property(
+                            auto_enrollment=False,
+                            machine_type=False
+                        ),
+                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV2Property(
+                            key_spec="keySpec",
+                            minimal_key_length=123,
+            
+                            # the properties below are optional
+                            crypto_providers=["cryptoProviders"]
+                        ),
+                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV2Property(
+                            client_version="clientVersion",
+            
+                            # the properties below are optional
+                            exportable_key=False,
+                            strong_key_protection_required=False
+                        ),
+                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV2Property(
+                            require_common_name=False,
+                            require_directory_path=False,
+                            require_dns_as_cn=False,
+                            require_email=False,
+                            san_require_directory_guid=False,
+                            san_require_dns=False,
+                            san_require_domain_dns=False,
+                            san_require_email=False,
+                            san_require_spn=False,
+                            san_require_upn=False
+                        ),
+            
+                        # the properties below are optional
+                        superseded_templates=["supersededTemplates"]
+                    ),
+                    template_v3=pcaconnectorad.CfnTemplate.TemplateV3Property(
+                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
+                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            ),
+                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            )
+                        ),
+                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV3Property(
+                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
+                            include_symmetric_algorithms=False,
+                            no_security_extension=False,
+                            remove_invalid_certificate_from_personal_store=False,
+                            user_interaction_required=False
+                        ),
+                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV3Property(
+                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
+                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
+                                    data_encipherment=False,
+                                    digital_signature=False,
+                                    key_agreement=False,
+                                    key_encipherment=False,
+                                    non_repudiation=False
+                                ),
+            
+                                # the properties below are optional
+                                critical=False
+                            ),
+            
+                            # the properties below are optional
+                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
+                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
+                                    policy_object_identifier="policyObjectIdentifier",
+                                    policy_type="policyType"
+                                )],
+            
+                                # the properties below are optional
+                                critical=False
+                            )
+                        ),
+                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV3Property(
+                            auto_enrollment=False,
+                            machine_type=False
+                        ),
+                        hash_algorithm="hashAlgorithm",
+                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV3Property(
+                            algorithm="algorithm",
+                            key_spec="keySpec",
+                            key_usage_property=pcaconnectorad.CfnTemplate.KeyUsagePropertyProperty(
+                                property_flags=pcaconnectorad.CfnTemplate.KeyUsagePropertyFlagsProperty(
+                                    decrypt=False,
+                                    key_agreement=False,
+                                    sign=False
+                                ),
+                                property_type="propertyType"
+                            ),
+                            minimal_key_length=123,
+            
+                            # the properties below are optional
+                            crypto_providers=["cryptoProviders"]
+                        ),
+                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV3Property(
+                            client_version="clientVersion",
+            
+                            # the properties below are optional
+                            exportable_key=False,
+                            require_alternate_signature_algorithm=False,
+                            strong_key_protection_required=False
+                        ),
+                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV3Property(
+                            require_common_name=False,
+                            require_directory_path=False,
+                            require_dns_as_cn=False,
+                            require_email=False,
+                            san_require_directory_guid=False,
+                            san_require_dns=False,
+                            san_require_domain_dns=False,
+                            san_require_email=False,
+                            san_require_spn=False,
+                            san_require_upn=False
+                        ),
+            
+                        # the properties below are optional
+                        superseded_templates=["supersededTemplates"]
+                    ),
+                    template_v4=pcaconnectorad.CfnTemplate.TemplateV4Property(
+                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
+                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            ),
+                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
+                                period=123,
+                                period_type="periodType"
+                            )
+                        ),
+                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV4Property(
+                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
+                            include_symmetric_algorithms=False,
+                            no_security_extension=False,
+                            remove_invalid_certificate_from_personal_store=False,
+                            user_interaction_required=False
+                        ),
+                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV4Property(
+                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
+                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
+                                    data_encipherment=False,
+                                    digital_signature=False,
+                                    key_agreement=False,
+                                    key_encipherment=False,
+                                    non_repudiation=False
+                                ),
+            
+                                # the properties below are optional
+                                critical=False
+                            ),
+            
+                            # the properties below are optional
+                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
+                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
+                                    policy_object_identifier="policyObjectIdentifier",
+                                    policy_type="policyType"
+                                )],
+            
+                                # the properties below are optional
+                                critical=False
+                            )
+                        ),
+                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV4Property(
+                            auto_enrollment=False,
+                            machine_type=False
+                        ),
+                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV4Property(
+                            key_spec="keySpec",
+                            minimal_key_length=123,
+            
+                            # the properties below are optional
+                            algorithm="algorithm",
+                            crypto_providers=["cryptoProviders"],
+                            key_usage_property=pcaconnectorad.CfnTemplate.KeyUsagePropertyProperty(
+                                property_flags=pcaconnectorad.CfnTemplate.KeyUsagePropertyFlagsProperty(
+                                    decrypt=False,
+                                    key_agreement=False,
+                                    sign=False
+                                ),
+                                property_type="propertyType"
+                            )
+                        ),
+                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV4Property(
+                            client_version="clientVersion",
+            
+                            # the properties below are optional
+                            exportable_key=False,
+                            require_alternate_signature_algorithm=False,
+                            require_same_key_renewal=False,
+                            strong_key_protection_required=False,
+                            use_legacy_provider=False
+                        ),
+                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV4Property(
+                            require_common_name=False,
+                            require_directory_path=False,
+                            require_dns_as_cn=False,
+                            require_email=False,
+                            san_require_directory_guid=False,
+                            san_require_dns=False,
+                            san_require_domain_dns=False,
+                            san_require_email=False,
+                            san_require_spn=False,
+                            san_require_upn=False
+                        ),
+            
+                        # the properties below are optional
+                        hash_algorithm="hashAlgorithm",
+                        superseded_templates=["supersededTemplates"]
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                reenroll_all_certificate_holders=False,
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aaedf159635a05945c9190de39c64b80921762454b586cb04745b2201ee34048)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument reenroll_all_certificate_holders", value=reenroll_all_certificate_holders, expected_type=type_hints["reenroll_all_certificate_holders"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+            "definition": definition,
+            "name": name,
+        }
+        if reenroll_all_certificate_holders is not None:
+            self._values["reenroll_all_certificate_holders"] = reenroll_all_certificate_holders
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-connectorarn
+        '''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def definition(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnTemplate.TemplateDefinitionProperty"]:
+        '''Template configuration to define the information included in certificates.
+
+        Define certificate validity and renewal periods, certificate request handling and enrollment options, key usage extensions, application policies, and cryptography settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-definition
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTemplate.TemplateDefinitionProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name of the templates.
+
+        Template names must be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def reenroll_all_certificate_holders(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''This setting allows the major version of a template to be increased automatically.
+
+        All members of Active Directory groups that are allowed to enroll with a template will receive a new certificate issued using that template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-reenrollallcertificateholders
+        '''
+        result = self._values.get("reenroll_all_certificate_holders")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata assigned to a template consisting of a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.ConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"connector_arn": "connectorArn"},
+)
+class ConnectorReference:
+    def __init__(self, *, connector_arn: builtins.str) -> None:
+        '''A reference to a Connector resource.
+
+        :param connector_arn: The ConnectorArn of the Connector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            connector_reference = pcaconnectorad.ConnectorReference(
+                connector_arn="connectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d135fbf35ee3e419aec0f452027ebd6d56ab37c26ba96510b976b5a35fbe8346)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+        }
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The ConnectorArn of the Connector resource.'''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.DirectoryRegistrationReference",
+    jsii_struct_bases=[],
+    name_mapping={"directory_registration_arn": "directoryRegistrationArn"},
+)
+class DirectoryRegistrationReference:
+    def __init__(self, *, directory_registration_arn: builtins.str) -> None:
+        '''A reference to a DirectoryRegistration resource.
+
+        :param directory_registration_arn: The DirectoryRegistrationArn of the DirectoryRegistration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            directory_registration_reference = pcaconnectorad.DirectoryRegistrationReference(
+                directory_registration_arn="directoryRegistrationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__219d24070fafaae34f6cb0751d3b6dccf8f5e26a65ea7f6d30361d7b4dd779c8)
+            check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_registration_arn": directory_registration_arn,
+        }
+
+    @builtins.property
+    def directory_registration_arn(self) -> builtins.str:
+        '''The DirectoryRegistrationArn of the DirectoryRegistration resource.'''
+        result = self._values.get("directory_registration_arn")
+        assert result is not None, "Required property 'directory_registration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DirectoryRegistrationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcaconnectorad.IConnectorRef")
+class IConnectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcaconnectorad.IConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcaconnectorad.IDirectoryRegistrationRef")
+class IDirectoryRegistrationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryRegistration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryRegistrationRef")
+    def directory_registration_ref(self) -> DirectoryRegistrationReference:
+        '''(experimental) A reference to a DirectoryRegistration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDirectoryRegistrationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryRegistration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcaconnectorad.IDirectoryRegistrationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryRegistrationRef")
+    def directory_registration_ref(self) -> DirectoryRegistrationReference:
+        '''(experimental) A reference to a DirectoryRegistration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DirectoryRegistrationReference, jsii.get(self, "directoryRegistrationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDirectoryRegistrationRef).__jsii_proxy_class__ = lambda : _IDirectoryRegistrationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcaconnectorad.IServicePrincipalNameRef")
+class IServicePrincipalNameRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServicePrincipalName.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="servicePrincipalNameRef")
+    def service_principal_name_ref(self) -> "ServicePrincipalNameReference":
+        '''(experimental) A reference to a ServicePrincipalName resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServicePrincipalNameRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServicePrincipalName.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcaconnectorad.IServicePrincipalNameRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="servicePrincipalNameRef")
+    def service_principal_name_ref(self) -> "ServicePrincipalNameReference":
+        '''(experimental) A reference to a ServicePrincipalName resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServicePrincipalNameReference", jsii.get(self, "servicePrincipalNameRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServicePrincipalNameRef).__jsii_proxy_class__ = lambda : _IServicePrincipalNameRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.ITemplateGroupAccessControlEntryRef"
+)
+class ITemplateGroupAccessControlEntryRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TemplateGroupAccessControlEntry.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="templateGroupAccessControlEntryRef")
+    def template_group_access_control_entry_ref(
+        self,
+    ) -> "TemplateGroupAccessControlEntryReference":
+        '''(experimental) A reference to a TemplateGroupAccessControlEntry resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITemplateGroupAccessControlEntryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TemplateGroupAccessControlEntry.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcaconnectorad.ITemplateGroupAccessControlEntryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="templateGroupAccessControlEntryRef")
+    def template_group_access_control_entry_ref(
+        self,
+    ) -> "TemplateGroupAccessControlEntryReference":
+        '''(experimental) A reference to a TemplateGroupAccessControlEntry resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TemplateGroupAccessControlEntryReference", jsii.get(self, "templateGroupAccessControlEntryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITemplateGroupAccessControlEntryRef).__jsii_proxy_class__ = lambda : _ITemplateGroupAccessControlEntryRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pcaconnectorad.ITemplateRef")
+class ITemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Template.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> "TemplateReference":
+        '''(experimental) A reference to a Template resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Template.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pcaconnectorad.ITemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> "TemplateReference":
+        '''(experimental) A reference to a Template resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TemplateReference", jsii.get(self, "templateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITemplateRef).__jsii_proxy_class__ = lambda : _ITemplateRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.ServicePrincipalNameReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_arn": "connectorArn",
+        "directory_registration_arn": "directoryRegistrationArn",
+    },
+)
+class ServicePrincipalNameReference:
+    def __init__(
+        self,
+        *,
+        connector_arn: builtins.str,
+        directory_registration_arn: builtins.str,
+    ) -> None:
+        '''A reference to a ServicePrincipalName resource.
+
+        :param connector_arn: The ConnectorArn of the ServicePrincipalName resource.
+        :param directory_registration_arn: The DirectoryRegistrationArn of the ServicePrincipalName resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            service_principal_name_reference = pcaconnectorad.ServicePrincipalNameReference(
+                connector_arn="connectorArn",
+                directory_registration_arn="directoryRegistrationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ed6ac45c694f75032c79f0e0445b69087ba3156a9d0a37702bc5ec5dd7c549a)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+            "directory_registration_arn": directory_registration_arn,
+        }
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The ConnectorArn of the ServicePrincipalName resource.'''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def directory_registration_arn(self) -> builtins.str:
+        '''The DirectoryRegistrationArn of the ServicePrincipalName resource.'''
+        result = self._values.get("directory_registration_arn")
+        assert result is not None, "Required property 'directory_registration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServicePrincipalNameReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.TemplateGroupAccessControlEntryReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group_security_identifier": "groupSecurityIdentifier",
+        "template_arn": "templateArn",
+    },
+)
+class TemplateGroupAccessControlEntryReference:
+    def __init__(
+        self,
+        *,
+        group_security_identifier: builtins.str,
+        template_arn: builtins.str,
+    ) -> None:
+        '''A reference to a TemplateGroupAccessControlEntry resource.
+
+        :param group_security_identifier: The GroupSecurityIdentifier of the TemplateGroupAccessControlEntry resource.
+        :param template_arn: The TemplateArn of the TemplateGroupAccessControlEntry resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            template_group_access_control_entry_reference = pcaconnectorad.TemplateGroupAccessControlEntryReference(
+                group_security_identifier="groupSecurityIdentifier",
+                template_arn="templateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db631e116e8590d48978fb6bba731ec0a03157239ac44f100bf3d43eda921e22)
+            check_type(argname="argument group_security_identifier", value=group_security_identifier, expected_type=type_hints["group_security_identifier"])
+            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_security_identifier": group_security_identifier,
+            "template_arn": template_arn,
+        }
+
+    @builtins.property
+    def group_security_identifier(self) -> builtins.str:
+        '''The GroupSecurityIdentifier of the TemplateGroupAccessControlEntry resource.'''
+        result = self._values.get("group_security_identifier")
+        assert result is not None, "Required property 'group_security_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_arn(self) -> builtins.str:
+        '''The TemplateArn of the TemplateGroupAccessControlEntry resource.'''
+        result = self._values.get("template_arn")
+        assert result is not None, "Required property 'template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TemplateGroupAccessControlEntryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pcaconnectorad.TemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"template_arn": "templateArn"},
+)
+class TemplateReference:
+    def __init__(self, *, template_arn: builtins.str) -> None:
+        '''A reference to a Template resource.
+
+        :param template_arn: The TemplateArn of the Template resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
+            
+            template_reference = pcaconnectorad.TemplateReference(
+                template_arn="templateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06ae882014db87354cb30eb0d9cd805f1c7b226e4c4e44e0cddd27354cf60507)
+            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_arn": template_arn,
+        }
+
+    @builtins.property
+    def template_arn(self) -> builtins.str:
+        '''The TemplateArn of the Template resource.'''
+        result = self._values.get("template_arn")
+        assert result is not None, "Required property 'template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IConnectorRef, _ITaggableV2_4e6798f8)
 class CfnConnector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -195,6 +1472,12 @@ class CfnConnector(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''A reference to a Connector resource.'''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="certificateAuthorityArn")
@@ -335,125 +1618,7 @@ class CfnConnector(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnConnectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate_authority_arn": "certificateAuthorityArn",
-        "directory_id": "directoryId",
-        "vpc_information": "vpcInformation",
-        "tags": "tags",
-    },
-)
-class CfnConnectorProps:
-    def __init__(
-        self,
-        *,
-        certificate_authority_arn: builtins.str,
-        directory_id: builtins.str,
-        vpc_information: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.VpcInformationProperty, typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnector``.
-
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) of the certificate authority being used.
-        :param directory_id: The identifier of the Active Directory.
-        :param vpc_information: Information of the VPC and security group(s) used with the connector.
-        :param tags: Metadata assigned to a connector consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
-            
-            cfn_connector_props = pcaconnectorad.CfnConnectorProps(
-                certificate_authority_arn="certificateAuthorityArn",
-                directory_id="directoryId",
-                vpc_information=pcaconnectorad.CfnConnector.VpcInformationProperty(
-                    security_group_ids=["securityGroupIds"],
-            
-                    # the properties below are optional
-                    ip_address_type="ipAddressType"
-                ),
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564156a907862773b47fafbb1b06e4f9c8e0d3d39ffe5d8235c3d7cc34c92a40)
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
-            check_type(argname="argument vpc_information", value=vpc_information, expected_type=type_hints["vpc_information"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_authority_arn": certificate_authority_arn,
-            "directory_id": directory_id,
-            "vpc_information": vpc_information,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the certificate authority being used.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-certificateauthorityarn
-        '''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def directory_id(self) -> builtins.str:
-        '''The identifier of the Active Directory.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-directoryid
-        '''
-        result = self._values.get("directory_id")
-        assert result is not None, "Required property 'directory_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_information(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConnector.VpcInformationProperty]:
-        '''Information of the VPC and security group(s) used with the connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-vpcinformation
-        '''
-        result = self._values.get("vpc_information")
-        assert result is not None, "Required property 'vpc_information' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConnector.VpcInformationProperty], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata assigned to a connector consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-connector.html#cfn-pcaconnectorad-connector-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDirectoryRegistrationRef, _ITaggableV2_4e6798f8)
 class CfnDirectoryRegistration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -554,6 +1719,12 @@ class CfnDirectoryRegistration(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="directoryRegistrationRef")
+    def directory_registration_ref(self) -> DirectoryRegistrationReference:
+        '''A reference to a DirectoryRegistration resource.'''
+        return typing.cast(DirectoryRegistrationReference, jsii.get(self, "directoryRegistrationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="directoryId")
     def directory_id(self) -> builtins.str:
         '''The identifier of the Active Directory.'''
@@ -583,83 +1754,7 @@ class CfnDirectoryRegistration(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnDirectoryRegistrationProps",
-    jsii_struct_bases=[],
-    name_mapping={"directory_id": "directoryId", "tags": "tags"},
-)
-class CfnDirectoryRegistrationProps:
-    def __init__(
-        self,
-        *,
-        directory_id: builtins.str,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDirectoryRegistration``.
-
-        :param directory_id: The identifier of the Active Directory.
-        :param tags: Metadata assigned to a directory registration consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
-            
-            cfn_directory_registration_props = pcaconnectorad.CfnDirectoryRegistrationProps(
-                directory_id="directoryId",
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92354fae5f6aaf222ff6a71438d62db5492fa605cf6c14cfaf2176b801600eb4)
-            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "directory_id": directory_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def directory_id(self) -> builtins.str:
-        '''The identifier of the Active Directory.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html#cfn-pcaconnectorad-directoryregistration-directoryid
-        '''
-        result = self._values.get("directory_id")
-        assert result is not None, "Required property 'directory_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata assigned to a directory registration consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-directoryregistration.html#cfn-pcaconnectorad-directoryregistration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDirectoryRegistrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IServicePrincipalNameRef)
 class CfnServicePrincipalName(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -746,6 +1841,12 @@ class CfnServicePrincipalName(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="servicePrincipalNameRef")
+    def service_principal_name_ref(self) -> ServicePrincipalNameReference:
+        '''A reference to a ServicePrincipalName resource.'''
+        return typing.cast(ServicePrincipalNameReference, jsii.get(self, "servicePrincipalNameRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="connectorArn")
     def connector_arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .'''
@@ -772,81 +1873,7 @@ class CfnServicePrincipalName(
         jsii.set(self, "directoryRegistrationArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnServicePrincipalNameProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connector_arn": "connectorArn",
-        "directory_registration_arn": "directoryRegistrationArn",
-    },
-)
-class CfnServicePrincipalNameProps:
-    def __init__(
-        self,
-        *,
-        connector_arn: typing.Optional[builtins.str] = None,
-        directory_registration_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServicePrincipalName``.
-
-        :param connector_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
-        :param directory_registration_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
-            
-            cfn_service_principal_name_props = pcaconnectorad.CfnServicePrincipalNameProps(
-                connector_arn="connectorArn",
-                directory_registration_arn="directoryRegistrationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8)
-            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
-            check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if connector_arn is not None:
-            self._values["connector_arn"] = connector_arn
-        if directory_registration_arn is not None:
-            self._values["directory_registration_arn"] = directory_registration_arn
-
-    @builtins.property
-    def connector_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector.html <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-connectorarn
-        '''
-        result = self._values.get("connector_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def directory_registration_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that was returned when you called `CreateDirectoryRegistration <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateDirectoryRegistration.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-serviceprincipalname.html#cfn-pcaconnectorad-serviceprincipalname-directoryregistrationarn
-        '''
-        result = self._values.get("directory_registration_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServicePrincipalNameProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITemplateRef, _ITaggableV2_4e6798f8)
 class CfnTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1218,6 +2245,12 @@ class CfnTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="templateRef")
+    def template_ref(self) -> TemplateReference:
+        '''A reference to a Template resource.'''
+        return typing.cast(TemplateReference, jsii.get(self, "templateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectorArn")
@@ -5505,7 +6538,7 @@ class CfnTemplate(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITemplateGroupAccessControlEntryRef)
 class CfnTemplateGroupAccessControlEntry(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5603,6 +6636,14 @@ class CfnTemplateGroupAccessControlEntry(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="templateGroupAccessControlEntryRef")
+    def template_group_access_control_entry_ref(
+        self,
+    ) -> TemplateGroupAccessControlEntryReference:
+        '''A reference to a TemplateGroupAccessControlEntry resource.'''
+        return typing.cast(TemplateGroupAccessControlEntryReference, jsii.get(self, "templateGroupAccessControlEntryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accessRights")
@@ -5734,517 +6775,6 @@ class CfnTemplateGroupAccessControlEntry(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnTemplateGroupAccessControlEntryProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_rights": "accessRights",
-        "group_display_name": "groupDisplayName",
-        "group_security_identifier": "groupSecurityIdentifier",
-        "template_arn": "templateArn",
-    },
-)
-class CfnTemplateGroupAccessControlEntryProps:
-    def __init__(
-        self,
-        *,
-        access_rights: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplateGroupAccessControlEntry.AccessRightsProperty, typing.Dict[builtins.str, typing.Any]]],
-        group_display_name: builtins.str,
-        group_security_identifier: typing.Optional[builtins.str] = None,
-        template_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTemplateGroupAccessControlEntry``.
-
-        :param access_rights: Permissions to allow or deny an Active Directory group to enroll or autoenroll certificates issued against a template.
-        :param group_display_name: Name of the Active Directory group. This name does not need to match the group name in Active Directory.
-        :param group_security_identifier: Security identifier (SID) of the group object from Active Directory. The SID starts with "S-".
-        :param template_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
-            
-            cfn_template_group_access_control_entry_props = pcaconnectorad.CfnTemplateGroupAccessControlEntryProps(
-                access_rights=pcaconnectorad.CfnTemplateGroupAccessControlEntry.AccessRightsProperty(
-                    auto_enroll="autoEnroll",
-                    enroll="enroll"
-                ),
-                group_display_name="groupDisplayName",
-            
-                # the properties below are optional
-                group_security_identifier="groupSecurityIdentifier",
-                template_arn="templateArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e09aa5b6a189208934626d51a2a4ce72a03a91c1e114f462f32017df55c81f41)
-            check_type(argname="argument access_rights", value=access_rights, expected_type=type_hints["access_rights"])
-            check_type(argname="argument group_display_name", value=group_display_name, expected_type=type_hints["group_display_name"])
-            check_type(argname="argument group_security_identifier", value=group_security_identifier, expected_type=type_hints["group_security_identifier"])
-            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_rights": access_rights,
-            "group_display_name": group_display_name,
-        }
-        if group_security_identifier is not None:
-            self._values["group_security_identifier"] = group_security_identifier
-        if template_arn is not None:
-            self._values["template_arn"] = template_arn
-
-    @builtins.property
-    def access_rights(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnTemplateGroupAccessControlEntry.AccessRightsProperty]:
-        '''Permissions to allow or deny an Active Directory group to enroll or autoenroll certificates issued against a template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-accessrights
-        '''
-        result = self._values.get("access_rights")
-        assert result is not None, "Required property 'access_rights' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnTemplateGroupAccessControlEntry.AccessRightsProperty], result)
-
-    @builtins.property
-    def group_display_name(self) -> builtins.str:
-        '''Name of the Active Directory group.
-
-        This name does not need to match the group name in Active Directory.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-groupdisplayname
-        '''
-        result = self._values.get("group_display_name")
-        assert result is not None, "Required property 'group_display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def group_security_identifier(self) -> typing.Optional[builtins.str]:
-        '''Security identifier (SID) of the group object from Active Directory.
-
-        The SID starts with "S-".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-groupsecurityidentifier
-        '''
-        result = self._values.get("group_security_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def template_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) that was returned when you called `CreateTemplate <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateTemplate.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-templategroupaccesscontrolentry.html#cfn-pcaconnectorad-templategroupaccesscontrolentry-templatearn
-        '''
-        result = self._values.get("template_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTemplateGroupAccessControlEntryProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pcaconnectorad.CfnTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connector_arn": "connectorArn",
-        "definition": "definition",
-        "name": "name",
-        "reenroll_all_certificate_holders": "reenrollAllCertificateHolders",
-        "tags": "tags",
-    },
-)
-class CfnTemplateProps:
-    def __init__(
-        self,
-        *,
-        connector_arn: builtins.str,
-        definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        reenroll_all_certificate_holders: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTemplate``.
-
-        :param connector_arn: The Amazon Resource Name (ARN) that was returned when you called `CreateConnector <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
-        :param definition: Template configuration to define the information included in certificates. Define certificate validity and renewal periods, certificate request handling and enrollment options, key usage extensions, application policies, and cryptography settings.
-        :param name: Name of the templates. Template names must be unique.
-        :param reenroll_all_certificate_holders: This setting allows the major version of a template to be increased automatically. All members of Active Directory groups that are allowed to enroll with a template will receive a new certificate issued using that template.
-        :param tags: Metadata assigned to a template consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pcaconnectorad as pcaconnectorad
-            
-            cfn_template_props = pcaconnectorad.CfnTemplateProps(
-                connector_arn="connectorArn",
-                definition=pcaconnectorad.CfnTemplate.TemplateDefinitionProperty(
-                    template_v2=pcaconnectorad.CfnTemplate.TemplateV2Property(
-                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
-                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            ),
-                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            )
-                        ),
-                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV2Property(
-                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
-                            include_symmetric_algorithms=False,
-                            no_security_extension=False,
-                            remove_invalid_certificate_from_personal_store=False,
-                            user_interaction_required=False
-                        ),
-                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV2Property(
-                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
-                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
-                                    data_encipherment=False,
-                                    digital_signature=False,
-                                    key_agreement=False,
-                                    key_encipherment=False,
-                                    non_repudiation=False
-                                ),
-            
-                                # the properties below are optional
-                                critical=False
-                            ),
-            
-                            # the properties below are optional
-                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
-                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
-                                    policy_object_identifier="policyObjectIdentifier",
-                                    policy_type="policyType"
-                                )],
-            
-                                # the properties below are optional
-                                critical=False
-                            )
-                        ),
-                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV2Property(
-                            auto_enrollment=False,
-                            machine_type=False
-                        ),
-                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV2Property(
-                            key_spec="keySpec",
-                            minimal_key_length=123,
-            
-                            # the properties below are optional
-                            crypto_providers=["cryptoProviders"]
-                        ),
-                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV2Property(
-                            client_version="clientVersion",
-            
-                            # the properties below are optional
-                            exportable_key=False,
-                            strong_key_protection_required=False
-                        ),
-                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV2Property(
-                            require_common_name=False,
-                            require_directory_path=False,
-                            require_dns_as_cn=False,
-                            require_email=False,
-                            san_require_directory_guid=False,
-                            san_require_dns=False,
-                            san_require_domain_dns=False,
-                            san_require_email=False,
-                            san_require_spn=False,
-                            san_require_upn=False
-                        ),
-            
-                        # the properties below are optional
-                        superseded_templates=["supersededTemplates"]
-                    ),
-                    template_v3=pcaconnectorad.CfnTemplate.TemplateV3Property(
-                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
-                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            ),
-                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            )
-                        ),
-                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV3Property(
-                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
-                            include_symmetric_algorithms=False,
-                            no_security_extension=False,
-                            remove_invalid_certificate_from_personal_store=False,
-                            user_interaction_required=False
-                        ),
-                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV3Property(
-                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
-                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
-                                    data_encipherment=False,
-                                    digital_signature=False,
-                                    key_agreement=False,
-                                    key_encipherment=False,
-                                    non_repudiation=False
-                                ),
-            
-                                # the properties below are optional
-                                critical=False
-                            ),
-            
-                            # the properties below are optional
-                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
-                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
-                                    policy_object_identifier="policyObjectIdentifier",
-                                    policy_type="policyType"
-                                )],
-            
-                                # the properties below are optional
-                                critical=False
-                            )
-                        ),
-                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV3Property(
-                            auto_enrollment=False,
-                            machine_type=False
-                        ),
-                        hash_algorithm="hashAlgorithm",
-                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV3Property(
-                            algorithm="algorithm",
-                            key_spec="keySpec",
-                            key_usage_property=pcaconnectorad.CfnTemplate.KeyUsagePropertyProperty(
-                                property_flags=pcaconnectorad.CfnTemplate.KeyUsagePropertyFlagsProperty(
-                                    decrypt=False,
-                                    key_agreement=False,
-                                    sign=False
-                                ),
-                                property_type="propertyType"
-                            ),
-                            minimal_key_length=123,
-            
-                            # the properties below are optional
-                            crypto_providers=["cryptoProviders"]
-                        ),
-                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV3Property(
-                            client_version="clientVersion",
-            
-                            # the properties below are optional
-                            exportable_key=False,
-                            require_alternate_signature_algorithm=False,
-                            strong_key_protection_required=False
-                        ),
-                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV3Property(
-                            require_common_name=False,
-                            require_directory_path=False,
-                            require_dns_as_cn=False,
-                            require_email=False,
-                            san_require_directory_guid=False,
-                            san_require_dns=False,
-                            san_require_domain_dns=False,
-                            san_require_email=False,
-                            san_require_spn=False,
-                            san_require_upn=False
-                        ),
-            
-                        # the properties below are optional
-                        superseded_templates=["supersededTemplates"]
-                    ),
-                    template_v4=pcaconnectorad.CfnTemplate.TemplateV4Property(
-                        certificate_validity=pcaconnectorad.CfnTemplate.CertificateValidityProperty(
-                            renewal_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            ),
-                            validity_period=pcaconnectorad.CfnTemplate.ValidityPeriodProperty(
-                                period=123,
-                                period_type="periodType"
-                            )
-                        ),
-                        enrollment_flags=pcaconnectorad.CfnTemplate.EnrollmentFlagsV4Property(
-                            enable_key_reuse_on_nt_token_keyset_storage_full=False,
-                            include_symmetric_algorithms=False,
-                            no_security_extension=False,
-                            remove_invalid_certificate_from_personal_store=False,
-                            user_interaction_required=False
-                        ),
-                        extensions=pcaconnectorad.CfnTemplate.ExtensionsV4Property(
-                            key_usage=pcaconnectorad.CfnTemplate.KeyUsageProperty(
-                                usage_flags=pcaconnectorad.CfnTemplate.KeyUsageFlagsProperty(
-                                    data_encipherment=False,
-                                    digital_signature=False,
-                                    key_agreement=False,
-                                    key_encipherment=False,
-                                    non_repudiation=False
-                                ),
-            
-                                # the properties below are optional
-                                critical=False
-                            ),
-            
-                            # the properties below are optional
-                            application_policies=pcaconnectorad.CfnTemplate.ApplicationPoliciesProperty(
-                                policies=[pcaconnectorad.CfnTemplate.ApplicationPolicyProperty(
-                                    policy_object_identifier="policyObjectIdentifier",
-                                    policy_type="policyType"
-                                )],
-            
-                                # the properties below are optional
-                                critical=False
-                            )
-                        ),
-                        general_flags=pcaconnectorad.CfnTemplate.GeneralFlagsV4Property(
-                            auto_enrollment=False,
-                            machine_type=False
-                        ),
-                        private_key_attributes=pcaconnectorad.CfnTemplate.PrivateKeyAttributesV4Property(
-                            key_spec="keySpec",
-                            minimal_key_length=123,
-            
-                            # the properties below are optional
-                            algorithm="algorithm",
-                            crypto_providers=["cryptoProviders"],
-                            key_usage_property=pcaconnectorad.CfnTemplate.KeyUsagePropertyProperty(
-                                property_flags=pcaconnectorad.CfnTemplate.KeyUsagePropertyFlagsProperty(
-                                    decrypt=False,
-                                    key_agreement=False,
-                                    sign=False
-                                ),
-                                property_type="propertyType"
-                            )
-                        ),
-                        private_key_flags=pcaconnectorad.CfnTemplate.PrivateKeyFlagsV4Property(
-                            client_version="clientVersion",
-            
-                            # the properties below are optional
-                            exportable_key=False,
-                            require_alternate_signature_algorithm=False,
-                            require_same_key_renewal=False,
-                            strong_key_protection_required=False,
-                            use_legacy_provider=False
-                        ),
-                        subject_name_flags=pcaconnectorad.CfnTemplate.SubjectNameFlagsV4Property(
-                            require_common_name=False,
-                            require_directory_path=False,
-                            require_dns_as_cn=False,
-                            require_email=False,
-                            san_require_directory_guid=False,
-                            san_require_dns=False,
-                            san_require_domain_dns=False,
-                            san_require_email=False,
-                            san_require_spn=False,
-                            san_require_upn=False
-                        ),
-            
-                        # the properties below are optional
-                        hash_algorithm="hashAlgorithm",
-                        superseded_templates=["supersededTemplates"]
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                reenroll_all_certificate_holders=False,
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaedf159635a05945c9190de39c64b80921762454b586cb04745b2201ee34048)
-            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
-            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument reenroll_all_certificate_holders", value=reenroll_all_certificate_holders, expected_type=type_hints["reenroll_all_certificate_holders"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connector_arn": connector_arn,
-            "definition": definition,
-            "name": name,
-        }
-        if reenroll_all_certificate_holders is not None:
-            self._values["reenroll_all_certificate_holders"] = reenroll_all_certificate_holders
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def connector_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) that was returned when you called `CreateConnector <https://docs.aws.amazon.com/pca-connector-ad/latest/APIReference/API_CreateConnector.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-connectorarn
-        '''
-        result = self._values.get("connector_arn")
-        assert result is not None, "Required property 'connector_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def definition(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateDefinitionProperty]:
-        '''Template configuration to define the information included in certificates.
-
-        Define certificate validity and renewal periods, certificate request handling and enrollment options, key usage extensions, application policies, and cryptography settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-definition
-        '''
-        result = self._values.get("definition")
-        assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateDefinitionProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Name of the templates.
-
-        Template names must be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reenroll_all_certificate_holders(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''This setting allows the major version of a template to be increased automatically.
-
-        All members of Active Directory groups that are allowed to enroll with a template will receive a new certificate issued using that template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-reenrollallcertificateholders
-        '''
-        result = self._values.get("reenroll_all_certificate_holders")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata assigned to a template consisting of a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorad-template.html#cfn-pcaconnectorad-template-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConnector",
     "CfnConnectorProps",
@@ -6256,9 +6786,103 @@ __all__ = [
     "CfnTemplateGroupAccessControlEntry",
     "CfnTemplateGroupAccessControlEntryProps",
     "CfnTemplateProps",
+    "ConnectorReference",
+    "DirectoryRegistrationReference",
+    "IConnectorRef",
+    "IDirectoryRegistrationRef",
+    "IServicePrincipalNameRef",
+    "ITemplateGroupAccessControlEntryRef",
+    "ITemplateRef",
+    "ServicePrincipalNameReference",
+    "TemplateGroupAccessControlEntryReference",
+    "TemplateReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__564156a907862773b47fafbb1b06e4f9c8e0d3d39ffe5d8235c3d7cc34c92a40(
+    *,
+    certificate_authority_arn: builtins.str,
+    directory_id: builtins.str,
+    vpc_information: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.VpcInformationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92354fae5f6aaf222ff6a71438d62db5492fa605cf6c14cfaf2176b801600eb4(
+    *,
+    directory_id: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8(
+    *,
+    connector_arn: typing.Optional[builtins.str] = None,
+    directory_registration_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e09aa5b6a189208934626d51a2a4ce72a03a91c1e114f462f32017df55c81f41(
+    *,
+    access_rights: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplateGroupAccessControlEntry.AccessRightsProperty, typing.Dict[builtins.str, typing.Any]]],
+    group_display_name: builtins.str,
+    group_security_identifier: typing.Optional[builtins.str] = None,
+    template_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aaedf159635a05945c9190de39c64b80921762454b586cb04745b2201ee34048(
+    *,
+    connector_arn: builtins.str,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    reenroll_all_certificate_holders: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d135fbf35ee3e419aec0f452027ebd6d56ab37c26ba96510b976b5a35fbe8346(
+    *,
+    connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__219d24070fafaae34f6cb0751d3b6dccf8f5e26a65ea7f6d30361d7b4dd779c8(
+    *,
+    directory_registration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ed6ac45c694f75032c79f0e0445b69087ba3156a9d0a37702bc5ec5dd7c549a(
+    *,
+    connector_arn: builtins.str,
+    directory_registration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db631e116e8590d48978fb6bba731ec0a03157239ac44f100bf3d43eda921e22(
+    *,
+    group_security_identifier: builtins.str,
+    template_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06ae882014db87354cb30eb0d9cd805f1c7b226e4c4e44e0cddd27354cf60507(
+    *,
+    template_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__a12163a6729548e5010cdebd16984d9bc442d61e9fbbf189c986731db6b48d47(
     scope: _constructs_77d1e7e8.Construct,
@@ -6316,16 +6940,6 @@ def _typecheckingstub__8b9f29305eaa60cc155622de83a9fdb695e29e88cecf7960456609a9a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__564156a907862773b47fafbb1b06e4f9c8e0d3d39ffe5d8235c3d7cc34c92a40(
-    *,
-    certificate_authority_arn: builtins.str,
-    directory_id: builtins.str,
-    vpc_information: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.VpcInformationProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9e325d6e149baf8a596306043eb453d2d3f8e118e00d5278dd37d6c33cb8c633(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6360,14 +6974,6 @@ def _typecheckingstub__177ed6093a034522fdd983b6789c9a099c557cbf446b6555c4af62b49
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__92354fae5f6aaf222ff6a71438d62db5492fa605cf6c14cfaf2176b801600eb4(
-    *,
-    directory_id: builtins.str,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__779230ef86d4538873fd875cd3babc1ab92f57abdae26cfcea7069e7eb8272d1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6398,14 +7004,6 @@ def _typecheckingstub__a7336215d5258c7d33cf1355d3c1630bd720ee5b24987f7ee7448a679
 
 def _typecheckingstub__d3b11dc247af37c1b9943c4e484a0d90a5a5c3460e646bf1e2f3ce167a88c6a4(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7da1bc3702a4df8757dbc31f6575b8167128062a021b3ccf901b92314a2c56d8(
-    *,
-    connector_arn: typing.Optional[builtins.str] = None,
-    directory_registration_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6829,27 +7427,6 @@ def _typecheckingstub__cb1f4cfd72a22034fea283dd1de5d715f9b63f5e79755751a507a06a1
     *,
     auto_enroll: typing.Optional[builtins.str] = None,
     enroll: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e09aa5b6a189208934626d51a2a4ce72a03a91c1e114f462f32017df55c81f41(
-    *,
-    access_rights: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplateGroupAccessControlEntry.AccessRightsProperty, typing.Dict[builtins.str, typing.Any]]],
-    group_display_name: builtins.str,
-    group_security_identifier: typing.Optional[builtins.str] = None,
-    template_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aaedf159635a05945c9190de39c64b80921762454b586cb04745b2201ee34048(
-    *,
-    connector_arn: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    reenroll_all_certificate_holders: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

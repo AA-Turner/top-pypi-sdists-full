@@ -1419,33 +1419,25 @@ static PyObject *t_basictimezone_getTimeZoneRules(t_basictimezone *self)
     STATUS_CALL(count = self->object->countTransitionRules(status));
 
     const InitialTimeZoneRule *initial;
-    const TimeZoneRule **rules =
-        (const TimeZoneRule **) calloc(count, sizeof(const TimeZoneRule *));
-    if (rules == NULL)
+    std::unique_ptr<const TimeZoneRule *[]> rules(new const TimeZoneRule *[count]);
+    if (!rules.get())
         return PyErr_NoMemory();
 
     UErrorCode status = U_ZERO_ERROR;
 
-    self->object->getTimeZoneRules(initial, rules, count, status);
+    self->object->getTimeZoneRules(initial, rules.get(), count, status);
     if (U_FAILURE(status))
-    {
-        free(rules);
         return ICUException(status).reportError();
-    }
 
     PyObject *result = PyTuple_New(count + 1);
 
     if (result == NULL)
-    {
-        free(rules);
         return NULL;
-    }
 
     PyTuple_SET_ITEM(result, 0, wrap_TimeZoneRule(*initial));
     for (int i = 0; i < count; ++i)
       PyTuple_SET_ITEM(result, i + 1, wrap_TimeZoneRule(*rules[i]));
 
-    free(rules);
     return result;
 }
 

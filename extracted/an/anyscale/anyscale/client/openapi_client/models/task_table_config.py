@@ -38,7 +38,8 @@ class TaskTableConfig(object):
         'current_state': 'list[TaskState]',
         'text': 'str',
         'job_id': 'str',
-        'exception_type': 'str'
+        'exception_type': 'str',
+        'attempts': 'TaskAttempts'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class TaskTableConfig(object):
         'current_state': 'current_state',
         'text': 'text',
         'job_id': 'job_id',
-        'exception_type': 'exception_type'
+        'exception_type': 'exception_type',
+        'attempts': 'attempts'
     }
 
-    def __init__(self, task_id=None, function_name=None, current_state=None, text=None, job_id=None, exception_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, task_id=None, function_name=None, current_state=None, text=None, job_id=None, exception_type=None, attempts=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class TaskTableConfig(object):
         self._text = None
         self._job_id = None
         self._exception_type = None
+        self._attempts = None
         self.discriminator = None
 
         if task_id is not None:
@@ -76,6 +79,8 @@ class TaskTableConfig(object):
             self.job_id = job_id
         if exception_type is not None:
             self.exception_type = exception_type
+        if attempts is not None:
+            self.attempts = attempts
 
     @property
     def task_id(self):
@@ -202,6 +207,27 @@ class TaskTableConfig(object):
         """
 
         self._exception_type = exception_type
+
+    @property
+    def attempts(self):
+        """Gets the attempts of this TaskTableConfig.  # noqa: E501
+
+
+        :return: The attempts of this TaskTableConfig.  # noqa: E501
+        :rtype: TaskAttempts
+        """
+        return self._attempts
+
+    @attempts.setter
+    def attempts(self, attempts):
+        """Sets the attempts of this TaskTableConfig.
+
+
+        :param attempts: The attempts of this TaskTableConfig.  # noqa: E501
+        :type: TaskAttempts
+        """
+
+        self._attempts = attempts
 
     def to_dict(self):
         """Returns the model properties as a dict"""

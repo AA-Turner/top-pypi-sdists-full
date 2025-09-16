@@ -69,7 +69,421 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_internetmonitor.CfnMonitorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "monitor_name": "monitorName",
+        "health_events_config": "healthEventsConfig",
+        "include_linked_accounts": "includeLinkedAccounts",
+        "internet_measurements_log_delivery": "internetMeasurementsLogDelivery",
+        "linked_account_id": "linkedAccountId",
+        "max_city_networks_to_monitor": "maxCityNetworksToMonitor",
+        "resources": "resources",
+        "resources_to_add": "resourcesToAdd",
+        "resources_to_remove": "resourcesToRemove",
+        "status": "status",
+        "tags": "tags",
+        "traffic_percentage_to_monitor": "trafficPercentageToMonitor",
+    },
+)
+class CfnMonitorProps:
+    def __init__(
+        self,
+        *,
+        monitor_name: builtins.str,
+        health_events_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMonitor.HealthEventsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        include_linked_accounts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        internet_measurements_log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMonitor.InternetMeasurementsLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        linked_account_id: typing.Optional[builtins.str] = None,
+        max_city_networks_to_monitor: typing.Optional[jsii.Number] = None,
+        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resources_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resources_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        traffic_percentage_to_monitor: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMonitor``.
+
+        :param monitor_name: The name of the monitor. A monitor name can contain only alphanumeric characters, dashes (-), periods (.), and underscores (_).
+        :param health_events_config: A complex type with the configuration information that determines the threshold and other conditions for when Internet Monitor creates a health event for an overall performance or availability issue, across an application's geographies. Defines the percentages, for overall performance scores and availability scores for an application, that are the thresholds for when Internet Monitor creates a health event. You can override the defaults to set a custom threshold for overall performance or availability scores, or both. You can also set thresholds for local health scores,, where Internet Monitor creates a health event when scores cross a threshold for one or more city-networks, in addition to creating an event when an overall score crosses a threshold. If you don't set a health event threshold, the default value is 95%. For local thresholds, you also set a minimum percentage of overall traffic that is impacted by an issue before Internet Monitor creates an event. In addition, you can disable local thresholds, for performance scores, availability scores, or both. For more information, see `Change health event thresholds <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-IM-overview.html#IMUpdateThresholdFromOverview>`_ in the Internet Monitor section of the *CloudWatch User Guide* .
+        :param include_linked_accounts: A boolean option that you can set to ``TRUE`` to include monitors for linked accounts in a list of monitors, when you've set up cross-account sharing in Internet Monitor. You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
+        :param internet_measurements_log_delivery: Publish internet measurements for a monitor for all city-networks (up to the 500,000 service limit) to another location, such as an Amazon S3 bucket. Measurements are also published to Amazon CloudWatch Logs for the first 500 (by traffic volume) city-networks (client locations and ASNs, typically internet service providers or ISPs).
+        :param linked_account_id: The account ID for an account that you've set up cross-account sharing for in Internet Monitor. You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
+        :param max_city_networks_to_monitor: The maximum number of city-networks to monitor for your resources. A city-network is the location (city) where clients access your application resources from and the network, such as an internet service provider, that clients access the resources through. For more information, see `Choosing a city-network maximum value <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/IMCityNetworksMaximum.html>`_ in *Using Amazon CloudWatch Internet Monitor* .
+        :param resources: The resources that have been added for the monitor, listed by their Amazon Resource Names (ARNs). Use this option to add or remove resources when making an update. .. epigraph:: Be aware that if you include content in the ``Resources`` field when you update a monitor, the ``ResourcesToAdd`` and ``ResourcesToRemove`` fields must be empty.
+        :param resources_to_add: The resources to include in a monitor, which you provide as a set of Amazon Resource Names (ARNs). Resources can be Amazon Virtual Private Cloud VPCs, Network Load Balancers (NLBs), Amazon CloudFront distributions, or Amazon WorkSpaces directories. You can add a combination of VPCs and CloudFront distributions, or you can add WorkSpaces directories, or you can add NLBs. You can't add NLBs or WorkSpaces directories together with any other resources. If you add only VPC resources, at least one VPC must have an Internet Gateway attached to it, to make sure that it has internet connectivity. .. epigraph:: You can specify this field for a monitor update only if the ``Resources`` field is empty.
+        :param resources_to_remove: The resources to remove from a monitor, which you provide as a set of Amazon Resource Names (ARNs). .. epigraph:: You can specify this field for a monitor update only if the ``Resources`` field is empty.
+        :param status: The status of a monitor. The accepted values that you can specify for ``Status`` are ``ACTIVE`` and ``INACTIVE`` .
+        :param tags: The tags for a monitor, listed as a set of *key:value* pairs.
+        :param traffic_percentage_to_monitor: The percentage of the internet-facing traffic for your application that you want to monitor. You can also, optionally, set a limit for the number of city-networks (client locations and ASNs, typically internet service providers) that Internet Monitor will monitor traffic for. The city-networks maximum limit caps the number of city-networks that Internet Monitor monitors for your application, regardless of the percentage of traffic that you choose to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_internetmonitor as internetmonitor
+            
+            cfn_monitor_props = internetmonitor.CfnMonitorProps(
+                monitor_name="monitorName",
+            
+                # the properties below are optional
+                health_events_config=internetmonitor.CfnMonitor.HealthEventsConfigProperty(
+                    availability_local_health_events_config=internetmonitor.CfnMonitor.LocalHealthEventsConfigProperty(
+                        health_score_threshold=123,
+                        min_traffic_impact=123,
+                        status="status"
+                    ),
+                    availability_score_threshold=123,
+                    performance_local_health_events_config=internetmonitor.CfnMonitor.LocalHealthEventsConfigProperty(
+                        health_score_threshold=123,
+                        min_traffic_impact=123,
+                        status="status"
+                    ),
+                    performance_score_threshold=123
+                ),
+                include_linked_accounts=False,
+                internet_measurements_log_delivery=internetmonitor.CfnMonitor.InternetMeasurementsLogDeliveryProperty(
+                    s3_config=internetmonitor.CfnMonitor.S3ConfigProperty(
+                        bucket_name="bucketName",
+                        bucket_prefix="bucketPrefix",
+                        log_delivery_status="logDeliveryStatus"
+                    )
+                ),
+                linked_account_id="linkedAccountId",
+                max_city_networks_to_monitor=123,
+                resources=["resources"],
+                resources_to_add=["resourcesToAdd"],
+                resources_to_remove=["resourcesToRemove"],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                traffic_percentage_to_monitor=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a592873878a3205128bdbf7757cbce3b6e97783b1a68d0a1b5510ffc9f9f1fd8)
+            check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
+            check_type(argname="argument health_events_config", value=health_events_config, expected_type=type_hints["health_events_config"])
+            check_type(argname="argument include_linked_accounts", value=include_linked_accounts, expected_type=type_hints["include_linked_accounts"])
+            check_type(argname="argument internet_measurements_log_delivery", value=internet_measurements_log_delivery, expected_type=type_hints["internet_measurements_log_delivery"])
+            check_type(argname="argument linked_account_id", value=linked_account_id, expected_type=type_hints["linked_account_id"])
+            check_type(argname="argument max_city_networks_to_monitor", value=max_city_networks_to_monitor, expected_type=type_hints["max_city_networks_to_monitor"])
+            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            check_type(argname="argument resources_to_add", value=resources_to_add, expected_type=type_hints["resources_to_add"])
+            check_type(argname="argument resources_to_remove", value=resources_to_remove, expected_type=type_hints["resources_to_remove"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument traffic_percentage_to_monitor", value=traffic_percentage_to_monitor, expected_type=type_hints["traffic_percentage_to_monitor"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "monitor_name": monitor_name,
+        }
+        if health_events_config is not None:
+            self._values["health_events_config"] = health_events_config
+        if include_linked_accounts is not None:
+            self._values["include_linked_accounts"] = include_linked_accounts
+        if internet_measurements_log_delivery is not None:
+            self._values["internet_measurements_log_delivery"] = internet_measurements_log_delivery
+        if linked_account_id is not None:
+            self._values["linked_account_id"] = linked_account_id
+        if max_city_networks_to_monitor is not None:
+            self._values["max_city_networks_to_monitor"] = max_city_networks_to_monitor
+        if resources is not None:
+            self._values["resources"] = resources
+        if resources_to_add is not None:
+            self._values["resources_to_add"] = resources_to_add
+        if resources_to_remove is not None:
+            self._values["resources_to_remove"] = resources_to_remove
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+        if traffic_percentage_to_monitor is not None:
+            self._values["traffic_percentage_to_monitor"] = traffic_percentage_to_monitor
+
+    @builtins.property
+    def monitor_name(self) -> builtins.str:
+        '''The name of the monitor.
+
+        A monitor name can contain only alphanumeric characters, dashes (-), periods (.), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-monitorname
+        '''
+        result = self._values.get("monitor_name")
+        assert result is not None, "Required property 'monitor_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def health_events_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMonitor.HealthEventsConfigProperty"]]:
+        '''A complex type with the configuration information that determines the threshold and other conditions for when Internet Monitor creates a health event for an overall performance or availability issue, across an application's geographies.
+
+        Defines the percentages, for overall performance scores and availability scores for an application, that are the thresholds for when Internet Monitor creates a health event. You can override the defaults to set a custom threshold for overall performance or availability scores, or both.
+
+        You can also set thresholds for local health scores,, where Internet Monitor creates a health event when scores cross a threshold for one or more city-networks, in addition to creating an event when an overall score crosses a threshold.
+
+        If you don't set a health event threshold, the default value is 95%.
+
+        For local thresholds, you also set a minimum percentage of overall traffic that is impacted by an issue before Internet Monitor creates an event. In addition, you can disable local thresholds, for performance scores, availability scores, or both.
+
+        For more information, see `Change health event thresholds <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-IM-overview.html#IMUpdateThresholdFromOverview>`_ in the Internet Monitor section of the *CloudWatch User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-healtheventsconfig
+        '''
+        result = self._values.get("health_events_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMonitor.HealthEventsConfigProperty"]], result)
+
+    @builtins.property
+    def include_linked_accounts(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean option that you can set to ``TRUE`` to include monitors for linked accounts in a list of monitors, when you've set up cross-account sharing in Internet Monitor.
+
+        You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-includelinkedaccounts
+        '''
+        result = self._values.get("include_linked_accounts")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def internet_measurements_log_delivery(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMonitor.InternetMeasurementsLogDeliveryProperty"]]:
+        '''Publish internet measurements for a monitor for all city-networks (up to the 500,000 service limit) to another location, such as an Amazon S3 bucket.
+
+        Measurements are also published to Amazon CloudWatch Logs for the first 500 (by traffic volume) city-networks (client locations and ASNs, typically internet service providers or ISPs).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-internetmeasurementslogdelivery
+        '''
+        result = self._values.get("internet_measurements_log_delivery")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMonitor.InternetMeasurementsLogDeliveryProperty"]], result)
+
+    @builtins.property
+    def linked_account_id(self) -> typing.Optional[builtins.str]:
+        '''The account ID for an account that you've set up cross-account sharing for in Internet Monitor.
+
+        You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-linkedaccountid
+        '''
+        result = self._values.get("linked_account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_city_networks_to_monitor(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of city-networks to monitor for your resources.
+
+        A city-network is the location (city) where clients access your application resources from and the network, such as an internet service provider, that clients access the resources through.
+
+        For more information, see `Choosing a city-network maximum value <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/IMCityNetworksMaximum.html>`_ in *Using Amazon CloudWatch Internet Monitor* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-maxcitynetworkstomonitor
+        '''
+        result = self._values.get("max_city_networks_to_monitor")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The resources that have been added for the monitor, listed by their Amazon Resource Names (ARNs).
+
+        Use this option to add or remove resources when making an update.
+        .. epigraph::
+
+           Be aware that if you include content in the ``Resources`` field when you update a monitor, the ``ResourcesToAdd`` and ``ResourcesToRemove`` fields must be empty.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resources
+        '''
+        result = self._values.get("resources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resources_to_add(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The resources to include in a monitor, which you provide as a set of Amazon Resource Names (ARNs).
+
+        Resources can be Amazon Virtual Private Cloud VPCs, Network Load Balancers (NLBs), Amazon CloudFront distributions, or Amazon WorkSpaces directories.
+
+        You can add a combination of VPCs and CloudFront distributions, or you can add WorkSpaces directories, or you can add NLBs. You can't add NLBs or WorkSpaces directories together with any other resources.
+
+        If you add only VPC resources, at least one VPC must have an Internet Gateway attached to it, to make sure that it has internet connectivity.
+        .. epigraph::
+
+           You can specify this field for a monitor update only if the ``Resources`` field is empty.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resourcestoadd
+        '''
+        result = self._values.get("resources_to_add")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resources_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The resources to remove from a monitor, which you provide as a set of Amazon Resource Names (ARNs).
+
+        .. epigraph::
+
+           You can specify this field for a monitor update only if the ``Resources`` field is empty.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resourcestoremove
+        '''
+        result = self._values.get("resources_to_remove")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of a monitor.
+
+        The accepted values that you can specify for ``Status`` are ``ACTIVE`` and ``INACTIVE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags for a monitor, listed as a set of *key:value* pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def traffic_percentage_to_monitor(self) -> typing.Optional[jsii.Number]:
+        '''The percentage of the internet-facing traffic for your application that you want to monitor.
+
+        You can also, optionally, set a limit for the number of city-networks (client locations and ASNs, typically internet service providers) that Internet Monitor will monitor traffic for. The city-networks maximum limit caps the number of city-networks that Internet Monitor monitors for your application, regardless of the percentage of traffic that you choose to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-trafficpercentagetomonitor
+        '''
+        result = self._values.get("traffic_percentage_to_monitor")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMonitorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_internetmonitor.IMonitorRef")
+class IMonitorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Monitor.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="monitorRef")
+    def monitor_ref(self) -> "MonitorReference":
+        '''(experimental) A reference to a Monitor resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMonitorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Monitor.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_internetmonitor.IMonitorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="monitorRef")
+    def monitor_ref(self) -> "MonitorReference":
+        '''(experimental) A reference to a Monitor resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MonitorReference", jsii.get(self, "monitorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMonitorRef).__jsii_proxy_class__ = lambda : _IMonitorRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_internetmonitor.MonitorReference",
+    jsii_struct_bases=[],
+    name_mapping={"monitor_arn": "monitorArn", "monitor_name": "monitorName"},
+)
+class MonitorReference:
+    def __init__(
+        self,
+        *,
+        monitor_arn: builtins.str,
+        monitor_name: builtins.str,
+    ) -> None:
+        '''A reference to a Monitor resource.
+
+        :param monitor_arn: The ARN of the Monitor resource.
+        :param monitor_name: The MonitorName of the Monitor resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_internetmonitor as internetmonitor
+            
+            monitor_reference = internetmonitor.MonitorReference(
+                monitor_arn="monitorArn",
+                monitor_name="monitorName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c015078548016c5c23a2779f22d5283df5cac4f10ab943b22d9f6a8cc65d0ea6)
+            check_type(argname="argument monitor_arn", value=monitor_arn, expected_type=type_hints["monitor_arn"])
+            check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "monitor_arn": monitor_arn,
+            "monitor_name": monitor_name,
+        }
+
+    @builtins.property
+    def monitor_arn(self) -> builtins.str:
+        '''The ARN of the Monitor resource.'''
+        result = self._values.get("monitor_arn")
+        assert result is not None, "Required property 'monitor_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def monitor_name(self) -> builtins.str:
+        '''The MonitorName of the Monitor resource.'''
+        result = self._values.get("monitor_name")
+        assert result is not None, "Required property 'monitor_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MonitorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IMonitorRef, _ITaggable_36806126)
 class CfnMonitor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -269,6 +683,12 @@ class CfnMonitor(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="monitorRef")
+    def monitor_ref(self) -> MonitorReference:
+        '''A reference to a Monitor resource.'''
+        return typing.cast(MonitorReference, jsii.get(self, "monitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -837,321 +1257,40 @@ class CfnMonitor(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_internetmonitor.CfnMonitorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "monitor_name": "monitorName",
-        "health_events_config": "healthEventsConfig",
-        "include_linked_accounts": "includeLinkedAccounts",
-        "internet_measurements_log_delivery": "internetMeasurementsLogDelivery",
-        "linked_account_id": "linkedAccountId",
-        "max_city_networks_to_monitor": "maxCityNetworksToMonitor",
-        "resources": "resources",
-        "resources_to_add": "resourcesToAdd",
-        "resources_to_remove": "resourcesToRemove",
-        "status": "status",
-        "tags": "tags",
-        "traffic_percentage_to_monitor": "trafficPercentageToMonitor",
-    },
-)
-class CfnMonitorProps:
-    def __init__(
-        self,
-        *,
-        monitor_name: builtins.str,
-        health_events_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.HealthEventsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        include_linked_accounts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        internet_measurements_log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.InternetMeasurementsLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        linked_account_id: typing.Optional[builtins.str] = None,
-        max_city_networks_to_monitor: typing.Optional[jsii.Number] = None,
-        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        traffic_percentage_to_monitor: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMonitor``.
-
-        :param monitor_name: The name of the monitor. A monitor name can contain only alphanumeric characters, dashes (-), periods (.), and underscores (_).
-        :param health_events_config: A complex type with the configuration information that determines the threshold and other conditions for when Internet Monitor creates a health event for an overall performance or availability issue, across an application's geographies. Defines the percentages, for overall performance scores and availability scores for an application, that are the thresholds for when Internet Monitor creates a health event. You can override the defaults to set a custom threshold for overall performance or availability scores, or both. You can also set thresholds for local health scores,, where Internet Monitor creates a health event when scores cross a threshold for one or more city-networks, in addition to creating an event when an overall score crosses a threshold. If you don't set a health event threshold, the default value is 95%. For local thresholds, you also set a minimum percentage of overall traffic that is impacted by an issue before Internet Monitor creates an event. In addition, you can disable local thresholds, for performance scores, availability scores, or both. For more information, see `Change health event thresholds <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-IM-overview.html#IMUpdateThresholdFromOverview>`_ in the Internet Monitor section of the *CloudWatch User Guide* .
-        :param include_linked_accounts: A boolean option that you can set to ``TRUE`` to include monitors for linked accounts in a list of monitors, when you've set up cross-account sharing in Internet Monitor. You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
-        :param internet_measurements_log_delivery: Publish internet measurements for a monitor for all city-networks (up to the 500,000 service limit) to another location, such as an Amazon S3 bucket. Measurements are also published to Amazon CloudWatch Logs for the first 500 (by traffic volume) city-networks (client locations and ASNs, typically internet service providers or ISPs).
-        :param linked_account_id: The account ID for an account that you've set up cross-account sharing for in Internet Monitor. You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
-        :param max_city_networks_to_monitor: The maximum number of city-networks to monitor for your resources. A city-network is the location (city) where clients access your application resources from and the network, such as an internet service provider, that clients access the resources through. For more information, see `Choosing a city-network maximum value <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/IMCityNetworksMaximum.html>`_ in *Using Amazon CloudWatch Internet Monitor* .
-        :param resources: The resources that have been added for the monitor, listed by their Amazon Resource Names (ARNs). Use this option to add or remove resources when making an update. .. epigraph:: Be aware that if you include content in the ``Resources`` field when you update a monitor, the ``ResourcesToAdd`` and ``ResourcesToRemove`` fields must be empty.
-        :param resources_to_add: The resources to include in a monitor, which you provide as a set of Amazon Resource Names (ARNs). Resources can be Amazon Virtual Private Cloud VPCs, Network Load Balancers (NLBs), Amazon CloudFront distributions, or Amazon WorkSpaces directories. You can add a combination of VPCs and CloudFront distributions, or you can add WorkSpaces directories, or you can add NLBs. You can't add NLBs or WorkSpaces directories together with any other resources. If you add only VPC resources, at least one VPC must have an Internet Gateway attached to it, to make sure that it has internet connectivity. .. epigraph:: You can specify this field for a monitor update only if the ``Resources`` field is empty.
-        :param resources_to_remove: The resources to remove from a monitor, which you provide as a set of Amazon Resource Names (ARNs). .. epigraph:: You can specify this field for a monitor update only if the ``Resources`` field is empty.
-        :param status: The status of a monitor. The accepted values that you can specify for ``Status`` are ``ACTIVE`` and ``INACTIVE`` .
-        :param tags: The tags for a monitor, listed as a set of *key:value* pairs.
-        :param traffic_percentage_to_monitor: The percentage of the internet-facing traffic for your application that you want to monitor. You can also, optionally, set a limit for the number of city-networks (client locations and ASNs, typically internet service providers) that Internet Monitor will monitor traffic for. The city-networks maximum limit caps the number of city-networks that Internet Monitor monitors for your application, regardless of the percentage of traffic that you choose to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_internetmonitor as internetmonitor
-            
-            cfn_monitor_props = internetmonitor.CfnMonitorProps(
-                monitor_name="monitorName",
-            
-                # the properties below are optional
-                health_events_config=internetmonitor.CfnMonitor.HealthEventsConfigProperty(
-                    availability_local_health_events_config=internetmonitor.CfnMonitor.LocalHealthEventsConfigProperty(
-                        health_score_threshold=123,
-                        min_traffic_impact=123,
-                        status="status"
-                    ),
-                    availability_score_threshold=123,
-                    performance_local_health_events_config=internetmonitor.CfnMonitor.LocalHealthEventsConfigProperty(
-                        health_score_threshold=123,
-                        min_traffic_impact=123,
-                        status="status"
-                    ),
-                    performance_score_threshold=123
-                ),
-                include_linked_accounts=False,
-                internet_measurements_log_delivery=internetmonitor.CfnMonitor.InternetMeasurementsLogDeliveryProperty(
-                    s3_config=internetmonitor.CfnMonitor.S3ConfigProperty(
-                        bucket_name="bucketName",
-                        bucket_prefix="bucketPrefix",
-                        log_delivery_status="logDeliveryStatus"
-                    )
-                ),
-                linked_account_id="linkedAccountId",
-                max_city_networks_to_monitor=123,
-                resources=["resources"],
-                resources_to_add=["resourcesToAdd"],
-                resources_to_remove=["resourcesToRemove"],
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                traffic_percentage_to_monitor=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a592873878a3205128bdbf7757cbce3b6e97783b1a68d0a1b5510ffc9f9f1fd8)
-            check_type(argname="argument monitor_name", value=monitor_name, expected_type=type_hints["monitor_name"])
-            check_type(argname="argument health_events_config", value=health_events_config, expected_type=type_hints["health_events_config"])
-            check_type(argname="argument include_linked_accounts", value=include_linked_accounts, expected_type=type_hints["include_linked_accounts"])
-            check_type(argname="argument internet_measurements_log_delivery", value=internet_measurements_log_delivery, expected_type=type_hints["internet_measurements_log_delivery"])
-            check_type(argname="argument linked_account_id", value=linked_account_id, expected_type=type_hints["linked_account_id"])
-            check_type(argname="argument max_city_networks_to_monitor", value=max_city_networks_to_monitor, expected_type=type_hints["max_city_networks_to_monitor"])
-            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
-            check_type(argname="argument resources_to_add", value=resources_to_add, expected_type=type_hints["resources_to_add"])
-            check_type(argname="argument resources_to_remove", value=resources_to_remove, expected_type=type_hints["resources_to_remove"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument traffic_percentage_to_monitor", value=traffic_percentage_to_monitor, expected_type=type_hints["traffic_percentage_to_monitor"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "monitor_name": monitor_name,
-        }
-        if health_events_config is not None:
-            self._values["health_events_config"] = health_events_config
-        if include_linked_accounts is not None:
-            self._values["include_linked_accounts"] = include_linked_accounts
-        if internet_measurements_log_delivery is not None:
-            self._values["internet_measurements_log_delivery"] = internet_measurements_log_delivery
-        if linked_account_id is not None:
-            self._values["linked_account_id"] = linked_account_id
-        if max_city_networks_to_monitor is not None:
-            self._values["max_city_networks_to_monitor"] = max_city_networks_to_monitor
-        if resources is not None:
-            self._values["resources"] = resources
-        if resources_to_add is not None:
-            self._values["resources_to_add"] = resources_to_add
-        if resources_to_remove is not None:
-            self._values["resources_to_remove"] = resources_to_remove
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-        if traffic_percentage_to_monitor is not None:
-            self._values["traffic_percentage_to_monitor"] = traffic_percentage_to_monitor
-
-    @builtins.property
-    def monitor_name(self) -> builtins.str:
-        '''The name of the monitor.
-
-        A monitor name can contain only alphanumeric characters, dashes (-), periods (.), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-monitorname
-        '''
-        result = self._values.get("monitor_name")
-        assert result is not None, "Required property 'monitor_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def health_events_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMonitor.HealthEventsConfigProperty]]:
-        '''A complex type with the configuration information that determines the threshold and other conditions for when Internet Monitor creates a health event for an overall performance or availability issue, across an application's geographies.
-
-        Defines the percentages, for overall performance scores and availability scores for an application, that are the thresholds for when Internet Monitor creates a health event. You can override the defaults to set a custom threshold for overall performance or availability scores, or both.
-
-        You can also set thresholds for local health scores,, where Internet Monitor creates a health event when scores cross a threshold for one or more city-networks, in addition to creating an event when an overall score crosses a threshold.
-
-        If you don't set a health event threshold, the default value is 95%.
-
-        For local thresholds, you also set a minimum percentage of overall traffic that is impacted by an issue before Internet Monitor creates an event. In addition, you can disable local thresholds, for performance scores, availability scores, or both.
-
-        For more information, see `Change health event thresholds <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-IM-overview.html#IMUpdateThresholdFromOverview>`_ in the Internet Monitor section of the *CloudWatch User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-healtheventsconfig
-        '''
-        result = self._values.get("health_events_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMonitor.HealthEventsConfigProperty]], result)
-
-    @builtins.property
-    def include_linked_accounts(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean option that you can set to ``TRUE`` to include monitors for linked accounts in a list of monitors, when you've set up cross-account sharing in Internet Monitor.
-
-        You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-includelinkedaccounts
-        '''
-        result = self._values.get("include_linked_accounts")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def internet_measurements_log_delivery(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMonitor.InternetMeasurementsLogDeliveryProperty]]:
-        '''Publish internet measurements for a monitor for all city-networks (up to the 500,000 service limit) to another location, such as an Amazon S3 bucket.
-
-        Measurements are also published to Amazon CloudWatch Logs for the first 500 (by traffic volume) city-networks (client locations and ASNs, typically internet service providers or ISPs).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-internetmeasurementslogdelivery
-        '''
-        result = self._values.get("internet_measurements_log_delivery")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMonitor.InternetMeasurementsLogDeliveryProperty]], result)
-
-    @builtins.property
-    def linked_account_id(self) -> typing.Optional[builtins.str]:
-        '''The account ID for an account that you've set up cross-account sharing for in Internet Monitor.
-
-        You configure cross-account sharing by using Amazon CloudWatch Observability Access Manager. For more information, see `Internet Monitor cross-account observability <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cwim-cross-account.html>`_ in the Amazon CloudWatch User Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-linkedaccountid
-        '''
-        result = self._values.get("linked_account_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_city_networks_to_monitor(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of city-networks to monitor for your resources.
-
-        A city-network is the location (city) where clients access your application resources from and the network, such as an internet service provider, that clients access the resources through.
-
-        For more information, see `Choosing a city-network maximum value <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/IMCityNetworksMaximum.html>`_ in *Using Amazon CloudWatch Internet Monitor* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-maxcitynetworkstomonitor
-        '''
-        result = self._values.get("max_city_networks_to_monitor")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The resources that have been added for the monitor, listed by their Amazon Resource Names (ARNs).
-
-        Use this option to add or remove resources when making an update.
-        .. epigraph::
-
-           Be aware that if you include content in the ``Resources`` field when you update a monitor, the ``ResourcesToAdd`` and ``ResourcesToRemove`` fields must be empty.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resources
-        '''
-        result = self._values.get("resources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resources_to_add(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The resources to include in a monitor, which you provide as a set of Amazon Resource Names (ARNs).
-
-        Resources can be Amazon Virtual Private Cloud VPCs, Network Load Balancers (NLBs), Amazon CloudFront distributions, or Amazon WorkSpaces directories.
-
-        You can add a combination of VPCs and CloudFront distributions, or you can add WorkSpaces directories, or you can add NLBs. You can't add NLBs or WorkSpaces directories together with any other resources.
-
-        If you add only VPC resources, at least one VPC must have an Internet Gateway attached to it, to make sure that it has internet connectivity.
-        .. epigraph::
-
-           You can specify this field for a monitor update only if the ``Resources`` field is empty.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resourcestoadd
-        '''
-        result = self._values.get("resources_to_add")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resources_to_remove(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The resources to remove from a monitor, which you provide as a set of Amazon Resource Names (ARNs).
-
-        .. epigraph::
-
-           You can specify this field for a monitor update only if the ``Resources`` field is empty.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-resourcestoremove
-        '''
-        result = self._values.get("resources_to_remove")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of a monitor.
-
-        The accepted values that you can specify for ``Status`` are ``ACTIVE`` and ``INACTIVE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags for a monitor, listed as a set of *key:value* pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def traffic_percentage_to_monitor(self) -> typing.Optional[jsii.Number]:
-        '''The percentage of the internet-facing traffic for your application that you want to monitor.
-
-        You can also, optionally, set a limit for the number of city-networks (client locations and ASNs, typically internet service providers) that Internet Monitor will monitor traffic for. The city-networks maximum limit caps the number of city-networks that Internet Monitor monitors for your application, regardless of the percentage of traffic that you choose to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-internetmonitor-monitor.html#cfn-internetmonitor-monitor-trafficpercentagetomonitor
-        '''
-        result = self._values.get("traffic_percentage_to_monitor")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMonitorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnMonitor",
     "CfnMonitorProps",
+    "IMonitorRef",
+    "MonitorReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a592873878a3205128bdbf7757cbce3b6e97783b1a68d0a1b5510ffc9f9f1fd8(
+    *,
+    monitor_name: builtins.str,
+    health_events_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.HealthEventsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    include_linked_accounts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    internet_measurements_log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.InternetMeasurementsLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linked_account_id: typing.Optional[builtins.str] = None,
+    max_city_networks_to_monitor: typing.Optional[jsii.Number] = None,
+    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resources_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resources_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    traffic_percentage_to_monitor: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c015078548016c5c23a2779f22d5283df5cac4f10ab943b22d9f6a8cc65d0ea6(
+    *,
+    monitor_arn: builtins.str,
+    monitor_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__b49625d902a7236b204a8a96b68b35647ded5da14fa0241503fe8aed7ec47718(
     scope: _constructs_77d1e7e8.Construct,
@@ -1288,24 +1427,6 @@ def _typecheckingstub__3ea826525df0e7912a2b2f0156891d9d00bda155e8b35634621c6e059
     bucket_name: typing.Optional[builtins.str] = None,
     bucket_prefix: typing.Optional[builtins.str] = None,
     log_delivery_status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a592873878a3205128bdbf7757cbce3b6e97783b1a68d0a1b5510ffc9f9f1fd8(
-    *,
-    monitor_name: builtins.str,
-    health_events_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.HealthEventsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    include_linked_accounts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    internet_measurements_log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMonitor.InternetMeasurementsLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    linked_account_id: typing.Optional[builtins.str] = None,
-    max_city_networks_to_monitor: typing.Optional[jsii.Number] = None,
-    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resources_to_add: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resources_to_remove: typing.Optional[typing.Sequence[builtins.str]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    traffic_percentage_to_monitor: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

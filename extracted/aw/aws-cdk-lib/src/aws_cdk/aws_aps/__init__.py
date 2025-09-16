@@ -70,122 +70,6 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnResourcePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_aps.CfnResourcePolicy",
-):
-    '''Use resource-based policies to grant permissions to other AWS accounts or services to access your workspace.
-
-    Only Prometheus-compatible APIs can be used for workspace sharing. You can add non-Prometheus-compatible APIs to the policy, but they will be ignored. For more information, see `Prometheus-compatible APIs <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-APIReference-Prometheus-Compatible-Apis.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-
-    If your workspace uses customer-managed AWS KMS keys for encryption, you must grant the principals in your resource-based policy access to those AWS KMS keys. You can do this by creating AWS KMS grants. For more information, see `CreateGrant <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>`_ in the *AWS KMS API Reference* and `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-
-    For more information about working with IAM , see `Using Amazon Managed Service for Prometheus with IAM <https://docs.aws.amazon.com/prometheus/latest/userguide/security_iam_service-with-iam.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html
-    :cloudformationResource: AWS::APS::ResourcePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_aps as aps
-        
-        cfn_resource_policy = aps.CfnResourcePolicy(self, "MyCfnResourcePolicy",
-            policy_document="policyDocument",
-            workspace_arn="workspaceArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_document: builtins.str,
-        workspace_arn: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_document: The JSON to use as the Resource-based Policy.
-        :param workspace_arn: An ARN identifying a Workspace.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54f89d9ee1d6d400f40f83801fe40dee056ce969e9e0501ca1390285aab7cb82)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourcePolicyProps(
-            policy_document=policy_document, workspace_arn=workspace_arn
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fd684bb5425ae9b9586530c2118e55043226673b8740171d3f7c2b1fbd03b3d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c6a584b0420e6cc37e76ad4b000bc6d8f4137f577bf7075b4ec87bab8717d9)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> builtins.str:
-        '''The JSON to use as the Resource-based Policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d726921aa53fc43f461134d2df5d60edb5d56b4fa67ef6e4e82d305af7b7eba5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="workspaceArn")
-    def workspace_arn(self) -> builtins.str:
-        '''An ARN identifying a Workspace.'''
-        return typing.cast(builtins.str, jsii.get(self, "workspaceArn"))
-
-    @workspace_arn.setter
-    def workspace_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f020f5d54f91c35f0b4332b16391ef6561cfc07a46cc5fc1e48d4acdb82a4b8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workspaceArn", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_aps.CfnResourcePolicyProps",
     jsii_struct_bases=[],
@@ -259,172 +143,6 @@ class CfnResourcePolicyProps:
         return "CfnResourcePolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnRuleGroupsNamespace(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_aps.CfnRuleGroupsNamespace",
-):
-    '''The definition of a rule groups namespace in an Amazon Managed Service for Prometheus workspace.
-
-    A rule groups namespace is associated with exactly one rules file. A workspace can have multiple rule groups namespaces. For more information about rules files, see `Creating a rules file <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-ruler-rulesfile.html>`_ , in the *Amazon Managed Service for Prometheus User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-rulegroupsnamespace.html
-    :cloudformationResource: AWS::APS::RuleGroupsNamespace
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_aps as aps
-        
-        cfn_rule_groups_namespace = aps.CfnRuleGroupsNamespace(self, "MyCfnRuleGroupsNamespace",
-            data="data",
-            name="name",
-            workspace="workspace",
-        
-            # the properties below are optional
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        data: builtins.str,
-        name: builtins.str,
-        workspace: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param data: The rules file used in the namespace. For more details about the rules file, see `Creating a rules file <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-ruler-rulesfile.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-        :param name: The name of the rule groups namespace.
-        :param workspace: The ID of the workspace to add the rule groups namespace.
-        :param tags: The list of tag keys and values that are associated with the rule groups namespace.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02d681a4d4a1e9d9052c98f45bf8b21257e825ee8185b30ea4b6f887fc7416b1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRuleGroupsNamespaceProps(
-            data=data, name=name, workspace=workspace, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f066376b2a4b15a103f9a01bca66f252615381ddc55bd5508262712fd03eec2d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__501ad912878791d9cc1a45e52a9642fb0747f4ddf4482708286f9bfde7e036de)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the rule groups namespace.
-
-        For example, ``arn:aws:aps:<region>:123456789012:rulegroupsnamespace/ws-example1-1234-abcd-5678-ef90abcd1234/rulesfile1`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="data")
-    def data(self) -> builtins.str:
-        '''The rules file used in the namespace.'''
-        return typing.cast(builtins.str, jsii.get(self, "data"))
-
-    @data.setter
-    def data(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__327e955bc86deb15923357f0f050e077304b8dbbb2c9baba9d84a13c5d7b695d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "data", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the rule groups namespace.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f3851e1fa5b758763dff1a85515e41a8c57e1b4da81b2e677f003890944957f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="workspace")
-    def workspace(self) -> builtins.str:
-        '''The ID of the workspace to add the rule groups namespace.'''
-        return typing.cast(builtins.str, jsii.get(self, "workspace"))
-
-    @workspace.setter
-    def workspace(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f899db17dfa1e1837e2b90cca5f83f23f67ca015116201811ad84d044e9ebe95)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workspace", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of tag keys and values that are associated with the rule groups namespace.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9af819e60d52c87c9369e4854d0dfc8d4917db97219839fbc11cf2bdad55659)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -541,7 +259,1024 @@ class CfnRuleGroupsNamespaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.CfnScraperProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination": "destination",
+        "scrape_configuration": "scrapeConfiguration",
+        "source": "source",
+        "alias": "alias",
+        "role_configuration": "roleConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnScraperProps:
+    def __init__(
+        self,
+        *,
+        destination: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScraper.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        scrape_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScraper.ScrapeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScraper.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        alias: typing.Optional[builtins.str] = None,
+        role_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScraper.RoleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScraper``.
+
+        :param destination: The Amazon Managed Service for Prometheus workspace the scraper sends metrics to.
+        :param scrape_configuration: The configuration in use by the scraper.
+        :param source: The Amazon EKS cluster from which the scraper collects metrics.
+        :param alias: An optional user-assigned scraper alias.
+        :param role_configuration: The role configuration in an Amazon Managed Service for Prometheus scraper.
+        :param tags: (Optional) The list of tag keys and values associated with the scraper.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            cfn_scraper_props = aps.CfnScraperProps(
+                destination=aps.CfnScraper.DestinationProperty(
+                    amp_configuration=aps.CfnScraper.AmpConfigurationProperty(
+                        workspace_arn="workspaceArn"
+                    )
+                ),
+                scrape_configuration=aps.CfnScraper.ScrapeConfigurationProperty(
+                    configuration_blob="configurationBlob"
+                ),
+                source=aps.CfnScraper.SourceProperty(
+                    eks_configuration=aps.CfnScraper.EksConfigurationProperty(
+                        cluster_arn="clusterArn",
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        security_group_ids=["securityGroupIds"]
+                    )
+                ),
+            
+                # the properties below are optional
+                alias="alias",
+                role_configuration=aps.CfnScraper.RoleConfigurationProperty(
+                    source_role_arn="sourceRoleArn",
+                    target_role_arn="targetRoleArn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f302dfc2aa92636b313e32f5d91a0ccfd79ebde0259b977f6291d4c8329455d7)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument scrape_configuration", value=scrape_configuration, expected_type=type_hints["scrape_configuration"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+            check_type(argname="argument role_configuration", value=role_configuration, expected_type=type_hints["role_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+            "scrape_configuration": scrape_configuration,
+            "source": source,
+        }
+        if alias is not None:
+            self._values["alias"] = alias
+        if role_configuration is not None:
+            self._values["role_configuration"] = role_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScraper.DestinationProperty"]:
+        '''The Amazon Managed Service for Prometheus workspace the scraper sends metrics to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-destination
+        '''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScraper.DestinationProperty"], result)
+
+    @builtins.property
+    def scrape_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScraper.ScrapeConfigurationProperty"]:
+        '''The configuration in use by the scraper.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-scrapeconfiguration
+        '''
+        result = self._values.get("scrape_configuration")
+        assert result is not None, "Required property 'scrape_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScraper.ScrapeConfigurationProperty"], result)
+
+    @builtins.property
+    def source(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScraper.SourceProperty"]:
+        '''The Amazon EKS cluster from which the scraper collects metrics.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScraper.SourceProperty"], result)
+
+    @builtins.property
+    def alias(self) -> typing.Optional[builtins.str]:
+        '''An optional user-assigned scraper alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-alias
+        '''
+        result = self._values.get("alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScraper.RoleConfigurationProperty"]]:
+        '''The role configuration in an Amazon Managed Service for Prometheus scraper.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-roleconfiguration
+        '''
+        result = self._values.get("role_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScraper.RoleConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''(Optional) The list of tag keys and values associated with the scraper.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScraperProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.CfnWorkspaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alert_manager_definition": "alertManagerDefinition",
+        "alias": "alias",
+        "kms_key_arn": "kmsKeyArn",
+        "logging_configuration": "loggingConfiguration",
+        "query_logging_configuration": "queryLoggingConfiguration",
+        "tags": "tags",
+        "workspace_configuration": "workspaceConfiguration",
+    },
+)
+class CfnWorkspaceProps:
+    def __init__(
+        self,
+        *,
+        alert_manager_definition: typing.Optional[builtins.str] = None,
+        alias: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        query_logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.QueryLoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.WorkspaceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspace``.
+
+        :param alert_manager_definition: The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace. For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* . The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ). ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
+        :param alias: The alias that is assigned to this workspace to help identify it. It does not need to be unique.
+        :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+        :param logging_configuration: Contains information about the logging configuration for the workspace.
+        :param query_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
+        :param tags: The list of tag keys and values that are associated with the workspace.
+        :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            cfn_workspace_props = aps.CfnWorkspaceProps(
+                alert_manager_definition="alertManagerDefinition",
+                alias="alias",
+                kms_key_arn="kmsKeyArn",
+                logging_configuration=aps.CfnWorkspace.LoggingConfigurationProperty(
+                    log_group_arn="logGroupArn"
+                ),
+                query_logging_configuration=aps.CfnWorkspace.QueryLoggingConfigurationProperty(
+                    destinations=[aps.CfnWorkspace.LoggingDestinationProperty(
+                        cloud_watch_logs=aps.CfnWorkspace.CloudWatchLogDestinationProperty(
+                            log_group_arn="logGroupArn"
+                        ),
+                        filters=aps.CfnWorkspace.LoggingFilterProperty(
+                            qsp_threshold=123
+                        )
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                workspace_configuration=aps.CfnWorkspace.WorkspaceConfigurationProperty(
+                    limits_per_label_sets=[aps.CfnWorkspace.LimitsPerLabelSetProperty(
+                        label_set=[aps.CfnWorkspace.LabelProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        limits=aps.CfnWorkspace.LimitsPerLabelSetEntryProperty(
+                            max_series=123
+                        )
+                    )],
+                    retention_period_in_days=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98e95bd874171795b8c6f6104e5fee9fa1d8f50cb6e1edc6d2cc01a77eb0f50a)
+            check_type(argname="argument alert_manager_definition", value=alert_manager_definition, expected_type=type_hints["alert_manager_definition"])
+            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
+            check_type(argname="argument query_logging_configuration", value=query_logging_configuration, expected_type=type_hints["query_logging_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workspace_configuration", value=workspace_configuration, expected_type=type_hints["workspace_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alert_manager_definition is not None:
+            self._values["alert_manager_definition"] = alert_manager_definition
+        if alias is not None:
+            self._values["alias"] = alias
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if logging_configuration is not None:
+            self._values["logging_configuration"] = logging_configuration
+        if query_logging_configuration is not None:
+            self._values["query_logging_configuration"] = query_logging_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if workspace_configuration is not None:
+            self._values["workspace_configuration"] = workspace_configuration
+
+    @builtins.property
+    def alert_manager_definition(self) -> typing.Optional[builtins.str]:
+        '''The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace.
+
+        For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+        The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ).
+
+        ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-alertmanagerdefinition
+        '''
+        result = self._values.get("alert_manager_definition")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def alias(self) -> typing.Optional[builtins.str]:
+        '''The alias that is assigned to this workspace to help identify it.
+
+        It does not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-alias
+        '''
+        result = self._values.get("alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''(optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace.
+
+        For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LoggingConfigurationProperty"]]:
+        '''Contains information about the logging configuration for the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-loggingconfiguration
+        '''
+        result = self._values.get("logging_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.LoggingConfigurationProperty"]], result)
+
+    @builtins.property
+    def query_logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.QueryLoggingConfigurationProperty"]]:
+        '''The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-queryloggingconfiguration
+        '''
+        result = self._values.get("query_logging_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.QueryLoggingConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The list of tag keys and values that are associated with the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def workspace_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.WorkspaceConfigurationProperty"]]:
+        '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-workspaceconfiguration
+        '''
+        result = self._values.get("workspace_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.WorkspaceConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_aps.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_aps.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_aps.IRuleGroupsNamespaceRef")
+class IRuleGroupsNamespaceRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuleGroupsNamespace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleGroupsNamespaceRef")
+    def rule_groups_namespace_ref(self) -> "RuleGroupsNamespaceReference":
+        '''(experimental) A reference to a RuleGroupsNamespace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuleGroupsNamespaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RuleGroupsNamespace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_aps.IRuleGroupsNamespaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleGroupsNamespaceRef")
+    def rule_groups_namespace_ref(self) -> "RuleGroupsNamespaceReference":
+        '''(experimental) A reference to a RuleGroupsNamespace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuleGroupsNamespaceReference", jsii.get(self, "ruleGroupsNamespaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuleGroupsNamespaceRef).__jsii_proxy_class__ = lambda : _IRuleGroupsNamespaceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_aps.IScraperRef")
+class IScraperRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Scraper.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scraperRef")
+    def scraper_ref(self) -> "ScraperReference":
+        '''(experimental) A reference to a Scraper resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScraperRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Scraper.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_aps.IScraperRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scraperRef")
+    def scraper_ref(self) -> "ScraperReference":
+        '''(experimental) A reference to a Scraper resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScraperReference", jsii.get(self, "scraperRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScraperRef).__jsii_proxy_class__ = lambda : _IScraperRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_aps.IWorkspaceRef")
+class IWorkspaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkspaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_aps.IWorkspaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkspaceReference", jsii.get(self, "workspaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkspaceRef).__jsii_proxy_class__ = lambda : _IWorkspaceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_arn": "workspaceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, workspace_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param workspace_arn: The WorkspaceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            resource_policy_reference = aps.ResourcePolicyReference(
+                workspace_arn="workspaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4dbac0a5137da3d0f209a15168185193d0f20c786a3f891fbd553cb9c449a06)
+            check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_arn": workspace_arn,
+        }
+
+    @builtins.property
+    def workspace_arn(self) -> builtins.str:
+        '''The WorkspaceArn of the ResourcePolicy resource.'''
+        result = self._values.get("workspace_arn")
+        assert result is not None, "Required property 'workspace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.RuleGroupsNamespaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_groups_namespace_arn": "ruleGroupsNamespaceArn"},
+)
+class RuleGroupsNamespaceReference:
+    def __init__(self, *, rule_groups_namespace_arn: builtins.str) -> None:
+        '''A reference to a RuleGroupsNamespace resource.
+
+        :param rule_groups_namespace_arn: The Arn of the RuleGroupsNamespace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            rule_groups_namespace_reference = aps.RuleGroupsNamespaceReference(
+                rule_groups_namespace_arn="ruleGroupsNamespaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0c92540ac1210bf274d7f5f6e632c06d0a3cafee0e16e47eb2965b3f150ccf4)
+            check_type(argname="argument rule_groups_namespace_arn", value=rule_groups_namespace_arn, expected_type=type_hints["rule_groups_namespace_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_groups_namespace_arn": rule_groups_namespace_arn,
+        }
+
+    @builtins.property
+    def rule_groups_namespace_arn(self) -> builtins.str:
+        '''The Arn of the RuleGroupsNamespace resource.'''
+        result = self._values.get("rule_groups_namespace_arn")
+        assert result is not None, "Required property 'rule_groups_namespace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleGroupsNamespaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.ScraperReference",
+    jsii_struct_bases=[],
+    name_mapping={"scraper_arn": "scraperArn"},
+)
+class ScraperReference:
+    def __init__(self, *, scraper_arn: builtins.str) -> None:
+        '''A reference to a Scraper resource.
+
+        :param scraper_arn: The Arn of the Scraper resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            scraper_reference = aps.ScraperReference(
+                scraper_arn="scraperArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__374a5fc232eb102ac8a6793598055a5f55853e59ffcefdb5264aa89a04f77bb4)
+            check_type(argname="argument scraper_arn", value=scraper_arn, expected_type=type_hints["scraper_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scraper_arn": scraper_arn,
+        }
+
+    @builtins.property
+    def scraper_arn(self) -> builtins.str:
+        '''The Arn of the Scraper resource.'''
+        result = self._values.get("scraper_arn")
+        assert result is not None, "Required property 'scraper_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScraperReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_aps.WorkspaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_arn": "workspaceArn"},
+)
+class WorkspaceReference:
+    def __init__(self, *, workspace_arn: builtins.str) -> None:
+        '''A reference to a Workspace resource.
+
+        :param workspace_arn: The Arn of the Workspace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_aps as aps
+            
+            workspace_reference = aps.WorkspaceReference(
+                workspace_arn="workspaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa321cfca0087100b6387ec771252167e8e12904e76c51b3da5c058ba6c23f46)
+            check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_arn": workspace_arn,
+        }
+
+    @builtins.property
+    def workspace_arn(self) -> builtins.str:
+        '''The Arn of the Workspace resource.'''
+        result = self._values.get("workspace_arn")
+        assert result is not None, "Required property 'workspace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkspaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_aps.CfnResourcePolicy",
+):
+    '''Use resource-based policies to grant permissions to other AWS accounts or services to access your workspace.
+
+    Only Prometheus-compatible APIs can be used for workspace sharing. You can add non-Prometheus-compatible APIs to the policy, but they will be ignored. For more information, see `Prometheus-compatible APIs <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-APIReference-Prometheus-Compatible-Apis.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    If your workspace uses customer-managed AWS KMS keys for encryption, you must grant the principals in your resource-based policy access to those AWS KMS keys. You can do this by creating AWS KMS grants. For more information, see `CreateGrant <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>`_ in the *AWS KMS API Reference* and `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    For more information about working with IAM , see `Using Amazon Managed Service for Prometheus with IAM <https://docs.aws.amazon.com/prometheus/latest/userguide/security_iam_service-with-iam.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-resourcepolicy.html
+    :cloudformationResource: AWS::APS::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_aps as aps
+        
+        cfn_resource_policy = aps.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            policy_document="policyDocument",
+            workspace_arn="workspaceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        policy_document: builtins.str,
+        workspace_arn: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The JSON to use as the Resource-based Policy.
+        :param workspace_arn: An ARN identifying a Workspace.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54f89d9ee1d6d400f40f83801fe40dee056ce969e9e0501ca1390285aab7cb82)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(
+            policy_document=policy_document, workspace_arn=workspace_arn
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fd684bb5425ae9b9586530c2118e55043226673b8740171d3f7c2b1fbd03b3d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c6a584b0420e6cc37e76ad4b000bc6d8f4137f577bf7075b4ec87bab8717d9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> builtins.str:
+        '''The JSON to use as the Resource-based Policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d726921aa53fc43f461134d2df5d60edb5d56b4fa67ef6e4e82d305af7b7eba5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceArn")
+    def workspace_arn(self) -> builtins.str:
+        '''An ARN identifying a Workspace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspaceArn"))
+
+    @workspace_arn.setter
+    def workspace_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f020f5d54f91c35f0b4332b16391ef6561cfc07a46cc5fc1e48d4acdb82a4b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IRuleGroupsNamespaceRef, _ITaggable_36806126)
+class CfnRuleGroupsNamespace(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_aps.CfnRuleGroupsNamespace",
+):
+    '''The definition of a rule groups namespace in an Amazon Managed Service for Prometheus workspace.
+
+    A rule groups namespace is associated with exactly one rules file. A workspace can have multiple rule groups namespaces. For more information about rules files, see `Creating a rules file <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-ruler-rulesfile.html>`_ , in the *Amazon Managed Service for Prometheus User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-rulegroupsnamespace.html
+    :cloudformationResource: AWS::APS::RuleGroupsNamespace
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_aps as aps
+        
+        cfn_rule_groups_namespace = aps.CfnRuleGroupsNamespace(self, "MyCfnRuleGroupsNamespace",
+            data="data",
+            name="name",
+            workspace="workspace",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        data: builtins.str,
+        name: builtins.str,
+        workspace: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data: The rules file used in the namespace. For more details about the rules file, see `Creating a rules file <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-ruler-rulesfile.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
+        :param name: The name of the rule groups namespace.
+        :param workspace: The ID of the workspace to add the rule groups namespace.
+        :param tags: The list of tag keys and values that are associated with the rule groups namespace.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02d681a4d4a1e9d9052c98f45bf8b21257e825ee8185b30ea4b6f887fc7416b1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRuleGroupsNamespaceProps(
+            data=data, name=name, workspace=workspace, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f066376b2a4b15a103f9a01bca66f252615381ddc55bd5508262712fd03eec2d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__501ad912878791d9cc1a45e52a9642fb0747f4ddf4482708286f9bfde7e036de)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the rule groups namespace.
+
+        For example, ``arn:aws:aps:<region>:123456789012:rulegroupsnamespace/ws-example1-1234-abcd-5678-ef90abcd1234/rulesfile1`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleGroupsNamespaceRef")
+    def rule_groups_namespace_ref(self) -> RuleGroupsNamespaceReference:
+        '''A reference to a RuleGroupsNamespace resource.'''
+        return typing.cast(RuleGroupsNamespaceReference, jsii.get(self, "ruleGroupsNamespaceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="data")
+    def data(self) -> builtins.str:
+        '''The rules file used in the namespace.'''
+        return typing.cast(builtins.str, jsii.get(self, "data"))
+
+    @data.setter
+    def data(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__327e955bc86deb15923357f0f050e077304b8dbbb2c9baba9d84a13c5d7b695d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "data", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the rule groups namespace.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f3851e1fa5b758763dff1a85515e41a8c57e1b4da81b2e677f003890944957f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspace")
+    def workspace(self) -> builtins.str:
+        '''The ID of the workspace to add the rule groups namespace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspace"))
+
+    @workspace.setter
+    def workspace(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f899db17dfa1e1837e2b90cca5f83f23f67ca015116201811ad84d044e9ebe95)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspace", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The list of tag keys and values that are associated with the rule groups namespace.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9af819e60d52c87c9369e4854d0dfc8d4917db97219839fbc11cf2bdad55659)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IScraperRef, _ITaggableV2_4e6798f8)
 class CfnScraper(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -710,6 +1445,12 @@ class CfnScraper(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scraperRef")
+    def scraper_ref(self) -> ScraperReference:
+        '''A reference to a Scraper resource.'''
+        return typing.cast(ScraperReference, jsii.get(self, "scraperRef"))
 
     @builtins.property
     @jsii.member(jsii_name="destination")
@@ -1205,174 +1946,7 @@ class CfnScraper(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_aps.CfnScraperProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination": "destination",
-        "scrape_configuration": "scrapeConfiguration",
-        "source": "source",
-        "alias": "alias",
-        "role_configuration": "roleConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnScraperProps:
-    def __init__(
-        self,
-        *,
-        destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
-        scrape_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.ScrapeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
-        alias: typing.Optional[builtins.str] = None,
-        role_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.RoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScraper``.
-
-        :param destination: The Amazon Managed Service for Prometheus workspace the scraper sends metrics to.
-        :param scrape_configuration: The configuration in use by the scraper.
-        :param source: The Amazon EKS cluster from which the scraper collects metrics.
-        :param alias: An optional user-assigned scraper alias.
-        :param role_configuration: The role configuration in an Amazon Managed Service for Prometheus scraper.
-        :param tags: (Optional) The list of tag keys and values associated with the scraper.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_aps as aps
-            
-            cfn_scraper_props = aps.CfnScraperProps(
-                destination=aps.CfnScraper.DestinationProperty(
-                    amp_configuration=aps.CfnScraper.AmpConfigurationProperty(
-                        workspace_arn="workspaceArn"
-                    )
-                ),
-                scrape_configuration=aps.CfnScraper.ScrapeConfigurationProperty(
-                    configuration_blob="configurationBlob"
-                ),
-                source=aps.CfnScraper.SourceProperty(
-                    eks_configuration=aps.CfnScraper.EksConfigurationProperty(
-                        cluster_arn="clusterArn",
-                        subnet_ids=["subnetIds"],
-            
-                        # the properties below are optional
-                        security_group_ids=["securityGroupIds"]
-                    )
-                ),
-            
-                # the properties below are optional
-                alias="alias",
-                role_configuration=aps.CfnScraper.RoleConfigurationProperty(
-                    source_role_arn="sourceRoleArn",
-                    target_role_arn="targetRoleArn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f302dfc2aa92636b313e32f5d91a0ccfd79ebde0259b977f6291d4c8329455d7)
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument scrape_configuration", value=scrape_configuration, expected_type=type_hints["scrape_configuration"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
-            check_type(argname="argument role_configuration", value=role_configuration, expected_type=type_hints["role_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination": destination,
-            "scrape_configuration": scrape_configuration,
-            "source": source,
-        }
-        if alias is not None:
-            self._values["alias"] = alias
-        if role_configuration is not None:
-            self._values["role_configuration"] = role_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destination(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScraper.DestinationProperty]:
-        '''The Amazon Managed Service for Prometheus workspace the scraper sends metrics to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-destination
-        '''
-        result = self._values.get("destination")
-        assert result is not None, "Required property 'destination' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScraper.DestinationProperty], result)
-
-    @builtins.property
-    def scrape_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScraper.ScrapeConfigurationProperty]:
-        '''The configuration in use by the scraper.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-scrapeconfiguration
-        '''
-        result = self._values.get("scrape_configuration")
-        assert result is not None, "Required property 'scrape_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScraper.ScrapeConfigurationProperty], result)
-
-    @builtins.property
-    def source(self) -> typing.Union[_IResolvable_da3f097b, CfnScraper.SourceProperty]:
-        '''The Amazon EKS cluster from which the scraper collects metrics.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-source
-        '''
-        result = self._values.get("source")
-        assert result is not None, "Required property 'source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScraper.SourceProperty], result)
-
-    @builtins.property
-    def alias(self) -> typing.Optional[builtins.str]:
-        '''An optional user-assigned scraper alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-alias
-        '''
-        result = self._values.get("alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScraper.RoleConfigurationProperty]]:
-        '''The role configuration in an Amazon Managed Service for Prometheus scraper.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-roleconfiguration
-        '''
-        result = self._values.get("role_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScraper.RoleConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''(Optional) The list of tag keys and values associated with the scraper.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-scraper.html#cfn-aps-scraper-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScraperProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IWorkspaceRef, _ITaggable_36806126)
 class CfnWorkspace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1539,6 +2113,12 @@ class CfnWorkspace(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> WorkspaceReference:
+        '''A reference to a Workspace resource.'''
+        return typing.cast(WorkspaceReference, jsii.get(self, "workspaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alertManagerDefinition")
@@ -2250,201 +2830,6 @@ class CfnWorkspace(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_aps.CfnWorkspaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "alert_manager_definition": "alertManagerDefinition",
-        "alias": "alias",
-        "kms_key_arn": "kmsKeyArn",
-        "logging_configuration": "loggingConfiguration",
-        "query_logging_configuration": "queryLoggingConfiguration",
-        "tags": "tags",
-        "workspace_configuration": "workspaceConfiguration",
-    },
-)
-class CfnWorkspaceProps:
-    def __init__(
-        self,
-        *,
-        alert_manager_definition: typing.Optional[builtins.str] = None,
-        alias: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        query_logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.QueryLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workspace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.WorkspaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkspace``.
-
-        :param alert_manager_definition: The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace. For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* . The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ). ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
-        :param alias: The alias that is assigned to this workspace to help identify it. It does not need to be unique.
-        :param kms_key_arn: (optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace. For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-        :param logging_configuration: Contains information about the logging configuration for the workspace.
-        :param query_logging_configuration: The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
-        :param tags: The list of tag keys and values that are associated with the workspace.
-        :param workspace_configuration: Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_aps as aps
-            
-            cfn_workspace_props = aps.CfnWorkspaceProps(
-                alert_manager_definition="alertManagerDefinition",
-                alias="alias",
-                kms_key_arn="kmsKeyArn",
-                logging_configuration=aps.CfnWorkspace.LoggingConfigurationProperty(
-                    log_group_arn="logGroupArn"
-                ),
-                query_logging_configuration=aps.CfnWorkspace.QueryLoggingConfigurationProperty(
-                    destinations=[aps.CfnWorkspace.LoggingDestinationProperty(
-                        cloud_watch_logs=aps.CfnWorkspace.CloudWatchLogDestinationProperty(
-                            log_group_arn="logGroupArn"
-                        ),
-                        filters=aps.CfnWorkspace.LoggingFilterProperty(
-                            qsp_threshold=123
-                        )
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                workspace_configuration=aps.CfnWorkspace.WorkspaceConfigurationProperty(
-                    limits_per_label_sets=[aps.CfnWorkspace.LimitsPerLabelSetProperty(
-                        label_set=[aps.CfnWorkspace.LabelProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        limits=aps.CfnWorkspace.LimitsPerLabelSetEntryProperty(
-                            max_series=123
-                        )
-                    )],
-                    retention_period_in_days=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98e95bd874171795b8c6f6104e5fee9fa1d8f50cb6e1edc6d2cc01a77eb0f50a)
-            check_type(argname="argument alert_manager_definition", value=alert_manager_definition, expected_type=type_hints["alert_manager_definition"])
-            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
-            check_type(argname="argument query_logging_configuration", value=query_logging_configuration, expected_type=type_hints["query_logging_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument workspace_configuration", value=workspace_configuration, expected_type=type_hints["workspace_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if alert_manager_definition is not None:
-            self._values["alert_manager_definition"] = alert_manager_definition
-        if alias is not None:
-            self._values["alias"] = alias
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if logging_configuration is not None:
-            self._values["logging_configuration"] = logging_configuration
-        if query_logging_configuration is not None:
-            self._values["query_logging_configuration"] = query_logging_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if workspace_configuration is not None:
-            self._values["workspace_configuration"] = workspace_configuration
-
-    @builtins.property
-    def alert_manager_definition(self) -> typing.Optional[builtins.str]:
-        '''The alert manager definition, a YAML configuration for the alert manager in your Amazon Managed Service for Prometheus workspace.
-
-        For details about the alert manager definition, see `Creating an alert manager configuration files <https://docs.aws.amazon.com/prometheus/latest/userguide/AMP-alertmanager-config.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-
-        The following example shows part of a CloudFormation YAML file with an embedded alert manager definition (following the ``- |-`` ).
-
-        ``Workspace: Type: AWS::APS::Workspace .... Properties: .... AlertManagerDefinition: Fn::Sub: - |- alertmanager_config: | templates: - 'default_template' route: receiver: example-sns receivers: - name: example-sns sns_configs: - topic_arn: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${TopicName}' -``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-alertmanagerdefinition
-        '''
-        result = self._values.get("alert_manager_definition")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def alias(self) -> typing.Optional[builtins.str]:
-        '''The alias that is assigned to this workspace to help identify it.
-
-        It does not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-alias
-        '''
-        result = self._values.get("alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''(optional) The ARN for a customer managed AWS KMS key to use for encrypting data within your workspace.
-
-        For more information about using your own key in your workspace, see `Encryption at rest <https://docs.aws.amazon.com/prometheus/latest/userguide/encryption-at-rest-Amazon-Service-Prometheus.html>`_ in the *Amazon Managed Service for Prometheus User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.LoggingConfigurationProperty]]:
-        '''Contains information about the logging configuration for the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-loggingconfiguration
-        '''
-        result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.LoggingConfigurationProperty]], result)
-
-    @builtins.property
-    def query_logging_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.QueryLoggingConfigurationProperty]]:
-        '''The definition of logging configuration in an Amazon Managed Service for Prometheus workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-queryloggingconfiguration
-        '''
-        result = self._values.get("query_logging_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.QueryLoggingConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of tag keys and values that are associated with the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def workspace_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.WorkspaceConfigurationProperty]]:
-        '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-workspace.html#cfn-aps-workspace-workspaceconfiguration
-        '''
-        result = self._values.get("workspace_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspace.WorkspaceConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkspaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
@@ -2454,9 +2839,88 @@ __all__ = [
     "CfnScraperProps",
     "CfnWorkspace",
     "CfnWorkspaceProps",
+    "IResourcePolicyRef",
+    "IRuleGroupsNamespaceRef",
+    "IScraperRef",
+    "IWorkspaceRef",
+    "ResourcePolicyReference",
+    "RuleGroupsNamespaceReference",
+    "ScraperReference",
+    "WorkspaceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__bb05747fc90b1776c66fd40ec5d261399f93ac6b367fc973d5df8b912bd30997(
+    *,
+    policy_document: builtins.str,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ba9f13df78597d09b62adc5501ac56c5fedca3215c115e02cb7e3be9e440366(
+    *,
+    data: builtins.str,
+    name: builtins.str,
+    workspace: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f302dfc2aa92636b313e32f5d91a0ccfd79ebde0259b977f6291d4c8329455d7(
+    *,
+    destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    scrape_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.ScrapeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    alias: typing.Optional[builtins.str] = None,
+    role_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.RoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98e95bd874171795b8c6f6104e5fee9fa1d8f50cb6e1edc6d2cc01a77eb0f50a(
+    *,
+    alert_manager_definition: typing.Optional[builtins.str] = None,
+    alias: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    query_logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.QueryLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.WorkspaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4dbac0a5137da3d0f209a15168185193d0f20c786a3f891fbd553cb9c449a06(
+    *,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0c92540ac1210bf274d7f5f6e632c06d0a3cafee0e16e47eb2965b3f150ccf4(
+    *,
+    rule_groups_namespace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__374a5fc232eb102ac8a6793598055a5f55853e59ffcefdb5264aa89a04f77bb4(
+    *,
+    scraper_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa321cfca0087100b6387ec771252167e8e12904e76c51b3da5c058ba6c23f46(
+    *,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__54f89d9ee1d6d400f40f83801fe40dee056ce969e9e0501ca1390285aab7cb82(
     scope: _constructs_77d1e7e8.Construct,
@@ -2488,14 +2952,6 @@ def _typecheckingstub__d726921aa53fc43f461134d2df5d60edb5d56b4fa67ef6e4e82d305af
 
 def _typecheckingstub__2f020f5d54f91c35f0b4332b16391ef6561cfc07a46cc5fc1e48d4acdb82a4b8(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bb05747fc90b1776c66fd40ec5d261399f93ac6b367fc973d5df8b912bd30997(
-    *,
-    policy_document: builtins.str,
-    workspace_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2544,16 +3000,6 @@ def _typecheckingstub__f899db17dfa1e1837e2b90cca5f83f23f67ca015116201811ad84d044
 
 def _typecheckingstub__d9af819e60d52c87c9369e4854d0dfc8d4917db97219839fbc11cf2bdad55659(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3ba9f13df78597d09b62adc5501ac56c5fedca3215c115e02cb7e3be9e440366(
-    *,
-    data: builtins.str,
-    name: builtins.str,
-    workspace: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2661,18 +3107,6 @@ def _typecheckingstub__61507a1463486662c27c8fec99a5cb181f22e5f346b7bb6d10823ad9b
 def _typecheckingstub__655e83ac40d7d6fcc3362aa2c25fcfadc0beb5744ef393de105d7d152821a330(
     *,
     eks_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.EksConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f302dfc2aa92636b313e32f5d91a0ccfd79ebde0259b977f6291d4c8329455d7(
-    *,
-    destination: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
-    scrape_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.ScrapeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    alias: typing.Optional[builtins.str] = None,
-    role_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScraper.RoleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2809,19 +3243,6 @@ def _typecheckingstub__8d8bd4b9a39be1594ef4681992e92f89f24816c775c0e0c40e340be13
     *,
     limits_per_label_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.LimitsPerLabelSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     retention_period_in_days: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98e95bd874171795b8c6f6104e5fee9fa1d8f50cb6e1edc6d2cc01a77eb0f50a(
-    *,
-    alert_manager_definition: typing.Optional[builtins.str] = None,
-    alias: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    query_logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.QueryLoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    workspace_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.WorkspaceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

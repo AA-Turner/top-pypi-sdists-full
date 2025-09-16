@@ -1749,7 +1749,7 @@ from ..aws_iam import (
     IRole as _IRole_235f5d8e,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKey as _IKey_5f11635f, IKeyRef as _IKeyRef_1e82344b
 from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
 from ..aws_s3 import IBucket as _IBucket_42e086fd
 from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
@@ -1825,6 +1825,55 @@ class ActivityProps:
 
     def __repr__(self) -> str:
         return "ActivityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.ActivityReference",
+    jsii_struct_bases=[],
+    name_mapping={"activity_arn": "activityArn"},
+)
+class ActivityReference:
+    def __init__(self, *, activity_arn: builtins.str) -> None:
+        '''A reference to a Activity resource.
+
+        :param activity_arn: The Arn of the Activity resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            activity_reference = stepfunctions.ActivityReference(
+                activity_arn="activityArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5112bbc5e9baa38430d3b9428204c98d46ce65ed1391497eb78927c19a5faa0)
+            check_type(argname="argument activity_arn", value=activity_arn, expected_type=type_hints["activity_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "activity_arn": activity_arn,
+        }
+
+    @builtins.property
+    def activity_arn(self) -> builtins.str:
+        '''The Arn of the Activity resource.'''
+        result = self._values.get("activity_arn")
+        assert result is not None, "Required property 'activity_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ActivityReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2101,351 +2150,6 @@ class CatchProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnActivity(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity",
-):
-    '''An activity is a task that you write in any programming language and host on any machine that has access to AWS Step Functions .
-
-    Activities must poll Step Functions using the ``GetActivityTask`` API action and respond using ``SendTask*`` API actions. This function makes Step Functions aware of your activity and returns an identifier for use in a state machine and when polling from the activity.
-
-    For information about creating an activity, see `Creating an Activity State Machine <https://docs.aws.amazon.com/step-functions/latest/dg/tutorial-creating-activity-state-machine.html>`_ in the *AWS Step Functions Developer Guide* and `CreateActivity <https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateActivity.html>`_ in the *AWS Step Functions API Reference* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html
-    :cloudformationResource: AWS::StepFunctions::Activity
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_stepfunctions as stepfunctions
-        
-        cfn_activity = stepfunctions.CfnActivity(self, "MyCfnActivity",
-            name="name",
-        
-            # the properties below are optional
-            encryption_configuration=stepfunctions.CfnActivity.EncryptionConfigurationProperty(
-                type="type",
-        
-                # the properties below are optional
-                kms_data_key_reuse_period_seconds=123,
-                kms_key_id="kmsKeyId"
-            ),
-            tags=[stepfunctions.CfnActivity.TagsEntryProperty(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnActivity.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the activity. A name must *not* contain: - white space - brackets ``< > { } [ ]`` - wildcard characters ``? *`` - special characters ``" # % \\ ^ | ~ `` $ & , ; : /` - control characters ( ``U+0000-001F`` , ``U+007F-009F`` , ``U+FFFE-FFFF`` ) - surrogates ( ``U+D800-DFFF`` ) - invalid characters ( ``U+10FFFF`` ) To enable logging with CloudWatch Logs, the name should only contain 0-9, A-Z, a-z, - and _.
-        :param encryption_configuration: Encryption configuration for the activity. Activity configuration is immutable, and resource names must be unique. To set customer managed keys for encryption, you must create a *new Activity* . If you attempt to change the configuration in your CFN template for an existing activity, you will receive an ``ActivityAlreadyExists`` exception. To update your activity to include customer managed keys, set a new activity name within your AWS CloudFormation template.
-        :param tags: The list of tags to add to a resource. Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnActivityProps(
-            name=name, encryption_configuration=encryption_configuration, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the ARN of the resource.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrName")
-    def attr_name(self) -> builtins.str:
-        '''Returns the name of the activity. For example:.
-
-        ``{ "Fn::GetAtt": ["MyActivity", "Name"] }``
-
-        Returns a value similar to the following:
-
-        ``myActivity``
-
-        For more information about using ``Fn::GetAtt`` , see `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ .
-
-        :cloudformationAttribute: Name
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the activity.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionConfiguration")
-    def encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]]:
-        '''Encryption configuration for the activity.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
-
-    @encryption_configuration.setter
-    def encryption_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]]:
-        '''The list of tags to add to a resource.'''
-        return typing.cast(typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity.EncryptionConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "type": "type",
-            "kms_data_key_reuse_period_seconds": "kmsDataKeyReusePeriodSeconds",
-            "kms_key_id": "kmsKeyId",
-        },
-    )
-    class EncryptionConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            type: builtins.str,
-            kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Settings to configure server-side encryption for an activity.
-
-            By default, Step Functions provides transparent server-side encryption. With this configuration, you can specify a customer managed AWS KMS key for encryption.
-
-            :param type: Encryption option for an activity.
-            :param kms_data_key_reuse_period_seconds: Maximum duration that Step Functions will reuse data keys. When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
-            :param kms_key_id: An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data. To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                encryption_configuration_property = stepfunctions.CfnActivity.EncryptionConfigurationProperty(
-                    type="type",
-                
-                    # the properties below are optional
-                    kms_data_key_reuse_period_seconds=123,
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a)
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "type": type,
-            }
-            if kms_data_key_reuse_period_seconds is not None:
-                self._values["kms_data_key_reuse_period_seconds"] = kms_data_key_reuse_period_seconds
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''Encryption option for an activity.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
-            '''Maximum duration that Step Functions will reuse data keys.
-
-            When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-kmsdatakeyreuseperiodseconds
-            '''
-            result = self._values.get("kms_data_key_reuse_period_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data.
-
-            To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EncryptionConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity.TagsEntryProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsEntryProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''The ``TagsEntry`` property specifies *tags* to identify an activity.
-
-            :param key: The ``key`` for a key-value pair in a tag entry.
-            :param value: The ``value`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                tags_entry_property = stepfunctions.CfnActivity.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The ``key`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html#cfn-stepfunctions-activity-tagsentry-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The ``value`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html#cfn-stepfunctions-activity-tagsentry-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsEntryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivityProps",
     jsii_struct_bases=[],
@@ -2460,8 +2164,8 @@ class CfnActivityProps:
         self,
         *,
         name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnActivity.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnActivity``.
 
@@ -2533,7 +2237,7 @@ class CfnActivityProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnActivity.EncryptionConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the activity.
 
         Activity configuration is immutable, and resource names must be unique. To set customer managed keys for encryption, you must create a *new Activity* . If you attempt to change the configuration in your CFN template for an existing activity, you will receive an ``ActivityAlreadyExists`` exception.
@@ -2543,10 +2247,10 @@ class CfnActivityProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html#cfn-stepfunctions-activity-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnActivity.EncryptionConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnActivity.TagsEntryProperty]]:
+    def tags(self) -> typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]]:
         '''The list of tags to add to a resource.
 
         Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
@@ -2555,7 +2259,7 @@ class CfnActivityProps:
         :: ` .
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnActivity.TagsEntryProperty]], result)
+        return typing.cast(typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2567,1322 +2271,6 @@ class CfnActivityProps:
         return "CfnActivityProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnStateMachine(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
-):
-    '''Provisions a state machine.
-
-    A state machine consists of a collection of states that can do work ( ``Task`` states), determine to which states to transition next ( ``Choice`` states), stop an execution with an error ( ``Fail`` states), and so on. State machines are specified using a JSON-based, structured language.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html
-    :cloudformationResource: AWS::StepFunctions::StateMachine
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_stepfunctions as stepfunctions
-        
-        # definition: Any
-        
-        cfn_state_machine = stepfunctions.CfnStateMachine(self, "MyCfnStateMachine",
-            role_arn="roleArn",
-        
-            # the properties below are optional
-            definition=definition,
-            definition_s3_location=stepfunctions.CfnStateMachine.S3LocationProperty(
-                bucket="bucket",
-                key="key",
-        
-                # the properties below are optional
-                version="version"
-            ),
-            definition_string="definitionString",
-            definition_substitutions={
-                "definition_substitutions_key": "definitionSubstitutions"
-            },
-            encryption_configuration=stepfunctions.CfnStateMachine.EncryptionConfigurationProperty(
-                type="type",
-        
-                # the properties below are optional
-                kms_data_key_reuse_period_seconds=123,
-                kms_key_id="kmsKeyId"
-            ),
-            logging_configuration=stepfunctions.CfnStateMachine.LoggingConfigurationProperty(
-                destinations=[stepfunctions.CfnStateMachine.LogDestinationProperty(
-                    cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                        log_group_arn="logGroupArn"
-                    )
-                )],
-                include_execution_data=False,
-                level="level"
-            ),
-            state_machine_name="stateMachineName",
-            state_machine_type="stateMachineType",
-            tags=[stepfunctions.CfnStateMachine.TagsEntryProperty(
-                key="key",
-                value="value"
-            )],
-            tracing_configuration=stepfunctions.CfnStateMachine.TracingConfigurationProperty(
-                enabled=False
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        role_arn: builtins.str,
-        definition: typing.Any = None,
-        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_string: typing.Optional[builtins.str] = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        state_machine_name: typing.Optional[builtins.str] = None,
-        state_machine_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["CfnStateMachine.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to use for this state machine.
-        :param definition: The Amazon States Language definition of the state machine. The state machine definition must be in JSON or YAML, and the format of the object must match the format of your CloudFormation template file. See `Amazon States Language <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-amazon-states-language.html>`_ .
-        :param definition_s3_location: The name of the S3 bucket where the state machine definition is stored. The state machine definition must be a JSON or YAML file.
-        :param definition_string: The Amazon States Language definition of the state machine. The state machine definition must be in JSON. See `Amazon States Language <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-amazon-states-language.html>`_ .
-        :param definition_substitutions: A map (string to string) that specifies the mappings for placeholder variables in the state machine definition. This enables the customer to inject values obtained at runtime, for example from intrinsic functions, in the state machine definition. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
-        :param encryption_configuration: Encryption configuration for the state machine.
-        :param logging_configuration: Defines what execution history events are logged and where they are logged. .. epigraph:: By default, the ``level`` is set to ``OFF`` . For more information see `Log Levels <https://docs.aws.amazon.com/step-functions/latest/dg/cloudwatch-log-level.html>`_ in the AWS Step Functions User Guide.
-        :param state_machine_name: The name of the state machine. A name must *not* contain: - white space - brackets ``< > { } [ ]`` - wildcard characters ``? *`` - special characters ``" # % \\ ^ | ~ `` $ & , ; : /` - control characters ( ``U+0000-001F`` , ``U+007F-009F`` ) .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param state_machine_type: Determines whether a ``STANDARD`` or ``EXPRESS`` state machine is created. The default is ``STANDARD`` . You cannot update the ``type`` of a state machine once it has been created. For more information on ``STANDARD`` and ``EXPRESS`` workflows, see `Standard Versus Express Workflows <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-standard-vs-express.html>`_ in the AWS Step Functions Developer Guide.
-        :param tags: The list of tags to add to a resource. Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
-        :param tracing_configuration: Selects whether or not the state machine's AWS X-Ray tracing is enabled.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStateMachineProps(
-            role_arn=role_arn,
-            definition=definition,
-            definition_s3_location=definition_s3_location,
-            definition_string=definition_string,
-            definition_substitutions=definition_substitutions,
-            encryption_configuration=encryption_configuration,
-            logging_configuration=logging_configuration,
-            state_machine_name=state_machine_name,
-            state_machine_type=state_machine_type,
-            tags=tags,
-            tracing_configuration=tracing_configuration,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the ARN of the resource.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrName")
-    def attr_name(self) -> builtins.str:
-        '''Returns the name of the state machine. For example:.
-
-        ``{ "Fn::GetAtt": ["MyStateMachine", "Name"] }``
-
-        Returns the name of your state machine:
-
-        ``HelloWorld-StateMachine``
-
-        If you did not specify the name it will be similar to the following:
-
-        ``MyStateMachine-1234abcdefgh``
-
-        For more information about using ``Fn::GetAtt`` , see `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ .
-
-        :cloudformationAttribute: Name
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStateMachineRevisionId")
-    def attr_state_machine_revision_id(self) -> builtins.str:
-        '''Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration.
-
-        :cloudformationAttribute: StateMachineRevisionId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStateMachineRevisionId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="definition")
-    def definition(self) -> typing.Any:
-        '''The Amazon States Language definition of the state machine.'''
-        return typing.cast(typing.Any, jsii.get(self, "definition"))
-
-    @definition.setter
-    def definition(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="definitionS3Location")
-    def definition_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]]:
-        '''The name of the S3 bucket where the state machine definition is stored.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]], jsii.get(self, "definitionS3Location"))
-
-    @definition_s3_location.setter
-    def definition_s3_location(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="definitionString")
-    def definition_string(self) -> typing.Optional[builtins.str]:
-        '''The Amazon States Language definition of the state machine.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "definitionString"))
-
-    @definition_string.setter
-    def definition_string(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="definitionSubstitutions")
-    def definition_substitutions(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "definitionSubstitutions"))
-
-    @definition_substitutions.setter
-    def definition_substitutions(
-        self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionSubstitutions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionConfiguration")
-    def encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]]:
-        '''Encryption configuration for the state machine.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
-
-    @encryption_configuration.setter
-    def encryption_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="loggingConfiguration")
-    def logging_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]]:
-        '''Defines what execution history events are logged and where they are logged.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
-
-    @logging_configuration.setter
-    def logging_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stateMachineName")
-    def state_machine_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the state machine.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineName"))
-
-    @state_machine_name.setter
-    def state_machine_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stateMachineName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stateMachineType")
-    def state_machine_type(self) -> typing.Optional[builtins.str]:
-        '''Determines whether a ``STANDARD`` or ``EXPRESS`` state machine is created.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineType"))
-
-    @state_machine_type.setter
-    def state_machine_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stateMachineType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(
-        self,
-    ) -> typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]]:
-        '''The list of tags to add to a resource.'''
-        return typing.cast(typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tracingConfiguration")
-    def tracing_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]]:
-        '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]], jsii.get(self, "tracingConfiguration"))
-
-    @tracing_configuration.setter
-    def tracing_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tracingConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty",
-        jsii_struct_bases=[],
-        name_mapping={"log_group_arn": "logGroupArn"},
-    )
-    class CloudWatchLogsLogGroupProperty:
-        def __init__(
-            self,
-            *,
-            log_group_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Defines a CloudWatch log group.
-
-            .. epigraph::
-
-               For more information see `Standard Versus Express Workflows <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-standard-vs-express.html>`_ in the AWS Step Functions Developer Guide.
-
-            :param log_group_arn: The ARN of the the CloudWatch log group to which you want your logs emitted to. The ARN must end with ``:*``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-cloudwatchlogsloggroup.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                cloud_watch_logs_log_group_property = stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                    log_group_arn="logGroupArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644)
-                check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if log_group_arn is not None:
-                self._values["log_group_arn"] = log_group_arn
-
-        @builtins.property
-        def log_group_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the the CloudWatch log group to which you want your logs emitted to.
-
-            The ARN must end with ``:*``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-cloudwatchlogsloggroup.html#cfn-stepfunctions-statemachine-cloudwatchlogsloggroup-loggrouparn
-            '''
-            result = self._values.get("log_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CloudWatchLogsLogGroupProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.EncryptionConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "type": "type",
-            "kms_data_key_reuse_period_seconds": "kmsDataKeyReusePeriodSeconds",
-            "kms_key_id": "kmsKeyId",
-        },
-    )
-    class EncryptionConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            type: builtins.str,
-            kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Settings to configure server-side encryption for a state machine.
-
-            By default, Step Functions provides transparent server-side encryption. With this configuration, you can specify a customer managed AWS KMS key for encryption.
-
-            :param type: Encryption option for a state machine.
-            :param kms_data_key_reuse_period_seconds: Maximum duration that Step Functions will reuse data keys. When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
-            :param kms_key_id: An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data. To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                encryption_configuration_property = stepfunctions.CfnStateMachine.EncryptionConfigurationProperty(
-                    type="type",
-                
-                    # the properties below are optional
-                    kms_data_key_reuse_period_seconds=123,
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93)
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "type": type,
-            }
-            if kms_data_key_reuse_period_seconds is not None:
-                self._values["kms_data_key_reuse_period_seconds"] = kms_data_key_reuse_period_seconds
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''Encryption option for a state machine.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
-            '''Maximum duration that Step Functions will reuse data keys.
-
-            When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-kmsdatakeyreuseperiodseconds
-            '''
-            result = self._values.get("kms_data_key_reuse_period_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data.
-
-            To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EncryptionConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.LogDestinationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"cloud_watch_logs_log_group": "cloudWatchLogsLogGroup"},
-    )
-    class LogDestinationProperty:
-        def __init__(
-            self,
-            *,
-            cloud_watch_logs_log_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.CloudWatchLogsLogGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Defines a destination for ``LoggingConfiguration`` .
-
-            .. epigraph::
-
-               For more information on logging with ``EXPRESS`` workflows, see `Logging Express Workflows Using CloudWatch Logs <https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html>`_ .
-
-            :param cloud_watch_logs_log_group: An object describing a CloudWatch log group. For more information, see `AWS::Logs::LogGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html>`_ in the AWS CloudFormation User Guide.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-logdestination.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                log_destination_property = stepfunctions.CfnStateMachine.LogDestinationProperty(
-                    cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                        log_group_arn="logGroupArn"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1)
-                check_type(argname="argument cloud_watch_logs_log_group", value=cloud_watch_logs_log_group, expected_type=type_hints["cloud_watch_logs_log_group"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if cloud_watch_logs_log_group is not None:
-                self._values["cloud_watch_logs_log_group"] = cloud_watch_logs_log_group
-
-        @builtins.property
-        def cloud_watch_logs_log_group(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.CloudWatchLogsLogGroupProperty"]]:
-            '''An object describing a CloudWatch log group.
-
-            For more information, see `AWS::Logs::LogGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html>`_ in the AWS CloudFormation User Guide.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-logdestination.html#cfn-stepfunctions-statemachine-logdestination-cloudwatchlogsloggroup
-            '''
-            result = self._values.get("cloud_watch_logs_log_group")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.CloudWatchLogsLogGroupProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LogDestinationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.LoggingConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "destinations": "destinations",
-            "include_execution_data": "includeExecutionData",
-            "level": "level",
-        },
-    )
-    class LoggingConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            include_execution_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            level: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Defines what execution history events are logged and where they are logged.
-
-            Step Functions provides the log levels — ``OFF`` , ``ALL`` , ``ERROR`` , and ``FATAL`` . No event types log when set to ``OFF`` and all event types do when set to ``ALL`` .
-            .. epigraph::
-
-               By default, the ``level`` is set to ``OFF`` . For more information see `Log Levels <https://docs.aws.amazon.com/step-functions/latest/dg/cloudwatch-log-level.html>`_ in the AWS Step Functions User Guide.
-
-            :param destinations: An array of objects that describes where your execution history events will be logged. Limited to size 1. Required, if your log level is not set to ``OFF`` .
-            :param include_execution_data: Determines whether execution data is included in your log. When set to ``false`` , data is excluded.
-            :param level: Defines which category of execution history events are logged.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                logging_configuration_property = stepfunctions.CfnStateMachine.LoggingConfigurationProperty(
-                    destinations=[stepfunctions.CfnStateMachine.LogDestinationProperty(
-                        cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                            log_group_arn="logGroupArn"
-                        )
-                    )],
-                    include_execution_data=False,
-                    level="level"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a)
-                check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-                check_type(argname="argument include_execution_data", value=include_execution_data, expected_type=type_hints["include_execution_data"])
-                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if destinations is not None:
-                self._values["destinations"] = destinations
-            if include_execution_data is not None:
-                self._values["include_execution_data"] = include_execution_data
-            if level is not None:
-                self._values["level"] = level
-
-        @builtins.property
-        def destinations(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LogDestinationProperty"]]]]:
-            '''An array of objects that describes where your execution history events will be logged.
-
-            Limited to size 1. Required, if your log level is not set to ``OFF`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-destinations
-            '''
-            result = self._values.get("destinations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LogDestinationProperty"]]]], result)
-
-        @builtins.property
-        def include_execution_data(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Determines whether execution data is included in your log.
-
-            When set to ``false`` , data is excluded.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-includeexecutiondata
-            '''
-            result = self._values.get("include_execution_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def level(self) -> typing.Optional[builtins.str]:
-            '''Defines which category of execution history events are logged.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-level
-            '''
-            result = self._values.get("level")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LoggingConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.S3LocationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"bucket": "bucket", "key": "key", "version": "version"},
-    )
-    class S3LocationProperty:
-        def __init__(
-            self,
-            *,
-            bucket: builtins.str,
-            key: builtins.str,
-            version: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Defines the S3 bucket location where a state machine definition is stored.
-
-            The state machine definition must be a JSON or YAML file.
-
-            :param bucket: The name of the S3 bucket where the state machine definition JSON or YAML file is stored.
-            :param key: The name of the state machine definition file (Amazon S3 object name).
-            :param version: For versioning-enabled buckets, a specific version of the state machine definition.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                s3_location_property = stepfunctions.CfnStateMachine.S3LocationProperty(
-                    bucket="bucket",
-                    key="key",
-                
-                    # the properties below are optional
-                    version="version"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d)
-                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "bucket": bucket,
-                "key": key,
-            }
-            if version is not None:
-                self._values["version"] = version
-
-        @builtins.property
-        def bucket(self) -> builtins.str:
-            '''The name of the S3 bucket where the state machine definition JSON or YAML file is stored.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-bucket
-            '''
-            result = self._values.get("bucket")
-            assert result is not None, "Required property 'bucket' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The name of the state machine definition file (Amazon S3 object name).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def version(self) -> typing.Optional[builtins.str]:
-            '''For versioning-enabled buckets, a specific version of the state machine definition.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-version
-            '''
-            result = self._values.get("version")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3LocationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.TagsEntryProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class TagsEntryProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''The ``TagsEntry`` property specifies *tags* to identify a state machine.
-
-            :param key: The ``key`` for a key-value pair in a tag entry.
-            :param value: The ``value`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                tags_entry_property = stepfunctions.CfnStateMachine.TagsEntryProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The ``key`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html#cfn-stepfunctions-statemachine-tagsentry-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The ``value`` for a key-value pair in a tag entry.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html#cfn-stepfunctions-statemachine-tagsentry-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TagsEntryProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.TracingConfigurationProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
-    )
-    class TracingConfigurationProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.
-
-            To configure your state machine to send trace data to X-Ray, set ``Enabled`` to ``true`` .
-
-            :param enabled: When set to ``true`` , X-Ray tracing is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tracingconfiguration.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                tracing_configuration_property = stepfunctions.CfnStateMachine.TracingConfigurationProperty(
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''When set to ``true`` , X-Ray tracing is enabled.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tracingconfiguration.html#cfn-stepfunctions-statemachine-tracingconfiguration-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TracingConfigurationProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnStateMachineAlias(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias",
-):
-    '''Represents a state machine `alias <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-alias.html>`_ . An alias routes traffic to one or two versions of the same state machine.
-
-    You can create up to 100 aliases for each state machine.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html
-    :cloudformationResource: AWS::StepFunctions::StateMachineAlias
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_stepfunctions as stepfunctions
-        
-        cfn_state_machine_alias = stepfunctions.CfnStateMachineAlias(self, "MyCfnStateMachineAlias",
-            deployment_preference=stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty(
-                state_machine_version_arn="stateMachineVersionArn",
-                type="type",
-        
-                # the properties below are optional
-                alarms=["alarms"],
-                interval=123,
-                percentage=123
-            ),
-            description="description",
-            name="name",
-            routing_configuration=[stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
-                state_machine_version_arn="stateMachineVersionArn",
-                weight=123
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param deployment_preference: The settings that enable gradual state machine deployments. These settings include `Alarms <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms>`_ , `Interval <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval>`_ , `Percentage <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage>`_ , `StateMachineVersionArn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn>`_ , and `Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type>`_ . CloudFormation automatically shifts traffic from the version an alias currently points to, to a new state machine version that you specify. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties. Based on the type of deployment you want to perform, you can specify one of the following settings: - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment. For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any Amazon CloudWatch alarms are triggered. - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered. - ``CANARY`` - Shifts traffic in two increments. In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
-        :param description: An optional description of the state machine alias.
-        :param name: The name of the state machine alias. If you don't provide a name, it uses an automatically generated name based on the logical ID.
-        :param routing_configuration: The routing configuration of an alias. Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine. Use ``RoutingConfiguration`` if you want to explicitly set the alias `weights <https://docs.aws.amazon.com/step-functions/latest/apireference/API_RoutingConfigurationListItem.html#StepFunctions-Type-RoutingConfigurationListItem-weight>`_ . Weight is the percentage of traffic you want to route to a state machine version. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStateMachineAliasProps(
-            deployment_preference=deployment_preference,
-            description=description,
-            name=name,
-            routing_configuration=routing_configuration,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the ARN of the state machine alias.
-
-        For example, ``arn:aws:states:us-east-1:123456789012:stateMachine:myStateMachine:PROD`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="deploymentPreference")
-    def deployment_preference(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
-        '''The settings that enable gradual state machine deployments.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]], jsii.get(self, "deploymentPreference"))
-
-    @deployment_preference.setter
-    def deployment_preference(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentPreference", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the state machine alias.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the state machine alias.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="routingConfiguration")
-    def routing_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
-        '''The routing configuration of an alias.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], jsii.get(self, "routingConfiguration"))
-
-    @routing_configuration.setter
-    def routing_configuration(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "state_machine_version_arn": "stateMachineVersionArn",
-            "type": "type",
-            "alarms": "alarms",
-            "interval": "interval",
-            "percentage": "percentage",
-        },
-    )
-    class DeploymentPreferenceProperty:
-        def __init__(
-            self,
-            *,
-            state_machine_version_arn: builtins.str,
-            type: builtins.str,
-            alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
-            interval: typing.Optional[jsii.Number] = None,
-            percentage: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Enables gradual state machine deployments.
-
-            CloudFormation automatically shifts traffic from the version the alias currently points to, to a new state machine version that you specify.
-
-            :param state_machine_version_arn: The Amazon Resource Name (ARN) of the ```AWS::StepFunctions::StateMachineVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html>`_ resource that will be the final version to which the alias points to when the traffic shifting is complete. While performing gradual deployments, you can only provide a single state machine version ARN. To explicitly set version weights in a CloudFormation template, use ``RoutingConfiguration`` instead.
-            :param type: The type of deployment you want to perform. You can specify one of the following types:. - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment. For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any CloudWatch alarms are triggered. - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered. - ``CANARY`` - Shifts traffic in two increments. In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
-            :param alarms: A list of Amazon CloudWatch alarm names to be monitored during the deployment. The deployment fails and rolls back if any of these alarms go into the ``ALARM`` state. .. epigraph:: Amazon CloudWatch considers nonexistent alarms to have an ``OK`` state. If you provide an invalid alarm name or provide the ARN of an alarm instead of its name, your deployment may not roll back correctly.
-            :param interval: The time in minutes between each traffic shifting increment.
-            :param percentage: The percentage of traffic to shift to the new version in each increment.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                deployment_preference_property = stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty(
-                    state_machine_version_arn="stateMachineVersionArn",
-                    type="type",
-                
-                    # the properties below are optional
-                    alarms=["alarms"],
-                    interval=123,
-                    percentage=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43)
-                check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-                check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
-                check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
-                check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "state_machine_version_arn": state_machine_version_arn,
-                "type": type,
-            }
-            if alarms is not None:
-                self._values["alarms"] = alarms
-            if interval is not None:
-                self._values["interval"] = interval
-            if percentage is not None:
-                self._values["percentage"] = percentage
-
-        @builtins.property
-        def state_machine_version_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the ```AWS::StepFunctions::StateMachineVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html>`_ resource that will be the final version to which the alias points to when the traffic shifting is complete.
-
-            While performing gradual deployments, you can only provide a single state machine version ARN. To explicitly set version weights in a CloudFormation template, use ``RoutingConfiguration`` instead.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn
-            '''
-            result = self._values.get("state_machine_version_arn")
-            assert result is not None, "Required property 'state_machine_version_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The type of deployment you want to perform. You can specify one of the following types:.
-
-            - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment.
-
-            For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any CloudWatch alarms are triggered.
-
-            - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered.
-            - ``CANARY`` - Shifts traffic in two increments.
-
-            In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def alarms(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''A list of Amazon CloudWatch alarm names to be monitored during the deployment.
-
-            The deployment fails and rolls back if any of these alarms go into the ``ALARM`` state.
-            .. epigraph::
-
-               Amazon CloudWatch considers nonexistent alarms to have an ``OK`` state. If you provide an invalid alarm name or provide the ARN of an alarm instead of its name, your deployment may not roll back correctly.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms
-            '''
-            result = self._values.get("alarms")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def interval(self) -> typing.Optional[jsii.Number]:
-            '''The time in minutes between each traffic shifting increment.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval
-            '''
-            result = self._values.get("interval")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def percentage(self) -> typing.Optional[jsii.Number]:
-            '''The percentage of traffic to shift to the new version in each increment.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage
-            '''
-            result = self._values.get("percentage")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DeploymentPreferenceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "state_machine_version_arn": "stateMachineVersionArn",
-            "weight": "weight",
-        },
-    )
-    class RoutingConfigurationVersionProperty:
-        def __init__(
-            self,
-            *,
-            state_machine_version_arn: builtins.str,
-            weight: jsii.Number,
-        ) -> None:
-            '''The state machine version to which you want to route the execution traffic.
-
-            :param state_machine_version_arn: The Amazon Resource Name (ARN) that identifies one or two state machine versions defined in the routing configuration. If you specify the ARN of a second version, it must belong to the same state machine as the first version.
-            :param weight: The percentage of traffic you want to route to the state machine version. The sum of the weights in the routing configuration must be equal to 100.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_stepfunctions as stepfunctions
-                
-                routing_configuration_version_property = stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
-                    state_machine_version_arn="stateMachineVersionArn",
-                    weight=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b)
-                check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
-                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "state_machine_version_arn": state_machine_version_arn,
-                "weight": weight,
-            }
-
-        @builtins.property
-        def state_machine_version_arn(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) that identifies one or two state machine versions defined in the routing configuration.
-
-            If you specify the ARN of a second version, it must belong to the same state machine as the first version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html#cfn-stepfunctions-statemachinealias-routingconfigurationversion-statemachineversionarn
-            '''
-            result = self._values.get("state_machine_version_arn")
-            assert result is not None, "Required property 'state_machine_version_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def weight(self) -> jsii.Number:
-            '''The percentage of traffic you want to route to the state machine version.
-
-            The sum of the weights in the routing configuration must be equal to 100.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html#cfn-stepfunctions-statemachinealias-routingconfigurationversion-weight
-            '''
-            result = self._values.get("weight")
-            assert result is not None, "Required property 'weight' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RoutingConfigurationVersionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -3899,10 +2287,10 @@ class CfnStateMachineAliasProps:
     def __init__(
         self,
         *,
-        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateMachineAlias``.
 
@@ -3957,7 +2345,7 @@ class CfnStateMachineAliasProps:
     @builtins.property
     def deployment_preference(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.DeploymentPreferenceProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
         '''The settings that enable gradual state machine deployments.
 
         These settings include `Alarms <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms>`_ , `Interval <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval>`_ , `Percentage <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage>`_ , `StateMachineVersionArn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn>`_ , and `Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type>`_ .
@@ -3981,7 +2369,7 @@ class CfnStateMachineAliasProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html#cfn-stepfunctions-statemachinealias-deploymentpreference
         '''
         result = self._values.get("deployment_preference")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.DeploymentPreferenceProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -4006,7 +2394,7 @@ class CfnStateMachineAliasProps:
     @builtins.property
     def routing_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
         '''The routing configuration of an alias.
 
         Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine.
@@ -4019,7 +2407,7 @@ class CfnStateMachineAliasProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html#cfn-stepfunctions-statemachinealias-routingconfiguration
         '''
         result = self._values.get("routing_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4056,15 +2444,15 @@ class CfnStateMachineProps:
         *,
         role_arn: builtins.str,
         definition: typing.Any = None,
-        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         definition_string: typing.Optional[builtins.str] = None,
         definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         state_machine_name: typing.Optional[builtins.str] = None,
         state_machine_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnStateMachine.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateMachine``.
 
@@ -4195,7 +2583,7 @@ class CfnStateMachineProps:
     @builtins.property
     def definition_s3_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]]:
         '''The name of the S3 bucket where the state machine definition is stored.
 
         The state machine definition must be a JSON or YAML file.
@@ -4203,7 +2591,7 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-definitions3location
         '''
         result = self._values.get("definition_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]], result)
 
     @builtins.property
     def definition_string(self) -> typing.Optional[builtins.str]:
@@ -4234,18 +2622,18 @@ class CfnStateMachineProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.EncryptionConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]]:
         '''Encryption configuration for the state machine.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.EncryptionConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]]:
         '''Defines what execution history events are logged and where they are logged.
 
         .. epigraph::
@@ -4255,7 +2643,7 @@ class CfnStateMachineProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-loggingconfiguration
         '''
         result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]], result)
 
     @builtins.property
     def state_machine_name(self) -> typing.Optional[builtins.str]:
@@ -4290,7 +2678,7 @@ class CfnStateMachineProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[CfnStateMachine.TagsEntryProperty]]:
+    def tags(self) -> typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]]:
         '''The list of tags to add to a resource.
 
         Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
@@ -4299,18 +2687,18 @@ class CfnStateMachineProps:
         :: ` .
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[CfnStateMachine.TagsEntryProperty]], result)
+        return typing.cast(typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]], result)
 
     @builtins.property
     def tracing_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]]:
         '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html#cfn-stepfunctions-statemachine-tracingconfiguration
         '''
         result = self._values.get("tracing_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4322,152 +2710,6 @@ class CfnStateMachineProps:
         return "CfnStateMachineProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnStateMachineVersion(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineVersion",
-):
-    '''Represents a state machine `version <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-version.html>`_ . A published version uses the latest state machine `*revision* <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-version.html>`_ . A revision is an immutable, read-only snapshot of a state machine’s definition and configuration.
-
-    You can publish up to 1000 versions for each state machine.
-    .. epigraph::
-
-       Before you delete a version, make sure that version's ARN isn't being referenced in any long-running workflows or application code outside of the stack.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html
-    :cloudformationResource: AWS::StepFunctions::StateMachineVersion
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_stepfunctions as stepfunctions
-        
-        cfn_state_machine_version = stepfunctions.CfnStateMachineVersion(self, "MyCfnStateMachineVersion",
-            state_machine_arn="stateMachineArn",
-        
-            # the properties below are optional
-            description="description",
-            state_machine_revision_id="stateMachineRevisionId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        state_machine_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        state_machine_revision_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param state_machine_arn: The Amazon Resource Name (ARN) of the state machine.
-        :param description: An optional description of the state machine version.
-        :param state_machine_revision_id: Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration. Only publish the state machine version if the current state machine's revision ID matches the specified ID. Use this option to avoid publishing a version if the state machine has changed since you last updated it. To specify the initial state machine revision, set the value as ``INITIAL`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStateMachineVersionProps(
-            state_machine_arn=state_machine_arn,
-            description=description,
-            state_machine_revision_id=state_machine_revision_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the ARN of the state machine version.
-
-        For example, ``arn:aws:states:us-east-1:123456789012:stateMachine:myStateMachine:1`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="stateMachineArn")
-    def state_machine_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the state machine.'''
-        return typing.cast(builtins.str, jsii.get(self, "stateMachineArn"))
-
-    @state_machine_arn.setter
-    def state_machine_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the state machine version.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stateMachineRevisionId")
-    def state_machine_revision_id(self) -> typing.Optional[builtins.str]:
-        '''Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineRevisionId"))
-
-    @state_machine_revision_id.setter
-    def state_machine_revision_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stateMachineRevisionId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5809,7 +4051,7 @@ class DefinitionBody(
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
         bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5918,7 +4160,7 @@ class DefinitionConfig:
         self,
         *,
         definition: typing.Any = None,
-        definition_s3_location: typing.Optional[typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        definition_s3_location: typing.Optional[typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         definition_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Partial object from the StateMachine L1 construct properties containing definition information.
@@ -5972,9 +4214,9 @@ class DefinitionConfig:
     @builtins.property
     def definition_s3_location(
         self,
-    ) -> typing.Optional[CfnStateMachine.S3LocationProperty]:
+    ) -> typing.Optional["CfnStateMachine.S3LocationProperty"]:
         result = self._values.get("definition_s3_location")
-        return typing.cast(typing.Optional[CfnStateMachine.S3LocationProperty], result)
+        return typing.cast(typing.Optional["CfnStateMachine.S3LocationProperty"], result)
 
     @builtins.property
     def definition_string(self) -> typing.Optional[builtins.str]:
@@ -6252,7 +4494,7 @@ class FileDefinitionBody(
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
         bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6442,6 +4684,46 @@ class _IActivityProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IActivity).__jsii_proxy_class__ = lambda : _IActivityProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IActivityRef")
+class IActivityRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Activity.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="activityRef")
+    def activity_ref(self) -> ActivityReference:
+        '''(experimental) A reference to a Activity resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IActivityRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Activity.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_stepfunctions.IActivityRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="activityRef")
+    def activity_ref(self) -> ActivityReference:
+        '''(experimental) A reference to a Activity resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ActivityReference, jsii.get(self, "activityRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IActivityRef).__jsii_proxy_class__ = lambda : _IActivityRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IChainable")
@@ -6696,6 +4978,17 @@ class IStateMachine(
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
         '''Grant the given identity read permissions for this state machine.
+
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRedriveExecution")
+    def grant_redrive_execution(
+        self,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant the given identity permission to redrive the execution of the state machine.
 
         :param identity: The principal.
         '''
@@ -7080,6 +5373,20 @@ class _IStateMachineProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__67aefd85a78dbc72556e294ed43f407d7fe2e40185f6dcefcda2b91bce4a9e6c)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [identity]))
+
+    @jsii.member(jsii_name="grantRedriveExecution")
+    def grant_redrive_execution(
+        self,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant the given identity permission to redrive the execution of the state machine.
+
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1263659f24791988667803166a24080d04a876b31403b25165aea620a8e4fbaa)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRedriveExecution", [identity]))
 
     @jsii.member(jsii_name="grantStartExecution")
     def grant_start_execution(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
@@ -7532,6 +5839,132 @@ class _IStateMachineProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStateMachine).__jsii_proxy_class__ = lambda : _IStateMachineProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IStateMachineAliasRef")
+class IStateMachineAliasRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachineAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineAliasRef")
+    def state_machine_alias_ref(self) -> "StateMachineAliasReference":
+        '''(experimental) A reference to a StateMachineAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStateMachineAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachineAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_stepfunctions.IStateMachineAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineAliasRef")
+    def state_machine_alias_ref(self) -> "StateMachineAliasReference":
+        '''(experimental) A reference to a StateMachineAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StateMachineAliasReference", jsii.get(self, "stateMachineAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStateMachineAliasRef).__jsii_proxy_class__ = lambda : _IStateMachineAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IStateMachineRef")
+class IStateMachineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachine.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> "StateMachineReference":
+        '''(experimental) A reference to a StateMachine resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStateMachineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachine.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_stepfunctions.IStateMachineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> "StateMachineReference":
+        '''(experimental) A reference to a StateMachine resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StateMachineReference", jsii.get(self, "stateMachineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStateMachineRef).__jsii_proxy_class__ = lambda : _IStateMachineRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_stepfunctions.IStateMachineVersionRef")
+class IStateMachineVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachineVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineVersionRef")
+    def state_machine_version_ref(self) -> "StateMachineVersionReference":
+        '''(experimental) A reference to a StateMachineVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStateMachineVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachineVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_stepfunctions.IStateMachineVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineVersionRef")
+    def state_machine_version_ref(self) -> "StateMachineVersionReference":
+        '''(experimental) A reference to a StateMachineVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StateMachineVersionReference", jsii.get(self, "stateMachineVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStateMachineVersionRef).__jsii_proxy_class__ = lambda : _IStateMachineVersionRefProxy
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_stepfunctions.InputType")
@@ -11721,7 +10154,7 @@ class StateGraph(
 
     @jsii.member(jsii_name="bind")
     def bind(self, state_machine: "StateMachine") -> None:
-        '''Binds this StateGraph to the StateMachine it defines and updates state machine permissions.
+        '''Binds this StateGraph to the StateMachine it defines and updates state machine permissions if there are DistributedMap states.
 
         :param state_machine: -
         '''
@@ -12521,6 +10954,55 @@ class StateMachine(
         return typing.cast("StateMachineType", jsii.get(self, "stateMachineType"))
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.StateMachineAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"state_machine_alias_arn": "stateMachineAliasArn"},
+)
+class StateMachineAliasReference:
+    def __init__(self, *, state_machine_alias_arn: builtins.str) -> None:
+        '''A reference to a StateMachineAlias resource.
+
+        :param state_machine_alias_arn: The Arn of the StateMachineAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            state_machine_alias_reference = stepfunctions.StateMachineAliasReference(
+                state_machine_alias_arn="stateMachineAliasArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcd8f7ff88c9e0e5a6b0ad981a26d416f41b710089c7785a8221292203ebdbf3)
+            check_type(argname="argument state_machine_alias_arn", value=state_machine_alias_arn, expected_type=type_hints["state_machine_alias_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "state_machine_alias_arn": state_machine_alias_arn,
+        }
+
+    @builtins.property
+    def state_machine_alias_arn(self) -> builtins.str:
+        '''The Arn of the StateMachineAlias resource.'''
+        result = self._values.get("state_machine_alias_arn")
+        assert result is not None, "Required property 'state_machine_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StateMachineAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IChainable)
 class StateMachineFragment(
     _constructs_77d1e7e8.Construct,
@@ -12949,6 +11431,55 @@ class StateMachineProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.StateMachineReference",
+    jsii_struct_bases=[],
+    name_mapping={"state_machine_arn": "stateMachineArn"},
+)
+class StateMachineReference:
+    def __init__(self, *, state_machine_arn: builtins.str) -> None:
+        '''A reference to a StateMachine resource.
+
+        :param state_machine_arn: The Arn of the StateMachine resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            state_machine_reference = stepfunctions.StateMachineReference(
+                state_machine_arn="stateMachineArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44ebbc234aee6a55e1df8153d37e33f4a1f53b1bac7a80e0c0a761abf619e291)
+            check_type(argname="argument state_machine_arn", value=state_machine_arn, expected_type=type_hints["state_machine_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "state_machine_arn": state_machine_arn,
+        }
+
+    @builtins.property
+    def state_machine_arn(self) -> builtins.str:
+        '''The Arn of the StateMachine resource.'''
+        result = self._values.get("state_machine_arn")
+        assert result is not None, "Required property 'state_machine_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StateMachineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_stepfunctions.StateMachineType")
 class StateMachineType(enum.Enum):
     '''Two types of state machines are available in AWS Step Functions: EXPRESS AND STANDARD.
@@ -12977,6 +11508,55 @@ class StateMachineType(enum.Enum):
     '''Express Workflows are ideal for high-volume, event processing workloads.'''
     STANDARD = "STANDARD"
     '''Standard Workflows are ideal for long-running, durable, and auditable workflows.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.StateMachineVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"state_machine_version_arn": "stateMachineVersionArn"},
+)
+class StateMachineVersionReference:
+    def __init__(self, *, state_machine_version_arn: builtins.str) -> None:
+        '''A reference to a StateMachineVersion resource.
+
+        :param state_machine_version_arn: The Arn of the StateMachineVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            state_machine_version_reference = stepfunctions.StateMachineVersionReference(
+                state_machine_version_arn="stateMachineVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d3f54dabd73ce9d0bc2c2c6c136dbc8ce5588f73c00f75da1cb21bb390b56a4)
+            check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "state_machine_version_arn": state_machine_version_arn,
+        }
+
+    @builtins.property
+    def state_machine_version_arn(self) -> builtins.str:
+        '''The Arn of the StateMachineVersion resource.'''
+        result = self._values.get("state_machine_version_arn")
+        assert result is not None, "Required property 'state_machine_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StateMachineVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -18038,6 +16618,1837 @@ class AwsOwnedEncryptionConfiguration(
 
     def __init__(self) -> None:
         jsii.create(self.__class__, self, [])
+
+
+@jsii.implements(_IInspectable_c2943556, IActivityRef, _ITaggable_36806126)
+class CfnActivity(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity",
+):
+    '''An activity is a task that you write in any programming language and host on any machine that has access to AWS Step Functions .
+
+    Activities must poll Step Functions using the ``GetActivityTask`` API action and respond using ``SendTask*`` API actions. This function makes Step Functions aware of your activity and returns an identifier for use in a state machine and when polling from the activity.
+
+    For information about creating an activity, see `Creating an Activity State Machine <https://docs.aws.amazon.com/step-functions/latest/dg/tutorial-creating-activity-state-machine.html>`_ in the *AWS Step Functions Developer Guide* and `CreateActivity <https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateActivity.html>`_ in the *AWS Step Functions API Reference* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-activity.html
+    :cloudformationResource: AWS::StepFunctions::Activity
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_stepfunctions as stepfunctions
+        
+        cfn_activity = stepfunctions.CfnActivity(self, "MyCfnActivity",
+            name="name",
+        
+            # the properties below are optional
+            encryption_configuration=stepfunctions.CfnActivity.EncryptionConfigurationProperty(
+                type="type",
+        
+                # the properties below are optional
+                kms_data_key_reuse_period_seconds=123,
+                kms_key_id="kmsKeyId"
+            ),
+            tags=[stepfunctions.CfnActivity.TagsEntryProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnActivity.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnActivity.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the activity. A name must *not* contain: - white space - brackets ``< > { } [ ]`` - wildcard characters ``? *`` - special characters ``" # % \\ ^ | ~ `` $ & , ; : /` - control characters ( ``U+0000-001F`` , ``U+007F-009F`` , ``U+FFFE-FFFF`` ) - surrogates ( ``U+D800-DFFF`` ) - invalid characters ( ``U+10FFFF`` ) To enable logging with CloudWatch Logs, the name should only contain 0-9, A-Z, a-z, - and _.
+        :param encryption_configuration: Encryption configuration for the activity. Activity configuration is immutable, and resource names must be unique. To set customer managed keys for encryption, you must create a *new Activity* . If you attempt to change the configuration in your CFN template for an existing activity, you will receive an ``ActivityAlreadyExists`` exception. To update your activity to include customer managed keys, set a new activity name within your AWS CloudFormation template.
+        :param tags: The list of tags to add to a resource. Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnActivityProps(
+            name=name, encryption_configuration=encryption_configuration, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="activityRef")
+    def activity_ref(self) -> ActivityReference:
+        '''A reference to a Activity resource.'''
+        return typing.cast(ActivityReference, jsii.get(self, "activityRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the ARN of the resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''Returns the name of the activity. For example:.
+
+        ``{ "Fn::GetAtt": ["MyActivity", "Name"] }``
+
+        Returns a value similar to the following:
+
+        ``myActivity``
+
+        For more information about using ``Fn::GetAtt`` , see `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ .
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the activity.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]]:
+        '''Encryption configuration for the activity.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnActivity.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]]:
+        '''The list of tags to add to a resource.'''
+        return typing.cast(typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["CfnActivity.TagsEntryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "kms_data_key_reuse_period_seconds": "kmsDataKeyReusePeriodSeconds",
+            "kms_key_id": "kmsKeyId",
+        },
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Settings to configure server-side encryption for an activity.
+
+            By default, Step Functions provides transparent server-side encryption. With this configuration, you can specify a customer managed AWS KMS key for encryption.
+
+            :param type: Encryption option for an activity.
+            :param kms_data_key_reuse_period_seconds: Maximum duration that Step Functions will reuse data keys. When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
+            :param kms_key_id: An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data. To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                encryption_configuration_property = stepfunctions.CfnActivity.EncryptionConfigurationProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    kms_data_key_reuse_period_seconds=123,
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if kms_data_key_reuse_period_seconds is not None:
+                self._values["kms_data_key_reuse_period_seconds"] = kms_data_key_reuse_period_seconds
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Encryption option for an activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Maximum duration that Step Functions will reuse data keys.
+
+            When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-kmsdatakeyreuseperiodseconds
+            '''
+            result = self._values.get("kms_data_key_reuse_period_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data.
+
+            To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-encryptionconfiguration.html#cfn-stepfunctions-activity-encryptionconfiguration-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnActivity.TagsEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsEntryProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''The ``TagsEntry`` property specifies *tags* to identify an activity.
+
+            :param key: The ``key`` for a key-value pair in a tag entry.
+            :param value: The ``value`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                tags_entry_property = stepfunctions.CfnActivity.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The ``key`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html#cfn-stepfunctions-activity-tagsentry-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The ``value`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-activity-tagsentry.html#cfn-stepfunctions-activity-tagsentry-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IStateMachineRef, _ITaggable_36806126)
+class CfnStateMachine(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
+):
+    '''Provisions a state machine.
+
+    A state machine consists of a collection of states that can do work ( ``Task`` states), determine to which states to transition next ( ``Choice`` states), stop an execution with an error ( ``Fail`` states), and so on. State machines are specified using a JSON-based, structured language.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachine.html
+    :cloudformationResource: AWS::StepFunctions::StateMachine
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_stepfunctions as stepfunctions
+        
+        # definition: Any
+        
+        cfn_state_machine = stepfunctions.CfnStateMachine(self, "MyCfnStateMachine",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            definition=definition,
+            definition_s3_location=stepfunctions.CfnStateMachine.S3LocationProperty(
+                bucket="bucket",
+                key="key",
+        
+                # the properties below are optional
+                version="version"
+            ),
+            definition_string="definitionString",
+            definition_substitutions={
+                "definition_substitutions_key": "definitionSubstitutions"
+            },
+            encryption_configuration=stepfunctions.CfnStateMachine.EncryptionConfigurationProperty(
+                type="type",
+        
+                # the properties below are optional
+                kms_data_key_reuse_period_seconds=123,
+                kms_key_id="kmsKeyId"
+            ),
+            logging_configuration=stepfunctions.CfnStateMachine.LoggingConfigurationProperty(
+                destinations=[stepfunctions.CfnStateMachine.LogDestinationProperty(
+                    cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
+                        log_group_arn="logGroupArn"
+                    )
+                )],
+                include_execution_data=False,
+                level="level"
+            ),
+            state_machine_name="stateMachineName",
+            state_machine_type="stateMachineType",
+            tags=[stepfunctions.CfnStateMachine.TagsEntryProperty(
+                key="key",
+                value="value"
+            )],
+            tracing_configuration=stepfunctions.CfnStateMachine.TracingConfigurationProperty(
+                enabled=False
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        role_arn: builtins.str,
+        definition: typing.Any = None,
+        definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_string: typing.Optional[builtins.str] = None,
+        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        state_machine_name: typing.Optional[builtins.str] = None,
+        state_machine_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnStateMachine.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role to use for this state machine.
+        :param definition: The Amazon States Language definition of the state machine. The state machine definition must be in JSON or YAML, and the format of the object must match the format of your CloudFormation template file. See `Amazon States Language <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-amazon-states-language.html>`_ .
+        :param definition_s3_location: The name of the S3 bucket where the state machine definition is stored. The state machine definition must be a JSON or YAML file.
+        :param definition_string: The Amazon States Language definition of the state machine. The state machine definition must be in JSON. See `Amazon States Language <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-amazon-states-language.html>`_ .
+        :param definition_substitutions: A map (string to string) that specifies the mappings for placeholder variables in the state machine definition. This enables the customer to inject values obtained at runtime, for example from intrinsic functions, in the state machine definition. Variables can be template parameter names, resource logical IDs, resource attributes, or a variable in a key-value map. Substitutions must follow the syntax: ``${key_name}`` or ``${variable_1,variable_2,...}`` .
+        :param encryption_configuration: Encryption configuration for the state machine.
+        :param logging_configuration: Defines what execution history events are logged and where they are logged. .. epigraph:: By default, the ``level`` is set to ``OFF`` . For more information see `Log Levels <https://docs.aws.amazon.com/step-functions/latest/dg/cloudwatch-log-level.html>`_ in the AWS Step Functions User Guide.
+        :param state_machine_name: The name of the state machine. A name must *not* contain: - white space - brackets ``< > { } [ ]`` - wildcard characters ``? *`` - special characters ``" # % \\ ^ | ~ `` $ & , ; : /` - control characters ( ``U+0000-001F`` , ``U+007F-009F`` ) .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param state_machine_type: Determines whether a ``STANDARD`` or ``EXPRESS`` state machine is created. The default is ``STANDARD`` . You cannot update the ``type`` of a state machine once it has been created. For more information on ``STANDARD`` and ``EXPRESS`` workflows, see `Standard Versus Express Workflows <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-standard-vs-express.html>`_ in the AWS Step Functions Developer Guide.
+        :param tags: The list of tags to add to a resource. Tags may only contain Unicode letters, digits, white space, or these symbols: `_ . : / = + -
+        :param tracing_configuration: Selects whether or not the state machine's AWS X-Ray tracing is enabled.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStateMachineProps(
+            role_arn=role_arn,
+            definition=definition,
+            definition_s3_location=definition_s3_location,
+            definition_string=definition_string,
+            definition_substitutions=definition_substitutions,
+            encryption_configuration=encryption_configuration,
+            logging_configuration=logging_configuration,
+            state_machine_name=state_machine_name,
+            state_machine_type=state_machine_type,
+            tags=tags,
+            tracing_configuration=tracing_configuration,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the ARN of the resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''Returns the name of the state machine. For example:.
+
+        ``{ "Fn::GetAtt": ["MyStateMachine", "Name"] }``
+
+        Returns the name of your state machine:
+
+        ``HelloWorld-StateMachine``
+
+        If you did not specify the name it will be similar to the following:
+
+        ``MyStateMachine-1234abcdefgh``
+
+        For more information about using ``Fn::GetAtt`` , see `Fn::GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ .
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStateMachineRevisionId")
+    def attr_state_machine_revision_id(self) -> builtins.str:
+        '''Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration.
+
+        :cloudformationAttribute: StateMachineRevisionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStateMachineRevisionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> StateMachineReference:
+        '''A reference to a StateMachine resource.'''
+        return typing.cast(StateMachineReference, jsii.get(self, "stateMachineRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(self) -> typing.Any:
+        '''The Amazon States Language definition of the state machine.'''
+        return typing.cast(typing.Any, jsii.get(self, "definition"))
+
+    @definition.setter
+    def definition(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definitionS3Location")
+    def definition_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]]:
+        '''The name of the S3 bucket where the state machine definition is stored.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]], jsii.get(self, "definitionS3Location"))
+
+    @definition_s3_location.setter
+    def definition_s3_location(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definitionString")
+    def definition_string(self) -> typing.Optional[builtins.str]:
+        '''The Amazon States Language definition of the state machine.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "definitionString"))
+
+    @definition_string.setter
+    def definition_string(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definitionSubstitutions")
+    def definition_substitutions(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''A map (string to string) that specifies the mappings for placeholder variables in the state machine definition.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "definitionSubstitutions"))
+
+    @definition_substitutions.setter
+    def definition_substitutions(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionSubstitutions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]]:
+        '''Encryption configuration for the state machine.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfiguration")
+    def logging_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]]:
+        '''Defines what execution history events are logged and where they are logged.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+
+    @logging_configuration.setter
+    def logging_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineName")
+    def state_machine_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the state machine.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineName"))
+
+    @state_machine_name.setter
+    def state_machine_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stateMachineName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineType")
+    def state_machine_type(self) -> typing.Optional[builtins.str]:
+        '''Determines whether a ``STANDARD`` or ``EXPRESS`` state machine is created.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineType"))
+
+    @state_machine_type.setter
+    def state_machine_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stateMachineType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(
+        self,
+    ) -> typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]]:
+        '''The list of tags to add to a resource.'''
+        return typing.cast(typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["CfnStateMachine.TagsEntryProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tracingConfiguration")
+    def tracing_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]]:
+        '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]], jsii.get(self, "tracingConfiguration"))
+
+    @tracing_configuration.setter
+    def tracing_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tracingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group_arn": "logGroupArn"},
+    )
+    class CloudWatchLogsLogGroupProperty:
+        def __init__(
+            self,
+            *,
+            log_group_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines a CloudWatch log group.
+
+            .. epigraph::
+
+               For more information see `Standard Versus Express Workflows <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-standard-vs-express.html>`_ in the AWS Step Functions Developer Guide.
+
+            :param log_group_arn: The ARN of the the CloudWatch log group to which you want your logs emitted to. The ARN must end with ``:*``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-cloudwatchlogsloggroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                cloud_watch_logs_log_group_property = stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
+                    log_group_arn="logGroupArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644)
+                check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_group_arn is not None:
+                self._values["log_group_arn"] = log_group_arn
+
+        @builtins.property
+        def log_group_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the the CloudWatch log group to which you want your logs emitted to.
+
+            The ARN must end with ``:*``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-cloudwatchlogsloggroup.html#cfn-stepfunctions-statemachine-cloudwatchlogsloggroup-loggrouparn
+            '''
+            result = self._values.get("log_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsLogGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "kms_data_key_reuse_period_seconds": "kmsDataKeyReusePeriodSeconds",
+            "kms_key_id": "kmsKeyId",
+        },
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Settings to configure server-side encryption for a state machine.
+
+            By default, Step Functions provides transparent server-side encryption. With this configuration, you can specify a customer managed AWS KMS key for encryption.
+
+            :param type: Encryption option for a state machine.
+            :param kms_data_key_reuse_period_seconds: Maximum duration that Step Functions will reuse data keys. When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
+            :param kms_key_id: An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data. To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                encryption_configuration_property = stepfunctions.CfnStateMachine.EncryptionConfigurationProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    kms_data_key_reuse_period_seconds=123,
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument kms_data_key_reuse_period_seconds", value=kms_data_key_reuse_period_seconds, expected_type=type_hints["kms_data_key_reuse_period_seconds"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if kms_data_key_reuse_period_seconds is not None:
+                self._values["kms_data_key_reuse_period_seconds"] = kms_data_key_reuse_period_seconds
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Encryption option for a state machine.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Maximum duration that Step Functions will reuse data keys.
+
+            When the period expires, Step Functions will call ``GenerateDataKey`` . Only applies to customer managed keys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-kmsdatakeyreuseperiodseconds
+            '''
+            result = self._values.get("kms_data_key_reuse_period_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''An alias, alias ARN, key ID, or key ARN of a symmetric encryption AWS KMS key to encrypt data.
+
+            To specify a AWS KMS key in a different AWS account, you must use the key ARN or alias ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-encryptionconfiguration.html#cfn-stepfunctions-statemachine-encryptionconfiguration-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.LogDestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cloud_watch_logs_log_group": "cloudWatchLogsLogGroup"},
+    )
+    class LogDestinationProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs_log_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.CloudWatchLogsLogGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Defines a destination for ``LoggingConfiguration`` .
+
+            .. epigraph::
+
+               For more information on logging with ``EXPRESS`` workflows, see `Logging Express Workflows Using CloudWatch Logs <https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html>`_ .
+
+            :param cloud_watch_logs_log_group: An object describing a CloudWatch log group. For more information, see `AWS::Logs::LogGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html>`_ in the AWS CloudFormation User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-logdestination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                log_destination_property = stepfunctions.CfnStateMachine.LogDestinationProperty(
+                    cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
+                        log_group_arn="logGroupArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1)
+                check_type(argname="argument cloud_watch_logs_log_group", value=cloud_watch_logs_log_group, expected_type=type_hints["cloud_watch_logs_log_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_logs_log_group is not None:
+                self._values["cloud_watch_logs_log_group"] = cloud_watch_logs_log_group
+
+        @builtins.property
+        def cloud_watch_logs_log_group(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.CloudWatchLogsLogGroupProperty"]]:
+            '''An object describing a CloudWatch log group.
+
+            For more information, see `AWS::Logs::LogGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html>`_ in the AWS CloudFormation User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-logdestination.html#cfn-stepfunctions-statemachine-logdestination-cloudwatchlogsloggroup
+            '''
+            result = self._values.get("cloud_watch_logs_log_group")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.CloudWatchLogsLogGroupProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.LoggingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destinations": "destinations",
+            "include_execution_data": "includeExecutionData",
+            "level": "level",
+        },
+    )
+    class LoggingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LogDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            include_execution_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines what execution history events are logged and where they are logged.
+
+            Step Functions provides the log levels — ``OFF`` , ``ALL`` , ``ERROR`` , and ``FATAL`` . No event types log when set to ``OFF`` and all event types do when set to ``ALL`` .
+            .. epigraph::
+
+               By default, the ``level`` is set to ``OFF`` . For more information see `Log Levels <https://docs.aws.amazon.com/step-functions/latest/dg/cloudwatch-log-level.html>`_ in the AWS Step Functions User Guide.
+
+            :param destinations: An array of objects that describes where your execution history events will be logged. Limited to size 1. Required, if your log level is not set to ``OFF`` .
+            :param include_execution_data: Determines whether execution data is included in your log. When set to ``false`` , data is excluded.
+            :param level: Defines which category of execution history events are logged.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                logging_configuration_property = stepfunctions.CfnStateMachine.LoggingConfigurationProperty(
+                    destinations=[stepfunctions.CfnStateMachine.LogDestinationProperty(
+                        cloud_watch_logs_log_group=stepfunctions.CfnStateMachine.CloudWatchLogsLogGroupProperty(
+                            log_group_arn="logGroupArn"
+                        )
+                    )],
+                    include_execution_data=False,
+                    level="level"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a)
+                check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+                check_type(argname="argument include_execution_data", value=include_execution_data, expected_type=type_hints["include_execution_data"])
+                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destinations is not None:
+                self._values["destinations"] = destinations
+            if include_execution_data is not None:
+                self._values["include_execution_data"] = include_execution_data
+            if level is not None:
+                self._values["level"] = level
+
+        @builtins.property
+        def destinations(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LogDestinationProperty"]]]]:
+            '''An array of objects that describes where your execution history events will be logged.
+
+            Limited to size 1. Required, if your log level is not set to ``OFF`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-destinations
+            '''
+            result = self._values.get("destinations")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LogDestinationProperty"]]]], result)
+
+        @builtins.property
+        def include_execution_data(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Determines whether execution data is included in your log.
+
+            When set to ``false`` , data is excluded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-includeexecutiondata
+            '''
+            result = self._values.get("include_execution_data")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def level(self) -> typing.Optional[builtins.str]:
+            '''Defines which category of execution history events are logged.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-loggingconfiguration.html#cfn-stepfunctions-statemachine-loggingconfiguration-level
+            '''
+            result = self._values.get("level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.S3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key": "key", "version": "version"},
+    )
+    class S3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            key: builtins.str,
+            version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines the S3 bucket location where a state machine definition is stored.
+
+            The state machine definition must be a JSON or YAML file.
+
+            :param bucket: The name of the S3 bucket where the state machine definition JSON or YAML file is stored.
+            :param key: The name of the state machine definition file (Amazon S3 object name).
+            :param version: For versioning-enabled buckets, a specific version of the state machine definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                s3_location_property = stepfunctions.CfnStateMachine.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+                
+                    # the properties below are optional
+                    version="version"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "key": key,
+            }
+            if version is not None:
+                self._values["version"] = version
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The name of the S3 bucket where the state machine definition JSON or YAML file is stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The name of the state machine definition file (Amazon S3 object name).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def version(self) -> typing.Optional[builtins.str]:
+            '''For versioning-enabled buckets, a specific version of the state machine definition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-s3location.html#cfn-stepfunctions-statemachine-s3location-version
+            '''
+            result = self._values.get("version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.TagsEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsEntryProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''The ``TagsEntry`` property specifies *tags* to identify a state machine.
+
+            :param key: The ``key`` for a key-value pair in a tag entry.
+            :param value: The ``value`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                tags_entry_property = stepfunctions.CfnStateMachine.TagsEntryProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The ``key`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html#cfn-stepfunctions-statemachine-tagsentry-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The ``value`` for a key-value pair in a tag entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tagsentry.html#cfn-stepfunctions-statemachine-tagsentry-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachine.TracingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class TracingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Selects whether or not the state machine's AWS X-Ray tracing is enabled.
+
+            To configure your state machine to send trace data to X-Ray, set ``Enabled`` to ``true`` .
+
+            :param enabled: When set to ``true`` , X-Ray tracing is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tracingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                tracing_configuration_property = stepfunctions.CfnStateMachine.TracingConfigurationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''When set to ``true`` , X-Ray tracing is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachine-tracingconfiguration.html#cfn-stepfunctions-statemachine-tracingconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TracingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IStateMachineAliasRef)
+class CfnStateMachineAlias(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias",
+):
+    '''Represents a state machine `alias <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-alias.html>`_ . An alias routes traffic to one or two versions of the same state machine.
+
+    You can create up to 100 aliases for each state machine.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html
+    :cloudformationResource: AWS::StepFunctions::StateMachineAlias
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_stepfunctions as stepfunctions
+        
+        cfn_state_machine_alias = stepfunctions.CfnStateMachineAlias(self, "MyCfnStateMachineAlias",
+            deployment_preference=stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty(
+                state_machine_version_arn="stateMachineVersionArn",
+                type="type",
+        
+                # the properties below are optional
+                alarms=["alarms"],
+                interval=123,
+                percentage=123
+            ),
+            description="description",
+            name="name",
+            routing_configuration=[stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
+                state_machine_version_arn="stateMachineVersionArn",
+                weight=123
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param deployment_preference: The settings that enable gradual state machine deployments. These settings include `Alarms <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms>`_ , `Interval <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval>`_ , `Percentage <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage>`_ , `StateMachineVersionArn <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn>`_ , and `Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type>`_ . CloudFormation automatically shifts traffic from the version an alias currently points to, to a new state machine version that you specify. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties. Based on the type of deployment you want to perform, you can specify one of the following settings: - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment. For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any Amazon CloudWatch alarms are triggered. - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered. - ``CANARY`` - Shifts traffic in two increments. In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
+        :param description: An optional description of the state machine alias.
+        :param name: The name of the state machine alias. If you don't provide a name, it uses an automatically generated name based on the logical ID.
+        :param routing_configuration: The routing configuration of an alias. Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine. Use ``RoutingConfiguration`` if you want to explicitly set the alias `weights <https://docs.aws.amazon.com/step-functions/latest/apireference/API_RoutingConfigurationListItem.html#StepFunctions-Type-RoutingConfigurationListItem-weight>`_ . Weight is the percentage of traffic you want to route to a state machine version. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStateMachineAliasProps(
+            deployment_preference=deployment_preference,
+            description=description,
+            name=name,
+            routing_configuration=routing_configuration,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the ARN of the state machine alias.
+
+        For example, ``arn:aws:states:us-east-1:123456789012:stateMachine:myStateMachine:PROD`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineAliasRef")
+    def state_machine_alias_ref(self) -> StateMachineAliasReference:
+        '''A reference to a StateMachineAlias resource.'''
+        return typing.cast(StateMachineAliasReference, jsii.get(self, "stateMachineAliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentPreference")
+    def deployment_preference(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]]:
+        '''The settings that enable gradual state machine deployments.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]], jsii.get(self, "deploymentPreference"))
+
+    @deployment_preference.setter
+    def deployment_preference(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.DeploymentPreferenceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentPreference", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the state machine alias.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the state machine alias.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="routingConfiguration")
+    def routing_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]]:
+        '''The routing configuration of an alias.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], jsii.get(self, "routingConfiguration"))
+
+    @routing_configuration.setter
+    def routing_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "state_machine_version_arn": "stateMachineVersionArn",
+            "type": "type",
+            "alarms": "alarms",
+            "interval": "interval",
+            "percentage": "percentage",
+        },
+    )
+    class DeploymentPreferenceProperty:
+        def __init__(
+            self,
+            *,
+            state_machine_version_arn: builtins.str,
+            type: builtins.str,
+            alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
+            interval: typing.Optional[jsii.Number] = None,
+            percentage: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Enables gradual state machine deployments.
+
+            CloudFormation automatically shifts traffic from the version the alias currently points to, to a new state machine version that you specify.
+
+            :param state_machine_version_arn: The Amazon Resource Name (ARN) of the ```AWS::StepFunctions::StateMachineVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html>`_ resource that will be the final version to which the alias points to when the traffic shifting is complete. While performing gradual deployments, you can only provide a single state machine version ARN. To explicitly set version weights in a CloudFormation template, use ``RoutingConfiguration`` instead.
+            :param type: The type of deployment you want to perform. You can specify one of the following types:. - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment. For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any CloudWatch alarms are triggered. - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered. - ``CANARY`` - Shifts traffic in two increments. In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
+            :param alarms: A list of Amazon CloudWatch alarm names to be monitored during the deployment. The deployment fails and rolls back if any of these alarms go into the ``ALARM`` state. .. epigraph:: Amazon CloudWatch considers nonexistent alarms to have an ``OK`` state. If you provide an invalid alarm name or provide the ARN of an alarm instead of its name, your deployment may not roll back correctly.
+            :param interval: The time in minutes between each traffic shifting increment.
+            :param percentage: The percentage of traffic to shift to the new version in each increment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                deployment_preference_property = stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty(
+                    state_machine_version_arn="stateMachineVersionArn",
+                    type="type",
+                
+                    # the properties below are optional
+                    alarms=["alarms"],
+                    interval=123,
+                    percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43)
+                check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+                check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+                check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "state_machine_version_arn": state_machine_version_arn,
+                "type": type,
+            }
+            if alarms is not None:
+                self._values["alarms"] = alarms
+            if interval is not None:
+                self._values["interval"] = interval
+            if percentage is not None:
+                self._values["percentage"] = percentage
+
+        @builtins.property
+        def state_machine_version_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the ```AWS::StepFunctions::StateMachineVersion`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html>`_ resource that will be the final version to which the alias points to when the traffic shifting is complete.
+
+            While performing gradual deployments, you can only provide a single state machine version ARN. To explicitly set version weights in a CloudFormation template, use ``RoutingConfiguration`` instead.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-statemachineversionarn
+            '''
+            result = self._values.get("state_machine_version_arn")
+            assert result is not None, "Required property 'state_machine_version_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of deployment you want to perform. You can specify one of the following types:.
+
+            - ``LINEAR`` - Shifts traffic to the new version in equal increments with an equal number of minutes between each increment.
+
+            For example, if you specify the increment percent as ``20`` with an interval of ``600`` minutes, this deployment increases traffic by 20 percent every 600 minutes until the new version receives 100 percent of the traffic. This deployment immediately rolls back the new version if any CloudWatch alarms are triggered.
+
+            - ``ALL_AT_ONCE`` - Shifts 100 percent of traffic to the new version immediately. CloudFormation monitors the new version and rolls it back automatically to the previous version if any CloudWatch alarms are triggered.
+            - ``CANARY`` - Shifts traffic in two increments.
+
+            In the first increment, a small percentage of traffic, for example, 10 percent is shifted to the new version. In the second increment, before a specified time interval in seconds gets over, the remaining traffic is shifted to the new version. The shift to the new version for the remaining traffic takes place only if no CloudWatch alarms are triggered during the specified time interval.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def alarms(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of Amazon CloudWatch alarm names to be monitored during the deployment.
+
+            The deployment fails and rolls back if any of these alarms go into the ``ALARM`` state.
+            .. epigraph::
+
+               Amazon CloudWatch considers nonexistent alarms to have an ``OK`` state. If you provide an invalid alarm name or provide the ARN of an alarm instead of its name, your deployment may not roll back correctly.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-alarms
+            '''
+            result = self._values.get("alarms")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def interval(self) -> typing.Optional[jsii.Number]:
+            '''The time in minutes between each traffic shifting increment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-interval
+            '''
+            result = self._values.get("interval")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def percentage(self) -> typing.Optional[jsii.Number]:
+            '''The percentage of traffic to shift to the new version in each increment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-deploymentpreference.html#cfn-stepfunctions-statemachinealias-deploymentpreference-percentage
+            '''
+            result = self._values.get("percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentPreferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "state_machine_version_arn": "stateMachineVersionArn",
+            "weight": "weight",
+        },
+    )
+    class RoutingConfigurationVersionProperty:
+        def __init__(
+            self,
+            *,
+            state_machine_version_arn: builtins.str,
+            weight: jsii.Number,
+        ) -> None:
+            '''The state machine version to which you want to route the execution traffic.
+
+            :param state_machine_version_arn: The Amazon Resource Name (ARN) that identifies one or two state machine versions defined in the routing configuration. If you specify the ARN of a second version, it must belong to the same state machine as the first version.
+            :param weight: The percentage of traffic you want to route to the state machine version. The sum of the weights in the routing configuration must be equal to 100.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                routing_configuration_version_property = stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
+                    state_machine_version_arn="stateMachineVersionArn",
+                    weight=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b)
+                check_type(argname="argument state_machine_version_arn", value=state_machine_version_arn, expected_type=type_hints["state_machine_version_arn"])
+                check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "state_machine_version_arn": state_machine_version_arn,
+                "weight": weight,
+            }
+
+        @builtins.property
+        def state_machine_version_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) that identifies one or two state machine versions defined in the routing configuration.
+
+            If you specify the ARN of a second version, it must belong to the same state machine as the first version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html#cfn-stepfunctions-statemachinealias-routingconfigurationversion-statemachineversionarn
+            '''
+            result = self._values.get("state_machine_version_arn")
+            assert result is not None, "Required property 'state_machine_version_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def weight(self) -> jsii.Number:
+            '''The percentage of traffic you want to route to the state machine version.
+
+            The sum of the weights in the routing configuration must be equal to 100.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-statemachinealias-routingconfigurationversion.html#cfn-stepfunctions-statemachinealias-routingconfigurationversion-weight
+            '''
+            result = self._values.get("weight")
+            assert result is not None, "Required property 'weight' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RoutingConfigurationVersionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IStateMachineVersionRef)
+class CfnStateMachineVersion(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineVersion",
+):
+    '''Represents a state machine `version <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-version.html>`_ . A published version uses the latest state machine `*revision* <https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-version.html>`_ . A revision is an immutable, read-only snapshot of a state machine’s definition and configuration.
+
+    You can publish up to 1000 versions for each state machine.
+    .. epigraph::
+
+       Before you delete a version, make sure that version's ARN isn't being referenced in any long-running workflows or application code outside of the stack.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachineversion.html
+    :cloudformationResource: AWS::StepFunctions::StateMachineVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_stepfunctions as stepfunctions
+        
+        cfn_state_machine_version = stepfunctions.CfnStateMachineVersion(self, "MyCfnStateMachineVersion",
+            state_machine_arn="stateMachineArn",
+        
+            # the properties below are optional
+            description="description",
+            state_machine_revision_id="stateMachineRevisionId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        state_machine_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        state_machine_revision_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param state_machine_arn: The Amazon Resource Name (ARN) of the state machine.
+        :param description: An optional description of the state machine version.
+        :param state_machine_revision_id: Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration. Only publish the state machine version if the current state machine's revision ID matches the specified ID. Use this option to avoid publishing a version if the state machine has changed since you last updated it. To specify the initial state machine revision, set the value as ``INITIAL`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStateMachineVersionProps(
+            state_machine_arn=state_machine_arn,
+            description=description,
+            state_machine_revision_id=state_machine_revision_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the ARN of the state machine version.
+
+        For example, ``arn:aws:states:us-east-1:123456789012:stateMachine:myStateMachine:1`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineVersionRef")
+    def state_machine_version_ref(self) -> StateMachineVersionReference:
+        '''A reference to a StateMachineVersion resource.'''
+        return typing.cast(StateMachineVersionReference, jsii.get(self, "stateMachineVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineArn")
+    def state_machine_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the state machine.'''
+        return typing.cast(builtins.str, jsii.get(self, "stateMachineArn"))
+
+    @state_machine_arn.setter
+    def state_machine_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the state machine version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRevisionId")
+    def state_machine_revision_id(self) -> typing.Optional[builtins.str]:
+        '''Identifier for a state machine revision, which is an immutable, read-only snapshot of a state machine’s definition and configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineRevisionId"))
+
+    @state_machine_revision_id.setter
+    def state_machine_revision_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stateMachineRevisionId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.implements(IChainable)
@@ -26002,6 +26413,7 @@ class Map(
 __all__ = [
     "Activity",
     "ActivityProps",
+    "ActivityReference",
     "AfterwardsOptions",
     "AssignableStateOptions",
     "AwsOwnedEncryptionConfiguration",
@@ -26045,10 +26457,14 @@ __all__ = [
     "FileDefinitionBody",
     "FindStateOptions",
     "IActivity",
+    "IActivityRef",
     "IChainable",
     "IItemReader",
     "INextable",
     "IStateMachine",
+    "IStateMachineAliasRef",
+    "IStateMachineRef",
+    "IStateMachineVersionRef",
     "InputType",
     "IntegrationPattern",
     "ItemBatcher",
@@ -26106,9 +26522,12 @@ __all__ = [
     "StateBaseProps",
     "StateGraph",
     "StateMachine",
+    "StateMachineAliasReference",
     "StateMachineFragment",
     "StateMachineProps",
+    "StateMachineReference",
     "StateMachineType",
+    "StateMachineVersionReference",
     "StateProps",
     "StateTransitionMetric",
     "StringDefinitionBody",
@@ -26145,6 +26564,13 @@ def _typecheckingstub__b22b644ed0224ed8911beae00f4c015272b0b6846f925702d315e05b1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e5112bbc5e9baa38430d3b9428204c98d46ce65ed1391497eb78927c19a5faa0(
+    *,
+    activity_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e4085645c0aa11ea16f29fe0328307d94fbc700a6b908a2c9d2b3209bc2f7af6(
     *,
     include_error_handlers: typing.Optional[builtins.bool] = None,
@@ -26170,289 +26596,11 @@ def _typecheckingstub__d4b30052ea4266ae7ac11a0c2eaab9f31db04561d9040ab8175bd34b8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    name: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnActivity.EncryptionConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65(
-    value: typing.Optional[typing.List[CfnActivity.TagsEntryProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a(
-    *,
-    type: builtins.str,
-    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__84792b5435bbf43a453a6bf0f4d6e6d61a7c86759e3f95b4d4af4d4e56f641c4(
     *,
     name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    role_arn: builtins.str,
-    definition: typing.Any = None,
-    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_string: typing.Optional[builtins.str] = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    state_machine_name: typing.Optional[builtins.str] = None,
-    state_machine_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.EncryptionConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0(
-    value: typing.Optional[typing.List[CfnStateMachine.TagsEntryProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644(
-    *,
-    log_group_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93(
-    *,
-    type: builtins.str,
-    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1(
-    *,
-    cloud_watch_logs_log_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.CloudWatchLogsLogGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a(
-    *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_execution_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    level: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d(
-    *,
-    bucket: builtins.str,
-    key: builtins.str,
-    version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d(
-    *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.DeploymentPreferenceProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43(
-    *,
-    state_machine_version_arn: builtins.str,
-    type: builtins.str,
-    alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
-    interval: typing.Optional[jsii.Number] = None,
-    percentage: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b(
-    *,
-    state_machine_version_arn: builtins.str,
-    weight: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26480,47 +26628,6 @@ def _typecheckingstub__bf4d4e83bd396b6667f5c30b66226d7e76f61626aea9c4ec1355f6e6a
     state_machine_type: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    state_machine_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    state_machine_revision_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac(
-    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26902,7 +27009,7 @@ def _typecheckingstub__2e34fabd0367a0519a35d86d419baa37e6fe26ad05457e96b236a55bb
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
     bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -26973,7 +27080,7 @@ def _typecheckingstub__526ef9213812e76ec99bd530d4fbea7cc137d220b92525fe763d6d315
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
     bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -27027,6 +27134,12 @@ def _typecheckingstub__31bd3fa2600dc4d3bf5687e9b4e868f708b68f607efbd2cfa7fb5f71f
     pass
 
 def _typecheckingstub__67aefd85a78dbc72556e294ed43f407d7fe2e40185f6dcefcda2b91bce4a9e6c(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1263659f24791988667803166a24080d04a876b31403b25165aea620a8e4fbaa(
     identity: _IGrantable_71c4f5de,
 ) -> None:
     """Type checking stubs"""
@@ -27770,6 +27883,13 @@ def _typecheckingstub__e00f442fc4f33cd6bcc931ba95c9117d241aef41be5171c27548e74d9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bcd8f7ff88c9e0e5a6b0ad981a26d416f41b710089c7785a8221292203ebdbf3(
+    *,
+    state_machine_alias_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b1c5c1191e0b1af51b303ad19000be8e5c4e97e8491eb40cd68c462fa7e42f03(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -27804,6 +27924,20 @@ def _typecheckingstub__24d23b501c893898901860f31ff1a0a0fa81eb89f06a7acf3eef4f15e
     state_machine_type: typing.Optional[StateMachineType] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
     tracing_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44ebbc234aee6a55e1df8153d37e33f4a1f53b1bac7a80e0c0a761abf619e291(
+    *,
+    state_machine_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d3f54dabd73ce9d0bc2c2c6c136dbc8ce5588f73c00f75da1cb21bb390b56a4(
+    *,
+    state_machine_version_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28311,6 +28445,325 @@ def _typecheckingstub__7f960b5875dcb81c7f4b6e91c03015375df2e5c6bb3da84f476bf59c2
     statistic: typing.Optional[builtins.str] = None,
     unit: typing.Optional[_Unit_61bc6f70] = None,
     visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9cac9ccbc74858ea58acc13770fdeee7b204562b53992182f500d45a5f816a2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3118727103487fc9862cb103a2c8a7c466265683e88e012835325059d1d7e0d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__370d3cef66c2bfc06cc862207a47ec2707fa300961f0129ab6f3c2edf4a02cb2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8395bdf4e76b8a41673d28377cd1001ff25935aca9798745ebef40fe06572120(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50ec6c3cd7c2d1844e46c4fd7f9d3d9befacc4e6129f6a8dea961ef8c315ae54(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnActivity.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c963f19dfa2bfb12cf0d22b5bf287aec4f47a000b16928a2dd660ae295dcde65(
+    value: typing.Optional[typing.List[CfnActivity.TagsEntryProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bda2f6d4f585c845fc70b11b2647945e78d856e759a1aaa657c54cd1fbbda1a(
+    *,
+    type: builtins.str,
+    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e620d5be50cdb836aed85b2b5bbc76573db0139cccc1fa49f54e926f1e4cbc7(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b19fff9309f98c9776cf416019a5217333b4d6f0f81e27e2256a87f931153d0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    role_arn: builtins.str,
+    definition: typing.Any = None,
+    definition_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_string: typing.Optional[builtins.str] = None,
+    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    state_machine_name: typing.Optional[builtins.str] = None,
+    state_machine_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnStateMachine.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tracing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07dab719dc25dde0e0ebd681e886c29dd992fd69300c5b97592744ca66975549(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c158489800243ef(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c6f22451e8abd968219b59f11a227c9451d5cd7cb1ff91b3bd91c4ab25bd6da(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c930aec966c75b589ce56dba8aee211d61eeb6c41d99c5c84ab2df4b703b35d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e05fa36d2c9116cb2c90b1560cd6e7bc08699fa552a7e75ce5775a927ad53415(
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce904333e518564adf04f2eb84a1f9cc5b437dde18f6aed04e958a4a0dac58a5(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79f4c64119545b342b25a9aba40a7ac8de878e2ca38859e38a10004112309301(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1c0751a8a3952639ad0b17cb78032a0bad0e3a1e983836e5c861a8129c0c542(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0aef9754ddbe205b0e3cda858acb6182a9a911881b2f81e68f20b454cc9d738e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__142d2d5d8871bd122c48cc77fb02230c828841e8672a11480c58d07a743ec8d0(
+    value: typing.Optional[typing.List[CfnStateMachine.TagsEntryProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7975c26bdc928c8d9fd66a2493df6fc6818b885815e25f63844e956d275c1d01(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd590e91d2c1399d369226ca3fcbd6666d564980b08611a4b5f952ef3e6b9644(
+    *,
+    log_group_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__341c0cd8235a25a0d302ecdb1bbf778638f5c811795090071279001e4e9d1a93(
+    *,
+    type: builtins.str,
+    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a5d8a3abcdb82fe13dbd692519b118f763c5de9bf0de6025642f4d45a207ab1(
+    *,
+    cloud_watch_logs_log_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.CloudWatchLogsLogGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24eee9bdacbb65e43216bb9ddfa4cfe3e27e892eb228ca21be7cd0565deb825a(
+    *,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LogDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_execution_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24b148e6a91176407ca02fb5dd7411cf96ebdd5cdccdafa24b702f5578115e1d(
+    *,
+    bucket: builtins.str,
+    key: builtins.str,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfb83dface8660c95e6064ed3571632ddfd56b66cf9838d2dff4920c79c635e1(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbdafebe888490672c9f37361d4a6ddfd497f384ba2c643a0138dcf36eaf947d(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39d3b5bbdb19199dd6c855f5e5c36c80442ad9f5bcfc52471013324e8a03057e(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0631e2f126759615f5f8c79f47da93a2503e50646d811e8d62ca6adb72cc9d67(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__291c291374c3a7bdc720916a40ec17c8994233f17b521e36f88493f1dfea6abe(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.DeploymentPreferenceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1c4a9670d54e1fd8d9f71a40d8fe51ff4c20b8266100071f23c2fcd11c913f4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af65681afd264c6830e6a2a7499c40b1a1c1cd59a8a9d0c2b4f69d4df6f9f358(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStateMachineAlias.RoutingConfigurationVersionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43(
+    *,
+    state_machine_version_arn: builtins.str,
+    type: builtins.str,
+    alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
+    interval: typing.Optional[jsii.Number] = None,
+    percentage: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a688434f1bb6e3dfc9e2ccdd19ed95c105316293de60df8e4fe097b12705a50b(
+    *,
+    state_machine_version_arn: builtins.str,
+    weight: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b19ebd913b3792b5cf85d382b7166b1f3325d9d4c4d36e3487276014cbb29edc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    state_machine_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    state_machine_revision_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5464561cedf359263d5e05f1d444de28a7d75d5ce4347840115515f065a5201(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__593f2bbe562bc9f9cee66f866efeb6b4662511cc706d0e7292314d744f609afb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b5bffae2ab6951189d8934aa88a458856f9a4d6623a0832d0295941754bf70d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8425cdd1ce7e33098a65ff2357b57674f96a520fc7d3cc63794e265253928cf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a80351896d09cb747491b59d0460387f46b6f51704f091b54c4fecf9f3f4bac(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

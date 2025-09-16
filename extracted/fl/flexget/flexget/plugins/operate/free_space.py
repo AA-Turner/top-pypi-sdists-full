@@ -34,9 +34,9 @@ def get_free_space(config, task):
             logger.error('Issue connecting to remote host. {}', e)
             task.abort('Error with remote host.')
         if config['allotment'] != -1:
-            stdin, stdout, stderr = ssh.exec_command(f'du -s {config["path"]} | cut -f 1')
+            _stdin, stdout, _stderr = ssh.exec_command(f'du -s {config["path"]} | cut -f 1')
         else:
-            stdin, stdout, stderr = ssh.exec_command(
+            _stdin, stdout, _stderr = ssh.exec_command(
                 f"df -k {config['path']} | tail -1 | tr -s ' ' | cut -d' ' -f4"
             )
         outlines = stdout.readlines()

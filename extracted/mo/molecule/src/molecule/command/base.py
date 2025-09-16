@@ -38,16 +38,16 @@ import wcmatch.wcmatch
 from wcmatch import glob
 
 from molecule import config, logger, text, util
-from molecule.console import console
-from molecule.constants import MOLECULE_DEFAULT_SCENARIO_NAME, MOLECULE_GLOB
+from molecule.constants import MOLECULE_DEFAULT_SCENARIO_NAME
 from molecule.exceptions import MoleculeError, ScenarioFailureError
+from molecule.reporting.definitions import ScenarioResults
+from molecule.reporting.rendering import report
 from molecule.scenarios import Scenarios
-from molecule.util import safe_dump
 
 
 if TYPE_CHECKING:
     from molecule.scenario import Scenario
-    from molecule.types import CommandArgs, MoleculeArgs, ScenariosResults
+    from molecule.types import CommandArgs, MoleculeArgs
 
 
 def _log(scenario_name: str, step: str, message: str, level: str = "info") -> None:
@@ -73,6 +73,7 @@ class Base(abc.ABC):
             c: An instance of a Molecule config.
         """
         self._config = c
+        self._config.scenario.results.add_action_result(self._config.action or "unknown")
         self._setup()
 
     def __init_subclass__(cls) -> None:
@@ -135,11 +136,13 @@ def execute_cmdline_scenarios(
     if excludes is None:
         excludes = []
 
+    effective_base_glob = util.get_effective_molecule_glob()
+
     configs: list[config.Config] = []
     if scenario_names is None:
         configs = [
             config
-            for config in get_configs(args, command_args, ansible_args, MOLECULE_GLOB)
+            for config in get_configs(args, command_args, ansible_args)
             if config.scenario.name not in excludes
         ]
     else:
@@ -147,12 +150,12 @@ def execute_cmdline_scenarios(
             # filter out excludes
             scenario_names = [name for name in scenario_names if name not in excludes]
             for scenario_name in scenario_names:
-                glob_str = MOLECULE_GLOB.replace("*", scenario_name)
+                glob_str = effective_base_glob.replace("*", scenario_name)
                 configs.extend(get_configs(args, command_args, ansible_args, glob_str))
         except ScenarioFailureError as exc:
-            util.sysexit(code=exc.code)
+            util.sysexit_from_exception(exc)
 
-    default_glob = MOLECULE_GLOB.replace("*", MOLECULE_DEFAULT_SCENARIO_NAME)
+    default_glob = effective_base_glob.replace("*", MOLECULE_DEFAULT_SCENARIO_NAME)
     default_config = None
     try:
         default_config = get_configs(args, command_args, ansible_args, default_glob)[0]
@@ -166,10 +169,9 @@ def execute_cmdline_scenarios(
         _run_scenarios(scenarios, command_args, default_config)
 
     except ScenarioFailureError as exc:
-        util.sysexit(code=exc.code)
+        util.sysexit_from_exception(exc)
     finally:
-        if command_args.get("report"):
-            console.print(generate_report(scenarios.results))
+        report(scenarios.results, report_flag=command_args.get("report", False))
 
 
 def _generate_scenarios(
@@ -219,7 +221,11 @@ def _run_scenarios(
         ScenarioFailureError: when a scenario fails prematurely.
     """
     # Run initial create
-    create_results = execute_subcommand_default(default_config, "create")
+    create_results = execute_subcommand_default(
+        default_config,
+        "create",
+        shared_state=scenarios.shared_state,
+    )
     if create_results is not None:
         scenarios.results.append(create_results)
 
@@ -243,10 +249,10 @@ def _run_scenarios(
                 f"Removing {scenario.ephemeral_directory}",
             )
             shutil.rmtree(scenario.ephemeral_directory)
-            return
+            continue
         try:
-            execute_scenario(scenario)
-            scenarios.results.append({"name": scenario.name, "results": scenario.results})
+            execute_scenario(scenario, shared_state=scenarios.shared_state)
+            scenarios.results.append(scenario.results)
         except ScenarioFailureError:
             # if the command has a 'destroy' arg, like test does,
             # handle that behavior here.
@@ -263,13 +269,17 @@ def _run_scenarios(
                     level="warning",
                 )
                 execute_subcommand(scenario.config, "cleanup")
-                destroy_results = execute_subcommand_default(default_config, "destroy")
+                destroy_results = execute_subcommand_default(
+                    default_config,
+                    "destroy",
+                    shared_state=scenarios.shared_state,
+                )
                 if destroy_results is not None:
-                    scenarios.results.append({"name": scenario.name, "results": scenario.results})
+                    scenarios.results.append(scenario.results)
                     scenarios.results.append(destroy_results)
                 else:
                     execute_subcommand(scenario.config, "destroy")
-                    scenarios.results.append({"name": scenario.name, "results": scenario.results})
+                    scenarios.results.append(scenario.results)
 
                 # always prune ephemeral dir if destroying on failure
                 scenario.prune()
@@ -277,8 +287,12 @@ def _run_scenarios(
                     scenario._remove_scenario_state_directory()  # noqa: SLF001
             raise
 
-    # Run final destroy
-    destroy_results = execute_subcommand_default(default_config, "destroy")
+    # Run final destroy if any scenario needed shared state
+    destroy_results = execute_subcommand_default(
+        default_config,
+        "destroy",
+        shared_state=scenarios.shared_state,
+    )
     if destroy_results is not None:
         scenarios.results.append(destroy_results)
 
@@ -286,26 +300,29 @@ def _run_scenarios(
 def execute_subcommand_default(
     default_config: config.Config | None,
     subcommand: str,
-) -> ScenariosResults | None:
+    *,
+    shared_state: bool,
+) -> ScenarioResults | None:
     """Execute subcommand as in execute_subcommand, but do it from the default scenario if one exists.
 
     Args:
         default_config: The Config object for the default scenario, if it exists.
         subcommand: The desired subcommand to run.
+        shared_state: Whether any scenario requires shared state infrastructure.
 
     Returns:
         The result of the subcommand.
     """
-    if default_config is None or default_config.shared_data is not True:
+    if default_config is None or not shared_state:
         # We have not been asked to do anything.
         return None
 
     default = default_config.scenario
     if subcommand in default.sequence:
         execute_subcommand(default_config, subcommand)
-        results: ScenariosResults = {"name": default.name, "results": copy.copy(default.results)}
+        results = copy.deepcopy(default.results)
         # clear results for later reuse
-        default.results = []
+        default.results = ScenarioResults(name=default.name, actions=[])
         return results
     _log(
         default.name,
@@ -338,26 +355,25 @@ def execute_subcommand(
     # particularly the setting of ansible options in create/destroy,
     # and is also used for reporting in execute_cmdline_scenarios
     current_config.action = subcommand
-
     return command(current_config).execute(args)
 
 
-def execute_scenario(scenario: Scenario) -> None:
+def execute_scenario(scenario: Scenario, *, shared_state: bool = False) -> None:
     """Execute each command in the given scenario's configured sequence.
 
     Args:
         scenario: The scenario to execute.
+        shared_state: Whether global shared state execution is active for this run.
     """
-    shared_data = scenario.config.shared_data is True
     for action in scenario.sequence:
-        if shared_data and action in ("create", "destroy"):
+        if shared_state and action in ("create", "destroy"):
             # Ignore
             continue
 
         execute_subcommand(scenario.config, action)
 
     if (
-        not shared_data
+        not shared_state
         and "destroy" in scenario.sequence
         and scenario.config.command_args.get("destroy") != "never"
     ):
@@ -400,7 +416,7 @@ def get_configs(
     args: MoleculeArgs,
     command_args: CommandArgs,
     ansible_args: tuple[str, ...] = (),
-    glob_str: str = MOLECULE_GLOB,
+    glob_str: str | None = None,
 ) -> list[config.Config]:
     """Glob the current directory for Molecule config files.
 
@@ -411,10 +427,14 @@ def get_configs(
         command_args: A dict of options passed to the subcommand from the CLI.
         ansible_args: An optional tuple of arguments provided to the `ansible-playbook` command.
         glob_str: A string representing the glob used to find Molecule config files.
+                 If None, uses util.get_effective_molecule_glob().
 
     Returns:
         A list of Config objects.
     """
+    if glob_str is None:
+        glob_str = util.get_effective_molecule_glob()
+
     scenario_paths = glob.glob(
         glob_str,
         flags=wcmatch.pathlib.GLOBSTAR | wcmatch.pathlib.BRACE | wcmatch.pathlib.DOTGLOB,
@@ -435,16 +455,20 @@ def get_configs(
     return configs
 
 
-def _verify_configs(configs: list[config.Config], glob_str: str = MOLECULE_GLOB) -> None:
+def _verify_configs(configs: list[config.Config], glob_str: str | None = None) -> None:
     """Verify a Molecule config was found and returns None.
 
     Args:
         configs: A list containing absolute paths to Molecule config files.
         glob_str: A string representing the glob used to find Molecule config files.
+                 If None, uses util.get_effective_molecule_glob().
 
     Raises:
         ScenarioFailureError: When scenario configs cannot be verified.
     """
+    if glob_str is None:
+        glob_str = util.get_effective_molecule_glob()
+
     if configs:
         scenario_names = [c.scenario.name for c in configs]
         for scenario_name, n in collections.Counter(scenario_names).items():
@@ -467,15 +491,3 @@ def _get_subcommand(string: str) -> str:
         A string representing the subcommand.
     """
     return string.split(".")[-1]
-
-
-def generate_report(results: list[ScenariosResults]) -> str:
-    """Print end-of-run report.
-
-    Args:
-        results: Dictionary containing results from each scenario.
-
-    Returns:
-        The formatted end-of-run report.
-    """
-    return safe_dump(results)

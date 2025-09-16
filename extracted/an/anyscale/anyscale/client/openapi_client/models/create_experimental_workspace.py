@@ -45,6 +45,7 @@ class CreateExperimentalWorkspace(object):
         'cloned_workspace_id': 'str',
         'template_id': 'str',
         'template_url': 'str',
+        'tags': 'dict(str, str)',
         'skip_start': 'bool'
     }
 
@@ -61,10 +62,11 @@ class CreateExperimentalWorkspace(object):
         'cloned_workspace_id': 'cloned_workspace_id',
         'template_id': 'template_id',
         'template_url': 'template_url',
+        'tags': 'tags',
         'skip_start': 'skip_start'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, cluster_environment_build_id=None, idle_timeout_minutes=None, cloned_job_id=None, cloned_workspace_id=None, template_id=None, template_url=None, skip_start=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, cluster_environment_build_id=None, idle_timeout_minutes=None, cloned_job_id=None, cloned_workspace_id=None, template_id=None, template_url=None, tags=None, skip_start=None, local_vars_configuration=None):  # noqa: E501
         """CreateExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -82,6 +84,7 @@ class CreateExperimentalWorkspace(object):
         self._cloned_workspace_id = None
         self._template_id = None
         self._template_url = None
+        self._tags = None
         self._skip_start = None
         self.discriminator = None
 
@@ -104,6 +107,8 @@ class CreateExperimentalWorkspace(object):
             self.template_id = template_id
         if template_url is not None:
             self.template_url = template_url
+        if tags is not None:
+            self.tags = tags
         if skip_start is not None:
             self.skip_start = skip_start
 
@@ -392,6 +397,29 @@ class CreateExperimentalWorkspace(object):
         """
 
         self._template_url = template_url
+
+    @property
+    def tags(self):
+        """Gets the tags of this CreateExperimentalWorkspace.  # noqa: E501
+
+        Tags to associate with the workspace.  # noqa: E501
+
+        :return: The tags of this CreateExperimentalWorkspace.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this CreateExperimentalWorkspace.
+
+        Tags to associate with the workspace.  # noqa: E501
+
+        :param tags: The tags of this CreateExperimentalWorkspace.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     @property
     def skip_start(self):

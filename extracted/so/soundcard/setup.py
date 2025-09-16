@@ -2,14 +2,14 @@ from setuptools import setup
 
 setup(
     name='SoundCard',
-    version='0.4.4',
+    version='0.4.5',
     description='Play and record audio without resorting to CPython extensions',
     author='Bastian Bechtold',
     url='https://github.com/bastibe/SoundCard',
     license='BSD 3-clause',
     packages=['soundcard', 'soundcard.__pyinstaller'],
     package_data={'soundcard': ['*.py.h']},
-    install_requires=['numpy', 'cffi'],
+    install_requires=['numpy>=1.11', 'cffi'],
     python_requires='>=3.5',
     classifiers=[
         'Development Status :: 5 - Production/Stable',

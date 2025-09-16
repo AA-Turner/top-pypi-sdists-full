@@ -304,8 +304,10 @@ class InfoModule(BaseIntegrationModule):
                 description = capability_metadata.description
 
             # Without description, get the docstring from the capability method
-            if description is None:
-                description = self.integration.capabilities[capability_name].__doc__
+            # Commented out 09/15/25, we are now using this field instead of `info` and this
+            # displays undesired information in the UI
+            # if description is None:
+            #     description = self.integration.capabilities[capability_name].__doc__
 
             capability_schema[capability_name] = CapabilitySchema(
                 argument=command_types.argument,

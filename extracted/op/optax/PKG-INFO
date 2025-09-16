@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optax
-Version: 0.2.5
+Version: 0.2.6
 Summary: A gradient processing and optimization library in JAX.
 Keywords: python,machine learning,reinforcement-learning
 Author-email: Google DeepMind <optax-dev@google.com>
@@ -19,8 +19,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Requires-Dist: absl-py>=0.7.1
 Requires-Dist: chex>=0.1.87
-Requires-Dist: jax>=0.4.27
-Requires-Dist: jaxlib>=0.4.27
+Requires-Dist: jax>=0.5.3
+Requires-Dist: jaxlib>=0.5.3
 Requires-Dist: numpy>=1.18.0
 Requires-Dist: sphinx>=6.0.0 ; extra == "docs"
 Requires-Dist: sphinx-book-theme>=1.0.1 ; extra == "docs"
@@ -33,6 +33,7 @@ Requires-Dist: sphinx-gallery>=0.14.0 ; extra == "docs"
 Requires-Dist: sphinx-collections>=0.0.1 ; extra == "docs"
 Requires-Dist: flax ; extra == "docs"
 Requires-Dist: sphinx_contributors ; extra == "docs"
+Requires-Dist: setuptools ; extra == "docs"
 Requires-Dist: flax>=0.5.3 ; extra == "test"
 Requires-Dist: scipy>=1.7.1 ; extra == "test"
 Requires-Dist: scikit-learn ; extra == "test"

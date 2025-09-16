@@ -71,7 +71,290 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codestar.CfnGitHubRepositoryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "repository_name": "repositoryName",
+        "repository_owner": "repositoryOwner",
+        "code": "code",
+        "connection_arn": "connectionArn",
+        "enable_issues": "enableIssues",
+        "is_private": "isPrivate",
+        "repository_access_token": "repositoryAccessToken",
+        "repository_description": "repositoryDescription",
+    },
+)
+class CfnGitHubRepositoryProps:
+    def __init__(
+        self,
+        *,
+        repository_name: builtins.str,
+        repository_owner: builtins.str,
+        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGitHubRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connection_arn: typing.Optional[builtins.str] = None,
+        enable_issues: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        is_private: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        repository_access_token: typing.Optional[builtins.str] = None,
+        repository_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGitHubRepository``.
+
+        :param repository_name: The name of the repository you want to create in GitHub with AWS CloudFormation stack creation.
+        :param repository_owner: The GitHub user name for the owner of the GitHub repository to be created. If this repository should be owned by a GitHub organization, provide its name.
+        :param code: Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
+        :param connection_arn: 
+        :param enable_issues: Indicates whether to enable issues for the GitHub repository. You can use GitHub issues to track information and bugs for your repository.
+        :param is_private: Indicates whether the GitHub repository is a private repository. If so, you choose who can see and commit to this repository.
+        :param repository_access_token: The GitHub user's personal access token for the GitHub repository.
+        :param repository_description: A comment or description about the new repository. This description is displayed in GitHub after the repository is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codestar as codestar
+            
+            cfn_git_hub_repository_props = codestar.CfnGitHubRepositoryProps(
+                repository_name="repositoryName",
+                repository_owner="repositoryOwner",
+            
+                # the properties below are optional
+                code=codestar.CfnGitHubRepository.CodeProperty(
+                    s3=codestar.CfnGitHubRepository.S3Property(
+                        bucket="bucket",
+                        key="key",
+            
+                        # the properties below are optional
+                        object_version="objectVersion"
+                    )
+                ),
+                connection_arn="connectionArn",
+                enable_issues=False,
+                is_private=False,
+                repository_access_token="repositoryAccessToken",
+                repository_description="repositoryDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff85c5447765a01e8d5b790f4db69c77d8f316fc143497f944c8477d31c41887)
+            check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
+            check_type(argname="argument repository_owner", value=repository_owner, expected_type=type_hints["repository_owner"])
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+            check_type(argname="argument enable_issues", value=enable_issues, expected_type=type_hints["enable_issues"])
+            check_type(argname="argument is_private", value=is_private, expected_type=type_hints["is_private"])
+            check_type(argname="argument repository_access_token", value=repository_access_token, expected_type=type_hints["repository_access_token"])
+            check_type(argname="argument repository_description", value=repository_description, expected_type=type_hints["repository_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "repository_name": repository_name,
+            "repository_owner": repository_owner,
+        }
+        if code is not None:
+            self._values["code"] = code
+        if connection_arn is not None:
+            self._values["connection_arn"] = connection_arn
+        if enable_issues is not None:
+            self._values["enable_issues"] = enable_issues
+        if is_private is not None:
+            self._values["is_private"] = is_private
+        if repository_access_token is not None:
+            self._values["repository_access_token"] = repository_access_token
+        if repository_description is not None:
+            self._values["repository_description"] = repository_description
+
+    @builtins.property
+    def repository_name(self) -> builtins.str:
+        '''The name of the repository you want to create in GitHub with AWS CloudFormation stack creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryname
+        '''
+        result = self._values.get("repository_name")
+        assert result is not None, "Required property 'repository_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def repository_owner(self) -> builtins.str:
+        '''The GitHub user name for the owner of the GitHub repository to be created.
+
+        If this repository should be owned by a GitHub organization, provide its name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryowner
+        '''
+        result = self._values.get("repository_owner")
+        assert result is not None, "Required property 'repository_owner' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def code(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGitHubRepository.CodeProperty"]]:
+        '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-code
+        '''
+        result = self._values.get("code")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGitHubRepository.CodeProperty"]], result)
+
+    @builtins.property
+    def connection_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-connectionarn
+        '''
+        result = self._values.get("connection_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_issues(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether to enable issues for the GitHub repository.
+
+        You can use GitHub issues to track information and bugs for your repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-enableissues
+        '''
+        result = self._values.get("enable_issues")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def is_private(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the GitHub repository is a private repository.
+
+        If so, you choose who can see and commit to this repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-isprivate
+        '''
+        result = self._values.get("is_private")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def repository_access_token(self) -> typing.Optional[builtins.str]:
+        '''The GitHub user's personal access token for the GitHub repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryaccesstoken
+        '''
+        result = self._values.get("repository_access_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def repository_description(self) -> typing.Optional[builtins.str]:
+        '''A comment or description about the new repository.
+
+        This description is displayed in GitHub after the repository is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositorydescription
+        '''
+        result = self._values.get("repository_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGitHubRepositoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codestar.GitHubRepositoryReference",
+    jsii_struct_bases=[],
+    name_mapping={"git_hub_repository_id": "gitHubRepositoryId"},
+)
+class GitHubRepositoryReference:
+    def __init__(self, *, git_hub_repository_id: builtins.str) -> None:
+        '''A reference to a GitHubRepository resource.
+
+        :param git_hub_repository_id: The Id of the GitHubRepository resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codestar as codestar
+            
+            git_hub_repository_reference = codestar.GitHubRepositoryReference(
+                git_hub_repository_id="gitHubRepositoryId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5552216df89fb89a60d6711e828e9d0de0e06ebe9c48e26d955a505e82154c2)
+            check_type(argname="argument git_hub_repository_id", value=git_hub_repository_id, expected_type=type_hints["git_hub_repository_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "git_hub_repository_id": git_hub_repository_id,
+        }
+
+    @builtins.property
+    def git_hub_repository_id(self) -> builtins.str:
+        '''The Id of the GitHubRepository resource.'''
+        result = self._values.get("git_hub_repository_id")
+        assert result is not None, "Required property 'git_hub_repository_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GitHubRepositoryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_codestar.IGitHubRepositoryRef")
+class IGitHubRepositoryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GitHubRepository.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gitHubRepositoryRef")
+    def git_hub_repository_ref(self) -> GitHubRepositoryReference:
+        '''(experimental) A reference to a GitHubRepository resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGitHubRepositoryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GitHubRepository.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codestar.IGitHubRepositoryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gitHubRepositoryRef")
+    def git_hub_repository_ref(self) -> GitHubRepositoryReference:
+        '''(experimental) A reference to a GitHubRepository resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GitHubRepositoryReference, jsii.get(self, "gitHubRepositoryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGitHubRepositoryRef).__jsii_proxy_class__ = lambda : _IGitHubRepositoryRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IGitHubRepositoryRef)
 class CfnGitHubRepository(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -199,6 +482,12 @@ class CfnGitHubRepository(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gitHubRepositoryRef")
+    def git_hub_repository_ref(self) -> GitHubRepositoryReference:
+        '''A reference to a GitHubRepository resource.'''
+        return typing.cast(GitHubRepositoryReference, jsii.get(self, "gitHubRepositoryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="repositoryName")
@@ -479,206 +768,35 @@ class CfnGitHubRepository(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codestar.CfnGitHubRepositoryProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "repository_name": "repositoryName",
-        "repository_owner": "repositoryOwner",
-        "code": "code",
-        "connection_arn": "connectionArn",
-        "enable_issues": "enableIssues",
-        "is_private": "isPrivate",
-        "repository_access_token": "repositoryAccessToken",
-        "repository_description": "repositoryDescription",
-    },
-)
-class CfnGitHubRepositoryProps:
-    def __init__(
-        self,
-        *,
-        repository_name: builtins.str,
-        repository_owner: builtins.str,
-        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGitHubRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        connection_arn: typing.Optional[builtins.str] = None,
-        enable_issues: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        is_private: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        repository_access_token: typing.Optional[builtins.str] = None,
-        repository_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGitHubRepository``.
-
-        :param repository_name: The name of the repository you want to create in GitHub with AWS CloudFormation stack creation.
-        :param repository_owner: The GitHub user name for the owner of the GitHub repository to be created. If this repository should be owned by a GitHub organization, provide its name.
-        :param code: Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
-        :param connection_arn: 
-        :param enable_issues: Indicates whether to enable issues for the GitHub repository. You can use GitHub issues to track information and bugs for your repository.
-        :param is_private: Indicates whether the GitHub repository is a private repository. If so, you choose who can see and commit to this repository.
-        :param repository_access_token: The GitHub user's personal access token for the GitHub repository.
-        :param repository_description: A comment or description about the new repository. This description is displayed in GitHub after the repository is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codestar as codestar
-            
-            cfn_git_hub_repository_props = codestar.CfnGitHubRepositoryProps(
-                repository_name="repositoryName",
-                repository_owner="repositoryOwner",
-            
-                # the properties below are optional
-                code=codestar.CfnGitHubRepository.CodeProperty(
-                    s3=codestar.CfnGitHubRepository.S3Property(
-                        bucket="bucket",
-                        key="key",
-            
-                        # the properties below are optional
-                        object_version="objectVersion"
-                    )
-                ),
-                connection_arn="connectionArn",
-                enable_issues=False,
-                is_private=False,
-                repository_access_token="repositoryAccessToken",
-                repository_description="repositoryDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff85c5447765a01e8d5b790f4db69c77d8f316fc143497f944c8477d31c41887)
-            check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
-            check_type(argname="argument repository_owner", value=repository_owner, expected_type=type_hints["repository_owner"])
-            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
-            check_type(argname="argument enable_issues", value=enable_issues, expected_type=type_hints["enable_issues"])
-            check_type(argname="argument is_private", value=is_private, expected_type=type_hints["is_private"])
-            check_type(argname="argument repository_access_token", value=repository_access_token, expected_type=type_hints["repository_access_token"])
-            check_type(argname="argument repository_description", value=repository_description, expected_type=type_hints["repository_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "repository_name": repository_name,
-            "repository_owner": repository_owner,
-        }
-        if code is not None:
-            self._values["code"] = code
-        if connection_arn is not None:
-            self._values["connection_arn"] = connection_arn
-        if enable_issues is not None:
-            self._values["enable_issues"] = enable_issues
-        if is_private is not None:
-            self._values["is_private"] = is_private
-        if repository_access_token is not None:
-            self._values["repository_access_token"] = repository_access_token
-        if repository_description is not None:
-            self._values["repository_description"] = repository_description
-
-    @builtins.property
-    def repository_name(self) -> builtins.str:
-        '''The name of the repository you want to create in GitHub with AWS CloudFormation stack creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryname
-        '''
-        result = self._values.get("repository_name")
-        assert result is not None, "Required property 'repository_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def repository_owner(self) -> builtins.str:
-        '''The GitHub user name for the owner of the GitHub repository to be created.
-
-        If this repository should be owned by a GitHub organization, provide its name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryowner
-        '''
-        result = self._values.get("repository_owner")
-        assert result is not None, "Required property 'repository_owner' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def code(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGitHubRepository.CodeProperty]]:
-        '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-code
-        '''
-        result = self._values.get("code")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGitHubRepository.CodeProperty]], result)
-
-    @builtins.property
-    def connection_arn(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-connectionarn
-        '''
-        result = self._values.get("connection_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_issues(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether to enable issues for the GitHub repository.
-
-        You can use GitHub issues to track information and bugs for your repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-enableissues
-        '''
-        result = self._values.get("enable_issues")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def is_private(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the GitHub repository is a private repository.
-
-        If so, you choose who can see and commit to this repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-isprivate
-        '''
-        result = self._values.get("is_private")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def repository_access_token(self) -> typing.Optional[builtins.str]:
-        '''The GitHub user's personal access token for the GitHub repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositoryaccesstoken
-        '''
-        result = self._values.get("repository_access_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def repository_description(self) -> typing.Optional[builtins.str]:
-        '''A comment or description about the new repository.
-
-        This description is displayed in GitHub after the repository is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestar-githubrepository.html#cfn-codestar-githubrepository-repositorydescription
-        '''
-        result = self._values.get("repository_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGitHubRepositoryProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnGitHubRepository",
     "CfnGitHubRepositoryProps",
+    "GitHubRepositoryReference",
+    "IGitHubRepositoryRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ff85c5447765a01e8d5b790f4db69c77d8f316fc143497f944c8477d31c41887(
+    *,
+    repository_name: builtins.str,
+    repository_owner: builtins.str,
+    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGitHubRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connection_arn: typing.Optional[builtins.str] = None,
+    enable_issues: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_private: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    repository_access_token: typing.Optional[builtins.str] = None,
+    repository_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5552216df89fb89a60d6711e828e9d0de0e06ebe9c48e26d955a505e82154c2(
+    *,
+    git_hub_repository_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d13ca27a3e40bfc95c8316147dae97d61f10a54dc1ae9ea2bdc5a1a33fc9f4b8(
     scope: _constructs_77d1e7e8.Construct,
@@ -768,20 +886,6 @@ def _typecheckingstub__7b816900a0d1b0b1705f2e02c945928e972ea08d6638ac1248eba8f98
     bucket: builtins.str,
     key: builtins.str,
     object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ff85c5447765a01e8d5b790f4db69c77d8f316fc143497f944c8477d31c41887(
-    *,
-    repository_name: builtins.str,
-    repository_owner: builtins.str,
-    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGitHubRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connection_arn: typing.Optional[builtins.str] = None,
-    enable_issues: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    is_private: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    repository_access_token: typing.Optional[builtins.str] = None,
-    repository_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

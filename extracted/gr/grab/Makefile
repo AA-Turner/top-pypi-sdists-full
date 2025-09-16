@@ -1,33 +1,54 @@
-.PHONY: build venv deps develop flake flake_verbose test coverage_nobackend coverage coverage_missing clean upload doc doc_ru
+.PHONY: py3 py3-venv py3-deps py2 py2-venv py2-deps dirs test coverage_nobackend coverage coverage_missing clean build yaml release
 
-build: venv deps develop
+PY2_ROOT = /home/user/.pyenv/versions/2.7.18
+PY2_VENV = .venv-py2
+PY3_VENV = .venv-py3
+COVERAGE_TARGET = grab
 
-venv:
-	virtualenv --no-site-packages --python=python3 .env
+# PY3
+py3: py3-venv py3-deps dirs
+
+py3-venv:
+	virtualenv -p python3 $(PY3_VENV)
+
+py3-deps:
+	$(PY3_VENV)/bin/pip install -r requirements_dev.txt
+	$(PY3_VENV)/bin/pip install -r requirements_dev_backend.txt
+	$(PY3_VENV)/bin/pip install .[urllib3,pyquery]
+
+# PY2
+py2: py2-venv py2-deps dirs
+
+py2-venv:
+	$(PY2_ROOT)/bin/pip install virtualenv
+	$(PY2_ROOT)/bin/virtualenv --python=$(PY2_ROOT)/bin/python2.7 $(PY2_VENV)
 	
-deps:
-	.env/bin/pip install -r requirements_dev.txt
-	.env/bin/pip install -r requirements_dev_backend.txt
+py2-deps:
+	$(PY2_VENV)/bin/pip install -r requirements_dev.txt
+	$(PY2_VENV)/bin/pip install -r requirements_dev_backend.txt
+	$(PY2_VENV)/bin/pip install .[urllib3,pyquery]
 
-develop:
-	.env/bin/python setup.py develop
+dirs:
+	if [ ! -e var/run ]; then mkdir -p var/run; fi
+	if [ ! -e var/log ]; then mkdir -p var/log; fi
+	if [ ! -e var/bin ]; then mkdir -p var/bin; fi
 
 test:
-	tox -e py34
+	./runtest.py --test-all --backend-mongo --backend-mysql --backend-redis --backend-postgres
 
 coverage_nobackend:
 	coverage erase
-	coverage run --source=grab ./runtest.py --test-all
+	coverage run --source=$(COVERAGE_TARGET) ./runtest.py --test-all
 	coverage report -m
 
 coverage:
 	coverage erase
-	coverage run --source=grab ./runtest.py --test-all --backend-mongo --backend-mysql --backend-redis --backend-postgres
+	coverage run --source=$(COVERAGE_TARGET) ./runtest.py --test-all --backend-mongo --backend-mysql --backend-redis --backend-postgres
 	coverage report -m
 
 coverage_missing:
 	coverage erase
-	coverage run --source=grab ./runtest.py --test-all --backend-mongo --backend-mysql --backend-redis --backend-postgres
+	coverage run --source=$(COVERAGE_TARGET) ./runtest.py --test-all --backend-mongo --backend-mysql --backend-redis --backend-postgres
 	coverage report -m | grep -v '100%' | grep -v Missing | grep -v -- '----' | sort -k 3 -nr
 
 clean:
@@ -35,8 +56,16 @@ clean:
 	find -name '*.swp' -delete
 	find -name '__pycache__' -delete
 
-upload:
-	git push --tags; python setup.py clean sdist upload
+build:
+	rm -rf *.egg-info
+	rm -rf dist/*
+	python -m build
 
-viewdoc:
-	x-www-browser docs/en/build/html/index.html
+yaml:
+	yamllint .github
+
+release:
+	git push \
+	&& git push --tags \
+	&& make build \
+	&& twine upload dist/*

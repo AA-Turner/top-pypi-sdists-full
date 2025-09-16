@@ -47,6 +47,7 @@ use crate::binding::base_class::BaseClassGenericKind;
 use crate::binding::binding::Key;
 use crate::binding::pydantic::FROZEN_DEFAULT;
 use crate::binding::pydantic::PydanticMetadataBinding;
+use crate::binding::pydantic::VALIDATE_BY_ALIAS;
 use crate::binding::pydantic::VALIDATE_BY_NAME;
 use crate::binding::pydantic::VALIDATION_ALIAS;
 use crate::config::error_kind::ErrorKind;
@@ -407,6 +408,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
+    fn extract_validate_flag(
+        &self,
+        keywords: &[(Name, Annotation)],
+        key: &Name,
+        default: bool,
+    ) -> bool {
+        keywords
+            .iter()
+            .find(|(name, _)| name == key)
+            .map_or(default, |(_, ann)| {
+                ann.get_type().as_bool().unwrap_or(default)
+            })
+    }
+
     fn pydantic_metadata(
         &self,
         bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
@@ -451,24 +466,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             frozen,
             extra,
             validate_by_name,
+            validate_by_alias,
         } = pydantic_metadata_binding;
 
-        // TODO: support ConfigDict validate_by_alias.
         // Note: class keywords take precedence over ConfigDict keywords.
         // But another design choice is to error if there is a conflict. We can consider this design for v2.
-        // Extract validate_by_alias & validate_by_name
-        let class_validate_by_alias = keywords
-            .iter()
-            .find(|(name, _)| name.as_str() == "validate_by_alias")
-            .is_none_or(|(_, ann)| ann.get_type().as_bool().unwrap_or(true));
-
-        // TODO Zeina: Rename this variable to just validate_by_name
-        let class_validate_by_name = keywords
-            .iter()
-            .find(|(name, _)| name == &VALIDATE_BY_NAME)
-            .map_or(*validate_by_name, |(_, ann)| {
-                ann.get_type().as_bool().unwrap_or(*validate_by_name)
-            });
+        let validate_by_alias =
+            self.extract_validate_flag(keywords, &VALIDATE_BY_ALIAS, *validate_by_alias);
+        let validate_by_name =
+            self.extract_validate_flag(keywords, &VALIDATE_BY_NAME, *validate_by_name);
 
         // Here, "ignore" and "allow" translate to true, while "forbid" translates to false.
         // With no keyword, the default is "true" and I default to "false" on a wrong keyword.
@@ -528,8 +534,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         Some(PydanticMetadata {
             frozen: *frozen,
-            class_validate_by_alias,
-            class_validate_by_name,
+            validate_by_alias,
+            validate_by_name,
             extra,
             pydantic_model_kind,
         })
@@ -837,8 +843,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 validate_by_alias: true,
             },
             |pyd| ClassValidationFlags {
-                validate_by_name: pyd.class_validate_by_name,
-                validate_by_alias: pyd.class_validate_by_alias,
+                validate_by_name: pyd.validate_by_name,
+                validate_by_alias: pyd.validate_by_alias,
             },
         );
 
@@ -1152,10 +1158,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let metaclass_type = Type::ClassType(metaclass.clone());
         for (base_name, m) in base_metaclasses {
             let base_metaclass_type = Type::ClassType((*m).clone());
-            if !self
-                .solver()
-                .is_subset_eq(&metaclass_type, &base_metaclass_type, self.type_order())
-            {
+            if !self.is_subset_eq(&metaclass_type, &base_metaclass_type) {
                 self.error(errors,
                     cls.range(),
                     ErrorInfo::Kind(ErrorKind::InvalidInheritance),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jiter
-Version: 0.10.0
+Version: 0.11.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -11,6 +11,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -22,14 +24,11 @@ Classifier: Environment :: MacOS X
 Classifier: Topic :: File Formats :: JSON
 Classifier: Framework :: Pydantic :: 2
 Summary: Fast iterable JSON parser.
-Keywords: JSON,parsing,deserialization,iter
 Home-Page: https://github.com/pydantic/jiter/
-Author: Samuel Colvin <samuel@pydantic.dev>
 Author-email: Samuel Colvin <s@muelcolvin.com>
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/pydantic/jiter/
 
 # jiter
 

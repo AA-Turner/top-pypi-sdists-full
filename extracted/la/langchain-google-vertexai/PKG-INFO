@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-google-vertexai
-Version: 2.1.0
+Version: 2.1.1
 Summary: An integration package connecting Google VertexAI and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-google/tree/main/libs/vertexai

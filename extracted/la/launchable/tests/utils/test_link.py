@@ -1,6 +1,8 @@
 from unittest import TestCase
 
-from launchable.utils.link import LinkKind, capture_link
+import click
+
+from launchable.utils.link import LinkKind, capture_link, capture_links, capture_links_from_options
 
 
 class LinkTest(TestCase):
@@ -43,4 +45,54 @@ class LinkTest(TestCase):
             "kind": LinkKind.CIRCLECI.name,
             "title": "job (234)",
             "url": "https://circleci.com/build/123",
+        }])
+
+    def test_capture_links_from_options(self):
+        # Invalid kind
+        link_options = [("INVALID_KIND|PR", "https://github.com/launchableinc/cli/pull/1")]
+        with self.assertRaises(click.UsageError):
+            capture_links_from_options(link_options)
+
+        # Invalid URL
+        link_options = [("GITHUB_PULL_REQUEST|PR", "https://github.com/launchableinc/cli/pull/1/files")]
+        with self.assertRaises(click.UsageError):
+            capture_links_from_options(link_options)
+
+        # Infer kind
+        link_options = [("PR", "https://github.com/launchableinc/cli/pull/1")]
+        self.assertEqual(capture_links_from_options(link_options), [{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/1",
+        }])
+
+        # Explicit kind
+        link_options = [("GITHUB_PULL_REQUEST|PR", "https://github.com/launchableinc/cli/pull/1")]
+        self.assertEqual(capture_links_from_options(link_options), [{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/1",
+        }])
+
+    def test_capture_links(self):
+        # Capture from environment
+        envs = {
+            "GITHUB_PULL_REQUEST_URL": "https://github.com/launchableinc/cli/pull/1"
+        }
+        link_options = []
+        self.assertEqual(capture_links(link_options, envs), [{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "",
+            "url": "https://github.com/launchableinc/cli/pull/1",
+        }])
+
+        # Priority check
+        envs = {
+            "GITHUB_PULL_REQUEST_URL": "https://github.com/launchableinc/cli/pull/1"
+        }
+        link_options = [("GITHUB_PULL_REQUEST|PR", "https://github.com/launchableinc/cli/pull/2")]
+        self.assertEqual(capture_links(link_options, envs), [{
+            "kind": LinkKind.GITHUB_PULL_REQUEST.name,
+            "title": "PR",
+            "url": "https://github.com/launchableinc/cli/pull/2",
         }])

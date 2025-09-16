@@ -1,19 +1,19 @@
-from __future__ import absolute_import
+from typing import Any
 
 import netaddr
-import six
 
-from ._util import packed_net_bytes_to_int
-
+from ..codecs import CodecBase
 
 SIZE = 128
 IS_PATH = False
 
 
-def to_bytes(proto, string):
-    return netaddr.IPAddress(string, version=6).packed
+class Codec(CodecBase):
+    SIZE = SIZE
+    IS_PATH = IS_PATH
 
+    def to_bytes(self, proto: Any, string: str) -> bytes:
+        return netaddr.IPAddress(string, version=6).packed
 
-def to_string(proto, buf):
-    ip_addr = netaddr.IPAddress(packed_net_bytes_to_int(buf), version=6)
-    return six.text_type(ip_addr)
+    def to_string(self, proto: Any, buf: bytes) -> str:
+        return str(netaddr.IPAddress(int.from_bytes(buf, byteorder="big"), version=6))

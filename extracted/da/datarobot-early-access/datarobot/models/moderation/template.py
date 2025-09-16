@@ -148,7 +148,13 @@ class ModerationTemplate(APIObject):
         return cls.from_location(path)
 
     @classmethod
-    def list(cls) -> List[ModerationTemplate]:
+    def list(
+        cls,
+        include_agentic: Optional[bool] = None,
+        is_agentic: Optional[bool] = None,
+        for_playground: Optional[bool] = None,
+        for_production: Optional[bool] = None,
+    ) -> List[ModerationTemplate]:
         """List Templates.
 
         .. versionadded:: v3.6
@@ -169,9 +175,20 @@ class ModerationTemplate(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
+        params: Dict[str, Any] = {}
+
+        if include_agentic:
+            params["includeAgentic"] = include_agentic
+        if is_agentic:
+            params["isAgentic"] = is_agentic
+        if for_playground:
+            params["forPlayground"] = for_playground
+        if for_production:
+            params["forProduction"] = for_production
+
         data = unpaginate(
             cls._path,
-            {},
+            params,
             cls._client,
         )
         return [cls.from_server_data(item) for item in data]
@@ -199,15 +216,8 @@ class ModerationTemplate(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        data = unpaginate(
-            cls._path,
-            {"name": name},
-            cls._client,
-        )
-        kv_data = next(data, None)
-        if not kv_data:
-            return None
-        return cls.from_server_data(kv_data)
+        templates = cls.list(include_agentic=True)
+        return next((template for template in templates if template.name == name), None)
 
     @classmethod
     def create(

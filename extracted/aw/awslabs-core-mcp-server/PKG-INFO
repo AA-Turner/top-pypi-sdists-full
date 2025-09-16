@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.core-mcp-server
-Version: 1.0.8
+Version: 1.0.9
 Summary: An AWS Labs Model Context Protocol (MCP) server for aswlabs Core MCP Server
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/core-mcp-server/
@@ -92,7 +92,9 @@ The Core MCP Server implements a proxy server strategy that dynamically imports 
 
 #### Role-Based Server Configuration
 
-You can enable specific roles by setting environment variables. Each role corresponds to a logical grouping of MCP servers that are commonly used together for specific use cases:
+You can enable specific roles by setting environment variables. Each role corresponds to a logical grouping of MCP servers that are commonly used together for specific use cases.
+
+> **Important**: Environment variable names can be either lowercase with hyphens or uppercase with underscores (e.g., `aws-foundation` or `AWS_FOUNDATION`). Some systems may not support the hyphenated format, so choose the format that works best for your environment.
 
 | Role Environment Variable | Description | Included MCP Servers |
 |---------------------------|-------------|----------------------|

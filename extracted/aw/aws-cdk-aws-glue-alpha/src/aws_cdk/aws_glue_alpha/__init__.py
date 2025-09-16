@@ -1221,7 +1221,7 @@ class CloudWatchEncryption:
         self,
         *,
         mode: "CloudWatchEncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     ) -> None:
         '''(experimental) CloudWatch Logs encryption configuration.
 
@@ -1266,7 +1266,7 @@ class CloudWatchEncryption:
         return typing.cast("CloudWatchEncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: A key will be created if one is not provided.
@@ -1274,7 +1274,7 @@ class CloudWatchEncryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1365,7 +1365,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
         bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5469,7 +5469,7 @@ class JobBookmarksEncryption:
         self,
         *,
         mode: "JobBookmarksEncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     ) -> None:
         '''(experimental) Job bookmarks encryption configuration.
 
@@ -5514,7 +5514,7 @@ class JobBookmarksEncryption:
         return typing.cast("JobBookmarksEncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: A key will be created if one is not provided.
@@ -5522,7 +5522,7 @@ class JobBookmarksEncryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7376,7 +7376,7 @@ class S3Encryption:
         self,
         *,
         mode: "S3EncryptionMode",
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     ) -> None:
         '''(experimental) S3 encryption configuration.
 
@@ -7421,7 +7421,7 @@ class S3Encryption:
         return typing.cast("S3EncryptionMode", result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key to be used to encrypt the data.
 
         :default: no kms key if mode = S3_MANAGED. A key will be created if one is not provided and mode = KMS.
@@ -7429,7 +7429,7 @@ class S3Encryption:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7845,32 +7845,32 @@ class SecurityConfiguration(
     @jsii.member(jsii_name="cloudWatchEncryptionKey")
     def cloud_watch_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key used in CloudWatch encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], jsii.get(self, "cloudWatchEncryptionKey"))
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "cloudWatchEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="jobBookmarksEncryptionKey")
     def job_bookmarks_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key used in job bookmarks encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], jsii.get(self, "jobBookmarksEncryptionKey"))
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "jobBookmarksEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="s3EncryptionKey")
-    def s3_encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def s3_encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key used in S3 encryption if it requires a kms key.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], jsii.get(self, "s3EncryptionKey"))
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], jsii.get(self, "s3EncryptionKey"))
 
 
 @jsii.data_type(
@@ -11162,7 +11162,7 @@ class AssetCode(
         
         # docker_image: cdk.DockerImage
         # grantable: iam.IGrantable
-        # key: kms.Key
+        # key_ref: kms.IKeyRef
         # local_bundling: cdk.ILocalBundling
         
         asset_code = glue_alpha.AssetCode("path",
@@ -11200,7 +11200,7 @@ class AssetCode(
             follow_symlinks=cdk.SymlinkFollowMode.NEVER,
             ignore_mode=cdk.IgnoreMode.GLOB,
             readers=[grantable],
-            source_kMSKey=key
+            source_kMSKey=key_ref
         )
     '''
 
@@ -11211,7 +11211,7 @@ class AssetCode(
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
         bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19420,7 +19420,7 @@ def _typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257
 def _typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f(
     *,
     mode: CloudWatchEncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19431,7 +19431,7 @@ def _typecheckingstub__cd7e88ca82e81ea6700503f28d9e5352c4a86e264d00afb35e761e591
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
     bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19800,7 +19800,7 @@ def _typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd
 def _typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e(
     *,
     mode: JobBookmarksEncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19917,7 +19917,7 @@ def _typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f2007
 def _typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e(
     *,
     mode: S3EncryptionMode,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20383,7 +20383,7 @@ def _typecheckingstub__8659d1457c6b7393d9d7559014d5e5cf2fae91cdf81e1dcc8f010bdd5
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
     bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,

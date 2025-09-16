@@ -678,21 +678,34 @@ class ChatBedrockConverse(BaseChatModel):
         # only claude-3/4, mistral-large, and nova models support tool choice:
         # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ToolChoice.html
         if self.supports_tool_choice_values is None:
-            if "claude" in self._get_base_model():
+            base_model = self._get_base_model()
+            if "claude" in base_model:
                 # Tool choice not supported when thinking is enabled
                 thinking_params = (self.additional_model_request_fields or {}).get(
                     "thinking", {}
                 )
                 if (
-                    "claude-3-7-sonnet" in self._get_base_model()
+                    "claude-3-7-sonnet" in base_model
                     and thinking_params.get("type") == "enabled"
                 ):
                     self.supports_tool_choice_values = ()
                 else:
                     self.supports_tool_choice_values = ("auto", "any", "tool")
-            elif "mistral-large" in self._get_base_model():
+            elif "llama4" in base_model:
+                self.supports_tool_choice_values = ("auto",)
+            elif "llama3" in base_model:
+                if any(x in base_model for x in ("llama3-1", "llama3-3")):
+                    self.supports_tool_choice_values = ("auto",)
+                elif "llama3-2" in base_model:
+                    if any(x in base_model for x in ("11b", "90b")):
+                        self.supports_tool_choice_values = ("auto",)
+                    else:
+                        self.supports_tool_choice_values = ()
+                else:
+                    self.supports_tool_choice_values = ()
+            elif "mistral-large" in base_model:
                 self.supports_tool_choice_values = ("auto", "any")
-            elif "nova" in self._get_base_model():
+            elif "nova" in base_model:
                 self.supports_tool_choice_values = ("auto", "any", "tool")
             else:
                 self.supports_tool_choice_values = ()
@@ -1154,6 +1167,10 @@ def _messages_to_bedrock(
             bedrock_messages.append(curr)
         else:
             raise ValueError(f"Unsupported message type {type(msg)}")
+        
+    if not bedrock_messages:
+        bedrock_messages.append({"role": "user", "content": [{"text": EMPTY_CONTENT}]})
+
     return bedrock_messages, bedrock_system
 
 
@@ -1321,6 +1338,8 @@ def _format_data_content_block(block: dict) -> dict:
                     "source": {"bytes": _b64str_to_bytes(block["data"])},
                 }
             }
+            if citations := block.get("citations"):
+                formatted_block["document"]["citations"] = citations
             if name := block.get("name"):
                 formatted_block["document"]["name"] = name
             elif name := block.get("filename"):  # OpenAI uses `filename`
@@ -1367,7 +1386,24 @@ def _lc_content_to_bedrock(
             if not block["text"] or (isinstance(block["text"], str) and block["text"].isspace()):
                 bedrock_content.append({"text": EMPTY_CONTENT})
             else:
-                bedrock_content.append({"text": block["text"]})
+                text_block = {"text": block["text"]}
+                if (
+                    (citations := block.get("citations"))
+                    and isinstance(citations, list)
+                    and len(citations) > 0
+                    and isinstance(citations[0], dict)
+                    and "sourceContent" in citations[0]  # validate format
+                ):
+                    bedrock_content.append(
+                        {
+                            "citationsContent": {
+                                "content": [text_block],
+                                "citations": citations,
+                            }
+                        }
+                    )
+                else:
+                    bedrock_content.append(text_block)
         elif block["type"] == "image":
             # Assume block is already in bedrock format.
             if "image" in block:
@@ -1602,6 +1638,15 @@ def _bedrock_to_lc(content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                         # Preserve original Bedrock citations format
                         text_block["citations"] = citations
                     lc_content.append(text_block)
+
+        elif "citation" in block:  # streaming citations
+            lc_content.append(
+                {
+                    "type": "text",
+                    "text": "",
+                    "citations": [block["citation"]]
+                }
+            )
 
         else:
             raise ValueError(

@@ -79,7 +79,1287 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.CapabilityReference",
+    jsii_struct_bases=[],
+    name_mapping={"capability_arn": "capabilityArn", "capability_id": "capabilityId"},
+)
+class CapabilityReference:
+    def __init__(
+        self,
+        *,
+        capability_arn: builtins.str,
+        capability_id: builtins.str,
+    ) -> None:
+        '''A reference to a Capability resource.
+
+        :param capability_arn: The ARN of the Capability resource.
+        :param capability_id: The CapabilityId of the Capability resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            capability_reference = b2bi.CapabilityReference(
+                capability_arn="capabilityArn",
+                capability_id="capabilityId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8369d43c1bfae69c96b79fece82a7dc9f2d84ab7677af7f40cc53d89e86b38a)
+            check_type(argname="argument capability_arn", value=capability_arn, expected_type=type_hints["capability_arn"])
+            check_type(argname="argument capability_id", value=capability_id, expected_type=type_hints["capability_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capability_arn": capability_arn,
+            "capability_id": capability_id,
+        }
+
+    @builtins.property
+    def capability_arn(self) -> builtins.str:
+        '''The ARN of the Capability resource.'''
+        result = self._values.get("capability_arn")
+        assert result is not None, "Required property 'capability_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capability_id(self) -> builtins.str:
+        '''The CapabilityId of the Capability resource.'''
+        result = self._values.get("capability_id")
+        assert result is not None, "Required property 'capability_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CapabilityReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.CfnCapabilityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "name": "name",
+        "type": "type",
+        "instructions_documents": "instructionsDocuments",
+        "tags": "tags",
+    },
+)
+class CfnCapabilityProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapability.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        type: builtins.str,
+        instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCapability``.
+
+        :param configuration: Specifies a structure that contains the details for a capability.
+        :param name: The display name of the capability.
+        :param type: Returns the type of the capability. Currently, only ``edi`` is supported.
+        :param instructions_documents: Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability. Each item contains the name of the bucket and the key, to identify the document's location.
+        :param tags: Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type. You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            cfn_capability_props = b2bi.CfnCapabilityProps(
+                configuration=b2bi.CfnCapability.CapabilityConfigurationProperty(
+                    edi=b2bi.CfnCapability.EdiConfigurationProperty(
+                        input_location=b2bi.CfnCapability.S3LocationProperty(
+                            bucket_name="bucketName",
+                            key="key"
+                        ),
+                        output_location=b2bi.CfnCapability.S3LocationProperty(
+                            bucket_name="bucketName",
+                            key="key"
+                        ),
+                        transformer_id="transformerId",
+                        type=b2bi.CfnCapability.EdiTypeProperty(
+                            x12_details=b2bi.CfnCapability.X12DetailsProperty(
+                                transaction_set="transactionSet",
+                                version="version"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        capability_direction="capabilityDirection"
+                    )
+                ),
+                name="name",
+                type="type",
+            
+                # the properties below are optional
+                instructions_documents=[b2bi.CfnCapability.S3LocationProperty(
+                    bucket_name="bucketName",
+                    key="key"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument instructions_documents", value=instructions_documents, expected_type=type_hints["instructions_documents"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+            "name": name,
+            "type": type,
+        }
+        if instructions_documents is not None:
+            self._values["instructions_documents"] = instructions_documents
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCapability.CapabilityConfigurationProperty"]:
+        '''Specifies a structure that contains the details for a capability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCapability.CapabilityConfigurationProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The display name of the capability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''Returns the type of the capability.
+
+        Currently, only ``edi`` is supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instructions_documents(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapability.S3LocationProperty"]]]]:
+        '''Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability.
+
+        Each item contains the name of the bucket and the key, to identify the document's location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-instructionsdocuments
+        '''
+        result = self._values.get("instructions_documents")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCapability.S3LocationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type.
+
+        You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCapabilityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnershipProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "capabilities": "capabilities",
+        "email": "email",
+        "name": "name",
+        "profile_id": "profileId",
+        "capability_options": "capabilityOptions",
+        "phone": "phone",
+        "tags": "tags",
+    },
+)
+class CfnPartnershipProps:
+    def __init__(
+        self,
+        *,
+        capabilities: typing.Sequence[builtins.str],
+        email: builtins.str,
+        name: builtins.str,
+        profile_id: builtins.str,
+        capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPartnership.CapabilityOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        phone: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPartnership``.
+
+        :param capabilities: Returns one or more capabilities associated with this partnership.
+        :param email: Specifies the email address associated with this trading partner.
+        :param name: Returns the name of the partnership.
+        :param profile_id: Returns the unique, system-generated identifier for the profile connected to this partnership.
+        :param capability_options: Contains the details for an Outbound EDI capability.
+        :param phone: Specifies the phone number associated with the partnership.
+        :param tags: A key-value pair for a specific partnership. Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            cfn_partnership_props = b2bi.CfnPartnershipProps(
+                capabilities=["capabilities"],
+                email="email",
+                name="name",
+                profile_id="profileId",
+            
+                # the properties below are optional
+                capability_options=b2bi.CfnPartnership.CapabilityOptionsProperty(
+                    inbound_edi=b2bi.CfnPartnership.InboundEdiOptionsProperty(
+                        x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
+                            acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
+                                functional_acknowledgment="functionalAcknowledgment",
+                                technical_acknowledgment="technicalAcknowledgment"
+                            )
+                        )
+                    ),
+                    outbound_edi=b2bi.CfnPartnership.OutboundEdiOptionsProperty(
+                        x12=b2bi.CfnPartnership.X12EnvelopeProperty(
+                            common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
+                                control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
+                                    starting_functional_group_control_number=123,
+                                    starting_interchange_control_number=123,
+                                    starting_transaction_set_control_number=123
+                                ),
+                                delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
+                                    component_separator="componentSeparator",
+                                    data_element_separator="dataElementSeparator",
+                                    segment_terminator="segmentTerminator"
+                                ),
+                                functional_group_headers=b2bi.CfnPartnership.X12FunctionalGroupHeadersProperty(
+                                    application_receiver_code="applicationReceiverCode",
+                                    application_sender_code="applicationSenderCode",
+                                    responsible_agency_code="responsibleAgencyCode"
+                                ),
+                                gs05_time_format="gs05TimeFormat",
+                                interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
+                                    acknowledgment_requested_code="acknowledgmentRequestedCode",
+                                    receiver_id="receiverId",
+                                    receiver_id_qualifier="receiverIdQualifier",
+                                    repetition_separator="repetitionSeparator",
+                                    sender_id="senderId",
+                                    sender_id_qualifier="senderIdQualifier",
+                                    usage_indicator_code="usageIndicatorCode"
+                                ),
+                                validate_edi=False
+                            ),
+                            wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
+                                line_length=123,
+                                line_terminator="lineTerminator",
+                                wrap_by="wrapBy"
+                            )
+                        )
+                    )
+                ),
+                phone="phone",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243)
+            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+            check_type(argname="argument capability_options", value=capability_options, expected_type=type_hints["capability_options"])
+            check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capabilities": capabilities,
+            "email": email,
+            "name": name,
+            "profile_id": profile_id,
+        }
+        if capability_options is not None:
+            self._values["capability_options"] = capability_options
+        if phone is not None:
+            self._values["phone"] = phone
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def capabilities(self) -> typing.List[builtins.str]:
+        '''Returns one or more capabilities associated with this partnership.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-capabilities
+        '''
+        result = self._values.get("capabilities")
+        assert result is not None, "Required property 'capabilities' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def email(self) -> builtins.str:
+        '''Specifies the email address associated with this trading partner.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-email
+        '''
+        result = self._values.get("email")
+        assert result is not None, "Required property 'email' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Returns the name of the partnership.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''Returns the unique, system-generated identifier for the profile connected to this partnership.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-profileid
+        '''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capability_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.CapabilityOptionsProperty"]]:
+        '''Contains the details for an Outbound EDI capability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-capabilityoptions
+        '''
+        result = self._values.get("capability_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPartnership.CapabilityOptionsProperty"]], result)
+
+    @builtins.property
+    def phone(self) -> typing.Optional[builtins.str]:
+        '''Specifies the phone number associated with the partnership.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-phone
+        '''
+        result = self._values.get("phone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key-value pair for a specific partnership.
+
+        Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPartnershipProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.CfnProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "business_name": "businessName",
+        "logging": "logging",
+        "name": "name",
+        "phone": "phone",
+        "email": "email",
+        "tags": "tags",
+    },
+)
+class CfnProfileProps:
+    def __init__(
+        self,
+        *,
+        business_name: builtins.str,
+        logging: builtins.str,
+        name: builtins.str,
+        phone: builtins.str,
+        email: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProfile``.
+
+        :param business_name: Returns the name for the business associated with this profile.
+        :param logging: Specifies whether or not logging is enabled for this profile.
+        :param name: Returns the display name for profile.
+        :param phone: Specifies the phone number associated with the profile.
+        :param email: 
+        :param tags: A key-value pair for a specific profile. Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            cfn_profile_props = b2bi.CfnProfileProps(
+                business_name="businessName",
+                logging="logging",
+                name="name",
+                phone="phone",
+            
+                # the properties below are optional
+                email="email",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4)
+            check_type(argname="argument business_name", value=business_name, expected_type=type_hints["business_name"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
+            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "business_name": business_name,
+            "logging": logging,
+            "name": name,
+            "phone": phone,
+        }
+        if email is not None:
+            self._values["email"] = email
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def business_name(self) -> builtins.str:
+        '''Returns the name for the business associated with this profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-businessname
+        '''
+        result = self._values.get("business_name")
+        assert result is not None, "Required property 'business_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def logging(self) -> builtins.str:
+        '''Specifies whether or not logging is enabled for this profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-logging
+        '''
+        result = self._values.get("logging")
+        assert result is not None, "Required property 'logging' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Returns the display name for profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def phone(self) -> builtins.str:
+        '''Specifies the phone number associated with the profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-phone
+        '''
+        result = self._values.get("phone")
+        assert result is not None, "Required property 'phone' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def email(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-email
+        '''
+        result = self._values.get("email")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key-value pair for a specific profile.
+
+        Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "status": "status",
+        "edi_type": "ediType",
+        "file_format": "fileFormat",
+        "input_conversion": "inputConversion",
+        "mapping": "mapping",
+        "mapping_template": "mappingTemplate",
+        "output_conversion": "outputConversion",
+        "sample_document": "sampleDocument",
+        "sample_documents": "sampleDocuments",
+        "tags": "tags",
+    },
+)
+class CfnTransformerProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        status: builtins.str,
+        edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        file_format: typing.Optional[builtins.str] = None,
+        input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.InputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.MappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mapping_template: typing.Optional[builtins.str] = None,
+        output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.OutputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sample_document: typing.Optional[builtins.str] = None,
+        sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTransformer.SampleDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTransformer``.
+
+        :param name: Returns the descriptive name for the transformer.
+        :param status: Returns the state of the newly created transformer. The transformer can be either ``active`` or ``inactive`` . For the transformer to be used in a capability, its status must ``active`` .
+        :param edi_type: 
+        :param file_format: 
+        :param input_conversion: Returns a structure that contains the format options for the transformation.
+        :param mapping: Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).
+        :param mapping_template: (deprecated) This shape is deprecated: This is a legacy trait. Please use input-conversion or output-conversion.
+        :param output_conversion: Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.
+        :param sample_document: (deprecated) This shape is deprecated: This is a legacy trait. Please use input-conversion or output-conversion.
+        :param sample_documents: Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
+        :param tags: A key-value pair for a specific transformer. Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            cfn_transformer_props = b2bi.CfnTransformerProps(
+                name="name",
+                status="status",
+            
+                # the properties below are optional
+                edi_type=b2bi.CfnTransformer.EdiTypeProperty(
+                    x12_details=b2bi.CfnTransformer.X12DetailsProperty(
+                        transaction_set="transactionSet",
+                        version="version"
+                    )
+                ),
+                file_format="fileFormat",
+                input_conversion=b2bi.CfnTransformer.InputConversionProperty(
+                    from_format="fromFormat",
+            
+                    # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+            
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
+                            )
+                        )
+                    ),
+                    format_options=b2bi.CfnTransformer.FormatOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12DetailsProperty(
+                            transaction_set="transactionSet",
+                            version="version"
+                        )
+                    )
+                ),
+                mapping=b2bi.CfnTransformer.MappingProperty(
+                    template_language="templateLanguage",
+            
+                    # the properties below are optional
+                    template="template"
+                ),
+                mapping_template="mappingTemplate",
+                output_conversion=b2bi.CfnTransformer.OutputConversionProperty(
+                    to_format="toFormat",
+            
+                    # the properties below are optional
+                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
+                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
+                                split_by="splitBy"
+                            ),
+                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
+                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
+                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
+                                        element_id="elementId",
+            
+                                        # the properties below are optional
+                                        codes_to_add=["codesToAdd"],
+                                        codes_to_remove=["codesToRemove"]
+                                    ),
+                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
+                                        element_id="elementId",
+                                        max_length=123,
+                                        min_length=123
+                                    ),
+                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
+                                        element_position="elementPosition",
+                                        requirement="requirement"
+                                    )
+                                )]
+                            )
+                        )
+                    ),
+                    format_options=b2bi.CfnTransformer.FormatOptionsProperty(
+                        x12=b2bi.CfnTransformer.X12DetailsProperty(
+                            transaction_set="transactionSet",
+                            version="version"
+                        )
+                    )
+                ),
+                sample_document="sampleDocument",
+                sample_documents=b2bi.CfnTransformer.SampleDocumentsProperty(
+                    bucket_name="bucketName",
+                    keys=[b2bi.CfnTransformer.SampleDocumentKeysProperty(
+                        input="input",
+                        output="output"
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument edi_type", value=edi_type, expected_type=type_hints["edi_type"])
+            check_type(argname="argument file_format", value=file_format, expected_type=type_hints["file_format"])
+            check_type(argname="argument input_conversion", value=input_conversion, expected_type=type_hints["input_conversion"])
+            check_type(argname="argument mapping", value=mapping, expected_type=type_hints["mapping"])
+            check_type(argname="argument mapping_template", value=mapping_template, expected_type=type_hints["mapping_template"])
+            check_type(argname="argument output_conversion", value=output_conversion, expected_type=type_hints["output_conversion"])
+            check_type(argname="argument sample_document", value=sample_document, expected_type=type_hints["sample_document"])
+            check_type(argname="argument sample_documents", value=sample_documents, expected_type=type_hints["sample_documents"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "status": status,
+        }
+        if edi_type is not None:
+            self._values["edi_type"] = edi_type
+        if file_format is not None:
+            self._values["file_format"] = file_format
+        if input_conversion is not None:
+            self._values["input_conversion"] = input_conversion
+        if mapping is not None:
+            self._values["mapping"] = mapping
+        if mapping_template is not None:
+            self._values["mapping_template"] = mapping_template
+        if output_conversion is not None:
+            self._values["output_conversion"] = output_conversion
+        if sample_document is not None:
+            self._values["sample_document"] = sample_document
+        if sample_documents is not None:
+            self._values["sample_documents"] = sample_documents
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Returns the descriptive name for the transformer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''Returns the state of the newly created transformer.
+
+        The transformer can be either ``active`` or ``inactive`` . For the transformer to be used in a capability, its status must ``active`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def edi_type(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.EdiTypeProperty"]]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-editype
+        :stability: deprecated
+        '''
+        result = self._values.get("edi_type")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.EdiTypeProperty"]], result)
+
+    @builtins.property
+    def file_format(self) -> typing.Optional[builtins.str]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-fileformat
+        :stability: deprecated
+        '''
+        result = self._values.get("file_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_conversion(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.InputConversionProperty"]]:
+        '''Returns a structure that contains the format options for the transformation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-inputconversion
+        '''
+        result = self._values.get("input_conversion")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.InputConversionProperty"]], result)
+
+    @builtins.property
+    def mapping(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.MappingProperty"]]:
+        '''Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-mapping
+        '''
+        result = self._values.get("mapping")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.MappingProperty"]], result)
+
+    @builtins.property
+    def mapping_template(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This shape is deprecated: This is a legacy trait.
+
+        Please use input-conversion or output-conversion.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-mappingtemplate
+        :stability: deprecated
+        '''
+        result = self._values.get("mapping_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_conversion(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.OutputConversionProperty"]]:
+        '''Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-outputconversion
+        '''
+        result = self._values.get("output_conversion")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.OutputConversionProperty"]], result)
+
+    @builtins.property
+    def sample_document(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This shape is deprecated: This is a legacy trait.
+
+        Please use input-conversion or output-conversion.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-sampledocument
+        :stability: deprecated
+        '''
+        result = self._values.get("sample_document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sample_documents(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.SampleDocumentsProperty"]]:
+        '''Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-sampledocuments
+        '''
+        result = self._values.get("sample_documents")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTransformer.SampleDocumentsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key-value pair for a specific transformer.
+
+        Tags are metadata that you can use to search for and group capabilities for various purposes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTransformerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_b2bi.ICapabilityRef")
+class ICapabilityRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Capability.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="capabilityRef")
+    def capability_ref(self) -> CapabilityReference:
+        '''(experimental) A reference to a Capability resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICapabilityRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Capability.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_b2bi.ICapabilityRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="capabilityRef")
+    def capability_ref(self) -> CapabilityReference:
+        '''(experimental) A reference to a Capability resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CapabilityReference, jsii.get(self, "capabilityRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICapabilityRef).__jsii_proxy_class__ = lambda : _ICapabilityRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_b2bi.IPartnershipRef")
+class IPartnershipRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Partnership.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="partnershipRef")
+    def partnership_ref(self) -> "PartnershipReference":
+        '''(experimental) A reference to a Partnership resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPartnershipRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Partnership.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_b2bi.IPartnershipRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="partnershipRef")
+    def partnership_ref(self) -> "PartnershipReference":
+        '''(experimental) A reference to a Partnership resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PartnershipReference", jsii.get(self, "partnershipRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPartnershipRef).__jsii_proxy_class__ = lambda : _IPartnershipRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_b2bi.IProfileRef")
+class IProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Profile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> "ProfileReference":
+        '''(experimental) A reference to a Profile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Profile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_b2bi.IProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> "ProfileReference":
+        '''(experimental) A reference to a Profile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProfileReference", jsii.get(self, "profileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProfileRef).__jsii_proxy_class__ = lambda : _IProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_b2bi.ITransformerRef")
+class ITransformerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Transformer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="transformerRef")
+    def transformer_ref(self) -> "TransformerReference":
+        '''(experimental) A reference to a Transformer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITransformerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Transformer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_b2bi.ITransformerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="transformerRef")
+    def transformer_ref(self) -> "TransformerReference":
+        '''(experimental) A reference to a Transformer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TransformerReference", jsii.get(self, "transformerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITransformerRef).__jsii_proxy_class__ = lambda : _ITransformerRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.PartnershipReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "partnership_arn": "partnershipArn",
+        "partnership_id": "partnershipId",
+    },
+)
+class PartnershipReference:
+    def __init__(
+        self,
+        *,
+        partnership_arn: builtins.str,
+        partnership_id: builtins.str,
+    ) -> None:
+        '''A reference to a Partnership resource.
+
+        :param partnership_arn: The ARN of the Partnership resource.
+        :param partnership_id: The PartnershipId of the Partnership resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            partnership_reference = b2bi.PartnershipReference(
+                partnership_arn="partnershipArn",
+                partnership_id="partnershipId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20d9244e83be8b886954cbc64e4061fde220e82602d8f1ad2f1686ace6f8ceb9)
+            check_type(argname="argument partnership_arn", value=partnership_arn, expected_type=type_hints["partnership_arn"])
+            check_type(argname="argument partnership_id", value=partnership_id, expected_type=type_hints["partnership_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "partnership_arn": partnership_arn,
+            "partnership_id": partnership_id,
+        }
+
+    @builtins.property
+    def partnership_arn(self) -> builtins.str:
+        '''The ARN of the Partnership resource.'''
+        result = self._values.get("partnership_arn")
+        assert result is not None, "Required property 'partnership_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def partnership_id(self) -> builtins.str:
+        '''The PartnershipId of the Partnership resource.'''
+        result = self._values.get("partnership_id")
+        assert result is not None, "Required property 'partnership_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PartnershipReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.ProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"profile_arn": "profileArn", "profile_id": "profileId"},
+)
+class ProfileReference:
+    def __init__(self, *, profile_arn: builtins.str, profile_id: builtins.str) -> None:
+        '''A reference to a Profile resource.
+
+        :param profile_arn: The ARN of the Profile resource.
+        :param profile_id: The ProfileId of the Profile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            profile_reference = b2bi.ProfileReference(
+                profile_arn="profileArn",
+                profile_id="profileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c13e7df9621ec747549d7555b48fccbd8a8118fb3f59d732847b55a44a9e902)
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profile_arn": profile_arn,
+            "profile_id": profile_id,
+        }
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The ARN of the Profile resource.'''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ProfileId of the Profile resource.'''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_b2bi.TransformerReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "transformer_arn": "transformerArn",
+        "transformer_id": "transformerId",
+    },
+)
+class TransformerReference:
+    def __init__(
+        self,
+        *,
+        transformer_arn: builtins.str,
+        transformer_id: builtins.str,
+    ) -> None:
+        '''A reference to a Transformer resource.
+
+        :param transformer_arn: The ARN of the Transformer resource.
+        :param transformer_id: The TransformerId of the Transformer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_b2bi as b2bi
+            
+            transformer_reference = b2bi.TransformerReference(
+                transformer_arn="transformerArn",
+                transformer_id="transformerId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d700637d475e13d77faad03a3a29a9acabd49df1e3666237eaf1224ab6d6d928)
+            check_type(argname="argument transformer_arn", value=transformer_arn, expected_type=type_hints["transformer_arn"])
+            check_type(argname="argument transformer_id", value=transformer_id, expected_type=type_hints["transformer_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "transformer_arn": transformer_arn,
+            "transformer_id": transformer_id,
+        }
+
+    @builtins.property
+    def transformer_arn(self) -> builtins.str:
+        '''The ARN of the Transformer resource.'''
+        result = self._values.get("transformer_arn")
+        assert result is not None, "Required property 'transformer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def transformer_id(self) -> builtins.str:
+        '''The TransformerId of the Transformer resource.'''
+        result = self._values.get("transformer_id")
+        assert result is not None, "Required property 'transformer_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TransformerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ICapabilityRef, _ITaggableV2_4e6798f8)
 class CfnCapability(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -236,6 +1516,12 @@ class CfnCapability(
         :cloudformationAttribute: ModifiedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrModifiedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="capabilityRef")
+    def capability_ref(self) -> CapabilityReference:
+        '''A reference to a Capability resource.'''
+        return typing.cast(CapabilityReference, jsii.get(self, "capabilityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -754,169 +2040,7 @@ class CfnCapability(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_b2bi.CfnCapabilityProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration": "configuration",
-        "name": "name",
-        "type": "type",
-        "instructions_documents": "instructionsDocuments",
-        "tags": "tags",
-    },
-)
-class CfnCapabilityProps:
-    def __init__(
-        self,
-        *,
-        configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        type: builtins.str,
-        instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCapability``.
-
-        :param configuration: Specifies a structure that contains the details for a capability.
-        :param name: The display name of the capability.
-        :param type: Returns the type of the capability. Currently, only ``edi`` is supported.
-        :param instructions_documents: Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability. Each item contains the name of the bucket and the key, to identify the document's location.
-        :param tags: Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type. You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_b2bi as b2bi
-            
-            cfn_capability_props = b2bi.CfnCapabilityProps(
-                configuration=b2bi.CfnCapability.CapabilityConfigurationProperty(
-                    edi=b2bi.CfnCapability.EdiConfigurationProperty(
-                        input_location=b2bi.CfnCapability.S3LocationProperty(
-                            bucket_name="bucketName",
-                            key="key"
-                        ),
-                        output_location=b2bi.CfnCapability.S3LocationProperty(
-                            bucket_name="bucketName",
-                            key="key"
-                        ),
-                        transformer_id="transformerId",
-                        type=b2bi.CfnCapability.EdiTypeProperty(
-                            x12_details=b2bi.CfnCapability.X12DetailsProperty(
-                                transaction_set="transactionSet",
-                                version="version"
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        capability_direction="capabilityDirection"
-                    )
-                ),
-                name="name",
-                type="type",
-            
-                # the properties below are optional
-                instructions_documents=[b2bi.CfnCapability.S3LocationProperty(
-                    bucket_name="bucketName",
-                    key="key"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb)
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument instructions_documents", value=instructions_documents, expected_type=type_hints["instructions_documents"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration": configuration,
-            "name": name,
-            "type": type,
-        }
-        if instructions_documents is not None:
-            self._values["instructions_documents"] = instructions_documents
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCapability.CapabilityConfigurationProperty]:
-        '''Specifies a structure that contains the details for a capability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCapability.CapabilityConfigurationProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The display name of the capability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Returns the type of the capability.
-
-        Currently, only ``edi`` is supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instructions_documents(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCapability.S3LocationProperty]]]]:
-        '''Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability.
-
-        Each item contains the name of the bucket and the key, to identify the document's location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-instructionsdocuments
-        '''
-        result = self._values.get("instructions_documents")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCapability.S3LocationProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type.
-
-        You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCapabilityProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPartnershipRef, _ITaggableV2_4e6798f8)
 class CfnPartnership(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1123,6 +2247,12 @@ class CfnPartnership(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="partnershipRef")
+    def partnership_ref(self) -> PartnershipReference:
+        '''A reference to a Partnership resource.'''
+        return typing.cast(PartnershipReference, jsii.get(self, "partnershipRef"))
 
     @builtins.property
     @jsii.member(jsii_name="capabilities")
@@ -2503,217 +3633,7 @@ class CfnPartnership(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnershipProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "capabilities": "capabilities",
-        "email": "email",
-        "name": "name",
-        "profile_id": "profileId",
-        "capability_options": "capabilityOptions",
-        "phone": "phone",
-        "tags": "tags",
-    },
-)
-class CfnPartnershipProps:
-    def __init__(
-        self,
-        *,
-        capabilities: typing.Sequence[builtins.str],
-        email: builtins.str,
-        name: builtins.str,
-        profile_id: builtins.str,
-        capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        phone: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPartnership``.
-
-        :param capabilities: Returns one or more capabilities associated with this partnership.
-        :param email: Specifies the email address associated with this trading partner.
-        :param name: Returns the name of the partnership.
-        :param profile_id: Returns the unique, system-generated identifier for the profile connected to this partnership.
-        :param capability_options: Contains the details for an Outbound EDI capability.
-        :param phone: Specifies the phone number associated with the partnership.
-        :param tags: A key-value pair for a specific partnership. Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_b2bi as b2bi
-            
-            cfn_partnership_props = b2bi.CfnPartnershipProps(
-                capabilities=["capabilities"],
-                email="email",
-                name="name",
-                profile_id="profileId",
-            
-                # the properties below are optional
-                capability_options=b2bi.CfnPartnership.CapabilityOptionsProperty(
-                    inbound_edi=b2bi.CfnPartnership.InboundEdiOptionsProperty(
-                        x12=b2bi.CfnPartnership.X12InboundEdiOptionsProperty(
-                            acknowledgment_options=b2bi.CfnPartnership.X12AcknowledgmentOptionsProperty(
-                                functional_acknowledgment="functionalAcknowledgment",
-                                technical_acknowledgment="technicalAcknowledgment"
-                            )
-                        )
-                    ),
-                    outbound_edi=b2bi.CfnPartnership.OutboundEdiOptionsProperty(
-                        x12=b2bi.CfnPartnership.X12EnvelopeProperty(
-                            common=b2bi.CfnPartnership.X12OutboundEdiHeadersProperty(
-                                control_numbers=b2bi.CfnPartnership.X12ControlNumbersProperty(
-                                    starting_functional_group_control_number=123,
-                                    starting_interchange_control_number=123,
-                                    starting_transaction_set_control_number=123
-                                ),
-                                delimiters=b2bi.CfnPartnership.X12DelimitersProperty(
-                                    component_separator="componentSeparator",
-                                    data_element_separator="dataElementSeparator",
-                                    segment_terminator="segmentTerminator"
-                                ),
-                                functional_group_headers=b2bi.CfnPartnership.X12FunctionalGroupHeadersProperty(
-                                    application_receiver_code="applicationReceiverCode",
-                                    application_sender_code="applicationSenderCode",
-                                    responsible_agency_code="responsibleAgencyCode"
-                                ),
-                                gs05_time_format="gs05TimeFormat",
-                                interchange_control_headers=b2bi.CfnPartnership.X12InterchangeControlHeadersProperty(
-                                    acknowledgment_requested_code="acknowledgmentRequestedCode",
-                                    receiver_id="receiverId",
-                                    receiver_id_qualifier="receiverIdQualifier",
-                                    repetition_separator="repetitionSeparator",
-                                    sender_id="senderId",
-                                    sender_id_qualifier="senderIdQualifier",
-                                    usage_indicator_code="usageIndicatorCode"
-                                ),
-                                validate_edi=False
-                            ),
-                            wrap_options=b2bi.CfnPartnership.WrapOptionsProperty(
-                                line_length=123,
-                                line_terminator="lineTerminator",
-                                wrap_by="wrapBy"
-                            )
-                        )
-                    )
-                ),
-                phone="phone",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243)
-            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
-            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
-            check_type(argname="argument capability_options", value=capability_options, expected_type=type_hints["capability_options"])
-            check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "capabilities": capabilities,
-            "email": email,
-            "name": name,
-            "profile_id": profile_id,
-        }
-        if capability_options is not None:
-            self._values["capability_options"] = capability_options
-        if phone is not None:
-            self._values["phone"] = phone
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def capabilities(self) -> typing.List[builtins.str]:
-        '''Returns one or more capabilities associated with this partnership.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-capabilities
-        '''
-        result = self._values.get("capabilities")
-        assert result is not None, "Required property 'capabilities' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def email(self) -> builtins.str:
-        '''Specifies the email address associated with this trading partner.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-email
-        '''
-        result = self._values.get("email")
-        assert result is not None, "Required property 'email' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Returns the name of the partnership.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def profile_id(self) -> builtins.str:
-        '''Returns the unique, system-generated identifier for the profile connected to this partnership.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-profileid
-        '''
-        result = self._values.get("profile_id")
-        assert result is not None, "Required property 'profile_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def capability_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnership.CapabilityOptionsProperty]]:
-        '''Contains the details for an Outbound EDI capability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-capabilityoptions
-        '''
-        result = self._values.get("capability_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnership.CapabilityOptionsProperty]], result)
-
-    @builtins.property
-    def phone(self) -> typing.Optional[builtins.str]:
-        '''Specifies the phone number associated with the partnership.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-phone
-        '''
-        result = self._values.get("phone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key-value pair for a specific partnership.
-
-        Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPartnershipProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IProfileRef, _ITaggableV2_4e6798f8)
 class CfnProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2871,6 +3791,12 @@ class CfnProfile(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> ProfileReference:
+        '''A reference to a Profile resource.'''
+        return typing.cast(ProfileReference, jsii.get(self, "profileRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="businessName")
     def business_name(self) -> builtins.str:
         '''Returns the name for the business associated with this profile.'''
@@ -2948,152 +3874,7 @@ class CfnProfile(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_b2bi.CfnProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "business_name": "businessName",
-        "logging": "logging",
-        "name": "name",
-        "phone": "phone",
-        "email": "email",
-        "tags": "tags",
-    },
-)
-class CfnProfileProps:
-    def __init__(
-        self,
-        *,
-        business_name: builtins.str,
-        logging: builtins.str,
-        name: builtins.str,
-        phone: builtins.str,
-        email: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProfile``.
-
-        :param business_name: Returns the name for the business associated with this profile.
-        :param logging: Specifies whether or not logging is enabled for this profile.
-        :param name: Returns the display name for profile.
-        :param phone: Specifies the phone number associated with the profile.
-        :param email: 
-        :param tags: A key-value pair for a specific profile. Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_b2bi as b2bi
-            
-            cfn_profile_props = b2bi.CfnProfileProps(
-                business_name="businessName",
-                logging="logging",
-                name="name",
-                phone="phone",
-            
-                # the properties below are optional
-                email="email",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4)
-            check_type(argname="argument business_name", value=business_name, expected_type=type_hints["business_name"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
-            check_type(argname="argument email", value=email, expected_type=type_hints["email"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "business_name": business_name,
-            "logging": logging,
-            "name": name,
-            "phone": phone,
-        }
-        if email is not None:
-            self._values["email"] = email
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def business_name(self) -> builtins.str:
-        '''Returns the name for the business associated with this profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-businessname
-        '''
-        result = self._values.get("business_name")
-        assert result is not None, "Required property 'business_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def logging(self) -> builtins.str:
-        '''Specifies whether or not logging is enabled for this profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-logging
-        '''
-        result = self._values.get("logging")
-        assert result is not None, "Required property 'logging' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Returns the display name for profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def phone(self) -> builtins.str:
-        '''Specifies the phone number associated with the profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-phone
-        '''
-        result = self._values.get("phone")
-        assert result is not None, "Required property 'phone' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def email(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-email
-        '''
-        result = self._values.get("email")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key-value pair for a specific profile.
-
-        Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITransformerRef, _ITaggableV2_4e6798f8)
 class CfnTransformer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3362,6 +4143,12 @@ class CfnTransformer(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transformerRef")
+    def transformer_ref(self) -> TransformerReference:
+        '''A reference to a Transformer resource.'''
+        return typing.cast(TransformerReference, jsii.get(self, "transformerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4932,349 +5719,8 @@ class CfnTransformer(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "status": "status",
-        "edi_type": "ediType",
-        "file_format": "fileFormat",
-        "input_conversion": "inputConversion",
-        "mapping": "mapping",
-        "mapping_template": "mappingTemplate",
-        "output_conversion": "outputConversion",
-        "sample_document": "sampleDocument",
-        "sample_documents": "sampleDocuments",
-        "tags": "tags",
-    },
-)
-class CfnTransformerProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        status: builtins.str,
-        edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        file_format: typing.Optional[builtins.str] = None,
-        input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        mapping_template: typing.Optional[builtins.str] = None,
-        output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sample_document: typing.Optional[builtins.str] = None,
-        sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTransformer``.
-
-        :param name: Returns the descriptive name for the transformer.
-        :param status: Returns the state of the newly created transformer. The transformer can be either ``active`` or ``inactive`` . For the transformer to be used in a capability, its status must ``active`` .
-        :param edi_type: 
-        :param file_format: 
-        :param input_conversion: Returns a structure that contains the format options for the transformation.
-        :param mapping: Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).
-        :param mapping_template: (deprecated) This shape is deprecated: This is a legacy trait. Please use input-conversion or output-conversion.
-        :param output_conversion: Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.
-        :param sample_document: (deprecated) This shape is deprecated: This is a legacy trait. Please use input-conversion or output-conversion.
-        :param sample_documents: Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
-        :param tags: A key-value pair for a specific transformer. Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_b2bi as b2bi
-            
-            cfn_transformer_props = b2bi.CfnTransformerProps(
-                name="name",
-                status="status",
-            
-                # the properties below are optional
-                edi_type=b2bi.CfnTransformer.EdiTypeProperty(
-                    x12_details=b2bi.CfnTransformer.X12DetailsProperty(
-                        transaction_set="transactionSet",
-                        version="version"
-                    )
-                ),
-                file_format="fileFormat",
-                input_conversion=b2bi.CfnTransformer.InputConversionProperty(
-                    from_format="fromFormat",
-            
-                    # the properties below are optional
-                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
-                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
-                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
-                                split_by="splitBy"
-                            ),
-                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
-                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
-                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
-                                        element_id="elementId",
-            
-                                        # the properties below are optional
-                                        codes_to_add=["codesToAdd"],
-                                        codes_to_remove=["codesToRemove"]
-                                    ),
-                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
-                                        element_id="elementId",
-                                        max_length=123,
-                                        min_length=123
-                                    ),
-                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
-                                        element_position="elementPosition",
-                                        requirement="requirement"
-                                    )
-                                )]
-                            )
-                        )
-                    ),
-                    format_options=b2bi.CfnTransformer.FormatOptionsProperty(
-                        x12=b2bi.CfnTransformer.X12DetailsProperty(
-                            transaction_set="transactionSet",
-                            version="version"
-                        )
-                    )
-                ),
-                mapping=b2bi.CfnTransformer.MappingProperty(
-                    template_language="templateLanguage",
-            
-                    # the properties below are optional
-                    template="template"
-                ),
-                mapping_template="mappingTemplate",
-                output_conversion=b2bi.CfnTransformer.OutputConversionProperty(
-                    to_format="toFormat",
-            
-                    # the properties below are optional
-                    advanced_options=b2bi.CfnTransformer.AdvancedOptionsProperty(
-                        x12=b2bi.CfnTransformer.X12AdvancedOptionsProperty(
-                            split_options=b2bi.CfnTransformer.X12SplitOptionsProperty(
-                                split_by="splitBy"
-                            ),
-                            validation_options=b2bi.CfnTransformer.X12ValidationOptionsProperty(
-                                validation_rules=[b2bi.CfnTransformer.X12ValidationRuleProperty(
-                                    code_list_validation_rule=b2bi.CfnTransformer.X12CodeListValidationRuleProperty(
-                                        element_id="elementId",
-            
-                                        # the properties below are optional
-                                        codes_to_add=["codesToAdd"],
-                                        codes_to_remove=["codesToRemove"]
-                                    ),
-                                    element_length_validation_rule=b2bi.CfnTransformer.X12ElementLengthValidationRuleProperty(
-                                        element_id="elementId",
-                                        max_length=123,
-                                        min_length=123
-                                    ),
-                                    element_requirement_validation_rule=b2bi.CfnTransformer.X12ElementRequirementValidationRuleProperty(
-                                        element_position="elementPosition",
-                                        requirement="requirement"
-                                    )
-                                )]
-                            )
-                        )
-                    ),
-                    format_options=b2bi.CfnTransformer.FormatOptionsProperty(
-                        x12=b2bi.CfnTransformer.X12DetailsProperty(
-                            transaction_set="transactionSet",
-                            version="version"
-                        )
-                    )
-                ),
-                sample_document="sampleDocument",
-                sample_documents=b2bi.CfnTransformer.SampleDocumentsProperty(
-                    bucket_name="bucketName",
-                    keys=[b2bi.CfnTransformer.SampleDocumentKeysProperty(
-                        input="input",
-                        output="output"
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument edi_type", value=edi_type, expected_type=type_hints["edi_type"])
-            check_type(argname="argument file_format", value=file_format, expected_type=type_hints["file_format"])
-            check_type(argname="argument input_conversion", value=input_conversion, expected_type=type_hints["input_conversion"])
-            check_type(argname="argument mapping", value=mapping, expected_type=type_hints["mapping"])
-            check_type(argname="argument mapping_template", value=mapping_template, expected_type=type_hints["mapping_template"])
-            check_type(argname="argument output_conversion", value=output_conversion, expected_type=type_hints["output_conversion"])
-            check_type(argname="argument sample_document", value=sample_document, expected_type=type_hints["sample_document"])
-            check_type(argname="argument sample_documents", value=sample_documents, expected_type=type_hints["sample_documents"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "status": status,
-        }
-        if edi_type is not None:
-            self._values["edi_type"] = edi_type
-        if file_format is not None:
-            self._values["file_format"] = file_format
-        if input_conversion is not None:
-            self._values["input_conversion"] = input_conversion
-        if mapping is not None:
-            self._values["mapping"] = mapping
-        if mapping_template is not None:
-            self._values["mapping_template"] = mapping_template
-        if output_conversion is not None:
-            self._values["output_conversion"] = output_conversion
-        if sample_document is not None:
-            self._values["sample_document"] = sample_document
-        if sample_documents is not None:
-            self._values["sample_documents"] = sample_documents
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Returns the descriptive name for the transformer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def status(self) -> builtins.str:
-        '''Returns the state of the newly created transformer.
-
-        The transformer can be either ``active`` or ``inactive`` . For the transformer to be used in a capability, its status must ``active`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-status
-        '''
-        result = self._values.get("status")
-        assert result is not None, "Required property 'status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def edi_type(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.EdiTypeProperty]]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-editype
-        :stability: deprecated
-        '''
-        result = self._values.get("edi_type")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.EdiTypeProperty]], result)
-
-    @builtins.property
-    def file_format(self) -> typing.Optional[builtins.str]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-fileformat
-        :stability: deprecated
-        '''
-        result = self._values.get("file_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_conversion(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.InputConversionProperty]]:
-        '''Returns a structure that contains the format options for the transformation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-inputconversion
-        '''
-        result = self._values.get("input_conversion")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.InputConversionProperty]], result)
-
-    @builtins.property
-    def mapping(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.MappingProperty]]:
-        '''Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-mapping
-        '''
-        result = self._values.get("mapping")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.MappingProperty]], result)
-
-    @builtins.property
-    def mapping_template(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This shape is deprecated: This is a legacy trait.
-
-        Please use input-conversion or output-conversion.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-mappingtemplate
-        :stability: deprecated
-        '''
-        result = self._values.get("mapping_template")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def output_conversion(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.OutputConversionProperty]]:
-        '''Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-outputconversion
-        '''
-        result = self._values.get("output_conversion")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.OutputConversionProperty]], result)
-
-    @builtins.property
-    def sample_document(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This shape is deprecated: This is a legacy trait.
-
-        Please use input-conversion or output-conversion.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-sampledocument
-        :stability: deprecated
-        '''
-        result = self._values.get("sample_document")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sample_documents(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.SampleDocumentsProperty]]:
-        '''Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-sampledocuments
-        '''
-        result = self._values.get("sample_documents")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.SampleDocumentsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key-value pair for a specific transformer.
-
-        Tags are metadata that you can use to search for and group capabilities for various purposes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTransformerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "CapabilityReference",
     "CfnCapability",
     "CfnCapabilityProps",
     "CfnPartnership",
@@ -5283,9 +5729,101 @@ __all__ = [
     "CfnProfileProps",
     "CfnTransformer",
     "CfnTransformerProps",
+    "ICapabilityRef",
+    "IPartnershipRef",
+    "IProfileRef",
+    "ITransformerRef",
+    "PartnershipReference",
+    "ProfileReference",
+    "TransformerReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c8369d43c1bfae69c96b79fece82a7dc9f2d84ab7677af7f40cc53d89e86b38a(
+    *,
+    capability_arn: builtins.str,
+    capability_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb(
+    *,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    type: builtins.str,
+    instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243(
+    *,
+    capabilities: typing.Sequence[builtins.str],
+    email: builtins.str,
+    name: builtins.str,
+    profile_id: builtins.str,
+    capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    phone: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4(
+    *,
+    business_name: builtins.str,
+    logging: builtins.str,
+    name: builtins.str,
+    phone: builtins.str,
+    email: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21(
+    *,
+    name: builtins.str,
+    status: builtins.str,
+    edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    file_format: typing.Optional[builtins.str] = None,
+    input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping_template: typing.Optional[builtins.str] = None,
+    output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sample_document: typing.Optional[builtins.str] = None,
+    sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20d9244e83be8b886954cbc64e4061fde220e82602d8f1ad2f1686ace6f8ceb9(
+    *,
+    partnership_arn: builtins.str,
+    partnership_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c13e7df9621ec747549d7555b48fccbd8a8118fb3f59d732847b55a44a9e902(
+    *,
+    profile_arn: builtins.str,
+    profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d700637d475e13d77faad03a3a29a9acabd49df1e3666237eaf1224ab6d6d928(
+    *,
+    transformer_arn: builtins.str,
+    transformer_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__0e2c877d8f658a8bd5b2b87fa89276114a47d5d48d6051351c42b159c7c68d05(
     scope: _constructs_77d1e7e8.Construct,
@@ -5379,17 +5917,6 @@ def _typecheckingstub__7a92fd26779dc45009be0b9ca0aefb7b988fae928b06b6b46f41995a7
     *,
     transaction_set: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb(
-    *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    type: builtins.str,
-    instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5569,19 +6096,6 @@ def _typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243(
-    *,
-    capabilities: typing.Sequence[builtins.str],
-    email: builtins.str,
-    name: builtins.str,
-    profile_id: builtins.str,
-    capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    phone: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6e54fea50428e19dd273372ef5650a89d4610c6422804677c9be788a76aadf8a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5640,18 +6154,6 @@ def _typecheckingstub__e0936f8c78a965c88641d39b7a6e2d4e7ad2bd7f48de6870270d842ba
 
 def _typecheckingstub__8b70ada00d6d35989093b4f1b185f6deaa1f9c1404a82bc792e6f4dc53684b45(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4(
-    *,
-    business_name: builtins.str,
-    logging: builtins.str,
-    name: builtins.str,
-    phone: builtins.str,
-    email: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5877,23 +6379,6 @@ def _typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db7880
     code_list_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12CodeListValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     element_length_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementLengthValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     element_requirement_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementRequirementValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21(
-    *,
-    name: builtins.str,
-    status: builtins.str,
-    edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    file_format: typing.Optional[builtins.str] = None,
-    input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mapping_template: typing.Optional[builtins.str] = None,
-    output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sample_document: typing.Optional[builtins.str] = None,
-    sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

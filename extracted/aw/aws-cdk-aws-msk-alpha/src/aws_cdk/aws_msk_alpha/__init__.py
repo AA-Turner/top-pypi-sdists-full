@@ -429,7 +429,7 @@ class ClientAuthentication(
         cls,
         *,
         iam: typing.Optional[builtins.bool] = None,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         scram: typing.Optional[builtins.bool] = None,
     ) -> "ClientAuthentication":
         '''(experimental) SASL authentication.
@@ -450,7 +450,7 @@ class ClientAuthentication(
         cls,
         *,
         iam: typing.Optional[builtins.bool] = None,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         scram: typing.Optional[builtins.bool] = None,
         certificate_authorities: typing.Optional[typing.Sequence[_aws_cdk_aws_acmpca_ceddda9d.ICertificateAuthority]] = None,
     ) -> "ClientAuthentication":
@@ -986,7 +986,7 @@ class EbsStorageInfo:
     def __init__(
         self,
         *,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         volume_size: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) EBS volume information.
@@ -1004,10 +1004,10 @@ class EbsStorageInfo:
             import aws_cdk.aws_msk_alpha as msk_alpha
             from aws_cdk import aws_kms as kms
             
-            # key: kms.Key
+            # key_ref: kms.IKeyRef
             
             ebs_storage_info = msk_alpha.EbsStorageInfo(
-                encryption_key=key,
+                encryption_key=key_ref,
                 volume_size=123
             )
         '''
@@ -1022,7 +1022,7 @@ class EbsStorageInfo:
             self._values["volume_size"] = volume_size
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The AWS KMS key for encrypting data at rest.
 
         :default: Uses AWS managed CMK (aws/kafka)
@@ -1030,7 +1030,7 @@ class EbsStorageInfo:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
@@ -1865,7 +1865,7 @@ class SaslAuthProps:
         self,
         *,
         iam: typing.Optional[builtins.bool] = None,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         scram: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) SASL authentication properties.
@@ -1918,7 +1918,7 @@ class SaslAuthProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) KMS Key to encrypt SASL/SCRAM secrets.
 
         You must use a customer master key (CMK) when creating users in secrets manager.
@@ -1929,7 +1929,7 @@ class SaslAuthProps:
         :stability: experimental
         '''
         result = self._values.get("key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def scram(self) -> typing.Optional[builtins.bool]:
@@ -2364,7 +2364,7 @@ class SaslTlsAuthProps(SaslAuthProps, TlsAuthProps):
         self,
         *,
         iam: typing.Optional[builtins.bool] = None,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         scram: typing.Optional[builtins.bool] = None,
         certificate_authorities: typing.Optional[typing.Sequence[_aws_cdk_aws_acmpca_ceddda9d.ICertificateAuthority]] = None,
     ) -> None:
@@ -2427,7 +2427,7 @@ class SaslTlsAuthProps(SaslAuthProps, TlsAuthProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) KMS Key to encrypt SASL/SCRAM secrets.
 
         You must use a customer master key (CMK) when creating users in secrets manager.
@@ -2438,7 +2438,7 @@ class SaslTlsAuthProps(SaslAuthProps, TlsAuthProps):
         :stability: experimental
         '''
         result = self._values.get("key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def scram(self) -> typing.Optional[builtins.bool]:
@@ -2895,7 +2895,7 @@ def _typecheckingstub__7acb1d0e21413d16efb1d11f4a29cc860b92ac278e0b0187d75e3eb1f
 
 def _typecheckingstub__71f71898e3644c01cacd375914aebc2f51bc973e16dca3550d856073a05c90ee(
     *,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     volume_size: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2944,7 +2944,7 @@ def _typecheckingstub__51fbd5191484562bb80360937520b2fcdc78a672c23d4c600aff0554a
 def _typecheckingstub__f186e6270f30759471573a6fdea8241e1a52ec3ddb6f61ac669172717e5a8ea6(
     *,
     iam: typing.Optional[builtins.bool] = None,
-    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     scram: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2989,7 +2989,7 @@ def _typecheckingstub__0a14559760ddb0ea87ad0006d42a695b4e14406b32f4cbbde9cea07b2
 def _typecheckingstub__a26cb615593ec2787153e2c44f8002c0d2c4cc00110f82aa3f2d4f8d6666b9b1(
     *,
     iam: typing.Optional[builtins.bool] = None,
-    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     scram: typing.Optional[builtins.bool] = None,
     certificate_authorities: typing.Optional[typing.Sequence[_aws_cdk_aws_acmpca_ceddda9d.ICertificateAuthority]] = None,
 ) -> None:

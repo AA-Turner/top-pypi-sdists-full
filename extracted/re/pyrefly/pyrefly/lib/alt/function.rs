@@ -491,10 +491,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(ty) = self_type {
                     self.is_subset_eq(&var.to_type(), ty);
                 } else if let Required::Optional(Some(default_ty)) = &required {
-                    self.solver().is_subset_eq(
+                    self.is_subset_eq(
                         &self.union(Type::any_implicit(), default_ty.clone()),
                         &var.to_type(),
-                        self.type_order(),
                     );
                 }
                 (self.solver().force_var(*var), required)
@@ -1109,7 +1108,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &|| {
                     TypeCheckContext::of_kind(TypeCheckKind::OverloadInput(
                         overload_func.signature.clone(),
-                        impl_func.signature.clone(),
+                        impl_sig.clone(),
                     ))
                 },
             );

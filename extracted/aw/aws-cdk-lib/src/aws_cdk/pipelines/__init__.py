@@ -4266,6 +4266,12 @@ class ProduceActionOptions:
                             object_key="objectKey"
                         ),
                         compute_type=codebuild.ComputeType.SMALL,
+                        docker_server=codebuild.DockerServerOptions(
+                            compute_type=codebuild.DockerServerComputeType.SMALL,
+            
+                            # the properties below are optional
+                            security_groups=[security_group]
+                        ),
                         environment_variables={
                             "environment_variables_key": codebuild.BuildEnvironmentVariable(
                                 value=value,

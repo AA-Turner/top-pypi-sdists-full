@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: substrait
-Version: 0.24.1
+Version: 0.24.2
 Summary: A python package for Substrait.
 Author-email: Substrait contributors <substrait@googlegroups.com>
 License: Apache-2.0

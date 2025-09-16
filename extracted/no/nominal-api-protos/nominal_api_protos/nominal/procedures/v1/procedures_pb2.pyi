@@ -276,14 +276,24 @@ class FormStep(_message.Message):
     def __init__(self, fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ...) -> None: ...
 
 class FormField(_message.Message):
-    __slots__ = ("id", "asset", "checkbox")
+    __slots__ = ("id", "asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")
     ID_FIELD_NUMBER: _ClassVar[int]
     ASSET_FIELD_NUMBER: _ClassVar[int]
     CHECKBOX_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    INT_FIELD_NUMBER: _ClassVar[int]
+    DOUBLE_FIELD_NUMBER: _ClassVar[int]
+    SINGLE_ENUM_FIELD_NUMBER: _ClassVar[int]
+    MULTI_ENUM_FIELD_NUMBER: _ClassVar[int]
     id: str
     asset: AssetField
     checkbox: CheckboxField
-    def __init__(self, id: _Optional[str] = ..., asset: _Optional[_Union[AssetField, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxField, _Mapping]] = ...) -> None: ...
+    text: TextField
+    int: IntField
+    double: DoubleField
+    single_enum: SingleEnumField
+    multi_enum: MultiEnumField
+    def __init__(self, id: _Optional[str] = ..., asset: _Optional[_Union[AssetField, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxField, _Mapping]] = ..., text: _Optional[_Union[TextField, _Mapping]] = ..., int: _Optional[_Union[IntField, _Mapping]] = ..., double: _Optional[_Union[DoubleField, _Mapping]] = ..., single_enum: _Optional[_Union[SingleEnumField, _Mapping]] = ..., multi_enum: _Optional[_Union[MultiEnumField, _Mapping]] = ...) -> None: ...
 
 class AssetReference(_message.Message):
     __slots__ = ("rid", "field_id")
@@ -318,6 +328,98 @@ class CheckboxField(_message.Message):
     label: str
     is_required: bool
     def __init__(self, label: _Optional[str] = ..., is_required: bool = ...) -> None: ...
+
+class TextFieldSimpleInputType(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TextFieldMarkdownInputType(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TextField(_message.Message):
+    __slots__ = ("label", "simple", "markdown", "min_length", "max_length")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    SIMPLE_FIELD_NUMBER: _ClassVar[int]
+    MARKDOWN_FIELD_NUMBER: _ClassVar[int]
+    MIN_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    MAX_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    simple: TextFieldSimpleInputType
+    markdown: TextFieldMarkdownInputType
+    min_length: int
+    max_length: int
+    def __init__(self, label: _Optional[str] = ..., simple: _Optional[_Union[TextFieldSimpleInputType, _Mapping]] = ..., markdown: _Optional[_Union[TextFieldMarkdownInputType, _Mapping]] = ..., min_length: _Optional[int] = ..., max_length: _Optional[int] = ...) -> None: ...
+
+class IntField(_message.Message):
+    __slots__ = ("label", "is_required", "gte_value", "lte_value")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    GTE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LTE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    is_required: bool
+    gte_value: int
+    lte_value: int
+    def __init__(self, label: _Optional[str] = ..., is_required: bool = ..., gte_value: _Optional[int] = ..., lte_value: _Optional[int] = ...) -> None: ...
+
+class DoubleField(_message.Message):
+    __slots__ = ("label", "is_required", "gt_value", "gte_value", "lt_value", "lte_value")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    GT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    GTE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LTE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    is_required: bool
+    gt_value: float
+    gte_value: float
+    lt_value: float
+    lte_value: float
+    def __init__(self, label: _Optional[str] = ..., is_required: bool = ..., gt_value: _Optional[float] = ..., gte_value: _Optional[float] = ..., lt_value: _Optional[float] = ..., lte_value: _Optional[float] = ...) -> None: ...
+
+class EnumFieldButtonsInputType(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class EnumFieldMenuInputType(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SingleEnumField(_message.Message):
+    __slots__ = ("label", "options", "buttons", "dropdown", "allow_custom", "is_required")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    BUTTONS_FIELD_NUMBER: _ClassVar[int]
+    DROPDOWN_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_CUSTOM_FIELD_NUMBER: _ClassVar[int]
+    IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    options: _containers.RepeatedScalarFieldContainer[str]
+    buttons: EnumFieldButtonsInputType
+    dropdown: EnumFieldMenuInputType
+    allow_custom: bool
+    is_required: bool
+    def __init__(self, label: _Optional[str] = ..., options: _Optional[_Iterable[str]] = ..., buttons: _Optional[_Union[EnumFieldButtonsInputType, _Mapping]] = ..., dropdown: _Optional[_Union[EnumFieldMenuInputType, _Mapping]] = ..., allow_custom: bool = ..., is_required: bool = ...) -> None: ...
+
+class MultiEnumField(_message.Message):
+    __slots__ = ("label", "options", "buttons", "dropdown", "allow_custom", "min_count", "max_count")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    BUTTONS_FIELD_NUMBER: _ClassVar[int]
+    DROPDOWN_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_CUSTOM_FIELD_NUMBER: _ClassVar[int]
+    MIN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MAX_COUNT_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    options: _containers.RepeatedScalarFieldContainer[str]
+    buttons: EnumFieldButtonsInputType
+    dropdown: EnumFieldMenuInputType
+    allow_custom: bool
+    min_count: int
+    max_count: int
+    def __init__(self, label: _Optional[str] = ..., options: _Optional[_Iterable[str]] = ..., buttons: _Optional[_Union[EnumFieldButtonsInputType, _Mapping]] = ..., dropdown: _Optional[_Union[EnumFieldMenuInputType, _Mapping]] = ..., allow_custom: bool = ..., min_count: _Optional[int] = ..., max_count: _Optional[int] = ...) -> None: ...
 
 class ProcedureMetadata(_message.Message):
     __slots__ = ("rid", "title", "description", "labels", "properties", "is_archived", "is_published", "created_at", "created_by", "updated_at", "updated_by", "workspace")

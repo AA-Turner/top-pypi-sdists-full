@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides a container class to store parameters for the
-geometry of an ellipse.
+Define a container class to store parameters for the geometry of an
+ellipse.
 """
 
 import math
@@ -92,7 +92,7 @@ class EllipseGeometry:
 
             \epsilon =  1  -  \frac{b}{a}
 
-        where a and b are the lengths of the semimajor and semimior
+        where a and b are the lengths of the semimajor and semiminor
         axes, respectively.
     pa : float
         The position angle (in radians) of the semimajor axis in

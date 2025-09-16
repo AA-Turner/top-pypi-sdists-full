@@ -75,7 +75,3940 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.AliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"alias_arn": "aliasArn", "alias_id": "aliasId"},
+)
+class AliasReference:
+    def __init__(self, *, alias_arn: builtins.str, alias_id: builtins.str) -> None:
+        '''A reference to a Alias resource.
+
+        :param alias_arn: The ARN of the Alias resource.
+        :param alias_id: The AliasId of the Alias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            alias_reference = gamelift.AliasReference(
+                alias_arn="aliasArn",
+                alias_id="aliasId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebc446b228a7081b9c33fad4a707ee58e9b0a17ca8cd5f9ef375e3a972e32f25)
+            check_type(argname="argument alias_arn", value=alias_arn, expected_type=type_hints["alias_arn"])
+            check_type(argname="argument alias_id", value=alias_id, expected_type=type_hints["alias_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias_arn": alias_arn,
+            "alias_id": alias_id,
+        }
+
+    @builtins.property
+    def alias_arn(self) -> builtins.str:
+        '''The ARN of the Alias resource.'''
+        result = self._values.get("alias_arn")
+        assert result is not None, "Required property 'alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alias_id(self) -> builtins.str:
+        '''The AliasId of the Alias resource.'''
+        result = self._values.get("alias_id")
+        assert result is not None, "Required property 'alias_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.BuildReference",
+    jsii_struct_bases=[],
+    name_mapping={"build_arn": "buildArn", "build_id": "buildId"},
+)
+class BuildReference:
+    def __init__(self, *, build_arn: builtins.str, build_id: builtins.str) -> None:
+        '''A reference to a Build resource.
+
+        :param build_arn: The ARN of the Build resource.
+        :param build_id: The BuildId of the Build resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            build_reference = gamelift.BuildReference(
+                build_arn="buildArn",
+                build_id="buildId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eaac38b438cd7bde550db4039eeff594571b95f266fb05604de67a68a05b0211)
+            check_type(argname="argument build_arn", value=build_arn, expected_type=type_hints["build_arn"])
+            check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "build_arn": build_arn,
+            "build_id": build_id,
+        }
+
+    @builtins.property
+    def build_arn(self) -> builtins.str:
+        '''The ARN of the Build resource.'''
+        result = self._values.get("build_arn")
+        assert result is not None, "Required property 'build_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def build_id(self) -> builtins.str:
+        '''The BuildId of the Build resource.'''
+        result = self._values.get("build_id")
+        assert result is not None, "Required property 'build_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BuildReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "routing_strategy": "routingStrategy",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnAliasProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        routing_strategy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAlias.RoutingStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlias``.
+
+        :param name: A descriptive label that is associated with an alias. Alias names do not need to be unique.
+        :param routing_strategy: The routing configuration, including routing type and fleet target, for the alias.
+        :param description: A human-readable description of the alias.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_alias_props = gamelift.CfnAliasProps(
+                name="name",
+                routing_strategy=gamelift.CfnAlias.RoutingStrategyProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    fleet_id="fleetId",
+                    message="message"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e74c18c4446e0f846baf63e2e707aa2ba663f37170623164846853f1176d7891)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument routing_strategy", value=routing_strategy, expected_type=type_hints["routing_strategy"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "routing_strategy": routing_strategy,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A descriptive label that is associated with an alias.
+
+        Alias names do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def routing_strategy(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAlias.RoutingStrategyProperty"]:
+        '''The routing configuration, including routing type and fleet target, for the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-routingstrategy
+        '''
+        result = self._values.get("routing_strategy")
+        assert result is not None, "Required property 'routing_strategy' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAlias.RoutingStrategyProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnBuildProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "operating_system": "operatingSystem",
+        "server_sdk_version": "serverSdkVersion",
+        "storage_location": "storageLocation",
+        "tags": "tags",
+        "version": "version",
+    },
+)
+class CfnBuildProps:
+    def __init__(
+        self,
+        *,
+        name: typing.Optional[builtins.str] = None,
+        operating_system: typing.Optional[builtins.str] = None,
+        server_sdk_version: typing.Optional[builtins.str] = None,
+        storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBuild.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBuild``.
+
+        :param name: A descriptive label that is associated with a build. Build names do not need to be unique.
+        :param operating_system: The operating system that your game server binaries run on. This value determines the type of fleet resources that you use for this build. If your game build contains multiple executables, they all must run on the same operating system. You must specify a valid operating system in this request. There is no default value. You can't change a build's operating system later. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
+        :param server_sdk_version: A server SDK version you used when integrating your game server build with Amazon GameLift Servers. For more information see `Integrate games with custom game servers <https://docs.aws.amazon.com/gamelift/latest/developerguide/integration-custom-intro.html>`_ . By default Amazon GameLift Servers sets this value to ``4.0.2`` .
+        :param storage_location: Information indicating where your game build files are stored. Use this parameter only when creating a build with files stored in an Amazon S3 bucket that you own. The storage location must specify an Amazon S3 bucket name and key. The location must also specify a role ARN that you set up to allow Amazon GameLift Servers to access your Amazon S3 bucket. The S3 bucket and your new build must be in the same Region. If a ``StorageLocation`` is specified, the size of your file can be found in your Amazon S3 bucket. Amazon GameLift Servers will report a ``SizeOnDisk`` of 0.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param version: Version information that is associated with this build. Version strings do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_build_props = gamelift.CfnBuildProps(
+                name="name",
+                operating_system="operatingSystem",
+                server_sdk_version="serverSdkVersion",
+                storage_location=gamelift.CfnBuild.StorageLocationProperty(
+                    bucket="bucket",
+                    key="key",
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    object_version="objectVersion"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version="version"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ea486b468f726c96f63f78347aac31445ce3b0bd1ea282f6fce30ca4e8642d7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
+            check_type(argname="argument server_sdk_version", value=server_sdk_version, expected_type=type_hints["server_sdk_version"])
+            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if name is not None:
+            self._values["name"] = name
+        if operating_system is not None:
+            self._values["operating_system"] = operating_system
+        if server_sdk_version is not None:
+            self._values["server_sdk_version"] = server_sdk_version
+        if storage_location is not None:
+            self._values["storage_location"] = storage_location
+        if tags is not None:
+            self._values["tags"] = tags
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A descriptive label that is associated with a build.
+
+        Build names do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def operating_system(self) -> typing.Optional[builtins.str]:
+        '''The operating system that your game server binaries run on.
+
+        This value determines the type of fleet resources that you use for this build. If your game build contains multiple executables, they all must run on the same operating system. You must specify a valid operating system in this request. There is no default value. You can't change a build's operating system later.
+        .. epigraph::
+
+           Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-operatingsystem
+        '''
+        result = self._values.get("operating_system")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_sdk_version(self) -> typing.Optional[builtins.str]:
+        '''A server SDK version you used when integrating your game server build with Amazon GameLift Servers.
+
+        For more information see `Integrate games with custom game servers <https://docs.aws.amazon.com/gamelift/latest/developerguide/integration-custom-intro.html>`_ . By default Amazon GameLift Servers sets this value to ``4.0.2`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-serversdkversion
+        '''
+        result = self._values.get("server_sdk_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBuild.StorageLocationProperty"]]:
+        '''Information indicating where your game build files are stored.
+
+        Use this parameter only when creating a build with files stored in an Amazon S3 bucket that you own. The storage location must specify an Amazon S3 bucket name and key. The location must also specify a role ARN that you set up to allow Amazon GameLift Servers to access your Amazon S3 bucket. The S3 bucket and your new build must be in the same Region.
+
+        If a ``StorageLocation`` is specified, the size of your file can be found in your Amazon S3 bucket. Amazon GameLift Servers will report a ``SizeOnDisk`` of 0.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-storagelocation
+        '''
+        result = self._values.get("storage_location")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBuild.StorageLocationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''Version information that is associated with this build.
+
+        Version strings do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-version
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBuildProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerFleetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "fleet_role_arn": "fleetRoleArn",
+        "billing_type": "billingType",
+        "deployment_configuration": "deploymentConfiguration",
+        "description": "description",
+        "game_server_container_group_definition_name": "gameServerContainerGroupDefinitionName",
+        "game_server_container_groups_per_instance": "gameServerContainerGroupsPerInstance",
+        "game_session_creation_limit_policy": "gameSessionCreationLimitPolicy",
+        "instance_connection_port_range": "instanceConnectionPortRange",
+        "instance_inbound_permissions": "instanceInboundPermissions",
+        "instance_type": "instanceType",
+        "locations": "locations",
+        "log_configuration": "logConfiguration",
+        "metric_groups": "metricGroups",
+        "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
+        "per_instance_container_group_definition_name": "perInstanceContainerGroupDefinitionName",
+        "scaling_policies": "scalingPolicies",
+        "tags": "tags",
+    },
+)
+class CfnContainerFleetProps:
+    def __init__(
+        self,
+        *,
+        fleet_role_arn: builtins.str,
+        billing_type: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.DeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        game_server_container_group_definition_name: typing.Optional[builtins.str] = None,
+        game_server_container_groups_per_instance: typing.Optional[jsii.Number] = None,
+        game_session_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.GameSessionCreationLimitPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_connection_port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.ConnectionPortRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instance_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.IpPermissionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        instance_type: typing.Optional[builtins.str] = None,
+        locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        new_game_session_protection_policy: typing.Optional[builtins.str] = None,
+        per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+        scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContainerFleet``.
+
+        :param fleet_role_arn: The unique identifier for an AWS Identity and Access Management (IAM) role with permissions to run your containers on resources that are managed by Amazon GameLift Servers. See `Set up an IAM service role <https://docs.aws.amazon.com/gamelift/latest/developerguide/setting-up-role.html>`_ . This fleet property can't be changed.
+        :param billing_type: Indicates whether the fleet uses On-Demand or Spot instances for this fleet. Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . You can't update this fleet property. By default, this property is set to ``ON_DEMAND`` .
+        :param deployment_configuration: Set of rules for processing a deployment for a container fleet update.
+        :param description: A meaningful description of the container fleet.
+        :param game_server_container_group_definition_name: The name of the fleet's game server container group definition, which describes how to deploy containers with your game server build and support software onto each fleet instance.
+        :param game_server_container_groups_per_instance: The number of times to replicate the game server container group on each fleet instance.
+        :param game_session_creation_limit_policy: A policy that limits the number of game sessions that each individual player can create on instances in this fleet. The limit applies for a specified span of time.
+        :param instance_connection_port_range: The set of port numbers to open on each instance in a container fleet. Connection ports are used by inbound traffic to connect with processes that are running in containers on the fleet.
+        :param instance_inbound_permissions: The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
+        :param instance_type: The Amazon EC2 instance type to use for all instances in the fleet. Instance type determines the computing resources and processing power that's available to host your game servers. This includes including CPU, memory, storage, and networking capacity. You can't update this fleet property.
+        :param locations: 
+        :param log_configuration: The method that is used to collect container logs for the fleet. Amazon GameLift Servers saves all standard output for each container in logs, including game session logs. - ``CLOUDWATCH`` -- Send logs to an Amazon CloudWatch log group that you define. Each container emits a log stream, which is organized in the log group. - ``S3`` -- Store logs in an Amazon S3 bucket that you define. - ``NONE`` -- Don't collect container logs.
+        :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. Metric groups aggregate metrics for multiple fleets.
+        :param new_game_session_protection_policy: Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players. Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ . - *NoProtection* -- Game sessions can be shut down during active gameplay. - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
+        :param per_instance_container_group_definition_name: The name of the fleet's per-instance container group definition.
+        :param scaling_policies: A list of rules that control how a fleet is scaled.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_container_fleet_props = gamelift.CfnContainerFleetProps(
+                fleet_role_arn="fleetRoleArn",
+            
+                # the properties below are optional
+                billing_type="billingType",
+                deployment_configuration=gamelift.CfnContainerFleet.DeploymentConfigurationProperty(
+                    impairment_strategy="impairmentStrategy",
+                    minimum_healthy_percentage=123,
+                    protection_strategy="protectionStrategy"
+                ),
+                description="description",
+                game_server_container_group_definition_name="gameServerContainerGroupDefinitionName",
+                game_server_container_groups_per_instance=123,
+                game_session_creation_limit_policy=gamelift.CfnContainerFleet.GameSessionCreationLimitPolicyProperty(
+                    new_game_sessions_per_creator=123,
+                    policy_period_in_minutes=123
+                ),
+                instance_connection_port_range=gamelift.CfnContainerFleet.ConnectionPortRangeProperty(
+                    from_port=123,
+                    to_port=123
+                ),
+                instance_inbound_permissions=[gamelift.CfnContainerFleet.IpPermissionProperty(
+                    from_port=123,
+                    ip_range="ipRange",
+                    protocol="protocol",
+                    to_port=123
+                )],
+                instance_type="instanceType",
+                locations=[gamelift.CfnContainerFleet.LocationConfigurationProperty(
+                    location="location",
+            
+                    # the properties below are optional
+                    location_capacity=gamelift.CfnContainerFleet.LocationCapacityProperty(
+                        desired_ec2_instances=123,
+                        max_size=123,
+                        min_size=123
+                    ),
+                    stopped_actions=["stoppedActions"]
+                )],
+                log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
+                    log_destination="logDestination",
+                    log_group_arn="logGroupArn",
+                    s3_bucket_name="s3BucketName"
+                ),
+                metric_groups=["metricGroups"],
+                new_game_session_protection_policy="newGameSessionProtectionPolicy",
+                per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
+                scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
+                    metric_name="metricName",
+                    name="name",
+            
+                    # the properties below are optional
+                    comparison_operator="comparisonOperator",
+                    evaluation_periods=123,
+                    policy_type="policyType",
+                    scaling_adjustment=123,
+                    scaling_adjustment_type="scalingAdjustmentType",
+                    target_configuration=gamelift.CfnContainerFleet.TargetConfigurationProperty(
+                        target_value=123
+                    ),
+                    threshold=123
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fbf4a66831e3b15f9023046fb41b590456b41ba1048fa4e59749ccd8f9d023c)
+            check_type(argname="argument fleet_role_arn", value=fleet_role_arn, expected_type=type_hints["fleet_role_arn"])
+            check_type(argname="argument billing_type", value=billing_type, expected_type=type_hints["billing_type"])
+            check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument game_server_container_group_definition_name", value=game_server_container_group_definition_name, expected_type=type_hints["game_server_container_group_definition_name"])
+            check_type(argname="argument game_server_container_groups_per_instance", value=game_server_container_groups_per_instance, expected_type=type_hints["game_server_container_groups_per_instance"])
+            check_type(argname="argument game_session_creation_limit_policy", value=game_session_creation_limit_policy, expected_type=type_hints["game_session_creation_limit_policy"])
+            check_type(argname="argument instance_connection_port_range", value=instance_connection_port_range, expected_type=type_hints["instance_connection_port_range"])
+            check_type(argname="argument instance_inbound_permissions", value=instance_inbound_permissions, expected_type=type_hints["instance_inbound_permissions"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
+            check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
+            check_type(argname="argument per_instance_container_group_definition_name", value=per_instance_container_group_definition_name, expected_type=type_hints["per_instance_container_group_definition_name"])
+            check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fleet_role_arn": fleet_role_arn,
+        }
+        if billing_type is not None:
+            self._values["billing_type"] = billing_type
+        if deployment_configuration is not None:
+            self._values["deployment_configuration"] = deployment_configuration
+        if description is not None:
+            self._values["description"] = description
+        if game_server_container_group_definition_name is not None:
+            self._values["game_server_container_group_definition_name"] = game_server_container_group_definition_name
+        if game_server_container_groups_per_instance is not None:
+            self._values["game_server_container_groups_per_instance"] = game_server_container_groups_per_instance
+        if game_session_creation_limit_policy is not None:
+            self._values["game_session_creation_limit_policy"] = game_session_creation_limit_policy
+        if instance_connection_port_range is not None:
+            self._values["instance_connection_port_range"] = instance_connection_port_range
+        if instance_inbound_permissions is not None:
+            self._values["instance_inbound_permissions"] = instance_inbound_permissions
+        if instance_type is not None:
+            self._values["instance_type"] = instance_type
+        if locations is not None:
+            self._values["locations"] = locations
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
+        if metric_groups is not None:
+            self._values["metric_groups"] = metric_groups
+        if new_game_session_protection_policy is not None:
+            self._values["new_game_session_protection_policy"] = new_game_session_protection_policy
+        if per_instance_container_group_definition_name is not None:
+            self._values["per_instance_container_group_definition_name"] = per_instance_container_group_definition_name
+        if scaling_policies is not None:
+            self._values["scaling_policies"] = scaling_policies
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def fleet_role_arn(self) -> builtins.str:
+        '''The unique identifier for an AWS Identity and Access Management (IAM) role with permissions to run your containers on resources that are managed by Amazon GameLift Servers.
+
+        See `Set up an IAM service role <https://docs.aws.amazon.com/gamelift/latest/developerguide/setting-up-role.html>`_ . This fleet property can't be changed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-fleetrolearn
+        '''
+        result = self._values.get("fleet_role_arn")
+        assert result is not None, "Required property 'fleet_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def billing_type(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the fleet uses On-Demand or Spot instances for this fleet.
+
+        Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . You can't update this fleet property.
+
+        By default, this property is set to ``ON_DEMAND`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-billingtype
+        '''
+        result = self._values.get("billing_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.DeploymentConfigurationProperty"]]:
+        '''Set of rules for processing a deployment for a container fleet update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-deploymentconfiguration
+        '''
+        result = self._values.get("deployment_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.DeploymentConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A meaningful description of the container fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_server_container_group_definition_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''The name of the fleet's game server container group definition, which describes how to deploy containers with your game server build and support software onto each fleet instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gameservercontainergroupdefinitionname
+        '''
+        result = self._values.get("game_server_container_group_definition_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_server_container_groups_per_instance(self) -> typing.Optional[jsii.Number]:
+        '''The number of times to replicate the game server container group on each fleet instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gameservercontainergroupsperinstance
+        '''
+        result = self._values.get("game_server_container_groups_per_instance")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def game_session_creation_limit_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.GameSessionCreationLimitPolicyProperty"]]:
+        '''A policy that limits the number of game sessions that each individual player can create on instances in this fleet.
+
+        The limit applies for a specified span of time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gamesessioncreationlimitpolicy
+        '''
+        result = self._values.get("game_session_creation_limit_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.GameSessionCreationLimitPolicyProperty"]], result)
+
+    @builtins.property
+    def instance_connection_port_range(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.ConnectionPortRangeProperty"]]:
+        '''The set of port numbers to open on each instance in a container fleet.
+
+        Connection ports are used by inbound traffic to connect with processes that are running in containers on the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instanceconnectionportrange
+        '''
+        result = self._values.get("instance_connection_port_range")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.ConnectionPortRangeProperty"]], result)
+
+    @builtins.property
+    def instance_inbound_permissions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.IpPermissionProperty"]]]]:
+        '''The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instanceinboundpermissions
+        '''
+        result = self._values.get("instance_inbound_permissions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.IpPermissionProperty"]]]], result)
+
+    @builtins.property
+    def instance_type(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EC2 instance type to use for all instances in the fleet.
+
+        Instance type determines the computing resources and processing power that's available to host your game servers. This includes including CPU, memory, storage, and networking capacity. You can't update this fleet property.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instancetype
+        '''
+        result = self._values.get("instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def locations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.LocationConfigurationProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-locations
+        '''
+        result = self._values.get("locations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.LocationConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.LogConfigurationProperty"]]:
+        '''The method that is used to collect container logs for the fleet.
+
+        Amazon GameLift Servers saves all standard output for each container in logs, including game session logs.
+
+        - ``CLOUDWATCH`` -- Send logs to an Amazon CloudWatch log group that you define. Each container emits a log stream, which is organized in the log group.
+        - ``S3`` -- Store logs in an Amazon S3 bucket that you define.
+        - ``NONE`` -- Don't collect container logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.LogConfigurationProperty"]], result)
+
+    @builtins.property
+    def metric_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of an AWS CloudWatch metric group to add this fleet to.
+
+        Metric groups aggregate metrics for multiple fleets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-metricgroups
+        '''
+        result = self._values.get("metric_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def new_game_session_protection_policy(self) -> typing.Optional[builtins.str]:
+        '''Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players.
+
+        Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ .
+
+        - *NoProtection* -- Game sessions can be shut down during active gameplay.
+        - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-newgamesessionprotectionpolicy
+        '''
+        result = self._values.get("new_game_session_protection_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def per_instance_container_group_definition_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''The name of the fleet's per-instance container group definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-perinstancecontainergroupdefinitionname
+        '''
+        result = self._values.get("per_instance_container_group_definition_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scaling_policies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.ScalingPolicyProperty"]]]]:
+        '''A list of rules that control how a fleet is scaled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-scalingpolicies
+        '''
+        result = self._values.get("scaling_policies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerFleet.ScalingPolicyProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContainerFleetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerGroupDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "operating_system": "operatingSystem",
+        "total_memory_limit_mebibytes": "totalMemoryLimitMebibytes",
+        "total_vcpu_limit": "totalVcpuLimit",
+        "container_group_type": "containerGroupType",
+        "game_server_container_definition": "gameServerContainerDefinition",
+        "source_version_number": "sourceVersionNumber",
+        "support_container_definitions": "supportContainerDefinitions",
+        "tags": "tags",
+        "version_description": "versionDescription",
+    },
+)
+class CfnContainerGroupDefinitionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        operating_system: builtins.str,
+        total_memory_limit_mebibytes: jsii.Number,
+        total_vcpu_limit: jsii.Number,
+        container_group_type: typing.Optional[builtins.str] = None,
+        game_server_container_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerGroupDefinition.GameServerContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_version_number: typing.Optional[jsii.Number] = None,
+        support_container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainerGroupDefinition.SupportContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContainerGroupDefinition``.
+
+        :param name: A descriptive identifier for the container group definition. The name value is unique in an AWS Region.
+        :param operating_system: The platform that all containers in the container group definition run on. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
+        :param total_memory_limit_mebibytes: The amount of memory (in MiB) on a fleet instance to allocate for the container group. All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
+        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
+        :param container_group_type: The type of container group. Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
+        :param game_server_container_definition: The definition for the game server container in this group. This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
+        :param source_version_number: A specific ContainerGroupDefinition version to be updated.
+        :param support_container_definitions: The set of definitions for support containers in this group. A container group definition might have zero support container definitions. Support container can be used in any type of container group.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param version_description: An optional description that was provided for a container group definition update. Each version can have a unique description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_container_group_definition_props = gamelift.CfnContainerGroupDefinitionProps(
+                name="name",
+                operating_system="operatingSystem",
+                total_memory_limit_mebibytes=123,
+                total_vcpu_limit=123,
+            
+                # the properties below are optional
+                container_group_type="containerGroupType",
+                game_server_container_definition=gamelift.CfnContainerGroupDefinition.GameServerContainerDefinitionProperty(
+                    container_name="containerName",
+                    image_uri="imageUri",
+                    server_sdk_version="serverSdkVersion",
+            
+                    # the properties below are optional
+                    depends_on=[gamelift.CfnContainerGroupDefinition.ContainerDependencyProperty(
+                        condition="condition",
+                        container_name="containerName"
+                    )],
+                    environment_override=[gamelift.CfnContainerGroupDefinition.ContainerEnvironmentProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
+                        instance_path="instancePath",
+            
+                        # the properties below are optional
+                        access_level="accessLevel",
+                        container_path="containerPath"
+                    )],
+                    port_configuration=gamelift.CfnContainerGroupDefinition.PortConfigurationProperty(
+                        container_port_ranges=[gamelift.CfnContainerGroupDefinition.ContainerPortRangeProperty(
+                            from_port=123,
+                            protocol="protocol",
+                            to_port=123
+                        )]
+                    ),
+                    resolved_image_digest="resolvedImageDigest"
+                ),
+                source_version_number=123,
+                support_container_definitions=[gamelift.CfnContainerGroupDefinition.SupportContainerDefinitionProperty(
+                    container_name="containerName",
+                    image_uri="imageUri",
+            
+                    # the properties below are optional
+                    depends_on=[gamelift.CfnContainerGroupDefinition.ContainerDependencyProperty(
+                        condition="condition",
+                        container_name="containerName"
+                    )],
+                    environment_override=[gamelift.CfnContainerGroupDefinition.ContainerEnvironmentProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    essential=False,
+                    health_check=gamelift.CfnContainerGroupDefinition.ContainerHealthCheckProperty(
+                        command=["command"],
+            
+                        # the properties below are optional
+                        interval=123,
+                        retries=123,
+                        start_period=123,
+                        timeout=123
+                    ),
+                    memory_hard_limit_mebibytes=123,
+                    mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
+                        instance_path="instancePath",
+            
+                        # the properties below are optional
+                        access_level="accessLevel",
+                        container_path="containerPath"
+                    )],
+                    port_configuration=gamelift.CfnContainerGroupDefinition.PortConfigurationProperty(
+                        container_port_ranges=[gamelift.CfnContainerGroupDefinition.ContainerPortRangeProperty(
+                            from_port=123,
+                            protocol="protocol",
+                            to_port=123
+                        )]
+                    ),
+                    resolved_image_digest="resolvedImageDigest",
+                    vcpu=123
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version_description="versionDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b760a12182b9da0a53204aa5510dae28c2cda4c4fba1ef77f0245093da04ea4)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
+            check_type(argname="argument total_memory_limit_mebibytes", value=total_memory_limit_mebibytes, expected_type=type_hints["total_memory_limit_mebibytes"])
+            check_type(argname="argument total_vcpu_limit", value=total_vcpu_limit, expected_type=type_hints["total_vcpu_limit"])
+            check_type(argname="argument container_group_type", value=container_group_type, expected_type=type_hints["container_group_type"])
+            check_type(argname="argument game_server_container_definition", value=game_server_container_definition, expected_type=type_hints["game_server_container_definition"])
+            check_type(argname="argument source_version_number", value=source_version_number, expected_type=type_hints["source_version_number"])
+            check_type(argname="argument support_container_definitions", value=support_container_definitions, expected_type=type_hints["support_container_definitions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "operating_system": operating_system,
+            "total_memory_limit_mebibytes": total_memory_limit_mebibytes,
+            "total_vcpu_limit": total_vcpu_limit,
+        }
+        if container_group_type is not None:
+            self._values["container_group_type"] = container_group_type
+        if game_server_container_definition is not None:
+            self._values["game_server_container_definition"] = game_server_container_definition
+        if source_version_number is not None:
+            self._values["source_version_number"] = source_version_number
+        if support_container_definitions is not None:
+            self._values["support_container_definitions"] = support_container_definitions
+        if tags is not None:
+            self._values["tags"] = tags
+        if version_description is not None:
+            self._values["version_description"] = version_description
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A descriptive identifier for the container group definition.
+
+        The name value is unique in an AWS Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def operating_system(self) -> builtins.str:
+        '''The platform that all containers in the container group definition run on.
+
+        .. epigraph::
+
+           Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-operatingsystem
+        '''
+        result = self._values.get("operating_system")
+        assert result is not None, "Required property 'operating_system' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def total_memory_limit_mebibytes(self) -> jsii.Number:
+        '''The amount of memory (in MiB) on a fleet instance to allocate for the container group.
+
+        All containers in the group share these resources.
+
+        You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalmemorylimitmebibytes
+        '''
+        result = self._values.get("total_memory_limit_mebibytes")
+        assert result is not None, "Required property 'total_memory_limit_mebibytes' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def total_vcpu_limit(self) -> jsii.Number:
+        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).
+
+        All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalvcpulimit
+        '''
+        result = self._values.get("total_vcpu_limit")
+        assert result is not None, "Required property 'total_vcpu_limit' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def container_group_type(self) -> typing.Optional[builtins.str]:
+        '''The type of container group.
+
+        Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-containergrouptype
+        '''
+        result = self._values.get("container_group_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_server_container_definition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerGroupDefinition.GameServerContainerDefinitionProperty"]]:
+        '''The definition for the game server container in this group.
+
+        This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-gameservercontainerdefinition
+        '''
+        result = self._values.get("game_server_container_definition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainerGroupDefinition.GameServerContainerDefinitionProperty"]], result)
+
+    @builtins.property
+    def source_version_number(self) -> typing.Optional[jsii.Number]:
+        '''A specific ContainerGroupDefinition version to be updated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-sourceversionnumber
+        '''
+        result = self._values.get("source_version_number")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def support_container_definitions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerGroupDefinition.SupportContainerDefinitionProperty"]]]]:
+        '''The set of definitions for support containers in this group.
+
+        A container group definition might have zero support container definitions. Support container can be used in any type of container group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-supportcontainerdefinitions
+        '''
+        result = self._values.get("support_container_definitions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainerGroupDefinition.SupportContainerDefinitionProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def version_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description that was provided for a container group definition update.
+
+        Each version can have a unique description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-versiondescription
+        '''
+        result = self._values.get("version_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContainerGroupDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnFleetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "anywhere_configuration": "anywhereConfiguration",
+        "apply_capacity": "applyCapacity",
+        "build_id": "buildId",
+        "certificate_configuration": "certificateConfiguration",
+        "compute_type": "computeType",
+        "description": "description",
+        "desired_ec2_instances": "desiredEc2Instances",
+        "ec2_inbound_permissions": "ec2InboundPermissions",
+        "ec2_instance_type": "ec2InstanceType",
+        "fleet_type": "fleetType",
+        "instance_role_arn": "instanceRoleArn",
+        "instance_role_credentials_provider": "instanceRoleCredentialsProvider",
+        "locations": "locations",
+        "log_paths": "logPaths",
+        "max_size": "maxSize",
+        "metric_groups": "metricGroups",
+        "min_size": "minSize",
+        "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
+        "peer_vpc_aws_account_id": "peerVpcAwsAccountId",
+        "peer_vpc_id": "peerVpcId",
+        "resource_creation_limit_policy": "resourceCreationLimitPolicy",
+        "runtime_configuration": "runtimeConfiguration",
+        "scaling_policies": "scalingPolicies",
+        "script_id": "scriptId",
+        "server_launch_parameters": "serverLaunchParameters",
+        "server_launch_path": "serverLaunchPath",
+        "tags": "tags",
+    },
+)
+class CfnFleetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        anywhere_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.AnywhereConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        apply_capacity: typing.Optional[builtins.str] = None,
+        build_id: typing.Optional[builtins.str] = None,
+        certificate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.CertificateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compute_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        desired_ec2_instances: typing.Optional[jsii.Number] = None,
+        ec2_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.IpPermissionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ec2_instance_type: typing.Optional[builtins.str] = None,
+        fleet_type: typing.Optional[builtins.str] = None,
+        instance_role_arn: typing.Optional[builtins.str] = None,
+        instance_role_credentials_provider: typing.Optional[builtins.str] = None,
+        locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+        max_size: typing.Optional[jsii.Number] = None,
+        metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        min_size: typing.Optional[jsii.Number] = None,
+        new_game_session_protection_policy: typing.Optional[builtins.str] = None,
+        peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
+        peer_vpc_id: typing.Optional[builtins.str] = None,
+        resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ResourceCreationLimitPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.RuntimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        script_id: typing.Optional[builtins.str] = None,
+        server_launch_parameters: typing.Optional[builtins.str] = None,
+        server_launch_path: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFleet``.
+
+        :param name: A descriptive label that is associated with a fleet. Fleet names do not need to be unique.
+        :param anywhere_configuration: Amazon GameLift Servers Anywhere configuration options.
+        :param apply_capacity: Current resource capacity settings for managed EC2 fleets and managed container fleets. For multi-location fleets, location values might refer to a fleet's remote location or its home Region. *Returned by:* `DescribeFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetCapacity.html>`_ , `DescribeFleetLocationCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetLocationCapacity.html>`_ , `UpdateFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetCapacity.html>`_
+        :param build_id: A unique identifier for a build to be deployed on the new fleet. If you are deploying the fleet with a custom game build, you must specify this property. The build must have been successfully uploaded to Amazon GameLift and be in a ``READY`` status. This fleet setting cannot be changed once the fleet is created.
+        :param certificate_configuration: Prompts Amazon GameLift Servers to generate a TLS/SSL certificate for the fleet. Amazon GameLift Servers uses the certificates to encrypt traffic between game clients and the game servers running on Amazon GameLift Servers. By default, the ``CertificateConfiguration`` is ``DISABLED`` . You can't change this property after you create the fleet. AWS Certificate Manager (ACM) certificates expire after 13 months. Certificate expiration can cause fleets to fail, preventing players from connecting to instances in the fleet. We recommend you replace fleets before 13 months, consider using fleet aliases for a smooth transition. .. epigraph:: ACM isn't available in all AWS regions. A fleet creation request with certificate generation enabled in an unsupported Region, fails with a 4xx error. For more information about the supported Regions, see `Supported Regions <https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html>`_ in the *AWS Certificate Manager User Guide* .
+        :param compute_type: The type of compute resource used to host your game servers. - ``EC2`` – The game server build is deployed to Amazon EC2 instances for cloud hosting. This is the default setting. - ``ANYWHERE`` – Game servers and supporting software are deployed to compute resources that you provide and manage. With this compute type, you can also set the ``AnywhereConfiguration`` parameter.
+        :param description: A description for the fleet.
+        :param desired_ec2_instances: (deprecated) [DEPRECATED] The number of EC2 instances that you want this fleet to host. When creating a new fleet, GameLift automatically sets this value to "1" and initiates a single instance. Once the fleet is active, update this value to trigger GameLift to add or remove instances from the fleet.
+        :param ec2_inbound_permissions: The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet. Set this parameter for managed EC2 fleets. You can leave this parameter empty when creating the fleet, but you must call ` <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetPortSettings>`_ to set it before players can connect to game sessions. As a best practice, we recommend opening ports for remote access only when you need them and closing them when you're finished. For Amazon GameLift Servers Realtime fleets, Amazon GameLift Servers automatically sets TCP and UDP ranges.
+        :param ec2_instance_type: The Amazon GameLift Servers-supported Amazon EC2 instance type to use with managed EC2 fleets. Instance type determines the computing resources that will be used to host your game servers, including CPU, memory, storage, and networking capacity. See `Amazon Elastic Compute Cloud Instance Types <https://docs.aws.amazon.com/ec2/instance-types/>`_ for detailed descriptions of Amazon EC2 instance types.
+        :param fleet_type: Indicates whether to use On-Demand or Spot instances for this fleet. By default, this property is set to ``ON_DEMAND`` . Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . This fleet property can't be changed after the fleet is created.
+        :param instance_role_arn: A unique identifier for an IAM role that manages access to your AWS services. With an instance role ARN set, any application that runs on an instance in this fleet can assume the role, including install scripts, server processes, and daemons (background processes). Create a role or look up a role's ARN by using the `IAM dashboard <https://docs.aws.amazon.com/iam/>`_ in the AWS Management Console . Learn more about using on-box credentials for your game servers at `Access external resources from a game server <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
+        :param instance_role_credentials_provider: Indicates that fleet instances maintain a shared credentials file for the IAM role defined in ``InstanceRoleArn`` . Shared credentials allow applications that are deployed with the game server executable to communicate with other AWS resources. This property is used only when the game server is integrated with the server SDK version 5.x. For more information about using shared credentials, see `Communicate with other AWS resources from your fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
+        :param locations: A set of remote locations to deploy additional instances to and manage as a multi-location fleet. Use this parameter when creating a fleet in AWS Regions that support multiple locations. You can add any AWS Region or Local Zone that's supported by Amazon GameLift Servers. Provide a list of one or more AWS Region codes, such as ``us-west-2`` , or Local Zone names. When using this parameter, Amazon GameLift Servers requires you to include your home location in the request. For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
+        :param log_paths: (deprecated) This parameter is no longer used. When hosting a custom game build, specify where Amazon GameLift should store log files using the Amazon GameLift server API call ProcessReady()
+        :param max_size: (deprecated) [DEPRECATED] The maximum value that is allowed for the fleet's instance count. When creating a new fleet, GameLift automatically sets this value to "1". Once the fleet is active, you can change this value.
+        :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. A metric group is used to aggregate the metrics for multiple fleets. You can specify an existing metric group name or set a new name to create a new metric group. A fleet can be included in only one metric group at a time.
+        :param min_size: (deprecated) [DEPRECATED] The minimum value allowed for the fleet's instance count. When creating a new fleet, GameLift automatically sets this value to "0". After the fleet is active, you can change this value.
+        :param new_game_session_protection_policy: The status of termination protection for active game sessions on the fleet. By default, this property is set to ``NoProtection`` . - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event. - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
+        :param peer_vpc_aws_account_id: Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC. You can find your account ID in the AWS Management Console under account settings.
+        :param peer_vpc_id: A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet. The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
+        :param resource_creation_limit_policy: A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
+        :param runtime_configuration: Instructions for how to launch and maintain server processes on instances in the fleet. The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently. .. epigraph:: The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
+        :param scaling_policies: Rule that controls how a fleet is scaled. Scaling policies are uniquely identified by the combination of name and fleet ID.
+        :param script_id: The unique identifier for a Realtime configuration script to be deployed on fleet instances. You can use either the script ID or ARN. Scripts must be uploaded to Amazon GameLift Servers prior to creating the fleet. This fleet property cannot be changed later. .. epigraph:: You can't use the ``!Ref`` command to reference a script created with a CloudFormation template for the fleet property ``ScriptId`` . Instead, use ``Fn::GetAtt Script.Arn`` or ``Fn::GetAtt Script.Id`` to retrieve either of these properties as input for ``ScriptId`` . Alternatively, enter a ``ScriptId`` string manually.
+        :param server_launch_parameters: (deprecated) This parameter is no longer used but is retained for backward compatibility. Instead, specify server launch parameters in the RuntimeConfiguration parameter. A request must specify either a runtime configuration or values for both ServerLaunchParameters and ServerLaunchPath.
+        :param server_launch_path: (deprecated) This parameter is no longer used. Instead, specify a server launch path using the RuntimeConfiguration parameter. Requests that specify a server launch path and launch parameters instead of a runtime configuration will continue to work.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_fleet_props = gamelift.CfnFleetProps(
+                name="name",
+            
+                # the properties below are optional
+                anywhere_configuration=gamelift.CfnFleet.AnywhereConfigurationProperty(
+                    cost="cost"
+                ),
+                apply_capacity="applyCapacity",
+                build_id="buildId",
+                certificate_configuration=gamelift.CfnFleet.CertificateConfigurationProperty(
+                    certificate_type="certificateType"
+                ),
+                compute_type="computeType",
+                description="description",
+                desired_ec2_instances=123,
+                ec2_inbound_permissions=[gamelift.CfnFleet.IpPermissionProperty(
+                    from_port=123,
+                    ip_range="ipRange",
+                    protocol="protocol",
+                    to_port=123
+                )],
+                ec2_instance_type="ec2InstanceType",
+                fleet_type="fleetType",
+                instance_role_arn="instanceRoleArn",
+                instance_role_credentials_provider="instanceRoleCredentialsProvider",
+                locations=[gamelift.CfnFleet.LocationConfigurationProperty(
+                    location="location",
+            
+                    # the properties below are optional
+                    location_capacity=gamelift.CfnFleet.LocationCapacityProperty(
+                        desired_ec2_instances=123,
+                        max_size=123,
+                        min_size=123
+                    )
+                )],
+                log_paths=["logPaths"],
+                max_size=123,
+                metric_groups=["metricGroups"],
+                min_size=123,
+                new_game_session_protection_policy="newGameSessionProtectionPolicy",
+                peer_vpc_aws_account_id="peerVpcAwsAccountId",
+                peer_vpc_id="peerVpcId",
+                resource_creation_limit_policy=gamelift.CfnFleet.ResourceCreationLimitPolicyProperty(
+                    new_game_sessions_per_creator=123,
+                    policy_period_in_minutes=123
+                ),
+                runtime_configuration=gamelift.CfnFleet.RuntimeConfigurationProperty(
+                    game_session_activation_timeout_seconds=123,
+                    max_concurrent_game_session_activations=123,
+                    server_processes=[gamelift.CfnFleet.ServerProcessProperty(
+                        concurrent_executions=123,
+                        launch_path="launchPath",
+            
+                        # the properties below are optional
+                        parameters="parameters"
+                    )]
+                ),
+                scaling_policies=[gamelift.CfnFleet.ScalingPolicyProperty(
+                    metric_name="metricName",
+                    name="name",
+            
+                    # the properties below are optional
+                    comparison_operator="comparisonOperator",
+                    evaluation_periods=123,
+                    location="location",
+                    policy_type="policyType",
+                    scaling_adjustment=123,
+                    scaling_adjustment_type="scalingAdjustmentType",
+                    status="status",
+                    target_configuration=gamelift.CfnFleet.TargetConfigurationProperty(
+                        target_value=123
+                    ),
+                    threshold=123,
+                    update_status="updateStatus"
+                )],
+                script_id="scriptId",
+                server_launch_parameters="serverLaunchParameters",
+                server_launch_path="serverLaunchPath",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a51a418ba5b606bdfc45dc50c3172e280a12e078a7392f3258d5d329e037a55)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument anywhere_configuration", value=anywhere_configuration, expected_type=type_hints["anywhere_configuration"])
+            check_type(argname="argument apply_capacity", value=apply_capacity, expected_type=type_hints["apply_capacity"])
+            check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
+            check_type(argname="argument certificate_configuration", value=certificate_configuration, expected_type=type_hints["certificate_configuration"])
+            check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument desired_ec2_instances", value=desired_ec2_instances, expected_type=type_hints["desired_ec2_instances"])
+            check_type(argname="argument ec2_inbound_permissions", value=ec2_inbound_permissions, expected_type=type_hints["ec2_inbound_permissions"])
+            check_type(argname="argument ec2_instance_type", value=ec2_instance_type, expected_type=type_hints["ec2_instance_type"])
+            check_type(argname="argument fleet_type", value=fleet_type, expected_type=type_hints["fleet_type"])
+            check_type(argname="argument instance_role_arn", value=instance_role_arn, expected_type=type_hints["instance_role_arn"])
+            check_type(argname="argument instance_role_credentials_provider", value=instance_role_credentials_provider, expected_type=type_hints["instance_role_credentials_provider"])
+            check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
+            check_type(argname="argument log_paths", value=log_paths, expected_type=type_hints["log_paths"])
+            check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
+            check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
+            check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
+            check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
+            check_type(argname="argument peer_vpc_aws_account_id", value=peer_vpc_aws_account_id, expected_type=type_hints["peer_vpc_aws_account_id"])
+            check_type(argname="argument peer_vpc_id", value=peer_vpc_id, expected_type=type_hints["peer_vpc_id"])
+            check_type(argname="argument resource_creation_limit_policy", value=resource_creation_limit_policy, expected_type=type_hints["resource_creation_limit_policy"])
+            check_type(argname="argument runtime_configuration", value=runtime_configuration, expected_type=type_hints["runtime_configuration"])
+            check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
+            check_type(argname="argument script_id", value=script_id, expected_type=type_hints["script_id"])
+            check_type(argname="argument server_launch_parameters", value=server_launch_parameters, expected_type=type_hints["server_launch_parameters"])
+            check_type(argname="argument server_launch_path", value=server_launch_path, expected_type=type_hints["server_launch_path"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if anywhere_configuration is not None:
+            self._values["anywhere_configuration"] = anywhere_configuration
+        if apply_capacity is not None:
+            self._values["apply_capacity"] = apply_capacity
+        if build_id is not None:
+            self._values["build_id"] = build_id
+        if certificate_configuration is not None:
+            self._values["certificate_configuration"] = certificate_configuration
+        if compute_type is not None:
+            self._values["compute_type"] = compute_type
+        if description is not None:
+            self._values["description"] = description
+        if desired_ec2_instances is not None:
+            self._values["desired_ec2_instances"] = desired_ec2_instances
+        if ec2_inbound_permissions is not None:
+            self._values["ec2_inbound_permissions"] = ec2_inbound_permissions
+        if ec2_instance_type is not None:
+            self._values["ec2_instance_type"] = ec2_instance_type
+        if fleet_type is not None:
+            self._values["fleet_type"] = fleet_type
+        if instance_role_arn is not None:
+            self._values["instance_role_arn"] = instance_role_arn
+        if instance_role_credentials_provider is not None:
+            self._values["instance_role_credentials_provider"] = instance_role_credentials_provider
+        if locations is not None:
+            self._values["locations"] = locations
+        if log_paths is not None:
+            self._values["log_paths"] = log_paths
+        if max_size is not None:
+            self._values["max_size"] = max_size
+        if metric_groups is not None:
+            self._values["metric_groups"] = metric_groups
+        if min_size is not None:
+            self._values["min_size"] = min_size
+        if new_game_session_protection_policy is not None:
+            self._values["new_game_session_protection_policy"] = new_game_session_protection_policy
+        if peer_vpc_aws_account_id is not None:
+            self._values["peer_vpc_aws_account_id"] = peer_vpc_aws_account_id
+        if peer_vpc_id is not None:
+            self._values["peer_vpc_id"] = peer_vpc_id
+        if resource_creation_limit_policy is not None:
+            self._values["resource_creation_limit_policy"] = resource_creation_limit_policy
+        if runtime_configuration is not None:
+            self._values["runtime_configuration"] = runtime_configuration
+        if scaling_policies is not None:
+            self._values["scaling_policies"] = scaling_policies
+        if script_id is not None:
+            self._values["script_id"] = script_id
+        if server_launch_parameters is not None:
+            self._values["server_launch_parameters"] = server_launch_parameters
+        if server_launch_path is not None:
+            self._values["server_launch_path"] = server_launch_path
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A descriptive label that is associated with a fleet.
+
+        Fleet names do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def anywhere_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.AnywhereConfigurationProperty"]]:
+        '''Amazon GameLift Servers Anywhere configuration options.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-anywhereconfiguration
+        '''
+        result = self._values.get("anywhere_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.AnywhereConfigurationProperty"]], result)
+
+    @builtins.property
+    def apply_capacity(self) -> typing.Optional[builtins.str]:
+        '''Current resource capacity settings for managed EC2 fleets and managed container fleets.
+
+        For multi-location fleets, location values might refer to a fleet's remote location or its home Region.
+
+        *Returned by:* `DescribeFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetCapacity.html>`_ , `DescribeFleetLocationCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetLocationCapacity.html>`_ , `UpdateFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetCapacity.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-applycapacity
+        '''
+        result = self._values.get("apply_capacity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def build_id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for a build to be deployed on the new fleet.
+
+        If you are deploying the fleet with a custom game build, you must specify this property. The build must have been successfully uploaded to Amazon GameLift and be in a ``READY`` status. This fleet setting cannot be changed once the fleet is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-buildid
+        '''
+        result = self._values.get("build_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.CertificateConfigurationProperty"]]:
+        '''Prompts Amazon GameLift Servers to generate a TLS/SSL certificate for the fleet.
+
+        Amazon GameLift Servers uses the certificates to encrypt traffic between game clients and the game servers running on Amazon GameLift Servers. By default, the ``CertificateConfiguration`` is ``DISABLED`` . You can't change this property after you create the fleet.
+
+        AWS Certificate Manager (ACM) certificates expire after 13 months. Certificate expiration can cause fleets to fail, preventing players from connecting to instances in the fleet. We recommend you replace fleets before 13 months, consider using fleet aliases for a smooth transition.
+        .. epigraph::
+
+           ACM isn't available in all AWS regions. A fleet creation request with certificate generation enabled in an unsupported Region, fails with a 4xx error. For more information about the supported Regions, see `Supported Regions <https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html>`_ in the *AWS Certificate Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-certificateconfiguration
+        '''
+        result = self._values.get("certificate_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.CertificateConfigurationProperty"]], result)
+
+    @builtins.property
+    def compute_type(self) -> typing.Optional[builtins.str]:
+        '''The type of compute resource used to host your game servers.
+
+        - ``EC2`` – The game server build is deployed to Amazon EC2 instances for cloud hosting. This is the default setting.
+        - ``ANYWHERE`` – Game servers and supporting software are deployed to compute resources that you provide and manage. With this compute type, you can also set the ``AnywhereConfiguration`` parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-computetype
+        '''
+        result = self._values.get("compute_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def desired_ec2_instances(self) -> typing.Optional[jsii.Number]:
+        '''(deprecated) [DEPRECATED] The number of EC2 instances that you want this fleet to host.
+
+        When creating a new fleet, GameLift automatically sets this value to "1" and initiates a single instance. Once the fleet is active, update this value to trigger GameLift to add or remove instances from the fleet.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-desiredec2instances
+        :stability: deprecated
+        '''
+        result = self._values.get("desired_ec2_instances")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ec2_inbound_permissions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.IpPermissionProperty"]]]]:
+        '''The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
+
+        Set this parameter for managed EC2 fleets. You can leave this parameter empty when creating the fleet, but you must call ` <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetPortSettings>`_ to set it before players can connect to game sessions. As a best practice, we recommend opening ports for remote access only when you need them and closing them when you're finished. For Amazon GameLift Servers Realtime fleets, Amazon GameLift Servers automatically sets TCP and UDP ranges.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-ec2inboundpermissions
+        '''
+        result = self._values.get("ec2_inbound_permissions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.IpPermissionProperty"]]]], result)
+
+    @builtins.property
+    def ec2_instance_type(self) -> typing.Optional[builtins.str]:
+        '''The Amazon GameLift Servers-supported Amazon EC2 instance type to use with managed EC2 fleets.
+
+        Instance type determines the computing resources that will be used to host your game servers, including CPU, memory, storage, and networking capacity. See `Amazon Elastic Compute Cloud Instance Types <https://docs.aws.amazon.com/ec2/instance-types/>`_ for detailed descriptions of Amazon EC2 instance types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-ec2instancetype
+        '''
+        result = self._values.get("ec2_instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fleet_type(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether to use On-Demand or Spot instances for this fleet.
+
+        By default, this property is set to ``ON_DEMAND`` . Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . This fleet property can't be changed after the fleet is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-fleettype
+        '''
+        result = self._values.get("fleet_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_role_arn(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for an IAM role that manages access to your AWS services.
+
+        With an instance role ARN set, any application that runs on an instance in this fleet can assume the role, including install scripts, server processes, and daemons (background processes). Create a role or look up a role's ARN by using the `IAM dashboard <https://docs.aws.amazon.com/iam/>`_ in the AWS Management Console . Learn more about using on-box credentials for your game servers at `Access external resources from a game server <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-instancerolearn
+        '''
+        result = self._values.get("instance_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_role_credentials_provider(self) -> typing.Optional[builtins.str]:
+        '''Indicates that fleet instances maintain a shared credentials file for the IAM role defined in ``InstanceRoleArn`` .
+
+        Shared credentials allow applications that are deployed with the game server executable to communicate with other AWS resources. This property is used only when the game server is integrated with the server SDK version 5.x. For more information about using shared credentials, see `Communicate with other AWS resources from your fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-instancerolecredentialsprovider
+        '''
+        result = self._values.get("instance_role_credentials_provider")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def locations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.LocationConfigurationProperty"]]]]:
+        '''A set of remote locations to deploy additional instances to and manage as a multi-location fleet.
+
+        Use this parameter when creating a fleet in AWS Regions that support multiple locations. You can add any AWS Region or Local Zone that's supported by Amazon GameLift Servers. Provide a list of one or more AWS Region codes, such as ``us-west-2`` , or Local Zone names. When using this parameter, Amazon GameLift Servers requires you to include your home location in the request. For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-locations
+        '''
+        result = self._values.get("locations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.LocationConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def log_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) This parameter is no longer used.
+
+        When hosting a custom game build, specify where Amazon GameLift should store log files using the Amazon GameLift server API call ProcessReady()
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-logpaths
+        :stability: deprecated
+        '''
+        result = self._values.get("log_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def max_size(self) -> typing.Optional[jsii.Number]:
+        '''(deprecated) [DEPRECATED] The maximum value that is allowed for the fleet's instance count.
+
+        When creating a new fleet, GameLift automatically sets this value to "1". Once the fleet is active, you can change this value.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-maxsize
+        :stability: deprecated
+        '''
+        result = self._values.get("max_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def metric_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of an AWS CloudWatch metric group to add this fleet to.
+
+        A metric group is used to aggregate the metrics for multiple fleets. You can specify an existing metric group name or set a new name to create a new metric group. A fleet can be included in only one metric group at a time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-metricgroups
+        '''
+        result = self._values.get("metric_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def min_size(self) -> typing.Optional[jsii.Number]:
+        '''(deprecated) [DEPRECATED] The minimum value allowed for the fleet's instance count.
+
+        When creating a new fleet, GameLift automatically sets this value to "0". After the fleet is active, you can change this value.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-minsize
+        :stability: deprecated
+        '''
+        result = self._values.get("min_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def new_game_session_protection_policy(self) -> typing.Optional[builtins.str]:
+        '''The status of termination protection for active game sessions on the fleet.
+
+        By default, this property is set to ``NoProtection`` .
+
+        - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event.
+        - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-newgamesessionprotectionpolicy
+        '''
+        result = self._values.get("new_game_session_protection_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def peer_vpc_aws_account_id(self) -> typing.Optional[builtins.str]:
+        '''Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC.
+
+        You can find your account ID in the AWS Management Console under account settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-peervpcawsaccountid
+        '''
+        result = self._values.get("peer_vpc_aws_account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def peer_vpc_id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet.
+
+        The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-peervpcid
+        '''
+        result = self._values.get("peer_vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_creation_limit_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.ResourceCreationLimitPolicyProperty"]]:
+        '''A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-resourcecreationlimitpolicy
+        '''
+        result = self._values.get("resource_creation_limit_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.ResourceCreationLimitPolicyProperty"]], result)
+
+    @builtins.property
+    def runtime_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.RuntimeConfigurationProperty"]]:
+        '''Instructions for how to launch and maintain server processes on instances in the fleet.
+
+        The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently.
+        .. epigraph::
+
+           The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-runtimeconfiguration
+        '''
+        result = self._values.get("runtime_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.RuntimeConfigurationProperty"]], result)
+
+    @builtins.property
+    def scaling_policies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.ScalingPolicyProperty"]]]]:
+        '''Rule that controls how a fleet is scaled.
+
+        Scaling policies are uniquely identified by the combination of name and fleet ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-scalingpolicies
+        '''
+        result = self._values.get("scaling_policies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFleet.ScalingPolicyProperty"]]]], result)
+
+    @builtins.property
+    def script_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier for a Realtime configuration script to be deployed on fleet instances.
+
+        You can use either the script ID or ARN. Scripts must be uploaded to Amazon GameLift Servers prior to creating the fleet. This fleet property cannot be changed later.
+        .. epigraph::
+
+           You can't use the ``!Ref`` command to reference a script created with a CloudFormation template for the fleet property ``ScriptId`` . Instead, use ``Fn::GetAtt Script.Arn`` or ``Fn::GetAtt Script.Id`` to retrieve either of these properties as input for ``ScriptId`` . Alternatively, enter a ``ScriptId`` string manually.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-scriptid
+        '''
+        result = self._values.get("script_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_launch_parameters(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This parameter is no longer used but is retained for backward compatibility.
+
+        Instead, specify server launch parameters in the RuntimeConfiguration parameter. A request must specify either a runtime configuration or values for both ServerLaunchParameters and ServerLaunchPath.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-serverlaunchparameters
+        :stability: deprecated
+        '''
+        result = self._values.get("server_launch_parameters")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_launch_path(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) This parameter is no longer used.
+
+        Instead, specify a server launch path using the RuntimeConfiguration parameter. Requests that specify a server launch path and launch parameters instead of a runtime configuration will continue to work.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-serverlaunchpath
+        :stability: deprecated
+        '''
+        result = self._values.get("server_launch_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFleetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnGameServerGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "game_server_group_name": "gameServerGroupName",
+        "instance_definitions": "instanceDefinitions",
+        "role_arn": "roleArn",
+        "auto_scaling_policy": "autoScalingPolicy",
+        "balancing_strategy": "balancingStrategy",
+        "delete_option": "deleteOption",
+        "game_server_protection_policy": "gameServerProtectionPolicy",
+        "launch_template": "launchTemplate",
+        "max_size": "maxSize",
+        "min_size": "minSize",
+        "tags": "tags",
+        "vpc_subnets": "vpcSubnets",
+    },
+)
+class CfnGameServerGroupProps:
+    def __init__(
+        self,
+        *,
+        game_server_group_name: builtins.str,
+        instance_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameServerGroup.InstanceDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        role_arn: builtins.str,
+        auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameServerGroup.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        balancing_strategy: typing.Optional[builtins.str] = None,
+        delete_option: typing.Optional[builtins.str] = None,
+        game_server_protection_policy: typing.Optional[builtins.str] = None,
+        launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameServerGroup.LaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        max_size: typing.Optional[jsii.Number] = None,
+        min_size: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGameServerGroup``.
+
+        :param game_server_group_name: A developer-defined identifier for the game server group. The name is unique for each Region in each AWS account.
+        :param instance_definitions: The set of Amazon EC2 instance types that Amazon GameLift Servers FleetIQ can use when balancing and automatically scaling instances in the corresponding Auto Scaling group.
+        :param role_arn: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) for an IAM role that allows Amazon GameLift Servers to access your Amazon EC2 Auto Scaling groups.
+        :param auto_scaling_policy: Configuration settings to define a scaling policy for the Auto Scaling group that is optimized for game hosting. The scaling policy uses the metric ``"PercentUtilizedGameServers"`` to maintain a buffer of idle game servers that can immediately accommodate new games and players. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+        :param balancing_strategy: Indicates how Amazon GameLift Servers FleetIQ balances the use of Spot Instances and On-Demand Instances in the game server group. Method options include the following: - ``SPOT_ONLY`` - Only Spot Instances are used in the game server group. If Spot Instances are unavailable or not viable for game hosting, the game server group provides no hosting capacity until Spot Instances can again be used. Until then, no new instances are started, and the existing nonviable Spot Instances are terminated (after current gameplay ends) and are not replaced. - ``SPOT_PREFERRED`` - (default value) Spot Instances are used whenever available in the game server group. If Spot Instances are unavailable, the game server group continues to provide hosting capacity by falling back to On-Demand Instances. Existing nonviable Spot Instances are terminated (after current gameplay ends) and are replaced with new On-Demand Instances. - ``ON_DEMAND_ONLY`` - Only On-Demand Instances are used in the game server group. No Spot Instances are used, even when available, while this balancing strategy is in force.
+        :param delete_option: The type of delete to perform. To delete a game server group, specify the ``DeleteOption`` . Options include the following: - ``SAFE_DELETE`` – (default) Terminates the game server group and Amazon EC2 Auto Scaling group only when it has no game servers that are in ``UTILIZED`` status. - ``FORCE_DELETE`` – Terminates the game server group, including all active game servers regardless of their utilization status, and the Amazon EC2 Auto Scaling group. - ``RETAIN`` – Does a safe delete of the game server group but retains the Amazon EC2 Auto Scaling group as is.
+        :param game_server_protection_policy: A flag that indicates whether instances in the game server group are protected from early termination. Unprotected instances that have active game servers running might be terminated during a scale-down event, causing players to be dropped from the game. Protected instances cannot be terminated while there are active game servers running except in the event of a forced game server group deletion (see ). An exception to this is with Spot Instances, which can be terminated by AWS regardless of protection status.
+        :param launch_template: The Amazon EC2 launch template that contains configuration settings and game server code to be deployed to all instances in the game server group. You can specify the template using either the template name or ID. For help with creating a launch template, see `Creating a Launch Template for an Auto Scaling Group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-template.html>`_ in the *Amazon Elastic Compute Cloud Auto Scaling User Guide* . After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs. .. epigraph:: If you specify network interfaces in your launch template, you must explicitly set the property ``AssociatePublicIpAddress`` to "true". If no network interface is specified in the launch template, Amazon GameLift Servers FleetIQ uses your account's default VPC.
+        :param max_size: The maximum number of instances allowed in the Amazon EC2 Auto Scaling group. During automatic scaling events, Amazon GameLift Servers FleetIQ and EC2 do not scale up the group above this maximum. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+        :param min_size: The minimum number of instances allowed in the Amazon EC2 Auto Scaling group. During automatic scaling events, Amazon GameLift Servers FleetIQ and Amazon EC2 do not scale down the group below this minimum. In production, this value should be set to at least 1. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+        :param tags: A list of labels to assign to the new game server group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags, respectively. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+        :param vpc_subnets: A list of virtual private cloud (VPC) subnets to use with instances in the game server group. By default, all Amazon GameLift Servers FleetIQ-supported Availability Zones are used. You can use this parameter to specify VPCs that you've set up. This property cannot be updated after the game server group is created, and the corresponding Auto Scaling group will always use the property value that is set with this request, even if the Auto Scaling group is updated directly.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_game_server_group_props = gamelift.CfnGameServerGroupProps(
+                game_server_group_name="gameServerGroupName",
+                instance_definitions=[gamelift.CfnGameServerGroup.InstanceDefinitionProperty(
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    weighted_capacity="weightedCapacity"
+                )],
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                auto_scaling_policy=gamelift.CfnGameServerGroup.AutoScalingPolicyProperty(
+                    target_tracking_configuration=gamelift.CfnGameServerGroup.TargetTrackingConfigurationProperty(
+                        target_value=123
+                    ),
+            
+                    # the properties below are optional
+                    estimated_instance_warmup=123
+                ),
+                balancing_strategy="balancingStrategy",
+                delete_option="deleteOption",
+                game_server_protection_policy="gameServerProtectionPolicy",
+                launch_template=gamelift.CfnGameServerGroup.LaunchTemplateProperty(
+                    launch_template_id="launchTemplateId",
+                    launch_template_name="launchTemplateName",
+                    version="version"
+                ),
+                max_size=123,
+                min_size=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_subnets=["vpcSubnets"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb2b330cbc0b2bd24b542707e03f7de3d6d3afa7d8fa0efaac64771d13b95db1)
+            check_type(argname="argument game_server_group_name", value=game_server_group_name, expected_type=type_hints["game_server_group_name"])
+            check_type(argname="argument instance_definitions", value=instance_definitions, expected_type=type_hints["instance_definitions"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument auto_scaling_policy", value=auto_scaling_policy, expected_type=type_hints["auto_scaling_policy"])
+            check_type(argname="argument balancing_strategy", value=balancing_strategy, expected_type=type_hints["balancing_strategy"])
+            check_type(argname="argument delete_option", value=delete_option, expected_type=type_hints["delete_option"])
+            check_type(argname="argument game_server_protection_policy", value=game_server_protection_policy, expected_type=type_hints["game_server_protection_policy"])
+            check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
+            check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
+            check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "game_server_group_name": game_server_group_name,
+            "instance_definitions": instance_definitions,
+            "role_arn": role_arn,
+        }
+        if auto_scaling_policy is not None:
+            self._values["auto_scaling_policy"] = auto_scaling_policy
+        if balancing_strategy is not None:
+            self._values["balancing_strategy"] = balancing_strategy
+        if delete_option is not None:
+            self._values["delete_option"] = delete_option
+        if game_server_protection_policy is not None:
+            self._values["game_server_protection_policy"] = game_server_protection_policy
+        if launch_template is not None:
+            self._values["launch_template"] = launch_template
+        if max_size is not None:
+            self._values["max_size"] = max_size
+        if min_size is not None:
+            self._values["min_size"] = min_size
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
+
+    @builtins.property
+    def game_server_group_name(self) -> builtins.str:
+        '''A developer-defined identifier for the game server group.
+
+        The name is unique for each Region in each AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-gameservergroupname
+        '''
+        result = self._values.get("game_server_group_name")
+        assert result is not None, "Required property 'game_server_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_definitions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.InstanceDefinitionProperty"]]]:
+        '''The set of Amazon EC2 instance types that Amazon GameLift Servers FleetIQ can use when balancing and automatically scaling instances in the corresponding Auto Scaling group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-instancedefinitions
+        '''
+        result = self._values.get("instance_definitions")
+        assert result is not None, "Required property 'instance_definitions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.InstanceDefinitionProperty"]]], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) for an IAM role that allows Amazon GameLift Servers to access your Amazon EC2 Auto Scaling groups.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_scaling_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.AutoScalingPolicyProperty"]]:
+        '''Configuration settings to define a scaling policy for the Auto Scaling group that is optimized for game hosting.
+
+        The scaling policy uses the metric ``"PercentUtilizedGameServers"`` to maintain a buffer of idle game servers that can immediately accommodate new games and players. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-autoscalingpolicy
+        '''
+        result = self._values.get("auto_scaling_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.AutoScalingPolicyProperty"]], result)
+
+    @builtins.property
+    def balancing_strategy(self) -> typing.Optional[builtins.str]:
+        '''Indicates how Amazon GameLift Servers FleetIQ balances the use of Spot Instances and On-Demand Instances in the game server group.
+
+        Method options include the following:
+
+        - ``SPOT_ONLY`` - Only Spot Instances are used in the game server group. If Spot Instances are unavailable or not viable for game hosting, the game server group provides no hosting capacity until Spot Instances can again be used. Until then, no new instances are started, and the existing nonviable Spot Instances are terminated (after current gameplay ends) and are not replaced.
+        - ``SPOT_PREFERRED`` - (default value) Spot Instances are used whenever available in the game server group. If Spot Instances are unavailable, the game server group continues to provide hosting capacity by falling back to On-Demand Instances. Existing nonviable Spot Instances are terminated (after current gameplay ends) and are replaced with new On-Demand Instances.
+        - ``ON_DEMAND_ONLY`` - Only On-Demand Instances are used in the game server group. No Spot Instances are used, even when available, while this balancing strategy is in force.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-balancingstrategy
+        '''
+        result = self._values.get("balancing_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_option(self) -> typing.Optional[builtins.str]:
+        '''The type of delete to perform.
+
+        To delete a game server group, specify the ``DeleteOption`` . Options include the following:
+
+        - ``SAFE_DELETE`` – (default) Terminates the game server group and Amazon EC2 Auto Scaling group only when it has no game servers that are in ``UTILIZED`` status.
+        - ``FORCE_DELETE`` – Terminates the game server group, including all active game servers regardless of their utilization status, and the Amazon EC2 Auto Scaling group.
+        - ``RETAIN`` – Does a safe delete of the game server group but retains the Amazon EC2 Auto Scaling group as is.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-deleteoption
+        '''
+        result = self._values.get("delete_option")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_server_protection_policy(self) -> typing.Optional[builtins.str]:
+        '''A flag that indicates whether instances in the game server group are protected from early termination.
+
+        Unprotected instances that have active game servers running might be terminated during a scale-down event, causing players to be dropped from the game. Protected instances cannot be terminated while there are active game servers running except in the event of a forced game server group deletion (see ). An exception to this is with Spot Instances, which can be terminated by AWS regardless of protection status.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-gameserverprotectionpolicy
+        '''
+        result = self._values.get("game_server_protection_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def launch_template(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.LaunchTemplateProperty"]]:
+        '''The Amazon EC2 launch template that contains configuration settings and game server code to be deployed to all instances in the game server group.
+
+        You can specify the template using either the template name or ID. For help with creating a launch template, see `Creating a Launch Template for an Auto Scaling Group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-template.html>`_ in the *Amazon Elastic Compute Cloud Auto Scaling User Guide* . After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+        .. epigraph::
+
+           If you specify network interfaces in your launch template, you must explicitly set the property ``AssociatePublicIpAddress`` to "true". If no network interface is specified in the launch template, Amazon GameLift Servers FleetIQ uses your account's default VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-launchtemplate
+        '''
+        result = self._values.get("launch_template")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameServerGroup.LaunchTemplateProperty"]], result)
+
+    @builtins.property
+    def max_size(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of instances allowed in the Amazon EC2 Auto Scaling group.
+
+        During automatic scaling events, Amazon GameLift Servers FleetIQ and EC2 do not scale up the group above this maximum. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-maxsize
+        '''
+        result = self._values.get("max_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def min_size(self) -> typing.Optional[jsii.Number]:
+        '''The minimum number of instances allowed in the Amazon EC2 Auto Scaling group.
+
+        During automatic scaling events, Amazon GameLift Servers FleetIQ and Amazon EC2 do not scale down the group below this minimum. In production, this value should be set to at least 1. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-minsize
+        '''
+        result = self._values.get("min_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new game server group resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags, respectively. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_subnets(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of virtual private cloud (VPC) subnets to use with instances in the game server group.
+
+        By default, all Amazon GameLift Servers FleetIQ-supported Availability Zones are used. You can use this parameter to specify VPCs that you've set up. This property cannot be updated after the game server group is created, and the corresponding Auto Scaling group will always use the property value that is set with this request, even if the Auto Scaling group is updated directly.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-vpcsubnets
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGameServerGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnGameSessionQueueProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "custom_event_data": "customEventData",
+        "destinations": "destinations",
+        "filter_configuration": "filterConfiguration",
+        "notification_target": "notificationTarget",
+        "player_latency_policies": "playerLatencyPolicies",
+        "priority_configuration": "priorityConfiguration",
+        "tags": "tags",
+        "timeout_in_seconds": "timeoutInSeconds",
+    },
+)
+class CfnGameSessionQueueProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        custom_event_data: typing.Optional[builtins.str] = None,
+        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameSessionQueue.DestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameSessionQueue.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_target: typing.Optional[builtins.str] = None,
+        player_latency_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameSessionQueue.PlayerLatencyPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        priority_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGameSessionQueue.PriorityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGameSessionQueue``.
+
+        :param name: A descriptive label that is associated with game session queue. Queue names must be unique within each Region.
+        :param custom_event_data: Information to be added to all events that are related to this game session queue.
+        :param destinations: A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue. Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
+        :param filter_configuration: A list of locations where a queue is allowed to place new game sessions. Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
+        :param notification_target: An SNS topic ARN that is set up to receive game session placement notifications. See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
+        :param player_latency_policies: A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests. Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
+        :param priority_configuration: Custom settings to use when prioritizing destinations and locations for game session placements. This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
+        :param tags: A list of labels to assign to the new game session queue resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+        :param timeout_in_seconds: The maximum time, in seconds, that a new game session placement request remains in the queue. When a request exceeds this time, the game session placement changes to a ``TIMED_OUT`` status. If you don't specify a request timeout, the queue uses a default value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_game_session_queue_props = gamelift.CfnGameSessionQueueProps(
+                name="name",
+            
+                # the properties below are optional
+                custom_event_data="customEventData",
+                destinations=[gamelift.CfnGameSessionQueue.DestinationProperty(
+                    destination_arn="destinationArn"
+                )],
+                filter_configuration=gamelift.CfnGameSessionQueue.FilterConfigurationProperty(
+                    allowed_locations=["allowedLocations"]
+                ),
+                notification_target="notificationTarget",
+                player_latency_policies=[gamelift.CfnGameSessionQueue.PlayerLatencyPolicyProperty(
+                    maximum_individual_player_latency_milliseconds=123,
+                    policy_duration_seconds=123
+                )],
+                priority_configuration=gamelift.CfnGameSessionQueue.PriorityConfigurationProperty(
+                    location_order=["locationOrder"],
+                    priority_order=["priorityOrder"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                timeout_in_seconds=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b18cdd98f5e3e7424d6d930e416c9690c2e3cdcc56ac70f4688a8984ea0e8b7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument custom_event_data", value=custom_event_data, expected_type=type_hints["custom_event_data"])
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
+            check_type(argname="argument notification_target", value=notification_target, expected_type=type_hints["notification_target"])
+            check_type(argname="argument player_latency_policies", value=player_latency_policies, expected_type=type_hints["player_latency_policies"])
+            check_type(argname="argument priority_configuration", value=priority_configuration, expected_type=type_hints["priority_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if custom_event_data is not None:
+            self._values["custom_event_data"] = custom_event_data
+        if destinations is not None:
+            self._values["destinations"] = destinations
+        if filter_configuration is not None:
+            self._values["filter_configuration"] = filter_configuration
+        if notification_target is not None:
+            self._values["notification_target"] = notification_target
+        if player_latency_policies is not None:
+            self._values["player_latency_policies"] = player_latency_policies
+        if priority_configuration is not None:
+            self._values["priority_configuration"] = priority_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout_in_seconds is not None:
+            self._values["timeout_in_seconds"] = timeout_in_seconds
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A descriptive label that is associated with game session queue.
+
+        Queue names must be unique within each Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_event_data(self) -> typing.Optional[builtins.str]:
+        '''Information to be added to all events that are related to this game session queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-customeventdata
+        '''
+        result = self._values.get("custom_event_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destinations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.DestinationProperty"]]]]:
+        '''A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue.
+
+        Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-destinations
+        '''
+        result = self._values.get("destinations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.DestinationProperty"]]]], result)
+
+    @builtins.property
+    def filter_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.FilterConfigurationProperty"]]:
+        '''A list of locations where a queue is allowed to place new game sessions.
+
+        Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-filterconfiguration
+        '''
+        result = self._values.get("filter_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.FilterConfigurationProperty"]], result)
+
+    @builtins.property
+    def notification_target(self) -> typing.Optional[builtins.str]:
+        '''An SNS topic ARN that is set up to receive game session placement notifications.
+
+        See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-notificationtarget
+        '''
+        result = self._values.get("notification_target")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def player_latency_policies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.PlayerLatencyPolicyProperty"]]]]:
+        '''A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests.
+
+        Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-playerlatencypolicies
+        '''
+        result = self._values.get("player_latency_policies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.PlayerLatencyPolicyProperty"]]]], result)
+
+    @builtins.property
+    def priority_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.PriorityConfigurationProperty"]]:
+        '''Custom settings to use when prioritizing destinations and locations for game session placements.
+
+        This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-priorityconfiguration
+        '''
+        result = self._values.get("priority_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGameSessionQueue.PriorityConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new game session queue resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The maximum time, in seconds, that a new game session placement request remains in the queue.
+
+        When a request exceeds this time, the game session placement changes to a ``TIMED_OUT`` status. If you don't specify a request timeout, the queue uses a default value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-timeoutinseconds
+        '''
+        result = self._values.get("timeout_in_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGameSessionQueueProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnLocationProps",
+    jsii_struct_bases=[],
+    name_mapping={"location_name": "locationName", "tags": "tags"},
+)
+class CfnLocationProps:
+    def __init__(
+        self,
+        *,
+        location_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLocation``.
+
+        :param location_name: A descriptive name for the custom location.
+        :param tags: A list of labels to assign to the new resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Rareference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_location_props = gamelift.CfnLocationProps(
+                location_name="locationName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98ffffd954dd9a648cdd22ea8069e64a916e69b5690bde3de5bb865f1a555e5d)
+            check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "location_name": location_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def location_name(self) -> builtins.str:
+        '''A descriptive name for the custom location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html#cfn-gamelift-location-locationname
+        '''
+        result = self._values.get("location_name")
+        assert result is not None, "Required property 'location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Rareference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html#cfn-gamelift-location-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLocationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnMatchmakingConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "acceptance_required": "acceptanceRequired",
+        "name": "name",
+        "request_timeout_seconds": "requestTimeoutSeconds",
+        "rule_set_name": "ruleSetName",
+        "acceptance_timeout_seconds": "acceptanceTimeoutSeconds",
+        "additional_player_count": "additionalPlayerCount",
+        "backfill_mode": "backfillMode",
+        "creation_time": "creationTime",
+        "custom_event_data": "customEventData",
+        "description": "description",
+        "flex_match_mode": "flexMatchMode",
+        "game_properties": "gameProperties",
+        "game_session_data": "gameSessionData",
+        "game_session_queue_arns": "gameSessionQueueArns",
+        "notification_target": "notificationTarget",
+        "rule_set_arn": "ruleSetArn",
+        "tags": "tags",
+    },
+)
+class CfnMatchmakingConfigurationProps:
+    def __init__(
+        self,
+        *,
+        acceptance_required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        name: builtins.str,
+        request_timeout_seconds: jsii.Number,
+        rule_set_name: builtins.str,
+        acceptance_timeout_seconds: typing.Optional[jsii.Number] = None,
+        additional_player_count: typing.Optional[jsii.Number] = None,
+        backfill_mode: typing.Optional[builtins.str] = None,
+        creation_time: typing.Optional[builtins.str] = None,
+        custom_event_data: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        flex_match_mode: typing.Optional[builtins.str] = None,
+        game_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchmakingConfiguration.GamePropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        game_session_data: typing.Optional[builtins.str] = None,
+        game_session_queue_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        notification_target: typing.Optional[builtins.str] = None,
+        rule_set_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMatchmakingConfiguration``.
+
+        :param acceptance_required: A flag that determines whether a match that was created with this configuration must be accepted by the matched players. To require acceptance, set to ``TRUE`` . With this option enabled, matchmaking tickets use the status ``REQUIRES_ACCEPTANCE`` to indicate when a completed potential match is waiting for player acceptance.
+        :param name: A unique identifier for the matchmaking configuration. This name is used to identify the configuration associated with a matchmaking request or ticket.
+        :param request_timeout_seconds: The maximum duration, in seconds, that a matchmaking ticket can remain in process before timing out. Requests that fail due to timing out can be resubmitted as needed.
+        :param rule_set_name: A unique identifier for the matchmaking rule set to use with this configuration. You can use either the rule set name or ARN value. A matchmaking configuration can only use rule sets that are defined in the same Region.
+        :param acceptance_timeout_seconds: The length of time (in seconds) to wait for players to accept a proposed match, if acceptance is required.
+        :param additional_player_count: The number of player slots in a match to keep open for future players. For example, if the configuration's rule set specifies a match for a single 12-person team, and the additional player count is set to 2, only 10 players are selected for the match. This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+        :param backfill_mode: The method used to backfill game sessions that are created with this matchmaking configuration. Specify ``MANUAL`` when your game manages backfill requests manually or does not use the match backfill feature. Specify ``AUTOMATIC`` to have GameLift create a ``StartMatchBackfill`` request whenever a game session has one or more open slots. Learn more about manual and automatic backfill in `Backfill Existing Games with FlexMatch <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-backfill.html>`_ . Automatic backfill is not available when ``FlexMatchMode`` is set to ``STANDALONE`` .
+        :param creation_time: A time stamp indicating when this data object was created. Format is a number expressed in Unix time as milliseconds (for example ``"1469498468.057"`` ).
+        :param custom_event_data: Information to add to all events related to the matchmaking configuration.
+        :param description: A description for the matchmaking configuration.
+        :param flex_match_mode: Indicates whether this matchmaking configuration is being used with Amazon GameLift Servers hosting or as a standalone matchmaking solution. - *STANDALONE* - FlexMatch forms matches and returns match information, including players and team assignments, in a `MatchmakingSucceeded <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-events.html#match-events-matchmakingsucceeded>`_ event. - *WITH_QUEUE* - FlexMatch forms matches and uses the specified Amazon GameLift Servers queue to start a game session for the match.
+        :param game_properties: A set of custom properties for a game session, formatted as key-value pairs. These properties are passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+        :param game_session_data: A set of custom game session properties, formatted as a single string value. This data is passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+        :param game_session_queue_arns: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) that is assigned to a Amazon GameLift Servers game session queue resource and uniquely identifies it. ARNs are unique across all Regions. Format is ``arn:aws:gamelift:<region>::gamesessionqueue/<queue name>`` . Queues can be located in any Region. Queues are used to start new Amazon GameLift Servers-hosted game sessions for matches that are created with this matchmaking configuration. If ``FlexMatchMode`` is set to ``STANDALONE`` , do not set this parameter.
+        :param notification_target: An SNS topic ARN that is set up to receive matchmaking notifications. See `Setting up notifications for matchmaking <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-notification.html>`_ for more information.
+        :param rule_set_arn: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) associated with the GameLift matchmaking rule set resource that this configuration uses.
+        :param tags: A list of labels to assign to the new matchmaking configuration resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_matchmaking_configuration_props = gamelift.CfnMatchmakingConfigurationProps(
+                acceptance_required=False,
+                name="name",
+                request_timeout_seconds=123,
+                rule_set_name="ruleSetName",
+            
+                # the properties below are optional
+                acceptance_timeout_seconds=123,
+                additional_player_count=123,
+                backfill_mode="backfillMode",
+                creation_time="creationTime",
+                custom_event_data="customEventData",
+                description="description",
+                flex_match_mode="flexMatchMode",
+                game_properties=[gamelift.CfnMatchmakingConfiguration.GamePropertyProperty(
+                    key="key",
+                    value="value"
+                )],
+                game_session_data="gameSessionData",
+                game_session_queue_arns=["gameSessionQueueArns"],
+                notification_target="notificationTarget",
+                rule_set_arn="ruleSetArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db0695f9efae852f4e3e7ce492e734297825efd4ac43986ef67506d40163a838)
+            check_type(argname="argument acceptance_required", value=acceptance_required, expected_type=type_hints["acceptance_required"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument request_timeout_seconds", value=request_timeout_seconds, expected_type=type_hints["request_timeout_seconds"])
+            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
+            check_type(argname="argument acceptance_timeout_seconds", value=acceptance_timeout_seconds, expected_type=type_hints["acceptance_timeout_seconds"])
+            check_type(argname="argument additional_player_count", value=additional_player_count, expected_type=type_hints["additional_player_count"])
+            check_type(argname="argument backfill_mode", value=backfill_mode, expected_type=type_hints["backfill_mode"])
+            check_type(argname="argument creation_time", value=creation_time, expected_type=type_hints["creation_time"])
+            check_type(argname="argument custom_event_data", value=custom_event_data, expected_type=type_hints["custom_event_data"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument flex_match_mode", value=flex_match_mode, expected_type=type_hints["flex_match_mode"])
+            check_type(argname="argument game_properties", value=game_properties, expected_type=type_hints["game_properties"])
+            check_type(argname="argument game_session_data", value=game_session_data, expected_type=type_hints["game_session_data"])
+            check_type(argname="argument game_session_queue_arns", value=game_session_queue_arns, expected_type=type_hints["game_session_queue_arns"])
+            check_type(argname="argument notification_target", value=notification_target, expected_type=type_hints["notification_target"])
+            check_type(argname="argument rule_set_arn", value=rule_set_arn, expected_type=type_hints["rule_set_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acceptance_required": acceptance_required,
+            "name": name,
+            "request_timeout_seconds": request_timeout_seconds,
+            "rule_set_name": rule_set_name,
+        }
+        if acceptance_timeout_seconds is not None:
+            self._values["acceptance_timeout_seconds"] = acceptance_timeout_seconds
+        if additional_player_count is not None:
+            self._values["additional_player_count"] = additional_player_count
+        if backfill_mode is not None:
+            self._values["backfill_mode"] = backfill_mode
+        if creation_time is not None:
+            self._values["creation_time"] = creation_time
+        if custom_event_data is not None:
+            self._values["custom_event_data"] = custom_event_data
+        if description is not None:
+            self._values["description"] = description
+        if flex_match_mode is not None:
+            self._values["flex_match_mode"] = flex_match_mode
+        if game_properties is not None:
+            self._values["game_properties"] = game_properties
+        if game_session_data is not None:
+            self._values["game_session_data"] = game_session_data
+        if game_session_queue_arns is not None:
+            self._values["game_session_queue_arns"] = game_session_queue_arns
+        if notification_target is not None:
+            self._values["notification_target"] = notification_target
+        if rule_set_arn is not None:
+            self._values["rule_set_arn"] = rule_set_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def acceptance_required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''A flag that determines whether a match that was created with this configuration must be accepted by the matched players.
+
+        To require acceptance, set to ``TRUE`` . With this option enabled, matchmaking tickets use the status ``REQUIRES_ACCEPTANCE`` to indicate when a completed potential match is waiting for player acceptance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-acceptancerequired
+        '''
+        result = self._values.get("acceptance_required")
+        assert result is not None, "Required property 'acceptance_required' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A unique identifier for the matchmaking configuration.
+
+        This name is used to identify the configuration associated with a matchmaking request or ticket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def request_timeout_seconds(self) -> jsii.Number:
+        '''The maximum duration, in seconds, that a matchmaking ticket can remain in process before timing out.
+
+        Requests that fail due to timing out can be resubmitted as needed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-requesttimeoutseconds
+        '''
+        result = self._values.get("request_timeout_seconds")
+        assert result is not None, "Required property 'request_timeout_seconds' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def rule_set_name(self) -> builtins.str:
+        '''A unique identifier for the matchmaking rule set to use with this configuration.
+
+        You can use either the rule set name or ARN value. A matchmaking configuration can only use rule sets that are defined in the same Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-rulesetname
+        '''
+        result = self._values.get("rule_set_name")
+        assert result is not None, "Required property 'rule_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def acceptance_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The length of time (in seconds) to wait for players to accept a proposed match, if acceptance is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-acceptancetimeoutseconds
+        '''
+        result = self._values.get("acceptance_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def additional_player_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of player slots in a match to keep open for future players.
+
+        For example, if the configuration's rule set specifies a match for a single 12-person team, and the additional player count is set to 2, only 10 players are selected for the match. This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-additionalplayercount
+        '''
+        result = self._values.get("additional_player_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def backfill_mode(self) -> typing.Optional[builtins.str]:
+        '''The method used to backfill game sessions that are created with this matchmaking configuration.
+
+        Specify ``MANUAL`` when your game manages backfill requests manually or does not use the match backfill feature. Specify ``AUTOMATIC`` to have GameLift create a ``StartMatchBackfill`` request whenever a game session has one or more open slots. Learn more about manual and automatic backfill in `Backfill Existing Games with FlexMatch <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-backfill.html>`_ . Automatic backfill is not available when ``FlexMatchMode`` is set to ``STANDALONE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-backfillmode
+        '''
+        result = self._values.get("backfill_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def creation_time(self) -> typing.Optional[builtins.str]:
+        '''A time stamp indicating when this data object was created.
+
+        Format is a number expressed in Unix time as milliseconds (for example ``"1469498468.057"`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-creationtime
+        '''
+        result = self._values.get("creation_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_event_data(self) -> typing.Optional[builtins.str]:
+        '''Information to add to all events related to the matchmaking configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-customeventdata
+        '''
+        result = self._values.get("custom_event_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the matchmaking configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flex_match_mode(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether this matchmaking configuration is being used with Amazon GameLift Servers hosting or as a standalone matchmaking solution.
+
+        - *STANDALONE* - FlexMatch forms matches and returns match information, including players and team assignments, in a `MatchmakingSucceeded <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-events.html#match-events-matchmakingsucceeded>`_ event.
+        - *WITH_QUEUE* - FlexMatch forms matches and uses the specified Amazon GameLift Servers queue to start a game session for the match.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-flexmatchmode
+        '''
+        result = self._values.get("flex_match_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchmakingConfiguration.GamePropertyProperty"]]]]:
+        '''A set of custom properties for a game session, formatted as key-value pairs.
+
+        These properties are passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gameproperties
+        '''
+        result = self._values.get("game_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchmakingConfiguration.GamePropertyProperty"]]]], result)
+
+    @builtins.property
+    def game_session_data(self) -> typing.Optional[builtins.str]:
+        '''A set of custom game session properties, formatted as a single string value.
+
+        This data is passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gamesessiondata
+        '''
+        result = self._values.get("game_session_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def game_session_queue_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) that is assigned to a Amazon GameLift Servers game session queue resource and uniquely identifies it. ARNs are unique across all Regions. Format is ``arn:aws:gamelift:<region>::gamesessionqueue/<queue name>`` . Queues can be located in any Region. Queues are used to start new Amazon GameLift Servers-hosted game sessions for matches that are created with this matchmaking configuration. If ``FlexMatchMode`` is set to ``STANDALONE`` , do not set this parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gamesessionqueuearns
+        '''
+        result = self._values.get("game_session_queue_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def notification_target(self) -> typing.Optional[builtins.str]:
+        '''An SNS topic ARN that is set up to receive matchmaking notifications.
+
+        See `Setting up notifications for matchmaking <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-notification.html>`_ for more information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-notificationtarget
+        '''
+        result = self._values.get("notification_target")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_set_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) associated with the GameLift matchmaking rule set resource that this configuration uses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-rulesetarn
+        '''
+        result = self._values.get("rule_set_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new matchmaking configuration resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMatchmakingConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnMatchmakingRuleSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "rule_set_body": "ruleSetBody", "tags": "tags"},
+)
+class CfnMatchmakingRuleSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        rule_set_body: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMatchmakingRuleSet``.
+
+        :param name: A unique identifier for the matchmaking rule set. A matchmaking configuration identifies the rule set it uses by this name value. Note that the rule set name is different from the optional ``name`` field in the rule set body.
+        :param rule_set_body: A collection of matchmaking rules, formatted as a JSON string. Comments are not allowed in JSON, but most elements support a description field.
+        :param tags: A list of labels to assign to the new matchmaking rule set resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_matchmaking_rule_set_props = gamelift.CfnMatchmakingRuleSetProps(
+                name="name",
+                rule_set_body="ruleSetBody",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bc1d10bdb780b0aa1af65a9211c041b6a3e7bb4893d0bfc3a61136195a863d6)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rule_set_body", value=rule_set_body, expected_type=type_hints["rule_set_body"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "rule_set_body": rule_set_body,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A unique identifier for the matchmaking rule set.
+
+        A matchmaking configuration identifies the rule set it uses by this name value. Note that the rule set name is different from the optional ``name`` field in the rule set body.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_set_body(self) -> builtins.str:
+        '''A collection of matchmaking rules, formatted as a JSON string.
+
+        Comments are not allowed in JSON, but most elements support a description field.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-rulesetbody
+        '''
+        result = self._values.get("rule_set_body")
+        assert result is not None, "Required property 'rule_set_body' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new matchmaking rule set resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMatchmakingRuleSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.CfnScriptProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "storage_location": "storageLocation",
+        "name": "name",
+        "tags": "tags",
+        "version": "version",
+    },
+)
+class CfnScriptProps:
+    def __init__(
+        self,
+        *,
+        storage_location: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScript.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScript``.
+
+        :param storage_location: The location of the Amazon S3 bucket where a zipped file containing your Realtime scripts is stored. The storage location must specify the Amazon S3 bucket name, the zip file name (the "key"), and a role ARN that allows Amazon GameLift Servers to access the Amazon S3 storage location. The S3 bucket must be in the same Region where you want to create a new script. By default, Amazon GameLift Servers uploads the latest version of the zip file; if you have S3 object versioning turned on, you can use the ``ObjectVersion`` parameter to specify an earlier version.
+        :param name: A descriptive label that is associated with a script. Script names do not need to be unique.
+        :param tags: A list of labels to assign to the new script resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+        :param version: The version that is associated with a build or script. Version strings do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            cfn_script_props = gamelift.CfnScriptProps(
+                storage_location=gamelift.CfnScript.S3LocationProperty(
+                    bucket="bucket",
+                    key="key",
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    object_version="objectVersion"
+                ),
+            
+                # the properties below are optional
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version="version"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4a56c9731d882f4e0af0b136c973132c594cdb2f6c8607aa9bd92978d6d80b5)
+            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "storage_location": storage_location,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def storage_location(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnScript.S3LocationProperty"]:
+        '''The location of the Amazon S3 bucket where a zipped file containing your Realtime scripts is stored.
+
+        The storage location must specify the Amazon S3 bucket name, the zip file name (the "key"), and a role ARN that allows Amazon GameLift Servers to access the Amazon S3 storage location. The S3 bucket must be in the same Region where you want to create a new script. By default, Amazon GameLift Servers uploads the latest version of the zip file; if you have S3 object versioning turned on, you can use the ``ObjectVersion`` parameter to specify an earlier version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-storagelocation
+        '''
+        result = self._values.get("storage_location")
+        assert result is not None, "Required property 'storage_location' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScript.S3LocationProperty"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A descriptive label that is associated with a script.
+
+        Script names do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of labels to assign to the new script resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''The version that is associated with a build or script.
+
+        Version strings do not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-version
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScriptProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.ContainerFleetReference",
+    jsii_struct_bases=[],
+    name_mapping={"fleet_id": "fleetId"},
+)
+class ContainerFleetReference:
+    def __init__(self, *, fleet_id: builtins.str) -> None:
+        '''A reference to a ContainerFleet resource.
+
+        :param fleet_id: The FleetId of the ContainerFleet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            container_fleet_reference = gamelift.ContainerFleetReference(
+                fleet_id="fleetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de39e16b982c76cd86dafcfda4933a257372032909a907aa16b808a66087f102)
+            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fleet_id": fleet_id,
+        }
+
+    @builtins.property
+    def fleet_id(self) -> builtins.str:
+        '''The FleetId of the ContainerFleet resource.'''
+        result = self._values.get("fleet_id")
+        assert result is not None, "Required property 'fleet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerFleetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.ContainerGroupDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_group_definition_arn": "containerGroupDefinitionArn",
+        "container_group_definition_name": "containerGroupDefinitionName",
+    },
+)
+class ContainerGroupDefinitionReference:
+    def __init__(
+        self,
+        *,
+        container_group_definition_arn: builtins.str,
+        container_group_definition_name: builtins.str,
+    ) -> None:
+        '''A reference to a ContainerGroupDefinition resource.
+
+        :param container_group_definition_arn: The ARN of the ContainerGroupDefinition resource.
+        :param container_group_definition_name: The Name of the ContainerGroupDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            container_group_definition_reference = gamelift.ContainerGroupDefinitionReference(
+                container_group_definition_arn="containerGroupDefinitionArn",
+                container_group_definition_name="containerGroupDefinitionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d405ef76e5a39ed151afbb8fb3d225dd7f56e606e5266b51464172f3608fe55)
+            check_type(argname="argument container_group_definition_arn", value=container_group_definition_arn, expected_type=type_hints["container_group_definition_arn"])
+            check_type(argname="argument container_group_definition_name", value=container_group_definition_name, expected_type=type_hints["container_group_definition_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_group_definition_arn": container_group_definition_arn,
+            "container_group_definition_name": container_group_definition_name,
+        }
+
+    @builtins.property
+    def container_group_definition_arn(self) -> builtins.str:
+        '''The ARN of the ContainerGroupDefinition resource.'''
+        result = self._values.get("container_group_definition_arn")
+        assert result is not None, "Required property 'container_group_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def container_group_definition_name(self) -> builtins.str:
+        '''The Name of the ContainerGroupDefinition resource.'''
+        result = self._values.get("container_group_definition_name")
+        assert result is not None, "Required property 'container_group_definition_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerGroupDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.FleetReference",
+    jsii_struct_bases=[],
+    name_mapping={"fleet_arn": "fleetArn", "fleet_id": "fleetId"},
+)
+class FleetReference:
+    def __init__(self, *, fleet_arn: builtins.str, fleet_id: builtins.str) -> None:
+        '''A reference to a Fleet resource.
+
+        :param fleet_arn: The ARN of the Fleet resource.
+        :param fleet_id: The FleetId of the Fleet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            fleet_reference = gamelift.FleetReference(
+                fleet_arn="fleetArn",
+                fleet_id="fleetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24e51038e2adad2131b16605c9250bcbfe7f16235980933012bddee386594a0d)
+            check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
+            check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "fleet_arn": fleet_arn,
+            "fleet_id": fleet_id,
+        }
+
+    @builtins.property
+    def fleet_arn(self) -> builtins.str:
+        '''The ARN of the Fleet resource.'''
+        result = self._values.get("fleet_arn")
+        assert result is not None, "Required property 'fleet_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def fleet_id(self) -> builtins.str:
+        '''The FleetId of the Fleet resource.'''
+        result = self._values.get("fleet_id")
+        assert result is not None, "Required property 'fleet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FleetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.GameServerGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"game_server_group_arn": "gameServerGroupArn"},
+)
+class GameServerGroupReference:
+    def __init__(self, *, game_server_group_arn: builtins.str) -> None:
+        '''A reference to a GameServerGroup resource.
+
+        :param game_server_group_arn: The GameServerGroupArn of the GameServerGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            game_server_group_reference = gamelift.GameServerGroupReference(
+                game_server_group_arn="gameServerGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9d6eaafba9bc6a7ec36686a8de8cc0b1e0541207caff415876fdb1d9d981344)
+            check_type(argname="argument game_server_group_arn", value=game_server_group_arn, expected_type=type_hints["game_server_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "game_server_group_arn": game_server_group_arn,
+        }
+
+    @builtins.property
+    def game_server_group_arn(self) -> builtins.str:
+        '''The GameServerGroupArn of the GameServerGroup resource.'''
+        result = self._values.get("game_server_group_arn")
+        assert result is not None, "Required property 'game_server_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GameServerGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.GameSessionQueueReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "game_session_queue_arn": "gameSessionQueueArn",
+        "game_session_queue_name": "gameSessionQueueName",
+    },
+)
+class GameSessionQueueReference:
+    def __init__(
+        self,
+        *,
+        game_session_queue_arn: builtins.str,
+        game_session_queue_name: builtins.str,
+    ) -> None:
+        '''A reference to a GameSessionQueue resource.
+
+        :param game_session_queue_arn: The ARN of the GameSessionQueue resource.
+        :param game_session_queue_name: The Name of the GameSessionQueue resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            game_session_queue_reference = gamelift.GameSessionQueueReference(
+                game_session_queue_arn="gameSessionQueueArn",
+                game_session_queue_name="gameSessionQueueName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84be2353284875355db6a0c796e5b9e4409b4db735a07ad3ee9b54040c17f9f6)
+            check_type(argname="argument game_session_queue_arn", value=game_session_queue_arn, expected_type=type_hints["game_session_queue_arn"])
+            check_type(argname="argument game_session_queue_name", value=game_session_queue_name, expected_type=type_hints["game_session_queue_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "game_session_queue_arn": game_session_queue_arn,
+            "game_session_queue_name": game_session_queue_name,
+        }
+
+    @builtins.property
+    def game_session_queue_arn(self) -> builtins.str:
+        '''The ARN of the GameSessionQueue resource.'''
+        result = self._values.get("game_session_queue_arn")
+        assert result is not None, "Required property 'game_session_queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def game_session_queue_name(self) -> builtins.str:
+        '''The Name of the GameSessionQueue resource.'''
+        result = self._values.get("game_session_queue_name")
+        assert result is not None, "Required property 'game_session_queue_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GameSessionQueueReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IAliasRef")
+class IAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Alias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''(experimental) A reference to a Alias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''(experimental) A reference to a Alias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAliasRef).__jsii_proxy_class__ = lambda : _IAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IBuildRef")
+class IBuildRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Build.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="buildRef")
+    def build_ref(self) -> BuildReference:
+        '''(experimental) A reference to a Build resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBuildRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Build.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IBuildRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="buildRef")
+    def build_ref(self) -> BuildReference:
+        '''(experimental) A reference to a Build resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BuildReference, jsii.get(self, "buildRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBuildRef).__jsii_proxy_class__ = lambda : _IBuildRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IContainerFleetRef")
+class IContainerFleetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerFleet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="containerFleetRef")
+    def container_fleet_ref(self) -> ContainerFleetReference:
+        '''(experimental) A reference to a ContainerFleet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContainerFleetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerFleet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IContainerFleetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="containerFleetRef")
+    def container_fleet_ref(self) -> ContainerFleetReference:
+        '''(experimental) A reference to a ContainerFleet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContainerFleetReference, jsii.get(self, "containerFleetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContainerFleetRef).__jsii_proxy_class__ = lambda : _IContainerFleetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IContainerGroupDefinitionRef")
+class IContainerGroupDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerGroupDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="containerGroupDefinitionRef")
+    def container_group_definition_ref(self) -> ContainerGroupDefinitionReference:
+        '''(experimental) A reference to a ContainerGroupDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContainerGroupDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContainerGroupDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IContainerGroupDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="containerGroupDefinitionRef")
+    def container_group_definition_ref(self) -> ContainerGroupDefinitionReference:
+        '''(experimental) A reference to a ContainerGroupDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContainerGroupDefinitionReference, jsii.get(self, "containerGroupDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContainerGroupDefinitionRef).__jsii_proxy_class__ = lambda : _IContainerGroupDefinitionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IFleetRef")
+class IFleetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Fleet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''(experimental) A reference to a Fleet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFleetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Fleet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IFleetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''(experimental) A reference to a Fleet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IGameServerGroupRef")
+class IGameServerGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GameServerGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gameServerGroupRef")
+    def game_server_group_ref(self) -> GameServerGroupReference:
+        '''(experimental) A reference to a GameServerGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGameServerGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GameServerGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IGameServerGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gameServerGroupRef")
+    def game_server_group_ref(self) -> GameServerGroupReference:
+        '''(experimental) A reference to a GameServerGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GameServerGroupReference, jsii.get(self, "gameServerGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGameServerGroupRef).__jsii_proxy_class__ = lambda : _IGameServerGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IGameSessionQueueRef")
+class IGameSessionQueueRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GameSessionQueue.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gameSessionQueueRef")
+    def game_session_queue_ref(self) -> GameSessionQueueReference:
+        '''(experimental) A reference to a GameSessionQueue resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGameSessionQueueRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GameSessionQueue.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IGameSessionQueueRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gameSessionQueueRef")
+    def game_session_queue_ref(self) -> GameSessionQueueReference:
+        '''(experimental) A reference to a GameSessionQueue resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GameSessionQueueReference, jsii.get(self, "gameSessionQueueRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGameSessionQueueRef).__jsii_proxy_class__ = lambda : _IGameSessionQueueRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.ILocationRef")
+class ILocationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Location.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="locationRef")
+    def location_ref(self) -> "LocationReference":
+        '''(experimental) A reference to a Location resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILocationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Location.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.ILocationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="locationRef")
+    def location_ref(self) -> "LocationReference":
+        '''(experimental) A reference to a Location resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LocationReference", jsii.get(self, "locationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILocationRef).__jsii_proxy_class__ = lambda : _ILocationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IMatchmakingConfigurationRef")
+class IMatchmakingConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MatchmakingConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="matchmakingConfigurationRef")
+    def matchmaking_configuration_ref(self) -> "MatchmakingConfigurationReference":
+        '''(experimental) A reference to a MatchmakingConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMatchmakingConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MatchmakingConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IMatchmakingConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="matchmakingConfigurationRef")
+    def matchmaking_configuration_ref(self) -> "MatchmakingConfigurationReference":
+        '''(experimental) A reference to a MatchmakingConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MatchmakingConfigurationReference", jsii.get(self, "matchmakingConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMatchmakingConfigurationRef).__jsii_proxy_class__ = lambda : _IMatchmakingConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IMatchmakingRuleSetRef")
+class IMatchmakingRuleSetRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MatchmakingRuleSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="matchmakingRuleSetRef")
+    def matchmaking_rule_set_ref(self) -> "MatchmakingRuleSetReference":
+        '''(experimental) A reference to a MatchmakingRuleSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMatchmakingRuleSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MatchmakingRuleSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IMatchmakingRuleSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="matchmakingRuleSetRef")
+    def matchmaking_rule_set_ref(self) -> "MatchmakingRuleSetReference":
+        '''(experimental) A reference to a MatchmakingRuleSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MatchmakingRuleSetReference", jsii.get(self, "matchmakingRuleSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMatchmakingRuleSetRef).__jsii_proxy_class__ = lambda : _IMatchmakingRuleSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_gamelift.IScriptRef")
+class IScriptRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Script.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scriptRef")
+    def script_ref(self) -> "ScriptReference":
+        '''(experimental) A reference to a Script resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScriptRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Script.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gamelift.IScriptRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scriptRef")
+    def script_ref(self) -> "ScriptReference":
+        '''(experimental) A reference to a Script resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScriptReference", jsii.get(self, "scriptRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScriptRef).__jsii_proxy_class__ = lambda : _IScriptRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.LocationReference",
+    jsii_struct_bases=[],
+    name_mapping={"location_arn": "locationArn", "location_name": "locationName"},
+)
+class LocationReference:
+    def __init__(
+        self,
+        *,
+        location_arn: builtins.str,
+        location_name: builtins.str,
+    ) -> None:
+        '''A reference to a Location resource.
+
+        :param location_arn: The ARN of the Location resource.
+        :param location_name: The LocationName of the Location resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            location_reference = gamelift.LocationReference(
+                location_arn="locationArn",
+                location_name="locationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ffd6bef077c084da7a9c21275dacfc89dace2299ee2a5ee41c3bfaa43de3f4c)
+            check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
+            check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "location_arn": location_arn,
+            "location_name": location_name,
+        }
+
+    @builtins.property
+    def location_arn(self) -> builtins.str:
+        '''The ARN of the Location resource.'''
+        result = self._values.get("location_arn")
+        assert result is not None, "Required property 'location_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location_name(self) -> builtins.str:
+        '''The LocationName of the Location resource.'''
+        result = self._values.get("location_name")
+        assert result is not None, "Required property 'location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LocationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.MatchmakingConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "matchmaking_configuration_arn": "matchmakingConfigurationArn",
+        "matchmaking_configuration_name": "matchmakingConfigurationName",
+    },
+)
+class MatchmakingConfigurationReference:
+    def __init__(
+        self,
+        *,
+        matchmaking_configuration_arn: builtins.str,
+        matchmaking_configuration_name: builtins.str,
+    ) -> None:
+        '''A reference to a MatchmakingConfiguration resource.
+
+        :param matchmaking_configuration_arn: The ARN of the MatchmakingConfiguration resource.
+        :param matchmaking_configuration_name: The Name of the MatchmakingConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            matchmaking_configuration_reference = gamelift.MatchmakingConfigurationReference(
+                matchmaking_configuration_arn="matchmakingConfigurationArn",
+                matchmaking_configuration_name="matchmakingConfigurationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90120c65409e9c345645e4e049d5105bedfefc3bf9e8a4eb879b2836dccf68e7)
+            check_type(argname="argument matchmaking_configuration_arn", value=matchmaking_configuration_arn, expected_type=type_hints["matchmaking_configuration_arn"])
+            check_type(argname="argument matchmaking_configuration_name", value=matchmaking_configuration_name, expected_type=type_hints["matchmaking_configuration_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "matchmaking_configuration_arn": matchmaking_configuration_arn,
+            "matchmaking_configuration_name": matchmaking_configuration_name,
+        }
+
+    @builtins.property
+    def matchmaking_configuration_arn(self) -> builtins.str:
+        '''The ARN of the MatchmakingConfiguration resource.'''
+        result = self._values.get("matchmaking_configuration_arn")
+        assert result is not None, "Required property 'matchmaking_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def matchmaking_configuration_name(self) -> builtins.str:
+        '''The Name of the MatchmakingConfiguration resource.'''
+        result = self._values.get("matchmaking_configuration_name")
+        assert result is not None, "Required property 'matchmaking_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MatchmakingConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.MatchmakingRuleSetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "matchmaking_rule_set_arn": "matchmakingRuleSetArn",
+        "matchmaking_rule_set_name": "matchmakingRuleSetName",
+    },
+)
+class MatchmakingRuleSetReference:
+    def __init__(
+        self,
+        *,
+        matchmaking_rule_set_arn: builtins.str,
+        matchmaking_rule_set_name: builtins.str,
+    ) -> None:
+        '''A reference to a MatchmakingRuleSet resource.
+
+        :param matchmaking_rule_set_arn: The ARN of the MatchmakingRuleSet resource.
+        :param matchmaking_rule_set_name: The Name of the MatchmakingRuleSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            matchmaking_rule_set_reference = gamelift.MatchmakingRuleSetReference(
+                matchmaking_rule_set_arn="matchmakingRuleSetArn",
+                matchmaking_rule_set_name="matchmakingRuleSetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d28f46718f3b9c8d3abb68fb4c686c8507ebe6dcc28c35318e6708d02da027f2)
+            check_type(argname="argument matchmaking_rule_set_arn", value=matchmaking_rule_set_arn, expected_type=type_hints["matchmaking_rule_set_arn"])
+            check_type(argname="argument matchmaking_rule_set_name", value=matchmaking_rule_set_name, expected_type=type_hints["matchmaking_rule_set_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "matchmaking_rule_set_arn": matchmaking_rule_set_arn,
+            "matchmaking_rule_set_name": matchmaking_rule_set_name,
+        }
+
+    @builtins.property
+    def matchmaking_rule_set_arn(self) -> builtins.str:
+        '''The ARN of the MatchmakingRuleSet resource.'''
+        result = self._values.get("matchmaking_rule_set_arn")
+        assert result is not None, "Required property 'matchmaking_rule_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def matchmaking_rule_set_name(self) -> builtins.str:
+        '''The Name of the MatchmakingRuleSet resource.'''
+        result = self._values.get("matchmaking_rule_set_name")
+        assert result is not None, "Required property 'matchmaking_rule_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MatchmakingRuleSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gamelift.ScriptReference",
+    jsii_struct_bases=[],
+    name_mapping={"script_arn": "scriptArn", "script_id": "scriptId"},
+)
+class ScriptReference:
+    def __init__(self, *, script_arn: builtins.str, script_id: builtins.str) -> None:
+        '''A reference to a Script resource.
+
+        :param script_arn: The ARN of the Script resource.
+        :param script_id: The Id of the Script resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gamelift as gamelift
+            
+            script_reference = gamelift.ScriptReference(
+                script_arn="scriptArn",
+                script_id="scriptId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a88c9520d25593fce3e3450c1010d1714cbeaa715a8badaa832b1d7cdcb9b20f)
+            check_type(argname="argument script_arn", value=script_arn, expected_type=type_hints["script_arn"])
+            check_type(argname="argument script_id", value=script_id, expected_type=type_hints["script_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "script_arn": script_arn,
+            "script_id": script_id,
+        }
+
+    @builtins.property
+    def script_arn(self) -> builtins.str:
+        '''The ARN of the Script resource.'''
+        result = self._values.get("script_arn")
+        assert result is not None, "Required property 'script_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def script_id(self) -> builtins.str:
+        '''The Id of the Script resource.'''
+        result = self._values.get("script_id")
+        assert result is not None, "Required property 'script_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScriptReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAliasRef, _ITaggableV2_4e6798f8)
 class CfnAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -174,6 +4107,12 @@ class CfnAlias(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''A reference to a Alias resource.'''
+        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAliasArn")
@@ -361,129 +4300,7 @@ class CfnAlias(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "routing_strategy": "routingStrategy",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnAliasProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        routing_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlias.RoutingStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAlias``.
-
-        :param name: A descriptive label that is associated with an alias. Alias names do not need to be unique.
-        :param routing_strategy: The routing configuration, including routing type and fleet target, for the alias.
-        :param description: A human-readable description of the alias.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_alias_props = gamelift.CfnAliasProps(
-                name="name",
-                routing_strategy=gamelift.CfnAlias.RoutingStrategyProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    fleet_id="fleetId",
-                    message="message"
-                ),
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e74c18c4446e0f846baf63e2e707aa2ba663f37170623164846853f1176d7891)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument routing_strategy", value=routing_strategy, expected_type=type_hints["routing_strategy"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "routing_strategy": routing_strategy,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A descriptive label that is associated with an alias.
-
-        Alias names do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def routing_strategy(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAlias.RoutingStrategyProperty]:
-        '''The routing configuration, including routing type and fleet target, for the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-routingstrategy
-        '''
-        result = self._values.get("routing_strategy")
-        assert result is not None, "Required property 'routing_strategy' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAlias.RoutingStrategyProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A human-readable description of the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-alias.html#cfn-gamelift-alias-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IBuildRef, _ITaggableV2_4e6798f8)
 class CfnBuild(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -607,6 +4424,12 @@ class CfnBuild(
         :cloudformationAttribute: BuildId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrBuildId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="buildRef")
+    def build_ref(self) -> BuildReference:
+        '''A reference to a Build resource.'''
+        return typing.cast(BuildReference, jsii.get(self, "buildRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -817,172 +4640,7 @@ class CfnBuild(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnBuildProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "operating_system": "operatingSystem",
-        "server_sdk_version": "serverSdkVersion",
-        "storage_location": "storageLocation",
-        "tags": "tags",
-        "version": "version",
-    },
-)
-class CfnBuildProps:
-    def __init__(
-        self,
-        *,
-        name: typing.Optional[builtins.str] = None,
-        operating_system: typing.Optional[builtins.str] = None,
-        server_sdk_version: typing.Optional[builtins.str] = None,
-        storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBuild.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        version: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBuild``.
-
-        :param name: A descriptive label that is associated with a build. Build names do not need to be unique.
-        :param operating_system: The operating system that your game server binaries run on. This value determines the type of fleet resources that you use for this build. If your game build contains multiple executables, they all must run on the same operating system. You must specify a valid operating system in this request. There is no default value. You can't change a build's operating system later. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
-        :param server_sdk_version: A server SDK version you used when integrating your game server build with Amazon GameLift Servers. For more information see `Integrate games with custom game servers <https://docs.aws.amazon.com/gamelift/latest/developerguide/integration-custom-intro.html>`_ . By default Amazon GameLift Servers sets this value to ``4.0.2`` .
-        :param storage_location: Information indicating where your game build files are stored. Use this parameter only when creating a build with files stored in an Amazon S3 bucket that you own. The storage location must specify an Amazon S3 bucket name and key. The location must also specify a role ARN that you set up to allow Amazon GameLift Servers to access your Amazon S3 bucket. The S3 bucket and your new build must be in the same Region. If a ``StorageLocation`` is specified, the size of your file can be found in your Amazon S3 bucket. Amazon GameLift Servers will report a ``SizeOnDisk`` of 0.
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param version: Version information that is associated with this build. Version strings do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_build_props = gamelift.CfnBuildProps(
-                name="name",
-                operating_system="operatingSystem",
-                server_sdk_version="serverSdkVersion",
-                storage_location=gamelift.CfnBuild.StorageLocationProperty(
-                    bucket="bucket",
-                    key="key",
-                    role_arn="roleArn",
-            
-                    # the properties below are optional
-                    object_version="objectVersion"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                version="version"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ea486b468f726c96f63f78347aac31445ce3b0bd1ea282f6fce30ca4e8642d7)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
-            check_type(argname="argument server_sdk_version", value=server_sdk_version, expected_type=type_hints["server_sdk_version"])
-            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if name is not None:
-            self._values["name"] = name
-        if operating_system is not None:
-            self._values["operating_system"] = operating_system
-        if server_sdk_version is not None:
-            self._values["server_sdk_version"] = server_sdk_version
-        if storage_location is not None:
-            self._values["storage_location"] = storage_location
-        if tags is not None:
-            self._values["tags"] = tags
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A descriptive label that is associated with a build.
-
-        Build names do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def operating_system(self) -> typing.Optional[builtins.str]:
-        '''The operating system that your game server binaries run on.
-
-        This value determines the type of fleet resources that you use for this build. If your game build contains multiple executables, they all must run on the same operating system. You must specify a valid operating system in this request. There is no default value. You can't change a build's operating system later.
-        .. epigraph::
-
-           Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-operatingsystem
-        '''
-        result = self._values.get("operating_system")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_sdk_version(self) -> typing.Optional[builtins.str]:
-        '''A server SDK version you used when integrating your game server build with Amazon GameLift Servers.
-
-        For more information see `Integrate games with custom game servers <https://docs.aws.amazon.com/gamelift/latest/developerguide/integration-custom-intro.html>`_ . By default Amazon GameLift Servers sets this value to ``4.0.2`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-serversdkversion
-        '''
-        result = self._values.get("server_sdk_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def storage_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBuild.StorageLocationProperty]]:
-        '''Information indicating where your game build files are stored.
-
-        Use this parameter only when creating a build with files stored in an Amazon S3 bucket that you own. The storage location must specify an Amazon S3 bucket name and key. The location must also specify a role ARN that you set up to allow Amazon GameLift Servers to access your Amazon S3 bucket. The S3 bucket and your new build must be in the same Region.
-
-        If a ``StorageLocation`` is specified, the size of your file can be found in your Amazon S3 bucket. Amazon GameLift Servers will report a ``SizeOnDisk`` of 0.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-storagelocation
-        '''
-        result = self._values.get("storage_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBuild.StorageLocationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[builtins.str]:
-        '''Version information that is associated with this build.
-
-        Version strings do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-build.html#cfn-gamelift-build-version
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBuildProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IContainerFleetRef, _ITaggableV2_4e6798f8)
 class CfnContainerFleet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1262,6 +4920,12 @@ class CfnContainerFleet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerFleetRef")
+    def container_fleet_ref(self) -> ContainerFleetReference:
+        '''A reference to a ContainerFleet resource.'''
+        return typing.cast(ContainerFleetReference, jsii.get(self, "containerFleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="fleetRoleArn")
@@ -2519,412 +6183,7 @@ class CfnContainerFleet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerFleetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "fleet_role_arn": "fleetRoleArn",
-        "billing_type": "billingType",
-        "deployment_configuration": "deploymentConfiguration",
-        "description": "description",
-        "game_server_container_group_definition_name": "gameServerContainerGroupDefinitionName",
-        "game_server_container_groups_per_instance": "gameServerContainerGroupsPerInstance",
-        "game_session_creation_limit_policy": "gameSessionCreationLimitPolicy",
-        "instance_connection_port_range": "instanceConnectionPortRange",
-        "instance_inbound_permissions": "instanceInboundPermissions",
-        "instance_type": "instanceType",
-        "locations": "locations",
-        "log_configuration": "logConfiguration",
-        "metric_groups": "metricGroups",
-        "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
-        "per_instance_container_group_definition_name": "perInstanceContainerGroupDefinitionName",
-        "scaling_policies": "scalingPolicies",
-        "tags": "tags",
-    },
-)
-class CfnContainerFleetProps:
-    def __init__(
-        self,
-        *,
-        fleet_role_arn: builtins.str,
-        billing_type: typing.Optional[builtins.str] = None,
-        deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.DeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        game_server_container_group_definition_name: typing.Optional[builtins.str] = None,
-        game_server_container_groups_per_instance: typing.Optional[jsii.Number] = None,
-        game_session_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.GameSessionCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_connection_port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ConnectionPortRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        instance_type: typing.Optional[builtins.str] = None,
-        locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        new_game_session_protection_policy: typing.Optional[builtins.str] = None,
-        per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
-        scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnContainerFleet``.
-
-        :param fleet_role_arn: The unique identifier for an AWS Identity and Access Management (IAM) role with permissions to run your containers on resources that are managed by Amazon GameLift Servers. See `Set up an IAM service role <https://docs.aws.amazon.com/gamelift/latest/developerguide/setting-up-role.html>`_ . This fleet property can't be changed.
-        :param billing_type: Indicates whether the fleet uses On-Demand or Spot instances for this fleet. Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . You can't update this fleet property. By default, this property is set to ``ON_DEMAND`` .
-        :param deployment_configuration: Set of rules for processing a deployment for a container fleet update.
-        :param description: A meaningful description of the container fleet.
-        :param game_server_container_group_definition_name: The name of the fleet's game server container group definition, which describes how to deploy containers with your game server build and support software onto each fleet instance.
-        :param game_server_container_groups_per_instance: The number of times to replicate the game server container group on each fleet instance.
-        :param game_session_creation_limit_policy: A policy that limits the number of game sessions that each individual player can create on instances in this fleet. The limit applies for a specified span of time.
-        :param instance_connection_port_range: The set of port numbers to open on each instance in a container fleet. Connection ports are used by inbound traffic to connect with processes that are running in containers on the fleet.
-        :param instance_inbound_permissions: The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
-        :param instance_type: The Amazon EC2 instance type to use for all instances in the fleet. Instance type determines the computing resources and processing power that's available to host your game servers. This includes including CPU, memory, storage, and networking capacity. You can't update this fleet property.
-        :param locations: 
-        :param log_configuration: The method that is used to collect container logs for the fleet. Amazon GameLift Servers saves all standard output for each container in logs, including game session logs. - ``CLOUDWATCH`` -- Send logs to an Amazon CloudWatch log group that you define. Each container emits a log stream, which is organized in the log group. - ``S3`` -- Store logs in an Amazon S3 bucket that you define. - ``NONE`` -- Don't collect container logs.
-        :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. Metric groups aggregate metrics for multiple fleets.
-        :param new_game_session_protection_policy: Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players. Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ . - *NoProtection* -- Game sessions can be shut down during active gameplay. - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
-        :param per_instance_container_group_definition_name: The name of the fleet's per-instance container group definition.
-        :param scaling_policies: A list of rules that control how a fleet is scaled.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_container_fleet_props = gamelift.CfnContainerFleetProps(
-                fleet_role_arn="fleetRoleArn",
-            
-                # the properties below are optional
-                billing_type="billingType",
-                deployment_configuration=gamelift.CfnContainerFleet.DeploymentConfigurationProperty(
-                    impairment_strategy="impairmentStrategy",
-                    minimum_healthy_percentage=123,
-                    protection_strategy="protectionStrategy"
-                ),
-                description="description",
-                game_server_container_group_definition_name="gameServerContainerGroupDefinitionName",
-                game_server_container_groups_per_instance=123,
-                game_session_creation_limit_policy=gamelift.CfnContainerFleet.GameSessionCreationLimitPolicyProperty(
-                    new_game_sessions_per_creator=123,
-                    policy_period_in_minutes=123
-                ),
-                instance_connection_port_range=gamelift.CfnContainerFleet.ConnectionPortRangeProperty(
-                    from_port=123,
-                    to_port=123
-                ),
-                instance_inbound_permissions=[gamelift.CfnContainerFleet.IpPermissionProperty(
-                    from_port=123,
-                    ip_range="ipRange",
-                    protocol="protocol",
-                    to_port=123
-                )],
-                instance_type="instanceType",
-                locations=[gamelift.CfnContainerFleet.LocationConfigurationProperty(
-                    location="location",
-            
-                    # the properties below are optional
-                    location_capacity=gamelift.CfnContainerFleet.LocationCapacityProperty(
-                        desired_ec2_instances=123,
-                        max_size=123,
-                        min_size=123
-                    ),
-                    stopped_actions=["stoppedActions"]
-                )],
-                log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
-                    log_destination="logDestination",
-                    log_group_arn="logGroupArn",
-                    s3_bucket_name="s3BucketName"
-                ),
-                metric_groups=["metricGroups"],
-                new_game_session_protection_policy="newGameSessionProtectionPolicy",
-                per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
-                scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
-                    name="name",
-            
-                    # the properties below are optional
-                    comparison_operator="comparisonOperator",
-                    evaluation_periods=123,
-                    policy_type="policyType",
-                    scaling_adjustment=123,
-                    scaling_adjustment_type="scalingAdjustmentType",
-                    target_configuration=gamelift.CfnContainerFleet.TargetConfigurationProperty(
-                        target_value=123
-                    ),
-                    threshold=123
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fbf4a66831e3b15f9023046fb41b590456b41ba1048fa4e59749ccd8f9d023c)
-            check_type(argname="argument fleet_role_arn", value=fleet_role_arn, expected_type=type_hints["fleet_role_arn"])
-            check_type(argname="argument billing_type", value=billing_type, expected_type=type_hints["billing_type"])
-            check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument game_server_container_group_definition_name", value=game_server_container_group_definition_name, expected_type=type_hints["game_server_container_group_definition_name"])
-            check_type(argname="argument game_server_container_groups_per_instance", value=game_server_container_groups_per_instance, expected_type=type_hints["game_server_container_groups_per_instance"])
-            check_type(argname="argument game_session_creation_limit_policy", value=game_session_creation_limit_policy, expected_type=type_hints["game_session_creation_limit_policy"])
-            check_type(argname="argument instance_connection_port_range", value=instance_connection_port_range, expected_type=type_hints["instance_connection_port_range"])
-            check_type(argname="argument instance_inbound_permissions", value=instance_inbound_permissions, expected_type=type_hints["instance_inbound_permissions"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
-            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
-            check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
-            check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
-            check_type(argname="argument per_instance_container_group_definition_name", value=per_instance_container_group_definition_name, expected_type=type_hints["per_instance_container_group_definition_name"])
-            check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "fleet_role_arn": fleet_role_arn,
-        }
-        if billing_type is not None:
-            self._values["billing_type"] = billing_type
-        if deployment_configuration is not None:
-            self._values["deployment_configuration"] = deployment_configuration
-        if description is not None:
-            self._values["description"] = description
-        if game_server_container_group_definition_name is not None:
-            self._values["game_server_container_group_definition_name"] = game_server_container_group_definition_name
-        if game_server_container_groups_per_instance is not None:
-            self._values["game_server_container_groups_per_instance"] = game_server_container_groups_per_instance
-        if game_session_creation_limit_policy is not None:
-            self._values["game_session_creation_limit_policy"] = game_session_creation_limit_policy
-        if instance_connection_port_range is not None:
-            self._values["instance_connection_port_range"] = instance_connection_port_range
-        if instance_inbound_permissions is not None:
-            self._values["instance_inbound_permissions"] = instance_inbound_permissions
-        if instance_type is not None:
-            self._values["instance_type"] = instance_type
-        if locations is not None:
-            self._values["locations"] = locations
-        if log_configuration is not None:
-            self._values["log_configuration"] = log_configuration
-        if metric_groups is not None:
-            self._values["metric_groups"] = metric_groups
-        if new_game_session_protection_policy is not None:
-            self._values["new_game_session_protection_policy"] = new_game_session_protection_policy
-        if per_instance_container_group_definition_name is not None:
-            self._values["per_instance_container_group_definition_name"] = per_instance_container_group_definition_name
-        if scaling_policies is not None:
-            self._values["scaling_policies"] = scaling_policies
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def fleet_role_arn(self) -> builtins.str:
-        '''The unique identifier for an AWS Identity and Access Management (IAM) role with permissions to run your containers on resources that are managed by Amazon GameLift Servers.
-
-        See `Set up an IAM service role <https://docs.aws.amazon.com/gamelift/latest/developerguide/setting-up-role.html>`_ . This fleet property can't be changed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-fleetrolearn
-        '''
-        result = self._values.get("fleet_role_arn")
-        assert result is not None, "Required property 'fleet_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def billing_type(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether the fleet uses On-Demand or Spot instances for this fleet.
-
-        Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . You can't update this fleet property.
-
-        By default, this property is set to ``ON_DEMAND`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-billingtype
-        '''
-        result = self._values.get("billing_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def deployment_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.DeploymentConfigurationProperty]]:
-        '''Set of rules for processing a deployment for a container fleet update.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-deploymentconfiguration
-        '''
-        result = self._values.get("deployment_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.DeploymentConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A meaningful description of the container fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_server_container_group_definition_name(
-        self,
-    ) -> typing.Optional[builtins.str]:
-        '''The name of the fleet's game server container group definition, which describes how to deploy containers with your game server build and support software onto each fleet instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gameservercontainergroupdefinitionname
-        '''
-        result = self._values.get("game_server_container_group_definition_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_server_container_groups_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''The number of times to replicate the game server container group on each fleet instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gameservercontainergroupsperinstance
-        '''
-        result = self._values.get("game_server_container_groups_per_instance")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def game_session_creation_limit_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.GameSessionCreationLimitPolicyProperty]]:
-        '''A policy that limits the number of game sessions that each individual player can create on instances in this fleet.
-
-        The limit applies for a specified span of time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-gamesessioncreationlimitpolicy
-        '''
-        result = self._values.get("game_session_creation_limit_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.GameSessionCreationLimitPolicyProperty]], result)
-
-    @builtins.property
-    def instance_connection_port_range(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.ConnectionPortRangeProperty]]:
-        '''The set of port numbers to open on each instance in a container fleet.
-
-        Connection ports are used by inbound traffic to connect with processes that are running in containers on the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instanceconnectionportrange
-        '''
-        result = self._values.get("instance_connection_port_range")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.ConnectionPortRangeProperty]], result)
-
-    @builtins.property
-    def instance_inbound_permissions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.IpPermissionProperty]]]]:
-        '''The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instanceinboundpermissions
-        '''
-        result = self._values.get("instance_inbound_permissions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.IpPermissionProperty]]]], result)
-
-    @builtins.property
-    def instance_type(self) -> typing.Optional[builtins.str]:
-        '''The Amazon EC2 instance type to use for all instances in the fleet.
-
-        Instance type determines the computing resources and processing power that's available to host your game servers. This includes including CPU, memory, storage, and networking capacity. You can't update this fleet property.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-instancetype
-        '''
-        result = self._values.get("instance_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def locations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.LocationConfigurationProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-locations
-        '''
-        result = self._values.get("locations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.LocationConfigurationProperty]]]], result)
-
-    @builtins.property
-    def log_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.LogConfigurationProperty]]:
-        '''The method that is used to collect container logs for the fleet.
-
-        Amazon GameLift Servers saves all standard output for each container in logs, including game session logs.
-
-        - ``CLOUDWATCH`` -- Send logs to an Amazon CloudWatch log group that you define. Each container emits a log stream, which is organized in the log group.
-        - ``S3`` -- Store logs in an Amazon S3 bucket that you define.
-        - ``NONE`` -- Don't collect container logs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-logconfiguration
-        '''
-        result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.LogConfigurationProperty]], result)
-
-    @builtins.property
-    def metric_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of an AWS CloudWatch metric group to add this fleet to.
-
-        Metric groups aggregate metrics for multiple fleets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-metricgroups
-        '''
-        result = self._values.get("metric_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def new_game_session_protection_policy(self) -> typing.Optional[builtins.str]:
-        '''Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players.
-
-        Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ .
-
-        - *NoProtection* -- Game sessions can be shut down during active gameplay.
-        - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-newgamesessionprotectionpolicy
-        '''
-        result = self._values.get("new_game_session_protection_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def per_instance_container_group_definition_name(
-        self,
-    ) -> typing.Optional[builtins.str]:
-        '''The name of the fleet's per-instance container group definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-perinstancecontainergroupdefinitionname
-        '''
-        result = self._values.get("per_instance_container_group_definition_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scaling_policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.ScalingPolicyProperty]]]]:
-        '''A list of rules that control how a fleet is scaled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-scalingpolicies
-        '''
-        result = self._values.get("scaling_policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.ScalingPolicyProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnContainerFleetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IContainerGroupDefinitionRef, _ITaggableV2_4e6798f8)
 class CfnContainerGroupDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3184,6 +6443,12 @@ class CfnContainerGroupDefinition(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerGroupDefinitionRef")
+    def container_group_definition_ref(self) -> ContainerGroupDefinitionReference:
+        '''A reference to a ContainerGroupDefinition resource.'''
+        return typing.cast(ContainerGroupDefinitionReference, jsii.get(self, "containerGroupDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4372,308 +7637,7 @@ class CfnContainerGroupDefinition(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerGroupDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "operating_system": "operatingSystem",
-        "total_memory_limit_mebibytes": "totalMemoryLimitMebibytes",
-        "total_vcpu_limit": "totalVcpuLimit",
-        "container_group_type": "containerGroupType",
-        "game_server_container_definition": "gameServerContainerDefinition",
-        "source_version_number": "sourceVersionNumber",
-        "support_container_definitions": "supportContainerDefinitions",
-        "tags": "tags",
-        "version_description": "versionDescription",
-    },
-)
-class CfnContainerGroupDefinitionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        operating_system: builtins.str,
-        total_memory_limit_mebibytes: jsii.Number,
-        total_vcpu_limit: jsii.Number,
-        container_group_type: typing.Optional[builtins.str] = None,
-        game_server_container_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.GameServerContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_version_number: typing.Optional[jsii.Number] = None,
-        support_container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.SupportContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        version_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnContainerGroupDefinition``.
-
-        :param name: A descriptive identifier for the container group definition. The name value is unique in an AWS Region.
-        :param operating_system: The platform that all containers in the container group definition run on. .. epigraph:: Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
-        :param total_memory_limit_mebibytes: The amount of memory (in MiB) on a fleet instance to allocate for the container group. All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
-        :param total_vcpu_limit: The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units). All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
-        :param container_group_type: The type of container group. Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
-        :param game_server_container_definition: The definition for the game server container in this group. This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
-        :param source_version_number: A specific ContainerGroupDefinition version to be updated.
-        :param support_container_definitions: The set of definitions for support containers in this group. A container group definition might have zero support container definitions. Support container can be used in any type of container group.
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param version_description: An optional description that was provided for a container group definition update. Each version can have a unique description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_container_group_definition_props = gamelift.CfnContainerGroupDefinitionProps(
-                name="name",
-                operating_system="operatingSystem",
-                total_memory_limit_mebibytes=123,
-                total_vcpu_limit=123,
-            
-                # the properties below are optional
-                container_group_type="containerGroupType",
-                game_server_container_definition=gamelift.CfnContainerGroupDefinition.GameServerContainerDefinitionProperty(
-                    container_name="containerName",
-                    image_uri="imageUri",
-                    server_sdk_version="serverSdkVersion",
-            
-                    # the properties below are optional
-                    depends_on=[gamelift.CfnContainerGroupDefinition.ContainerDependencyProperty(
-                        condition="condition",
-                        container_name="containerName"
-                    )],
-                    environment_override=[gamelift.CfnContainerGroupDefinition.ContainerEnvironmentProperty(
-                        name="name",
-                        value="value"
-                    )],
-                    mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
-                        instance_path="instancePath",
-            
-                        # the properties below are optional
-                        access_level="accessLevel",
-                        container_path="containerPath"
-                    )],
-                    port_configuration=gamelift.CfnContainerGroupDefinition.PortConfigurationProperty(
-                        container_port_ranges=[gamelift.CfnContainerGroupDefinition.ContainerPortRangeProperty(
-                            from_port=123,
-                            protocol="protocol",
-                            to_port=123
-                        )]
-                    ),
-                    resolved_image_digest="resolvedImageDigest"
-                ),
-                source_version_number=123,
-                support_container_definitions=[gamelift.CfnContainerGroupDefinition.SupportContainerDefinitionProperty(
-                    container_name="containerName",
-                    image_uri="imageUri",
-            
-                    # the properties below are optional
-                    depends_on=[gamelift.CfnContainerGroupDefinition.ContainerDependencyProperty(
-                        condition="condition",
-                        container_name="containerName"
-                    )],
-                    environment_override=[gamelift.CfnContainerGroupDefinition.ContainerEnvironmentProperty(
-                        name="name",
-                        value="value"
-                    )],
-                    essential=False,
-                    health_check=gamelift.CfnContainerGroupDefinition.ContainerHealthCheckProperty(
-                        command=["command"],
-            
-                        # the properties below are optional
-                        interval=123,
-                        retries=123,
-                        start_period=123,
-                        timeout=123
-                    ),
-                    memory_hard_limit_mebibytes=123,
-                    mount_points=[gamelift.CfnContainerGroupDefinition.ContainerMountPointProperty(
-                        instance_path="instancePath",
-            
-                        # the properties below are optional
-                        access_level="accessLevel",
-                        container_path="containerPath"
-                    )],
-                    port_configuration=gamelift.CfnContainerGroupDefinition.PortConfigurationProperty(
-                        container_port_ranges=[gamelift.CfnContainerGroupDefinition.ContainerPortRangeProperty(
-                            from_port=123,
-                            protocol="protocol",
-                            to_port=123
-                        )]
-                    ),
-                    resolved_image_digest="resolvedImageDigest",
-                    vcpu=123
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                version_description="versionDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b760a12182b9da0a53204aa5510dae28c2cda4c4fba1ef77f0245093da04ea4)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
-            check_type(argname="argument total_memory_limit_mebibytes", value=total_memory_limit_mebibytes, expected_type=type_hints["total_memory_limit_mebibytes"])
-            check_type(argname="argument total_vcpu_limit", value=total_vcpu_limit, expected_type=type_hints["total_vcpu_limit"])
-            check_type(argname="argument container_group_type", value=container_group_type, expected_type=type_hints["container_group_type"])
-            check_type(argname="argument game_server_container_definition", value=game_server_container_definition, expected_type=type_hints["game_server_container_definition"])
-            check_type(argname="argument source_version_number", value=source_version_number, expected_type=type_hints["source_version_number"])
-            check_type(argname="argument support_container_definitions", value=support_container_definitions, expected_type=type_hints["support_container_definitions"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "operating_system": operating_system,
-            "total_memory_limit_mebibytes": total_memory_limit_mebibytes,
-            "total_vcpu_limit": total_vcpu_limit,
-        }
-        if container_group_type is not None:
-            self._values["container_group_type"] = container_group_type
-        if game_server_container_definition is not None:
-            self._values["game_server_container_definition"] = game_server_container_definition
-        if source_version_number is not None:
-            self._values["source_version_number"] = source_version_number
-        if support_container_definitions is not None:
-            self._values["support_container_definitions"] = support_container_definitions
-        if tags is not None:
-            self._values["tags"] = tags
-        if version_description is not None:
-            self._values["version_description"] = version_description
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A descriptive identifier for the container group definition.
-
-        The name value is unique in an AWS Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def operating_system(self) -> builtins.str:
-        '''The platform that all containers in the container group definition run on.
-
-        .. epigraph::
-
-           Amazon Linux 2 (AL2) will reach end of support on 6/30/2025. See more details in the `Amazon Linux 2 FAQs <https://docs.aws.amazon.com/amazon-linux-2/faqs/>`_ . For game servers that are hosted on AL2 and use server SDK version 4.x for Amazon GameLift Servers, first update the game server build to server SDK 5.x, and then deploy to AL2023 instances. See `Migrate to server SDK version 5. <https://docs.aws.amazon.com/gamelift/latest/developerguide/reference-serversdk5-migration.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-operatingsystem
-        '''
-        result = self._values.get("operating_system")
-        assert result is not None, "Required property 'operating_system' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def total_memory_limit_mebibytes(self) -> jsii.Number:
-        '''The amount of memory (in MiB) on a fleet instance to allocate for the container group.
-
-        All containers in the group share these resources.
-
-        You can set a limit for each container definition in the group. If individual containers have limits, this total value must be greater than any individual container's memory limit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalmemorylimitmebibytes
-        '''
-        result = self._values.get("total_memory_limit_mebibytes")
-        assert result is not None, "Required property 'total_memory_limit_mebibytes' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def total_vcpu_limit(self) -> jsii.Number:
-        '''The amount of vCPU units on a fleet instance to allocate for the container group (1 vCPU is equal to 1024 CPU units).
-
-        All containers in the group share these resources. You can set a limit for each container definition in the group. If individual containers have limits, this total value must be equal to or greater than the sum of the limits for each container in the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-totalvcpulimit
-        '''
-        result = self._values.get("total_vcpu_limit")
-        assert result is not None, "Required property 'total_vcpu_limit' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def container_group_type(self) -> typing.Optional[builtins.str]:
-        '''The type of container group.
-
-        Container group type determines how Amazon GameLift Servers deploys the container group on each fleet instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-containergrouptype
-        '''
-        result = self._values.get("container_group_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_server_container_definition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerGroupDefinition.GameServerContainerDefinitionProperty]]:
-        '''The definition for the game server container in this group.
-
-        This property is used only when the container group type is ``GAME_SERVER`` . This container definition specifies a container image with the game server build.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-gameservercontainerdefinition
-        '''
-        result = self._values.get("game_server_container_definition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnContainerGroupDefinition.GameServerContainerDefinitionProperty]], result)
-
-    @builtins.property
-    def source_version_number(self) -> typing.Optional[jsii.Number]:
-        '''A specific ContainerGroupDefinition version to be updated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-sourceversionnumber
-        '''
-        result = self._values.get("source_version_number")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def support_container_definitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerGroupDefinition.SupportContainerDefinitionProperty]]]]:
-        '''The set of definitions for support containers in this group.
-
-        A container group definition might have zero support container definitions. Support container can be used in any type of container group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-supportcontainerdefinitions
-        '''
-        result = self._values.get("support_container_definitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerGroupDefinition.SupportContainerDefinitionProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def version_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description that was provided for a container group definition update.
-
-        Each version can have a unique description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containergroupdefinition.html#cfn-gamelift-containergroupdefinition-versiondescription
-        '''
-        result = self._values.get("version_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnContainerGroupDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IFleetRef, _ITaggableV2_4e6798f8)
 class CfnFleet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4939,6 +7903,12 @@ class CfnFleet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetRef")
+    def fleet_ref(self) -> FleetReference:
+        '''A reference to a Fleet resource.'''
+        return typing.cast(FleetReference, jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6423,648 +9393,7 @@ class CfnFleet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnFleetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "anywhere_configuration": "anywhereConfiguration",
-        "apply_capacity": "applyCapacity",
-        "build_id": "buildId",
-        "certificate_configuration": "certificateConfiguration",
-        "compute_type": "computeType",
-        "description": "description",
-        "desired_ec2_instances": "desiredEc2Instances",
-        "ec2_inbound_permissions": "ec2InboundPermissions",
-        "ec2_instance_type": "ec2InstanceType",
-        "fleet_type": "fleetType",
-        "instance_role_arn": "instanceRoleArn",
-        "instance_role_credentials_provider": "instanceRoleCredentialsProvider",
-        "locations": "locations",
-        "log_paths": "logPaths",
-        "max_size": "maxSize",
-        "metric_groups": "metricGroups",
-        "min_size": "minSize",
-        "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
-        "peer_vpc_aws_account_id": "peerVpcAwsAccountId",
-        "peer_vpc_id": "peerVpcId",
-        "resource_creation_limit_policy": "resourceCreationLimitPolicy",
-        "runtime_configuration": "runtimeConfiguration",
-        "scaling_policies": "scalingPolicies",
-        "script_id": "scriptId",
-        "server_launch_parameters": "serverLaunchParameters",
-        "server_launch_path": "serverLaunchPath",
-        "tags": "tags",
-    },
-)
-class CfnFleetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        anywhere_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AnywhereConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        apply_capacity: typing.Optional[builtins.str] = None,
-        build_id: typing.Optional[builtins.str] = None,
-        certificate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CertificateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        compute_type: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        desired_ec2_instances: typing.Optional[jsii.Number] = None,
-        ec2_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ec2_instance_type: typing.Optional[builtins.str] = None,
-        fleet_type: typing.Optional[builtins.str] = None,
-        instance_role_arn: typing.Optional[builtins.str] = None,
-        instance_role_credentials_provider: typing.Optional[builtins.str] = None,
-        locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-        max_size: typing.Optional[jsii.Number] = None,
-        metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        min_size: typing.Optional[jsii.Number] = None,
-        new_game_session_protection_policy: typing.Optional[builtins.str] = None,
-        peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
-        peer_vpc_id: typing.Optional[builtins.str] = None,
-        resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ResourceCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.RuntimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        script_id: typing.Optional[builtins.str] = None,
-        server_launch_parameters: typing.Optional[builtins.str] = None,
-        server_launch_path: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFleet``.
-
-        :param name: A descriptive label that is associated with a fleet. Fleet names do not need to be unique.
-        :param anywhere_configuration: Amazon GameLift Servers Anywhere configuration options.
-        :param apply_capacity: Current resource capacity settings for managed EC2 fleets and managed container fleets. For multi-location fleets, location values might refer to a fleet's remote location or its home Region. *Returned by:* `DescribeFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetCapacity.html>`_ , `DescribeFleetLocationCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetLocationCapacity.html>`_ , `UpdateFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetCapacity.html>`_
-        :param build_id: A unique identifier for a build to be deployed on the new fleet. If you are deploying the fleet with a custom game build, you must specify this property. The build must have been successfully uploaded to Amazon GameLift and be in a ``READY`` status. This fleet setting cannot be changed once the fleet is created.
-        :param certificate_configuration: Prompts Amazon GameLift Servers to generate a TLS/SSL certificate for the fleet. Amazon GameLift Servers uses the certificates to encrypt traffic between game clients and the game servers running on Amazon GameLift Servers. By default, the ``CertificateConfiguration`` is ``DISABLED`` . You can't change this property after you create the fleet. AWS Certificate Manager (ACM) certificates expire after 13 months. Certificate expiration can cause fleets to fail, preventing players from connecting to instances in the fleet. We recommend you replace fleets before 13 months, consider using fleet aliases for a smooth transition. .. epigraph:: ACM isn't available in all AWS regions. A fleet creation request with certificate generation enabled in an unsupported Region, fails with a 4xx error. For more information about the supported Regions, see `Supported Regions <https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html>`_ in the *AWS Certificate Manager User Guide* .
-        :param compute_type: The type of compute resource used to host your game servers. - ``EC2`` – The game server build is deployed to Amazon EC2 instances for cloud hosting. This is the default setting. - ``ANYWHERE`` – Game servers and supporting software are deployed to compute resources that you provide and manage. With this compute type, you can also set the ``AnywhereConfiguration`` parameter.
-        :param description: A description for the fleet.
-        :param desired_ec2_instances: (deprecated) [DEPRECATED] The number of EC2 instances that you want this fleet to host. When creating a new fleet, GameLift automatically sets this value to "1" and initiates a single instance. Once the fleet is active, update this value to trigger GameLift to add or remove instances from the fleet.
-        :param ec2_inbound_permissions: The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet. Set this parameter for managed EC2 fleets. You can leave this parameter empty when creating the fleet, but you must call ` <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetPortSettings>`_ to set it before players can connect to game sessions. As a best practice, we recommend opening ports for remote access only when you need them and closing them when you're finished. For Amazon GameLift Servers Realtime fleets, Amazon GameLift Servers automatically sets TCP and UDP ranges.
-        :param ec2_instance_type: The Amazon GameLift Servers-supported Amazon EC2 instance type to use with managed EC2 fleets. Instance type determines the computing resources that will be used to host your game servers, including CPU, memory, storage, and networking capacity. See `Amazon Elastic Compute Cloud Instance Types <https://docs.aws.amazon.com/ec2/instance-types/>`_ for detailed descriptions of Amazon EC2 instance types.
-        :param fleet_type: Indicates whether to use On-Demand or Spot instances for this fleet. By default, this property is set to ``ON_DEMAND`` . Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . This fleet property can't be changed after the fleet is created.
-        :param instance_role_arn: A unique identifier for an IAM role that manages access to your AWS services. With an instance role ARN set, any application that runs on an instance in this fleet can assume the role, including install scripts, server processes, and daemons (background processes). Create a role or look up a role's ARN by using the `IAM dashboard <https://docs.aws.amazon.com/iam/>`_ in the AWS Management Console . Learn more about using on-box credentials for your game servers at `Access external resources from a game server <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
-        :param instance_role_credentials_provider: Indicates that fleet instances maintain a shared credentials file for the IAM role defined in ``InstanceRoleArn`` . Shared credentials allow applications that are deployed with the game server executable to communicate with other AWS resources. This property is used only when the game server is integrated with the server SDK version 5.x. For more information about using shared credentials, see `Communicate with other AWS resources from your fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
-        :param locations: A set of remote locations to deploy additional instances to and manage as a multi-location fleet. Use this parameter when creating a fleet in AWS Regions that support multiple locations. You can add any AWS Region or Local Zone that's supported by Amazon GameLift Servers. Provide a list of one or more AWS Region codes, such as ``us-west-2`` , or Local Zone names. When using this parameter, Amazon GameLift Servers requires you to include your home location in the request. For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
-        :param log_paths: (deprecated) This parameter is no longer used. When hosting a custom game build, specify where Amazon GameLift should store log files using the Amazon GameLift server API call ProcessReady()
-        :param max_size: (deprecated) [DEPRECATED] The maximum value that is allowed for the fleet's instance count. When creating a new fleet, GameLift automatically sets this value to "1". Once the fleet is active, you can change this value.
-        :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. A metric group is used to aggregate the metrics for multiple fleets. You can specify an existing metric group name or set a new name to create a new metric group. A fleet can be included in only one metric group at a time.
-        :param min_size: (deprecated) [DEPRECATED] The minimum value allowed for the fleet's instance count. When creating a new fleet, GameLift automatically sets this value to "0". After the fleet is active, you can change this value.
-        :param new_game_session_protection_policy: The status of termination protection for active game sessions on the fleet. By default, this property is set to ``NoProtection`` . - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event. - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
-        :param peer_vpc_aws_account_id: Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC. You can find your account ID in the AWS Management Console under account settings.
-        :param peer_vpc_id: A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet. The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
-        :param resource_creation_limit_policy: A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
-        :param runtime_configuration: Instructions for how to launch and maintain server processes on instances in the fleet. The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently. .. epigraph:: The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
-        :param scaling_policies: Rule that controls how a fleet is scaled. Scaling policies are uniquely identified by the combination of name and fleet ID.
-        :param script_id: The unique identifier for a Realtime configuration script to be deployed on fleet instances. You can use either the script ID or ARN. Scripts must be uploaded to Amazon GameLift Servers prior to creating the fleet. This fleet property cannot be changed later. .. epigraph:: You can't use the ``!Ref`` command to reference a script created with a CloudFormation template for the fleet property ``ScriptId`` . Instead, use ``Fn::GetAtt Script.Arn`` or ``Fn::GetAtt Script.Id`` to retrieve either of these properties as input for ``ScriptId`` . Alternatively, enter a ``ScriptId`` string manually.
-        :param server_launch_parameters: (deprecated) This parameter is no longer used but is retained for backward compatibility. Instead, specify server launch parameters in the RuntimeConfiguration parameter. A request must specify either a runtime configuration or values for both ServerLaunchParameters and ServerLaunchPath.
-        :param server_launch_path: (deprecated) This parameter is no longer used. Instead, specify a server launch path using the RuntimeConfiguration parameter. Requests that specify a server launch path and launch parameters instead of a runtime configuration will continue to work.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_fleet_props = gamelift.CfnFleetProps(
-                name="name",
-            
-                # the properties below are optional
-                anywhere_configuration=gamelift.CfnFleet.AnywhereConfigurationProperty(
-                    cost="cost"
-                ),
-                apply_capacity="applyCapacity",
-                build_id="buildId",
-                certificate_configuration=gamelift.CfnFleet.CertificateConfigurationProperty(
-                    certificate_type="certificateType"
-                ),
-                compute_type="computeType",
-                description="description",
-                desired_ec2_instances=123,
-                ec2_inbound_permissions=[gamelift.CfnFleet.IpPermissionProperty(
-                    from_port=123,
-                    ip_range="ipRange",
-                    protocol="protocol",
-                    to_port=123
-                )],
-                ec2_instance_type="ec2InstanceType",
-                fleet_type="fleetType",
-                instance_role_arn="instanceRoleArn",
-                instance_role_credentials_provider="instanceRoleCredentialsProvider",
-                locations=[gamelift.CfnFleet.LocationConfigurationProperty(
-                    location="location",
-            
-                    # the properties below are optional
-                    location_capacity=gamelift.CfnFleet.LocationCapacityProperty(
-                        desired_ec2_instances=123,
-                        max_size=123,
-                        min_size=123
-                    )
-                )],
-                log_paths=["logPaths"],
-                max_size=123,
-                metric_groups=["metricGroups"],
-                min_size=123,
-                new_game_session_protection_policy="newGameSessionProtectionPolicy",
-                peer_vpc_aws_account_id="peerVpcAwsAccountId",
-                peer_vpc_id="peerVpcId",
-                resource_creation_limit_policy=gamelift.CfnFleet.ResourceCreationLimitPolicyProperty(
-                    new_game_sessions_per_creator=123,
-                    policy_period_in_minutes=123
-                ),
-                runtime_configuration=gamelift.CfnFleet.RuntimeConfigurationProperty(
-                    game_session_activation_timeout_seconds=123,
-                    max_concurrent_game_session_activations=123,
-                    server_processes=[gamelift.CfnFleet.ServerProcessProperty(
-                        concurrent_executions=123,
-                        launch_path="launchPath",
-            
-                        # the properties below are optional
-                        parameters="parameters"
-                    )]
-                ),
-                scaling_policies=[gamelift.CfnFleet.ScalingPolicyProperty(
-                    metric_name="metricName",
-                    name="name",
-            
-                    # the properties below are optional
-                    comparison_operator="comparisonOperator",
-                    evaluation_periods=123,
-                    location="location",
-                    policy_type="policyType",
-                    scaling_adjustment=123,
-                    scaling_adjustment_type="scalingAdjustmentType",
-                    status="status",
-                    target_configuration=gamelift.CfnFleet.TargetConfigurationProperty(
-                        target_value=123
-                    ),
-                    threshold=123,
-                    update_status="updateStatus"
-                )],
-                script_id="scriptId",
-                server_launch_parameters="serverLaunchParameters",
-                server_launch_path="serverLaunchPath",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a51a418ba5b606bdfc45dc50c3172e280a12e078a7392f3258d5d329e037a55)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument anywhere_configuration", value=anywhere_configuration, expected_type=type_hints["anywhere_configuration"])
-            check_type(argname="argument apply_capacity", value=apply_capacity, expected_type=type_hints["apply_capacity"])
-            check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
-            check_type(argname="argument certificate_configuration", value=certificate_configuration, expected_type=type_hints["certificate_configuration"])
-            check_type(argname="argument compute_type", value=compute_type, expected_type=type_hints["compute_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument desired_ec2_instances", value=desired_ec2_instances, expected_type=type_hints["desired_ec2_instances"])
-            check_type(argname="argument ec2_inbound_permissions", value=ec2_inbound_permissions, expected_type=type_hints["ec2_inbound_permissions"])
-            check_type(argname="argument ec2_instance_type", value=ec2_instance_type, expected_type=type_hints["ec2_instance_type"])
-            check_type(argname="argument fleet_type", value=fleet_type, expected_type=type_hints["fleet_type"])
-            check_type(argname="argument instance_role_arn", value=instance_role_arn, expected_type=type_hints["instance_role_arn"])
-            check_type(argname="argument instance_role_credentials_provider", value=instance_role_credentials_provider, expected_type=type_hints["instance_role_credentials_provider"])
-            check_type(argname="argument locations", value=locations, expected_type=type_hints["locations"])
-            check_type(argname="argument log_paths", value=log_paths, expected_type=type_hints["log_paths"])
-            check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
-            check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
-            check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
-            check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
-            check_type(argname="argument peer_vpc_aws_account_id", value=peer_vpc_aws_account_id, expected_type=type_hints["peer_vpc_aws_account_id"])
-            check_type(argname="argument peer_vpc_id", value=peer_vpc_id, expected_type=type_hints["peer_vpc_id"])
-            check_type(argname="argument resource_creation_limit_policy", value=resource_creation_limit_policy, expected_type=type_hints["resource_creation_limit_policy"])
-            check_type(argname="argument runtime_configuration", value=runtime_configuration, expected_type=type_hints["runtime_configuration"])
-            check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
-            check_type(argname="argument script_id", value=script_id, expected_type=type_hints["script_id"])
-            check_type(argname="argument server_launch_parameters", value=server_launch_parameters, expected_type=type_hints["server_launch_parameters"])
-            check_type(argname="argument server_launch_path", value=server_launch_path, expected_type=type_hints["server_launch_path"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if anywhere_configuration is not None:
-            self._values["anywhere_configuration"] = anywhere_configuration
-        if apply_capacity is not None:
-            self._values["apply_capacity"] = apply_capacity
-        if build_id is not None:
-            self._values["build_id"] = build_id
-        if certificate_configuration is not None:
-            self._values["certificate_configuration"] = certificate_configuration
-        if compute_type is not None:
-            self._values["compute_type"] = compute_type
-        if description is not None:
-            self._values["description"] = description
-        if desired_ec2_instances is not None:
-            self._values["desired_ec2_instances"] = desired_ec2_instances
-        if ec2_inbound_permissions is not None:
-            self._values["ec2_inbound_permissions"] = ec2_inbound_permissions
-        if ec2_instance_type is not None:
-            self._values["ec2_instance_type"] = ec2_instance_type
-        if fleet_type is not None:
-            self._values["fleet_type"] = fleet_type
-        if instance_role_arn is not None:
-            self._values["instance_role_arn"] = instance_role_arn
-        if instance_role_credentials_provider is not None:
-            self._values["instance_role_credentials_provider"] = instance_role_credentials_provider
-        if locations is not None:
-            self._values["locations"] = locations
-        if log_paths is not None:
-            self._values["log_paths"] = log_paths
-        if max_size is not None:
-            self._values["max_size"] = max_size
-        if metric_groups is not None:
-            self._values["metric_groups"] = metric_groups
-        if min_size is not None:
-            self._values["min_size"] = min_size
-        if new_game_session_protection_policy is not None:
-            self._values["new_game_session_protection_policy"] = new_game_session_protection_policy
-        if peer_vpc_aws_account_id is not None:
-            self._values["peer_vpc_aws_account_id"] = peer_vpc_aws_account_id
-        if peer_vpc_id is not None:
-            self._values["peer_vpc_id"] = peer_vpc_id
-        if resource_creation_limit_policy is not None:
-            self._values["resource_creation_limit_policy"] = resource_creation_limit_policy
-        if runtime_configuration is not None:
-            self._values["runtime_configuration"] = runtime_configuration
-        if scaling_policies is not None:
-            self._values["scaling_policies"] = scaling_policies
-        if script_id is not None:
-            self._values["script_id"] = script_id
-        if server_launch_parameters is not None:
-            self._values["server_launch_parameters"] = server_launch_parameters
-        if server_launch_path is not None:
-            self._values["server_launch_path"] = server_launch_path
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A descriptive label that is associated with a fleet.
-
-        Fleet names do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def anywhere_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.AnywhereConfigurationProperty]]:
-        '''Amazon GameLift Servers Anywhere configuration options.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-anywhereconfiguration
-        '''
-        result = self._values.get("anywhere_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.AnywhereConfigurationProperty]], result)
-
-    @builtins.property
-    def apply_capacity(self) -> typing.Optional[builtins.str]:
-        '''Current resource capacity settings for managed EC2 fleets and managed container fleets.
-
-        For multi-location fleets, location values might refer to a fleet's remote location or its home Region.
-
-        *Returned by:* `DescribeFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetCapacity.html>`_ , `DescribeFleetLocationCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetLocationCapacity.html>`_ , `UpdateFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetCapacity.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-applycapacity
-        '''
-        result = self._values.get("apply_capacity")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def build_id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for a build to be deployed on the new fleet.
-
-        If you are deploying the fleet with a custom game build, you must specify this property. The build must have been successfully uploaded to Amazon GameLift and be in a ``READY`` status. This fleet setting cannot be changed once the fleet is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-buildid
-        '''
-        result = self._values.get("build_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.CertificateConfigurationProperty]]:
-        '''Prompts Amazon GameLift Servers to generate a TLS/SSL certificate for the fleet.
-
-        Amazon GameLift Servers uses the certificates to encrypt traffic between game clients and the game servers running on Amazon GameLift Servers. By default, the ``CertificateConfiguration`` is ``DISABLED`` . You can't change this property after you create the fleet.
-
-        AWS Certificate Manager (ACM) certificates expire after 13 months. Certificate expiration can cause fleets to fail, preventing players from connecting to instances in the fleet. We recommend you replace fleets before 13 months, consider using fleet aliases for a smooth transition.
-        .. epigraph::
-
-           ACM isn't available in all AWS regions. A fleet creation request with certificate generation enabled in an unsupported Region, fails with a 4xx error. For more information about the supported Regions, see `Supported Regions <https://docs.aws.amazon.com/acm/latest/userguide/acm-regions.html>`_ in the *AWS Certificate Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-certificateconfiguration
-        '''
-        result = self._values.get("certificate_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.CertificateConfigurationProperty]], result)
-
-    @builtins.property
-    def compute_type(self) -> typing.Optional[builtins.str]:
-        '''The type of compute resource used to host your game servers.
-
-        - ``EC2`` – The game server build is deployed to Amazon EC2 instances for cloud hosting. This is the default setting.
-        - ``ANYWHERE`` – Game servers and supporting software are deployed to compute resources that you provide and manage. With this compute type, you can also set the ``AnywhereConfiguration`` parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-computetype
-        '''
-        result = self._values.get("compute_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def desired_ec2_instances(self) -> typing.Optional[jsii.Number]:
-        '''(deprecated) [DEPRECATED] The number of EC2 instances that you want this fleet to host.
-
-        When creating a new fleet, GameLift automatically sets this value to "1" and initiates a single instance. Once the fleet is active, update this value to trigger GameLift to add or remove instances from the fleet.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-desiredec2instances
-        :stability: deprecated
-        '''
-        result = self._values.get("desired_ec2_instances")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def ec2_inbound_permissions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.IpPermissionProperty]]]]:
-        '''The IP address ranges and port settings that allow inbound traffic to access game server processes and other processes on this fleet.
-
-        Set this parameter for managed EC2 fleets. You can leave this parameter empty when creating the fleet, but you must call ` <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetPortSettings>`_ to set it before players can connect to game sessions. As a best practice, we recommend opening ports for remote access only when you need them and closing them when you're finished. For Amazon GameLift Servers Realtime fleets, Amazon GameLift Servers automatically sets TCP and UDP ranges.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-ec2inboundpermissions
-        '''
-        result = self._values.get("ec2_inbound_permissions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.IpPermissionProperty]]]], result)
-
-    @builtins.property
-    def ec2_instance_type(self) -> typing.Optional[builtins.str]:
-        '''The Amazon GameLift Servers-supported Amazon EC2 instance type to use with managed EC2 fleets.
-
-        Instance type determines the computing resources that will be used to host your game servers, including CPU, memory, storage, and networking capacity. See `Amazon Elastic Compute Cloud Instance Types <https://docs.aws.amazon.com/ec2/instance-types/>`_ for detailed descriptions of Amazon EC2 instance types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-ec2instancetype
-        '''
-        result = self._values.get("ec2_instance_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def fleet_type(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether to use On-Demand or Spot instances for this fleet.
-
-        By default, this property is set to ``ON_DEMAND`` . Learn more about when to use `On-Demand versus Spot Instances <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-ec2-instances.html#gamelift-ec2-instances-spot>`_ . This fleet property can't be changed after the fleet is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-fleettype
-        '''
-        result = self._values.get("fleet_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_role_arn(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for an IAM role that manages access to your AWS services.
-
-        With an instance role ARN set, any application that runs on an instance in this fleet can assume the role, including install scripts, server processes, and daemons (background processes). Create a role or look up a role's ARN by using the `IAM dashboard <https://docs.aws.amazon.com/iam/>`_ in the AWS Management Console . Learn more about using on-box credentials for your game servers at `Access external resources from a game server <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-instancerolearn
-        '''
-        result = self._values.get("instance_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_role_credentials_provider(self) -> typing.Optional[builtins.str]:
-        '''Indicates that fleet instances maintain a shared credentials file for the IAM role defined in ``InstanceRoleArn`` .
-
-        Shared credentials allow applications that are deployed with the game server executable to communicate with other AWS resources. This property is used only when the game server is integrated with the server SDK version 5.x. For more information about using shared credentials, see `Communicate with other AWS resources from your fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-resources.html>`_ . This attribute is used with fleets where ``ComputeType`` is ``EC2`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-instancerolecredentialsprovider
-        '''
-        result = self._values.get("instance_role_credentials_provider")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def locations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.LocationConfigurationProperty]]]]:
-        '''A set of remote locations to deploy additional instances to and manage as a multi-location fleet.
-
-        Use this parameter when creating a fleet in AWS Regions that support multiple locations. You can add any AWS Region or Local Zone that's supported by Amazon GameLift Servers. Provide a list of one or more AWS Region codes, such as ``us-west-2`` , or Local Zone names. When using this parameter, Amazon GameLift Servers requires you to include your home location in the request. For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-locations
-        '''
-        result = self._values.get("locations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.LocationConfigurationProperty]]]], result)
-
-    @builtins.property
-    def log_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(deprecated) This parameter is no longer used.
-
-        When hosting a custom game build, specify where Amazon GameLift should store log files using the Amazon GameLift server API call ProcessReady()
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-logpaths
-        :stability: deprecated
-        '''
-        result = self._values.get("log_paths")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def max_size(self) -> typing.Optional[jsii.Number]:
-        '''(deprecated) [DEPRECATED] The maximum value that is allowed for the fleet's instance count.
-
-        When creating a new fleet, GameLift automatically sets this value to "1". Once the fleet is active, you can change this value.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-maxsize
-        :stability: deprecated
-        '''
-        result = self._values.get("max_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def metric_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of an AWS CloudWatch metric group to add this fleet to.
-
-        A metric group is used to aggregate the metrics for multiple fleets. You can specify an existing metric group name or set a new name to create a new metric group. A fleet can be included in only one metric group at a time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-metricgroups
-        '''
-        result = self._values.get("metric_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def min_size(self) -> typing.Optional[jsii.Number]:
-        '''(deprecated) [DEPRECATED] The minimum value allowed for the fleet's instance count.
-
-        When creating a new fleet, GameLift automatically sets this value to "0". After the fleet is active, you can change this value.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-minsize
-        :stability: deprecated
-        '''
-        result = self._values.get("min_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def new_game_session_protection_policy(self) -> typing.Optional[builtins.str]:
-        '''The status of termination protection for active game sessions on the fleet.
-
-        By default, this property is set to ``NoProtection`` .
-
-        - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event.
-        - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-newgamesessionprotectionpolicy
-        '''
-        result = self._values.get("new_game_session_protection_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def peer_vpc_aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC.
-
-        You can find your account ID in the AWS Management Console under account settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-peervpcawsaccountid
-        '''
-        result = self._values.get("peer_vpc_aws_account_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def peer_vpc_id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet.
-
-        The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-peervpcid
-        '''
-        result = self._values.get("peer_vpc_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_creation_limit_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.ResourceCreationLimitPolicyProperty]]:
-        '''A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-resourcecreationlimitpolicy
-        '''
-        result = self._values.get("resource_creation_limit_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.ResourceCreationLimitPolicyProperty]], result)
-
-    @builtins.property
-    def runtime_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.RuntimeConfigurationProperty]]:
-        '''Instructions for how to launch and maintain server processes on instances in the fleet.
-
-        The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently.
-        .. epigraph::
-
-           The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-runtimeconfiguration
-        '''
-        result = self._values.get("runtime_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.RuntimeConfigurationProperty]], result)
-
-    @builtins.property
-    def scaling_policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.ScalingPolicyProperty]]]]:
-        '''Rule that controls how a fleet is scaled.
-
-        Scaling policies are uniquely identified by the combination of name and fleet ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-scalingpolicies
-        '''
-        result = self._values.get("scaling_policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFleet.ScalingPolicyProperty]]]], result)
-
-    @builtins.property
-    def script_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier for a Realtime configuration script to be deployed on fleet instances.
-
-        You can use either the script ID or ARN. Scripts must be uploaded to Amazon GameLift Servers prior to creating the fleet. This fleet property cannot be changed later.
-        .. epigraph::
-
-           You can't use the ``!Ref`` command to reference a script created with a CloudFormation template for the fleet property ``ScriptId`` . Instead, use ``Fn::GetAtt Script.Arn`` or ``Fn::GetAtt Script.Id`` to retrieve either of these properties as input for ``ScriptId`` . Alternatively, enter a ``ScriptId`` string manually.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-scriptid
-        '''
-        result = self._values.get("script_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_launch_parameters(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This parameter is no longer used but is retained for backward compatibility.
-
-        Instead, specify server launch parameters in the RuntimeConfiguration parameter. A request must specify either a runtime configuration or values for both ServerLaunchParameters and ServerLaunchPath.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-serverlaunchparameters
-        :stability: deprecated
-        '''
-        result = self._values.get("server_launch_parameters")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_launch_path(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) This parameter is no longer used.
-
-        Instead, specify a server launch path using the RuntimeConfiguration parameter. Requests that specify a server launch path and launch parameters instead of a runtime configuration will continue to work.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-serverlaunchpath
-        :stability: deprecated
-        '''
-        result = self._values.get("server_launch_path")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFleetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IGameServerGroupRef, _ITaggable_36806126)
 class CfnGameServerGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7241,6 +9570,12 @@ class CfnGameServerGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gameServerGroupRef")
+    def game_server_group_ref(self) -> GameServerGroupReference:
+        '''A reference to a GameServerGroup resource.'''
+        return typing.cast(GameServerGroupReference, jsii.get(self, "gameServerGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7736,300 +10071,7 @@ class CfnGameServerGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnGameServerGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "game_server_group_name": "gameServerGroupName",
-        "instance_definitions": "instanceDefinitions",
-        "role_arn": "roleArn",
-        "auto_scaling_policy": "autoScalingPolicy",
-        "balancing_strategy": "balancingStrategy",
-        "delete_option": "deleteOption",
-        "game_server_protection_policy": "gameServerProtectionPolicy",
-        "launch_template": "launchTemplate",
-        "max_size": "maxSize",
-        "min_size": "minSize",
-        "tags": "tags",
-        "vpc_subnets": "vpcSubnets",
-    },
-)
-class CfnGameServerGroupProps:
-    def __init__(
-        self,
-        *,
-        game_server_group_name: builtins.str,
-        instance_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.InstanceDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        role_arn: builtins.str,
-        auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        balancing_strategy: typing.Optional[builtins.str] = None,
-        delete_option: typing.Optional[builtins.str] = None,
-        game_server_protection_policy: typing.Optional[builtins.str] = None,
-        launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.LaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        max_size: typing.Optional[jsii.Number] = None,
-        min_size: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGameServerGroup``.
-
-        :param game_server_group_name: A developer-defined identifier for the game server group. The name is unique for each Region in each AWS account.
-        :param instance_definitions: The set of Amazon EC2 instance types that Amazon GameLift Servers FleetIQ can use when balancing and automatically scaling instances in the corresponding Auto Scaling group.
-        :param role_arn: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) for an IAM role that allows Amazon GameLift Servers to access your Amazon EC2 Auto Scaling groups.
-        :param auto_scaling_policy: Configuration settings to define a scaling policy for the Auto Scaling group that is optimized for game hosting. The scaling policy uses the metric ``"PercentUtilizedGameServers"`` to maintain a buffer of idle game servers that can immediately accommodate new games and players. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-        :param balancing_strategy: Indicates how Amazon GameLift Servers FleetIQ balances the use of Spot Instances and On-Demand Instances in the game server group. Method options include the following: - ``SPOT_ONLY`` - Only Spot Instances are used in the game server group. If Spot Instances are unavailable or not viable for game hosting, the game server group provides no hosting capacity until Spot Instances can again be used. Until then, no new instances are started, and the existing nonviable Spot Instances are terminated (after current gameplay ends) and are not replaced. - ``SPOT_PREFERRED`` - (default value) Spot Instances are used whenever available in the game server group. If Spot Instances are unavailable, the game server group continues to provide hosting capacity by falling back to On-Demand Instances. Existing nonviable Spot Instances are terminated (after current gameplay ends) and are replaced with new On-Demand Instances. - ``ON_DEMAND_ONLY`` - Only On-Demand Instances are used in the game server group. No Spot Instances are used, even when available, while this balancing strategy is in force.
-        :param delete_option: The type of delete to perform. To delete a game server group, specify the ``DeleteOption`` . Options include the following: - ``SAFE_DELETE`` – (default) Terminates the game server group and Amazon EC2 Auto Scaling group only when it has no game servers that are in ``UTILIZED`` status. - ``FORCE_DELETE`` – Terminates the game server group, including all active game servers regardless of their utilization status, and the Amazon EC2 Auto Scaling group. - ``RETAIN`` – Does a safe delete of the game server group but retains the Amazon EC2 Auto Scaling group as is.
-        :param game_server_protection_policy: A flag that indicates whether instances in the game server group are protected from early termination. Unprotected instances that have active game servers running might be terminated during a scale-down event, causing players to be dropped from the game. Protected instances cannot be terminated while there are active game servers running except in the event of a forced game server group deletion (see ). An exception to this is with Spot Instances, which can be terminated by AWS regardless of protection status.
-        :param launch_template: The Amazon EC2 launch template that contains configuration settings and game server code to be deployed to all instances in the game server group. You can specify the template using either the template name or ID. For help with creating a launch template, see `Creating a Launch Template for an Auto Scaling Group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-template.html>`_ in the *Amazon Elastic Compute Cloud Auto Scaling User Guide* . After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs. .. epigraph:: If you specify network interfaces in your launch template, you must explicitly set the property ``AssociatePublicIpAddress`` to "true". If no network interface is specified in the launch template, Amazon GameLift Servers FleetIQ uses your account's default VPC.
-        :param max_size: The maximum number of instances allowed in the Amazon EC2 Auto Scaling group. During automatic scaling events, Amazon GameLift Servers FleetIQ and EC2 do not scale up the group above this maximum. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-        :param min_size: The minimum number of instances allowed in the Amazon EC2 Auto Scaling group. During automatic scaling events, Amazon GameLift Servers FleetIQ and Amazon EC2 do not scale down the group below this minimum. In production, this value should be set to at least 1. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-        :param tags: A list of labels to assign to the new game server group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags, respectively. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-        :param vpc_subnets: A list of virtual private cloud (VPC) subnets to use with instances in the game server group. By default, all Amazon GameLift Servers FleetIQ-supported Availability Zones are used. You can use this parameter to specify VPCs that you've set up. This property cannot be updated after the game server group is created, and the corresponding Auto Scaling group will always use the property value that is set with this request, even if the Auto Scaling group is updated directly.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_game_server_group_props = gamelift.CfnGameServerGroupProps(
-                game_server_group_name="gameServerGroupName",
-                instance_definitions=[gamelift.CfnGameServerGroup.InstanceDefinitionProperty(
-                    instance_type="instanceType",
-            
-                    # the properties below are optional
-                    weighted_capacity="weightedCapacity"
-                )],
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                auto_scaling_policy=gamelift.CfnGameServerGroup.AutoScalingPolicyProperty(
-                    target_tracking_configuration=gamelift.CfnGameServerGroup.TargetTrackingConfigurationProperty(
-                        target_value=123
-                    ),
-            
-                    # the properties below are optional
-                    estimated_instance_warmup=123
-                ),
-                balancing_strategy="balancingStrategy",
-                delete_option="deleteOption",
-                game_server_protection_policy="gameServerProtectionPolicy",
-                launch_template=gamelift.CfnGameServerGroup.LaunchTemplateProperty(
-                    launch_template_id="launchTemplateId",
-                    launch_template_name="launchTemplateName",
-                    version="version"
-                ),
-                max_size=123,
-                min_size=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_subnets=["vpcSubnets"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb2b330cbc0b2bd24b542707e03f7de3d6d3afa7d8fa0efaac64771d13b95db1)
-            check_type(argname="argument game_server_group_name", value=game_server_group_name, expected_type=type_hints["game_server_group_name"])
-            check_type(argname="argument instance_definitions", value=instance_definitions, expected_type=type_hints["instance_definitions"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument auto_scaling_policy", value=auto_scaling_policy, expected_type=type_hints["auto_scaling_policy"])
-            check_type(argname="argument balancing_strategy", value=balancing_strategy, expected_type=type_hints["balancing_strategy"])
-            check_type(argname="argument delete_option", value=delete_option, expected_type=type_hints["delete_option"])
-            check_type(argname="argument game_server_protection_policy", value=game_server_protection_policy, expected_type=type_hints["game_server_protection_policy"])
-            check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
-            check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
-            check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "game_server_group_name": game_server_group_name,
-            "instance_definitions": instance_definitions,
-            "role_arn": role_arn,
-        }
-        if auto_scaling_policy is not None:
-            self._values["auto_scaling_policy"] = auto_scaling_policy
-        if balancing_strategy is not None:
-            self._values["balancing_strategy"] = balancing_strategy
-        if delete_option is not None:
-            self._values["delete_option"] = delete_option
-        if game_server_protection_policy is not None:
-            self._values["game_server_protection_policy"] = game_server_protection_policy
-        if launch_template is not None:
-            self._values["launch_template"] = launch_template
-        if max_size is not None:
-            self._values["max_size"] = max_size
-        if min_size is not None:
-            self._values["min_size"] = min_size
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_subnets is not None:
-            self._values["vpc_subnets"] = vpc_subnets
-
-    @builtins.property
-    def game_server_group_name(self) -> builtins.str:
-        '''A developer-defined identifier for the game server group.
-
-        The name is unique for each Region in each AWS account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-gameservergroupname
-        '''
-        result = self._values.get("game_server_group_name")
-        assert result is not None, "Required property 'game_server_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_definitions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.InstanceDefinitionProperty]]]:
-        '''The set of Amazon EC2 instance types that Amazon GameLift Servers FleetIQ can use when balancing and automatically scaling instances in the corresponding Auto Scaling group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-instancedefinitions
-        '''
-        result = self._values.get("instance_definitions")
-        assert result is not None, "Required property 'instance_definitions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.InstanceDefinitionProperty]]], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) for an IAM role that allows Amazon GameLift Servers to access your Amazon EC2 Auto Scaling groups.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_scaling_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.AutoScalingPolicyProperty]]:
-        '''Configuration settings to define a scaling policy for the Auto Scaling group that is optimized for game hosting.
-
-        The scaling policy uses the metric ``"PercentUtilizedGameServers"`` to maintain a buffer of idle game servers that can immediately accommodate new games and players. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-autoscalingpolicy
-        '''
-        result = self._values.get("auto_scaling_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.AutoScalingPolicyProperty]], result)
-
-    @builtins.property
-    def balancing_strategy(self) -> typing.Optional[builtins.str]:
-        '''Indicates how Amazon GameLift Servers FleetIQ balances the use of Spot Instances and On-Demand Instances in the game server group.
-
-        Method options include the following:
-
-        - ``SPOT_ONLY`` - Only Spot Instances are used in the game server group. If Spot Instances are unavailable or not viable for game hosting, the game server group provides no hosting capacity until Spot Instances can again be used. Until then, no new instances are started, and the existing nonviable Spot Instances are terminated (after current gameplay ends) and are not replaced.
-        - ``SPOT_PREFERRED`` - (default value) Spot Instances are used whenever available in the game server group. If Spot Instances are unavailable, the game server group continues to provide hosting capacity by falling back to On-Demand Instances. Existing nonviable Spot Instances are terminated (after current gameplay ends) and are replaced with new On-Demand Instances.
-        - ``ON_DEMAND_ONLY`` - Only On-Demand Instances are used in the game server group. No Spot Instances are used, even when available, while this balancing strategy is in force.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-balancingstrategy
-        '''
-        result = self._values.get("balancing_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def delete_option(self) -> typing.Optional[builtins.str]:
-        '''The type of delete to perform.
-
-        To delete a game server group, specify the ``DeleteOption`` . Options include the following:
-
-        - ``SAFE_DELETE`` – (default) Terminates the game server group and Amazon EC2 Auto Scaling group only when it has no game servers that are in ``UTILIZED`` status.
-        - ``FORCE_DELETE`` – Terminates the game server group, including all active game servers regardless of their utilization status, and the Amazon EC2 Auto Scaling group.
-        - ``RETAIN`` – Does a safe delete of the game server group but retains the Amazon EC2 Auto Scaling group as is.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-deleteoption
-        '''
-        result = self._values.get("delete_option")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_server_protection_policy(self) -> typing.Optional[builtins.str]:
-        '''A flag that indicates whether instances in the game server group are protected from early termination.
-
-        Unprotected instances that have active game servers running might be terminated during a scale-down event, causing players to be dropped from the game. Protected instances cannot be terminated while there are active game servers running except in the event of a forced game server group deletion (see ). An exception to this is with Spot Instances, which can be terminated by AWS regardless of protection status.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-gameserverprotectionpolicy
-        '''
-        result = self._values.get("game_server_protection_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def launch_template(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.LaunchTemplateProperty]]:
-        '''The Amazon EC2 launch template that contains configuration settings and game server code to be deployed to all instances in the game server group.
-
-        You can specify the template using either the template name or ID. For help with creating a launch template, see `Creating a Launch Template for an Auto Scaling Group <https://docs.aws.amazon.com/autoscaling/ec2/userguide/create-launch-template.html>`_ in the *Amazon Elastic Compute Cloud Auto Scaling User Guide* . After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-        .. epigraph::
-
-           If you specify network interfaces in your launch template, you must explicitly set the property ``AssociatePublicIpAddress`` to "true". If no network interface is specified in the launch template, Amazon GameLift Servers FleetIQ uses your account's default VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-launchtemplate
-        '''
-        result = self._values.get("launch_template")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameServerGroup.LaunchTemplateProperty]], result)
-
-    @builtins.property
-    def max_size(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of instances allowed in the Amazon EC2 Auto Scaling group.
-
-        During automatic scaling events, Amazon GameLift Servers FleetIQ and EC2 do not scale up the group above this maximum. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-maxsize
-        '''
-        result = self._values.get("max_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def min_size(self) -> typing.Optional[jsii.Number]:
-        '''The minimum number of instances allowed in the Amazon EC2 Auto Scaling group.
-
-        During automatic scaling events, Amazon GameLift Servers FleetIQ and Amazon EC2 do not scale down the group below this minimum. In production, this value should be set to at least 1. After the Auto Scaling group is created, update this value directly in the Auto Scaling group using the AWS console or APIs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-minsize
-        '''
-        result = self._values.get("min_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new game server group resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags, respectively. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of virtual private cloud (VPC) subnets to use with instances in the game server group.
-
-        By default, all Amazon GameLift Servers FleetIQ-supported Availability Zones are used. You can use this parameter to specify VPCs that you've set up. This property cannot be updated after the game server group is created, and the corresponding Auto Scaling group will always use the property value that is set with this request, even if the Auto Scaling group is updated directly.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gameservergroup.html#cfn-gamelift-gameservergroup-vpcsubnets
-        '''
-        result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGameServerGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IGameSessionQueueRef, _ITaggable_36806126)
 class CfnGameSessionQueue(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8177,6 +10219,12 @@ class CfnGameSessionQueue(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gameSessionQueueRef")
+    def game_session_queue_ref(self) -> GameSessionQueueReference:
+        '''A reference to a GameSessionQueue resource.'''
+        return typing.cast(GameSessionQueueReference, jsii.get(self, "gameSessionQueueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8659,233 +10707,7 @@ class CfnGameSessionQueue(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnGameSessionQueueProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "custom_event_data": "customEventData",
-        "destinations": "destinations",
-        "filter_configuration": "filterConfiguration",
-        "notification_target": "notificationTarget",
-        "player_latency_policies": "playerLatencyPolicies",
-        "priority_configuration": "priorityConfiguration",
-        "tags": "tags",
-        "timeout_in_seconds": "timeoutInSeconds",
-    },
-)
-class CfnGameSessionQueueProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        custom_event_data: typing.Optional[builtins.str] = None,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        notification_target: typing.Optional[builtins.str] = None,
-        player_latency_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PlayerLatencyPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        priority_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PriorityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        timeout_in_seconds: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGameSessionQueue``.
-
-        :param name: A descriptive label that is associated with game session queue. Queue names must be unique within each Region.
-        :param custom_event_data: Information to be added to all events that are related to this game session queue.
-        :param destinations: A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue. Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
-        :param filter_configuration: A list of locations where a queue is allowed to place new game sessions. Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
-        :param notification_target: An SNS topic ARN that is set up to receive game session placement notifications. See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
-        :param player_latency_policies: A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests. Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
-        :param priority_configuration: Custom settings to use when prioritizing destinations and locations for game session placements. This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
-        :param tags: A list of labels to assign to the new game session queue resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-        :param timeout_in_seconds: The maximum time, in seconds, that a new game session placement request remains in the queue. When a request exceeds this time, the game session placement changes to a ``TIMED_OUT`` status. If you don't specify a request timeout, the queue uses a default value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_game_session_queue_props = gamelift.CfnGameSessionQueueProps(
-                name="name",
-            
-                # the properties below are optional
-                custom_event_data="customEventData",
-                destinations=[gamelift.CfnGameSessionQueue.DestinationProperty(
-                    destination_arn="destinationArn"
-                )],
-                filter_configuration=gamelift.CfnGameSessionQueue.FilterConfigurationProperty(
-                    allowed_locations=["allowedLocations"]
-                ),
-                notification_target="notificationTarget",
-                player_latency_policies=[gamelift.CfnGameSessionQueue.PlayerLatencyPolicyProperty(
-                    maximum_individual_player_latency_milliseconds=123,
-                    policy_duration_seconds=123
-                )],
-                priority_configuration=gamelift.CfnGameSessionQueue.PriorityConfigurationProperty(
-                    location_order=["locationOrder"],
-                    priority_order=["priorityOrder"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                timeout_in_seconds=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b18cdd98f5e3e7424d6d930e416c9690c2e3cdcc56ac70f4688a8984ea0e8b7)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument custom_event_data", value=custom_event_data, expected_type=type_hints["custom_event_data"])
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
-            check_type(argname="argument notification_target", value=notification_target, expected_type=type_hints["notification_target"])
-            check_type(argname="argument player_latency_policies", value=player_latency_policies, expected_type=type_hints["player_latency_policies"])
-            check_type(argname="argument priority_configuration", value=priority_configuration, expected_type=type_hints["priority_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if custom_event_data is not None:
-            self._values["custom_event_data"] = custom_event_data
-        if destinations is not None:
-            self._values["destinations"] = destinations
-        if filter_configuration is not None:
-            self._values["filter_configuration"] = filter_configuration
-        if notification_target is not None:
-            self._values["notification_target"] = notification_target
-        if player_latency_policies is not None:
-            self._values["player_latency_policies"] = player_latency_policies
-        if priority_configuration is not None:
-            self._values["priority_configuration"] = priority_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if timeout_in_seconds is not None:
-            self._values["timeout_in_seconds"] = timeout_in_seconds
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A descriptive label that is associated with game session queue.
-
-        Queue names must be unique within each Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_event_data(self) -> typing.Optional[builtins.str]:
-        '''Information to be added to all events that are related to this game session queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-customeventdata
-        '''
-        result = self._values.get("custom_event_data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.DestinationProperty]]]]:
-        '''A list of fleets and/or fleet aliases that can be used to fulfill game session placement requests in the queue.
-
-        Destinations are identified by either a fleet ARN or a fleet alias ARN, and are listed in order of placement preference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-destinations
-        '''
-        result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.DestinationProperty]]]], result)
-
-    @builtins.property
-    def filter_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.FilterConfigurationProperty]]:
-        '''A list of locations where a queue is allowed to place new game sessions.
-
-        Locations are specified in the form of AWS Region codes, such as ``us-west-2`` . If this parameter is not set, game sessions can be placed in any queue location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-filterconfiguration
-        '''
-        result = self._values.get("filter_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.FilterConfigurationProperty]], result)
-
-    @builtins.property
-    def notification_target(self) -> typing.Optional[builtins.str]:
-        '''An SNS topic ARN that is set up to receive game session placement notifications.
-
-        See `Setting up notifications for game session placement <https://docs.aws.amazon.com/gamelift/latest/developerguide/queue-notification.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-notificationtarget
-        '''
-        result = self._values.get("notification_target")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def player_latency_policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.PlayerLatencyPolicyProperty]]]]:
-        '''A set of policies that enforce a sliding cap on player latency when processing game sessions placement requests.
-
-        Use multiple policies to gradually relax the cap over time if Amazon GameLift Servers can't make a placement. Policies are evaluated in order starting with the lowest maximum latency value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-playerlatencypolicies
-        '''
-        result = self._values.get("player_latency_policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.PlayerLatencyPolicyProperty]]]], result)
-
-    @builtins.property
-    def priority_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.PriorityConfigurationProperty]]:
-        '''Custom settings to use when prioritizing destinations and locations for game session placements.
-
-        This configuration replaces the FleetIQ default prioritization process. Priority types that are not explicitly named will be automatically applied at the end of the prioritization process.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-priorityconfiguration
-        '''
-        result = self._values.get("priority_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGameSessionQueue.PriorityConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new game session queue resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The maximum time, in seconds, that a new game session placement request remains in the queue.
-
-        When a request exceeds this time, the game session placement changes to a ``TIMED_OUT`` status. If you don't specify a request timeout, the queue uses a default value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-gamesessionqueue.html#cfn-gamelift-gamesessionqueue-timeoutinseconds
-        '''
-        result = self._values.get("timeout_in_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGameSessionQueueProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ILocationRef, _ITaggable_36806126)
 class CfnLocation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8983,6 +10805,12 @@ class CfnLocation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="locationRef")
+    def location_ref(self) -> LocationReference:
+        '''A reference to a Location resource.'''
+        return typing.cast(LocationReference, jsii.get(self, "locationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -9015,86 +10843,7 @@ class CfnLocation(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnLocationProps",
-    jsii_struct_bases=[],
-    name_mapping={"location_name": "locationName", "tags": "tags"},
-)
-class CfnLocationProps:
-    def __init__(
-        self,
-        *,
-        location_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLocation``.
-
-        :param location_name: A descriptive name for the custom location.
-        :param tags: A list of labels to assign to the new resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Rareference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_location_props = gamelift.CfnLocationProps(
-                location_name="locationName",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98ffffd954dd9a648cdd22ea8069e64a916e69b5690bde3de5bb865f1a555e5d)
-            check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location_name": location_name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def location_name(self) -> builtins.str:
-        '''A descriptive name for the custom location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html#cfn-gamelift-location-locationname
-        '''
-        result = self._values.get("location_name")
-        assert result is not None, "Required property 'location_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management, and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Rareference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-location.html#cfn-gamelift-location-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLocationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IMatchmakingConfigurationRef, _ITaggable_36806126)
 class CfnMatchmakingConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9265,6 +11014,12 @@ class CfnMatchmakingConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="matchmakingConfigurationRef")
+    def matchmaking_configuration_ref(self) -> MatchmakingConfigurationReference:
+        '''A reference to a MatchmakingConfiguration resource.'''
+        return typing.cast(MatchmakingConfigurationReference, jsii.get(self, "matchmakingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9577,357 +11332,7 @@ class CfnMatchmakingConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnMatchmakingConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "acceptance_required": "acceptanceRequired",
-        "name": "name",
-        "request_timeout_seconds": "requestTimeoutSeconds",
-        "rule_set_name": "ruleSetName",
-        "acceptance_timeout_seconds": "acceptanceTimeoutSeconds",
-        "additional_player_count": "additionalPlayerCount",
-        "backfill_mode": "backfillMode",
-        "creation_time": "creationTime",
-        "custom_event_data": "customEventData",
-        "description": "description",
-        "flex_match_mode": "flexMatchMode",
-        "game_properties": "gameProperties",
-        "game_session_data": "gameSessionData",
-        "game_session_queue_arns": "gameSessionQueueArns",
-        "notification_target": "notificationTarget",
-        "rule_set_arn": "ruleSetArn",
-        "tags": "tags",
-    },
-)
-class CfnMatchmakingConfigurationProps:
-    def __init__(
-        self,
-        *,
-        acceptance_required: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        name: builtins.str,
-        request_timeout_seconds: jsii.Number,
-        rule_set_name: builtins.str,
-        acceptance_timeout_seconds: typing.Optional[jsii.Number] = None,
-        additional_player_count: typing.Optional[jsii.Number] = None,
-        backfill_mode: typing.Optional[builtins.str] = None,
-        creation_time: typing.Optional[builtins.str] = None,
-        custom_event_data: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        flex_match_mode: typing.Optional[builtins.str] = None,
-        game_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchmakingConfiguration.GamePropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        game_session_data: typing.Optional[builtins.str] = None,
-        game_session_queue_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        notification_target: typing.Optional[builtins.str] = None,
-        rule_set_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMatchmakingConfiguration``.
-
-        :param acceptance_required: A flag that determines whether a match that was created with this configuration must be accepted by the matched players. To require acceptance, set to ``TRUE`` . With this option enabled, matchmaking tickets use the status ``REQUIRES_ACCEPTANCE`` to indicate when a completed potential match is waiting for player acceptance.
-        :param name: A unique identifier for the matchmaking configuration. This name is used to identify the configuration associated with a matchmaking request or ticket.
-        :param request_timeout_seconds: The maximum duration, in seconds, that a matchmaking ticket can remain in process before timing out. Requests that fail due to timing out can be resubmitted as needed.
-        :param rule_set_name: A unique identifier for the matchmaking rule set to use with this configuration. You can use either the rule set name or ARN value. A matchmaking configuration can only use rule sets that are defined in the same Region.
-        :param acceptance_timeout_seconds: The length of time (in seconds) to wait for players to accept a proposed match, if acceptance is required.
-        :param additional_player_count: The number of player slots in a match to keep open for future players. For example, if the configuration's rule set specifies a match for a single 12-person team, and the additional player count is set to 2, only 10 players are selected for the match. This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-        :param backfill_mode: The method used to backfill game sessions that are created with this matchmaking configuration. Specify ``MANUAL`` when your game manages backfill requests manually or does not use the match backfill feature. Specify ``AUTOMATIC`` to have GameLift create a ``StartMatchBackfill`` request whenever a game session has one or more open slots. Learn more about manual and automatic backfill in `Backfill Existing Games with FlexMatch <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-backfill.html>`_ . Automatic backfill is not available when ``FlexMatchMode`` is set to ``STANDALONE`` .
-        :param creation_time: A time stamp indicating when this data object was created. Format is a number expressed in Unix time as milliseconds (for example ``"1469498468.057"`` ).
-        :param custom_event_data: Information to add to all events related to the matchmaking configuration.
-        :param description: A description for the matchmaking configuration.
-        :param flex_match_mode: Indicates whether this matchmaking configuration is being used with Amazon GameLift Servers hosting or as a standalone matchmaking solution. - *STANDALONE* - FlexMatch forms matches and returns match information, including players and team assignments, in a `MatchmakingSucceeded <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-events.html#match-events-matchmakingsucceeded>`_ event. - *WITH_QUEUE* - FlexMatch forms matches and uses the specified Amazon GameLift Servers queue to start a game session for the match.
-        :param game_properties: A set of custom properties for a game session, formatted as key-value pairs. These properties are passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-        :param game_session_data: A set of custom game session properties, formatted as a single string value. This data is passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-        :param game_session_queue_arns: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) that is assigned to a Amazon GameLift Servers game session queue resource and uniquely identifies it. ARNs are unique across all Regions. Format is ``arn:aws:gamelift:<region>::gamesessionqueue/<queue name>`` . Queues can be located in any Region. Queues are used to start new Amazon GameLift Servers-hosted game sessions for matches that are created with this matchmaking configuration. If ``FlexMatchMode`` is set to ``STANDALONE`` , do not set this parameter.
-        :param notification_target: An SNS topic ARN that is set up to receive matchmaking notifications. See `Setting up notifications for matchmaking <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-notification.html>`_ for more information.
-        :param rule_set_arn: The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) associated with the GameLift matchmaking rule set resource that this configuration uses.
-        :param tags: A list of labels to assign to the new matchmaking configuration resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_matchmaking_configuration_props = gamelift.CfnMatchmakingConfigurationProps(
-                acceptance_required=False,
-                name="name",
-                request_timeout_seconds=123,
-                rule_set_name="ruleSetName",
-            
-                # the properties below are optional
-                acceptance_timeout_seconds=123,
-                additional_player_count=123,
-                backfill_mode="backfillMode",
-                creation_time="creationTime",
-                custom_event_data="customEventData",
-                description="description",
-                flex_match_mode="flexMatchMode",
-                game_properties=[gamelift.CfnMatchmakingConfiguration.GamePropertyProperty(
-                    key="key",
-                    value="value"
-                )],
-                game_session_data="gameSessionData",
-                game_session_queue_arns=["gameSessionQueueArns"],
-                notification_target="notificationTarget",
-                rule_set_arn="ruleSetArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0695f9efae852f4e3e7ce492e734297825efd4ac43986ef67506d40163a838)
-            check_type(argname="argument acceptance_required", value=acceptance_required, expected_type=type_hints["acceptance_required"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument request_timeout_seconds", value=request_timeout_seconds, expected_type=type_hints["request_timeout_seconds"])
-            check_type(argname="argument rule_set_name", value=rule_set_name, expected_type=type_hints["rule_set_name"])
-            check_type(argname="argument acceptance_timeout_seconds", value=acceptance_timeout_seconds, expected_type=type_hints["acceptance_timeout_seconds"])
-            check_type(argname="argument additional_player_count", value=additional_player_count, expected_type=type_hints["additional_player_count"])
-            check_type(argname="argument backfill_mode", value=backfill_mode, expected_type=type_hints["backfill_mode"])
-            check_type(argname="argument creation_time", value=creation_time, expected_type=type_hints["creation_time"])
-            check_type(argname="argument custom_event_data", value=custom_event_data, expected_type=type_hints["custom_event_data"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument flex_match_mode", value=flex_match_mode, expected_type=type_hints["flex_match_mode"])
-            check_type(argname="argument game_properties", value=game_properties, expected_type=type_hints["game_properties"])
-            check_type(argname="argument game_session_data", value=game_session_data, expected_type=type_hints["game_session_data"])
-            check_type(argname="argument game_session_queue_arns", value=game_session_queue_arns, expected_type=type_hints["game_session_queue_arns"])
-            check_type(argname="argument notification_target", value=notification_target, expected_type=type_hints["notification_target"])
-            check_type(argname="argument rule_set_arn", value=rule_set_arn, expected_type=type_hints["rule_set_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "acceptance_required": acceptance_required,
-            "name": name,
-            "request_timeout_seconds": request_timeout_seconds,
-            "rule_set_name": rule_set_name,
-        }
-        if acceptance_timeout_seconds is not None:
-            self._values["acceptance_timeout_seconds"] = acceptance_timeout_seconds
-        if additional_player_count is not None:
-            self._values["additional_player_count"] = additional_player_count
-        if backfill_mode is not None:
-            self._values["backfill_mode"] = backfill_mode
-        if creation_time is not None:
-            self._values["creation_time"] = creation_time
-        if custom_event_data is not None:
-            self._values["custom_event_data"] = custom_event_data
-        if description is not None:
-            self._values["description"] = description
-        if flex_match_mode is not None:
-            self._values["flex_match_mode"] = flex_match_mode
-        if game_properties is not None:
-            self._values["game_properties"] = game_properties
-        if game_session_data is not None:
-            self._values["game_session_data"] = game_session_data
-        if game_session_queue_arns is not None:
-            self._values["game_session_queue_arns"] = game_session_queue_arns
-        if notification_target is not None:
-            self._values["notification_target"] = notification_target
-        if rule_set_arn is not None:
-            self._values["rule_set_arn"] = rule_set_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def acceptance_required(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''A flag that determines whether a match that was created with this configuration must be accepted by the matched players.
-
-        To require acceptance, set to ``TRUE`` . With this option enabled, matchmaking tickets use the status ``REQUIRES_ACCEPTANCE`` to indicate when a completed potential match is waiting for player acceptance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-acceptancerequired
-        '''
-        result = self._values.get("acceptance_required")
-        assert result is not None, "Required property 'acceptance_required' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A unique identifier for the matchmaking configuration.
-
-        This name is used to identify the configuration associated with a matchmaking request or ticket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def request_timeout_seconds(self) -> jsii.Number:
-        '''The maximum duration, in seconds, that a matchmaking ticket can remain in process before timing out.
-
-        Requests that fail due to timing out can be resubmitted as needed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-requesttimeoutseconds
-        '''
-        result = self._values.get("request_timeout_seconds")
-        assert result is not None, "Required property 'request_timeout_seconds' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def rule_set_name(self) -> builtins.str:
-        '''A unique identifier for the matchmaking rule set to use with this configuration.
-
-        You can use either the rule set name or ARN value. A matchmaking configuration can only use rule sets that are defined in the same Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-rulesetname
-        '''
-        result = self._values.get("rule_set_name")
-        assert result is not None, "Required property 'rule_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def acceptance_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The length of time (in seconds) to wait for players to accept a proposed match, if acceptance is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-acceptancetimeoutseconds
-        '''
-        result = self._values.get("acceptance_timeout_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def additional_player_count(self) -> typing.Optional[jsii.Number]:
-        '''The number of player slots in a match to keep open for future players.
-
-        For example, if the configuration's rule set specifies a match for a single 12-person team, and the additional player count is set to 2, only 10 players are selected for the match. This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-additionalplayercount
-        '''
-        result = self._values.get("additional_player_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def backfill_mode(self) -> typing.Optional[builtins.str]:
-        '''The method used to backfill game sessions that are created with this matchmaking configuration.
-
-        Specify ``MANUAL`` when your game manages backfill requests manually or does not use the match backfill feature. Specify ``AUTOMATIC`` to have GameLift create a ``StartMatchBackfill`` request whenever a game session has one or more open slots. Learn more about manual and automatic backfill in `Backfill Existing Games with FlexMatch <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-backfill.html>`_ . Automatic backfill is not available when ``FlexMatchMode`` is set to ``STANDALONE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-backfillmode
-        '''
-        result = self._values.get("backfill_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def creation_time(self) -> typing.Optional[builtins.str]:
-        '''A time stamp indicating when this data object was created.
-
-        Format is a number expressed in Unix time as milliseconds (for example ``"1469498468.057"`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-creationtime
-        '''
-        result = self._values.get("creation_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_event_data(self) -> typing.Optional[builtins.str]:
-        '''Information to add to all events related to the matchmaking configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-customeventdata
-        '''
-        result = self._values.get("custom_event_data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the matchmaking configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def flex_match_mode(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether this matchmaking configuration is being used with Amazon GameLift Servers hosting or as a standalone matchmaking solution.
-
-        - *STANDALONE* - FlexMatch forms matches and returns match information, including players and team assignments, in a `MatchmakingSucceeded <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-events.html#match-events-matchmakingsucceeded>`_ event.
-        - *WITH_QUEUE* - FlexMatch forms matches and uses the specified Amazon GameLift Servers queue to start a game session for the match.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-flexmatchmode
-        '''
-        result = self._values.get("flex_match_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMatchmakingConfiguration.GamePropertyProperty]]]]:
-        '''A set of custom properties for a game session, formatted as key-value pairs.
-
-        These properties are passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gameproperties
-        '''
-        result = self._values.get("game_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMatchmakingConfiguration.GamePropertyProperty]]]], result)
-
-    @builtins.property
-    def game_session_data(self) -> typing.Optional[builtins.str]:
-        '''A set of custom game session properties, formatted as a single string value.
-
-        This data is passed to a game server process with a request to start a new game session. See `Start a Game Session <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-sdk-server-api.html#gamelift-sdk-server-startsession>`_ . This parameter is not used if ``FlexMatchMode`` is set to ``STANDALONE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gamesessiondata
-        '''
-        result = self._values.get("game_session_data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def game_session_queue_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) that is assigned to a Amazon GameLift Servers game session queue resource and uniquely identifies it. ARNs are unique across all Regions. Format is ``arn:aws:gamelift:<region>::gamesessionqueue/<queue name>`` . Queues can be located in any Region. Queues are used to start new Amazon GameLift Servers-hosted game sessions for matches that are created with this matchmaking configuration. If ``FlexMatchMode`` is set to ``STANDALONE`` , do not set this parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-gamesessionqueuearns
-        '''
-        result = self._values.get("game_session_queue_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def notification_target(self) -> typing.Optional[builtins.str]:
-        '''An SNS topic ARN that is set up to receive matchmaking notifications.
-
-        See `Setting up notifications for matchmaking <https://docs.aws.amazon.com/gamelift/latest/flexmatchguide/match-notification.html>`_ for more information.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-notificationtarget
-        '''
-        result = self._values.get("notification_target")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rule_set_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name ( `ARN <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-arn-format.html>`_ ) associated with the GameLift matchmaking rule set resource that this configuration uses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-rulesetarn
-        '''
-        result = self._values.get("rule_set_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new matchmaking configuration resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingconfiguration.html#cfn-gamelift-matchmakingconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMatchmakingConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IMatchmakingRuleSetRef, _ITaggable_36806126)
 class CfnMatchmakingRuleSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10060,6 +11465,12 @@ class CfnMatchmakingRuleSet(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="matchmakingRuleSetRef")
+    def matchmaking_rule_set_ref(self) -> MatchmakingRuleSetReference:
+        '''A reference to a MatchmakingRuleSet resource.'''
+        return typing.cast(MatchmakingRuleSetReference, jsii.get(self, "matchmakingRuleSetRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -10105,105 +11516,7 @@ class CfnMatchmakingRuleSet(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnMatchmakingRuleSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "rule_set_body": "ruleSetBody", "tags": "tags"},
-)
-class CfnMatchmakingRuleSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        rule_set_body: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMatchmakingRuleSet``.
-
-        :param name: A unique identifier for the matchmaking rule set. A matchmaking configuration identifies the rule set it uses by this name value. Note that the rule set name is different from the optional ``name`` field in the rule set body.
-        :param rule_set_body: A collection of matchmaking rules, formatted as a JSON string. Comments are not allowed in JSON, but most elements support a description field.
-        :param tags: A list of labels to assign to the new matchmaking rule set resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_matchmaking_rule_set_props = gamelift.CfnMatchmakingRuleSetProps(
-                name="name",
-                rule_set_body="ruleSetBody",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bc1d10bdb780b0aa1af65a9211c041b6a3e7bb4893d0bfc3a61136195a863d6)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rule_set_body", value=rule_set_body, expected_type=type_hints["rule_set_body"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "rule_set_body": rule_set_body,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A unique identifier for the matchmaking rule set.
-
-        A matchmaking configuration identifies the rule set it uses by this name value. Note that the rule set name is different from the optional ``name`` field in the rule set body.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_set_body(self) -> builtins.str:
-        '''A collection of matchmaking rules, formatted as a JSON string.
-
-        Comments are not allowed in JSON, but most elements support a description field.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-rulesetbody
-        '''
-        result = self._values.get("rule_set_body")
-        assert result is not None, "Required property 'rule_set_body' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new matchmaking rule set resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-matchmakingruleset.html#cfn-gamelift-matchmakingruleset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMatchmakingRuleSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IScriptRef, _ITaggable_36806126)
 class CfnScript(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10345,6 +11658,12 @@ class CfnScript(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scriptRef")
+    def script_ref(self) -> ScriptReference:
+        '''A reference to a Script resource.'''
+        return typing.cast(ScriptReference, jsii.get(self, "scriptRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10524,136 +11843,9 @@ class CfnScript(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gamelift.CfnScriptProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "storage_location": "storageLocation",
-        "name": "name",
-        "tags": "tags",
-        "version": "version",
-    },
-)
-class CfnScriptProps:
-    def __init__(
-        self,
-        *,
-        storage_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScript.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        version: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScript``.
-
-        :param storage_location: The location of the Amazon S3 bucket where a zipped file containing your Realtime scripts is stored. The storage location must specify the Amazon S3 bucket name, the zip file name (the "key"), and a role ARN that allows Amazon GameLift Servers to access the Amazon S3 storage location. The S3 bucket must be in the same Region where you want to create a new script. By default, Amazon GameLift Servers uploads the latest version of the zip file; if you have S3 object versioning turned on, you can use the ``ObjectVersion`` parameter to specify an earlier version.
-        :param name: A descriptive label that is associated with a script. Script names do not need to be unique.
-        :param tags: A list of labels to assign to the new script resource. Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-        :param version: The version that is associated with a build or script. Version strings do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gamelift as gamelift
-            
-            cfn_script_props = gamelift.CfnScriptProps(
-                storage_location=gamelift.CfnScript.S3LocationProperty(
-                    bucket="bucket",
-                    key="key",
-                    role_arn="roleArn",
-            
-                    # the properties below are optional
-                    object_version="objectVersion"
-                ),
-            
-                # the properties below are optional
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                version="version"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4a56c9731d882f4e0af0b136c973132c594cdb2f6c8607aa9bd92978d6d80b5)
-            check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "storage_location": storage_location,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def storage_location(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnScript.S3LocationProperty]:
-        '''The location of the Amazon S3 bucket where a zipped file containing your Realtime scripts is stored.
-
-        The storage location must specify the Amazon S3 bucket name, the zip file name (the "key"), and a role ARN that allows Amazon GameLift Servers to access the Amazon S3 storage location. The S3 bucket must be in the same Region where you want to create a new script. By default, Amazon GameLift Servers uploads the latest version of the zip file; if you have S3 object versioning turned on, you can use the ``ObjectVersion`` parameter to specify an earlier version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-storagelocation
-        '''
-        result = self._values.get("storage_location")
-        assert result is not None, "Required property 'storage_location' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnScript.S3LocationProperty], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A descriptive label that is associated with a script.
-
-        Script names do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of labels to assign to the new script resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources are useful for resource management, access management and cost allocation. For more information, see `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* . Once the resource is created, you can use TagResource, UntagResource, and ListTagsForResource to add, remove, and view tags. The maximum tag limit may be lower than stated. See the AWS General Reference for actual tagging limits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[builtins.str]:
-        '''The version that is associated with a build or script.
-
-        Version strings do not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-script.html#cfn-gamelift-script-version
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScriptProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AliasReference",
+    "BuildReference",
     "CfnAlias",
     "CfnAliasProps",
     "CfnBuild",
@@ -10676,9 +11868,293 @@ __all__ = [
     "CfnMatchmakingRuleSetProps",
     "CfnScript",
     "CfnScriptProps",
+    "ContainerFleetReference",
+    "ContainerGroupDefinitionReference",
+    "FleetReference",
+    "GameServerGroupReference",
+    "GameSessionQueueReference",
+    "IAliasRef",
+    "IBuildRef",
+    "IContainerFleetRef",
+    "IContainerGroupDefinitionRef",
+    "IFleetRef",
+    "IGameServerGroupRef",
+    "IGameSessionQueueRef",
+    "ILocationRef",
+    "IMatchmakingConfigurationRef",
+    "IMatchmakingRuleSetRef",
+    "IScriptRef",
+    "LocationReference",
+    "MatchmakingConfigurationReference",
+    "MatchmakingRuleSetReference",
+    "ScriptReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ebc446b228a7081b9c33fad4a707ee58e9b0a17ca8cd5f9ef375e3a972e32f25(
+    *,
+    alias_arn: builtins.str,
+    alias_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eaac38b438cd7bde550db4039eeff594571b95f266fb05604de67a68a05b0211(
+    *,
+    build_arn: builtins.str,
+    build_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e74c18c4446e0f846baf63e2e707aa2ba663f37170623164846853f1176d7891(
+    *,
+    name: builtins.str,
+    routing_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlias.RoutingStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ea486b468f726c96f63f78347aac31445ce3b0bd1ea282f6fce30ca4e8642d7(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    operating_system: typing.Optional[builtins.str] = None,
+    server_sdk_version: typing.Optional[builtins.str] = None,
+    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBuild.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fbf4a66831e3b15f9023046fb41b590456b41ba1048fa4e59749ccd8f9d023c(
+    *,
+    fleet_role_arn: builtins.str,
+    billing_type: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.DeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    game_server_container_group_definition_name: typing.Optional[builtins.str] = None,
+    game_server_container_groups_per_instance: typing.Optional[jsii.Number] = None,
+    game_session_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.GameSessionCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_connection_port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ConnectionPortRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_type: typing.Optional[builtins.str] = None,
+    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    new_game_session_protection_policy: typing.Optional[builtins.str] = None,
+    per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+    scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b760a12182b9da0a53204aa5510dae28c2cda4c4fba1ef77f0245093da04ea4(
+    *,
+    name: builtins.str,
+    operating_system: builtins.str,
+    total_memory_limit_mebibytes: jsii.Number,
+    total_vcpu_limit: jsii.Number,
+    container_group_type: typing.Optional[builtins.str] = None,
+    game_server_container_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.GameServerContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_version_number: typing.Optional[jsii.Number] = None,
+    support_container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.SupportContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a51a418ba5b606bdfc45dc50c3172e280a12e078a7392f3258d5d329e037a55(
+    *,
+    name: builtins.str,
+    anywhere_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AnywhereConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    apply_capacity: typing.Optional[builtins.str] = None,
+    build_id: typing.Optional[builtins.str] = None,
+    certificate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CertificateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compute_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    desired_ec2_instances: typing.Optional[jsii.Number] = None,
+    ec2_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ec2_instance_type: typing.Optional[builtins.str] = None,
+    fleet_type: typing.Optional[builtins.str] = None,
+    instance_role_arn: typing.Optional[builtins.str] = None,
+    instance_role_credentials_provider: typing.Optional[builtins.str] = None,
+    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    max_size: typing.Optional[jsii.Number] = None,
+    metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    min_size: typing.Optional[jsii.Number] = None,
+    new_game_session_protection_policy: typing.Optional[builtins.str] = None,
+    peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
+    peer_vpc_id: typing.Optional[builtins.str] = None,
+    resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ResourceCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.RuntimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    script_id: typing.Optional[builtins.str] = None,
+    server_launch_parameters: typing.Optional[builtins.str] = None,
+    server_launch_path: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb2b330cbc0b2bd24b542707e03f7de3d6d3afa7d8fa0efaac64771d13b95db1(
+    *,
+    game_server_group_name: builtins.str,
+    instance_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.InstanceDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    role_arn: builtins.str,
+    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    balancing_strategy: typing.Optional[builtins.str] = None,
+    delete_option: typing.Optional[builtins.str] = None,
+    game_server_protection_policy: typing.Optional[builtins.str] = None,
+    launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.LaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_size: typing.Optional[jsii.Number] = None,
+    min_size: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b18cdd98f5e3e7424d6d930e416c9690c2e3cdcc56ac70f4688a8984ea0e8b7(
+    *,
+    name: builtins.str,
+    custom_event_data: typing.Optional[builtins.str] = None,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_target: typing.Optional[builtins.str] = None,
+    player_latency_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PlayerLatencyPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    priority_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PriorityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98ffffd954dd9a648cdd22ea8069e64a916e69b5690bde3de5bb865f1a555e5d(
+    *,
+    location_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__db0695f9efae852f4e3e7ce492e734297825efd4ac43986ef67506d40163a838(
+    *,
+    acceptance_required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    name: builtins.str,
+    request_timeout_seconds: jsii.Number,
+    rule_set_name: builtins.str,
+    acceptance_timeout_seconds: typing.Optional[jsii.Number] = None,
+    additional_player_count: typing.Optional[jsii.Number] = None,
+    backfill_mode: typing.Optional[builtins.str] = None,
+    creation_time: typing.Optional[builtins.str] = None,
+    custom_event_data: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    flex_match_mode: typing.Optional[builtins.str] = None,
+    game_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchmakingConfiguration.GamePropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    game_session_data: typing.Optional[builtins.str] = None,
+    game_session_queue_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    notification_target: typing.Optional[builtins.str] = None,
+    rule_set_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bc1d10bdb780b0aa1af65a9211c041b6a3e7bb4893d0bfc3a61136195a863d6(
+    *,
+    name: builtins.str,
+    rule_set_body: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4a56c9731d882f4e0af0b136c973132c594cdb2f6c8607aa9bd92978d6d80b5(
+    *,
+    storage_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScript.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de39e16b982c76cd86dafcfda4933a257372032909a907aa16b808a66087f102(
+    *,
+    fleet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d405ef76e5a39ed151afbb8fb3d225dd7f56e606e5266b51464172f3608fe55(
+    *,
+    container_group_definition_arn: builtins.str,
+    container_group_definition_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24e51038e2adad2131b16605c9250bcbfe7f16235980933012bddee386594a0d(
+    *,
+    fleet_arn: builtins.str,
+    fleet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9d6eaafba9bc6a7ec36686a8de8cc0b1e0541207caff415876fdb1d9d981344(
+    *,
+    game_server_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84be2353284875355db6a0c796e5b9e4409b4db735a07ad3ee9b54040c17f9f6(
+    *,
+    game_session_queue_arn: builtins.str,
+    game_session_queue_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ffd6bef077c084da7a9c21275dacfc89dace2299ee2a5ee41c3bfaa43de3f4c(
+    *,
+    location_arn: builtins.str,
+    location_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90120c65409e9c345645e4e049d5105bedfefc3bf9e8a4eb879b2836dccf68e7(
+    *,
+    matchmaking_configuration_arn: builtins.str,
+    matchmaking_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d28f46718f3b9c8d3abb68fb4c686c8507ebe6dcc28c35318e6708d02da027f2(
+    *,
+    matchmaking_rule_set_arn: builtins.str,
+    matchmaking_rule_set_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a88c9520d25593fce3e3450c1010d1714cbeaa715a8badaa832b1d7cdcb9b20f(
+    *,
+    script_arn: builtins.str,
+    script_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6a91f3a4a7dfbcf1655ec6812682d7a8824bfb46a9ce2a65e3c859108e3633c8(
     scope: _constructs_77d1e7e8.Construct,
@@ -10733,16 +12209,6 @@ def _typecheckingstub__4057d890d9c2fba51db14d6885375c0c7263cd6b07fb4401e3fb51d76
     type: builtins.str,
     fleet_id: typing.Optional[builtins.str] = None,
     message: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e74c18c4446e0f846baf63e2e707aa2ba663f37170623164846853f1176d7891(
-    *,
-    name: builtins.str,
-    routing_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlias.RoutingStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10815,18 +12281,6 @@ def _typecheckingstub__6d6726269ab0714348382710795aeac31efd3f1d29c3bac05a4aefa5c
     key: builtins.str,
     role_arn: builtins.str,
     object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ea486b468f726c96f63f78347aac31445ce3b0bd1ea282f6fce30ca4e8642d7(
-    *,
-    name: typing.Optional[builtins.str] = None,
-    operating_system: typing.Optional[builtins.str] = None,
-    server_sdk_version: typing.Optional[builtins.str] = None,
-    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBuild.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11061,29 +12515,6 @@ def _typecheckingstub__3133704901a8cbe841212bef17b3e01ca8f97d737576c8860ee4bf4a4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4fbf4a66831e3b15f9023046fb41b590456b41ba1048fa4e59749ccd8f9d023c(
-    *,
-    fleet_role_arn: builtins.str,
-    billing_type: typing.Optional[builtins.str] = None,
-    deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.DeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    game_server_container_group_definition_name: typing.Optional[builtins.str] = None,
-    game_server_container_groups_per_instance: typing.Optional[jsii.Number] = None,
-    game_session_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.GameSessionCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_connection_port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ConnectionPortRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    instance_type: typing.Optional[builtins.str] = None,
-    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    new_game_session_protection_policy: typing.Optional[builtins.str] = None,
-    per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
-    scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2d0ad3aeb1243549bc05c0346bb1e8303d21326ec9f1a17ec63327d7e3f29a1e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11253,22 +12684,6 @@ def _typecheckingstub__6565c3caf0bf39eea0bc662ef87427d6cf77017b05483384a736fa1c2
     port_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.PortConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resolved_image_digest: typing.Optional[builtins.str] = None,
     vcpu: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b760a12182b9da0a53204aa5510dae28c2cda4c4fba1ef77f0245093da04ea4(
-    *,
-    name: builtins.str,
-    operating_system: builtins.str,
-    total_memory_limit_mebibytes: jsii.Number,
-    total_vcpu_limit: jsii.Number,
-    container_group_type: typing.Optional[builtins.str] = None,
-    game_server_container_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.GameServerContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_version_number: typing.Optional[jsii.Number] = None,
-    support_container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerGroupDefinition.SupportContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11581,40 +12996,6 @@ def _typecheckingstub__472ce4c72467f1a69fc974099623863890460564fbbe1e98eb694a9a4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8a51a418ba5b606bdfc45dc50c3172e280a12e078a7392f3258d5d329e037a55(
-    *,
-    name: builtins.str,
-    anywhere_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AnywhereConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    apply_capacity: typing.Optional[builtins.str] = None,
-    build_id: typing.Optional[builtins.str] = None,
-    certificate_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CertificateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    compute_type: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    desired_ec2_instances: typing.Optional[jsii.Number] = None,
-    ec2_inbound_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.IpPermissionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ec2_instance_type: typing.Optional[builtins.str] = None,
-    fleet_type: typing.Optional[builtins.str] = None,
-    instance_role_arn: typing.Optional[builtins.str] = None,
-    instance_role_credentials_provider: typing.Optional[builtins.str] = None,
-    locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    max_size: typing.Optional[jsii.Number] = None,
-    metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    min_size: typing.Optional[jsii.Number] = None,
-    new_game_session_protection_policy: typing.Optional[builtins.str] = None,
-    peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
-    peer_vpc_id: typing.Optional[builtins.str] = None,
-    resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ResourceCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.RuntimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    script_id: typing.Optional[builtins.str] = None,
-    server_launch_parameters: typing.Optional[builtins.str] = None,
-    server_launch_path: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__39a0d4e260fba686f866a885f9a542286a05d085037e114d8febabfdd92cfd24(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11751,24 +13132,6 @@ def _typecheckingstub__ef13423f0408e9300989065f2e1f7a323aeaaef1367e95591fe66bbfc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cb2b330cbc0b2bd24b542707e03f7de3d6d3afa7d8fa0efaac64771d13b95db1(
-    *,
-    game_server_group_name: builtins.str,
-    instance_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.InstanceDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    role_arn: builtins.str,
-    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    balancing_strategy: typing.Optional[builtins.str] = None,
-    delete_option: typing.Optional[builtins.str] = None,
-    game_server_protection_policy: typing.Optional[builtins.str] = None,
-    launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameServerGroup.LaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    max_size: typing.Optional[jsii.Number] = None,
-    min_size: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2435e37790a5987d49478948c0c1ac36c9e463fa29441c46ba0aa4d567f2c585(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11889,21 +13252,6 @@ def _typecheckingstub__bffce6e10d5ec1968a817a7df177891e44b6ec986ec424c92d4e71dd5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6b18cdd98f5e3e7424d6d930e416c9690c2e3cdcc56ac70f4688a8984ea0e8b7(
-    *,
-    name: builtins.str,
-    custom_event_data: typing.Optional[builtins.str] = None,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.DestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notification_target: typing.Optional[builtins.str] = None,
-    player_latency_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PlayerLatencyPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    priority_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGameSessionQueue.PriorityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout_in_seconds: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__404fc5857cf63bdcf757784b5c810e73ce1c99d8d82c264eec7a145724580816(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11934,14 +13282,6 @@ def _typecheckingstub__50f9bf4f89ef7693448c9209f894d6900bab55884642fc136222c211e
 
 def _typecheckingstub__db22dc038d314307a9d7182d88d8959bd024bf2feff9aee7f03deba1df46ca5c(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98ffffd954dd9a648cdd22ea8069e64a916e69b5690bde3de5bb865f1a555e5d(
-    *,
-    location_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12093,29 +13433,6 @@ def _typecheckingstub__f2a4ff02870ac5c61154789061383399d6e97942338fe5b3af997be3c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__db0695f9efae852f4e3e7ce492e734297825efd4ac43986ef67506d40163a838(
-    *,
-    acceptance_required: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    name: builtins.str,
-    request_timeout_seconds: jsii.Number,
-    rule_set_name: builtins.str,
-    acceptance_timeout_seconds: typing.Optional[jsii.Number] = None,
-    additional_player_count: typing.Optional[jsii.Number] = None,
-    backfill_mode: typing.Optional[builtins.str] = None,
-    creation_time: typing.Optional[builtins.str] = None,
-    custom_event_data: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    flex_match_mode: typing.Optional[builtins.str] = None,
-    game_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchmakingConfiguration.GamePropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    game_session_data: typing.Optional[builtins.str] = None,
-    game_session_queue_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    notification_target: typing.Optional[builtins.str] = None,
-    rule_set_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__18ad8102fb28f35f09c9f78c601c99b706ee4e13284fddfd4e85f0e7b2b9cf57(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12153,15 +13470,6 @@ def _typecheckingstub__2901f58b94659dc1e7b989a5220ec6f85b0fd07e208ae745469d1ed13
 
 def _typecheckingstub__0b8486d81489f869526b41e6ebf2b191599f06a6370135adbf247ac933792cd6(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7bc1d10bdb780b0aa1af65a9211c041b6a3e7bb4893d0bfc3a61136195a863d6(
-    *,
-    name: builtins.str,
-    rule_set_body: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12220,16 +13528,6 @@ def _typecheckingstub__1bc9de7e6777aff8308976cae56a2f5dd2d0e14f8555821f0396e5b81
     key: builtins.str,
     role_arn: builtins.str,
     object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f4a56c9731d882f4e0af0b136c973132c594cdb2f6c8607aa9bd92978d6d80b5(
-    *,
-    storage_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScript.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

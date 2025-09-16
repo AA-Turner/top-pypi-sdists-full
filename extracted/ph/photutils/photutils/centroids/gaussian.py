@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-The module contains tools for centroiding sources using Gaussians.
+Define tools for centroiding sources using Gaussians.
 """
 
 import warnings
@@ -72,11 +72,15 @@ def centroid_1dg(data, error=None, mask=None):
     (data, error), _ = process_quantities((data, error), ('data', 'error'))
 
     data = np.ma.asanyarray(data)
+    if data.ndim != 2:
+        msg = 'data must be a 2D array'
+        raise ValueError(msg)
 
     if mask is not None and mask is not np.ma.nomask:
         mask = np.asanyarray(mask)
         if data.shape != mask.shape:
-            raise ValueError('data and mask must have the same shape.')
+            msg = 'data and mask must have the same shape'
+            raise ValueError(msg)
         data.mask |= mask
 
     if np.any(~np.isfinite(data)):
@@ -88,7 +92,8 @@ def centroid_1dg(data, error=None, mask=None):
     if error is not None:
         error = np.ma.masked_invalid(error)
         if data.shape != error.shape:
-            raise ValueError('data and error must have the same shape.')
+            msg = 'data and error must have the same shape'
+            raise ValueError(msg)
         data.mask |= error.mask
         error.mask = data.mask
 
@@ -151,7 +156,8 @@ def _gaussian1d_moments(data, mask=None):
     if mask is not None and mask is not np.ma.nomask:
         mask = np.asanyarray(mask)
         if data.shape != mask.shape:
-            raise ValueError('data and mask must have the same shape.')
+            msg = 'data and mask must have the same shape'
+            raise ValueError(msg)
         data.mask |= mask
 
     data.fill_value = 0.0
@@ -201,7 +207,7 @@ def centroid_2dg(data, error=None, mask=None):
     >>> data = data[40:80, 70:110]
     >>> x1, y1 = centroid_2dg(data)
     >>> print(np.array((x1, y1)))
-    [19.98519436 20.0149016 ]
+    [19.9851944  20.01490157]
 
     .. plot::
 
@@ -225,11 +231,15 @@ def centroid_2dg(data, error=None, mask=None):
     (data, error), _ = process_quantities((data, error), ('data', 'error'))
 
     data = np.ma.asanyarray(data)
+    if data.ndim != 2:
+        msg = 'data must be a 2D array'
+        raise ValueError(msg)
 
     if mask is not None and mask is not np.ma.nomask:
         mask = np.asanyarray(mask)
         if data.shape != mask.shape:
-            raise ValueError('data and mask must have the same shape.')
+            msg = 'data and mask must have the same shape'
+            raise ValueError(msg)
         data.mask |= mask
 
     if np.any(~np.isfinite(data)):
@@ -241,15 +251,17 @@ def centroid_2dg(data, error=None, mask=None):
     if error is not None:
         error = np.ma.masked_invalid(error)
         if data.shape != error.shape:
-            raise ValueError('data and error must have the same shape.')
+            msg = 'data and error must have the same shape'
+            raise ValueError(msg)
         data.mask |= error.mask
         weights = 1.0 / error.clip(min=1.0e-30)
     else:
         weights = np.ones(data.shape)
 
     if np.ma.count(data) < 6:
-        raise ValueError('Input data must have a least 6 unmasked values to '
-                         'fit a 2D Gaussian.')
+        msg = ('Input data must have a least 6 unmasked values to fit a '
+               '2D Gaussian.')
+        raise ValueError(msg)
 
     # assign zero weight to masked pixels
     if data.mask is not np.ma.nomask:
@@ -270,7 +282,7 @@ def centroid_2dg(data, error=None, mask=None):
                         y_mean=props.ycentroid,
                         x_stddev=props.semimajor_sigma.value,
                         y_stddev=props.semiminor_sigma.value,
-                        theta=props.orientation.value)
+                        theta=props.orientation)
 
     # Gaussian2D [x/y]_stddev are bounded to be strictly positive
     fitter = TRFLSQFitter()

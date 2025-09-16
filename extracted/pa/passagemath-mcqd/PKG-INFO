@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-mcqd
-Version: 10.6.22
+Version: 10.6.23
 Summary: passagemath: Finding maximum cliques with mcqd
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

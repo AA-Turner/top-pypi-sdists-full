@@ -616,10 +616,10 @@ from ..aws_ec2 import (
 from ..aws_iam import (
     Grant as _Grant_a7ae64f8,
     IGrantable as _IGrantable_71c4f5de,
-    IRole as _IRole_235f5d8e,
+    IRoleRef as _IRoleRef_613dafc2,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
 from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
 
@@ -760,6 +760,74 @@ class AdvancedSecurityOptions:
 
     def __repr__(self) -> str:
         return "AdvancedSecurityOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "application_name": "applicationName",
+    },
+)
+class ApplicationReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        application_name: builtins.str,
+    ) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ARN of the Application resource.
+        :param application_name: The Name of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            application_reference = opensearchservice.ApplicationReference(
+                application_arn="applicationArn",
+                application_name="applicationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9095f105cdfb26b07753724d1c37f4880ff2104f8fc4e1b548ffd22e43122af5)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "application_name": application_name,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The Name of the Application resource.'''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -942,7 +1010,4593 @@ class CapacityConfig:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "app_configs": "appConfigs",
+        "data_sources": "dataSources",
+        "endpoint": "endpoint",
+        "iam_identity_center_options": "iamIdentityCenterOptions",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AppConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        endpoint: typing.Optional[builtins.str] = None,
+        iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param name: The name of an OpenSearch application.
+        :param app_configs: List of application configurations.
+        :param data_sources: List of data sources.
+        :param endpoint: The endpoint URL of an OpenSearch application.
+        :param iam_identity_center_options: Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources. This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
+        :param tags: An arbitrary set of tags (key-value pairs) for this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            cfn_application_props = opensearchservice.CfnApplicationProps(
+                name="name",
+            
+                # the properties below are optional
+                app_configs=[opensearchservice.CfnApplication.AppConfigProperty(
+                    key="key",
+                    value="value"
+                )],
+                data_sources=[opensearchservice.CfnApplication.DataSourceProperty(
+                    data_source_arn="dataSourceArn",
+            
+                    # the properties below are optional
+                    data_source_description="dataSourceDescription"
+                )],
+                endpoint="endpoint",
+                iam_identity_center_options=opensearchservice.CfnApplication.IamIdentityCenterOptionsProperty(
+                    enabled=False,
+                    iam_identity_center_instance_arn="iamIdentityCenterInstanceArn",
+                    iam_role_for_identity_center_application_arn="iamRoleForIdentityCenterApplicationArn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument app_configs", value=app_configs, expected_type=type_hints["app_configs"])
+            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+            check_type(argname="argument iam_identity_center_options", value=iam_identity_center_options, expected_type=type_hints["iam_identity_center_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if app_configs is not None:
+            self._values["app_configs"] = app_configs
+        if data_sources is not None:
+            self._values["data_sources"] = data_sources
+        if endpoint is not None:
+            self._values["endpoint"] = endpoint
+        if iam_identity_center_options is not None:
+            self._values["iam_identity_center_options"] = iam_identity_center_options
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of an OpenSearch application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.AppConfigProperty"]]]]:
+        '''List of application configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-appconfigs
+        '''
+        result = self._values.get("app_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.AppConfigProperty"]]]], result)
+
+    @builtins.property
+    def data_sources(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.DataSourceProperty"]]]]:
+        '''List of data sources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-datasources
+        '''
+        result = self._values.get("data_sources")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.DataSourceProperty"]]]], result)
+
+    @builtins.property
+    def endpoint(self) -> typing.Optional[builtins.str]:
+        '''The endpoint URL of an OpenSearch application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-endpoint
+        '''
+        result = self._values.get("endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_identity_center_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IamIdentityCenterOptionsProperty"]]:
+        '''Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources.
+
+        This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-iamidentitycenteroptions
+        '''
+        result = self._values.get("iam_identity_center_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IamIdentityCenterOptionsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key-value pairs) for this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_policies": "accessPolicies",
+        "advanced_options": "advancedOptions",
+        "advanced_security_options": "advancedSecurityOptions",
+        "cluster_config": "clusterConfig",
+        "cognito_options": "cognitoOptions",
+        "domain_arn": "domainArn",
+        "domain_endpoint_options": "domainEndpointOptions",
+        "domain_name": "domainName",
+        "ebs_options": "ebsOptions",
+        "encryption_at_rest_options": "encryptionAtRestOptions",
+        "engine_version": "engineVersion",
+        "identity_center_options": "identityCenterOptions",
+        "ip_address_type": "ipAddressType",
+        "log_publishing_options": "logPublishingOptions",
+        "node_to_node_encryption_options": "nodeToNodeEncryptionOptions",
+        "off_peak_window_options": "offPeakWindowOptions",
+        "skip_shard_migration_wait": "skipShardMigrationWait",
+        "snapshot_options": "snapshotOptions",
+        "software_update_options": "softwareUpdateOptions",
+        "tags": "tags",
+        "vpc_options": "vpcOptions",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        access_policies: typing.Any = None,
+        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_arn: typing.Optional[builtins.str] = None,
+        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_name: typing.Optional[builtins.str] = None,
+        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.OffPeakWindowOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
+        :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
+        :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
+        :param cluster_config: Container for the cluster configuration of a domain.
+        :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+        :param domain_arn: 
+        :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
+        :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+        :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS KMS key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ . If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
+        :param engine_version: The version of OpenSearch to use. The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
+        :param identity_center_options: Configuration options for controlling IAM Identity Center integration within a domain.
+        :param ip_address_type: Choose either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
+        :param log_publishing_options: An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish. Each key needs a valid ``LogPublishingOption`` value. For the full syntax, see the `examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--examples>`_ .
+        :param node_to_node_encryption_options: Specifies whether node-to-node encryption is enabled. See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
+        :param off_peak_window_options: Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
+        :param skip_shard_migration_wait: 
+        :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indexes.
+        :param software_update_options: Service software update options for the domain.
+        :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
+        :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* . If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            # access_policies: Any
+            
+            cfn_domain_props = opensearchservice.CfnDomainProps(
+                access_policies=access_policies,
+                advanced_options={
+                    "advanced_options_key": "advancedOptions"
+                },
+                advanced_security_options=opensearchservice.CfnDomain.AdvancedSecurityOptionsInputProperty(
+                    anonymous_auth_disable_date="anonymousAuthDisableDate",
+                    anonymous_auth_enabled=False,
+                    enabled=False,
+                    iam_federation_options={
+                        "enabled": False,
+                        "roles_key": "rolesKey",
+                        "subject_key": "subjectKey"
+                    },
+                    internal_user_database_enabled=False,
+                    jwt_options=opensearchservice.CfnDomain.JWTOptionsProperty(
+                        enabled=False,
+                        public_key="publicKey",
+                        roles_key="rolesKey",
+                        subject_key="subjectKey"
+                    ),
+                    master_user_options=opensearchservice.CfnDomain.MasterUserOptionsProperty(
+                        master_user_arn="masterUserArn",
+                        master_user_name="masterUserName",
+                        master_user_password="masterUserPassword"
+                    ),
+                    saml_options=opensearchservice.CfnDomain.SAMLOptionsProperty(
+                        enabled=False,
+                        idp=opensearchservice.CfnDomain.IdpProperty(
+                            entity_id="entityId",
+                            metadata_content="metadataContent"
+                        ),
+                        master_backend_role="masterBackendRole",
+                        master_user_name="masterUserName",
+                        roles_key="rolesKey",
+                        session_timeout_minutes=123,
+                        subject_key="subjectKey"
+                    )
+                ),
+                cluster_config=opensearchservice.CfnDomain.ClusterConfigProperty(
+                    cold_storage_options=opensearchservice.CfnDomain.ColdStorageOptionsProperty(
+                        enabled=False
+                    ),
+                    dedicated_master_count=123,
+                    dedicated_master_enabled=False,
+                    dedicated_master_type="dedicatedMasterType",
+                    instance_count=123,
+                    instance_type="instanceType",
+                    multi_az_with_standby_enabled=False,
+                    node_options=[opensearchservice.CfnDomain.NodeOptionProperty(
+                        node_config=opensearchservice.CfnDomain.NodeConfigProperty(
+                            count=123,
+                            enabled=False,
+                            type="type"
+                        ),
+                        node_type="nodeType"
+                    )],
+                    warm_count=123,
+                    warm_enabled=False,
+                    warm_type="warmType",
+                    zone_awareness_config=opensearchservice.CfnDomain.ZoneAwarenessConfigProperty(
+                        availability_zone_count=123
+                    ),
+                    zone_awareness_enabled=False
+                ),
+                cognito_options=opensearchservice.CfnDomain.CognitoOptionsProperty(
+                    enabled=False,
+                    identity_pool_id="identityPoolId",
+                    role_arn="roleArn",
+                    user_pool_id="userPoolId"
+                ),
+                domain_arn="domainArn",
+                domain_endpoint_options=opensearchservice.CfnDomain.DomainEndpointOptionsProperty(
+                    custom_endpoint="customEndpoint",
+                    custom_endpoint_certificate_arn="customEndpointCertificateArn",
+                    custom_endpoint_enabled=False,
+                    enforce_https=False,
+                    tls_security_policy="tlsSecurityPolicy"
+                ),
+                domain_name="domainName",
+                ebs_options=opensearchservice.CfnDomain.EBSOptionsProperty(
+                    ebs_enabled=False,
+                    iops=123,
+                    throughput=123,
+                    volume_size=123,
+                    volume_type="volumeType"
+                ),
+                encryption_at_rest_options=opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty(
+                    enabled=False,
+                    kms_key_id="kmsKeyId"
+                ),
+                engine_version="engineVersion",
+                identity_center_options=opensearchservice.CfnDomain.IdentityCenterOptionsProperty(
+                    enabled_api_access=False,
+                    identity_center_application_arn="identityCenterApplicationArn",
+                    identity_center_instance_arn="identityCenterInstanceArn",
+                    identity_store_id="identityStoreId",
+                    roles_key="rolesKey",
+                    subject_key="subjectKey"
+                ),
+                ip_address_type="ipAddressType",
+                log_publishing_options={
+                    "log_publishing_options_key": opensearchservice.CfnDomain.LogPublishingOptionProperty(
+                        cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+                        enabled=False
+                    )
+                },
+                node_to_node_encryption_options=opensearchservice.CfnDomain.NodeToNodeEncryptionOptionsProperty(
+                    enabled=False
+                ),
+                off_peak_window_options=opensearchservice.CfnDomain.OffPeakWindowOptionsProperty(
+                    enabled=False,
+                    off_peak_window=opensearchservice.CfnDomain.OffPeakWindowProperty(
+                        window_start_time=opensearchservice.CfnDomain.WindowStartTimeProperty(
+                            hours=123,
+                            minutes=123
+                        )
+                    )
+                ),
+                skip_shard_migration_wait=False,
+                snapshot_options=opensearchservice.CfnDomain.SnapshotOptionsProperty(
+                    automated_snapshot_start_hour=123
+                ),
+                software_update_options=opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty(
+                    auto_software_update_enabled=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52)
+            check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
+            check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
+            check_type(argname="argument advanced_security_options", value=advanced_security_options, expected_type=type_hints["advanced_security_options"])
+            check_type(argname="argument cluster_config", value=cluster_config, expected_type=type_hints["cluster_config"])
+            check_type(argname="argument cognito_options", value=cognito_options, expected_type=type_hints["cognito_options"])
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+            check_type(argname="argument domain_endpoint_options", value=domain_endpoint_options, expected_type=type_hints["domain_endpoint_options"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument ebs_options", value=ebs_options, expected_type=type_hints["ebs_options"])
+            check_type(argname="argument encryption_at_rest_options", value=encryption_at_rest_options, expected_type=type_hints["encryption_at_rest_options"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument identity_center_options", value=identity_center_options, expected_type=type_hints["identity_center_options"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument log_publishing_options", value=log_publishing_options, expected_type=type_hints["log_publishing_options"])
+            check_type(argname="argument node_to_node_encryption_options", value=node_to_node_encryption_options, expected_type=type_hints["node_to_node_encryption_options"])
+            check_type(argname="argument off_peak_window_options", value=off_peak_window_options, expected_type=type_hints["off_peak_window_options"])
+            check_type(argname="argument skip_shard_migration_wait", value=skip_shard_migration_wait, expected_type=type_hints["skip_shard_migration_wait"])
+            check_type(argname="argument snapshot_options", value=snapshot_options, expected_type=type_hints["snapshot_options"])
+            check_type(argname="argument software_update_options", value=software_update_options, expected_type=type_hints["software_update_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_options", value=vpc_options, expected_type=type_hints["vpc_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_policies is not None:
+            self._values["access_policies"] = access_policies
+        if advanced_options is not None:
+            self._values["advanced_options"] = advanced_options
+        if advanced_security_options is not None:
+            self._values["advanced_security_options"] = advanced_security_options
+        if cluster_config is not None:
+            self._values["cluster_config"] = cluster_config
+        if cognito_options is not None:
+            self._values["cognito_options"] = cognito_options
+        if domain_arn is not None:
+            self._values["domain_arn"] = domain_arn
+        if domain_endpoint_options is not None:
+            self._values["domain_endpoint_options"] = domain_endpoint_options
+        if domain_name is not None:
+            self._values["domain_name"] = domain_name
+        if ebs_options is not None:
+            self._values["ebs_options"] = ebs_options
+        if encryption_at_rest_options is not None:
+            self._values["encryption_at_rest_options"] = encryption_at_rest_options
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if identity_center_options is not None:
+            self._values["identity_center_options"] = identity_center_options
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if log_publishing_options is not None:
+            self._values["log_publishing_options"] = log_publishing_options
+        if node_to_node_encryption_options is not None:
+            self._values["node_to_node_encryption_options"] = node_to_node_encryption_options
+        if off_peak_window_options is not None:
+            self._values["off_peak_window_options"] = off_peak_window_options
+        if skip_shard_migration_wait is not None:
+            self._values["skip_shard_migration_wait"] = skip_shard_migration_wait
+        if snapshot_options is not None:
+            self._values["snapshot_options"] = snapshot_options
+        if software_update_options is not None:
+            self._values["software_update_options"] = software_update_options
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_options is not None:
+            self._values["vpc_options"] = vpc_options
+
+    @builtins.property
+    def access_policies(self) -> typing.Any:
+        '''An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions.
+
+        For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-accesspolicies
+        '''
+        result = self._values.get("access_policies")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def advanced_options(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Additional options to specify for the OpenSearch Service domain.
+
+        For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedoptions
+        '''
+        result = self._values.get("advanced_options")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def advanced_security_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
+        '''Specifies options for fine-grained access control and SAML authentication.
+
+        If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedsecurityoptions
+        '''
+        result = self._values.get("advanced_security_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]], result)
+
+    @builtins.property
+    def cluster_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ClusterConfigProperty"]]:
+        '''Container for the cluster configuration of a domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-clusterconfig
+        '''
+        result = self._values.get("cluster_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ClusterConfigProperty"]], result)
+
+    @builtins.property
+    def cognito_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]]:
+        '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-cognitooptions
+        '''
+        result = self._values.get("cognito_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]], result)
+
+    @builtins.property
+    def domain_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainarn
+        '''
+        result = self._values.get("domain_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_endpoint_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]]:
+        '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainendpointoptions
+        '''
+        result = self._values.get("domain_endpoint_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]], result)
+
+    @builtins.property
+    def domain_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the OpenSearch Service domain.
+
+        The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ .
+
+        Required when creating a new domain.
+        .. epigraph::
+
+           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainname
+        '''
+        result = self._values.get("domain_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ebs_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]]:
+        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
+
+        For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-ebsoptions
+        '''
+        result = self._values.get("ebs_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]], result)
+
+    @builtins.property
+    def encryption_at_rest_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]]:
+        '''Whether the domain should encrypt data at rest, and if so, the AWS KMS key to use.
+
+        See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
+
+        If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-encryptionatrestoptions
+        '''
+        result = self._values.get("encryption_at_rest_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version of OpenSearch to use.
+
+        The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+        If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_center_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.IdentityCenterOptionsProperty"]]:
+        '''Configuration options for controlling IAM Identity Center integration within a domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-identitycenteroptions
+        '''
+        result = self._values.get("identity_center_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.IdentityCenterOptionsProperty"]], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''Choose either dual stack or IPv4 as your IP address type.
+
+        Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_publishing_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]]:
+        '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.
+
+        Each key needs a valid ``LogPublishingOption`` value. For the full syntax, see the `examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--examples>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-logpublishingoptions
+        '''
+        result = self._values.get("log_publishing_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]], result)
+
+    @builtins.property
+    def node_to_node_encryption_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
+        '''Specifies whether node-to-node encryption is enabled.
+
+        See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-nodetonodeencryptionoptions
+        '''
+        result = self._values.get("node_to_node_encryption_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], result)
+
+    @builtins.property
+    def off_peak_window_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.OffPeakWindowOptionsProperty"]]:
+        '''Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-offpeakwindowoptions
+        '''
+        result = self._values.get("off_peak_window_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.OffPeakWindowOptionsProperty"]], result)
+
+    @builtins.property
+    def skip_shard_migration_wait(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-skipshardmigrationwait
+        '''
+        result = self._values.get("skip_shard_migration_wait")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def snapshot_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]]:
+        '''*DEPRECATED* .
+
+        The automated snapshot configuration for the OpenSearch Service domain indexes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-snapshotoptions
+        '''
+        result = self._values.get("snapshot_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]], result)
+
+    @builtins.property
+    def software_update_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SoftwareUpdateOptionsProperty"]]:
+        '''Service software update options for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-softwareupdateoptions
+        '''
+        result = self._values.get("software_update_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SoftwareUpdateOptionsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]]:
+        '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
+
+        For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+        If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-vpcoptions
+        '''
+        result = self._values.get("vpc_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.CognitoOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_pool_id": "identityPoolId",
+        "role": "role",
+        "user_pool_id": "userPoolId",
+    },
+)
+class CognitoOptions:
+    def __init__(
+        self,
+        *,
+        identity_pool_id: builtins.str,
+        role: _IRoleRef_613dafc2,
+        user_pool_id: builtins.str,
+    ) -> None:
+        '''Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+
+        :param identity_pool_id: The Amazon Cognito identity pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.
+        :param role: A role that allows Amazon OpenSearch Service to configure your user pool and identity pool. It must have the ``AmazonESCognitoAccess`` policy attached to it.
+        :param user_pool_id: The Amazon Cognito user pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html
+        :exampleMetadata: fixture=migrate-opensearch infused
+
+        Example::
+
+            opensearch.Domain(self, "Domain",
+                cognito_dashboards_auth=opensearch.CognitoOptions(
+                    identity_pool_id="test-identity-pool-id",
+                    user_pool_id="test-user-pool-id",
+                    role=role
+                ),
+                version=open_search_version
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9)
+            check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_pool_id": identity_pool_id,
+            "role": role,
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def identity_pool_id(self) -> builtins.str:
+        '''The Amazon Cognito identity pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.'''
+        result = self._values.get("identity_pool_id")
+        assert result is not None, "Required property 'identity_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role(self) -> _IRoleRef_613dafc2:
+        '''A role that allows Amazon OpenSearch Service to configure your user pool and identity pool.
+
+        It must have the ``AmazonESCognitoAccess`` policy attached to it.
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html#cognito-auth-prereq
+        '''
+        result = self._values.get("role")
+        assert result is not None, "Required property 'role' is missing"
+        return typing.cast(_IRoleRef_613dafc2, result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The Amazon Cognito user pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.'''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CognitoOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.CustomEndpointOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "certificate": "certificate",
+        "hosted_zone": "hostedZone",
+    },
+)
+class CustomEndpointOptions:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        certificate: typing.Optional[_ICertificate_c194c70b] = None,
+        hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+    ) -> None:
+        '''Configures a custom domain endpoint for the Amazon OpenSearch Service domain.
+
+        :param domain_name: The custom domain name to assign.
+        :param certificate: The certificate to use. Default: - create a new one
+        :param hosted_zone: The hosted zone in Route53 to create the CNAME record in. Default: - do not create a CNAME
+
+        :exampleMetadata: infused
+
+        Example::
+
+            Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_0,
+                custom_endpoint=CustomEndpointOptions(
+                    domain_name="search.example.com"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+        }
+        if certificate is not None:
+            self._values["certificate"] = certificate
+        if hosted_zone is not None:
+            self._values["hosted_zone"] = hosted_zone
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The custom domain name to assign.'''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate(self) -> typing.Optional[_ICertificate_c194c70b]:
+        '''The certificate to use.
+
+        :default: - create a new one
+        '''
+        result = self._values.get("certificate")
+        return typing.cast(typing.Optional[_ICertificate_c194c70b], result)
+
+    @builtins.property
+    def hosted_zone(self) -> typing.Optional[_IHostedZone_9a6907ad]:
+        '''The hosted zone in Route53 to create the CNAME record in.
+
+        :default: - do not create a CNAME
+        '''
+        result = self._values.get("hosted_zone")
+        return typing.cast(typing.Optional[_IHostedZone_9a6907ad], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomEndpointOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.DomainAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"domain_arn": "domainArn", "domain_endpoint": "domainEndpoint"},
+)
+class DomainAttributes:
+    def __init__(
+        self,
+        *,
+        domain_arn: builtins.str,
+        domain_endpoint: builtins.str,
+    ) -> None:
+        '''Reference to an Amazon OpenSearch Service domain.
+
+        :param domain_arn: The ARN of the Amazon OpenSearch Service domain.
+        :param domain_endpoint: The domain endpoint of the Amazon OpenSearch Service domain.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain_arn = Fn.import_value("another-cf-stack-export-domain-arn")
+            domain_endpoint = Fn.import_value("another-cf-stack-export-domain-endpoint")
+            domain = Domain.from_domain_attributes(self, "ImportedDomain",
+                domain_arn=domain_arn,
+                domain_endpoint=domain_endpoint
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3)
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+            check_type(argname="argument domain_endpoint", value=domain_endpoint, expected_type=type_hints["domain_endpoint"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_arn": domain_arn,
+            "domain_endpoint": domain_endpoint,
+        }
+
+    @builtins.property
+    def domain_arn(self) -> builtins.str:
+        '''The ARN of the Amazon OpenSearch Service domain.'''
+        result = self._values.get("domain_arn")
+        assert result is not None, "Required property 'domain_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_endpoint(self) -> builtins.str:
+        '''The domain endpoint of the Amazon OpenSearch Service domain.'''
+        result = self._values.get("domain_endpoint")
+        assert result is not None, "Required property 'domain_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.DomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "version": "version",
+        "access_policies": "accessPolicies",
+        "advanced_options": "advancedOptions",
+        "automated_snapshot_start_hour": "automatedSnapshotStartHour",
+        "capacity": "capacity",
+        "cognito_dashboards_auth": "cognitoDashboardsAuth",
+        "cold_storage_enabled": "coldStorageEnabled",
+        "custom_endpoint": "customEndpoint",
+        "domain_name": "domainName",
+        "ebs": "ebs",
+        "enable_auto_software_update": "enableAutoSoftwareUpdate",
+        "enable_version_upgrade": "enableVersionUpgrade",
+        "encryption_at_rest": "encryptionAtRest",
+        "enforce_https": "enforceHttps",
+        "fine_grained_access_control": "fineGrainedAccessControl",
+        "ip_address_type": "ipAddressType",
+        "logging": "logging",
+        "node_to_node_encryption": "nodeToNodeEncryption",
+        "off_peak_window_enabled": "offPeakWindowEnabled",
+        "off_peak_window_start": "offPeakWindowStart",
+        "removal_policy": "removalPolicy",
+        "security_groups": "securityGroups",
+        "suppress_logs_resource_policy": "suppressLogsResourcePolicy",
+        "tls_security_policy": "tlsSecurityPolicy",
+        "use_unsigned_basic_auth": "useUnsignedBasicAuth",
+        "vpc": "vpc",
+        "vpc_subnets": "vpcSubnets",
+        "zone_awareness": "zoneAwareness",
+    },
+)
+class DomainProps:
+    def __init__(
+        self,
+        *,
+        version: "EngineVersion",
+        access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+        advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
+        capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        cognito_dashboards_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        cold_storage_enabled: typing.Optional[builtins.bool] = None,
+        custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        domain_name: typing.Optional[builtins.str] = None,
+        ebs: typing.Optional[typing.Union["EbsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_auto_software_update: typing.Optional[builtins.bool] = None,
+        enable_version_upgrade: typing.Optional[builtins.bool] = None,
+        encryption_at_rest: typing.Optional[typing.Union["EncryptionAtRestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        enforce_https: typing.Optional[builtins.bool] = None,
+        fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        ip_address_type: typing.Optional["IpAddressType"] = None,
+        logging: typing.Optional[typing.Union["LoggingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        node_to_node_encryption: typing.Optional[builtins.bool] = None,
+        off_peak_window_enabled: typing.Optional[builtins.bool] = None,
+        off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
+        tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
+        use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
+        vpc: typing.Optional[_IVpc_f30d5663] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+        zone_awareness: typing.Optional[typing.Union["ZoneAwarenessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Properties for an Amazon OpenSearch Service domain.
+
+        :param version: The Elasticsearch/OpenSearch version that your domain will leverage.
+        :param access_policies: Domain access policies. Default: - No access policies.
+        :param advanced_options: Additional options to specify for the Amazon OpenSearch Service domain. Default: - no advanced options are specified
+        :param automated_snapshot_start_hour: The hour in UTC during which the service takes an automated daily snapshot of the indices in the Amazon OpenSearch Service domain. Only applies for Elasticsearch versions below 5.3. Default: - Hourly automated snapshots not used
+        :param capacity: The cluster capacity configuration for the Amazon OpenSearch Service domain. Default: - 1 r5.large.search data node; no dedicated master nodes.
+        :param cognito_dashboards_auth: Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards. Default: - Cognito not used for authentication to OpenSearch Dashboards.
+        :param cold_storage_enabled: Whether to enable or disable cold storage on the domain. You must enable UltraWarm storage to enable cold storage. Default: - undefined
+        :param custom_endpoint: To configure a custom domain configure these options. If you specify a Route53 hosted zone it will create a CNAME record and use DNS validation for the certificate Default: - no custom domain endpoint will be configured
+        :param domain_name: Enforces a particular physical domain name. Default: - A name will be auto-generated.
+        :param ebs: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain. Default: - 10 GiB General Purpose (SSD) volumes per node.
+        :param enable_auto_software_update: Specifies whether automatic service software updates are enabled for the domain. Default: - false
+        :param enable_version_upgrade: To upgrade an Amazon OpenSearch Service domain to a new version, rather than replacing the entire domain resource, use the EnableVersionUpgrade update policy. Default: - false
+        :param encryption_at_rest: Encryption at rest options for the cluster. Default: - No encryption at rest
+        :param enforce_https: True to require that all traffic to the domain arrive over HTTPS. Default: - false
+        :param fine_grained_access_control: Specifies options for fine-grained access control. Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later. Enabling fine-grained access control also requires encryption of data at rest and node-to-node encryption, along with enforced HTTPS. Default: - fine-grained access control is disabled
+        :param ip_address_type: Specify either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later. Default: - IpAddressType.IPV4
+        :param logging: Configuration log publishing configuration options. Default: - No logs are published
+        :param node_to_node_encryption: Specify true to enable node to node encryption. Requires Elasticsearch version 6.0 or later or OpenSearch version 1.0 or later. Default: - Node to node encryption is not enabled.
+        :param off_peak_window_enabled: Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain. Off-peak windows were introduced on February 16, 2023. All domains created before this date have the off-peak window disabled by default. You must manually enable and configure the off-peak window for these domains. All domains created after this date will have the off-peak window enabled by default. You can't disable the off-peak window for a domain after it's enabled. Default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
+        :param off_peak_window_start: Start time for the off-peak window, in Coordinated Universal Time (UTC). The window length will always be 10 hours, so you can't specify an end time. For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M. Default: - 10:00 P.M. local time
+        :param removal_policy: Policy to apply when the domain is removed from the stack. Default: RemovalPolicy.RETAIN
+        :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
+        :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
+        :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
+        :param use_unsigned_basic_auth: Configures the domain so that unsigned basic auth is enabled. If no master user is provided a default master user with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved by getting ``masterUserPassword`` from the domain instance. Setting this to true will also add an access policy that allows unsigned access, enable node to node encryption, encryption at rest. If conflicting settings are encountered (like disabling encryption at rest) enabling this setting will cause a failure. Default: - false
+        :param vpc: Place the domain inside this VPC. Default: - Domain is not placed in a VPC.
+        :param vpc_subnets: The specific vpc subnets the domain will be placed in. You must provide one subnet for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. Only used if ``vpc`` is specified. Default: - All private subnets.
+        :param zone_awareness: The cluster zone awareness configuration for the Amazon OpenSearch Service domain. Default: - no zone awareness (1 AZ)
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_0,
+                ebs=EbsOptions(
+                    volume_size=100,
+                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD
+                ),
+                node_to_node_encryption=True,
+                encryption_at_rest=EncryptionAtRestOptions(
+                    enabled=True
+                )
+            )
+        '''
+        if isinstance(capacity, dict):
+            capacity = CapacityConfig(**capacity)
+        if isinstance(cognito_dashboards_auth, dict):
+            cognito_dashboards_auth = CognitoOptions(**cognito_dashboards_auth)
+        if isinstance(custom_endpoint, dict):
+            custom_endpoint = CustomEndpointOptions(**custom_endpoint)
+        if isinstance(ebs, dict):
+            ebs = EbsOptions(**ebs)
+        if isinstance(encryption_at_rest, dict):
+            encryption_at_rest = EncryptionAtRestOptions(**encryption_at_rest)
+        if isinstance(fine_grained_access_control, dict):
+            fine_grained_access_control = AdvancedSecurityOptions(**fine_grained_access_control)
+        if isinstance(logging, dict):
+            logging = LoggingOptions(**logging)
+        if isinstance(off_peak_window_start, dict):
+            off_peak_window_start = WindowStartTime(**off_peak_window_start)
+        if isinstance(zone_awareness, dict):
+            zone_awareness = ZoneAwarenessConfig(**zone_awareness)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
+            check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
+            check_type(argname="argument automated_snapshot_start_hour", value=automated_snapshot_start_hour, expected_type=type_hints["automated_snapshot_start_hour"])
+            check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
+            check_type(argname="argument cognito_dashboards_auth", value=cognito_dashboards_auth, expected_type=type_hints["cognito_dashboards_auth"])
+            check_type(argname="argument cold_storage_enabled", value=cold_storage_enabled, expected_type=type_hints["cold_storage_enabled"])
+            check_type(argname="argument custom_endpoint", value=custom_endpoint, expected_type=type_hints["custom_endpoint"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument ebs", value=ebs, expected_type=type_hints["ebs"])
+            check_type(argname="argument enable_auto_software_update", value=enable_auto_software_update, expected_type=type_hints["enable_auto_software_update"])
+            check_type(argname="argument enable_version_upgrade", value=enable_version_upgrade, expected_type=type_hints["enable_version_upgrade"])
+            check_type(argname="argument encryption_at_rest", value=encryption_at_rest, expected_type=type_hints["encryption_at_rest"])
+            check_type(argname="argument enforce_https", value=enforce_https, expected_type=type_hints["enforce_https"])
+            check_type(argname="argument fine_grained_access_control", value=fine_grained_access_control, expected_type=type_hints["fine_grained_access_control"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument node_to_node_encryption", value=node_to_node_encryption, expected_type=type_hints["node_to_node_encryption"])
+            check_type(argname="argument off_peak_window_enabled", value=off_peak_window_enabled, expected_type=type_hints["off_peak_window_enabled"])
+            check_type(argname="argument off_peak_window_start", value=off_peak_window_start, expected_type=type_hints["off_peak_window_start"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument suppress_logs_resource_policy", value=suppress_logs_resource_policy, expected_type=type_hints["suppress_logs_resource_policy"])
+            check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
+            check_type(argname="argument use_unsigned_basic_auth", value=use_unsigned_basic_auth, expected_type=type_hints["use_unsigned_basic_auth"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+            check_type(argname="argument zone_awareness", value=zone_awareness, expected_type=type_hints["zone_awareness"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "version": version,
+        }
+        if access_policies is not None:
+            self._values["access_policies"] = access_policies
+        if advanced_options is not None:
+            self._values["advanced_options"] = advanced_options
+        if automated_snapshot_start_hour is not None:
+            self._values["automated_snapshot_start_hour"] = automated_snapshot_start_hour
+        if capacity is not None:
+            self._values["capacity"] = capacity
+        if cognito_dashboards_auth is not None:
+            self._values["cognito_dashboards_auth"] = cognito_dashboards_auth
+        if cold_storage_enabled is not None:
+            self._values["cold_storage_enabled"] = cold_storage_enabled
+        if custom_endpoint is not None:
+            self._values["custom_endpoint"] = custom_endpoint
+        if domain_name is not None:
+            self._values["domain_name"] = domain_name
+        if ebs is not None:
+            self._values["ebs"] = ebs
+        if enable_auto_software_update is not None:
+            self._values["enable_auto_software_update"] = enable_auto_software_update
+        if enable_version_upgrade is not None:
+            self._values["enable_version_upgrade"] = enable_version_upgrade
+        if encryption_at_rest is not None:
+            self._values["encryption_at_rest"] = encryption_at_rest
+        if enforce_https is not None:
+            self._values["enforce_https"] = enforce_https
+        if fine_grained_access_control is not None:
+            self._values["fine_grained_access_control"] = fine_grained_access_control
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if logging is not None:
+            self._values["logging"] = logging
+        if node_to_node_encryption is not None:
+            self._values["node_to_node_encryption"] = node_to_node_encryption
+        if off_peak_window_enabled is not None:
+            self._values["off_peak_window_enabled"] = off_peak_window_enabled
+        if off_peak_window_start is not None:
+            self._values["off_peak_window_start"] = off_peak_window_start
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if suppress_logs_resource_policy is not None:
+            self._values["suppress_logs_resource_policy"] = suppress_logs_resource_policy
+        if tls_security_policy is not None:
+            self._values["tls_security_policy"] = tls_security_policy
+        if use_unsigned_basic_auth is not None:
+            self._values["use_unsigned_basic_auth"] = use_unsigned_basic_auth
+        if vpc is not None:
+            self._values["vpc"] = vpc
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
+        if zone_awareness is not None:
+            self._values["zone_awareness"] = zone_awareness
+
+    @builtins.property
+    def version(self) -> "EngineVersion":
+        '''The Elasticsearch/OpenSearch version that your domain will leverage.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast("EngineVersion", result)
+
+    @builtins.property
+    def access_policies(
+        self,
+    ) -> typing.Optional[typing.List[_PolicyStatement_0fe33853]]:
+        '''Domain access policies.
+
+        :default: - No access policies.
+        '''
+        result = self._values.get("access_policies")
+        return typing.cast(typing.Optional[typing.List[_PolicyStatement_0fe33853]], result)
+
+    @builtins.property
+    def advanced_options(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional options to specify for the Amazon OpenSearch Service domain.
+
+        :default: - no advanced options are specified
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html#createdomain-configure-advanced-options
+        '''
+        result = self._values.get("advanced_options")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def automated_snapshot_start_hour(self) -> typing.Optional[jsii.Number]:
+        '''The hour in UTC during which the service takes an automated daily snapshot of the indices in the Amazon OpenSearch Service domain.
+
+        Only applies for Elasticsearch versions
+        below 5.3.
+
+        :default: - Hourly automated snapshots not used
+        '''
+        result = self._values.get("automated_snapshot_start_hour")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def capacity(self) -> typing.Optional[CapacityConfig]:
+        '''The cluster capacity configuration for the Amazon OpenSearch Service domain.
+
+        :default: - 1 r5.large.search data node; no dedicated master nodes.
+        '''
+        result = self._values.get("capacity")
+        return typing.cast(typing.Optional[CapacityConfig], result)
+
+    @builtins.property
+    def cognito_dashboards_auth(self) -> typing.Optional[CognitoOptions]:
+        '''Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+
+        :default: - Cognito not used for authentication to OpenSearch Dashboards.
+        '''
+        result = self._values.get("cognito_dashboards_auth")
+        return typing.cast(typing.Optional[CognitoOptions], result)
+
+    @builtins.property
+    def cold_storage_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether to enable or disable cold storage on the domain.
+
+        You must enable UltraWarm storage to enable cold storage.
+
+        :default: - undefined
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cold-storage.html
+        '''
+        result = self._values.get("cold_storage_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def custom_endpoint(self) -> typing.Optional[CustomEndpointOptions]:
+        '''To configure a custom domain configure these options.
+
+        If you specify a Route53 hosted zone it will create a CNAME record and use DNS validation for the certificate
+
+        :default: - no custom domain endpoint will be configured
+        '''
+        result = self._values.get("custom_endpoint")
+        return typing.cast(typing.Optional[CustomEndpointOptions], result)
+
+    @builtins.property
+    def domain_name(self) -> typing.Optional[builtins.str]:
+        '''Enforces a particular physical domain name.
+
+        :default: - A name will be auto-generated.
+        '''
+        result = self._values.get("domain_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ebs(self) -> typing.Optional["EbsOptions"]:
+        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain.
+
+        :default: - 10 GiB General Purpose (SSD) volumes per node.
+        '''
+        result = self._values.get("ebs")
+        return typing.cast(typing.Optional["EbsOptions"], result)
+
+    @builtins.property
+    def enable_auto_software_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether automatic service software updates are enabled for the domain.
+
+        :default: - false
+
+        :see: https://docs.aws.amazon.com/it_it/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html
+        '''
+        result = self._values.get("enable_auto_software_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_version_upgrade(self) -> typing.Optional[builtins.bool]:
+        '''To upgrade an Amazon OpenSearch Service domain to a new version, rather than replacing the entire domain resource, use the EnableVersionUpgrade update policy.
+
+        :default: - false
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain
+        '''
+        result = self._values.get("enable_version_upgrade")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def encryption_at_rest(self) -> typing.Optional["EncryptionAtRestOptions"]:
+        '''Encryption at rest options for the cluster.
+
+        :default: - No encryption at rest
+        '''
+        result = self._values.get("encryption_at_rest")
+        return typing.cast(typing.Optional["EncryptionAtRestOptions"], result)
+
+    @builtins.property
+    def enforce_https(self) -> typing.Optional[builtins.bool]:
+        '''True to require that all traffic to the domain arrive over HTTPS.
+
+        :default: - false
+        '''
+        result = self._values.get("enforce_https")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def fine_grained_access_control(self) -> typing.Optional[AdvancedSecurityOptions]:
+        '''Specifies options for fine-grained access control.
+
+        Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later. Enabling fine-grained access control
+        also requires encryption of data at rest and node-to-node encryption, along with
+        enforced HTTPS.
+
+        :default: - fine-grained access control is disabled
+        '''
+        result = self._values.get("fine_grained_access_control")
+        return typing.cast(typing.Optional[AdvancedSecurityOptions], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional["IpAddressType"]:
+        '''Specify either dual stack or IPv4 as your IP address type.
+
+        Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option.
+
+        If you set your IP address type to dual stack, you can't change your address type later.
+
+        :default: - IpAddressType.IPV4
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional["IpAddressType"], result)
+
+    @builtins.property
+    def logging(self) -> typing.Optional["LoggingOptions"]:
+        '''Configuration log publishing configuration options.
+
+        :default: - No logs are published
+        '''
+        result = self._values.get("logging")
+        return typing.cast(typing.Optional["LoggingOptions"], result)
+
+    @builtins.property
+    def node_to_node_encryption(self) -> typing.Optional[builtins.bool]:
+        '''Specify true to enable node to node encryption.
+
+        Requires Elasticsearch version 6.0 or later or OpenSearch version 1.0 or later.
+
+        :default: - Node to node encryption is not enabled.
+        '''
+        result = self._values.get("node_to_node_encryption")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def off_peak_window_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
+
+        Off-peak windows were introduced on February 16, 2023.
+        All domains created before this date have the off-peak window disabled by default.
+        You must manually enable and configure the off-peak window for these domains.
+        All domains created after this date will have the off-peak window enabled by default.
+        You can't disable the off-peak window for a domain after it's enabled.
+
+        :default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
+
+        :see: https://docs.aws.amazon.com/it_it/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-offpeakwindow.html
+        '''
+        result = self._values.get("off_peak_window_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def off_peak_window_start(self) -> typing.Optional["WindowStartTime"]:
+        '''Start time for the off-peak window, in Coordinated Universal Time (UTC).
+
+        The window length will always be 10 hours, so you can't specify an end time.
+        For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M.
+
+        :default: - 10:00 P.M. local time
+        '''
+        result = self._values.get("off_peak_window_start")
+        return typing.cast(typing.Optional["WindowStartTime"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+        '''Policy to apply when the domain is removed from the stack.
+
+        :default: RemovalPolicy.RETAIN
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+
+    @builtins.property
+    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+        '''The list of security groups that are associated with the VPC endpoints for the domain.
+
+        Only used if ``vpc`` is specified.
+
+        :default: - One new security group is created.
+
+        :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+
+    @builtins.property
+    def suppress_logs_resource_policy(self) -> typing.Optional[builtins.bool]:
+        '''Specify whether to create a CloudWatch Logs resource policy or not.
+
+        When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default.
+        However, CloudWatch Logs supports only 10 resource policies per region.
+        If you enable logging for several domains, it may hit the quota and cause an error.
+        By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem.
+
+        If you set this option to true, you must create a resource policy before deployment.
+
+        :default: - false
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createdomain-configure-slow-logs.html
+        '''
+        result = self._values.get("suppress_logs_resource_policy")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tls_security_policy(self) -> typing.Optional["TLSSecurityPolicy"]:
+        '''The minimum TLS version required for traffic to the domain.
+
+        :default: - TLSSecurityPolicy.TLS_1_2
+        '''
+        result = self._values.get("tls_security_policy")
+        return typing.cast(typing.Optional["TLSSecurityPolicy"], result)
+
+    @builtins.property
+    def use_unsigned_basic_auth(self) -> typing.Optional[builtins.bool]:
+        '''Configures the domain so that unsigned basic auth is enabled.
+
+        If no master user is provided a default master user
+        with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved
+        by getting ``masterUserPassword`` from the domain instance.
+
+        Setting this to true will also add an access policy that allows unsigned
+        access, enable node to node encryption, encryption at rest. If conflicting
+        settings are encountered (like disabling encryption at rest) enabling this
+        setting will cause a failure.
+
+        :default: - false
+        '''
+        result = self._values.get("use_unsigned_basic_auth")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
+        '''Place the domain inside this VPC.
+
+        :default: - Domain is not placed in a VPC.
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
+
+    @builtins.property
+    def vpc_subnets(self) -> typing.Optional[typing.List[_SubnetSelection_e57d76df]]:
+        '''The specific vpc subnets the domain will be placed in.
+
+        You must provide one subnet for each Availability Zone
+        that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone
+        domain.
+
+        Only used if ``vpc`` is specified.
+
+        :default: - All private subnets.
+
+        :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional[typing.List[_SubnetSelection_e57d76df]], result)
+
+    @builtins.property
+    def zone_awareness(self) -> typing.Optional["ZoneAwarenessConfig"]:
+        '''The cluster zone awareness configuration for the Amazon OpenSearch Service domain.
+
+        :default: - no zone awareness (1 AZ)
+        '''
+        result = self._values.get("zone_awareness")
+        return typing.cast(typing.Optional["ZoneAwarenessConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_arn": "domainArn", "domain_name": "domainName"},
+)
+class DomainReference:
+    def __init__(self, *, domain_arn: builtins.str, domain_name: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_arn: The ARN of the Domain resource.
+        :param domain_name: The DomainName of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            domain_reference = opensearchservice.DomainReference(
+                domain_arn="domainArn",
+                domain_name="domainName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afa08eea4d537e8f40b760850bf8193ed5fc0beedffd441bfbce859255a713bb)
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_arn": domain_arn,
+            "domain_name": domain_name,
+        }
+
+    @builtins.property
+    def domain_arn(self) -> builtins.str:
+        '''The ARN of the Domain resource.'''
+        result = self._values.get("domain_arn")
+        assert result is not None, "Required property 'domain_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The DomainName of the Domain resource.'''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.EbsOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "enabled": "enabled",
+        "iops": "iops",
+        "throughput": "throughput",
+        "volume_size": "volumeSize",
+        "volume_type": "volumeType",
+    },
+)
+class EbsOptions:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Optional[builtins.bool] = None,
+        iops: typing.Optional[jsii.Number] = None,
+        throughput: typing.Optional[jsii.Number] = None,
+        volume_size: typing.Optional[jsii.Number] = None,
+        volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
+    ) -> None:
+        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain.
+
+        For more information, see
+        `Amazon EBS <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AmazonEBS.html>`_
+        in the Amazon Elastic Compute Cloud Developer Guide.
+
+        :param enabled: Specifies whether Amazon EBS volumes are attached to data nodes in the Amazon OpenSearch Service domain. Default: - true
+        :param iops: The number of I/O operations per second (IOPS) that the volume supports. This property applies only to the gp3 and Provisioned IOPS (SSD) EBS volume type. Default: - iops are not set.
+        :param throughput: The throughput (in MiB/s) of the EBS volumes attached to data nodes. This property applies only to the gp3 volume type. Default: - throughput is not set.
+        :param volume_size: The size (in GiB) of the EBS volume for each data node. The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For valid values, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the Amazon OpenSearch Service Developer Guide. Default: 10
+        :param volume_type: The EBS volume type to use with the Amazon OpenSearch Service domain, such as standard, gp2, io1. Default: gp2
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_3,
+                ebs=EbsOptions(
+                    volume_size=10,
+                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3
+                ),
+                zone_awareness=ZoneAwarenessConfig(
+                    enabled=True,
+                    availability_zone_count=3
+                ),
+                capacity=CapacityConfig(
+                    multi_az_with_standby_enabled=True,
+                    master_nodes=3,
+                    data_nodes=3
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
+            check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
+            check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if iops is not None:
+            self._values["iops"] = iops
+        if throughput is not None:
+            self._values["throughput"] = throughput
+        if volume_size is not None:
+            self._values["volume_size"] = volume_size
+        if volume_type is not None:
+            self._values["volume_type"] = volume_type
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether Amazon EBS volumes are attached to data nodes in the Amazon OpenSearch Service domain.
+
+        :default: - true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def iops(self) -> typing.Optional[jsii.Number]:
+        '''The number of I/O operations per second (IOPS) that the volume supports.
+
+        This property applies only to the gp3 and Provisioned IOPS (SSD) EBS
+        volume type.
+
+        :default: - iops are not set.
+        '''
+        result = self._values.get("iops")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def throughput(self) -> typing.Optional[jsii.Number]:
+        '''The throughput (in MiB/s) of the EBS volumes attached to data nodes.
+
+        This property applies only to the gp3 volume type.
+
+        :default: - throughput is not set.
+        '''
+        result = self._values.get("throughput")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_size(self) -> typing.Optional[jsii.Number]:
+        '''The size (in GiB) of the EBS volume for each data node.
+
+        The minimum and
+        maximum size of an EBS volume depends on the EBS volume type and the
+        instance type to which it is attached.  For  valid values, see
+        `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_
+        in the Amazon OpenSearch Service Developer Guide.
+
+        :default: 10
+        '''
+        result = self._values.get("volume_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_type(self) -> typing.Optional[_EbsDeviceVolumeType_6792555b]:
+        '''The EBS volume type to use with the Amazon OpenSearch Service domain, such as standard, gp2, io1.
+
+        :default: gp2
+        '''
+        result = self._values.get("volume_type")
+        return typing.cast(typing.Optional[_EbsDeviceVolumeType_6792555b], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EbsOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.EncryptionAtRestOptions",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled", "kms_key": "kmsKey"},
+)
+class EncryptionAtRestOptions:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Optional[builtins.bool] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    ) -> None:
+        '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service (KMS) key to use.
+
+        Can only be used to create a new domain,
+        not update an existing one. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
+
+        :param enabled: Specify true to enable encryption at rest. Default: - encryption at rest is disabled.
+        :param kms_key: Supply if using KMS key for encryption at rest. Default: - uses default aws/es KMS key.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_opensearchservice as opensearch
+            
+            
+            domain = opensearch.Domain(self, "Domain",
+                version=opensearch.EngineVersion.OPENSEARCH_2_17,
+                encryption_at_rest=opensearch.EncryptionAtRestOptions(
+                    enabled=True
+                ),
+                node_to_node_encryption=True,
+                enforce_https=True,
+                capacity=opensearch.CapacityConfig(
+                    multi_az_with_standby_enabled=False
+                ),
+                ebs=opensearch.EbsOptions(
+                    enabled=True,
+                    volume_size=10
+                )
+            )
+            api = appsync.EventApi(self, "EventApiOpenSearch",
+                api_name="OpenSearchEventApi"
+            )
+            
+            data_source = api.add_open_search_data_source("opensearchds", domain)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specify true to enable encryption at rest.
+
+        :default: - encryption at rest is disabled.
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
+        '''Supply if using KMS key for encryption at rest.
+
+        :default: - uses default aws/es KMS key.
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EncryptionAtRestOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EngineVersion(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_opensearchservice.EngineVersion",
+):
+    '''OpenSearch version.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        domain = Domain(self, "Domain",
+            version=EngineVersion.OPENSEARCH_1_0,
+            ebs=EbsOptions(
+                volume_size=100,
+                volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD
+            ),
+            node_to_node_encryption=True,
+            encryption_at_rest=EncryptionAtRestOptions(
+                enabled=True
+            )
+        )
+    '''
+
+    @jsii.member(jsii_name="elasticsearch")
+    @builtins.classmethod
+    def elasticsearch(cls, version: builtins.str) -> "EngineVersion":
+        '''Custom ElasticSearch version.
+
+        :param version: custom version number.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast("EngineVersion", jsii.sinvoke(cls, "elasticsearch", [version]))
+
+    @jsii.member(jsii_name="openSearch")
+    @builtins.classmethod
+    def open_search(cls, version: builtins.str) -> "EngineVersion":
+        '''Custom OpenSearch version.
+
+        :param version: custom version number.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast("EngineVersion", jsii.sinvoke(cls, "openSearch", [version]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_1_5")
+    def ELASTICSEARCH_1_5(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 1.5.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_1_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_2_3")
+    def ELASTICSEARCH_2_3(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 2.3.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_2_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_5_1")
+    def ELASTICSEARCH_5_1(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 5.1.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_5_3")
+    def ELASTICSEARCH_5_3(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 5.3.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_5_5")
+    def ELASTICSEARCH_5_5(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 5.5.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_5_6")
+    def ELASTICSEARCH_5_6(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 5.6.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_6"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_0")
+    def ELASTICSEARCH_6_0(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.0.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_2")
+    def ELASTICSEARCH_6_2(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.2.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_3")
+    def ELASTICSEARCH_6_3(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.3.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_4")
+    def ELASTICSEARCH_6_4(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.4.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_5")
+    def ELASTICSEARCH_6_5(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.5.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_7")
+    def ELASTICSEARCH_6_7(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.7.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_6_8")
+    def ELASTICSEARCH_6_8(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 6.8.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_1")
+    def ELASTICSEARCH_7_1(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.1.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_10")
+    def ELASTICSEARCH_7_10(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.10.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_10"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_4")
+    def ELASTICSEARCH_7_4(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.4.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_7")
+    def ELASTICSEARCH_7_7(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.7.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_8")
+    def ELASTICSEARCH_7_8(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.8.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ELASTICSEARCH_7_9")
+    def ELASTICSEARCH_7_9(cls) -> "EngineVersion":
+        '''AWS Elasticsearch 7.9.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_9"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_1_0")
+    def OPENSEARCH_1_0(cls) -> "EngineVersion":
+        '''AWS OpenSearch 1.0.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_1_1")
+    def OPENSEARCH_1_1(cls) -> "EngineVersion":
+        '''AWS OpenSearch 1.1.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_1_2")
+    def OPENSEARCH_1_2(cls) -> "EngineVersion":
+        '''AWS OpenSearch 1.2.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_1_3")
+    def OPENSEARCH_1_3(cls) -> "EngineVersion":
+        '''AWS OpenSearch 1.3.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_10")
+    def OPENSEARCH_2_10(cls) -> "EngineVersion":
+        '''(deprecated) AWS OpenSearch 2.10.
+
+        :deprecated: use latest version of the OpenSearch engine
+
+        :stability: deprecated
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_10"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_11")
+    def OPENSEARCH_2_11(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.11.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_11"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_13")
+    def OPENSEARCH_2_13(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.13.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_13"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_15")
+    def OPENSEARCH_2_15(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.15.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_15"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_17")
+    def OPENSEARCH_2_17(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.17.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_17"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_19")
+    def OPENSEARCH_2_19(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.19.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_19"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_3")
+    def OPENSEARCH_2_3(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.3.
+
+        OpenSearch 2.3 is now available on Amazon OpenSearch Service across 26
+        regions globally. Please refer to the AWS Region Table for more
+        information about Amazon OpenSearch Service availability:
+        https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
+        '''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_5")
+    def OPENSEARCH_2_5(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.5.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_7")
+    def OPENSEARCH_2_7(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.7.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_2_9")
+    def OPENSEARCH_2_9(cls) -> "EngineVersion":
+        '''AWS OpenSearch 2.9.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_9"))
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> builtins.str:
+        '''engine version identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "version"))
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchservice.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchservice.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchservice.IDomain")
+class IDomain(_IResource_c80c4260, typing_extensions.Protocol):
+    '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainArn")
+    def domain_arn(self) -> builtins.str:
+        '''Arn of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="domainEndpoint")
+    def domain_endpoint(self) -> builtins.str:
+        '''Endpoint of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''Identifier of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''Domain name of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantIndexRead")
+    def grant_index_read(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantIndexReadWrite")
+    def grant_index_read_write(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantIndexWrite")
+    def grant_index_write(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantPathRead")
+    def grant_path_read(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantPathReadWrite")
+    def grant_path_read_write(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantPathWrite")
+    def grant_path_write(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantReadWrite")
+    def grant_read_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        ...
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for this domain.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
+    def metric_automated_snapshot_failure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for automated snapshot failures.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
+    def metric_cluster_index_writes_blocked(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the cluster blocking index writes.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 1 minute
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricClusterStatusRed")
+    def metric_cluster_status_red(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the time the cluster status is red.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricClusterStatusYellow")
+    def metric_cluster_status_yellow(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the time the cluster status is yellow.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricCPUUtilization")
+    def metric_cpu_utilization(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for CPU utilization.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricFreeStorageSpace")
+    def metric_free_storage_space(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the storage space of nodes in the cluster.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: minimum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricIndexingLatency")
+    def metric_indexing_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for indexing latency.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: p99 over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricJVMMemoryPressure")
+    def metric_jvm_memory_pressure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for JVM memory pressure.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricKMSKeyError")
+    def metric_kms_key_error(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for KMS key errors.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricKMSKeyInaccessible")
+    def metric_kms_key_inaccessible(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for KMS key being inaccessible.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricMasterCPUUtilization")
+    def metric_master_cpu_utilization(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for master CPU utilization.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
+    def metric_master_jvm_memory_pressure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for master JVM memory pressure.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricNodes")
+    def metric_nodes(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of nodes.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: minimum over 1 hour
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricSearchableDocuments")
+    def metric_searchable_documents(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for number of searchable documents.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricSearchLatency")
+    def metric_search_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for search latency.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: p99 over 5 minutes
+        '''
+        ...
+
+
+class _IDomainProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchservice.IDomain"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainArn")
+    def domain_arn(self) -> builtins.str:
+        '''Arn of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainEndpoint")
+    def domain_endpoint(self) -> builtins.str:
+        '''Endpoint of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainId")
+    def domain_id(self) -> builtins.str:
+        '''Identifier of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''Domain name of the Amazon OpenSearch Service domain.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @jsii.member(jsii_name="grantIndexRead")
+    def grant_index_read(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexRead", [index, identity]))
+
+    @jsii.member(jsii_name="grantIndexReadWrite")
+    def grant_index_read_write(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
+
+    @jsii.member(jsii_name="grantIndexWrite")
+    def grant_index_write(
+        self,
+        index: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
+
+        :param index: The index to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexWrite", [index, identity]))
+
+    @jsii.member(jsii_name="grantPathRead")
+    def grant_path_read(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathRead", [path, identity]))
+
+    @jsii.member(jsii_name="grantPathReadWrite")
+    def grant_path_read_write(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathReadWrite", [path, identity]))
+
+    @jsii.member(jsii_name="grantPathWrite")
+    def grant_path_write(
+        self,
+        path: builtins.str,
+        identity: _IGrantable_71c4f5de,
+    ) -> _Grant_a7ae64f8:
+        '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
+
+        :param path: The path to grant permissions for.
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathWrite", [path, identity]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [identity]))
+
+    @jsii.member(jsii_name="grantReadWrite")
+    def grant_read_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadWrite", [identity]))
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
+        '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
+
+        :param identity: The principal.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWrite", [identity]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Return the given named metric for this domain.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
+    def metric_automated_snapshot_failure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for automated snapshot failures.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
+
+    @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
+    def metric_cluster_index_writes_blocked(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the cluster blocking index writes.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 1 minute
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
+
+    @jsii.member(jsii_name="metricClusterStatusRed")
+    def metric_cluster_status_red(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the time the cluster status is red.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterStatusRed", [props]))
+
+    @jsii.member(jsii_name="metricClusterStatusYellow")
+    def metric_cluster_status_yellow(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the time the cluster status is yellow.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterStatusYellow", [props]))
+
+    @jsii.member(jsii_name="metricCPUUtilization")
+    def metric_cpu_utilization(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for CPU utilization.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricCPUUtilization", [props]))
+
+    @jsii.member(jsii_name="metricFreeStorageSpace")
+    def metric_free_storage_space(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the storage space of nodes in the cluster.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: minimum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFreeStorageSpace", [props]))
+
+    @jsii.member(jsii_name="metricIndexingLatency")
+    def metric_indexing_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for indexing latency.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: p99 over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricIndexingLatency", [props]))
+
+    @jsii.member(jsii_name="metricJVMMemoryPressure")
+    def metric_jvm_memory_pressure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for JVM memory pressure.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricJVMMemoryPressure", [props]))
+
+    @jsii.member(jsii_name="metricKMSKeyError")
+    def metric_kms_key_error(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for KMS key errors.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricKMSKeyError", [props]))
+
+    @jsii.member(jsii_name="metricKMSKeyInaccessible")
+    def metric_kms_key_inaccessible(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for KMS key being inaccessible.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
+
+    @jsii.member(jsii_name="metricMasterCPUUtilization")
+    def metric_master_cpu_utilization(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for master CPU utilization.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricMasterCPUUtilization", [props]))
+
+    @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
+    def metric_master_jvm_memory_pressure(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for master JVM memory pressure.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
+
+    @jsii.member(jsii_name="metricNodes")
+    def metric_nodes(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for the number of nodes.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: minimum over 1 hour
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricNodes", [props]))
+
+    @jsii.member(jsii_name="metricSearchableDocuments")
+    def metric_searchable_documents(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for number of searchable documents.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: maximum over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSearchableDocuments", [props]))
+
+    @jsii.member(jsii_name="metricSearchLatency")
+    def metric_search_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional[_Unit_61bc6f70] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> _Metric_e396a4dc:
+        '''Metric for search latency.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default: p99 over 5 minutes
+        '''
+        props = _MetricOptions_1788b62f(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSearchLatency", [props]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomain).__jsii_proxy_class__ = lambda : _IDomainProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchservice.IDomainRef")
+class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchservice.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.IpAddressType")
+class IpAddressType(enum.Enum):
+    '''The IP address type for the domain.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        domain = Domain(self, "Domain",
+            version=EngineVersion.OPENSEARCH_1_3,
+            ip_address_type=IpAddressType.DUAL_STACK
+        )
+    '''
+
+    IPV4 = "IPV4"
+    '''IPv4 addresses only.'''
+    DUAL_STACK = "DUAL_STACK"
+    '''IPv4 and IPv6 addresses.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.LoggingOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_log_enabled": "appLogEnabled",
+        "app_log_group": "appLogGroup",
+        "audit_log_enabled": "auditLogEnabled",
+        "audit_log_group": "auditLogGroup",
+        "slow_index_log_enabled": "slowIndexLogEnabled",
+        "slow_index_log_group": "slowIndexLogGroup",
+        "slow_search_log_enabled": "slowSearchLogEnabled",
+        "slow_search_log_group": "slowSearchLogGroup",
+    },
+)
+class LoggingOptions:
+    def __init__(
+        self,
+        *,
+        app_log_enabled: typing.Optional[builtins.bool] = None,
+        app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+        audit_log_enabled: typing.Optional[builtins.bool] = None,
+        audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+        slow_index_log_enabled: typing.Optional[builtins.bool] = None,
+        slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+        slow_search_log_enabled: typing.Optional[builtins.bool] = None,
+        slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    ) -> None:
+        '''Configures log settings for the domain.
+
+        :param app_log_enabled: Specify if Amazon OpenSearch Service application logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
+        :param app_log_group: Log Amazon OpenSearch Service application logs to this log group. Default: - a new log group is created if app logging is enabled
+        :param audit_log_enabled: Specify if Amazon OpenSearch Service audit logging should be set up. Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later and fine grained access control to be enabled. Default: - false
+        :param audit_log_group: Log Amazon OpenSearch Service audit logs to this log group. Default: - a new log group is created if audit logging is enabled
+        :param slow_index_log_enabled: Specify if slow index logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
+        :param slow_index_log_group: Log slow indices to this log group. Default: - a new log group is created if slow index logging is enabled
+        :param slow_search_log_enabled: Specify if slow search logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
+        :param slow_search_log_group: Log slow searches to this log group. Default: - a new log group is created if slow search logging is enabled
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_0,
+                enforce_https=True,
+                node_to_node_encryption=True,
+                encryption_at_rest=EncryptionAtRestOptions(
+                    enabled=True
+                ),
+                fine_grained_access_control=AdvancedSecurityOptions(
+                    master_user_name="master-user"
+                ),
+                logging=LoggingOptions(
+                    audit_log_enabled=True,
+                    slow_search_log_enabled=True,
+                    app_log_enabled=True,
+                    slow_index_log_enabled=True
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593)
+            check_type(argname="argument app_log_enabled", value=app_log_enabled, expected_type=type_hints["app_log_enabled"])
+            check_type(argname="argument app_log_group", value=app_log_group, expected_type=type_hints["app_log_group"])
+            check_type(argname="argument audit_log_enabled", value=audit_log_enabled, expected_type=type_hints["audit_log_enabled"])
+            check_type(argname="argument audit_log_group", value=audit_log_group, expected_type=type_hints["audit_log_group"])
+            check_type(argname="argument slow_index_log_enabled", value=slow_index_log_enabled, expected_type=type_hints["slow_index_log_enabled"])
+            check_type(argname="argument slow_index_log_group", value=slow_index_log_group, expected_type=type_hints["slow_index_log_group"])
+            check_type(argname="argument slow_search_log_enabled", value=slow_search_log_enabled, expected_type=type_hints["slow_search_log_enabled"])
+            check_type(argname="argument slow_search_log_group", value=slow_search_log_group, expected_type=type_hints["slow_search_log_group"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if app_log_enabled is not None:
+            self._values["app_log_enabled"] = app_log_enabled
+        if app_log_group is not None:
+            self._values["app_log_group"] = app_log_group
+        if audit_log_enabled is not None:
+            self._values["audit_log_enabled"] = audit_log_enabled
+        if audit_log_group is not None:
+            self._values["audit_log_group"] = audit_log_group
+        if slow_index_log_enabled is not None:
+            self._values["slow_index_log_enabled"] = slow_index_log_enabled
+        if slow_index_log_group is not None:
+            self._values["slow_index_log_group"] = slow_index_log_group
+        if slow_search_log_enabled is not None:
+            self._values["slow_search_log_enabled"] = slow_search_log_enabled
+        if slow_search_log_group is not None:
+            self._values["slow_search_log_group"] = slow_search_log_group
+
+    @builtins.property
+    def app_log_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specify if Amazon OpenSearch Service application logging should be set up.
+
+        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
+        An explicit ``false`` is required when disabling it from ``true``.
+
+        :default: - false
+        '''
+        result = self._values.get("app_log_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def app_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''Log Amazon OpenSearch Service application logs to this log group.
+
+        :default: - a new log group is created if app logging is enabled
+        '''
+        result = self._values.get("app_log_group")
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+
+    @builtins.property
+    def audit_log_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specify if Amazon OpenSearch Service audit logging should be set up.
+
+        Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later and fine grained access control to be enabled.
+
+        :default: - false
+        '''
+        result = self._values.get("audit_log_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''Log Amazon OpenSearch Service audit logs to this log group.
+
+        :default: - a new log group is created if audit logging is enabled
+        '''
+        result = self._values.get("audit_log_group")
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+
+    @builtins.property
+    def slow_index_log_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specify if slow index logging should be set up.
+
+        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
+        An explicit ``false`` is required when disabling it from ``true``.
+
+        :default: - false
+        '''
+        result = self._values.get("slow_index_log_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def slow_index_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''Log slow indices to this log group.
+
+        :default: - a new log group is created if slow index logging is enabled
+        '''
+        result = self._values.get("slow_index_log_group")
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+
+    @builtins.property
+    def slow_search_log_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Specify if slow search logging should be set up.
+
+        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
+        An explicit ``false`` is required when disabling it from ``true``.
+
+        :default: - false
+        '''
+        result = self._values.get("slow_search_log_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def slow_search_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
+        '''Log slow searches to this log group.
+
+        :default: - a new log group is created if slow search logging is enabled
+        '''
+        result = self._values.get("slow_search_log_group")
+        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggingOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.NodeConfig",
+    jsii_struct_bases=[],
+    name_mapping={"count": "count", "enabled": "enabled", "type": "type"},
+)
+class NodeConfig:
+    def __init__(
+        self,
+        *,
+        count: typing.Optional[jsii.Number] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Configuration for a specific node type in OpenSearch domain.
+
+        :param count: The number of nodes of this type. Default: - 1
+        :param enabled: Whether this node type is enabled. Default: - false
+        :param type: The instance type for the nodes. Default: - m5.large.search
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_opensearchservice as opensearch
+            
+            
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_3,
+                capacity=opensearch.CapacityConfig(
+                    node_options=[opensearch.NodeOptions(
+                        node_type=opensearch.NodeType.COORDINATOR,
+                        node_config=opensearch.NodeConfig(
+                            enabled=True,
+                            count=2,
+                            type="m5.large.search"
+                        )
+                    )
+                    ]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc)
+            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if count is not None:
+            self._values["count"] = count
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def count(self) -> typing.Optional[jsii.Number]:
+        '''The number of nodes of this type.
+
+        :default: - 1
+        '''
+        result = self._values.get("count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether this node type is enabled.
+
+        :default: - false
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The instance type for the nodes.
+
+        :default: - m5.large.search
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.NodeOptions",
+    jsii_struct_bases=[],
+    name_mapping={"node_config": "nodeConfig", "node_type": "nodeType"},
+)
+class NodeOptions:
+    def __init__(
+        self,
+        *,
+        node_config: typing.Union[NodeConfig, typing.Dict[builtins.str, typing.Any]],
+        node_type: "NodeType",
+    ) -> None:
+        '''Configuration for node options in OpenSearch domain.
+
+        :param node_config: Configuration for the node type.
+        :param node_type: The type of node. Currently only 'coordinator' is supported.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchservice as opensearchservice
+            
+            node_options = opensearchservice.NodeOptions(
+                node_config=opensearchservice.NodeConfig(
+                    count=123,
+                    enabled=False,
+                    type="type"
+                ),
+                node_type=opensearchservice.NodeType.COORDINATOR
+            )
+        '''
+        if isinstance(node_config, dict):
+            node_config = NodeConfig(**node_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42)
+            check_type(argname="argument node_config", value=node_config, expected_type=type_hints["node_config"])
+            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "node_config": node_config,
+            "node_type": node_type,
+        }
+
+    @builtins.property
+    def node_config(self) -> NodeConfig:
+        '''Configuration for the node type.'''
+        result = self._values.get("node_config")
+        assert result is not None, "Required property 'node_config' is missing"
+        return typing.cast(NodeConfig, result)
+
+    @builtins.property
+    def node_type(self) -> "NodeType":
+        '''The type of node.
+
+        Currently only 'coordinator' is supported.
+        '''
+        result = self._values.get("node_type")
+        assert result is not None, "Required property 'node_type' is missing"
+        return typing.cast("NodeType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NodeOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.NodeType")
+class NodeType(enum.Enum):
+    '''NodeType is a string enum of the node types in OpenSearch domain.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_opensearchservice as opensearch
+        
+        
+        domain = Domain(self, "Domain",
+            version=EngineVersion.OPENSEARCH_1_3,
+            capacity=opensearch.CapacityConfig(
+                node_options=[opensearch.NodeOptions(
+                    node_type=opensearch.NodeType.COORDINATOR,
+                    node_config=opensearch.NodeConfig(
+                        enabled=True,
+                        count=2,
+                        type="m5.large.search"
+                    )
+                )
+                ]
+            )
+        )
+    '''
+
+    COORDINATOR = "COORDINATOR"
+    '''Coordinator node type.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.SAMLOptionsProperty",
+    jsii_struct_bases=[],
+    name_mapping={
+        "idp_entity_id": "idpEntityId",
+        "idp_metadata_content": "idpMetadataContent",
+        "master_backend_role": "masterBackendRole",
+        "master_user_name": "masterUserName",
+        "roles_key": "rolesKey",
+        "session_timeout_minutes": "sessionTimeoutMinutes",
+        "subject_key": "subjectKey",
+    },
+)
+class SAMLOptionsProperty:
+    def __init__(
+        self,
+        *,
+        idp_entity_id: builtins.str,
+        idp_metadata_content: builtins.str,
+        master_backend_role: typing.Optional[builtins.str] = None,
+        master_user_name: typing.Optional[builtins.str] = None,
+        roles_key: typing.Optional[builtins.str] = None,
+        session_timeout_minutes: typing.Optional[jsii.Number] = None,
+        subject_key: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Container for information about the SAML configuration for OpenSearch Dashboards.
+
+        :param idp_entity_id: The unique entity ID of the application in the SAML identity provider.
+        :param idp_metadata_content: The metadata of the SAML application, in XML format.
+        :param master_backend_role: The backend role that the SAML master user is mapped to. Any users with this backend role receives full permission in OpenSearch Dashboards/Kibana. To use a SAML master backend role, configure the ``rolesKey`` property. Default: - The master user is not mapped to a backend role
+        :param master_user_name: The SAML master username, which is stored in the domain's internal user database. This SAML user receives full permission in OpenSearch Dashboards/Kibana. Creating a new master username does not delete any existing master usernames. Default: - No master user name is configured
+        :param roles_key: Element of the SAML assertion to use for backend roles. Default: - roles
+        :param session_timeout_minutes: The duration, in minutes, after which a user session becomes inactive. Default: - 60
+        :param subject_key: Element of the SAML assertion to use for the user name. Default: - NameID element of the SAML assertion fot the user name
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_0,
+                enforce_https=True,
+                node_to_node_encryption=True,
+                encryption_at_rest=EncryptionAtRestOptions(
+                    enabled=True
+                ),
+                fine_grained_access_control=AdvancedSecurityOptions(
+                    master_user_name="master-user",
+                    saml_authentication_enabled=True,
+                    saml_authentication_options=SAMLOptionsProperty(
+                        idp_entity_id="entity-id",
+                        idp_metadata_content="metadata-content-with-quotes-escaped"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b)
+            check_type(argname="argument idp_entity_id", value=idp_entity_id, expected_type=type_hints["idp_entity_id"])
+            check_type(argname="argument idp_metadata_content", value=idp_metadata_content, expected_type=type_hints["idp_metadata_content"])
+            check_type(argname="argument master_backend_role", value=master_backend_role, expected_type=type_hints["master_backend_role"])
+            check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
+            check_type(argname="argument roles_key", value=roles_key, expected_type=type_hints["roles_key"])
+            check_type(argname="argument session_timeout_minutes", value=session_timeout_minutes, expected_type=type_hints["session_timeout_minutes"])
+            check_type(argname="argument subject_key", value=subject_key, expected_type=type_hints["subject_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "idp_entity_id": idp_entity_id,
+            "idp_metadata_content": idp_metadata_content,
+        }
+        if master_backend_role is not None:
+            self._values["master_backend_role"] = master_backend_role
+        if master_user_name is not None:
+            self._values["master_user_name"] = master_user_name
+        if roles_key is not None:
+            self._values["roles_key"] = roles_key
+        if session_timeout_minutes is not None:
+            self._values["session_timeout_minutes"] = session_timeout_minutes
+        if subject_key is not None:
+            self._values["subject_key"] = subject_key
+
+    @builtins.property
+    def idp_entity_id(self) -> builtins.str:
+        '''The unique entity ID of the application in the SAML identity provider.'''
+        result = self._values.get("idp_entity_id")
+        assert result is not None, "Required property 'idp_entity_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def idp_metadata_content(self) -> builtins.str:
+        '''The metadata of the SAML application, in XML format.'''
+        result = self._values.get("idp_metadata_content")
+        assert result is not None, "Required property 'idp_metadata_content' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def master_backend_role(self) -> typing.Optional[builtins.str]:
+        '''The backend role that the SAML master user is mapped to.
+
+        Any users with this backend role receives full permission in OpenSearch Dashboards/Kibana.
+        To use a SAML master backend role, configure the ``rolesKey`` property.
+
+        :default: - The master user is not mapped to a backend role
+        '''
+        result = self._values.get("master_backend_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def master_user_name(self) -> typing.Optional[builtins.str]:
+        '''The SAML master username, which is stored in the domain's internal user database.
+
+        This SAML user receives full permission in OpenSearch Dashboards/Kibana.
+        Creating a new master username does not delete any existing master usernames.
+
+        :default: - No master user name is configured
+        '''
+        result = self._values.get("master_user_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def roles_key(self) -> typing.Optional[builtins.str]:
+        '''Element of the SAML assertion to use for backend roles.
+
+        :default: - roles
+        '''
+        result = self._values.get("roles_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def session_timeout_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The duration, in minutes, after which a user session becomes inactive.
+
+        :default: - 60
+        '''
+        result = self._values.get("session_timeout_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def subject_key(self) -> typing.Optional[builtins.str]:
+        '''Element of the SAML assertion to use for the user name.
+
+        :default: - NameID element of the SAML assertion fot the user name
+        '''
+        result = self._values.get("subject_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SAMLOptionsProperty(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.TLSSecurityPolicy")
+class TLSSecurityPolicy(enum.Enum):
+    '''The minimum TLS version required for traffic to the domain.'''
+
+    TLS_1_0 = "TLS_1_0"
+    '''Cipher suite TLS 1.0.'''
+    TLS_1_2 = "TLS_1_2"
+    '''Cipher suite TLS 1.2.'''
+    TLS_1_2_PFS = "TLS_1_2_PFS"
+    '''Cipher suite TLS 1.2 to 1.3 with perfect forward secrecy (PFS).'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.WindowStartTime",
+    jsii_struct_bases=[],
+    name_mapping={"hours": "hours", "minutes": "minutes"},
+)
+class WindowStartTime:
+    def __init__(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
+        '''
+        :param hours: The start hour of the window in Coordinated Universal Time (UTC), using 24-hour time. For example, 17 refers to 5:00 P.M. UTC. Default: - 22
+        :param minutes: The start minute of the window, in UTC. Default: - 0
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_3,
+                off_peak_window_enabled=True,  # can be omitted if offPeakWindowStart is set
+                off_peak_window_start=WindowStartTime(
+                    hours=20,
+                    minutes=0
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c)
+            check_type(argname="argument hours", value=hours, expected_type=type_hints["hours"])
+            check_type(argname="argument minutes", value=minutes, expected_type=type_hints["minutes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hours": hours,
+            "minutes": minutes,
+        }
+
+    @builtins.property
+    def hours(self) -> jsii.Number:
+        '''The start hour of the window in Coordinated Universal Time (UTC), using 24-hour time.
+
+        For example, 17 refers to 5:00 P.M. UTC.
+
+        :default: - 22
+        '''
+        result = self._values.get("hours")
+        assert result is not None, "Required property 'hours' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def minutes(self) -> jsii.Number:
+        '''The start minute of the window, in UTC.
+
+        :default: - 0
+        '''
+        result = self._values.get("minutes")
+        assert result is not None, "Required property 'minutes' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WindowStartTime(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchservice.ZoneAwarenessConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone_count": "availabilityZoneCount",
+        "enabled": "enabled",
+    },
+)
+class ZoneAwarenessConfig:
+    def __init__(
+        self,
+        *,
+        availability_zone_count: typing.Optional[jsii.Number] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Specifies zone awareness configuration options.
+
+        :param availability_zone_count: If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use. Valid values are 2 and 3. Default: - 2 if zone awareness is enabled.
+        :param enabled: Indicates whether to enable zone awareness for the Amazon OpenSearch Service domain. When you enable zone awareness, Amazon OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a Multi-AZ Domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ in the Amazon OpenSearch Service Developer Guide. Default: - false
+
+        :exampleMetadata: infused
+
+        Example::
+
+            domain = Domain(self, "Domain",
+                version=EngineVersion.OPENSEARCH_1_3,
+                ebs=EbsOptions(
+                    volume_size=10,
+                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3
+                ),
+                zone_awareness=ZoneAwarenessConfig(
+                    enabled=True,
+                    availability_zone_count=3
+                ),
+                capacity=CapacityConfig(
+                    multi_az_with_standby_enabled=True,
+                    master_nodes=3,
+                    data_nodes=3
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d)
+            check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if availability_zone_count is not None:
+            self._values["availability_zone_count"] = availability_zone_count
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def availability_zone_count(self) -> typing.Optional[jsii.Number]:
+        '''If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use.
+
+        Valid values are 2 and 3.
+
+        :default: - 2 if zone awareness is enabled.
+        '''
+        result = self._values.get("availability_zone_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether to enable zone awareness for the Amazon OpenSearch Service domain.
+
+        When you enable zone awareness, Amazon OpenSearch Service allocates the nodes and replica
+        index shards that belong to a cluster across two Availability Zones (AZs)
+        in the same region to prevent data loss and minimize downtime in the event
+        of node or data center failure. Don't enable zone awareness if your cluster
+        has no replica index shards or is a single-node cluster. For more information,
+        see `Configuring a Multi-AZ Domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_
+        in the Amazon OpenSearch Service Developer Guide.
+
+        :default: - false
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ZoneAwarenessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggableV2_4e6798f8)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1055,6 +5709,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1418,171 +6078,7 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "app_configs": "appConfigs",
-        "data_sources": "dataSources",
-        "endpoint": "endpoint",
-        "iam_identity_center_options": "iamIdentityCenterOptions",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        endpoint: typing.Optional[builtins.str] = None,
-        iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param name: The name of an OpenSearch application.
-        :param app_configs: List of application configurations.
-        :param data_sources: List of data sources.
-        :param endpoint: The endpoint URL of an OpenSearch application.
-        :param iam_identity_center_options: Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources. This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
-        :param tags: An arbitrary set of tags (key-value pairs) for this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchservice as opensearchservice
-            
-            cfn_application_props = opensearchservice.CfnApplicationProps(
-                name="name",
-            
-                # the properties below are optional
-                app_configs=[opensearchservice.CfnApplication.AppConfigProperty(
-                    key="key",
-                    value="value"
-                )],
-                data_sources=[opensearchservice.CfnApplication.DataSourceProperty(
-                    data_source_arn="dataSourceArn",
-            
-                    # the properties below are optional
-                    data_source_description="dataSourceDescription"
-                )],
-                endpoint="endpoint",
-                iam_identity_center_options=opensearchservice.CfnApplication.IamIdentityCenterOptionsProperty(
-                    enabled=False,
-                    iam_identity_center_instance_arn="iamIdentityCenterInstanceArn",
-                    iam_role_for_identity_center_application_arn="iamRoleForIdentityCenterApplicationArn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument app_configs", value=app_configs, expected_type=type_hints["app_configs"])
-            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
-            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
-            check_type(argname="argument iam_identity_center_options", value=iam_identity_center_options, expected_type=type_hints["iam_identity_center_options"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if app_configs is not None:
-            self._values["app_configs"] = app_configs
-        if data_sources is not None:
-            self._values["data_sources"] = data_sources
-        if endpoint is not None:
-            self._values["endpoint"] = endpoint
-        if iam_identity_center_options is not None:
-            self._values["iam_identity_center_options"] = iam_identity_center_options
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of an OpenSearch application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def app_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.AppConfigProperty]]]]:
-        '''List of application configurations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-appconfigs
-        '''
-        result = self._values.get("app_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.AppConfigProperty]]]], result)
-
-    @builtins.property
-    def data_sources(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.DataSourceProperty]]]]:
-        '''List of data sources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-datasources
-        '''
-        result = self._values.get("data_sources")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.DataSourceProperty]]]], result)
-
-    @builtins.property
-    def endpoint(self) -> typing.Optional[builtins.str]:
-        '''The endpoint URL of an OpenSearch application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-endpoint
-        '''
-        result = self._values.get("endpoint")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def iam_identity_center_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IamIdentityCenterOptionsProperty]]:
-        '''Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources.
-
-        This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-iamidentitycenteroptions
-        '''
-        result = self._values.get("iam_identity_center_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IamIdentityCenterOptionsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key-value pairs) for this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDomainRef, _ITaggable_36806126)
 class CfnDomain(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2010,6 +6506,12 @@ class CfnDomain(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''A reference to a Domain resource.'''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5015,4288 +9517,6 @@ class CfnDomain(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomainProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_policies": "accessPolicies",
-        "advanced_options": "advancedOptions",
-        "advanced_security_options": "advancedSecurityOptions",
-        "cluster_config": "clusterConfig",
-        "cognito_options": "cognitoOptions",
-        "domain_arn": "domainArn",
-        "domain_endpoint_options": "domainEndpointOptions",
-        "domain_name": "domainName",
-        "ebs_options": "ebsOptions",
-        "encryption_at_rest_options": "encryptionAtRestOptions",
-        "engine_version": "engineVersion",
-        "identity_center_options": "identityCenterOptions",
-        "ip_address_type": "ipAddressType",
-        "log_publishing_options": "logPublishingOptions",
-        "node_to_node_encryption_options": "nodeToNodeEncryptionOptions",
-        "off_peak_window_options": "offPeakWindowOptions",
-        "skip_shard_migration_wait": "skipShardMigrationWait",
-        "snapshot_options": "snapshotOptions",
-        "software_update_options": "softwareUpdateOptions",
-        "tags": "tags",
-        "vpc_options": "vpcOptions",
-    },
-)
-class CfnDomainProps:
-    def __init__(
-        self,
-        *,
-        access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain_arn: typing.Optional[builtins.str] = None,
-        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain_name: typing.Optional[builtins.str] = None,
-        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ip_address_type: typing.Optional[builtins.str] = None,
-        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDomain``.
-
-        :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
-        :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
-        :param advanced_security_options: Specifies options for fine-grained access control and SAML authentication. If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
-        :param cluster_config: Container for the cluster configuration of a domain.
-        :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-        :param domain_arn: 
-        :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
-        :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-        :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS KMS key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ . If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
-        :param engine_version: The version of OpenSearch to use. The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
-        :param identity_center_options: Configuration options for controlling IAM Identity Center integration within a domain.
-        :param ip_address_type: Choose either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
-        :param log_publishing_options: An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish. Each key needs a valid ``LogPublishingOption`` value. For the full syntax, see the `examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--examples>`_ .
-        :param node_to_node_encryption_options: Specifies whether node-to-node encryption is enabled. See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
-        :param off_peak_window_options: Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
-        :param skip_shard_migration_wait: 
-        :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indexes.
-        :param software_update_options: Service software update options for the domain.
-        :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
-        :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* . If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchservice as opensearchservice
-            
-            # access_policies: Any
-            
-            cfn_domain_props = opensearchservice.CfnDomainProps(
-                access_policies=access_policies,
-                advanced_options={
-                    "advanced_options_key": "advancedOptions"
-                },
-                advanced_security_options=opensearchservice.CfnDomain.AdvancedSecurityOptionsInputProperty(
-                    anonymous_auth_disable_date="anonymousAuthDisableDate",
-                    anonymous_auth_enabled=False,
-                    enabled=False,
-                    iam_federation_options={
-                        "enabled": False,
-                        "roles_key": "rolesKey",
-                        "subject_key": "subjectKey"
-                    },
-                    internal_user_database_enabled=False,
-                    jwt_options=opensearchservice.CfnDomain.JWTOptionsProperty(
-                        enabled=False,
-                        public_key="publicKey",
-                        roles_key="rolesKey",
-                        subject_key="subjectKey"
-                    ),
-                    master_user_options=opensearchservice.CfnDomain.MasterUserOptionsProperty(
-                        master_user_arn="masterUserArn",
-                        master_user_name="masterUserName",
-                        master_user_password="masterUserPassword"
-                    ),
-                    saml_options=opensearchservice.CfnDomain.SAMLOptionsProperty(
-                        enabled=False,
-                        idp=opensearchservice.CfnDomain.IdpProperty(
-                            entity_id="entityId",
-                            metadata_content="metadataContent"
-                        ),
-                        master_backend_role="masterBackendRole",
-                        master_user_name="masterUserName",
-                        roles_key="rolesKey",
-                        session_timeout_minutes=123,
-                        subject_key="subjectKey"
-                    )
-                ),
-                cluster_config=opensearchservice.CfnDomain.ClusterConfigProperty(
-                    cold_storage_options=opensearchservice.CfnDomain.ColdStorageOptionsProperty(
-                        enabled=False
-                    ),
-                    dedicated_master_count=123,
-                    dedicated_master_enabled=False,
-                    dedicated_master_type="dedicatedMasterType",
-                    instance_count=123,
-                    instance_type="instanceType",
-                    multi_az_with_standby_enabled=False,
-                    node_options=[opensearchservice.CfnDomain.NodeOptionProperty(
-                        node_config=opensearchservice.CfnDomain.NodeConfigProperty(
-                            count=123,
-                            enabled=False,
-                            type="type"
-                        ),
-                        node_type="nodeType"
-                    )],
-                    warm_count=123,
-                    warm_enabled=False,
-                    warm_type="warmType",
-                    zone_awareness_config=opensearchservice.CfnDomain.ZoneAwarenessConfigProperty(
-                        availability_zone_count=123
-                    ),
-                    zone_awareness_enabled=False
-                ),
-                cognito_options=opensearchservice.CfnDomain.CognitoOptionsProperty(
-                    enabled=False,
-                    identity_pool_id="identityPoolId",
-                    role_arn="roleArn",
-                    user_pool_id="userPoolId"
-                ),
-                domain_arn="domainArn",
-                domain_endpoint_options=opensearchservice.CfnDomain.DomainEndpointOptionsProperty(
-                    custom_endpoint="customEndpoint",
-                    custom_endpoint_certificate_arn="customEndpointCertificateArn",
-                    custom_endpoint_enabled=False,
-                    enforce_https=False,
-                    tls_security_policy="tlsSecurityPolicy"
-                ),
-                domain_name="domainName",
-                ebs_options=opensearchservice.CfnDomain.EBSOptionsProperty(
-                    ebs_enabled=False,
-                    iops=123,
-                    throughput=123,
-                    volume_size=123,
-                    volume_type="volumeType"
-                ),
-                encryption_at_rest_options=opensearchservice.CfnDomain.EncryptionAtRestOptionsProperty(
-                    enabled=False,
-                    kms_key_id="kmsKeyId"
-                ),
-                engine_version="engineVersion",
-                identity_center_options=opensearchservice.CfnDomain.IdentityCenterOptionsProperty(
-                    enabled_api_access=False,
-                    identity_center_application_arn="identityCenterApplicationArn",
-                    identity_center_instance_arn="identityCenterInstanceArn",
-                    identity_store_id="identityStoreId",
-                    roles_key="rolesKey",
-                    subject_key="subjectKey"
-                ),
-                ip_address_type="ipAddressType",
-                log_publishing_options={
-                    "log_publishing_options_key": opensearchservice.CfnDomain.LogPublishingOptionProperty(
-                        cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
-                        enabled=False
-                    )
-                },
-                node_to_node_encryption_options=opensearchservice.CfnDomain.NodeToNodeEncryptionOptionsProperty(
-                    enabled=False
-                ),
-                off_peak_window_options=opensearchservice.CfnDomain.OffPeakWindowOptionsProperty(
-                    enabled=False,
-                    off_peak_window=opensearchservice.CfnDomain.OffPeakWindowProperty(
-                        window_start_time=opensearchservice.CfnDomain.WindowStartTimeProperty(
-                            hours=123,
-                            minutes=123
-                        )
-                    )
-                ),
-                skip_shard_migration_wait=False,
-                snapshot_options=opensearchservice.CfnDomain.SnapshotOptionsProperty(
-                    automated_snapshot_start_hour=123
-                ),
-                software_update_options=opensearchservice.CfnDomain.SoftwareUpdateOptionsProperty(
-                    auto_software_update_enabled=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52)
-            check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
-            check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
-            check_type(argname="argument advanced_security_options", value=advanced_security_options, expected_type=type_hints["advanced_security_options"])
-            check_type(argname="argument cluster_config", value=cluster_config, expected_type=type_hints["cluster_config"])
-            check_type(argname="argument cognito_options", value=cognito_options, expected_type=type_hints["cognito_options"])
-            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
-            check_type(argname="argument domain_endpoint_options", value=domain_endpoint_options, expected_type=type_hints["domain_endpoint_options"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument ebs_options", value=ebs_options, expected_type=type_hints["ebs_options"])
-            check_type(argname="argument encryption_at_rest_options", value=encryption_at_rest_options, expected_type=type_hints["encryption_at_rest_options"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument identity_center_options", value=identity_center_options, expected_type=type_hints["identity_center_options"])
-            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
-            check_type(argname="argument log_publishing_options", value=log_publishing_options, expected_type=type_hints["log_publishing_options"])
-            check_type(argname="argument node_to_node_encryption_options", value=node_to_node_encryption_options, expected_type=type_hints["node_to_node_encryption_options"])
-            check_type(argname="argument off_peak_window_options", value=off_peak_window_options, expected_type=type_hints["off_peak_window_options"])
-            check_type(argname="argument skip_shard_migration_wait", value=skip_shard_migration_wait, expected_type=type_hints["skip_shard_migration_wait"])
-            check_type(argname="argument snapshot_options", value=snapshot_options, expected_type=type_hints["snapshot_options"])
-            check_type(argname="argument software_update_options", value=software_update_options, expected_type=type_hints["software_update_options"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_options", value=vpc_options, expected_type=type_hints["vpc_options"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if access_policies is not None:
-            self._values["access_policies"] = access_policies
-        if advanced_options is not None:
-            self._values["advanced_options"] = advanced_options
-        if advanced_security_options is not None:
-            self._values["advanced_security_options"] = advanced_security_options
-        if cluster_config is not None:
-            self._values["cluster_config"] = cluster_config
-        if cognito_options is not None:
-            self._values["cognito_options"] = cognito_options
-        if domain_arn is not None:
-            self._values["domain_arn"] = domain_arn
-        if domain_endpoint_options is not None:
-            self._values["domain_endpoint_options"] = domain_endpoint_options
-        if domain_name is not None:
-            self._values["domain_name"] = domain_name
-        if ebs_options is not None:
-            self._values["ebs_options"] = ebs_options
-        if encryption_at_rest_options is not None:
-            self._values["encryption_at_rest_options"] = encryption_at_rest_options
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if identity_center_options is not None:
-            self._values["identity_center_options"] = identity_center_options
-        if ip_address_type is not None:
-            self._values["ip_address_type"] = ip_address_type
-        if log_publishing_options is not None:
-            self._values["log_publishing_options"] = log_publishing_options
-        if node_to_node_encryption_options is not None:
-            self._values["node_to_node_encryption_options"] = node_to_node_encryption_options
-        if off_peak_window_options is not None:
-            self._values["off_peak_window_options"] = off_peak_window_options
-        if skip_shard_migration_wait is not None:
-            self._values["skip_shard_migration_wait"] = skip_shard_migration_wait
-        if snapshot_options is not None:
-            self._values["snapshot_options"] = snapshot_options
-        if software_update_options is not None:
-            self._values["software_update_options"] = software_update_options
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_options is not None:
-            self._values["vpc_options"] = vpc_options
-
-    @builtins.property
-    def access_policies(self) -> typing.Any:
-        '''An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions.
-
-        For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-accesspolicies
-        '''
-        result = self._values.get("access_policies")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def advanced_options(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Additional options to specify for the OpenSearch Service domain.
-
-        For more information, see `AdvancedOptions <https://docs.aws.amazon.com/opensearch-service/latest/APIReference/API_CreateDomain.html#API_CreateDomain_RequestBody>`_ in the OpenSearch Service API reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedoptions
-        '''
-        result = self._values.get("advanced_options")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def advanced_security_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AdvancedSecurityOptionsInputProperty]]:
-        '''Specifies options for fine-grained access control and SAML authentication.
-
-        If you specify advanced security options, you must also enable node-to-node encryption ( `NodeToNodeEncryptionOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-nodetonodeencryptionoptions.html>`_ ) and encryption at rest ( `EncryptionAtRestOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-encryptionatrestoptions.html>`_ ). You must also enable ``EnforceHTTPS`` within `DomainEndpointOptions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-domainendpointoptions.html>`_ , which requires HTTPS for all traffic to the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-advancedsecurityoptions
-        '''
-        result = self._values.get("advanced_security_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AdvancedSecurityOptionsInputProperty]], result)
-
-    @builtins.property
-    def cluster_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.ClusterConfigProperty]]:
-        '''Container for the cluster configuration of a domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-clusterconfig
-        '''
-        result = self._values.get("cluster_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.ClusterConfigProperty]], result)
-
-    @builtins.property
-    def cognito_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]]:
-        '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-cognitooptions
-        '''
-        result = self._values.get("cognito_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]], result)
-
-    @builtins.property
-    def domain_arn(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainarn
-        '''
-        result = self._values.get("domain_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_endpoint_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEndpointOptionsProperty]]:
-        '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainendpointoptions
-        '''
-        result = self._values.get("domain_endpoint_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEndpointOptionsProperty]], result)
-
-    @builtins.property
-    def domain_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the OpenSearch Service domain.
-
-        The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ .
-
-        Required when creating a new domain.
-        .. epigraph::
-
-           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-domainname
-        '''
-        result = self._values.get("domain_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ebs_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EBSOptionsProperty]]:
-        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
-
-        For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-ebsoptions
-        '''
-        result = self._values.get("ebs_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EBSOptionsProperty]], result)
-
-    @builtins.property
-    def encryption_at_rest_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EncryptionAtRestOptionsProperty]]:
-        '''Whether the domain should encrypt data at rest, and if so, the AWS KMS key to use.
-
-        See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
-
-        If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-encryptionatrestoptions
-        '''
-        result = self._values.get("encryption_at_rest_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EncryptionAtRestOptionsProperty]], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version of OpenSearch to use.
-
-        The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-        If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def identity_center_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.IdentityCenterOptionsProperty]]:
-        '''Configuration options for controlling IAM Identity Center integration within a domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-identitycenteroptions
-        '''
-        result = self._values.get("identity_center_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.IdentityCenterOptionsProperty]], result)
-
-    @builtins.property
-    def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Choose either dual stack or IPv4 as your IP address type.
-
-        Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-ipaddresstype
-        '''
-        result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_publishing_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomain.LogPublishingOptionProperty]]]]:
-        '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.
-
-        Each key needs a valid ``LogPublishingOption`` value. For the full syntax, see the `examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--examples>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-logpublishingoptions
-        '''
-        result = self._values.get("log_publishing_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomain.LogPublishingOptionProperty]]]], result)
-
-    @builtins.property
-    def node_to_node_encryption_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.NodeToNodeEncryptionOptionsProperty]]:
-        '''Specifies whether node-to-node encryption is enabled.
-
-        See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-nodetonodeencryptionoptions
-        '''
-        result = self._values.get("node_to_node_encryption_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.NodeToNodeEncryptionOptionsProperty]], result)
-
-    @builtins.property
-    def off_peak_window_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.OffPeakWindowOptionsProperty]]:
-        '''Options for a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-offpeakwindowoptions
-        '''
-        result = self._values.get("off_peak_window_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.OffPeakWindowOptionsProperty]], result)
-
-    @builtins.property
-    def skip_shard_migration_wait(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-skipshardmigrationwait
-        '''
-        result = self._values.get("skip_shard_migration_wait")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def snapshot_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SnapshotOptionsProperty]]:
-        '''*DEPRECATED* .
-
-        The automated snapshot configuration for the OpenSearch Service domain indexes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-snapshotoptions
-        '''
-        result = self._values.get("snapshot_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SnapshotOptionsProperty]], result)
-
-    @builtins.property
-    def software_update_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SoftwareUpdateOptionsProperty]]:
-        '''Service software update options for the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-softwareupdateoptions
-        '''
-        result = self._values.get("software_update_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SoftwareUpdateOptionsProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.VPCOptionsProperty]]:
-        '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
-
-        For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-        If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-vpcoptions
-        '''
-        result = self._values.get("vpc_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.VPCOptionsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.CognitoOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity_pool_id": "identityPoolId",
-        "role": "role",
-        "user_pool_id": "userPoolId",
-    },
-)
-class CognitoOptions:
-    def __init__(
-        self,
-        *,
-        identity_pool_id: builtins.str,
-        role: _IRole_235f5d8e,
-        user_pool_id: builtins.str,
-    ) -> None:
-        '''Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-
-        :param identity_pool_id: The Amazon Cognito identity pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.
-        :param role: A role that allows Amazon OpenSearch Service to configure your user pool and identity pool. It must have the ``AmazonESCognitoAccess`` policy attached to it.
-        :param user_pool_id: The Amazon Cognito user pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html
-        :exampleMetadata: fixture=migrate-opensearch infused
-
-        Example::
-
-            opensearch.Domain(self, "Domain",
-                cognito_dashboards_auth=opensearch.CognitoOptions(
-                    identity_pool_id="test-identity-pool-id",
-                    user_pool_id="test-user-pool-id",
-                    role=role
-                ),
-                version=open_search_version
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9)
-            check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity_pool_id": identity_pool_id,
-            "role": role,
-            "user_pool_id": user_pool_id,
-        }
-
-    @builtins.property
-    def identity_pool_id(self) -> builtins.str:
-        '''The Amazon Cognito identity pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.'''
-        result = self._values.get("identity_pool_id")
-        assert result is not None, "Required property 'identity_pool_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role(self) -> _IRole_235f5d8e:
-        '''A role that allows Amazon OpenSearch Service to configure your user pool and identity pool.
-
-        It must have the ``AmazonESCognitoAccess`` policy attached to it.
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html#cognito-auth-prereq
-        '''
-        result = self._values.get("role")
-        assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_IRole_235f5d8e, result)
-
-    @builtins.property
-    def user_pool_id(self) -> builtins.str:
-        '''The Amazon Cognito user pool ID that you want Amazon OpenSearch Service to use for OpenSearch Dashboards authentication.'''
-        result = self._values.get("user_pool_id")
-        assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CognitoOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.CustomEndpointOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "certificate": "certificate",
-        "hosted_zone": "hostedZone",
-    },
-)
-class CustomEndpointOptions:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        certificate: typing.Optional[_ICertificate_c194c70b] = None,
-        hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
-    ) -> None:
-        '''Configures a custom domain endpoint for the Amazon OpenSearch Service domain.
-
-        :param domain_name: The custom domain name to assign.
-        :param certificate: The certificate to use. Default: - create a new one
-        :param hosted_zone: The hosted zone in Route53 to create the CNAME record in. Default: - do not create a CNAME
-
-        :exampleMetadata: infused
-
-        Example::
-
-            Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                custom_endpoint=CustomEndpointOptions(
-                    domain_name="search.example.com"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
-            check_type(argname="argument hosted_zone", value=hosted_zone, expected_type=type_hints["hosted_zone"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-        }
-        if certificate is not None:
-            self._values["certificate"] = certificate
-        if hosted_zone is not None:
-            self._values["hosted_zone"] = hosted_zone
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The custom domain name to assign.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate(self) -> typing.Optional[_ICertificate_c194c70b]:
-        '''The certificate to use.
-
-        :default: - create a new one
-        '''
-        result = self._values.get("certificate")
-        return typing.cast(typing.Optional[_ICertificate_c194c70b], result)
-
-    @builtins.property
-    def hosted_zone(self) -> typing.Optional[_IHostedZone_9a6907ad]:
-        '''The hosted zone in Route53 to create the CNAME record in.
-
-        :default: - do not create a CNAME
-        '''
-        result = self._values.get("hosted_zone")
-        return typing.cast(typing.Optional[_IHostedZone_9a6907ad], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CustomEndpointOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.DomainAttributes",
-    jsii_struct_bases=[],
-    name_mapping={"domain_arn": "domainArn", "domain_endpoint": "domainEndpoint"},
-)
-class DomainAttributes:
-    def __init__(
-        self,
-        *,
-        domain_arn: builtins.str,
-        domain_endpoint: builtins.str,
-    ) -> None:
-        '''Reference to an Amazon OpenSearch Service domain.
-
-        :param domain_arn: The ARN of the Amazon OpenSearch Service domain.
-        :param domain_endpoint: The domain endpoint of the Amazon OpenSearch Service domain.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain_arn = Fn.import_value("another-cf-stack-export-domain-arn")
-            domain_endpoint = Fn.import_value("another-cf-stack-export-domain-endpoint")
-            domain = Domain.from_domain_attributes(self, "ImportedDomain",
-                domain_arn=domain_arn,
-                domain_endpoint=domain_endpoint
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3)
-            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
-            check_type(argname="argument domain_endpoint", value=domain_endpoint, expected_type=type_hints["domain_endpoint"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_arn": domain_arn,
-            "domain_endpoint": domain_endpoint,
-        }
-
-    @builtins.property
-    def domain_arn(self) -> builtins.str:
-        '''The ARN of the Amazon OpenSearch Service domain.'''
-        result = self._values.get("domain_arn")
-        assert result is not None, "Required property 'domain_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_endpoint(self) -> builtins.str:
-        '''The domain endpoint of the Amazon OpenSearch Service domain.'''
-        result = self._values.get("domain_endpoint")
-        assert result is not None, "Required property 'domain_endpoint' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DomainAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.DomainProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "version": "version",
-        "access_policies": "accessPolicies",
-        "advanced_options": "advancedOptions",
-        "automated_snapshot_start_hour": "automatedSnapshotStartHour",
-        "capacity": "capacity",
-        "cognito_dashboards_auth": "cognitoDashboardsAuth",
-        "cold_storage_enabled": "coldStorageEnabled",
-        "custom_endpoint": "customEndpoint",
-        "domain_name": "domainName",
-        "ebs": "ebs",
-        "enable_auto_software_update": "enableAutoSoftwareUpdate",
-        "enable_version_upgrade": "enableVersionUpgrade",
-        "encryption_at_rest": "encryptionAtRest",
-        "enforce_https": "enforceHttps",
-        "fine_grained_access_control": "fineGrainedAccessControl",
-        "ip_address_type": "ipAddressType",
-        "logging": "logging",
-        "node_to_node_encryption": "nodeToNodeEncryption",
-        "off_peak_window_enabled": "offPeakWindowEnabled",
-        "off_peak_window_start": "offPeakWindowStart",
-        "removal_policy": "removalPolicy",
-        "security_groups": "securityGroups",
-        "suppress_logs_resource_policy": "suppressLogsResourcePolicy",
-        "tls_security_policy": "tlsSecurityPolicy",
-        "use_unsigned_basic_auth": "useUnsignedBasicAuth",
-        "vpc": "vpc",
-        "vpc_subnets": "vpcSubnets",
-        "zone_awareness": "zoneAwareness",
-    },
-)
-class DomainProps:
-    def __init__(
-        self,
-        *,
-        version: "EngineVersion",
-        access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-        advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
-        capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-        cognito_dashboards_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        cold_storage_enabled: typing.Optional[builtins.bool] = None,
-        custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        domain_name: typing.Optional[builtins.str] = None,
-        ebs: typing.Optional[typing.Union["EbsOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        enable_auto_software_update: typing.Optional[builtins.bool] = None,
-        enable_version_upgrade: typing.Optional[builtins.bool] = None,
-        encryption_at_rest: typing.Optional[typing.Union["EncryptionAtRestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        enforce_https: typing.Optional[builtins.bool] = None,
-        fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        ip_address_type: typing.Optional["IpAddressType"] = None,
-        logging: typing.Optional[typing.Union["LoggingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        node_to_node_encryption: typing.Optional[builtins.bool] = None,
-        off_peak_window_enabled: typing.Optional[builtins.bool] = None,
-        off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
-        tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
-        use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
-        zone_awareness: typing.Optional[typing.Union["ZoneAwarenessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Properties for an Amazon OpenSearch Service domain.
-
-        :param version: The Elasticsearch/OpenSearch version that your domain will leverage.
-        :param access_policies: Domain access policies. Default: - No access policies.
-        :param advanced_options: Additional options to specify for the Amazon OpenSearch Service domain. Default: - no advanced options are specified
-        :param automated_snapshot_start_hour: The hour in UTC during which the service takes an automated daily snapshot of the indices in the Amazon OpenSearch Service domain. Only applies for Elasticsearch versions below 5.3. Default: - Hourly automated snapshots not used
-        :param capacity: The cluster capacity configuration for the Amazon OpenSearch Service domain. Default: - 1 r5.large.search data node; no dedicated master nodes.
-        :param cognito_dashboards_auth: Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards. Default: - Cognito not used for authentication to OpenSearch Dashboards.
-        :param cold_storage_enabled: Whether to enable or disable cold storage on the domain. You must enable UltraWarm storage to enable cold storage. Default: - undefined
-        :param custom_endpoint: To configure a custom domain configure these options. If you specify a Route53 hosted zone it will create a CNAME record and use DNS validation for the certificate Default: - no custom domain endpoint will be configured
-        :param domain_name: Enforces a particular physical domain name. Default: - A name will be auto-generated.
-        :param ebs: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain. Default: - 10 GiB General Purpose (SSD) volumes per node.
-        :param enable_auto_software_update: Specifies whether automatic service software updates are enabled for the domain. Default: - false
-        :param enable_version_upgrade: To upgrade an Amazon OpenSearch Service domain to a new version, rather than replacing the entire domain resource, use the EnableVersionUpgrade update policy. Default: - false
-        :param encryption_at_rest: Encryption at rest options for the cluster. Default: - No encryption at rest
-        :param enforce_https: True to require that all traffic to the domain arrive over HTTPS. Default: - false
-        :param fine_grained_access_control: Specifies options for fine-grained access control. Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later. Enabling fine-grained access control also requires encryption of data at rest and node-to-node encryption, along with enforced HTTPS. Default: - fine-grained access control is disabled
-        :param ip_address_type: Specify either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later. Default: - IpAddressType.IPV4
-        :param logging: Configuration log publishing configuration options. Default: - No logs are published
-        :param node_to_node_encryption: Specify true to enable node to node encryption. Requires Elasticsearch version 6.0 or later or OpenSearch version 1.0 or later. Default: - Node to node encryption is not enabled.
-        :param off_peak_window_enabled: Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain. Off-peak windows were introduced on February 16, 2023. All domains created before this date have the off-peak window disabled by default. You must manually enable and configure the off-peak window for these domains. All domains created after this date will have the off-peak window enabled by default. You can't disable the off-peak window for a domain after it's enabled. Default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
-        :param off_peak_window_start: Start time for the off-peak window, in Coordinated Universal Time (UTC). The window length will always be 10 hours, so you can't specify an end time. For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M. Default: - 10:00 P.M. local time
-        :param removal_policy: Policy to apply when the domain is removed from the stack. Default: RemovalPolicy.RETAIN
-        :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
-        :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
-        :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
-        :param use_unsigned_basic_auth: Configures the domain so that unsigned basic auth is enabled. If no master user is provided a default master user with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved by getting ``masterUserPassword`` from the domain instance. Setting this to true will also add an access policy that allows unsigned access, enable node to node encryption, encryption at rest. If conflicting settings are encountered (like disabling encryption at rest) enabling this setting will cause a failure. Default: - false
-        :param vpc: Place the domain inside this VPC. Default: - Domain is not placed in a VPC.
-        :param vpc_subnets: The specific vpc subnets the domain will be placed in. You must provide one subnet for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. Only used if ``vpc`` is specified. Default: - All private subnets.
-        :param zone_awareness: The cluster zone awareness configuration for the Amazon OpenSearch Service domain. Default: - no zone awareness (1 AZ)
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                ebs=EbsOptions(
-                    volume_size=100,
-                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD
-                ),
-                node_to_node_encryption=True,
-                encryption_at_rest=EncryptionAtRestOptions(
-                    enabled=True
-                )
-            )
-        '''
-        if isinstance(capacity, dict):
-            capacity = CapacityConfig(**capacity)
-        if isinstance(cognito_dashboards_auth, dict):
-            cognito_dashboards_auth = CognitoOptions(**cognito_dashboards_auth)
-        if isinstance(custom_endpoint, dict):
-            custom_endpoint = CustomEndpointOptions(**custom_endpoint)
-        if isinstance(ebs, dict):
-            ebs = EbsOptions(**ebs)
-        if isinstance(encryption_at_rest, dict):
-            encryption_at_rest = EncryptionAtRestOptions(**encryption_at_rest)
-        if isinstance(fine_grained_access_control, dict):
-            fine_grained_access_control = AdvancedSecurityOptions(**fine_grained_access_control)
-        if isinstance(logging, dict):
-            logging = LoggingOptions(**logging)
-        if isinstance(off_peak_window_start, dict):
-            off_peak_window_start = WindowStartTime(**off_peak_window_start)
-        if isinstance(zone_awareness, dict):
-            zone_awareness = ZoneAwarenessConfig(**zone_awareness)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-            check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
-            check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
-            check_type(argname="argument automated_snapshot_start_hour", value=automated_snapshot_start_hour, expected_type=type_hints["automated_snapshot_start_hour"])
-            check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
-            check_type(argname="argument cognito_dashboards_auth", value=cognito_dashboards_auth, expected_type=type_hints["cognito_dashboards_auth"])
-            check_type(argname="argument cold_storage_enabled", value=cold_storage_enabled, expected_type=type_hints["cold_storage_enabled"])
-            check_type(argname="argument custom_endpoint", value=custom_endpoint, expected_type=type_hints["custom_endpoint"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument ebs", value=ebs, expected_type=type_hints["ebs"])
-            check_type(argname="argument enable_auto_software_update", value=enable_auto_software_update, expected_type=type_hints["enable_auto_software_update"])
-            check_type(argname="argument enable_version_upgrade", value=enable_version_upgrade, expected_type=type_hints["enable_version_upgrade"])
-            check_type(argname="argument encryption_at_rest", value=encryption_at_rest, expected_type=type_hints["encryption_at_rest"])
-            check_type(argname="argument enforce_https", value=enforce_https, expected_type=type_hints["enforce_https"])
-            check_type(argname="argument fine_grained_access_control", value=fine_grained_access_control, expected_type=type_hints["fine_grained_access_control"])
-            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
-            check_type(argname="argument node_to_node_encryption", value=node_to_node_encryption, expected_type=type_hints["node_to_node_encryption"])
-            check_type(argname="argument off_peak_window_enabled", value=off_peak_window_enabled, expected_type=type_hints["off_peak_window_enabled"])
-            check_type(argname="argument off_peak_window_start", value=off_peak_window_start, expected_type=type_hints["off_peak_window_start"])
-            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
-            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument suppress_logs_resource_policy", value=suppress_logs_resource_policy, expected_type=type_hints["suppress_logs_resource_policy"])
-            check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
-            check_type(argname="argument use_unsigned_basic_auth", value=use_unsigned_basic_auth, expected_type=type_hints["use_unsigned_basic_auth"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
-            check_type(argname="argument zone_awareness", value=zone_awareness, expected_type=type_hints["zone_awareness"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "version": version,
-        }
-        if access_policies is not None:
-            self._values["access_policies"] = access_policies
-        if advanced_options is not None:
-            self._values["advanced_options"] = advanced_options
-        if automated_snapshot_start_hour is not None:
-            self._values["automated_snapshot_start_hour"] = automated_snapshot_start_hour
-        if capacity is not None:
-            self._values["capacity"] = capacity
-        if cognito_dashboards_auth is not None:
-            self._values["cognito_dashboards_auth"] = cognito_dashboards_auth
-        if cold_storage_enabled is not None:
-            self._values["cold_storage_enabled"] = cold_storage_enabled
-        if custom_endpoint is not None:
-            self._values["custom_endpoint"] = custom_endpoint
-        if domain_name is not None:
-            self._values["domain_name"] = domain_name
-        if ebs is not None:
-            self._values["ebs"] = ebs
-        if enable_auto_software_update is not None:
-            self._values["enable_auto_software_update"] = enable_auto_software_update
-        if enable_version_upgrade is not None:
-            self._values["enable_version_upgrade"] = enable_version_upgrade
-        if encryption_at_rest is not None:
-            self._values["encryption_at_rest"] = encryption_at_rest
-        if enforce_https is not None:
-            self._values["enforce_https"] = enforce_https
-        if fine_grained_access_control is not None:
-            self._values["fine_grained_access_control"] = fine_grained_access_control
-        if ip_address_type is not None:
-            self._values["ip_address_type"] = ip_address_type
-        if logging is not None:
-            self._values["logging"] = logging
-        if node_to_node_encryption is not None:
-            self._values["node_to_node_encryption"] = node_to_node_encryption
-        if off_peak_window_enabled is not None:
-            self._values["off_peak_window_enabled"] = off_peak_window_enabled
-        if off_peak_window_start is not None:
-            self._values["off_peak_window_start"] = off_peak_window_start
-        if removal_policy is not None:
-            self._values["removal_policy"] = removal_policy
-        if security_groups is not None:
-            self._values["security_groups"] = security_groups
-        if suppress_logs_resource_policy is not None:
-            self._values["suppress_logs_resource_policy"] = suppress_logs_resource_policy
-        if tls_security_policy is not None:
-            self._values["tls_security_policy"] = tls_security_policy
-        if use_unsigned_basic_auth is not None:
-            self._values["use_unsigned_basic_auth"] = use_unsigned_basic_auth
-        if vpc is not None:
-            self._values["vpc"] = vpc
-        if vpc_subnets is not None:
-            self._values["vpc_subnets"] = vpc_subnets
-        if zone_awareness is not None:
-            self._values["zone_awareness"] = zone_awareness
-
-    @builtins.property
-    def version(self) -> "EngineVersion":
-        '''The Elasticsearch/OpenSearch version that your domain will leverage.'''
-        result = self._values.get("version")
-        assert result is not None, "Required property 'version' is missing"
-        return typing.cast("EngineVersion", result)
-
-    @builtins.property
-    def access_policies(
-        self,
-    ) -> typing.Optional[typing.List[_PolicyStatement_0fe33853]]:
-        '''Domain access policies.
-
-        :default: - No access policies.
-        '''
-        result = self._values.get("access_policies")
-        return typing.cast(typing.Optional[typing.List[_PolicyStatement_0fe33853]], result)
-
-    @builtins.property
-    def advanced_options(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Additional options to specify for the Amazon OpenSearch Service domain.
-
-        :default: - no advanced options are specified
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html#createdomain-configure-advanced-options
-        '''
-        result = self._values.get("advanced_options")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def automated_snapshot_start_hour(self) -> typing.Optional[jsii.Number]:
-        '''The hour in UTC during which the service takes an automated daily snapshot of the indices in the Amazon OpenSearch Service domain.
-
-        Only applies for Elasticsearch versions
-        below 5.3.
-
-        :default: - Hourly automated snapshots not used
-        '''
-        result = self._values.get("automated_snapshot_start_hour")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def capacity(self) -> typing.Optional[CapacityConfig]:
-        '''The cluster capacity configuration for the Amazon OpenSearch Service domain.
-
-        :default: - 1 r5.large.search data node; no dedicated master nodes.
-        '''
-        result = self._values.get("capacity")
-        return typing.cast(typing.Optional[CapacityConfig], result)
-
-    @builtins.property
-    def cognito_dashboards_auth(self) -> typing.Optional[CognitoOptions]:
-        '''Configures Amazon OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-
-        :default: - Cognito not used for authentication to OpenSearch Dashboards.
-        '''
-        result = self._values.get("cognito_dashboards_auth")
-        return typing.cast(typing.Optional[CognitoOptions], result)
-
-    @builtins.property
-    def cold_storage_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether to enable or disable cold storage on the domain.
-
-        You must enable UltraWarm storage to enable cold storage.
-
-        :default: - undefined
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cold-storage.html
-        '''
-        result = self._values.get("cold_storage_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def custom_endpoint(self) -> typing.Optional[CustomEndpointOptions]:
-        '''To configure a custom domain configure these options.
-
-        If you specify a Route53 hosted zone it will create a CNAME record and use DNS validation for the certificate
-
-        :default: - no custom domain endpoint will be configured
-        '''
-        result = self._values.get("custom_endpoint")
-        return typing.cast(typing.Optional[CustomEndpointOptions], result)
-
-    @builtins.property
-    def domain_name(self) -> typing.Optional[builtins.str]:
-        '''Enforces a particular physical domain name.
-
-        :default: - A name will be auto-generated.
-        '''
-        result = self._values.get("domain_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ebs(self) -> typing.Optional["EbsOptions"]:
-        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain.
-
-        :default: - 10 GiB General Purpose (SSD) volumes per node.
-        '''
-        result = self._values.get("ebs")
-        return typing.cast(typing.Optional["EbsOptions"], result)
-
-    @builtins.property
-    def enable_auto_software_update(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether automatic service software updates are enabled for the domain.
-
-        :default: - false
-
-        :see: https://docs.aws.amazon.com/it_it/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-softwareupdateoptions.html
-        '''
-        result = self._values.get("enable_auto_software_update")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def enable_version_upgrade(self) -> typing.Optional[builtins.bool]:
-        '''To upgrade an Amazon OpenSearch Service domain to a new version, rather than replacing the entire domain resource, use the EnableVersionUpgrade update policy.
-
-        :default: - false
-
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain
-        '''
-        result = self._values.get("enable_version_upgrade")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def encryption_at_rest(self) -> typing.Optional["EncryptionAtRestOptions"]:
-        '''Encryption at rest options for the cluster.
-
-        :default: - No encryption at rest
-        '''
-        result = self._values.get("encryption_at_rest")
-        return typing.cast(typing.Optional["EncryptionAtRestOptions"], result)
-
-    @builtins.property
-    def enforce_https(self) -> typing.Optional[builtins.bool]:
-        '''True to require that all traffic to the domain arrive over HTTPS.
-
-        :default: - false
-        '''
-        result = self._values.get("enforce_https")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def fine_grained_access_control(self) -> typing.Optional[AdvancedSecurityOptions]:
-        '''Specifies options for fine-grained access control.
-
-        Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later. Enabling fine-grained access control
-        also requires encryption of data at rest and node-to-node encryption, along with
-        enforced HTTPS.
-
-        :default: - fine-grained access control is disabled
-        '''
-        result = self._values.get("fine_grained_access_control")
-        return typing.cast(typing.Optional[AdvancedSecurityOptions], result)
-
-    @builtins.property
-    def ip_address_type(self) -> typing.Optional["IpAddressType"]:
-        '''Specify either dual stack or IPv4 as your IP address type.
-
-        Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option.
-
-        If you set your IP address type to dual stack, you can't change your address type later.
-
-        :default: - IpAddressType.IPV4
-        '''
-        result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional["IpAddressType"], result)
-
-    @builtins.property
-    def logging(self) -> typing.Optional["LoggingOptions"]:
-        '''Configuration log publishing configuration options.
-
-        :default: - No logs are published
-        '''
-        result = self._values.get("logging")
-        return typing.cast(typing.Optional["LoggingOptions"], result)
-
-    @builtins.property
-    def node_to_node_encryption(self) -> typing.Optional[builtins.bool]:
-        '''Specify true to enable node to node encryption.
-
-        Requires Elasticsearch version 6.0 or later or OpenSearch version 1.0 or later.
-
-        :default: - Node to node encryption is not enabled.
-        '''
-        result = self._values.get("node_to_node_encryption")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def off_peak_window_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain.
-
-        Off-peak windows were introduced on February 16, 2023.
-        All domains created before this date have the off-peak window disabled by default.
-        You must manually enable and configure the off-peak window for these domains.
-        All domains created after this date will have the off-peak window enabled by default.
-        You can't disable the off-peak window for a domain after it's enabled.
-
-        :default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
-
-        :see: https://docs.aws.amazon.com/it_it/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-offpeakwindow.html
-        '''
-        result = self._values.get("off_peak_window_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def off_peak_window_start(self) -> typing.Optional["WindowStartTime"]:
-        '''Start time for the off-peak window, in Coordinated Universal Time (UTC).
-
-        The window length will always be 10 hours, so you can't specify an end time.
-        For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M.
-
-        :default: - 10:00 P.M. local time
-        '''
-        result = self._values.get("off_peak_window_start")
-        return typing.cast(typing.Optional["WindowStartTime"], result)
-
-    @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
-        '''Policy to apply when the domain is removed from the stack.
-
-        :default: RemovalPolicy.RETAIN
-        '''
-        result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
-
-    @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
-        '''The list of security groups that are associated with the VPC endpoints for the domain.
-
-        Only used if ``vpc`` is specified.
-
-        :default: - One new security group is created.
-
-        :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html
-        '''
-        result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
-
-    @builtins.property
-    def suppress_logs_resource_policy(self) -> typing.Optional[builtins.bool]:
-        '''Specify whether to create a CloudWatch Logs resource policy or not.
-
-        When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default.
-        However, CloudWatch Logs supports only 10 resource policies per region.
-        If you enable logging for several domains, it may hit the quota and cause an error.
-        By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem.
-
-        If you set this option to true, you must create a resource policy before deployment.
-
-        :default: - false
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createdomain-configure-slow-logs.html
-        '''
-        result = self._values.get("suppress_logs_resource_policy")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tls_security_policy(self) -> typing.Optional["TLSSecurityPolicy"]:
-        '''The minimum TLS version required for traffic to the domain.
-
-        :default: - TLSSecurityPolicy.TLS_1_2
-        '''
-        result = self._values.get("tls_security_policy")
-        return typing.cast(typing.Optional["TLSSecurityPolicy"], result)
-
-    @builtins.property
-    def use_unsigned_basic_auth(self) -> typing.Optional[builtins.bool]:
-        '''Configures the domain so that unsigned basic auth is enabled.
-
-        If no master user is provided a default master user
-        with username ``admin`` and a dynamically generated password stored in KMS is created. The password can be retrieved
-        by getting ``masterUserPassword`` from the domain instance.
-
-        Setting this to true will also add an access policy that allows unsigned
-        access, enable node to node encryption, encryption at rest. If conflicting
-        settings are encountered (like disabling encryption at rest) enabling this
-        setting will cause a failure.
-
-        :default: - false
-        '''
-        result = self._values.get("use_unsigned_basic_auth")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
-        '''Place the domain inside this VPC.
-
-        :default: - Domain is not placed in a VPC.
-
-        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
-
-    @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List[_SubnetSelection_e57d76df]]:
-        '''The specific vpc subnets the domain will be placed in.
-
-        You must provide one subnet for each Availability Zone
-        that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone
-        domain.
-
-        Only used if ``vpc`` is specified.
-
-        :default: - All private subnets.
-
-        :see: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html
-        '''
-        result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List[_SubnetSelection_e57d76df]], result)
-
-    @builtins.property
-    def zone_awareness(self) -> typing.Optional["ZoneAwarenessConfig"]:
-        '''The cluster zone awareness configuration for the Amazon OpenSearch Service domain.
-
-        :default: - no zone awareness (1 AZ)
-        '''
-        result = self._values.get("zone_awareness")
-        return typing.cast(typing.Optional["ZoneAwarenessConfig"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.EbsOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "enabled": "enabled",
-        "iops": "iops",
-        "throughput": "throughput",
-        "volume_size": "volumeSize",
-        "volume_type": "volumeType",
-    },
-)
-class EbsOptions:
-    def __init__(
-        self,
-        *,
-        enabled: typing.Optional[builtins.bool] = None,
-        iops: typing.Optional[jsii.Number] = None,
-        throughput: typing.Optional[jsii.Number] = None,
-        volume_size: typing.Optional[jsii.Number] = None,
-        volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
-    ) -> None:
-        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the Amazon OpenSearch Service domain.
-
-        For more information, see
-        `Amazon EBS <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AmazonEBS.html>`_
-        in the Amazon Elastic Compute Cloud Developer Guide.
-
-        :param enabled: Specifies whether Amazon EBS volumes are attached to data nodes in the Amazon OpenSearch Service domain. Default: - true
-        :param iops: The number of I/O operations per second (IOPS) that the volume supports. This property applies only to the gp3 and Provisioned IOPS (SSD) EBS volume type. Default: - iops are not set.
-        :param throughput: The throughput (in MiB/s) of the EBS volumes attached to data nodes. This property applies only to the gp3 volume type. Default: - throughput is not set.
-        :param volume_size: The size (in GiB) of the EBS volume for each data node. The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For valid values, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the Amazon OpenSearch Service Developer Guide. Default: 10
-        :param volume_type: The EBS volume type to use with the Amazon OpenSearch Service domain, such as standard, gp2, io1. Default: gp2
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_3,
-                ebs=EbsOptions(
-                    volume_size=10,
-                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3
-                ),
-                zone_awareness=ZoneAwarenessConfig(
-                    enabled=True,
-                    availability_zone_count=3
-                ),
-                capacity=CapacityConfig(
-                    multi_az_with_standby_enabled=True,
-                    master_nodes=3,
-                    data_nodes=3
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38)
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
-            check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
-            check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
-            check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if iops is not None:
-            self._values["iops"] = iops
-        if throughput is not None:
-            self._values["throughput"] = throughput
-        if volume_size is not None:
-            self._values["volume_size"] = volume_size
-        if volume_type is not None:
-            self._values["volume_type"] = volume_type
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specifies whether Amazon EBS volumes are attached to data nodes in the Amazon OpenSearch Service domain.
-
-        :default: - true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def iops(self) -> typing.Optional[jsii.Number]:
-        '''The number of I/O operations per second (IOPS) that the volume supports.
-
-        This property applies only to the gp3 and Provisioned IOPS (SSD) EBS
-        volume type.
-
-        :default: - iops are not set.
-        '''
-        result = self._values.get("iops")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def throughput(self) -> typing.Optional[jsii.Number]:
-        '''The throughput (in MiB/s) of the EBS volumes attached to data nodes.
-
-        This property applies only to the gp3 volume type.
-
-        :default: - throughput is not set.
-        '''
-        result = self._values.get("throughput")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''The size (in GiB) of the EBS volume for each data node.
-
-        The minimum and
-        maximum size of an EBS volume depends on the EBS volume type and the
-        instance type to which it is attached.  For  valid values, see
-        `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_
-        in the Amazon OpenSearch Service Developer Guide.
-
-        :default: 10
-        '''
-        result = self._values.get("volume_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def volume_type(self) -> typing.Optional[_EbsDeviceVolumeType_6792555b]:
-        '''The EBS volume type to use with the Amazon OpenSearch Service domain, such as standard, gp2, io1.
-
-        :default: gp2
-        '''
-        result = self._values.get("volume_type")
-        return typing.cast(typing.Optional[_EbsDeviceVolumeType_6792555b], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EbsOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.EncryptionAtRestOptions",
-    jsii_struct_bases=[],
-    name_mapping={"enabled": "enabled", "kms_key": "kmsKey"},
-)
-class EncryptionAtRestOptions:
-    def __init__(
-        self,
-        *,
-        enabled: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-    ) -> None:
-        '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service (KMS) key to use.
-
-        Can only be used to create a new domain,
-        not update an existing one. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
-
-        :param enabled: Specify true to enable encryption at rest. Default: - encryption at rest is disabled.
-        :param kms_key: Supply if using KMS key for encryption at rest. Default: - uses default aws/es KMS key.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_opensearchservice as opensearch
-            
-            
-            domain = opensearch.Domain(self, "Domain",
-                version=opensearch.EngineVersion.OPENSEARCH_2_17,
-                encryption_at_rest=opensearch.EncryptionAtRestOptions(
-                    enabled=True
-                ),
-                node_to_node_encryption=True,
-                enforce_https=True,
-                capacity=opensearch.CapacityConfig(
-                    multi_az_with_standby_enabled=False
-                ),
-                ebs=opensearch.EbsOptions(
-                    enabled=True,
-                    volume_size=10
-                )
-            )
-            api = appsync.EventApi(self, "EventApiOpenSearch",
-                api_name="OpenSearchEventApi"
-            )
-            
-            data_source = api.add_open_search_data_source("opensearchds", domain)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523)
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specify true to enable encryption at rest.
-
-        :default: - encryption at rest is disabled.
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''Supply if using KMS key for encryption at rest.
-
-        :default: - uses default aws/es KMS key.
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EncryptionAtRestOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class EngineVersion(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_opensearchservice.EngineVersion",
-):
-    '''OpenSearch version.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        domain = Domain(self, "Domain",
-            version=EngineVersion.OPENSEARCH_1_0,
-            ebs=EbsOptions(
-                volume_size=100,
-                volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD
-            ),
-            node_to_node_encryption=True,
-            encryption_at_rest=EncryptionAtRestOptions(
-                enabled=True
-            )
-        )
-    '''
-
-    @jsii.member(jsii_name="elasticsearch")
-    @builtins.classmethod
-    def elasticsearch(cls, version: builtins.str) -> "EngineVersion":
-        '''Custom ElasticSearch version.
-
-        :param version: custom version number.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast("EngineVersion", jsii.sinvoke(cls, "elasticsearch", [version]))
-
-    @jsii.member(jsii_name="openSearch")
-    @builtins.classmethod
-    def open_search(cls, version: builtins.str) -> "EngineVersion":
-        '''Custom OpenSearch version.
-
-        :param version: custom version number.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b)
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast("EngineVersion", jsii.sinvoke(cls, "openSearch", [version]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_1_5")
-    def ELASTICSEARCH_1_5(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 1.5.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_1_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_2_3")
-    def ELASTICSEARCH_2_3(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 2.3.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_2_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_5_1")
-    def ELASTICSEARCH_5_1(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 5.1.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_5_3")
-    def ELASTICSEARCH_5_3(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 5.3.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_5_5")
-    def ELASTICSEARCH_5_5(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 5.5.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_5_6")
-    def ELASTICSEARCH_5_6(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 5.6.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_5_6"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_0")
-    def ELASTICSEARCH_6_0(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.0.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_2")
-    def ELASTICSEARCH_6_2(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.2.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_3")
-    def ELASTICSEARCH_6_3(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.3.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_4")
-    def ELASTICSEARCH_6_4(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.4.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_4"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_5")
-    def ELASTICSEARCH_6_5(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.5.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_7")
-    def ELASTICSEARCH_6_7(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.7.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_7"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_6_8")
-    def ELASTICSEARCH_6_8(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 6.8.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_6_8"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_1")
-    def ELASTICSEARCH_7_1(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.1.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_10")
-    def ELASTICSEARCH_7_10(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.10.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_10"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_4")
-    def ELASTICSEARCH_7_4(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.4.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_4"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_7")
-    def ELASTICSEARCH_7_7(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.7.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_7"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_8")
-    def ELASTICSEARCH_7_8(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.8.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_8"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="ELASTICSEARCH_7_9")
-    def ELASTICSEARCH_7_9(cls) -> "EngineVersion":
-        '''AWS Elasticsearch 7.9.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "ELASTICSEARCH_7_9"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_1_0")
-    def OPENSEARCH_1_0(cls) -> "EngineVersion":
-        '''AWS OpenSearch 1.0.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_1_1")
-    def OPENSEARCH_1_1(cls) -> "EngineVersion":
-        '''AWS OpenSearch 1.1.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_1_2")
-    def OPENSEARCH_1_2(cls) -> "EngineVersion":
-        '''AWS OpenSearch 1.2.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_1_3")
-    def OPENSEARCH_1_3(cls) -> "EngineVersion":
-        '''AWS OpenSearch 1.3.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_1_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_10")
-    def OPENSEARCH_2_10(cls) -> "EngineVersion":
-        '''(deprecated) AWS OpenSearch 2.10.
-
-        :deprecated: use latest version of the OpenSearch engine
-
-        :stability: deprecated
-        '''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_10"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_11")
-    def OPENSEARCH_2_11(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.11.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_11"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_13")
-    def OPENSEARCH_2_13(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.13.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_13"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_15")
-    def OPENSEARCH_2_15(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.15.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_15"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_17")
-    def OPENSEARCH_2_17(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.17.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_17"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_19")
-    def OPENSEARCH_2_19(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.19.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_19"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_3")
-    def OPENSEARCH_2_3(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.3.
-
-        OpenSearch 2.3 is now available on Amazon OpenSearch Service across 26
-        regions globally. Please refer to the AWS Region Table for more
-        information about Amazon OpenSearch Service availability:
-        https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
-        '''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_5")
-    def OPENSEARCH_2_5(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.5.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_7")
-    def OPENSEARCH_2_7(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.7.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_7"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="OPENSEARCH_2_9")
-    def OPENSEARCH_2_9(cls) -> "EngineVersion":
-        '''AWS OpenSearch 2.9.'''
-        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_2_9"))
-
-    @builtins.property
-    @jsii.member(jsii_name="version")
-    def version(self) -> builtins.str:
-        '''engine version identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "version"))
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchservice.IDomain")
-class IDomain(_IResource_c80c4260, typing_extensions.Protocol):
-    '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="domainArn")
-    def domain_arn(self) -> builtins.str:
-        '''Arn of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="domainEndpoint")
-    def domain_endpoint(self) -> builtins.str:
-        '''Endpoint of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="domainId")
-    def domain_id(self) -> builtins.str:
-        '''Identifier of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="domainName")
-    def domain_name(self) -> builtins.str:
-        '''Domain name of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantIndexRead")
-    def grant_index_read(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantIndexReadWrite")
-    def grant_index_read_write(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantIndexWrite")
-    def grant_index_write(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantPathRead")
-    def grant_path_read(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantPathReadWrite")
-    def grant_path_read_write(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantPathWrite")
-    def grant_path_write(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        ...
-
-    @jsii.member(jsii_name="metric")
-    def metric(
-        self,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for this domain.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
-    def metric_automated_snapshot_failure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for automated snapshot failures.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
-    def metric_cluster_index_writes_blocked(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the cluster blocking index writes.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 1 minute
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricClusterStatusRed")
-    def metric_cluster_status_red(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the time the cluster status is red.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricClusterStatusYellow")
-    def metric_cluster_status_yellow(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the time the cluster status is yellow.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricCPUUtilization")
-    def metric_cpu_utilization(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for CPU utilization.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricFreeStorageSpace")
-    def metric_free_storage_space(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the storage space of nodes in the cluster.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: minimum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricIndexingLatency")
-    def metric_indexing_latency(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for indexing latency.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: p99 over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricJVMMemoryPressure")
-    def metric_jvm_memory_pressure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for JVM memory pressure.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricKMSKeyError")
-    def metric_kms_key_error(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for KMS key errors.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricKMSKeyInaccessible")
-    def metric_kms_key_inaccessible(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for KMS key being inaccessible.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricMasterCPUUtilization")
-    def metric_master_cpu_utilization(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for master CPU utilization.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
-    def metric_master_jvm_memory_pressure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for master JVM memory pressure.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricNodes")
-    def metric_nodes(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of nodes.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: minimum over 1 hour
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricSearchableDocuments")
-    def metric_searchable_documents(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for number of searchable documents.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        ...
-
-    @jsii.member(jsii_name="metricSearchLatency")
-    def metric_search_latency(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for search latency.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: p99 over 5 minutes
-        '''
-        ...
-
-
-class _IDomainProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''An interface that represents an Amazon OpenSearch Service domain - either created with the CDK, or an existing one.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchservice.IDomain"
-
-    @builtins.property
-    @jsii.member(jsii_name="domainArn")
-    def domain_arn(self) -> builtins.str:
-        '''Arn of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "domainArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="domainEndpoint")
-    def domain_endpoint(self) -> builtins.str:
-        '''Endpoint of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "domainEndpoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="domainId")
-    def domain_id(self) -> builtins.str:
-        '''Identifier of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "domainId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="domainName")
-    def domain_name(self) -> builtins.str:
-        '''Domain name of the Amazon OpenSearch Service domain.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "domainName"))
-
-    @jsii.member(jsii_name="grantIndexRead")
-    def grant_index_read(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexRead", [index, identity]))
-
-    @jsii.member(jsii_name="grantIndexReadWrite")
-    def grant_index_read_write(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexReadWrite", [index, identity]))
-
-    @jsii.member(jsii_name="grantIndexWrite")
-    def grant_index_write(
-        self,
-        index: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant write permissions for an index in this domain to an IAM principal (Role/Group/User).
-
-        :param index: The index to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0)
-            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantIndexWrite", [index, identity]))
-
-    @jsii.member(jsii_name="grantPathRead")
-    def grant_path_read(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb)
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathRead", [path, identity]))
-
-    @jsii.member(jsii_name="grantPathReadWrite")
-    def grant_path_read_write(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5)
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathReadWrite", [path, identity]))
-
-    @jsii.member(jsii_name="grantPathWrite")
-    def grant_path_write(
-        self,
-        path: builtins.str,
-        identity: _IGrantable_71c4f5de,
-    ) -> _Grant_a7ae64f8:
-        '''Grant write permissions for a specific path in this domain to an IAM principal (Role/Group/User).
-
-        :param path: The path to grant permissions for.
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762)
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPathWrite", [path, identity]))
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant read permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [identity]))
-
-    @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant read/write permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantReadWrite", [identity]))
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, identity: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grant write permissions for this domain and its contents to an IAM principal (Role/Group/User).
-
-        :param identity: The principal.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1)
-            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWrite", [identity]))
-
-    @jsii.member(jsii_name="metric")
-    def metric(
-        self,
-        metric_name: builtins.str,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Return the given named metric for this domain.
-
-        :param metric_name: -
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metric", [metric_name, props]))
-
-    @jsii.member(jsii_name="metricAutomatedSnapshotFailure")
-    def metric_automated_snapshot_failure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for automated snapshot failures.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricAutomatedSnapshotFailure", [props]))
-
-    @jsii.member(jsii_name="metricClusterIndexWritesBlocked")
-    def metric_cluster_index_writes_blocked(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the cluster blocking index writes.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 1 minute
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterIndexWritesBlocked", [props]))
-
-    @jsii.member(jsii_name="metricClusterStatusRed")
-    def metric_cluster_status_red(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the time the cluster status is red.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterStatusRed", [props]))
-
-    @jsii.member(jsii_name="metricClusterStatusYellow")
-    def metric_cluster_status_yellow(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the time the cluster status is yellow.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricClusterStatusYellow", [props]))
-
-    @jsii.member(jsii_name="metricCPUUtilization")
-    def metric_cpu_utilization(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for CPU utilization.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricCPUUtilization", [props]))
-
-    @jsii.member(jsii_name="metricFreeStorageSpace")
-    def metric_free_storage_space(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the storage space of nodes in the cluster.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: minimum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFreeStorageSpace", [props]))
-
-    @jsii.member(jsii_name="metricIndexingLatency")
-    def metric_indexing_latency(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for indexing latency.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: p99 over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricIndexingLatency", [props]))
-
-    @jsii.member(jsii_name="metricJVMMemoryPressure")
-    def metric_jvm_memory_pressure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for JVM memory pressure.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricJVMMemoryPressure", [props]))
-
-    @jsii.member(jsii_name="metricKMSKeyError")
-    def metric_kms_key_error(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for KMS key errors.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricKMSKeyError", [props]))
-
-    @jsii.member(jsii_name="metricKMSKeyInaccessible")
-    def metric_kms_key_inaccessible(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for KMS key being inaccessible.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricKMSKeyInaccessible", [props]))
-
-    @jsii.member(jsii_name="metricMasterCPUUtilization")
-    def metric_master_cpu_utilization(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for master CPU utilization.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricMasterCPUUtilization", [props]))
-
-    @jsii.member(jsii_name="metricMasterJVMMemoryPressure")
-    def metric_master_jvm_memory_pressure(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for master JVM memory pressure.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricMasterJVMMemoryPressure", [props]))
-
-    @jsii.member(jsii_name="metricNodes")
-    def metric_nodes(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for the number of nodes.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: minimum over 1 hour
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricNodes", [props]))
-
-    @jsii.member(jsii_name="metricSearchableDocuments")
-    def metric_searchable_documents(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for number of searchable documents.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: maximum over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSearchableDocuments", [props]))
-
-    @jsii.member(jsii_name="metricSearchLatency")
-    def metric_search_latency(
-        self,
-        *,
-        account: typing.Optional[builtins.str] = None,
-        color: typing.Optional[builtins.str] = None,
-        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        id: typing.Optional[builtins.str] = None,
-        label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
-        region: typing.Optional[builtins.str] = None,
-        stack_account: typing.Optional[builtins.str] = None,
-        stack_region: typing.Optional[builtins.str] = None,
-        statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
-        visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
-        '''Metric for search latency.
-
-        :param account: Account which this metric comes from. Default: - Deployment account.
-        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
-        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
-        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
-        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
-        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
-        :param region: Region which this metric comes from. Default: - Deployment region.
-        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
-        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
-        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
-        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
-        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
-
-        :default: p99 over 5 minutes
-        '''
-        props = _MetricOptions_1788b62f(
-            account=account,
-            color=color,
-            dimensions_map=dimensions_map,
-            id=id,
-            label=label,
-            period=period,
-            region=region,
-            stack_account=stack_account,
-            stack_region=stack_region,
-            statistic=statistic,
-            unit=unit,
-            visible=visible,
-        )
-
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSearchLatency", [props]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDomain).__jsii_proxy_class__ = lambda : _IDomainProxy
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.IpAddressType")
-class IpAddressType(enum.Enum):
-    '''The IP address type for the domain.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        domain = Domain(self, "Domain",
-            version=EngineVersion.OPENSEARCH_1_3,
-            ip_address_type=IpAddressType.DUAL_STACK
-        )
-    '''
-
-    IPV4 = "IPV4"
-    '''IPv4 addresses only.'''
-    DUAL_STACK = "DUAL_STACK"
-    '''IPv4 and IPv6 addresses.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.LoggingOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "app_log_enabled": "appLogEnabled",
-        "app_log_group": "appLogGroup",
-        "audit_log_enabled": "auditLogEnabled",
-        "audit_log_group": "auditLogGroup",
-        "slow_index_log_enabled": "slowIndexLogEnabled",
-        "slow_index_log_group": "slowIndexLogGroup",
-        "slow_search_log_enabled": "slowSearchLogEnabled",
-        "slow_search_log_group": "slowSearchLogGroup",
-    },
-)
-class LoggingOptions:
-    def __init__(
-        self,
-        *,
-        app_log_enabled: typing.Optional[builtins.bool] = None,
-        app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        audit_log_enabled: typing.Optional[builtins.bool] = None,
-        audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        slow_index_log_enabled: typing.Optional[builtins.bool] = None,
-        slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-        slow_search_log_enabled: typing.Optional[builtins.bool] = None,
-        slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    ) -> None:
-        '''Configures log settings for the domain.
-
-        :param app_log_enabled: Specify if Amazon OpenSearch Service application logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
-        :param app_log_group: Log Amazon OpenSearch Service application logs to this log group. Default: - a new log group is created if app logging is enabled
-        :param audit_log_enabled: Specify if Amazon OpenSearch Service audit logging should be set up. Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later and fine grained access control to be enabled. Default: - false
-        :param audit_log_group: Log Amazon OpenSearch Service audit logs to this log group. Default: - a new log group is created if audit logging is enabled
-        :param slow_index_log_enabled: Specify if slow index logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
-        :param slow_index_log_group: Log slow indices to this log group. Default: - a new log group is created if slow index logging is enabled
-        :param slow_search_log_enabled: Specify if slow search logging should be set up. Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later. An explicit ``false`` is required when disabling it from ``true``. Default: - false
-        :param slow_search_log_group: Log slow searches to this log group. Default: - a new log group is created if slow search logging is enabled
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                enforce_https=True,
-                node_to_node_encryption=True,
-                encryption_at_rest=EncryptionAtRestOptions(
-                    enabled=True
-                ),
-                fine_grained_access_control=AdvancedSecurityOptions(
-                    master_user_name="master-user"
-                ),
-                logging=LoggingOptions(
-                    audit_log_enabled=True,
-                    slow_search_log_enabled=True,
-                    app_log_enabled=True,
-                    slow_index_log_enabled=True
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593)
-            check_type(argname="argument app_log_enabled", value=app_log_enabled, expected_type=type_hints["app_log_enabled"])
-            check_type(argname="argument app_log_group", value=app_log_group, expected_type=type_hints["app_log_group"])
-            check_type(argname="argument audit_log_enabled", value=audit_log_enabled, expected_type=type_hints["audit_log_enabled"])
-            check_type(argname="argument audit_log_group", value=audit_log_group, expected_type=type_hints["audit_log_group"])
-            check_type(argname="argument slow_index_log_enabled", value=slow_index_log_enabled, expected_type=type_hints["slow_index_log_enabled"])
-            check_type(argname="argument slow_index_log_group", value=slow_index_log_group, expected_type=type_hints["slow_index_log_group"])
-            check_type(argname="argument slow_search_log_enabled", value=slow_search_log_enabled, expected_type=type_hints["slow_search_log_enabled"])
-            check_type(argname="argument slow_search_log_group", value=slow_search_log_group, expected_type=type_hints["slow_search_log_group"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if app_log_enabled is not None:
-            self._values["app_log_enabled"] = app_log_enabled
-        if app_log_group is not None:
-            self._values["app_log_group"] = app_log_group
-        if audit_log_enabled is not None:
-            self._values["audit_log_enabled"] = audit_log_enabled
-        if audit_log_group is not None:
-            self._values["audit_log_group"] = audit_log_group
-        if slow_index_log_enabled is not None:
-            self._values["slow_index_log_enabled"] = slow_index_log_enabled
-        if slow_index_log_group is not None:
-            self._values["slow_index_log_group"] = slow_index_log_group
-        if slow_search_log_enabled is not None:
-            self._values["slow_search_log_enabled"] = slow_search_log_enabled
-        if slow_search_log_group is not None:
-            self._values["slow_search_log_group"] = slow_search_log_group
-
-    @builtins.property
-    def app_log_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specify if Amazon OpenSearch Service application logging should be set up.
-
-        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
-        An explicit ``false`` is required when disabling it from ``true``.
-
-        :default: - false
-        '''
-        result = self._values.get("app_log_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def app_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''Log Amazon OpenSearch Service application logs to this log group.
-
-        :default: - a new log group is created if app logging is enabled
-        '''
-        result = self._values.get("app_log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
-
-    @builtins.property
-    def audit_log_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specify if Amazon OpenSearch Service audit logging should be set up.
-
-        Requires Elasticsearch version 6.7 or later or OpenSearch version 1.0 or later and fine grained access control to be enabled.
-
-        :default: - false
-        '''
-        result = self._values.get("audit_log_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def audit_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''Log Amazon OpenSearch Service audit logs to this log group.
-
-        :default: - a new log group is created if audit logging is enabled
-        '''
-        result = self._values.get("audit_log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
-
-    @builtins.property
-    def slow_index_log_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specify if slow index logging should be set up.
-
-        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
-        An explicit ``false`` is required when disabling it from ``true``.
-
-        :default: - false
-        '''
-        result = self._values.get("slow_index_log_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def slow_index_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''Log slow indices to this log group.
-
-        :default: - a new log group is created if slow index logging is enabled
-        '''
-        result = self._values.get("slow_index_log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
-
-    @builtins.property
-    def slow_search_log_enabled(self) -> typing.Optional[builtins.bool]:
-        '''Specify if slow search logging should be set up.
-
-        Requires Elasticsearch version 5.1 or later or OpenSearch version 1.0 or later.
-        An explicit ``false`` is required when disabling it from ``true``.
-
-        :default: - false
-        '''
-        result = self._values.get("slow_search_log_enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def slow_search_log_group(self) -> typing.Optional[_ILogGroup_3c4fa718]:
-        '''Log slow searches to this log group.
-
-        :default: - a new log group is created if slow search logging is enabled
-        '''
-        result = self._values.get("slow_search_log_group")
-        return typing.cast(typing.Optional[_ILogGroup_3c4fa718], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LoggingOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.NodeConfig",
-    jsii_struct_bases=[],
-    name_mapping={"count": "count", "enabled": "enabled", "type": "type"},
-)
-class NodeConfig:
-    def __init__(
-        self,
-        *,
-        count: typing.Optional[jsii.Number] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Configuration for a specific node type in OpenSearch domain.
-
-        :param count: The number of nodes of this type. Default: - 1
-        :param enabled: Whether this node type is enabled. Default: - false
-        :param type: The instance type for the nodes. Default: - m5.large.search
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_opensearchservice as opensearch
-            
-            
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_3,
-                capacity=opensearch.CapacityConfig(
-                    node_options=[opensearch.NodeOptions(
-                        node_type=opensearch.NodeType.COORDINATOR,
-                        node_config=opensearch.NodeConfig(
-                            enabled=True,
-                            count=2,
-                            type="m5.large.search"
-                        )
-                    )
-                    ]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc)
-            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if count is not None:
-            self._values["count"] = count
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def count(self) -> typing.Optional[jsii.Number]:
-        '''The number of nodes of this type.
-
-        :default: - 1
-        '''
-        result = self._values.get("count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Whether this node type is enabled.
-
-        :default: - false
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The instance type for the nodes.
-
-        :default: - m5.large.search
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NodeConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.NodeOptions",
-    jsii_struct_bases=[],
-    name_mapping={"node_config": "nodeConfig", "node_type": "nodeType"},
-)
-class NodeOptions:
-    def __init__(
-        self,
-        *,
-        node_config: typing.Union[NodeConfig, typing.Dict[builtins.str, typing.Any]],
-        node_type: "NodeType",
-    ) -> None:
-        '''Configuration for node options in OpenSearch domain.
-
-        :param node_config: Configuration for the node type.
-        :param node_type: The type of node. Currently only 'coordinator' is supported.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchservice as opensearchservice
-            
-            node_options = opensearchservice.NodeOptions(
-                node_config=opensearchservice.NodeConfig(
-                    count=123,
-                    enabled=False,
-                    type="type"
-                ),
-                node_type=opensearchservice.NodeType.COORDINATOR
-            )
-        '''
-        if isinstance(node_config, dict):
-            node_config = NodeConfig(**node_config)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42)
-            check_type(argname="argument node_config", value=node_config, expected_type=type_hints["node_config"])
-            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "node_config": node_config,
-            "node_type": node_type,
-        }
-
-    @builtins.property
-    def node_config(self) -> NodeConfig:
-        '''Configuration for the node type.'''
-        result = self._values.get("node_config")
-        assert result is not None, "Required property 'node_config' is missing"
-        return typing.cast(NodeConfig, result)
-
-    @builtins.property
-    def node_type(self) -> "NodeType":
-        '''The type of node.
-
-        Currently only 'coordinator' is supported.
-        '''
-        result = self._values.get("node_type")
-        assert result is not None, "Required property 'node_type' is missing"
-        return typing.cast("NodeType", result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NodeOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.NodeType")
-class NodeType(enum.Enum):
-    '''NodeType is a string enum of the node types in OpenSearch domain.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_opensearchservice as opensearch
-        
-        
-        domain = Domain(self, "Domain",
-            version=EngineVersion.OPENSEARCH_1_3,
-            capacity=opensearch.CapacityConfig(
-                node_options=[opensearch.NodeOptions(
-                    node_type=opensearch.NodeType.COORDINATOR,
-                    node_config=opensearch.NodeConfig(
-                        enabled=True,
-                        count=2,
-                        type="m5.large.search"
-                    )
-                )
-                ]
-            )
-        )
-    '''
-
-    COORDINATOR = "COORDINATOR"
-    '''Coordinator node type.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.SAMLOptionsProperty",
-    jsii_struct_bases=[],
-    name_mapping={
-        "idp_entity_id": "idpEntityId",
-        "idp_metadata_content": "idpMetadataContent",
-        "master_backend_role": "masterBackendRole",
-        "master_user_name": "masterUserName",
-        "roles_key": "rolesKey",
-        "session_timeout_minutes": "sessionTimeoutMinutes",
-        "subject_key": "subjectKey",
-    },
-)
-class SAMLOptionsProperty:
-    def __init__(
-        self,
-        *,
-        idp_entity_id: builtins.str,
-        idp_metadata_content: builtins.str,
-        master_backend_role: typing.Optional[builtins.str] = None,
-        master_user_name: typing.Optional[builtins.str] = None,
-        roles_key: typing.Optional[builtins.str] = None,
-        session_timeout_minutes: typing.Optional[jsii.Number] = None,
-        subject_key: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Container for information about the SAML configuration for OpenSearch Dashboards.
-
-        :param idp_entity_id: The unique entity ID of the application in the SAML identity provider.
-        :param idp_metadata_content: The metadata of the SAML application, in XML format.
-        :param master_backend_role: The backend role that the SAML master user is mapped to. Any users with this backend role receives full permission in OpenSearch Dashboards/Kibana. To use a SAML master backend role, configure the ``rolesKey`` property. Default: - The master user is not mapped to a backend role
-        :param master_user_name: The SAML master username, which is stored in the domain's internal user database. This SAML user receives full permission in OpenSearch Dashboards/Kibana. Creating a new master username does not delete any existing master usernames. Default: - No master user name is configured
-        :param roles_key: Element of the SAML assertion to use for backend roles. Default: - roles
-        :param session_timeout_minutes: The duration, in minutes, after which a user session becomes inactive. Default: - 60
-        :param subject_key: Element of the SAML assertion to use for the user name. Default: - NameID element of the SAML assertion fot the user name
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_0,
-                enforce_https=True,
-                node_to_node_encryption=True,
-                encryption_at_rest=EncryptionAtRestOptions(
-                    enabled=True
-                ),
-                fine_grained_access_control=AdvancedSecurityOptions(
-                    master_user_name="master-user",
-                    saml_authentication_enabled=True,
-                    saml_authentication_options=SAMLOptionsProperty(
-                        idp_entity_id="entity-id",
-                        idp_metadata_content="metadata-content-with-quotes-escaped"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b)
-            check_type(argname="argument idp_entity_id", value=idp_entity_id, expected_type=type_hints["idp_entity_id"])
-            check_type(argname="argument idp_metadata_content", value=idp_metadata_content, expected_type=type_hints["idp_metadata_content"])
-            check_type(argname="argument master_backend_role", value=master_backend_role, expected_type=type_hints["master_backend_role"])
-            check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
-            check_type(argname="argument roles_key", value=roles_key, expected_type=type_hints["roles_key"])
-            check_type(argname="argument session_timeout_minutes", value=session_timeout_minutes, expected_type=type_hints["session_timeout_minutes"])
-            check_type(argname="argument subject_key", value=subject_key, expected_type=type_hints["subject_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "idp_entity_id": idp_entity_id,
-            "idp_metadata_content": idp_metadata_content,
-        }
-        if master_backend_role is not None:
-            self._values["master_backend_role"] = master_backend_role
-        if master_user_name is not None:
-            self._values["master_user_name"] = master_user_name
-        if roles_key is not None:
-            self._values["roles_key"] = roles_key
-        if session_timeout_minutes is not None:
-            self._values["session_timeout_minutes"] = session_timeout_minutes
-        if subject_key is not None:
-            self._values["subject_key"] = subject_key
-
-    @builtins.property
-    def idp_entity_id(self) -> builtins.str:
-        '''The unique entity ID of the application in the SAML identity provider.'''
-        result = self._values.get("idp_entity_id")
-        assert result is not None, "Required property 'idp_entity_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def idp_metadata_content(self) -> builtins.str:
-        '''The metadata of the SAML application, in XML format.'''
-        result = self._values.get("idp_metadata_content")
-        assert result is not None, "Required property 'idp_metadata_content' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def master_backend_role(self) -> typing.Optional[builtins.str]:
-        '''The backend role that the SAML master user is mapped to.
-
-        Any users with this backend role receives full permission in OpenSearch Dashboards/Kibana.
-        To use a SAML master backend role, configure the ``rolesKey`` property.
-
-        :default: - The master user is not mapped to a backend role
-        '''
-        result = self._values.get("master_backend_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def master_user_name(self) -> typing.Optional[builtins.str]:
-        '''The SAML master username, which is stored in the domain's internal user database.
-
-        This SAML user receives full permission in OpenSearch Dashboards/Kibana.
-        Creating a new master username does not delete any existing master usernames.
-
-        :default: - No master user name is configured
-        '''
-        result = self._values.get("master_user_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def roles_key(self) -> typing.Optional[builtins.str]:
-        '''Element of the SAML assertion to use for backend roles.
-
-        :default: - roles
-        '''
-        result = self._values.get("roles_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def session_timeout_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The duration, in minutes, after which a user session becomes inactive.
-
-        :default: - 60
-        '''
-        result = self._values.get("session_timeout_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def subject_key(self) -> typing.Optional[builtins.str]:
-        '''Element of the SAML assertion to use for the user name.
-
-        :default: - NameID element of the SAML assertion fot the user name
-        '''
-        result = self._values.get("subject_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SAMLOptionsProperty(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_opensearchservice.TLSSecurityPolicy")
-class TLSSecurityPolicy(enum.Enum):
-    '''The minimum TLS version required for traffic to the domain.'''
-
-    TLS_1_0 = "TLS_1_0"
-    '''Cipher suite TLS 1.0.'''
-    TLS_1_2 = "TLS_1_2"
-    '''Cipher suite TLS 1.2.'''
-    TLS_1_2_PFS = "TLS_1_2_PFS"
-    '''Cipher suite TLS 1.2 to 1.3 with perfect forward secrecy (PFS).'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.WindowStartTime",
-    jsii_struct_bases=[],
-    name_mapping={"hours": "hours", "minutes": "minutes"},
-)
-class WindowStartTime:
-    def __init__(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
-        '''
-        :param hours: The start hour of the window in Coordinated Universal Time (UTC), using 24-hour time. For example, 17 refers to 5:00 P.M. UTC. Default: - 22
-        :param minutes: The start minute of the window, in UTC. Default: - 0
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_3,
-                off_peak_window_enabled=True,  # can be omitted if offPeakWindowStart is set
-                off_peak_window_start=WindowStartTime(
-                    hours=20,
-                    minutes=0
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c)
-            check_type(argname="argument hours", value=hours, expected_type=type_hints["hours"])
-            check_type(argname="argument minutes", value=minutes, expected_type=type_hints["minutes"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "hours": hours,
-            "minutes": minutes,
-        }
-
-    @builtins.property
-    def hours(self) -> jsii.Number:
-        '''The start hour of the window in Coordinated Universal Time (UTC), using 24-hour time.
-
-        For example, 17 refers to 5:00 P.M. UTC.
-
-        :default: - 22
-        '''
-        result = self._values.get("hours")
-        assert result is not None, "Required property 'hours' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def minutes(self) -> jsii.Number:
-        '''The start minute of the window, in UTC.
-
-        :default: - 0
-        '''
-        result = self._values.get("minutes")
-        assert result is not None, "Required property 'minutes' is missing"
-        return typing.cast(jsii.Number, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WindowStartTime(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchservice.ZoneAwarenessConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zone_count": "availabilityZoneCount",
-        "enabled": "enabled",
-    },
-)
-class ZoneAwarenessConfig:
-    def __init__(
-        self,
-        *,
-        availability_zone_count: typing.Optional[jsii.Number] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''Specifies zone awareness configuration options.
-
-        :param availability_zone_count: If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use. Valid values are 2 and 3. Default: - 2 if zone awareness is enabled.
-        :param enabled: Indicates whether to enable zone awareness for the Amazon OpenSearch Service domain. When you enable zone awareness, Amazon OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a Multi-AZ Domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ in the Amazon OpenSearch Service Developer Guide. Default: - false
-
-        :exampleMetadata: infused
-
-        Example::
-
-            domain = Domain(self, "Domain",
-                version=EngineVersion.OPENSEARCH_1_3,
-                ebs=EbsOptions(
-                    volume_size=10,
-                    volume_type=ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3
-                ),
-                zone_awareness=ZoneAwarenessConfig(
-                    enabled=True,
-                    availability_zone_count=3
-                ),
-                capacity=CapacityConfig(
-                    multi_az_with_standby_enabled=True,
-                    master_nodes=3,
-                    data_nodes=3
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d)
-            check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if availability_zone_count is not None:
-            self._values["availability_zone_count"] = availability_zone_count
-        if enabled is not None:
-            self._values["enabled"] = enabled
-
-    @builtins.property
-    def availability_zone_count(self) -> typing.Optional[jsii.Number]:
-        '''If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use.
-
-        Valid values are 2 and 3.
-
-        :default: - 2 if zone awareness is enabled.
-        '''
-        result = self._values.get("availability_zone_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether to enable zone awareness for the Amazon OpenSearch Service domain.
-
-        When you enable zone awareness, Amazon OpenSearch Service allocates the nodes and replica
-        index shards that belong to a cluster across two Availability Zones (AZs)
-        in the same region to prevent data loss and minimize downtime in the event
-        of node or data center failure. Don't enable zone awareness if your cluster
-        has no replica index shards or is a single-node cluster. For more information,
-        see `Configuring a Multi-AZ Domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_
-        in the Amazon OpenSearch Service Developer Guide.
-
-        :default: - false
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ZoneAwarenessConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(IDomain, _IConnectable_10015a05)
 class Domain(
     _Resource_45bc6135,
@@ -10526,6 +10746,7 @@ class Domain(
 
 __all__ = [
     "AdvancedSecurityOptions",
+    "ApplicationReference",
     "CapacityConfig",
     "CfnApplication",
     "CfnApplicationProps",
@@ -10536,10 +10757,13 @@ __all__ = [
     "Domain",
     "DomainAttributes",
     "DomainProps",
+    "DomainReference",
     "EbsOptions",
     "EncryptionAtRestOptions",
     "EngineVersion",
+    "IApplicationRef",
     "IDomain",
+    "IDomainRef",
     "IpAddressType",
     "LoggingOptions",
     "NodeConfig",
@@ -10564,6 +10788,14 @@ def _typecheckingstub__c1e95392d4761126042f2d6d6160889a80c269d2f13c21476fe92febd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9095f105cdfb26b07753724d1c37f4880ff2104f8fc4e1b548ffd22e43122af5(
+    *,
+    application_arn: builtins.str,
+    application_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__48cdec23c4ecd3d168ddd937e9295b924cdea583f9951d98aacce1c1c90cad71(
     *,
     data_node_instance_type: typing.Optional[builtins.str] = None,
@@ -10574,6 +10806,283 @@ def _typecheckingstub__48cdec23c4ecd3d168ddd937e9295b924cdea583f9951d98aacce1c1c
     node_options: typing.Optional[typing.Sequence[typing.Union[NodeOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
     warm_instance_type: typing.Optional[builtins.str] = None,
     warm_nodes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545(
+    *,
+    name: builtins.str,
+    app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    endpoint: typing.Optional[builtins.str] = None,
+    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52(
+    *,
+    access_policies: typing.Any = None,
+    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_arn: typing.Optional[builtins.str] = None,
+    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9(
+    *,
+    identity_pool_id: builtins.str,
+    role: _IRoleRef_613dafc2,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24(
+    *,
+    domain_name: builtins.str,
+    certificate: typing.Optional[_ICertificate_c194c70b] = None,
+    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3(
+    *,
+    domain_arn: builtins.str,
+    domain_endpoint: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74(
+    *,
+    version: EngineVersion,
+    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+    advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
+    capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    cognito_dashboards_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    cold_storage_enabled: typing.Optional[builtins.bool] = None,
+    custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    ebs: typing.Optional[typing.Union[EbsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_auto_software_update: typing.Optional[builtins.bool] = None,
+    enable_version_upgrade: typing.Optional[builtins.bool] = None,
+    encryption_at_rest: typing.Optional[typing.Union[EncryptionAtRestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enforce_https: typing.Optional[builtins.bool] = None,
+    fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    ip_address_type: typing.Optional[IpAddressType] = None,
+    logging: typing.Optional[typing.Union[LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    node_to_node_encryption: typing.Optional[builtins.bool] = None,
+    off_peak_window_enabled: typing.Optional[builtins.bool] = None,
+    off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
+    tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
+    use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
+    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afa08eea4d537e8f40b760850bf8193ed5fc0beedffd441bfbce859255a713bb(
+    *,
+    domain_arn: builtins.str,
+    domain_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    iops: typing.Optional[jsii.Number] = None,
+    throughput: typing.Optional[jsii.Number] = None,
+    volume_size: typing.Optional[jsii.Number] = None,
+    volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d(
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b(
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593(
+    *,
+    app_log_enabled: typing.Optional[builtins.bool] = None,
+    app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    audit_log_enabled: typing.Optional[builtins.bool] = None,
+    audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    slow_index_log_enabled: typing.Optional[builtins.bool] = None,
+    slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    slow_search_log_enabled: typing.Optional[builtins.bool] = None,
+    slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc(
+    *,
+    count: typing.Optional[jsii.Number] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42(
+    *,
+    node_config: typing.Union[NodeConfig, typing.Dict[builtins.str, typing.Any]],
+    node_type: NodeType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b(
+    *,
+    idp_entity_id: builtins.str,
+    idp_metadata_content: builtins.str,
+    master_backend_role: typing.Optional[builtins.str] = None,
+    master_user_name: typing.Optional[builtins.str] = None,
+    roles_key: typing.Optional[builtins.str] = None,
+    session_timeout_minutes: typing.Optional[jsii.Number] = None,
+    subject_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c(
+    *,
+    hours: jsii.Number,
+    minutes: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d(
+    *,
+    availability_zone_count: typing.Optional[jsii.Number] = None,
+    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10661,18 +11170,6 @@ def _typecheckingstub__58c97e96e8e1ce004fea8b82d1b09d335f940c83119efbabb4975a701
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     iam_identity_center_instance_arn: typing.Optional[builtins.str] = None,
     iam_role_for_identity_center_application_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736b22a545(
-    *,
-    name: builtins.str,
-    app_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AppConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    endpoint: typing.Optional[builtins.str] = None,
-    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11079,263 +11576,6 @@ def _typecheckingstub__6090d0f7ef0a5ff38223c37e3fded0a822e4e3052cd46ba0b2430b408
 def _typecheckingstub__256b4aabbc2391aa4f2b7e2d1c28804fdc91f3e9c7c213de20cc38a33dc255b2(
     *,
     availability_zone_count: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d67607c52(
-    *,
-    access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain_arn: typing.Optional[builtins.str] = None,
-    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ip_address_type: typing.Optional[builtins.str] = None,
-    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    off_peak_window_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.OffPeakWindowOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    skip_shard_migration_wait: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    software_update_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ac57cf9250cdb4adb2c04b922ca15a9a5d18b8e118cff3f08ab7d1171f1fcd9(
-    *,
-    identity_pool_id: builtins.str,
-    role: _IRole_235f5d8e,
-    user_pool_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4bfcfb0c951977f30c9119dd53a7307c78b4a3185828104fe4e4d17628ef7d24(
-    *,
-    domain_name: builtins.str,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b64144592f37187baf13886dda52519ca86792e6e902692955529605957265b3(
-    *,
-    domain_arn: builtins.str,
-    domain_endpoint: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08927fa74(
-    *,
-    version: EngineVersion,
-    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-    advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
-    capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    cognito_dashboards_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    cold_storage_enabled: typing.Optional[builtins.bool] = None,
-    custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    ebs: typing.Optional[typing.Union[EbsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    enable_auto_software_update: typing.Optional[builtins.bool] = None,
-    enable_version_upgrade: typing.Optional[builtins.bool] = None,
-    encryption_at_rest: typing.Optional[typing.Union[EncryptionAtRestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    enforce_https: typing.Optional[builtins.bool] = None,
-    fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    ip_address_type: typing.Optional[IpAddressType] = None,
-    logging: typing.Optional[typing.Union[LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    node_to_node_encryption: typing.Optional[builtins.bool] = None,
-    off_peak_window_enabled: typing.Optional[builtins.bool] = None,
-    off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
-    tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
-    use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__388b3ff533950547aa29493d027ac01b8d3d4139dc5061e4f70a2cf8e0912d38(
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    iops: typing.Optional[jsii.Number] = None,
-    throughput: typing.Optional[jsii.Number] = None,
-    volume_size: typing.Optional[jsii.Number] = None,
-    volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b5973f04ac98b9a2d9bddce35a01a16416d58b7f8a10bd553cfabe3909eb2523(
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e9ff089c138ae673bd34470711323158868e600ef582eaf1138c7dbfabe659d(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7e4e60eeb3f3de1852dda34e9fc12006c90072b2af1169917137b26002e7ca6b(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a94e154ecf4f9073f5d7c9e1ea7e03f69da172094fa85d76ced59ad241b1fb2(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e57d957edccc649ee25aa5e026d1e4a380aefa1fca47ac85fb2332017684c2d(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e11c5bfffab0ceb5f6e6d11d8c2422feb5ca967394bcd5e0f9cf0f2979cfac0(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__023ad84c0e882f65c76fb064e82ff3cd67cfa07f593f45818a1a2c9c03688dbb(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bc2ab50330adaac8ffebc655effda16c72446686a9b26d8c09644e3cde524f5(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__402463dfcfddcd6aaa36a0ec13a1628f29914c911b19e66e17d3cc38b5661762(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d29656876fe4553e567e59a1a0cbb6942145d5715c6aec2bdba4c0524ce284f(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__99698755eef9bf19abbfc958ee11633e093e93f46c5c5f99f45308fa7212f08b(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__599ff214d878684eadaa975bf3d8bf19930fc28a8788cab7625b3a913e0975e1(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ed477ecf16b0f23884f9eb3a0a90df530d2486e08c8dd662432a14ff4837bd08(
-    metric_name: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    color: typing.Optional[builtins.str] = None,
-    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    id: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
-    region: typing.Optional[builtins.str] = None,
-    stack_account: typing.Optional[builtins.str] = None,
-    stack_region: typing.Optional[builtins.str] = None,
-    statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
-    visible: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f2efbcf1fc757504a748851740a44deb59ed98ee9c1d8c213d60960f900a593(
-    *,
-    app_log_enabled: typing.Optional[builtins.bool] = None,
-    app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    audit_log_enabled: typing.Optional[builtins.bool] = None,
-    audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    slow_index_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    slow_search_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d92d70efc2a427615d6de37a81d3ff2c726d0fd24398a9df21354f08be99abc(
-    *,
-    count: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3d93a945029ecbafb99f19123588beaba83f5fe71312bf7447834a1f6fa42c42(
-    *,
-    node_config: typing.Union[NodeConfig, typing.Dict[builtins.str, typing.Any]],
-    node_type: NodeType,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3971b3c73627d57587c667b1ede64fbba4de4fd4a086af959dc2d0f812f8e36b(
-    *,
-    idp_entity_id: builtins.str,
-    idp_metadata_content: builtins.str,
-    master_backend_role: typing.Optional[builtins.str] = None,
-    master_user_name: typing.Optional[builtins.str] = None,
-    roles_key: typing.Optional[builtins.str] = None,
-    session_timeout_minutes: typing.Optional[jsii.Number] = None,
-    subject_key: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6aa10c95f5a58e650c77a0c42630f2fa77e6475974ad59138caebb586e5fad2c(
-    *,
-    hours: jsii.Number,
-    minutes: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d25db0248db5c13d8d8371728510a20f1632b4180af6f40e9838b4d28d6a375d(
-    *,
-    availability_zone_count: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

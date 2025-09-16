@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esptool
-Version: 5.0.2
+Version: 5.1.0
 Summary: A serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 Author: Fredrik Ahlberg (themadinventor), Angus Gratton (projectgus), Espressif Systems
 License: GPLv2+
@@ -44,7 +44,7 @@ Requires-Dist: czespressif; extra == "dev"
 Provides-Extra: hsm
 Requires-Dist: python-pkcs11; extra == "hsm"
 Provides-Extra: docs
-Requires-Dist: esp-docs~=1.10; extra == "docs"
+Requires-Dist: esp-docs~=2.1; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
 Dynamic: license-file
 
@@ -53,6 +53,7 @@ Dynamic: license-file
 A Python-based, open-source, platform-independent serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 
 [![Test esptool](https://github.com/espressif/esptool/actions/workflows/test_esptool.yml/badge.svg?branch=master)](https://github.com/espressif/esptool/actions/workflows/test_esptool.yml) [![Build esptool](https://github.com/espressif/esptool/actions/workflows/build_esptool.yml/badge.svg?branch=master)](https://github.com/espressif/esptool/actions/workflows/build_esptool.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/espressif/esptool/master.svg)](https://results.pre-commit.ci/latest/github/espressif/esptool/master)
 
 ## Documentation
 

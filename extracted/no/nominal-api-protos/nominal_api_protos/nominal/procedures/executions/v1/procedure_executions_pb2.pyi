@@ -331,12 +331,22 @@ class FormStepValue(_message.Message):
     def __init__(self, fields: _Optional[_Iterable[_Union[FormFieldValue, _Mapping]]] = ...) -> None: ...
 
 class FormFieldValue(_message.Message):
-    __slots__ = ("asset", "checkbox")
+    __slots__ = ("asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")
     ASSET_FIELD_NUMBER: _ClassVar[int]
     CHECKBOX_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    INT_FIELD_NUMBER: _ClassVar[int]
+    DOUBLE_FIELD_NUMBER: _ClassVar[int]
+    SINGLE_ENUM_FIELD_NUMBER: _ClassVar[int]
+    MULTI_ENUM_FIELD_NUMBER: _ClassVar[int]
     asset: AssetFieldValue
     checkbox: CheckboxFieldValue
-    def __init__(self, asset: _Optional[_Union[AssetFieldValue, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxFieldValue, _Mapping]] = ...) -> None: ...
+    text: TextFieldValue
+    int: IntFieldValue
+    double: DoubleFieldValue
+    single_enum: SingleEnumFieldValue
+    multi_enum: MultiEnumFieldValue
+    def __init__(self, asset: _Optional[_Union[AssetFieldValue, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxFieldValue, _Mapping]] = ..., text: _Optional[_Union[TextFieldValue, _Mapping]] = ..., int: _Optional[_Union[IntFieldValue, _Mapping]] = ..., double: _Optional[_Union[DoubleFieldValue, _Mapping]] = ..., single_enum: _Optional[_Union[SingleEnumFieldValue, _Mapping]] = ..., multi_enum: _Optional[_Union[MultiEnumFieldValue, _Mapping]] = ...) -> None: ...
 
 class AssetFieldValue(_message.Message):
     __slots__ = ("asset_reference",)
@@ -349,6 +359,36 @@ class CheckboxFieldValue(_message.Message):
     VALUE_FIELD_NUMBER: _ClassVar[int]
     value: bool
     def __init__(self, value: bool = ...) -> None: ...
+
+class TextFieldValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    def __init__(self, value: _Optional[str] = ...) -> None: ...
+
+class IntFieldValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: int
+    def __init__(self, value: _Optional[int] = ...) -> None: ...
+
+class DoubleFieldValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: float
+    def __init__(self, value: _Optional[float] = ...) -> None: ...
+
+class SingleEnumFieldValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    def __init__(self, value: _Optional[str] = ...) -> None: ...
+
+class MultiEnumFieldValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ProcedureExecution(_message.Message):
     __slots__ = ("rid", "metadata", "state")
@@ -451,17 +491,27 @@ class ProcedureExecutionState(_message.Message):
     step_edges: _containers.MessageMap[str, _procedures_pb2.NodeList]
     def __init__(self, global_fields: _Optional[_Mapping[str, FieldOutput]] = ..., nodes: _Optional[_Mapping[str, ProcedureExecutionNode]] = ..., section_edges: _Optional[_Mapping[str, _procedures_pb2.NodeList]] = ..., step_edges: _Optional[_Mapping[str, _procedures_pb2.NodeList]] = ...) -> None: ...
 
+class Strings(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class FieldOutput(_message.Message):
-    __slots__ = ("asset_rid", "string_value", "double_value", "boolean_value")
+    __slots__ = ("asset_rid", "string_value", "double_value", "boolean_value", "int_value", "strings_value")
     ASSET_RID_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOLEAN_VALUE_FIELD_NUMBER: _ClassVar[int]
+    INT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    STRINGS_VALUE_FIELD_NUMBER: _ClassVar[int]
     asset_rid: str
     string_value: str
     double_value: float
     boolean_value: bool
-    def __init__(self, asset_rid: _Optional[str] = ..., string_value: _Optional[str] = ..., double_value: _Optional[float] = ..., boolean_value: bool = ...) -> None: ...
+    int_value: int
+    strings_value: Strings
+    def __init__(self, asset_rid: _Optional[str] = ..., string_value: _Optional[str] = ..., double_value: _Optional[float] = ..., boolean_value: bool = ..., int_value: _Optional[int] = ..., strings_value: _Optional[_Union[Strings, _Mapping]] = ...) -> None: ...
 
 class CreateProcedureExecutionRequest(_message.Message):
     __slots__ = ("procedure_rid", "procedure_commit_id", "title", "description")

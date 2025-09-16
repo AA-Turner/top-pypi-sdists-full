@@ -3723,10 +3723,14 @@ class TaskBaseModel(FrameBaseModel):
                                         #判断是否已经统计过
                                         if order["oid"] not in pay_order_no_list:
                                             if "payment" not in order.keys():
-                                                buy_order_data = top_base_model.get_taobao_order_info(order['tid'], access_token)
-                                                if buy_order_data:
+                                                buy_order_invoke_result_data = top_base_model.get_buy_order_info(order['tid'], access_token, app_key, app_secret, is_log)
+                                                if buy_order_invoke_result_data.success == False:
                                                     continue
-                                                buy_order_payment = decimal.Decimal(buy_order_data["payment"])
+                                                sub_order_infos = buy_order_invoke_result_data.data.get("orders", {}).get("order", [])
+                                                sub_order_info = query(sub_order_infos).first_or_default(None, lambda x: str(x["oid"]) == str(order["oid"]))
+                                                if sub_order_info == None:
+                                                    continue
+                                                buy_order_payment = decimal.Decimal(sub_order_info['payment'])
                                             else:
                                                 buy_order_payment = decimal.Decimal(order['payment'])
                                             appoint_goods_id_list.append(str(order["num_iid"]))

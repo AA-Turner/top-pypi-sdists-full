@@ -1,4 +1,3 @@
-from orionis.console.contracts.executor import IExecutor
 from orionis.container.facades.facade import Facade
 
 class ConsoleExecutor(Facade):
@@ -6,20 +5,20 @@ class ConsoleExecutor(Facade):
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Get the registered service container binding key for the executor facade.
+        Retrieves the binding key used by the service container to resolve the executor service.
 
-        This method provides the specific binding key that the service container
-        uses to resolve and instantiate the executor service. The executor is
-        responsible for handling command-line operations and console output
-        management within the Orionis framework.
+        This method returns the unique string identifier associated with the executor service
+        in the Orionis framework's dependency injection container. The executor service is
+        responsible for managing command-line operations and console output within the framework.
+        By providing this binding key, the facade enables the framework to locate and instantiate
+        the correct executor implementation.
 
         Returns
         -------
         str
-            The string identifier 'x-orionis.console.contracts.executor.IExecutor' used as
-            the binding key to locate and resolve the executor service instance
-            from the dependency injection container.
+            The binding key 'x-orionis.console.contracts.executor.IExecutor' that identifies
+            the executor service in the service container.
         """
 
-        # Return the predefined binding key for the executor service
-        return f"x-{IExecutor.__module__}.{IExecutor.__name__}"
+        # Return the predefined binding key for the executor service in the container
+        return "x-orionis.console.contracts.executor.IExecutor"

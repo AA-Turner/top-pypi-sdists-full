@@ -1841,9 +1841,21 @@ class ModerationGuardModelTargetType(StrEnum):
 
 
 class ModerationGuardOotbType(StrEnum):
+    """Defines the available OOTB guards."""
+
     TOKEN_COUNT = "token_count"
     FAITHFULNESS = "faithfulness"
     ROUGE_1 = "rouge_1"
+    AGENT_GOAL_ACCURACY = "agent_goal_accuracy"
+    AGENT_GOAL_ACCURACY_WITH_REFERENCE = "agent_goal_accuracy_with_reference"
+    COST = "cost"
+    TASK_ADHERENCE = "task_adherence"
+    TOOL_CALL_ACCURACY = "tool_call_accuracy"
+    # deprecated, will be converted to snake_case on sight
+    CAMELIZED_AGENT_GOAL_ACCURACY = "agentGoalAccuracy"
+    CAMELIZED_AGENT_GOAL_ACCURACY_WITH_REFERENCE = "agentGoalAccuracyWithReference"
+    CAMELIZED_TASK_ADHERENCE = "taskAdherence"
+    CAMELIZED_TOOL_CALL_ACCURACY = "toolCallAccuracy"
 
 
 class ModerationGuardLlmType(StrEnum):

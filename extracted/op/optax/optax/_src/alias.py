@@ -214,7 +214,7 @@ def adadelta(
   References:
     Zeiler, `Adadelta: An Adaptive Learning Rate Optimizer
     <https://arxiv.org/pdf/1212.5701.pdf>`_, 2012
-  """
+  """  # noqa: E501
   return combine.chain(
       transform.add_decayed_weights(weight_decay, mask=weight_decay_mask),
       transform.scale_by_adadelta(rho=rho, eps=eps),
@@ -1084,7 +1084,7 @@ def amsgrad(
 
 
 def fromage(
-    learning_rate: float, min_norm: float = 1e-6
+    learning_rate: base.ScalarOrSchedule, min_norm: float = 1e-6
 ) -> base.GradientTransformationExtraArgs:
   """The Frobenius matched gradient descent (Fromage) optimizer.
 
@@ -1129,12 +1129,21 @@ def fromage(
     Bernstein et al, `On the distance between two neural networks and the
     stability of learning <https://arxiv.org/abs/2002.03432>`_, 2020
   """
-  mult = 1 / jnp.sqrt(1 + learning_rate**2)
-  return combine.chain(
-      transform.scale_by_trust_ratio(min_norm),
-      transform.scale_by_learning_rate(learning_rate * mult),
-      transform.add_decayed_weights((mult - 1)),
-  )
+  if not callable(learning_rate):
+    mult = 1 / jnp.sqrt(1 + learning_rate**2)
+    return combine.chain(
+        transform.scale_by_trust_ratio(min_norm),
+        transform.scale_by_learning_rate(learning_rate * mult),
+        transform.add_decayed_weights((mult - 1)),
+    )
+  else:
+    mult_lr = lambda count: 1 / jnp.sqrt(1 + learning_rate(count)**2)
+    return combine.chain(
+        transform.scale_by_trust_ratio(min_norm),
+        transform.scale_by_learning_rate(
+            lambda c: mult_lr(c) * learning_rate(c)),
+        transform.add_decayed_weights(lambda c: mult_lr(c) - 1),
+    )
 
 
 def lars(
@@ -1349,14 +1358,14 @@ def noisy_sgd(
   """
   if seed is not None:
     warnings.warn(
-        '"seed" is deprecated and will be removed in optax 0.3.0, use "key".',
+        '"seed" is deprecated and will be removed in optax 0.2.7, use "key".',
         DeprecationWarning,
     )
     if key is not None:
       raise ValueError('Only one of seed or key can be specified.')
     key = jax.random.key(seed)
   if key is None:
-    warnings.warn('Specifying a key will be required in optax 0.3.0.')
+    warnings.warn('Specifying a key will be required in optax 0.2.7.')
     key = jax.random.key(0)
   key = utils.canonicalize_key(key)
 
@@ -1505,12 +1514,23 @@ def optimistic_gradient_descent(
     alpha: base.ScalarOrSchedule = 1.0,
     beta: base.ScalarOrSchedule = 1.0,
 ) -> base.GradientTransformationExtraArgs:
-  """An Optimistic Gradient Descent optimizer.
+  r"""An Optimistic Gradient Descent optimizer.
 
   Optimistic gradient descent is an approximation of extra-gradient methods
   which require multiple gradient calls to compute the next update. It has
   strong formal guarantees for last-iterate convergence in min-max games, for
   which standard gradient descent can oscillate or even diverge.
+
+  At step :math:`t`, the parameters :math:`w_t` are updated according to the
+  current gradient :math:`g_t` as well as the previous gradient :math:`g_{t-1}`,
+  scaled by the learning rate :math:`\eta_t`:
+
+  .. math::
+
+    \begin{align*}
+      u_t &= (\alpha_t + \beta_t) g_t - \beta_t g_{t-1} \\
+      w_{t+1} &= w_t - \eta_t u_t
+    \end{align*}
 
   Args:
     learning_rate: A global scaling factor, either fixed or evolving along
@@ -1545,7 +1565,7 @@ def optimistic_gradient_descent(
   References:
     Mokhtari et al, `A Unified Analysis of Extra-gradient and
     Optimistic Gradient Methods for Saddle Point Problems: Proximal
-    Point Approach <https://arxiv.org/abs/1901.08511v2>`_, 2019
+    Point Approach <https://arxiv.org/abs/1901.08511>`_, 2019
 
   .. seealso::
     :doc:`../_collections/examples/ogda_example`
@@ -1659,7 +1679,7 @@ def optimistic_adam(
     :doc:`../_collections/examples/ogda_example`
   """
   warnings.warn('`optimistic_adam` is deprecated, please use'
-                ' `optimistic_adam_new` instead.', category=DeprecationWarning)
+                ' `optimistic_adam_v2` instead.', category=DeprecationWarning)
   if callable(learning_rate):
     raise ValueError('This version of `optimistic_adam` does not support'
                      ' learning rate schedules but `optimistic_adam_v2` does.')
@@ -1697,6 +1717,10 @@ def optimistic_adam_v2(
   This is an optimistic version of the Adam optimizer. It addresses the issue
   of limit cycling behavior in training Generative Adversarial Networks and
   other saddle-point min-max problems.
+
+  The "_v2" suffix refers to the re-worked version of the interface (not the
+  algorithm) and will eventually replace the interface of the current
+  :func:`optimistic_adam` function.
 
   The algorithm is as follows. First, we define the following parameters:
 
@@ -1756,7 +1780,7 @@ def optimistic_adam_v2(
     >>> from jax import numpy as jnp, lax
     >>> def f(x, y):
     ...  return x * y  # simple bilinear function
-    >>> opt = optax.optimistic_adam_new(1e-2, 1.0)
+    >>> opt = optax.optimistic_adam_v2(1.0, alpha=1e-2, beta=1.0)
     >>> def step(state, _):
     ...  params, opt_state = state
     ...  distance = jnp.hypot(*params)

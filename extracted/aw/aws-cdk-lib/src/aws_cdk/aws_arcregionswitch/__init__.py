@@ -78,7 +78,494 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_role": "executionRole",
+        "name": "name",
+        "recovery_approach": "recoveryApproach",
+        "regions": "regions",
+        "workflows": "workflows",
+        "associated_alarms": "associatedAlarms",
+        "description": "description",
+        "primary_region": "primaryRegion",
+        "recovery_time_objective_minutes": "recoveryTimeObjectiveMinutes",
+        "tags": "tags",
+        "triggers": "triggers",
+    },
+)
+class CfnPlanProps:
+    def __init__(
+        self,
+        *,
+        execution_role: builtins.str,
+        name: builtins.str,
+        recovery_approach: builtins.str,
+        regions: typing.Sequence[builtins.str],
+        workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.WorkflowProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.AssociatedAlarmProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        primary_region: typing.Optional[builtins.str] = None,
+        recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlan.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPlan``.
+
+        :param execution_role: The execution role for a plan.
+        :param name: The name for a plan.
+        :param recovery_approach: The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
+        :param regions: The AWS Regions for a plan.
+        :param workflows: The workflows for a plan.
+        :param associated_alarms: The associated application health alarms for a plan.
+        :param description: The description for a plan.
+        :param primary_region: The primary Region for a plan.
+        :param recovery_time_objective_minutes: The recovery time objective for a plan.
+        :param tags: 
+        :param triggers: The triggers for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_arcregionswitch as arcregionswitch
+            
+            # step_property_: arcregionswitch.CfnPlan.StepProperty
+            
+            cfn_plan_props = arcregionswitch.CfnPlanProps(
+                execution_role="executionRole",
+                name="name",
+                recovery_approach="recoveryApproach",
+                regions=["regions"],
+                workflows=[arcregionswitch.CfnPlan.WorkflowProperty(
+                    workflow_target_action="workflowTargetAction",
+            
+                    # the properties below are optional
+                    steps=[arcregionswitch.CfnPlan.StepProperty(
+                        execution_block_configuration=arcregionswitch.CfnPlan.ExecutionBlockConfigurationProperty(
+                            arc_routing_control_config=arcregionswitch.CfnPlan.ArcRoutingControlConfigurationProperty(
+                                region_and_routing_controls={
+                                    "region_and_routing_controls_key": [arcregionswitch.CfnPlan.ArcRoutingControlStateProperty(
+                                        routing_control_arn="routingControlArn",
+                                        state="state"
+                                    )]
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
+                                lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
+                                    arn="arn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+                                region_to_run="regionToRun",
+                                retry_interval_minutes=123,
+            
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
+                                    behavior="behavior"
+                                )
+                            ),
+                            ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
+                                asgs=[arcregionswitch.CfnPlan.AsgProperty(
+                                    arn="arn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
+                                services=[arcregionswitch.CfnPlan.ServiceProperty(
+                                    cluster_arn="clusterArn",
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId",
+                                    service_arn="serviceArn"
+                                )],
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
+                                kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
+                                    api_version="apiVersion",
+                                    kind="kind"
+                                ),
+            
+                                # the properties below are optional
+                                capacity_monitoring_approach="capacityMonitoringApproach",
+                                eks_clusters=[arcregionswitch.CfnPlan.EksClusterProperty(
+                                    cluster_arn="clusterArn",
+            
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    external_id="externalId"
+                                )],
+                                scaling_resources=[{
+                                    "scaling_resources_key": {
+                                        "scaling_resources_key": arcregionswitch.CfnPlan.KubernetesScalingResourceProperty(
+                                            name="name",
+                                            namespace="namespace",
+            
+                                            # the properties below are optional
+                                            hpa_name="hpaName"
+                                        )
+                                    }
+                                }],
+                                target_percent=123,
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.EksResourceScalingUngracefulProperty(
+                                    minimum_success_percentage=123
+                                )
+                            ),
+                            execution_approval_config=arcregionswitch.CfnPlan.ExecutionApprovalConfigurationProperty(
+                                approval_role="approvalRole",
+            
+                                # the properties below are optional
+                                timeout_minutes=123
+                            ),
+                            global_aurora_config=arcregionswitch.CfnPlan.GlobalAuroraConfigurationProperty(
+                                behavior="behavior",
+                                database_cluster_arns=["databaseClusterArns"],
+                                global_cluster_identifier="globalClusterIdentifier",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
+                                    ungraceful="ungraceful"
+                                )
+                            ),
+                            parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
+                                steps=[step_property_]
+                            ),
+                            region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
+                                arn="arn",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId"
+                            ),
+                            route53_health_check_config=arcregionswitch.CfnPlan.Route53HealthCheckConfigurationProperty(
+                                hosted_zone_id="hostedZoneId",
+                                record_name="recordName",
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                record_sets=[arcregionswitch.CfnPlan.Route53ResourceRecordSetProperty(
+                                    record_set_identifier="recordSetIdentifier",
+                                    region="region"
+                                )],
+                                timeout_minutes=123
+                            )
+                        ),
+                        execution_block_type="executionBlockType",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    )],
+                    workflow_description="workflowDescription",
+                    workflow_target_region="workflowTargetRegion"
+                )],
+            
+                # the properties below are optional
+                associated_alarms={
+                    "associated_alarms_key": arcregionswitch.CfnPlan.AssociatedAlarmProperty(
+                        alarm_type="alarmType",
+                        resource_identifier="resourceIdentifier",
+            
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId"
+                    )
+                },
+                description="description",
+                primary_region="primaryRegion",
+                recovery_time_objective_minutes=123,
+                tags={
+                    "tags_key": "tags"
+                },
+                triggers=[arcregionswitch.CfnPlan.TriggerProperty(
+                    action="action",
+                    conditions=[arcregionswitch.CfnPlan.TriggerConditionProperty(
+                        associated_alarm_name="associatedAlarmName",
+                        condition="condition"
+                    )],
+                    min_delay_minutes_between_executions=123,
+                    target_region="targetRegion",
+            
+                    # the properties below are optional
+                    description="description"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141)
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument recovery_approach", value=recovery_approach, expected_type=type_hints["recovery_approach"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
+            check_type(argname="argument associated_alarms", value=associated_alarms, expected_type=type_hints["associated_alarms"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument primary_region", value=primary_region, expected_type=type_hints["primary_region"])
+            check_type(argname="argument recovery_time_objective_minutes", value=recovery_time_objective_minutes, expected_type=type_hints["recovery_time_objective_minutes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_role": execution_role,
+            "name": name,
+            "recovery_approach": recovery_approach,
+            "regions": regions,
+            "workflows": workflows,
+        }
+        if associated_alarms is not None:
+            self._values["associated_alarms"] = associated_alarms
+        if description is not None:
+            self._values["description"] = description
+        if primary_region is not None:
+            self._values["primary_region"] = primary_region
+        if recovery_time_objective_minutes is not None:
+            self._values["recovery_time_objective_minutes"] = recovery_time_objective_minutes
+        if tags is not None:
+            self._values["tags"] = tags
+        if triggers is not None:
+            self._values["triggers"] = triggers
+
+    @builtins.property
+    def execution_role(self) -> builtins.str:
+        '''The execution role for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-executionrole
+        '''
+        result = self._values.get("execution_role")
+        assert result is not None, "Required property 'execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recovery_approach(self) -> builtins.str:
+        '''The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoveryapproach
+        '''
+        result = self._values.get("recovery_approach")
+        assert result is not None, "Required property 'recovery_approach' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def regions(self) -> typing.List[builtins.str]:
+        '''The AWS Regions for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-regions
+        '''
+        result = self._values.get("regions")
+        assert result is not None, "Required property 'regions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def workflows(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]]:
+        '''The workflows for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-workflows
+        '''
+        result = self._values.get("workflows")
+        assert result is not None, "Required property 'workflows' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.WorkflowProperty"]]], result)
+
+    @builtins.property
+    def associated_alarms(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]]:
+        '''The associated application health alarms for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-associatedalarms
+        '''
+        result = self._values.get("associated_alarms")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnPlan.AssociatedAlarmProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def primary_region(self) -> typing.Optional[builtins.str]:
+        '''The primary Region for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-primaryregion
+        '''
+        result = self._values.get("primary_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recovery_time_objective_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The recovery time objective for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoverytimeobjectiveminutes
+        '''
+        result = self._values.get("recovery_time_objective_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def triggers(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]]:
+        '''The triggers for a plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-triggers
+        '''
+        result = self._values.get("triggers")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPlan.TriggerProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_arcregionswitch.IPlanRef")
+class IPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Plan.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="planRef")
+    def plan_ref(self) -> "PlanReference":
+        '''(experimental) A reference to a Plan resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPlanRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Plan.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_arcregionswitch.IPlanRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="planRef")
+    def plan_ref(self) -> "PlanReference":
+        '''(experimental) A reference to a Plan resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PlanReference", jsii.get(self, "planRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPlanRef).__jsii_proxy_class__ = lambda : _IPlanRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_arcregionswitch.PlanReference",
+    jsii_struct_bases=[],
+    name_mapping={"plan_arn": "planArn"},
+)
+class PlanReference:
+    def __init__(self, *, plan_arn: builtins.str) -> None:
+        '''A reference to a Plan resource.
+
+        :param plan_arn: The Arn of the Plan resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_arcregionswitch as arcregionswitch
+            
+            plan_reference = arcregionswitch.PlanReference(
+                plan_arn="planArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b161eda9868bf1a2b3eaa5a8cb35aaf0afc2af702fbbfca3a6dfc9136031023)
+            check_type(argname="argument plan_arn", value=plan_arn, expected_type=type_hints["plan_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "plan_arn": plan_arn,
+        }
+
+    @builtins.property
+    def plan_arn(self) -> builtins.str:
+        '''The Arn of the Plan resource.'''
+        result = self._values.get("plan_arn")
+        assert result is not None, "Required property 'plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PlanReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IPlanRef, _ITaggableV2_4e6798f8)
 class CfnPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -425,6 +912,12 @@ class CfnPlan(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="planRef")
+    def plan_ref(self) -> PlanReference:
+        '''A reference to a Plan resource.'''
+        return typing.cast(PlanReference, jsii.get(self, "planRef"))
 
     @builtins.property
     @jsii.member(jsii_name="executionRole")
@@ -4267,410 +4760,38 @@ class CfnPlan(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "execution_role": "executionRole",
-        "name": "name",
-        "recovery_approach": "recoveryApproach",
-        "regions": "regions",
-        "workflows": "workflows",
-        "associated_alarms": "associatedAlarms",
-        "description": "description",
-        "primary_region": "primaryRegion",
-        "recovery_time_objective_minutes": "recoveryTimeObjectiveMinutes",
-        "tags": "tags",
-        "triggers": "triggers",
-    },
-)
-class CfnPlanProps:
-    def __init__(
-        self,
-        *,
-        execution_role: builtins.str,
-        name: builtins.str,
-        recovery_approach: builtins.str,
-        regions: typing.Sequence[builtins.str],
-        workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.WorkflowProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AssociatedAlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        primary_region: typing.Optional[builtins.str] = None,
-        recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPlan``.
-
-        :param execution_role: The execution role for a plan.
-        :param name: The name for a plan.
-        :param recovery_approach: The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
-        :param regions: The AWS Regions for a plan.
-        :param workflows: The workflows for a plan.
-        :param associated_alarms: The associated application health alarms for a plan.
-        :param description: The description for a plan.
-        :param primary_region: The primary Region for a plan.
-        :param recovery_time_objective_minutes: The recovery time objective for a plan.
-        :param tags: 
-        :param triggers: The triggers for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arcregionswitch as arcregionswitch
-            
-            # step_property_: arcregionswitch.CfnPlan.StepProperty
-            
-            cfn_plan_props = arcregionswitch.CfnPlanProps(
-                execution_role="executionRole",
-                name="name",
-                recovery_approach="recoveryApproach",
-                regions=["regions"],
-                workflows=[arcregionswitch.CfnPlan.WorkflowProperty(
-                    workflow_target_action="workflowTargetAction",
-            
-                    # the properties below are optional
-                    steps=[arcregionswitch.CfnPlan.StepProperty(
-                        execution_block_configuration=arcregionswitch.CfnPlan.ExecutionBlockConfigurationProperty(
-                            arc_routing_control_config=arcregionswitch.CfnPlan.ArcRoutingControlConfigurationProperty(
-                                region_and_routing_controls={
-                                    "region_and_routing_controls_key": [arcregionswitch.CfnPlan.ArcRoutingControlStateProperty(
-                                        routing_control_arn="routingControlArn",
-                                        state="state"
-                                    )]
-                                },
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                timeout_minutes=123
-                            ),
-                            custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
-                                lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
-                                    arn="arn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-                                region_to_run="regionToRun",
-                                retry_interval_minutes=123,
-            
-                                # the properties below are optional
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.LambdaUngracefulProperty(
-                                    behavior="behavior"
-                                )
-                            ),
-                            ec2_asg_capacity_increase_config=arcregionswitch.CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty(
-                                asgs=[arcregionswitch.CfnPlan.AsgProperty(
-                                    arn="arn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.Ec2UngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            ecs_capacity_increase_config=arcregionswitch.CfnPlan.EcsCapacityIncreaseConfigurationProperty(
-                                services=[arcregionswitch.CfnPlan.ServiceProperty(
-                                    cluster_arn="clusterArn",
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId",
-                                    service_arn="serviceArn"
-                                )],
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.EcsUngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            eks_resource_scaling_config=arcregionswitch.CfnPlan.EksResourceScalingConfigurationProperty(
-                                kubernetes_resource_type=arcregionswitch.CfnPlan.KubernetesResourceTypeProperty(
-                                    api_version="apiVersion",
-                                    kind="kind"
-                                ),
-            
-                                # the properties below are optional
-                                capacity_monitoring_approach="capacityMonitoringApproach",
-                                eks_clusters=[arcregionswitch.CfnPlan.EksClusterProperty(
-                                    cluster_arn="clusterArn",
-            
-                                    # the properties below are optional
-                                    cross_account_role="crossAccountRole",
-                                    external_id="externalId"
-                                )],
-                                scaling_resources=[{
-                                    "scaling_resources_key": {
-                                        "scaling_resources_key": arcregionswitch.CfnPlan.KubernetesScalingResourceProperty(
-                                            name="name",
-                                            namespace="namespace",
-            
-                                            # the properties below are optional
-                                            hpa_name="hpaName"
-                                        )
-                                    }
-                                }],
-                                target_percent=123,
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.EksResourceScalingUngracefulProperty(
-                                    minimum_success_percentage=123
-                                )
-                            ),
-                            execution_approval_config=arcregionswitch.CfnPlan.ExecutionApprovalConfigurationProperty(
-                                approval_role="approvalRole",
-            
-                                # the properties below are optional
-                                timeout_minutes=123
-                            ),
-                            global_aurora_config=arcregionswitch.CfnPlan.GlobalAuroraConfigurationProperty(
-                                behavior="behavior",
-                                database_cluster_arns=["databaseClusterArns"],
-                                global_cluster_identifier="globalClusterIdentifier",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                timeout_minutes=123,
-                                ungraceful=arcregionswitch.CfnPlan.GlobalAuroraUngracefulProperty(
-                                    ungraceful="ungraceful"
-                                )
-                            ),
-                            parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
-                                steps=[step_property_]
-                            ),
-                            region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
-                                arn="arn",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId"
-                            ),
-                            route53_health_check_config=arcregionswitch.CfnPlan.Route53HealthCheckConfigurationProperty(
-                                hosted_zone_id="hostedZoneId",
-                                record_name="recordName",
-            
-                                # the properties below are optional
-                                cross_account_role="crossAccountRole",
-                                external_id="externalId",
-                                record_sets=[arcregionswitch.CfnPlan.Route53ResourceRecordSetProperty(
-                                    record_set_identifier="recordSetIdentifier",
-                                    region="region"
-                                )],
-                                timeout_minutes=123
-                            )
-                        ),
-                        execution_block_type="executionBlockType",
-                        name="name",
-            
-                        # the properties below are optional
-                        description="description"
-                    )],
-                    workflow_description="workflowDescription",
-                    workflow_target_region="workflowTargetRegion"
-                )],
-            
-                # the properties below are optional
-                associated_alarms={
-                    "associated_alarms_key": arcregionswitch.CfnPlan.AssociatedAlarmProperty(
-                        alarm_type="alarmType",
-                        resource_identifier="resourceIdentifier",
-            
-                        # the properties below are optional
-                        cross_account_role="crossAccountRole",
-                        external_id="externalId"
-                    )
-                },
-                description="description",
-                primary_region="primaryRegion",
-                recovery_time_objective_minutes=123,
-                tags={
-                    "tags_key": "tags"
-                },
-                triggers=[arcregionswitch.CfnPlan.TriggerProperty(
-                    action="action",
-                    conditions=[arcregionswitch.CfnPlan.TriggerConditionProperty(
-                        associated_alarm_name="associatedAlarmName",
-                        condition="condition"
-                    )],
-                    min_delay_minutes_between_executions=123,
-                    target_region="targetRegion",
-            
-                    # the properties below are optional
-                    description="description"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141)
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument recovery_approach", value=recovery_approach, expected_type=type_hints["recovery_approach"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
-            check_type(argname="argument associated_alarms", value=associated_alarms, expected_type=type_hints["associated_alarms"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument primary_region", value=primary_region, expected_type=type_hints["primary_region"])
-            check_type(argname="argument recovery_time_objective_minutes", value=recovery_time_objective_minutes, expected_type=type_hints["recovery_time_objective_minutes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "execution_role": execution_role,
-            "name": name,
-            "recovery_approach": recovery_approach,
-            "regions": regions,
-            "workflows": workflows,
-        }
-        if associated_alarms is not None:
-            self._values["associated_alarms"] = associated_alarms
-        if description is not None:
-            self._values["description"] = description
-        if primary_region is not None:
-            self._values["primary_region"] = primary_region
-        if recovery_time_objective_minutes is not None:
-            self._values["recovery_time_objective_minutes"] = recovery_time_objective_minutes
-        if tags is not None:
-            self._values["tags"] = tags
-        if triggers is not None:
-            self._values["triggers"] = triggers
-
-    @builtins.property
-    def execution_role(self) -> builtins.str:
-        '''The execution role for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-executionrole
-        '''
-        result = self._values.get("execution_role")
-        assert result is not None, "Required property 'execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def recovery_approach(self) -> builtins.str:
-        '''The recovery approach for a Region switch plan, which can be active/active (activeActive) or active/passive (activePassive).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoveryapproach
-        '''
-        result = self._values.get("recovery_approach")
-        assert result is not None, "Required property 'recovery_approach' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regions(self) -> typing.List[builtins.str]:
-        '''The AWS Regions for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-regions
-        '''
-        result = self._values.get("regions")
-        assert result is not None, "Required property 'regions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def workflows(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPlan.WorkflowProperty]]]:
-        '''The workflows for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-workflows
-        '''
-        result = self._values.get("workflows")
-        assert result is not None, "Required property 'workflows' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPlan.WorkflowProperty]]], result)
-
-    @builtins.property
-    def associated_alarms(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnPlan.AssociatedAlarmProperty]]]]:
-        '''The associated application health alarms for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-associatedalarms
-        '''
-        result = self._values.get("associated_alarms")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnPlan.AssociatedAlarmProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def primary_region(self) -> typing.Optional[builtins.str]:
-        '''The primary Region for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-primaryregion
-        '''
-        result = self._values.get("primary_region")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recovery_time_objective_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The recovery time objective for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-recoverytimeobjectiveminutes
-        '''
-        result = self._values.get("recovery_time_objective_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def triggers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPlan.TriggerProperty]]]]:
-        '''The triggers for a plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arcregionswitch-plan.html#cfn-arcregionswitch-plan-triggers
-        '''
-        result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPlan.TriggerProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnPlan",
     "CfnPlanProps",
+    "IPlanRef",
+    "PlanReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141(
+    *,
+    execution_role: builtins.str,
+    name: builtins.str,
+    recovery_approach: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.WorkflowProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AssociatedAlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    primary_region: typing.Optional[builtins.str] = None,
+    recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b161eda9868bf1a2b3eaa5a8cb35aaf0afc2af702fbbfca3a6dfc9136031023(
+    *,
+    plan_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__717f8fc7634107cdad75ab8dc89a21d48c1d0f596f5095c671ae6741ed5ac35c(
     scope: _constructs_77d1e7e8.Construct,
@@ -5058,23 +5179,6 @@ def _typecheckingstub__20a30ca206bf2a7483e5517778a6e2e160f345026b4773019a9189cc9
     steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.StepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     workflow_description: typing.Optional[builtins.str] = None,
     workflow_target_region: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3769ac000838fbbf6a0de25911d7b60b6ec569d30dc6c0baa361105df2e6c141(
-    *,
-    execution_role: builtins.str,
-    name: builtins.str,
-    recovery_approach: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    workflows: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.WorkflowProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    associated_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AssociatedAlarmProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    primary_region: typing.Optional[builtins.str] = None,
-    recovery_time_objective_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -70,7 +70,1110 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnNamespaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "namespace_name": "namespaceName",
+        "admin_password_secret_kms_key_id": "adminPasswordSecretKmsKeyId",
+        "admin_username": "adminUsername",
+        "admin_user_password": "adminUserPassword",
+        "db_name": "dbName",
+        "default_iam_role_arn": "defaultIamRoleArn",
+        "final_snapshot_name": "finalSnapshotName",
+        "final_snapshot_retention_period": "finalSnapshotRetentionPeriod",
+        "iam_roles": "iamRoles",
+        "kms_key_id": "kmsKeyId",
+        "log_exports": "logExports",
+        "manage_admin_password": "manageAdminPassword",
+        "namespace_resource_policy": "namespaceResourcePolicy",
+        "redshift_idc_application_arn": "redshiftIdcApplicationArn",
+        "snapshot_copy_configurations": "snapshotCopyConfigurations",
+        "tags": "tags",
+    },
+)
+class CfnNamespaceProps:
+    def __init__(
+        self,
+        *,
+        namespace_name: builtins.str,
+        admin_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
+        admin_username: typing.Optional[builtins.str] = None,
+        admin_user_password: typing.Optional[builtins.str] = None,
+        db_name: typing.Optional[builtins.str] = None,
+        default_iam_role_arn: typing.Optional[builtins.str] = None,
+        final_snapshot_name: typing.Optional[builtins.str] = None,
+        final_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+        iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+        manage_admin_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        namespace_resource_policy: typing.Any = None,
+        redshift_idc_application_arn: typing.Optional[builtins.str] = None,
+        snapshot_copy_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNamespace.SnapshotCopyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNamespace``.
+
+        :param namespace_name: The name of the namespace. Must be between 3-64 alphanumeric characters in lowercase, and it cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com//redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
+        :param admin_password_secret_kms_key_id: The ID of the AWS Key Management Service (KMS) key used to encrypt and store the namespace's admin credentials secret. You can only use this parameter if ``ManageAdminPassword`` is ``true`` .
+        :param admin_username: The username of the administrator for the primary database created in the namespace.
+        :param admin_user_password: The password of the administrator for the primary database created in the namespace.
+        :param db_name: The name of the primary database created in the namespace.
+        :param default_iam_role_arn: The Amazon Resource Name (ARN) of the IAM role to set as a default in the namespace.
+        :param final_snapshot_name: The name of the snapshot to be created before the namespace is deleted.
+        :param final_snapshot_retention_period: How long to retain the final snapshot.
+        :param iam_roles: A list of IAM roles to associate with the namespace.
+        :param kms_key_id: The ID of the AWS Key Management Service key used to encrypt your data.
+        :param log_exports: The types of logs the namespace can export. Available export types are ``userlog`` , ``connectionlog`` , and ``useractivitylog`` .
+        :param manage_admin_password: If true, Amazon Redshift uses AWS Secrets Manager to manage the namespace's admin credentials. You can't use ``AdminUserPassword`` if ``ManageAdminPassword`` is true. If ``ManageAdminPassword`` is ``false`` or not set, Amazon Redshift uses ``AdminUserPassword`` for the admin user account's password.
+        :param namespace_resource_policy: The resource policy that will be attached to the namespace.
+        :param redshift_idc_application_arn: The ARN for the Redshift application that integrates with IAM Identity Center.
+        :param snapshot_copy_configurations: The snapshot copy configurations for the namespace.
+        :param tags: The map of the key-value pairs used to tag the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            # namespace_resource_policy: Any
+            
+            cfn_namespace_props = redshiftserverless.CfnNamespaceProps(
+                namespace_name="namespaceName",
+            
+                # the properties below are optional
+                admin_password_secret_kms_key_id="adminPasswordSecretKmsKeyId",
+                admin_username="adminUsername",
+                admin_user_password="adminUserPassword",
+                db_name="dbName",
+                default_iam_role_arn="defaultIamRoleArn",
+                final_snapshot_name="finalSnapshotName",
+                final_snapshot_retention_period=123,
+                iam_roles=["iamRoles"],
+                kms_key_id="kmsKeyId",
+                log_exports=["logExports"],
+                manage_admin_password=False,
+                namespace_resource_policy=namespace_resource_policy,
+                redshift_idc_application_arn="redshiftIdcApplicationArn",
+                snapshot_copy_configurations=[redshiftserverless.CfnNamespace.SnapshotCopyConfigurationProperty(
+                    destination_region="destinationRegion",
+            
+                    # the properties below are optional
+                    destination_kms_key_id="destinationKmsKeyId",
+                    snapshot_retention_period=123
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53dc30bd9)
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+            check_type(argname="argument admin_password_secret_kms_key_id", value=admin_password_secret_kms_key_id, expected_type=type_hints["admin_password_secret_kms_key_id"])
+            check_type(argname="argument admin_username", value=admin_username, expected_type=type_hints["admin_username"])
+            check_type(argname="argument admin_user_password", value=admin_user_password, expected_type=type_hints["admin_user_password"])
+            check_type(argname="argument db_name", value=db_name, expected_type=type_hints["db_name"])
+            check_type(argname="argument default_iam_role_arn", value=default_iam_role_arn, expected_type=type_hints["default_iam_role_arn"])
+            check_type(argname="argument final_snapshot_name", value=final_snapshot_name, expected_type=type_hints["final_snapshot_name"])
+            check_type(argname="argument final_snapshot_retention_period", value=final_snapshot_retention_period, expected_type=type_hints["final_snapshot_retention_period"])
+            check_type(argname="argument iam_roles", value=iam_roles, expected_type=type_hints["iam_roles"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
+            check_type(argname="argument manage_admin_password", value=manage_admin_password, expected_type=type_hints["manage_admin_password"])
+            check_type(argname="argument namespace_resource_policy", value=namespace_resource_policy, expected_type=type_hints["namespace_resource_policy"])
+            check_type(argname="argument redshift_idc_application_arn", value=redshift_idc_application_arn, expected_type=type_hints["redshift_idc_application_arn"])
+            check_type(argname="argument snapshot_copy_configurations", value=snapshot_copy_configurations, expected_type=type_hints["snapshot_copy_configurations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "namespace_name": namespace_name,
+        }
+        if admin_password_secret_kms_key_id is not None:
+            self._values["admin_password_secret_kms_key_id"] = admin_password_secret_kms_key_id
+        if admin_username is not None:
+            self._values["admin_username"] = admin_username
+        if admin_user_password is not None:
+            self._values["admin_user_password"] = admin_user_password
+        if db_name is not None:
+            self._values["db_name"] = db_name
+        if default_iam_role_arn is not None:
+            self._values["default_iam_role_arn"] = default_iam_role_arn
+        if final_snapshot_name is not None:
+            self._values["final_snapshot_name"] = final_snapshot_name
+        if final_snapshot_retention_period is not None:
+            self._values["final_snapshot_retention_period"] = final_snapshot_retention_period
+        if iam_roles is not None:
+            self._values["iam_roles"] = iam_roles
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if log_exports is not None:
+            self._values["log_exports"] = log_exports
+        if manage_admin_password is not None:
+            self._values["manage_admin_password"] = manage_admin_password
+        if namespace_resource_policy is not None:
+            self._values["namespace_resource_policy"] = namespace_resource_policy
+        if redshift_idc_application_arn is not None:
+            self._values["redshift_idc_application_arn"] = redshift_idc_application_arn
+        if snapshot_copy_configurations is not None:
+            self._values["snapshot_copy_configurations"] = snapshot_copy_configurations
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def namespace_name(self) -> builtins.str:
+        '''The name of the namespace.
+
+        Must be between 3-64 alphanumeric characters in lowercase, and it cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com//redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-namespacename
+        '''
+        result = self._values.get("namespace_name")
+        assert result is not None, "Required property 'namespace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def admin_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the namespace's admin credentials secret.
+
+        You can only use this parameter if ``ManageAdminPassword`` is ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminpasswordsecretkmskeyid
+        '''
+        result = self._values.get("admin_password_secret_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def admin_username(self) -> typing.Optional[builtins.str]:
+        '''The username of the administrator for the primary database created in the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminusername
+        '''
+        result = self._values.get("admin_username")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def admin_user_password(self) -> typing.Optional[builtins.str]:
+        '''The password of the administrator for the primary database created in the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminuserpassword
+        '''
+        result = self._values.get("admin_user_password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the primary database created in the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-dbname
+        '''
+        result = self._values.get("db_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_iam_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role to set as a default in the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-defaultiamrolearn
+        '''
+        result = self._values.get("default_iam_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def final_snapshot_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the snapshot to be created before the namespace is deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-finalsnapshotname
+        '''
+        result = self._values.get("final_snapshot_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def final_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''How long to retain the final snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-finalsnapshotretentionperiod
+        '''
+        result = self._values.get("final_snapshot_retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of IAM roles to associate with the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-iamroles
+        '''
+        result = self._values.get("iam_roles")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the AWS Key Management Service key used to encrypt your data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The types of logs the namespace can export.
+
+        Available export types are ``userlog`` , ``connectionlog`` , and ``useractivitylog`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-logexports
+        '''
+        result = self._values.get("log_exports")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def manage_admin_password(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If true, Amazon Redshift uses AWS Secrets Manager to manage the namespace's admin credentials.
+
+        You can't use ``AdminUserPassword`` if ``ManageAdminPassword`` is true. If ``ManageAdminPassword`` is ``false`` or not set, Amazon Redshift uses ``AdminUserPassword`` for the admin user account's password.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-manageadminpassword
+        '''
+        result = self._values.get("manage_admin_password")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def namespace_resource_policy(self) -> typing.Any:
+        '''The resource policy that will be attached to the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-namespaceresourcepolicy
+        '''
+        result = self._values.get("namespace_resource_policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def redshift_idc_application_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN for the Redshift application that integrates with IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-redshiftidcapplicationarn
+        '''
+        result = self._values.get("redshift_idc_application_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def snapshot_copy_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNamespace.SnapshotCopyConfigurationProperty"]]]]:
+        '''The snapshot copy configurations for the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-snapshotcopyconfigurations
+        '''
+        result = self._values.get("snapshot_copy_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNamespace.SnapshotCopyConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The map of the key-value pairs used to tag the namespace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNamespaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "snapshot_name": "snapshotName",
+        "namespace_name": "namespaceName",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+    },
+)
+class CfnSnapshotProps:
+    def __init__(
+        self,
+        *,
+        snapshot_name: builtins.str,
+        namespace_name: typing.Optional[builtins.str] = None,
+        retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSnapshot``.
+
+        :param snapshot_name: The name of the snapshot.
+        :param namespace_name: The name of the namepsace.
+        :param retention_period: The retention period of the snapshot created by the scheduled action.
+        :param tags: An array of `Tag objects <https://docs.aws.amazon.com/redshift-serverless/latest/APIReference/API_Tag.html>`_ to associate with the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            cfn_snapshot_props = redshiftserverless.CfnSnapshotProps(
+                snapshot_name="snapshotName",
+            
+                # the properties below are optional
+                namespace_name="namespaceName",
+                retention_period=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+        if namespace_name is not None:
+            self._values["namespace_name"] = namespace_name
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The name of the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the namepsace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-namespacename
+        '''
+        result = self._values.get("namespace_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The retention period of the snapshot created by the scheduled action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of `Tag objects <https://docs.aws.amazon.com/redshift-serverless/latest/APIReference/API_Tag.html>`_ to associate with the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnWorkgroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "workgroup_name": "workgroupName",
+        "base_capacity": "baseCapacity",
+        "config_parameters": "configParameters",
+        "enhanced_vpc_routing": "enhancedVpcRouting",
+        "max_capacity": "maxCapacity",
+        "namespace_name": "namespaceName",
+        "port": "port",
+        "price_performance_target": "pricePerformanceTarget",
+        "publicly_accessible": "publiclyAccessible",
+        "recovery_point_id": "recoveryPointId",
+        "security_group_ids": "securityGroupIds",
+        "snapshot_arn": "snapshotArn",
+        "snapshot_name": "snapshotName",
+        "snapshot_owner_account": "snapshotOwnerAccount",
+        "subnet_ids": "subnetIds",
+        "tags": "tags",
+        "track_name": "trackName",
+        "workgroup": "workgroup",
+    },
+)
+class CfnWorkgroupProps:
+    def __init__(
+        self,
+        *,
+        workgroup_name: builtins.str,
+        base_capacity: typing.Optional[jsii.Number] = None,
+        config_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkgroup.ConfigParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        max_capacity: typing.Optional[jsii.Number] = None,
+        namespace_name: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        price_performance_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkgroup.PerformanceTargetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        recovery_point_id: typing.Optional[builtins.str] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        snapshot_arn: typing.Optional[builtins.str] = None,
+        snapshot_name: typing.Optional[builtins.str] = None,
+        snapshot_owner_account: typing.Optional[builtins.str] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        track_name: typing.Optional[builtins.str] = None,
+        workgroup: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkgroup.WorkgroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkgroup``.
+
+        :param workgroup_name: The name of the workgroup.
+        :param base_capacity: The base compute capacity of the workgroup in Redshift Processing Units (RPUs).
+        :param config_parameters: The key of the parameter. The options are ``auto_mv`` , ``datestyle`` , ``enable_case_sensitive_identifier`` , ``enable_user_activity_logging`` , ``query_group`` , ``search_path`` , ``require_ssl`` , ``use_fips_ssl`` , and query monitoring metrics that let you define performance boundaries. For more information about query monitoring rules and available metrics, see `Query monitoring metrics for Amazon Redshift Serverless <https://docs.aws.amazon.com/redshift/latest/dg/cm-c-wlm-query-monitoring-rules.html#cm-c-wlm-query-monitoring-metrics-serverless>`_ .
+        :param enhanced_vpc_routing: The value that specifies whether to enable enhanced virtual private cloud (VPC) routing, which forces Amazon Redshift Serverless to route traffic through your VPC. Default: - false
+        :param max_capacity: The maximum data-warehouse capacity Amazon Redshift Serverless uses to serve queries. The max capacity is specified in RPUs.
+        :param namespace_name: The namespace the workgroup is associated with.
+        :param port: The custom port to use when connecting to a workgroup. Valid port ranges are 5431-5455 and 8191-8215. The default is 5439.
+        :param price_performance_target: An object that represents the price performance target settings for the workgroup.
+        :param publicly_accessible: A value that specifies whether the workgroup can be accessible from a public network. Default: - false
+        :param recovery_point_id: The recovery point id to restore from.
+        :param security_group_ids: A list of security group IDs to associate with the workgroup.
+        :param snapshot_arn: The Amazon Resource Name (ARN) of the snapshot to restore from.
+        :param snapshot_name: The snapshot name to restore from.
+        :param snapshot_owner_account: The Amazon Web Services account that owns the snapshot.
+        :param subnet_ids: A list of subnet IDs the workgroup is associated with.
+        :param tags: The map of the key-value pairs used to tag the workgroup.
+        :param track_name: An optional parameter for the name of the track for the workgroup. If you don't provide a track name, the workgroup is assigned to the current track.
+        :param workgroup: The collection of computing resources from which an endpoint is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            cfn_workgroup_props = redshiftserverless.CfnWorkgroupProps(
+                workgroup_name="workgroupName",
+            
+                # the properties below are optional
+                base_capacity=123,
+                config_parameters=[redshiftserverless.CfnWorkgroup.ConfigParameterProperty(
+                    parameter_key="parameterKey",
+                    parameter_value="parameterValue"
+                )],
+                enhanced_vpc_routing=False,
+                max_capacity=123,
+                namespace_name="namespaceName",
+                port=123,
+                price_performance_target=redshiftserverless.CfnWorkgroup.PerformanceTargetProperty(
+                    level=123,
+                    status="status"
+                ),
+                publicly_accessible=False,
+                recovery_point_id="recoveryPointId",
+                security_group_ids=["securityGroupIds"],
+                snapshot_arn="snapshotArn",
+                snapshot_name="snapshotName",
+                snapshot_owner_account="snapshotOwnerAccount",
+                subnet_ids=["subnetIds"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                track_name="trackName",
+                workgroup=redshiftserverless.CfnWorkgroup.WorkgroupProperty(
+                    base_capacity=123,
+                    config_parameters=[redshiftserverless.CfnWorkgroup.ConfigParameterProperty(
+                        parameter_key="parameterKey",
+                        parameter_value="parameterValue"
+                    )],
+                    creation_date="creationDate",
+                    endpoint=redshiftserverless.CfnWorkgroup.EndpointProperty(
+                        address="address",
+                        port=123,
+                        vpc_endpoints=[redshiftserverless.CfnWorkgroup.VpcEndpointProperty(
+                            network_interfaces=[redshiftserverless.CfnWorkgroup.NetworkInterfaceProperty(
+                                availability_zone="availabilityZone",
+                                network_interface_id="networkInterfaceId",
+                                private_ip_address="privateIpAddress",
+                                subnet_id="subnetId"
+                            )],
+                            vpc_endpoint_id="vpcEndpointId",
+                            vpc_id="vpcId"
+                        )]
+                    ),
+                    enhanced_vpc_routing=False,
+                    max_capacity=123,
+                    namespace_name="namespaceName",
+                    price_performance_target=redshiftserverless.CfnWorkgroup.PerformanceTargetProperty(
+                        level=123,
+                        status="status"
+                    ),
+                    publicly_accessible=False,
+                    security_group_ids=["securityGroupIds"],
+                    status="status",
+                    subnet_ids=["subnetIds"],
+                    track_name="trackName",
+                    workgroup_arn="workgroupArn",
+                    workgroup_id="workgroupId",
+                    workgroup_name="workgroupName"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ee3941005026bdab05d38183c12cc7cf5ff218e6db3877161b60d823e21a136)
+            check_type(argname="argument workgroup_name", value=workgroup_name, expected_type=type_hints["workgroup_name"])
+            check_type(argname="argument base_capacity", value=base_capacity, expected_type=type_hints["base_capacity"])
+            check_type(argname="argument config_parameters", value=config_parameters, expected_type=type_hints["config_parameters"])
+            check_type(argname="argument enhanced_vpc_routing", value=enhanced_vpc_routing, expected_type=type_hints["enhanced_vpc_routing"])
+            check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument price_performance_target", value=price_performance_target, expected_type=type_hints["price_performance_target"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument recovery_point_id", value=recovery_point_id, expected_type=type_hints["recovery_point_id"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument snapshot_owner_account", value=snapshot_owner_account, expected_type=type_hints["snapshot_owner_account"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument track_name", value=track_name, expected_type=type_hints["track_name"])
+            check_type(argname="argument workgroup", value=workgroup, expected_type=type_hints["workgroup"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workgroup_name": workgroup_name,
+        }
+        if base_capacity is not None:
+            self._values["base_capacity"] = base_capacity
+        if config_parameters is not None:
+            self._values["config_parameters"] = config_parameters
+        if enhanced_vpc_routing is not None:
+            self._values["enhanced_vpc_routing"] = enhanced_vpc_routing
+        if max_capacity is not None:
+            self._values["max_capacity"] = max_capacity
+        if namespace_name is not None:
+            self._values["namespace_name"] = namespace_name
+        if port is not None:
+            self._values["port"] = port
+        if price_performance_target is not None:
+            self._values["price_performance_target"] = price_performance_target
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if recovery_point_id is not None:
+            self._values["recovery_point_id"] = recovery_point_id
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if snapshot_arn is not None:
+            self._values["snapshot_arn"] = snapshot_arn
+        if snapshot_name is not None:
+            self._values["snapshot_name"] = snapshot_name
+        if snapshot_owner_account is not None:
+            self._values["snapshot_owner_account"] = snapshot_owner_account
+        if subnet_ids is not None:
+            self._values["subnet_ids"] = subnet_ids
+        if tags is not None:
+            self._values["tags"] = tags
+        if track_name is not None:
+            self._values["track_name"] = track_name
+        if workgroup is not None:
+            self._values["workgroup"] = workgroup
+
+    @builtins.property
+    def workgroup_name(self) -> builtins.str:
+        '''The name of the workgroup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-workgroupname
+        '''
+        result = self._values.get("workgroup_name")
+        assert result is not None, "Required property 'workgroup_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def base_capacity(self) -> typing.Optional[jsii.Number]:
+        '''The base compute capacity of the workgroup in Redshift Processing Units (RPUs).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-basecapacity
+        '''
+        result = self._values.get("base_capacity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def config_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.ConfigParameterProperty"]]]]:
+        '''The key of the parameter.
+
+        The options are ``auto_mv`` , ``datestyle`` , ``enable_case_sensitive_identifier`` , ``enable_user_activity_logging`` , ``query_group`` , ``search_path`` , ``require_ssl`` , ``use_fips_ssl`` , and query monitoring metrics that let you define performance boundaries. For more information about query monitoring rules and available metrics, see `Query monitoring metrics for Amazon Redshift Serverless <https://docs.aws.amazon.com/redshift/latest/dg/cm-c-wlm-query-monitoring-rules.html#cm-c-wlm-query-monitoring-metrics-serverless>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-configparameters
+        '''
+        result = self._values.get("config_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.ConfigParameterProperty"]]]], result)
+
+    @builtins.property
+    def enhanced_vpc_routing(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The value that specifies whether to enable enhanced virtual private cloud (VPC) routing, which forces Amazon Redshift Serverless to route traffic through your VPC.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-enhancedvpcrouting
+        '''
+        result = self._values.get("enhanced_vpc_routing")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def max_capacity(self) -> typing.Optional[jsii.Number]:
+        '''The maximum data-warehouse capacity Amazon Redshift Serverless uses to serve queries.
+
+        The max capacity is specified in RPUs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-maxcapacity
+        '''
+        result = self._values.get("max_capacity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The namespace the workgroup is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-namespacename
+        '''
+        result = self._values.get("namespace_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The custom port to use when connecting to a workgroup.
+
+        Valid port ranges are 5431-5455 and 8191-8215. The default is 5439.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def price_performance_target(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.PerformanceTargetProperty"]]:
+        '''An object that represents the price performance target settings for the workgroup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-priceperformancetarget
+        '''
+        result = self._values.get("price_performance_target")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.PerformanceTargetProperty"]], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A value that specifies whether the workgroup can be accessible from a public network.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def recovery_point_id(self) -> typing.Optional[builtins.str]:
+        '''The recovery point id to restore from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-recoverypointid
+        '''
+        result = self._values.get("recovery_point_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of security group IDs to associate with the workgroup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def snapshot_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the snapshot to restore from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotarn
+        '''
+        result = self._values.get("snapshot_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def snapshot_name(self) -> typing.Optional[builtins.str]:
+        '''The snapshot name to restore from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def snapshot_owner_account(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Web Services account that owns the snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotowneraccount
+        '''
+        result = self._values.get("snapshot_owner_account")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of subnet IDs the workgroup is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The map of the key-value pairs used to tag the workgroup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def track_name(self) -> typing.Optional[builtins.str]:
+        '''An optional parameter for the name of the track for the workgroup.
+
+        If you don't provide a track name, the workgroup is assigned to the current track.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-trackname
+        '''
+        result = self._values.get("track_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workgroup(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.WorkgroupProperty"]]:
+        '''The collection of computing resources from which an endpoint is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-workgroup
+        '''
+        result = self._values.get("workgroup")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkgroup.WorkgroupProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkgroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_redshiftserverless.INamespaceRef")
+class INamespaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Namespace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceRef")
+    def namespace_ref(self) -> "NamespaceReference":
+        '''(experimental) A reference to a Namespace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INamespaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Namespace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshiftserverless.INamespaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceRef")
+    def namespace_ref(self) -> "NamespaceReference":
+        '''(experimental) A reference to a Namespace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NamespaceReference", jsii.get(self, "namespaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INamespaceRef).__jsii_proxy_class__ = lambda : _INamespaceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_redshiftserverless.ISnapshotRef")
+class ISnapshotRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Snapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshiftserverless.ISnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> "SnapshotReference":
+        '''(experimental) A reference to a Snapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SnapshotReference", jsii.get(self, "snapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISnapshotRef).__jsii_proxy_class__ = lambda : _ISnapshotRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_redshiftserverless.IWorkgroupRef")
+class IWorkgroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Workgroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workgroupRef")
+    def workgroup_ref(self) -> "WorkgroupReference":
+        '''(experimental) A reference to a Workgroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkgroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workgroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_redshiftserverless.IWorkgroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workgroupRef")
+    def workgroup_ref(self) -> "WorkgroupReference":
+        '''(experimental) A reference to a Workgroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkgroupReference", jsii.get(self, "workgroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkgroupRef).__jsii_proxy_class__ = lambda : _IWorkgroupRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.NamespaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"namespace_name": "namespaceName"},
+)
+class NamespaceReference:
+    def __init__(self, *, namespace_name: builtins.str) -> None:
+        '''A reference to a Namespace resource.
+
+        :param namespace_name: The NamespaceName of the Namespace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            namespace_reference = redshiftserverless.NamespaceReference(
+                namespace_name="namespaceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9228735dcb47fbcccd00d1cec52d7ec5df2f1bb9688412d91563013d97fcb162)
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "namespace_name": namespace_name,
+        }
+
+    @builtins.property
+    def namespace_name(self) -> builtins.str:
+        '''The NamespaceName of the Namespace resource.'''
+        result = self._values.get("namespace_name")
+        assert result is not None, "Required property 'namespace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NamespaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.SnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={"snapshot_name": "snapshotName"},
+)
+class SnapshotReference:
+    def __init__(self, *, snapshot_name: builtins.str) -> None:
+        '''A reference to a Snapshot resource.
+
+        :param snapshot_name: The SnapshotName of the Snapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            snapshot_reference = redshiftserverless.SnapshotReference(
+                snapshot_name="snapshotName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20758be4841daf661aebb85b0a952ffd98181e79c14ab8950f6aa2c08ce22e1c)
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "snapshot_name": snapshot_name,
+        }
+
+    @builtins.property
+    def snapshot_name(self) -> builtins.str:
+        '''The SnapshotName of the Snapshot resource.'''
+        result = self._values.get("snapshot_name")
+        assert result is not None, "Required property 'snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.WorkgroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"workgroup_name": "workgroupName"},
+)
+class WorkgroupReference:
+    def __init__(self, *, workgroup_name: builtins.str) -> None:
+        '''A reference to a Workgroup resource.
+
+        :param workgroup_name: The WorkgroupName of the Workgroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            workgroup_reference = redshiftserverless.WorkgroupReference(
+                workgroup_name="workgroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfee815072ef30670837aa8a3f7bf48e9c370e748c66eef4500eff0cb987ceb0)
+            check_type(argname="argument workgroup_name", value=workgroup_name, expected_type=type_hints["workgroup_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workgroup_name": workgroup_name,
+        }
+
+    @builtins.property
+    def workgroup_name(self) -> builtins.str:
+        '''The WorkgroupName of the Workgroup resource.'''
+        result = self._values.get("workgroup_name")
+        assert result is not None, "Required property 'workgroup_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkgroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, INamespaceRef, _ITaggable_36806126)
 class CfnNamespace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -333,6 +1436,12 @@ class CfnNamespace(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceRef")
+    def namespace_ref(self) -> NamespaceReference:
+        '''A reference to a Namespace resource.'''
+        return typing.cast(NamespaceReference, jsii.get(self, "namespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -913,331 +2022,7 @@ class CfnNamespace(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnNamespaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "namespace_name": "namespaceName",
-        "admin_password_secret_kms_key_id": "adminPasswordSecretKmsKeyId",
-        "admin_username": "adminUsername",
-        "admin_user_password": "adminUserPassword",
-        "db_name": "dbName",
-        "default_iam_role_arn": "defaultIamRoleArn",
-        "final_snapshot_name": "finalSnapshotName",
-        "final_snapshot_retention_period": "finalSnapshotRetentionPeriod",
-        "iam_roles": "iamRoles",
-        "kms_key_id": "kmsKeyId",
-        "log_exports": "logExports",
-        "manage_admin_password": "manageAdminPassword",
-        "namespace_resource_policy": "namespaceResourcePolicy",
-        "redshift_idc_application_arn": "redshiftIdcApplicationArn",
-        "snapshot_copy_configurations": "snapshotCopyConfigurations",
-        "tags": "tags",
-    },
-)
-class CfnNamespaceProps:
-    def __init__(
-        self,
-        *,
-        namespace_name: builtins.str,
-        admin_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
-        admin_username: typing.Optional[builtins.str] = None,
-        admin_user_password: typing.Optional[builtins.str] = None,
-        db_name: typing.Optional[builtins.str] = None,
-        default_iam_role_arn: typing.Optional[builtins.str] = None,
-        final_snapshot_name: typing.Optional[builtins.str] = None,
-        final_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-        iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        manage_admin_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        namespace_resource_policy: typing.Any = None,
-        redshift_idc_application_arn: typing.Optional[builtins.str] = None,
-        snapshot_copy_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNamespace.SnapshotCopyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnNamespace``.
-
-        :param namespace_name: The name of the namespace. Must be between 3-64 alphanumeric characters in lowercase, and it cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com//redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
-        :param admin_password_secret_kms_key_id: The ID of the AWS Key Management Service (KMS) key used to encrypt and store the namespace's admin credentials secret. You can only use this parameter if ``ManageAdminPassword`` is ``true`` .
-        :param admin_username: The username of the administrator for the primary database created in the namespace.
-        :param admin_user_password: The password of the administrator for the primary database created in the namespace.
-        :param db_name: The name of the primary database created in the namespace.
-        :param default_iam_role_arn: The Amazon Resource Name (ARN) of the IAM role to set as a default in the namespace.
-        :param final_snapshot_name: The name of the snapshot to be created before the namespace is deleted.
-        :param final_snapshot_retention_period: How long to retain the final snapshot.
-        :param iam_roles: A list of IAM roles to associate with the namespace.
-        :param kms_key_id: The ID of the AWS Key Management Service key used to encrypt your data.
-        :param log_exports: The types of logs the namespace can export. Available export types are ``userlog`` , ``connectionlog`` , and ``useractivitylog`` .
-        :param manage_admin_password: If true, Amazon Redshift uses AWS Secrets Manager to manage the namespace's admin credentials. You can't use ``AdminUserPassword`` if ``ManageAdminPassword`` is true. If ``ManageAdminPassword`` is ``false`` or not set, Amazon Redshift uses ``AdminUserPassword`` for the admin user account's password.
-        :param namespace_resource_policy: The resource policy that will be attached to the namespace.
-        :param redshift_idc_application_arn: The ARN for the Redshift application that integrates with IAM Identity Center.
-        :param snapshot_copy_configurations: The snapshot copy configurations for the namespace.
-        :param tags: The map of the key-value pairs used to tag the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshiftserverless as redshiftserverless
-            
-            # namespace_resource_policy: Any
-            
-            cfn_namespace_props = redshiftserverless.CfnNamespaceProps(
-                namespace_name="namespaceName",
-            
-                # the properties below are optional
-                admin_password_secret_kms_key_id="adminPasswordSecretKmsKeyId",
-                admin_username="adminUsername",
-                admin_user_password="adminUserPassword",
-                db_name="dbName",
-                default_iam_role_arn="defaultIamRoleArn",
-                final_snapshot_name="finalSnapshotName",
-                final_snapshot_retention_period=123,
-                iam_roles=["iamRoles"],
-                kms_key_id="kmsKeyId",
-                log_exports=["logExports"],
-                manage_admin_password=False,
-                namespace_resource_policy=namespace_resource_policy,
-                redshift_idc_application_arn="redshiftIdcApplicationArn",
-                snapshot_copy_configurations=[redshiftserverless.CfnNamespace.SnapshotCopyConfigurationProperty(
-                    destination_region="destinationRegion",
-            
-                    # the properties below are optional
-                    destination_kms_key_id="destinationKmsKeyId",
-                    snapshot_retention_period=123
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53dc30bd9)
-            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
-            check_type(argname="argument admin_password_secret_kms_key_id", value=admin_password_secret_kms_key_id, expected_type=type_hints["admin_password_secret_kms_key_id"])
-            check_type(argname="argument admin_username", value=admin_username, expected_type=type_hints["admin_username"])
-            check_type(argname="argument admin_user_password", value=admin_user_password, expected_type=type_hints["admin_user_password"])
-            check_type(argname="argument db_name", value=db_name, expected_type=type_hints["db_name"])
-            check_type(argname="argument default_iam_role_arn", value=default_iam_role_arn, expected_type=type_hints["default_iam_role_arn"])
-            check_type(argname="argument final_snapshot_name", value=final_snapshot_name, expected_type=type_hints["final_snapshot_name"])
-            check_type(argname="argument final_snapshot_retention_period", value=final_snapshot_retention_period, expected_type=type_hints["final_snapshot_retention_period"])
-            check_type(argname="argument iam_roles", value=iam_roles, expected_type=type_hints["iam_roles"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument log_exports", value=log_exports, expected_type=type_hints["log_exports"])
-            check_type(argname="argument manage_admin_password", value=manage_admin_password, expected_type=type_hints["manage_admin_password"])
-            check_type(argname="argument namespace_resource_policy", value=namespace_resource_policy, expected_type=type_hints["namespace_resource_policy"])
-            check_type(argname="argument redshift_idc_application_arn", value=redshift_idc_application_arn, expected_type=type_hints["redshift_idc_application_arn"])
-            check_type(argname="argument snapshot_copy_configurations", value=snapshot_copy_configurations, expected_type=type_hints["snapshot_copy_configurations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "namespace_name": namespace_name,
-        }
-        if admin_password_secret_kms_key_id is not None:
-            self._values["admin_password_secret_kms_key_id"] = admin_password_secret_kms_key_id
-        if admin_username is not None:
-            self._values["admin_username"] = admin_username
-        if admin_user_password is not None:
-            self._values["admin_user_password"] = admin_user_password
-        if db_name is not None:
-            self._values["db_name"] = db_name
-        if default_iam_role_arn is not None:
-            self._values["default_iam_role_arn"] = default_iam_role_arn
-        if final_snapshot_name is not None:
-            self._values["final_snapshot_name"] = final_snapshot_name
-        if final_snapshot_retention_period is not None:
-            self._values["final_snapshot_retention_period"] = final_snapshot_retention_period
-        if iam_roles is not None:
-            self._values["iam_roles"] = iam_roles
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if log_exports is not None:
-            self._values["log_exports"] = log_exports
-        if manage_admin_password is not None:
-            self._values["manage_admin_password"] = manage_admin_password
-        if namespace_resource_policy is not None:
-            self._values["namespace_resource_policy"] = namespace_resource_policy
-        if redshift_idc_application_arn is not None:
-            self._values["redshift_idc_application_arn"] = redshift_idc_application_arn
-        if snapshot_copy_configurations is not None:
-            self._values["snapshot_copy_configurations"] = snapshot_copy_configurations
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def namespace_name(self) -> builtins.str:
-        '''The name of the namespace.
-
-        Must be between 3-64 alphanumeric characters in lowercase, and it cannot be a reserved word. A list of reserved words can be found in `Reserved Words <https://docs.aws.amazon.com//redshift/latest/dg/r_pg_keywords.html>`_ in the Amazon Redshift Database Developer Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-namespacename
-        '''
-        result = self._values.get("namespace_name")
-        assert result is not None, "Required property 'namespace_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def admin_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the namespace's admin credentials secret.
-
-        You can only use this parameter if ``ManageAdminPassword`` is ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminpasswordsecretkmskeyid
-        '''
-        result = self._values.get("admin_password_secret_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def admin_username(self) -> typing.Optional[builtins.str]:
-        '''The username of the administrator for the primary database created in the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminusername
-        '''
-        result = self._values.get("admin_username")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def admin_user_password(self) -> typing.Optional[builtins.str]:
-        '''The password of the administrator for the primary database created in the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-adminuserpassword
-        '''
-        result = self._values.get("admin_user_password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def db_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the primary database created in the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-dbname
-        '''
-        result = self._values.get("db_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_iam_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role to set as a default in the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-defaultiamrolearn
-        '''
-        result = self._values.get("default_iam_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def final_snapshot_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the snapshot to be created before the namespace is deleted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-finalsnapshotname
-        '''
-        result = self._values.get("final_snapshot_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def final_snapshot_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''How long to retain the final snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-finalsnapshotretentionperiod
-        '''
-        result = self._values.get("final_snapshot_retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def iam_roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of IAM roles to associate with the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-iamroles
-        '''
-        result = self._values.get("iam_roles")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service key used to encrypt your data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_exports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The types of logs the namespace can export.
-
-        Available export types are ``userlog`` , ``connectionlog`` , and ``useractivitylog`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-logexports
-        '''
-        result = self._values.get("log_exports")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def manage_admin_password(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If true, Amazon Redshift uses AWS Secrets Manager to manage the namespace's admin credentials.
-
-        You can't use ``AdminUserPassword`` if ``ManageAdminPassword`` is true. If ``ManageAdminPassword`` is ``false`` or not set, Amazon Redshift uses ``AdminUserPassword`` for the admin user account's password.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-manageadminpassword
-        '''
-        result = self._values.get("manage_admin_password")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def namespace_resource_policy(self) -> typing.Any:
-        '''The resource policy that will be attached to the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-namespaceresourcepolicy
-        '''
-        result = self._values.get("namespace_resource_policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def redshift_idc_application_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN for the Redshift application that integrates with IAM Identity Center.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-redshiftidcapplicationarn
-        '''
-        result = self._values.get("redshift_idc_application_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def snapshot_copy_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnNamespace.SnapshotCopyConfigurationProperty]]]]:
-        '''The snapshot copy configurations for the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-snapshotcopyconfigurations
-        '''
-        result = self._values.get("snapshot_copy_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnNamespace.SnapshotCopyConfigurationProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The map of the key-value pairs used to tag the namespace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-namespace.html#cfn-redshiftserverless-namespace-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNamespaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISnapshotRef, _ITaggableV2_4e6798f8)
 class CfnSnapshot(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1450,6 +2235,12 @@ class CfnSnapshot(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotRef")
+    def snapshot_ref(self) -> SnapshotReference:
+        '''A reference to a Snapshot resource.'''
+        return typing.cast(SnapshotReference, jsii.get(self, "snapshotRef"))
 
     @builtins.property
     @jsii.member(jsii_name="snapshotName")
@@ -1707,119 +2498,7 @@ class CfnSnapshot(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnSnapshotProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "snapshot_name": "snapshotName",
-        "namespace_name": "namespaceName",
-        "retention_period": "retentionPeriod",
-        "tags": "tags",
-    },
-)
-class CfnSnapshotProps:
-    def __init__(
-        self,
-        *,
-        snapshot_name: builtins.str,
-        namespace_name: typing.Optional[builtins.str] = None,
-        retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSnapshot``.
-
-        :param snapshot_name: The name of the snapshot.
-        :param namespace_name: The name of the namepsace.
-        :param retention_period: The retention period of the snapshot created by the scheduled action.
-        :param tags: An array of `Tag objects <https://docs.aws.amazon.com/redshift-serverless/latest/APIReference/API_Tag.html>`_ to associate with the snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshiftserverless as redshiftserverless
-            
-            cfn_snapshot_props = redshiftserverless.CfnSnapshotProps(
-                snapshot_name="snapshotName",
-            
-                # the properties below are optional
-                namespace_name="namespaceName",
-                retention_period=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b)
-            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
-            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "snapshot_name": snapshot_name,
-        }
-        if namespace_name is not None:
-            self._values["namespace_name"] = namespace_name
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def snapshot_name(self) -> builtins.str:
-        '''The name of the snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-snapshotname
-        '''
-        result = self._values.get("snapshot_name")
-        assert result is not None, "Required property 'snapshot_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def namespace_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the namepsace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-namespacename
-        '''
-        result = self._values.get("namespace_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The retention period of the snapshot created by the scheduled action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of `Tag objects <https://docs.aws.amazon.com/redshift-serverless/latest/APIReference/API_Tag.html>`_ to associate with the snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-snapshot.html#cfn-redshiftserverless-snapshot-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSnapshotProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IWorkgroupRef, _ITaggable_36806126)
 class CfnWorkgroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2190,6 +2869,12 @@ class CfnWorkgroup(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workgroupRef")
+    def workgroup_ref(self) -> WorkgroupReference:
+        '''A reference to a Workgroup resource.'''
+        return typing.cast(WorkgroupReference, jsii.get(self, "workgroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="workgroupName")
@@ -3234,406 +3919,6 @@ class CfnWorkgroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnWorkgroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "workgroup_name": "workgroupName",
-        "base_capacity": "baseCapacity",
-        "config_parameters": "configParameters",
-        "enhanced_vpc_routing": "enhancedVpcRouting",
-        "max_capacity": "maxCapacity",
-        "namespace_name": "namespaceName",
-        "port": "port",
-        "price_performance_target": "pricePerformanceTarget",
-        "publicly_accessible": "publiclyAccessible",
-        "recovery_point_id": "recoveryPointId",
-        "security_group_ids": "securityGroupIds",
-        "snapshot_arn": "snapshotArn",
-        "snapshot_name": "snapshotName",
-        "snapshot_owner_account": "snapshotOwnerAccount",
-        "subnet_ids": "subnetIds",
-        "tags": "tags",
-        "track_name": "trackName",
-        "workgroup": "workgroup",
-    },
-)
-class CfnWorkgroupProps:
-    def __init__(
-        self,
-        *,
-        workgroup_name: builtins.str,
-        base_capacity: typing.Optional[jsii.Number] = None,
-        config_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.ConfigParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        max_capacity: typing.Optional[jsii.Number] = None,
-        namespace_name: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        price_performance_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.PerformanceTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        recovery_point_id: typing.Optional[builtins.str] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        snapshot_arn: typing.Optional[builtins.str] = None,
-        snapshot_name: typing.Optional[builtins.str] = None,
-        snapshot_owner_account: typing.Optional[builtins.str] = None,
-        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        track_name: typing.Optional[builtins.str] = None,
-        workgroup: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.WorkgroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkgroup``.
-
-        :param workgroup_name: The name of the workgroup.
-        :param base_capacity: The base compute capacity of the workgroup in Redshift Processing Units (RPUs).
-        :param config_parameters: The key of the parameter. The options are ``auto_mv`` , ``datestyle`` , ``enable_case_sensitive_identifier`` , ``enable_user_activity_logging`` , ``query_group`` , ``search_path`` , ``require_ssl`` , ``use_fips_ssl`` , and query monitoring metrics that let you define performance boundaries. For more information about query monitoring rules and available metrics, see `Query monitoring metrics for Amazon Redshift Serverless <https://docs.aws.amazon.com/redshift/latest/dg/cm-c-wlm-query-monitoring-rules.html#cm-c-wlm-query-monitoring-metrics-serverless>`_ .
-        :param enhanced_vpc_routing: The value that specifies whether to enable enhanced virtual private cloud (VPC) routing, which forces Amazon Redshift Serverless to route traffic through your VPC. Default: - false
-        :param max_capacity: The maximum data-warehouse capacity Amazon Redshift Serverless uses to serve queries. The max capacity is specified in RPUs.
-        :param namespace_name: The namespace the workgroup is associated with.
-        :param port: The custom port to use when connecting to a workgroup. Valid port ranges are 5431-5455 and 8191-8215. The default is 5439.
-        :param price_performance_target: An object that represents the price performance target settings for the workgroup.
-        :param publicly_accessible: A value that specifies whether the workgroup can be accessible from a public network. Default: - false
-        :param recovery_point_id: The recovery point id to restore from.
-        :param security_group_ids: A list of security group IDs to associate with the workgroup.
-        :param snapshot_arn: The Amazon Resource Name (ARN) of the snapshot to restore from.
-        :param snapshot_name: The snapshot name to restore from.
-        :param snapshot_owner_account: The Amazon Web Services account that owns the snapshot.
-        :param subnet_ids: A list of subnet IDs the workgroup is associated with.
-        :param tags: The map of the key-value pairs used to tag the workgroup.
-        :param track_name: An optional parameter for the name of the track for the workgroup. If you don't provide a track name, the workgroup is assigned to the current track.
-        :param workgroup: The collection of computing resources from which an endpoint is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_redshiftserverless as redshiftserverless
-            
-            cfn_workgroup_props = redshiftserverless.CfnWorkgroupProps(
-                workgroup_name="workgroupName",
-            
-                # the properties below are optional
-                base_capacity=123,
-                config_parameters=[redshiftserverless.CfnWorkgroup.ConfigParameterProperty(
-                    parameter_key="parameterKey",
-                    parameter_value="parameterValue"
-                )],
-                enhanced_vpc_routing=False,
-                max_capacity=123,
-                namespace_name="namespaceName",
-                port=123,
-                price_performance_target=redshiftserverless.CfnWorkgroup.PerformanceTargetProperty(
-                    level=123,
-                    status="status"
-                ),
-                publicly_accessible=False,
-                recovery_point_id="recoveryPointId",
-                security_group_ids=["securityGroupIds"],
-                snapshot_arn="snapshotArn",
-                snapshot_name="snapshotName",
-                snapshot_owner_account="snapshotOwnerAccount",
-                subnet_ids=["subnetIds"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                track_name="trackName",
-                workgroup=redshiftserverless.CfnWorkgroup.WorkgroupProperty(
-                    base_capacity=123,
-                    config_parameters=[redshiftserverless.CfnWorkgroup.ConfigParameterProperty(
-                        parameter_key="parameterKey",
-                        parameter_value="parameterValue"
-                    )],
-                    creation_date="creationDate",
-                    endpoint=redshiftserverless.CfnWorkgroup.EndpointProperty(
-                        address="address",
-                        port=123,
-                        vpc_endpoints=[redshiftserverless.CfnWorkgroup.VpcEndpointProperty(
-                            network_interfaces=[redshiftserverless.CfnWorkgroup.NetworkInterfaceProperty(
-                                availability_zone="availabilityZone",
-                                network_interface_id="networkInterfaceId",
-                                private_ip_address="privateIpAddress",
-                                subnet_id="subnetId"
-                            )],
-                            vpc_endpoint_id="vpcEndpointId",
-                            vpc_id="vpcId"
-                        )]
-                    ),
-                    enhanced_vpc_routing=False,
-                    max_capacity=123,
-                    namespace_name="namespaceName",
-                    price_performance_target=redshiftserverless.CfnWorkgroup.PerformanceTargetProperty(
-                        level=123,
-                        status="status"
-                    ),
-                    publicly_accessible=False,
-                    security_group_ids=["securityGroupIds"],
-                    status="status",
-                    subnet_ids=["subnetIds"],
-                    track_name="trackName",
-                    workgroup_arn="workgroupArn",
-                    workgroup_id="workgroupId",
-                    workgroup_name="workgroupName"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee3941005026bdab05d38183c12cc7cf5ff218e6db3877161b60d823e21a136)
-            check_type(argname="argument workgroup_name", value=workgroup_name, expected_type=type_hints["workgroup_name"])
-            check_type(argname="argument base_capacity", value=base_capacity, expected_type=type_hints["base_capacity"])
-            check_type(argname="argument config_parameters", value=config_parameters, expected_type=type_hints["config_parameters"])
-            check_type(argname="argument enhanced_vpc_routing", value=enhanced_vpc_routing, expected_type=type_hints["enhanced_vpc_routing"])
-            check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
-            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument price_performance_target", value=price_performance_target, expected_type=type_hints["price_performance_target"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument recovery_point_id", value=recovery_point_id, expected_type=type_hints["recovery_point_id"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument snapshot_arn", value=snapshot_arn, expected_type=type_hints["snapshot_arn"])
-            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
-            check_type(argname="argument snapshot_owner_account", value=snapshot_owner_account, expected_type=type_hints["snapshot_owner_account"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument track_name", value=track_name, expected_type=type_hints["track_name"])
-            check_type(argname="argument workgroup", value=workgroup, expected_type=type_hints["workgroup"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "workgroup_name": workgroup_name,
-        }
-        if base_capacity is not None:
-            self._values["base_capacity"] = base_capacity
-        if config_parameters is not None:
-            self._values["config_parameters"] = config_parameters
-        if enhanced_vpc_routing is not None:
-            self._values["enhanced_vpc_routing"] = enhanced_vpc_routing
-        if max_capacity is not None:
-            self._values["max_capacity"] = max_capacity
-        if namespace_name is not None:
-            self._values["namespace_name"] = namespace_name
-        if port is not None:
-            self._values["port"] = port
-        if price_performance_target is not None:
-            self._values["price_performance_target"] = price_performance_target
-        if publicly_accessible is not None:
-            self._values["publicly_accessible"] = publicly_accessible
-        if recovery_point_id is not None:
-            self._values["recovery_point_id"] = recovery_point_id
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if snapshot_arn is not None:
-            self._values["snapshot_arn"] = snapshot_arn
-        if snapshot_name is not None:
-            self._values["snapshot_name"] = snapshot_name
-        if snapshot_owner_account is not None:
-            self._values["snapshot_owner_account"] = snapshot_owner_account
-        if subnet_ids is not None:
-            self._values["subnet_ids"] = subnet_ids
-        if tags is not None:
-            self._values["tags"] = tags
-        if track_name is not None:
-            self._values["track_name"] = track_name
-        if workgroup is not None:
-            self._values["workgroup"] = workgroup
-
-    @builtins.property
-    def workgroup_name(self) -> builtins.str:
-        '''The name of the workgroup.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-workgroupname
-        '''
-        result = self._values.get("workgroup_name")
-        assert result is not None, "Required property 'workgroup_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def base_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The base compute capacity of the workgroup in Redshift Processing Units (RPUs).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-basecapacity
-        '''
-        result = self._values.get("base_capacity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def config_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.ConfigParameterProperty]]]]:
-        '''The key of the parameter.
-
-        The options are ``auto_mv`` , ``datestyle`` , ``enable_case_sensitive_identifier`` , ``enable_user_activity_logging`` , ``query_group`` , ``search_path`` , ``require_ssl`` , ``use_fips_ssl`` , and query monitoring metrics that let you define performance boundaries. For more information about query monitoring rules and available metrics, see `Query monitoring metrics for Amazon Redshift Serverless <https://docs.aws.amazon.com/redshift/latest/dg/cm-c-wlm-query-monitoring-rules.html#cm-c-wlm-query-monitoring-metrics-serverless>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-configparameters
-        '''
-        result = self._values.get("config_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.ConfigParameterProperty]]]], result)
-
-    @builtins.property
-    def enhanced_vpc_routing(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The value that specifies whether to enable enhanced virtual private cloud (VPC) routing, which forces Amazon Redshift Serverless to route traffic through your VPC.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-enhancedvpcrouting
-        '''
-        result = self._values.get("enhanced_vpc_routing")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The maximum data-warehouse capacity Amazon Redshift Serverless uses to serve queries.
-
-        The max capacity is specified in RPUs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-maxcapacity
-        '''
-        result = self._values.get("max_capacity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def namespace_name(self) -> typing.Optional[builtins.str]:
-        '''The namespace the workgroup is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-namespacename
-        '''
-        result = self._values.get("namespace_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The custom port to use when connecting to a workgroup.
-
-        Valid port ranges are 5431-5455 and 8191-8215. The default is 5439.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def price_performance_target(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.PerformanceTargetProperty]]:
-        '''An object that represents the price performance target settings for the workgroup.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-priceperformancetarget
-        '''
-        result = self._values.get("price_performance_target")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.PerformanceTargetProperty]], result)
-
-    @builtins.property
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A value that specifies whether the workgroup can be accessible from a public network.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def recovery_point_id(self) -> typing.Optional[builtins.str]:
-        '''The recovery point id to restore from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-recoverypointid
-        '''
-        result = self._values.get("recovery_point_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security group IDs to associate with the workgroup.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def snapshot_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the snapshot to restore from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotarn
-        '''
-        result = self._values.get("snapshot_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def snapshot_name(self) -> typing.Optional[builtins.str]:
-        '''The snapshot name to restore from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotname
-        '''
-        result = self._values.get("snapshot_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def snapshot_owner_account(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Web Services account that owns the snapshot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-snapshotowneraccount
-        '''
-        result = self._values.get("snapshot_owner_account")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of subnet IDs the workgroup is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The map of the key-value pairs used to tag the workgroup.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def track_name(self) -> typing.Optional[builtins.str]:
-        '''An optional parameter for the name of the track for the workgroup.
-
-        If you don't provide a track name, the workgroup is assigned to the current track.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-trackname
-        '''
-        result = self._values.get("track_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def workgroup(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.WorkgroupProperty]]:
-        '''The collection of computing resources from which an endpoint is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-workgroup.html#cfn-redshiftserverless-workgroup-workgroup
-        '''
-        result = self._values.get("workgroup")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkgroup.WorkgroupProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkgroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnNamespace",
     "CfnNamespaceProps",
@@ -3641,9 +3926,92 @@ __all__ = [
     "CfnSnapshotProps",
     "CfnWorkgroup",
     "CfnWorkgroupProps",
+    "INamespaceRef",
+    "ISnapshotRef",
+    "IWorkgroupRef",
+    "NamespaceReference",
+    "SnapshotReference",
+    "WorkgroupReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53dc30bd9(
+    *,
+    namespace_name: builtins.str,
+    admin_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
+    admin_username: typing.Optional[builtins.str] = None,
+    admin_user_password: typing.Optional[builtins.str] = None,
+    db_name: typing.Optional[builtins.str] = None,
+    default_iam_role_arn: typing.Optional[builtins.str] = None,
+    final_snapshot_name: typing.Optional[builtins.str] = None,
+    final_snapshot_retention_period: typing.Optional[jsii.Number] = None,
+    iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
+    manage_admin_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    namespace_resource_policy: typing.Any = None,
+    redshift_idc_application_arn: typing.Optional[builtins.str] = None,
+    snapshot_copy_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNamespace.SnapshotCopyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b(
+    *,
+    snapshot_name: builtins.str,
+    namespace_name: typing.Optional[builtins.str] = None,
+    retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ee3941005026bdab05d38183c12cc7cf5ff218e6db3877161b60d823e21a136(
+    *,
+    workgroup_name: builtins.str,
+    base_capacity: typing.Optional[jsii.Number] = None,
+    config_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.ConfigParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    max_capacity: typing.Optional[jsii.Number] = None,
+    namespace_name: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    price_performance_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.PerformanceTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    recovery_point_id: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    snapshot_arn: typing.Optional[builtins.str] = None,
+    snapshot_name: typing.Optional[builtins.str] = None,
+    snapshot_owner_account: typing.Optional[builtins.str] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    track_name: typing.Optional[builtins.str] = None,
+    workgroup: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.WorkgroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9228735dcb47fbcccd00d1cec52d7ec5df2f1bb9688412d91563013d97fcb162(
+    *,
+    namespace_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20758be4841daf661aebb85b0a952ffd98181e79c14ab8950f6aa2c08ce22e1c(
+    *,
+    snapshot_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfee815072ef30670837aa8a3f7bf48e9c370e748c66eef4500eff0cb987ceb0(
+    *,
+    workgroup_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e517382d9f55a518348d7299a7ce6c5be66bae2202f4223bf3c891a7dd669682(
     scope: _constructs_77d1e7e8.Construct,
@@ -3805,28 +4173,6 @@ def _typecheckingstub__4f726a14406204ec2ead254e53f2cdca3d4ac96a2d835e99da9cbbb58
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53dc30bd9(
-    *,
-    namespace_name: builtins.str,
-    admin_password_secret_kms_key_id: typing.Optional[builtins.str] = None,
-    admin_username: typing.Optional[builtins.str] = None,
-    admin_user_password: typing.Optional[builtins.str] = None,
-    db_name: typing.Optional[builtins.str] = None,
-    default_iam_role_arn: typing.Optional[builtins.str] = None,
-    final_snapshot_name: typing.Optional[builtins.str] = None,
-    final_snapshot_retention_period: typing.Optional[jsii.Number] = None,
-    iam_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    log_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
-    manage_admin_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    namespace_resource_policy: typing.Any = None,
-    redshift_idc_application_arn: typing.Optional[builtins.str] = None,
-    snapshot_copy_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNamespace.SnapshotCopyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a1e2b5eeadcf14eaf0be75cda550b6bcef2aa009af0fe87d6f5e9e856ad0ef43(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3887,16 +4233,6 @@ def _typecheckingstub__d32a77292254bff347197e3bdcc04e2fea309ebb7baea20e5fee3f571
     snapshot_create_time: typing.Optional[builtins.str] = None,
     snapshot_name: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38cd0d09fc150d83197b13fb0e10ea82ffa589e88452cdfecbd53994ae2ced5b(
-    *,
-    snapshot_name: builtins.str,
-    namespace_name: typing.Optional[builtins.str] = None,
-    retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4109,30 +4445,6 @@ def _typecheckingstub__b7cad236eecd67272da075e88f17a1dbdae4ee5083553d6443dcc19b3
     workgroup_arn: typing.Optional[builtins.str] = None,
     workgroup_id: typing.Optional[builtins.str] = None,
     workgroup_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ee3941005026bdab05d38183c12cc7cf5ff218e6db3877161b60d823e21a136(
-    *,
-    workgroup_name: builtins.str,
-    base_capacity: typing.Optional[jsii.Number] = None,
-    config_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.ConfigParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    enhanced_vpc_routing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    max_capacity: typing.Optional[jsii.Number] = None,
-    namespace_name: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    price_performance_target: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.PerformanceTargetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    recovery_point_id: typing.Optional[builtins.str] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    snapshot_arn: typing.Optional[builtins.str] = None,
-    snapshot_name: typing.Optional[builtins.str] = None,
-    snapshot_owner_account: typing.Optional[builtins.str] = None,
-    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    track_name: typing.Optional[builtins.str] = None,
-    workgroup: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkgroup.WorkgroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

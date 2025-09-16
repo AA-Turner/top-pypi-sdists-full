@@ -267,10 +267,10 @@ class PaymentEntryWindow(NextGenWindow):
             beginning, end = status.split()[0], status.split()[-1]
             status = self.get_status_in_dropdown_that_begin_with_and_end_with(beginning, end, pane)
         self.select_status_in_service_row(pane, status, status_key)
+        send_keys("+{TAB}")
         selected_status = status_field.get_value()
         if selected_status == "":
             raise StatusNotUpdatedException(f"Failed to select status {status} in dropdown")
-        send_keys("+{TAB}")
 
     def get_statuses(self, pane: ListItemWrapper):
         """This method gets all the statuses in the status dropdown.

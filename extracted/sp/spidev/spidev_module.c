@@ -35,7 +35,7 @@
 #include <sys/ioctl.h>
 #include <linux/ioctl.h>
 
-#define _VERSION_ "3.7"
+#define _VERSION_ "3.8"
 #define SPIDEV_MAXPATH 4096
 
 #define BLOCK_SIZE_CONTROL_FILE "/sys/module/spidev/parameters/bufsiz"
@@ -184,8 +184,11 @@ SpiDev_writebytes(SpiDevObject *self, PyObject *args)
 		return NULL;
 
 	seq = PySequence_Fast(obj, "expected a sequence");
+	if (!seq)
+		return NULL;
+
 	len = PySequence_Fast_GET_SIZE(seq);
-	if (!seq || len <= 0) {
+	if (len <= 0) {
 		PyErr_SetString(PyExc_TypeError, wrmsg_list0);
 		return NULL;
 	}
@@ -437,7 +440,6 @@ SpiDev_writebytes2(SpiDevObject *self, PyObject *args)
 	// Otherwise, fall back to sequence protocol
 	seq = PySequence_Fast(obj, "expected a sequence");
 	if (seq == NULL) {
-		PyErr_SetString(PyExc_TypeError, wrmsg_list0);
 		return NULL;
 	}
 
@@ -480,7 +482,6 @@ SpiDev_xfer(SpiDevObject *self, PyObject *args)
 
 	seq = PySequence_Fast(obj, "expected a sequence");
 	if (!seq) {
-		PyErr_SetString(PyExc_TypeError, wrmsg_list0);
 		return NULL;
 	}
 
@@ -650,7 +651,6 @@ SpiDev_xfer2(SpiDevObject *self, PyObject *args)
 
 	seq = PySequence_Fast(obj, "expected a sequence");
 	if (!seq) {
-		PyErr_SetString(PyExc_TypeError, wrmsg_list0);
 		return NULL;
 	}
 
@@ -773,7 +773,6 @@ SpiDev_xfer3(SpiDevObject *self, PyObject *args)
 
 	seq = PySequence_Fast(obj, "expected a sequence");
 	if (!seq) {
-		PyErr_SetString(PyExc_TypeError, wrmsg_list0);
 		return NULL;
 	}
 
@@ -1335,27 +1334,12 @@ static PyGetSetDef SpiDev_getset[] = {
 	{NULL},
 };
 
-PyDoc_STRVAR(SpiDev_open_doc,
-	"open(bus, device)\n\n"
-	"Connects the object to the specified SPI device.\n"
-	"open(X,Y) will open /dev/spidev<X>.<Y>\n");
-
 static PyObject *
-SpiDev_open(SpiDevObject *self, PyObject *args, PyObject *kwds)
+SpiDev_open_dev(SpiDevObject *self, char *dev_path)
 {
-	int bus, device;
-	char path[SPIDEV_MAXPATH];
 	uint8_t tmp8;
 	uint32_t tmp32;
-	static char *kwlist[] = {"bus", "device", NULL};
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ii:open", kwlist, &bus, &device))
-		return NULL;
-	if (snprintf(path, SPIDEV_MAXPATH, "/dev/spidev%d.%d", bus, device) >= SPIDEV_MAXPATH) {
-		PyErr_SetString(PyExc_OverflowError,
-			"Bus and/or device number is invalid.");
-		return NULL;
-	}
-	if ((self->fd = open(path, O_RDWR, 0)) == -1) {
+	if ((self->fd = open(dev_path, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_IOError);
 		return NULL;
 	}
@@ -1377,6 +1361,50 @@ SpiDev_open(SpiDevObject *self, PyObject *args, PyObject *kwds)
 
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+
+PyDoc_STRVAR(SpiDev_open_path_doc,
+	"open_path(spidev_path)\n\n"
+	"Connects the object to the specified SPI device.\n"
+	"open_path(X) will open the spidev character device <X> (following symbolic links if necessary).\n");
+
+static PyObject *
+SpiDev_open_path(SpiDevObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {"path", NULL};
+	PyObject *py_dev_path;
+	char *dev_path;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O&:open", kwlist, PyUnicode_FSConverter, &py_dev_path))
+		return NULL;
+	if (py_dev_path == NULL)
+		return NULL;
+	dev_path = PyBytes_AsString(py_dev_path);
+	if (dev_path == NULL)
+		return NULL;
+	return SpiDev_open_dev(self, dev_path);
+}
+
+
+PyDoc_STRVAR(SpiDev_open_doc,
+	"open(bus, device)\n\n"
+	"Connects the object to the specified SPI device.\n"
+	"open(X,Y) will open /dev/spidev<X>.<Y>\n");
+
+static PyObject *
+SpiDev_open(SpiDevObject *self, PyObject *args, PyObject *kwds)
+{
+	int bus, device;
+	char path[SPIDEV_MAXPATH];
+	static char *kwlist[] = {"bus", "device", NULL};
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ii:open", kwlist, &bus, &device))
+		return NULL;
+	if (snprintf(path, SPIDEV_MAXPATH, "/dev/spidev%d.%d", bus, device) >= SPIDEV_MAXPATH) {
+		PyErr_SetString(PyExc_OverflowError,
+			"Bus and/or device number is invalid.");
+		return NULL;
+	}
+	return SpiDev_open_dev(self, path);
 }
 
 static int
@@ -1434,6 +1462,8 @@ PyObject *SpiDev_exit(SpiDevObject *self, PyObject *args)
 static PyMethodDef SpiDev_methods[] = {
 	{"open", (PyCFunction)SpiDev_open, METH_VARARGS | METH_KEYWORDS,
 		SpiDev_open_doc},
+	{"open_path", (PyCFunction)SpiDev_open_path, METH_VARARGS | METH_KEYWORDS,
+		SpiDev_open_path_doc},
 	{"close", (PyCFunction)SpiDev_close, METH_NOARGS,
 		SpiDev_close_doc},
 	{"fileno", (PyCFunction)SpiDev_fileno, METH_NOARGS,

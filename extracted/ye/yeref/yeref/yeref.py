@@ -2542,1283 +2542,6 @@ async def db_change(sql, param=None, db=None):
     return result
 
 
-async def db_bot_create(db):
-    con = sqlite3.connect(db, timeout=10)
-    try:
-        cur = con.cursor()
-
-        # TRG
-        cur.execute('''CREATE TABLE IF NOT EXISTS TRG ( 
-            TRG_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            TRG_VID         VARCHAR     UNIQUE NOT NULL,
-            TRG_TYPE        VARCHAR,
-            TRG_CONTENT     VARCHAR,
-
-            TRG_RIGHTID     VARCHAR,
-            TRG_RIGHTTYPE   VARCHAR,
-            TRG_LEFTID      VARCHAR,
-            TRG_LEFTTYPE    VARCHAR
-        )''')
-
-        # ACT
-        cur.execute('''CREATE TABLE IF NOT EXISTS ACT ( 
-            ACT_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ACT_VID         VARCHAR     UNIQUE NOT NULL,
-            ACT_TYPE        VARCHAR,
-            ACT_CONTENT     VARCHAR,
-
-            ACT_NEXTID      VARCHAR,
-            ACT_NEXTTYPE    VARCHAR
-        )''')
-
-        # MSG
-        cur.execute('''CREATE TABLE IF NOT EXISTS MSG ( 
-            MSG_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            MSG_VID         VARCHAR     UNIQUE NOT NULL,
-            MSG_TYPE        VARCHAR,
-            MSG_TEXT        VARCHAR,
-            MSG_MEDIA       VARCHAR,
-            MSG_BUTTONS     VARCHAR,
-            
-            MSG_CHKBOX      VARCHAR,
-            MSG_TEXTF       VARCHAR,  
-            MSG_BUTTONSF    VARCHAR,
-            MSG_LC          VARCHAR,
-            MSG_TRANSLATED  INTEGER     DEFAULT 0,
-
-            MSG_NEXTID      VARCHAR,
-            MSG_NEXTTYPE    VARCHAR
-        )''')
-
-        # VIEW
-        cur.execute('''CREATE TABLE IF NOT EXISTS VIEW ( 
-            VIEW_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ENT_VID         VARCHAR     NOT NULL,
-            ENT_TYPE        VARCHAR     NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            UNIQUE (ENT_VID, ENT_TYPE, CHAT_TID)
-        )''')
-
-        # LANG
-        cur.execute('''CREATE TABLE IF NOT EXISTS LANG ( 
-            LANG_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            MSG_ID          INTEGER,
-            MSG_LC          VARCHAR,
-            
-            MSG_TEXT        VARCHAR,
-            MSG_BUTTONS     VARCHAR,
-            MSG_TEXTF       VARCHAR,
-            MSG_BUTTONSF    VARCHAR,
-            UNIQUE (MSG_ID, MSG_LC)
-        )''')
-
-        # POST
-        cur.execute('''CREATE TABLE IF NOT EXISTS POST ( 
-            POST_ID            INTEGER      PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            POST_CHATTID       BIGINT       NOT NULL,
-            POST_USERTID       BIGINT       NOT NULL,
-            POST_USERTUN       VARCHAR,
-            POST_TARGET        VARCHAR,
-            POST_TYPE          VARCHAR,
-            POST_TEXT          VARCHAR,
-            POST_MSGID         VARCHAR,
-            POST_TELESCOPE     VARCHAR,
-            
-            POST_BUTTONS       VARCHAR,
-            POST_BLOG          VARCHAR,
-            POST_WEB           VARCHAR,
-            POST_TZ            VARCHAR,
-            POST_DT            VARCHAR,
-            POST_TR            VARCHAR,
-            POST_STATUS        BOOLEAN     DEFAULT 0,
-            
-            POST_ISBUTTON      BOOLEAN     DEFAULT 0,
-            POST_ISDYNAMIC     BOOLEAN     DEFAULT 0,
-            POST_ISSOUND       BOOLEAN     DEFAULT 1,
-            POST_ISSILENCE     BOOLEAN     DEFAULT 0,
-            POST_ISPIN         BOOLEAN     DEFAULT 0,
-            POST_ISPREVIEW     BOOLEAN     DEFAULT 0,
-            POST_ISSPOILER     BOOLEAN     DEFAULT 0,
-            POST_ISGALLERY     BOOLEAN     DEFAULT 0,
-            POST_ISFORMAT      BOOLEAN     DEFAULT 0,
-            POST_ISTAG         BOOLEAN     DEFAULT 0,
-            POST_ISREACTION    VARCHAR,
-            POST_ISEFFECT      VARCHAR,
-            POST_ISPODCAST     BOOLEAN     DEFAULT 0,
-            POST_ISWINDOW      BOOLEAN     DEFAULT 0,
-            
-            POST_LNK           VARCHAR,
-            POST_FILENAME      VARCHAR,
-            POST_FID           VARCHAR,
-            POST_FIDNOTE       VARCHAR,
-            POSTB_FID          VARCHAR,
-            POSTB_FIDNOTE      VARCHAR
-        )''')
-
-        # PUSH
-        cur.execute('''CREATE TABLE IF NOT EXISTS PUSH ( 
-            PUSH_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            CHAT_FULLNAME   VARCHAR,
-            CHAT_USERNAME   VARCHAR,
-            CHAT_ISPREMIUM  BOOLEAN,
-            CHAT_LC         VARCHAR,
-            POST_ID         INTEGER     NOT NULL,
-            BTN_BID       INTEGER     NOT NULL,
-            UNIQUE (CHAT_TID, POST_ID, BTN_BID)
-        )''')
-
-        # USER
-        cur.execute(f'''CREATE TABLE IF NOT EXISTS USER ( 
-            USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            USER_TID        BIGINT      UNIQUE
-                                        NOT NULL,
-            USER_BID        VARCHAR,
-            USER_USERNAME   VARCHAR,
-            USER_FULLNAME   VARCHAR,
-
-            USER_VARS       VARCHAR     DEFAULT '{USER_VARS_}',
-            USER_LSTS       VARCHAR     DEFAULT '{USER_LSTS_}'
-        )''')
-
-        # USERBAN
-        cur.execute('''CREATE TABLE IF NOT EXISTS USERBAN ( 
-            USERBAN_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            USERBAN_TID         BIGINT      UNIQUE,
-            USERBAN_USERNAME    VARCHAR     UNIQUE,
-            USERBAN_FULLNAME    VARCHAR,
-            USERBAN_BAN         VARCHAR, 
-            USERBAN_DT          VARCHAR
-        )''')
-
-        # NOTICE
-        cur.execute('''CREATE TABLE IF NOT EXISTS NOTICE ( 
-            NOTICE_ID           INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            NOTICE_TID          BIGINT,
-            NOTICE_TYPE         VARCHAR,
-            NOTICE_TXT          VARCHAR,
-            NOTICE_FID          VARCHAR,
-            UNIQUE (NOTICE_TID, NOTICE_TYPE, NOTICE_TXT, NOTICE_FID)
-        )''')
-
-        con.commit()
-        cur.close()
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        con.close()
-
-
-async def db_usr_create(db):
-    con = sqlite3.connect(db, timeout=10)
-    try:
-        cur = con.cursor()
-
-        # TRG
-        cur.execute('''CREATE TABLE IF NOT EXISTS TRG ( 
-            TRG_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            TRG_VID         VARCHAR     UNIQUE NOT NULL,
-            TRG_TYPE        VARCHAR,
-            TRG_CONTENT     VARCHAR,
-
-            TRG_RIGHTID     VARCHAR,
-            TRG_RIGHTTYPE   VARCHAR,
-            TRG_LEFTID      VARCHAR,
-            TRG_LEFTTYPE    VARCHAR
-        )''')
-
-        # ACT
-        cur.execute('''CREATE TABLE IF NOT EXISTS ACT ( 
-            ACT_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ACT_VID         VARCHAR     UNIQUE NOT NULL,
-            ACT_TYPE        VARCHAR,
-            ACT_CONTENT     VARCHAR,
-
-            ACT_NEXTID      VARCHAR,
-            ACT_NEXTTYPE    VARCHAR
-        )''')
-
-        # MSG
-        cur.execute('''CREATE TABLE IF NOT EXISTS MSG ( 
-            MSG_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            MSG_VID         VARCHAR     UNIQUE NOT NULL,
-            MSG_TYPE        VARCHAR,
-            MSG_TEXT        VARCHAR,
-            MSG_MEDIA       VARCHAR,
-            MSG_BUTTONS     VARCHAR,
-
-            MSG_CHKBOX      VARCHAR,
-            MSG_TEXTF       VARCHAR,  
-            MSG_BUTTONSF    VARCHAR,
-            MSG_LC          VARCHAR,
-            MSG_TRANSLATED  INTEGER     DEFAULT 0,
-
-            MSG_NEXTID      VARCHAR,
-            MSG_NEXTTYPE    VARCHAR
-        )''')
-
-        # VIEW
-        cur.execute('''CREATE TABLE IF NOT EXISTS VIEW ( 
-            VIEW_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ENT_VID         VARCHAR     NOT NULL,
-            ENT_TYPE        VARCHAR     NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            UNIQUE (ENT_VID, ENT_TYPE, CHAT_TID)
-        )''')
-
-        # LANG
-        cur.execute('''CREATE TABLE IF NOT EXISTS LANG ( 
-            LANG_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            MSG_ID          INTEGER,
-            MSG_LC          VARCHAR,
-
-            MSG_TEXT        VARCHAR,
-            MSG_BUTTONS     VARCHAR,
-            MSG_TEXTF       VARCHAR,
-            MSG_BUTTONSF    VARCHAR,
-            UNIQUE (MSG_ID, MSG_LC)
-        )''')
-
-        # POST
-        cur.execute('''CREATE TABLE IF NOT EXISTS POST ( 
-            POST_ID            INTEGER      PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            POST_TID           BIGINT       UNIQUE NOT NULL,
-            POST_CHATTID       BIGINT       NOT NULL,
-            POST_USERTID       BIGINT       NOT NULL,
-            POST_USERTUN       VARCHAR,
-            POST_TARGET        VARCHAR,
-            POST_MSGID         VARCHAR,
-
-            POST_TYPE          VARCHAR,
-            POST_TEXT          VARCHAR,
-            POST_MEDIA         VARCHAR,
-            POST_BUTTONS       VARCHAR,
-            POST_CHKBOX        VARCHAR,
-
-            POST_WEB           VARCHAR,
-            POST_NFT           VARCHAR,
-            POST_PAY           VARCHAR,
-            POST_BLOG          VARCHAR,
-
-            POST_WATER         VARCHAR,
-            POST_STARS         VARCHAR,    
-            POST_WALL          VARCHAR,
-            POST_EMOJI         VARCHAR,
-            POST_THEME         VARCHAR,
-            POST_ISMINTED      BOOLEAN      DEFAULT 0,
-            POST_MINTLINK      VARCHAR,
-            POST_ISPRIVATE     BOOLEAN      DEFAULT 0,
-
-            POST_TZ            VARCHAR,
-            POST_DT            VARCHAR,
-            POST_TR            VARCHAR,
-            POST_STATUS        BOOLEAN      DEFAULT 0
-        )''')
-
-        # # POST
-        # cur.execute('''CREATE TABLE IF NOT EXISTS POST (
-        #     POST_ID            INTEGER      PRIMARY KEY AUTOINCREMENT
-        #                                     UNIQUE
-        #                                     NOT NULL,
-        #     POST_CHATTID       BIGINT       NOT NULL,
-        #     POST_USERTID       BIGINT       NOT NULL,
-        #     POST_TARGET        VARCHAR,
-        #     POST_TYPE          VARCHAR,
-        #     POST_TEXT          VARCHAR,
-        #     POST_MSGID         VARCHAR,
-        #     POST_TELESCOPE     VARCHAR,
-        #
-        #     POST_BUTTONS       VARCHAR,
-        #     POST_BLOG          VARCHAR,
-        #     POST_WEB           VARCHAR,
-        #     POST_TZ            VARCHAR,
-        #     POST_DT            VARCHAR,
-        #     POST_TR            VARCHAR,
-        #     POST_STATUS        BOOLEAN     DEFAULT 0,
-        #
-        #     POST_ISBUTTON      BOOLEAN     DEFAULT 0,
-        #     POST_ISDYNAMIC     BOOLEAN     DEFAULT 0,
-        #     POST_ISSOUND       BOOLEAN     DEFAULT 1,
-        #     POST_ISSILENCE     BOOLEAN     DEFAULT 0,
-        #     POST_ISPIN         BOOLEAN     DEFAULT 0,
-        #     POST_ISPREVIEW     BOOLEAN     DEFAULT 0,
-        #     POST_ISSPOILER     BOOLEAN     DEFAULT 0,
-        #     POST_ISGALLERY     BOOLEAN     DEFAULT 0,
-        #     POST_ISFORMAT      BOOLEAN     DEFAULT 0,
-        #     POST_ISTAG         BOOLEAN     DEFAULT 0,
-        #     POST_ISVIA         BOOLEAN     DEFAULT 0,
-        #     POST_ISREACTION    VARCHAR,
-        #     POST_ISEFFECT      VARCHAR,
-        #     POST_ISPODCAST     BOOLEAN     DEFAULT 0,
-        #     POST_ISWINDOW      BOOLEAN     DEFAULT 0,
-        #
-        #     POST_REMOJI        VARCHAR,
-        #     POST_TIMER         VARCHAR,
-        #     POST_THEME         VARCHAR,
-        #     POST_WALL          VARCHAR,
-        #     POST_ISDESTRUCT    BOOLEAN     DEFAULT 0,
-        #
-        #     POST_LNK           VARCHAR,
-        #     POST_FILENAME      VARCHAR,
-        #     POST_FID           VARCHAR,
-        #     POST_FIDNOTE       VARCHAR,
-        #     POSTB_FID          VARCHAR,
-        #     POSTB_FIDNOTE      VARCHAR
-        # )''')
-
-        # PUSH
-        cur.execute('''CREATE TABLE IF NOT EXISTS PUSH ( 
-            PUSH_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            CHAT_FULLNAME   VARCHAR,
-            CHAT_USERNAME   VARCHAR,
-            CHAT_ISPREMIUM  BOOLEAN,
-            CHAT_LC         VARCHAR,
-            POST_ID         INTEGER     NOT NULL,
-            BTN_BID       INTEGER     NOT NULL,
-            UNIQUE (CHAT_TID, POST_ID, BTN_BID)
-        )''')
-
-        # GEO
-        cur.execute('''CREATE TABLE IF NOT EXISTS GEO ( 
-            GEO_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            USER_TID        BIGINT      UNIQUE
-                                        NOT NULL,
-            USER_FULLNAME   VARCHAR,
-            USER_USERNAME   VARCHAR,
-            USER_ISPREMIUM  INTEGER,
-            USER_PHOTO      VARCHAR,
-
-            GEO_ISPRIORITY  INTEGER     DEFAULT 0
-        )''')
-
-        # JOIN
-        cur.execute('''CREATE TABLE IF NOT EXISTS INVITE ( 
-            INVITE_ID           INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            INVITE_CHATTID      BIGINT      NOT NULL,
-            INVITE_USERTID      BIGINT      NOT NULL,
-            INVITE_MSGID        INTEGER,
-            INVITE_TYPE         VARCHAR,
-            INVITE_DATETIME     DATETIME,
-            UNIQUE (INVITE_CHATTID, INVITE_USERTID)
-        )''')
-
-        # USER
-        cur.execute(f'''CREATE TABLE IF NOT EXISTS USER ( 
-            USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            USER_TID        BIGINT      UNIQUE
-                                        NOT NULL,
-            USER_BID        VARCHAR,
-            USER_USERNAME   VARCHAR,
-            USER_FULLNAME   VARCHAR,
-
-            USER_VARS       VARCHAR     DEFAULT '{USER_VARS_}',
-            USER_LSTS       VARCHAR     DEFAULT '{USER_LSTS_}'
-        )''')
-
-        # USERB
-        cur.execute(f'''CREATE TABLE IF NOT EXISTS USERB ( 
-            USERB_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                         UNIQUE
-                                         NOT NULL,
-            USERB_TID        BIGINT      UNIQUE
-                                         NOT NULL,
-            USERB_USERNAME   VARCHAR,
-            USERB_FULLNAME   VARCHAR,
-
-            USERB_VARS       VARCHAR     DEFAULT '{USER_VARS_}',
-            USERB_LSTS       VARCHAR     DEFAULT '{USER_LSTS_}'
-        )''')
-
-        # USERG
-        cur.execute(f'''CREATE TABLE IF NOT EXISTS USERG ( 
-            USERG_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            USERG_TID           BIGINT      UNIQUE
-                                            NOT NULL,
-            USERG_USERNAME      VARCHAR,
-            USERG_FULLNAME      VARCHAR,
-            USERG_PHONE         VARCHAR,
-            USERG_PHOTO         VARCHAR,
-            USERG_PHOTOCNT      INTEGER     DEFAULT 0,
-            USERG_ISPREMIUM     BOOLEAN     DEFAULT 0,
-            
-            USERG_RANK          INTEGER     DEFAULT 0,
-            USERG_COORDINATES   VARCHAR
-        )''')
-
-        # USERBAN
-        cur.execute('''CREATE TABLE IF NOT EXISTS USERBAN ( 
-            USERBAN_ID          INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            USERBAN_TID         BIGINT      UNIQUE,
-            USERBAN_USERNAME    VARCHAR     UNIQUE,
-            USERBAN_FULLNAME    VARCHAR,
-            USERBAN_BAN         VARCHAR, 
-            USERBAN_DT          VARCHAR
-        )''')
-
-        con.commit()
-        cur.close()
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        con.close()
-
-
-async def db_usr_create_extra(db):
-    con = sqlite3.connect(db, timeout=10)
-    con.execute('PRAGMA foreign_keys=ON;')
-    cur = con.cursor()
-
-    # USER
-    cur.execute('''CREATE TABLE IF NOT EXISTS USER ( 
-        USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_TID        BIGINT      UNIQUE
-                                    NOT NULL,
-        USER_USERNAME   VARCHAR,
-        USER_FULLNAME   VARCHAR,
-        USER_ISPREMIUM  INTEGER,
-
-        USER_UTM        VARCHAR,
-        USER_PAY        VARCHAR,
-        USER_GEO        VARCHAR,
-        USER_PHONE      VARCHAR,
-        USER_PROMO      VARCHAR,
-        USER_EMAIL      VARCHAR,
-        USER_TEXT       VARCHAR,
- 
-        USER_IP         VARCHAR,
-        USER_PLATFORM   VARCHAR,
-        USER_DEVICE     VARCHAR,
-
-        USER_DTPAID     VARCHAR, 
-        USER_ISPAID     INTEGER     DEFAULT 0,
-        USER_TYPAID     VARCHAR,
-        USER_TXPAID     VARCHAR,
-
-        USER_DT         VARCHAR,
-        USER_TZ         VARCHAR,
-        USER_LZ         VARCHAR,
-        USER_LC         VARCHAR
-    )''')
-
-    # FILE
-    cur.execute('''CREATE TABLE IF NOT EXISTS FILE (
-        FILE_ID             INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        FILE_FILEID         VARCHAR     NOT NULL,
-        FILE_FILENAME       VARCHAR,
-        UNIQUE (FILE_FILEID, FILE_FILENAME)
-    )''')
-
-    # LIKE
-    cur.execute('''CREATE TABLE IF NOT EXISTS LIKE ( 
-        LIKE_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_ID         INTEGER     NOT NULL,
-        POST_ID         INTEGER     NOT NULL
-        )''')
-
-    # OFFER
-    cur.execute('''CREATE TABLE IF NOT EXISTS OFFER ( 
-        OFFER_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        OFFER_USERTID       BIGINT      NOT NULL,
-        OFFER_TEXT          VARCHAR,
-        OFFER_MEDIATYPE     VARCHAR,
-        OFFER_FILEID        VARCHAR,
-        OFFER_FILEIDNOTE    VARCHAR,
-        OFFER_FILENAME      VARCHAR,
-
-        OFFER_TGPHLINK      VARCHAR,
-        OFFER_ISTGPH        BOOLEAN     DEFAULT 0,
-        OFFER_BUTTON        VARCHAR,
-        OFFER_ISBUTTON      BOOLEAN     DEFAULT 0,
-        OFFER_ISSPOILER     BOOLEAN     DEFAULT 0,
-        OFFER_ISPIN         BOOLEAN     DEFAULT 0,
-        OFFER_ISSILENCE     BOOLEAN     DEFAULT 0,
-        OFFER_ISGALLERY     BOOLEAN     DEFAULT 0,
-
-        OFFER_STATUS        BOOLEAN     DEFAULT 0,
-        OFFER_TZ            VARCHAR,
-        OFFER_DT            VARCHAR
-    )''')
-
-    # HASH
-    cur.execute('''CREATE TABLE IF NOT EXISTS HASH (
-        HASH_ID     INTEGER     PRIMARY KEY AUTOINCREMENT,
-        HASH_STR    TEXT        NOT NULL UNIQUE,
-        HASH_VAL    TEXT        NOT NULL UNIQUE
-    )
-    ''')
-
-    # UB
-    cur.execute(f"""CREATE TABLE IF NOT EXISTS UB ( 
-        UB_ID              INTEGER     PRIMARY KEY AUTOINCREMENT
-                                       UNIQUE
-                                       NOT NULL,
-        UB_TID             BIGINT      UNIQUE
-                                       NOT NULL,
-        OWNER_TID          BIGINT,
-
-        UB_APIID           VARCHAR,
-        UB_APIHASH         VARCHAR,
-        UB_PATH            VARCHAR,
-        UB_CLOUD           VARCHAR,
-        UB_PHONE           VARCHAR,
-        UB_USERNAME        VARCHAR,
-        UB_FIRSTNAME       VARCHAR,
-        UB_LASTNAME        VARCHAR,
-        UB_BIO             VARCHAR,
-        UB_ISPREMIUM       BOOLEAN     DEFAULT 0,
-        UB_ISMUTUAL        BOOLEAN     DEFAULT 0,
-        UB_PHOTO           VARCHAR,
-        UB_PHOTOHASH       VARCHAR,
-        UB_ADDLIST         VARCHAR,
-
-        UB_STATUS          VARCHAR,
-        UB_PID             VARCHAR,
-        UB_CMD             VARCHAR,
-        UB_RES             VARCHAR,
-        UB_UPDATE          VARCHAR,
-        UB_INFO            VARCHAR,
-        UB_STAT            VARCHAR,
-        UB_WAIT            VARCHAR,
-        UB_SPAMBOT         VARCHAR,
-        UB_LOGIN           VARCHAR,
-        UB_AUTODEL         INTEGER     DEFAULT 0,
-        UB_DELAY           INTEGER     DEFAULT 0,
-        UB_VOTE            VARCHAR,
-        UB_FIRSTMSG        VARCHAR,
-        UB_SPAMBOTCNT      INTEGER     DEFAULT 0,
-        UB_DELTATIME       VARCHAR,
-        UB_USERCNT         INTEGER     DEFAULT 0,
-
-        UB_CHANNELTID      BIGINT,
-        UB_CHANNELLINK     VARCHAR,
-        UB_BOTUSERNAME     VARCHAR,
-        UB_BOTTOKEN        VARCHAR,
-        UB_BOTQUERY        VARCHAR,
-        UB_BOTMARKUP       VARCHAR,
-        UB_BOTISPAID       VARCHAR,
-        UB_TOKENTGPH       VARCHAR,
-        UB_JSONTGPH        VARCHAR,
-        UB_PAGETGPH        VARCHAR,
-
-        UB_CONFIG          VARCHAR     DEFAULT '{UB_CONFIG_}',
-        UB_CMONITOR        VARCHAR,
-        UB_CMONITORWRD     VARCHAR,
-        UB_CMONITORSRC     VARCHAR,
-        UB_CPODCAST        VARCHAR     DEFAULT '{UB_CPODCAST_}',
-        UB_CPODCASTSRC     VARCHAR,
-        UB_CPODCASTDST     VARCHAR,
-        UB_CNOTIFY         VARCHAR     DEFAULT '{UB_CNOTIFY_}',
-        UB_CNOTIFYSRC     VARCHAR,
-        
-        UB_CDECOR          VARCHAR     DEFAULT '{UB_CDECOR_}',
-        UB_CDECORSPOILER   VARCHAR,
-        UB_CREACTION       VARCHAR     DEFAULT '{UB_CREACTION_}',
-        UB_CTRANSLATE      VARCHAR     DEFAULT '{UB_CTRANSLATE_}',
-        UB_CTRANSLATELANG  VARCHAR,
-        UB_CTRANSCRIBE     VARCHAR     DEFAULT '{UB_CTRANSCRIBE_}',
-        
-        UB_CGEO            VARCHAR     DEFAULT '{UB_CGEO_}',
-        UB_CGEOCURID       INTEGER     DEFAULT 0,
-        UB_CGEOMSGID       INTEGER,
-
-        UB_VARS            VARCHAR     DEFAULT '{UB_VARS_}',
-        UB_LSTS            VARCHAR     DEFAULT '{UB_LSTS_}',
-        UB_LZ              VARCHAR     DEFAULT 'en',
-        UB_LC              VARCHAR     DEFAULT 'en',
-        UB_DT              VARCHAR,
-        UB_TZ              VARCHAR,
-        UB_IP              VARCHAR,
-        UB_PORT            INTEGER,
-        UB_ISACTIVE        BOOLEAN     DEFAULT 1,
-        UB_ISVERIFIED      INTEGER
-    )""")
-
-    con.commit()
-    cur.close()
-    con.close()
-
-
-async def db_grp_create(db):
-    con = sqlite3.connect(db, timeout=10)
-    con.execute('PRAGMA foreign_keys=ON;')
-    cur = con.cursor()
-
-    # USER
-    cur.execute('''CREATE TABLE IF NOT EXISTS USER ( 
-        USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_TID        BIGINT      UNIQUE
-                                    NOT NULL,
-        USER_USERNAME   VARCHAR,
-        USER_FULLNAME   VARCHAR,
-        USER_ISPREMIUM  INTEGER,
-
-        USER_UTM        VARCHAR,
-        USER_PAY        VARCHAR,
-        USER_GEO        VARCHAR,
-        USER_PHONE      VARCHAR,
-        USER_PROMO      VARCHAR,
-        USER_EMAIL      VARCHAR,
-        USER_TEXT       VARCHAR,
-
-        USER_DTPAID     VARCHAR, 
-        USER_ISPAID     INTEGER     DEFAULT 0,
-        USER_TYPAID     VARCHAR,
-        USER_TXPAID     VARCHAR,
-
-        USER_DT         VARCHAR,
-        USER_TZ         VARCHAR,
-        USER_LZ         VARCHAR,
-        USER_LC         VARCHAR
-    )''')
-
-    # FILE
-    cur.execute('''CREATE TABLE IF NOT EXISTS FILE (
-        FILE_ID             INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        FILE_FILEID         VARCHAR     NOT NULL,
-        FILE_FILENAME       VARCHAR,
-        UNIQUE (FILE_FILEID, FILE_FILENAME)
-    )''')
-
-    # LIKE
-    cur.execute('''CREATE TABLE IF NOT EXISTS LIKE ( 
-        LIKE_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_ID         INTEGER     NOT NULL,
-        POST_ID         INTEGER     NOT NULL
-        )''')
-
-    # OFFER
-    cur.execute('''CREATE TABLE IF NOT EXISTS OFFER ( 
-        OFFER_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        OFFER_USERTID       BIGINT      NOT NULL,
-        OFFER_TEXT          VARCHAR,
-        OFFER_MEDIATYPE     VARCHAR,
-        OFFER_FILEID        VARCHAR,
-        OFFER_FILEIDNOTE    VARCHAR,
-        OFFER_FILENAME      VARCHAR,
-
-        OFFER_TGPHLINK      VARCHAR,
-        OFFER_ISTGPH        BOOLEAN     DEFAULT 0,
-        OFFER_BUTTON        VARCHAR,
-        OFFER_ISBUTTON      BOOLEAN     DEFAULT 0,
-        OFFER_ISSPOILER     BOOLEAN     DEFAULT 0,
-        OFFER_ISPIN         BOOLEAN     DEFAULT 0,
-        OFFER_ISSILENCE     BOOLEAN     DEFAULT 0,
-        OFFER_ISGALLERY     BOOLEAN     DEFAULT 0,
-
-        OFFER_STATUS        BOOLEAN     DEFAULT 0,
-        OFFER_TZ            VARCHAR,
-        OFFER_DT            VARCHAR
-    )''')
-
-    # GROUPP
-    cur.execute(f"""CREATE TABLE IF NOT EXISTS GROUPP ( 
-        GROUPP_ID                   INTEGER     PRIMARY KEY AUTOINCREMENT
-                                                UNIQUE
-                                                NOT NULL,
-        GROUPP_TID                  BIGINT      UNIQUE
-                                                NOT NULL,
-        OWNER_TID                   BIGINT,
-        GROUPP_TYPE                 VARCHAR,
-        GROUPP_TITLE                VARCHAR,
-        GROUPP_USERNAME             VARCHAR,
-        GROUPP_LINK                 VARCHAR,
-        GROUPP_JOIN_LINK            VARCHAR,
-        GROUPP_PHOTO                VARCHAR,
-
-        GROUPP_CONFIG               VARCHAR     DEFAULT '{GROUPP_CONFIG_}',
-
-        GROUPP_CCHECK               VARCHAR     DEFAULT '{GROUPP_CCHECK_}',
-        GROUPP_CCHECKCHANNEL        VARCHAR,
-        GROUPP_CCHECKCHANNELTID     BIGINT,
-        GROUPP_CCHECKBTNNAME        VARCHAR,
-        GROUPP_CHELLOTEXT           VARCHAR,
-        GROUPP_CHELLOMEDIA          VARCHAR,
-        GROUPP_CHELLOISALERT        VARCHAR,
-
-        GROUPP_CBAN                 VARCHAR     DEFAULT '{GROUPP_CBAN_}',
-        GROUPP_CINVITECNT           INTEGER     DEFAULT {GROUPP_CINVITECNT_},
-        GROUPP_CINVITESRC           VARCHAR,
-        GROUPP_CINVITEDT            VARCHAR,
-
-        GROUPP_CCHANNEL             VARCHAR     DEFAULT '{GROUPP_CCHANNEL_}',
-        GROUPP_CNEURO               VARCHAR     DEFAULT '{GROUPP_CNEURO_}',
-        GROUPP_CLINK                VARCHAR     DEFAULT '{GROUPP_CLINK_}',
-        GROUPP_CSYMBOL              VARCHAR     DEFAULT '{GROUPP_CSYMBOL_}',
-        GROUPP_CMEDIA               VARCHAR     DEFAULT '{GROUPP_CMEDIA_}',
-        GROUPP_CSTICKER1            VARCHAR,
-        GROUPP_CSTICKER0            VARCHAR,
-
-        GROUPP_CFLOOD               INTEGER     DEFAULT {GROUPP_CFLOOD_},
-        GROUPP_CDIALOG              VARCHAR     DEFAULT {GROUPP_CDIALOG_},
-        GROUPP_CLEN                 INTEGER     DEFAULT {GROUPP_CLEN_},
-        GROUPP_CTIMER               INTEGER     DEFAULT {GROUPP_CTIMER_},
-        GROUPP_CWORK                VARCHAR     DEFAULT '{GROUPP_CWORK_}',
-        GROUPP_CUSER                VARCHAR     DEFAULT '{GROUPP_CUSER_}',
-        GROUPP_CUSERDELAY           INTEGER     DEFAULT {GROUPP_CUSERDELAY_},
-        GROUPP_CADMIN               VARCHAR     DEFAULT '{GROUPP_CADMIN_}',
-        GROUPP_CPAY                 VARCHAR     DEFAULT '{GROUPP_CPAY_}',
-        GROUPP_CPAYPRICE            VARCHAR,
-        GROUPP_CPAYTOKEN            VARCHAR,
-        GROUPP_CPAYADDRESS          VARCHAR,
-        GROUPP_CPAYAMOUNT           VARCHAR,
-        GROUPP_CPAYCURRENCY         VARCHAR,
-        GROUPP_CPAYPERIOD           VARCHAR,
-        GROUPP_CPAYWALLET           VARCHAR,
-        GROUPP_CPAYCOLLECTION       VARCHAR,
-        GROUPP_ADDRESSOWNER         VARCHAR,
-        GROUPP_ADDRESSCOLLECTION    VARCHAR,
-
-        GROUPP_CCOMMENT             VARCHAR     DEFAULT '{GROUPP_CCOMMENT_}',
-        GROUPP_CCOMMENTADDRESS      VARCHAR,
-        GROUPP_CCOMMENTAMOUNT       VARCHAR,
-        GROUPP_CCOMMENTCURRENCY     VARCHAR,
-        GROUPP_CCOMMENTPERIOD       VARCHAR,
-        GROUPP_CCOMMENTWALLET       VARCHAR,
-        GROUPP_CCOMMENTCOLLECTION   VARCHAR,
-        GROUPP_RULES                VARCHAR,
-
-        GROUPP_PERMISSIONS          VARCHAR,
-        GROUPP_PODCAST              VARCHAR,
-        GROUPP_PODCASTDATE          VARCHAR,
-        GROUPP_ISPROMOTED           INTEGER     DEFAULT 0,
-
-        GROUPP_DT                   VARCHAR,
-        GROUPP_TZ                   VARCHAR,
-        GROUPP_LZ                   VARCHAR,
-        GROUPP_LC                   VARCHAR,
-        GROUPP_LASTMSG              VARCHAR,
-        GROUPP_ISACTIVE             BOOLEAN     DEFAULT 1,
-        GROUPP_ISVERIFIED           INTEGER
-    )""")
-
-    con.commit()
-    cur.close()
-    con.close()
-
-
-async def db_grp_create_entity(db):
-    con = sqlite3.connect(db, timeout=10)
-    try:
-        cur = con.cursor()
-
-        # USER
-        cur.execute('''CREATE TABLE IF NOT EXISTS USER ( 
-            USER_ID             INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            USER_TID            BIGINT      UNIQUE
-                                            NOT NULL,
-            USER_USERNAME       VARCHAR,
-            USER_FULLNAME       VARCHAR,
-            USER_ISPREMIUM      INTEGER,
-            USER_LC             VARCHAR,
-            USER_UTM            VARCHAR,
-            USER_DT             VARCHAR,
-
-            USER_PAYADDRESS     VARCHAR,
-            USER_PAYPERIOD      VARCHAR,
-            USER_PAYDT          VARCHAR,
-            USER_PAYNFT         VARCHAR,
-            USER_PAYNOTIFY      INTEGER     DEFAULT 0,
-
-            USER_COMMENTADDRESS VARCHAR,
-            USER_COMMENTPERIOD  VARCHAR,
-            USER_COMMENTDT      VARCHAR,
-            USER_COMMENTNFT     VARCHAR,
-            USER_COMMENTCNT     INTEGER     DEFAULT 0
-        )''')
-
-        # POST
-        cur.execute('''CREATE TABLE IF NOT EXISTS POST ( 
-            POST_ID            INTEGER      PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            POST_TID           BIGINT       UNIQUE NOT NULL,
-            POST_CHATTID       BIGINT       NOT NULL,
-            POST_USERTID       BIGINT       NOT NULL,
-            POST_TARGET        VARCHAR,
-            POST_TYPE          VARCHAR,
-            POST_TEXT          VARCHAR,
-            POST_MEDIA         VARCHAR,
-            POST_CHKBOX        VARCHAR,
-            POST_WATER         VARCHAR,
-            POST_STARS         VARCHAR,
-            
-            POST_MSGID         VARCHAR,
-            POST_TELESCOPE     VARCHAR,
-
-            POST_BUTTONS       VARCHAR,
-            POST_BLOG          VARCHAR,
-            POST_WEB           VARCHAR,
-            POST_WALL          VARCHAR,
-            POST_EMOJI         VARCHAR,
-            POST_THEME         VARCHAR,
-            POST_TZ            VARCHAR,
-            POST_DT            VARCHAR,
-            POST_TR            VARCHAR,
-            POST_STATUS        BOOLEAN     DEFAULT 0,
-
-            POST_ISBUTTON      BOOLEAN     DEFAULT 0,
-            POST_ISDYNAMIC     BOOLEAN     DEFAULT 0,
-            POST_ISSOUND       BOOLEAN     DEFAULT 1,
-            POST_ISSILENCE     BOOLEAN     DEFAULT 0,
-            POST_ISPIN         BOOLEAN     DEFAULT 0,
-            POST_ISPREVIEW     BOOLEAN     DEFAULT 0,
-            POST_ISSPOILER     BOOLEAN     DEFAULT 0,
-            POST_ISGALLERY     BOOLEAN     DEFAULT 0,
-            POST_ISFORMAT      BOOLEAN     DEFAULT 0,
-            POST_ISTAG         BOOLEAN     DEFAULT 0,
-            POST_ISREACTION    VARCHAR,
-            POST_ISEFFECT      VARCHAR,
-            POST_ISPODCAST     BOOLEAN     DEFAULT 0,
-
-            POST_ISWINDOW      BOOLEAN     DEFAULT 0,
-            POST_ISDESTROY     BOOLEAN     DEFAULT 0,
-
-            POST_LNK           VARCHAR,
-            POST_FILENAME      VARCHAR,
-
-            POST_FID           VARCHAR,
-            POST_FIDNOTE       VARCHAR
-        )''')
-
-        # VIEW
-        cur.execute('''CREATE TABLE IF NOT EXISTS VIEW ( 
-            VIEW_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ENT_VID         VARCHAR     NOT NULL,
-            ENT_TYPE        VARCHAR     NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            UNIQUE (ENT_VID, ENT_TYPE, CHAT_TID)
-        )''')
-
-        # PUSH
-        cur.execute('''CREATE TABLE IF NOT EXISTS PUSH ( 
-            PUSH_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            CHAT_FULLNAME   VARCHAR,
-            CHAT_USERNAME   VARCHAR,
-            CHAT_ISPREMIUM  BOOLEAN,
-            CHAT_LC         VARCHAR,
-            POST_ID         INTEGER     NOT NULL,
-            BTN_BID       INTEGER     NOT NULL,
-            UNIQUE (CHAT_TID, POST_ID, BTN_BID)
-        )''')
-
-        # FLOOD
-        cur.execute('''CREATE TABLE IF NOT EXISTS FLOOD ( 
-            FLOOD_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            FLOOD_CHATTID       BIGINT      NOT NULL,
-            FLOOD_USERTID       BIGINT      NOT NULL,
-            FLOOD_USERNAME      VARCHAR, 
-            FLOOD_FIRSTNAME     VARCHAR, 
-            FLOOD_VALUE         INTEGER     DEFAULT 0,
-            FLOOD_DT            DATETIME,
-            UNIQUE (FLOOD_CHATTID, FLOOD_USERTID)
-        )''')
-
-        # INVITE
-        cur.execute('''CREATE TABLE IF NOT EXISTS INVITE ( 
-            INVITE_ID           INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            INVITE_CHATTID      BIGINT      NOT NULL,
-            INVITE_USERTID      BIGINT      NOT NULL,
-            INVITE_MSGID        INTEGER,
-            INVITE_TYPE         VARCHAR,
-            INVITE_DT           DATETIME,
-            INVITE_UTM          VARCHAR,
-            UNIQUE (INVITE_CHATTID, INVITE_USERTID)
-        )''')
-
-        # KARMA
-        cur.execute('''CREATE TABLE IF NOT EXISTS KARMA ( 
-            KARMA_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            KARMA_CHATTID       BIGINT      NOT NULL,
-            KARMA_USERTID       BIGINT      NOT NULL,
-            KARMA_USERNAME      VARCHAR,
-            KARMA_FIRSTNAME     VARCHAR,
-            KARMA_STATUS        INTEGER     DEFAULT 0,
-            UNIQUE (KARMA_CHATTID, KARMA_USERTID)
-        )''')
-
-        # DIALOG
-        cur.execute('''CREATE TABLE IF NOT EXISTS DIALOG ( 
-            DIALOG_ID           INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            DIALOG_DT           VARCHAR,
-            DIALOG_LC           VARCHAR,
-            DIALOG_LASTMSGID    INTEGER,
-            DIALOG_LASTUSRID    BIGINT,
-            DIALOG_CONTENT      VARCHAR,
-            DIALOG_ISANSWERED   INTEGER
-        )''')
-
-        con.commit()
-        cur.close()
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        con.close()
-
-
-async def db_chn_create(db):
-    con = sqlite3.connect(db, timeout=10)
-    con.execute('PRAGMA foreign_keys=ON;')
-    cur = con.cursor()
-
-    # USER
-    cur.execute('''CREATE TABLE IF NOT EXISTS USER ( 
-        USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_TID        BIGINT      UNIQUE
-                                    NOT NULL,
-        USER_USERNAME   VARCHAR,
-        USER_FULLNAME   VARCHAR,
-        USER_ISPREMIUM  INTEGER,
-        USER_GAMES      VARCHAR,
-        USER_VARS       VARCHAR,
-
-        USER_DTPAID     VARCHAR, 
-        USER_ISPAID     INTEGER     DEFAULT 0,
-        USER_TYPAID     VARCHAR,
-        USER_TXPAID     VARCHAR,
-        
-        USER_UTM        VARCHAR,
-        USER_DT         VARCHAR,
-        USER_TZ         VARCHAR,
-        USER_LZ         VARCHAR,
-        USER_LC         VARCHAR
-    )''')
-
-    # FILE
-    cur.execute('''CREATE TABLE IF NOT EXISTS FILE (
-        FILE_ID             INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        FILE_FILEID         VARCHAR     NOT NULL,
-        FILE_FILENAME       VARCHAR,
-        UNIQUE (FILE_FILEID, FILE_FILENAME)
-    )''')
-
-    # LIKE
-    cur.execute('''CREATE TABLE IF NOT EXISTS LIKE ( 
-        LIKE_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                    UNIQUE
-                                    NOT NULL,
-        USER_ID         INTEGER     NOT NULL,
-        POST_ID         INTEGER     NOT NULL
-        )''')
-
-    # OFFER
-    cur.execute('''CREATE TABLE IF NOT EXISTS OFFER ( 
-        OFFER_ID            INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-        OFFER_USERTID       BIGINT      NOT NULL,
-        OFFER_TEXT          VARCHAR,
-        OFFER_MEDIATYPE     VARCHAR,
-        OFFER_FILEID        VARCHAR,
-        OFFER_FILEIDNOTE    VARCHAR,
-        OFFER_FILENAME      VARCHAR,
-
-        OFFER_TGPHLINK      VARCHAR,
-        OFFER_ISTGPH        BOOLEAN     DEFAULT 0,
-        OFFER_BUTTON        VARCHAR,
-        OFFER_ISBUTTON      BOOLEAN     DEFAULT 0,
-        OFFER_ISSPOILER     BOOLEAN     DEFAULT 0,
-        OFFER_ISPIN         BOOLEAN     DEFAULT 0,
-        OFFER_ISSILENCE     BOOLEAN     DEFAULT 0,
-        OFFER_ISGALLERY     BOOLEAN     DEFAULT 0,
-
-        OFFER_STATUS        BOOLEAN     DEFAULT 0,
-        OFFER_TZ            VARCHAR,
-        OFFER_DT            VARCHAR
-    )''')
-
-    # CHANNEL
-    cur.execute(f"""CREATE TABLE IF NOT EXISTS CHANNEL ( 
-        CHANNEL_ID                 INTEGER      PRIMARY KEY AUTOINCREMENT
-                                                UNIQUE
-                                                NOT NULL,
-        CHANNEL_TID                BIGINT       UNIQUE
-                                                NOT NULL,
-        OWNER_TID                  BIGINT,
-        CHANNEL_TYPE               VARCHAR,
-        CHANNEL_TITLE              VARCHAR,
-        CHANNEL_USERNAME           VARCHAR,
-        CHANNEL_LINK               VARCHAR,
-        CHANNEL_JOIN_LINK          VARCHAR,
-        CHANNEL_PHOTO              VARCHAR,
-        CHANNEL_STICKERPACK        VARCHAR,
-        CHANNEL_EMOJIPACK          VARCHAR,
-        CHANNEL_ISPROMOTED         INTEGER      DEFAULT 0,
-        CHANNEL_LASTMSG            VARCHAR,
-        CHANNEL_CPAYDONCNT         INTEGER      DEFAULT 0,
-        CHANNEL_VARS               VARCHAR,
-        
-        CHANNEL_CCHECK             VARCHAR      DEFAULT '{CHANNEL_CCHECK_}',
-        CHANNEL_CCHECKCHANNEL      VARCHAR,
-        CHANNEL_CCHECKCHANNELTID   BIGINT,
-        
-        CHANNEL_CBAN               VARCHAR      DEFAULT '{CHANNEL_CBAN_}',
-        CHANNEL_CBANCLEARING       INTEGER      DEFAULT 0,
-        CHANNEL_CBANDELETING       INTEGER      DEFAULT 0,
-        
-        CHANNEL_CDECOR             VARCHAR      DEFAULT '{CHANNEL_CDECOR_}',
-        CHANNEL_CFOOTER            VARCHAR,
-
-        CHANNEL_PODCAST            VARCHAR,
-        CHANNEL_PODCASTDATE        VARCHAR,
-        CHANNEL_CSYSTEM            VARCHAR     DEFAULT '{CHANNEL_CSYSTEM_}',
-        
-        CHANNEL_CPAY                 VARCHAR     DEFAULT '{CHANNEL_CPAY_}',
-        CHANNEL_CPAYPRICE            VARCHAR,
-        CHANNEL_CPAYTOKEN            VARCHAR,
-        CHANNEL_CPAYCOLLECTION       VARCHAR,
-        CHANNEL_CPAYMASTER           VARCHAR,
-        CHANNEL_CPAYAMOUNT           VARCHAR,
-        CHANNEL_CPAYCURRENCY         VARCHAR,
-        CHANNEL_CPAYPERIOD           VARCHAR,
-        
-        CHANNEL_OWNERADDRESS         VARCHAR,
-        CHANNEL_COLLECTIONADDRESS    VARCHAR,
-        CHANNEL_COLLECTIONINDEX      VARCHAR    DEFAULT '0',
-        CHANNEL_COLLECTIONPRIVATE    VARCHAR,
-        
-        CHANNEL_MASTERADDRESS        VARCHAR,
-        CHANNEL_MASTERSYMBOL         VARCHAR,
-        CHANNEL_MASTERPRIVATE        VARCHAR,
-        
-        CHANNEL_CUSER                VARCHAR    DEFAULT '{CHANNEL_CUSER_}',
-        CHANNEL_CADMIN               VARCHAR,
-        
-        CHANNEL_DT                 VARCHAR,
-        CHANNEL_TZ                 VARCHAR,
-        CHANNEL_LZ                 VARCHAR,
-        CHANNEL_LC                 VARCHAR,
-        CHANNEL_ISACTIVE           BOOLEAN      DEFAULT 1,
-        CHANNEL_ISNFTUSERNAME      BOOLEAN      DEFAULT 0
-    )""")
-
-    con.commit()
-    cur.close()
-    con.close()
-
-
-async def db_chn_create_entity(db):
-    con = sqlite3.connect(db, timeout=10)
-    try:
-        cur = con.cursor()
-
-        # USER
-        cur.execute('''CREATE TABLE IF NOT EXISTS USER ( 
-            USER_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            USER_TID        BIGINT      UNIQUE
-                                        NOT NULL,
-            USER_USERNAME   VARCHAR,
-            USER_FULLNAME   VARCHAR,
-            USER_ISPREMIUM  INTEGER,
-            USER_GAMES      VARCHAR,
-            USER_VARS       VARCHAR,
-            
-            USER_DTPAID     VARCHAR, 
-            USER_ISPAID     INTEGER     DEFAULT 0,
-            USER_TYPAID     VARCHAR,
-            USER_TXPAID     VARCHAR,
-            
-            USER_UTM        VARCHAR,
-            USER_DT         VARCHAR,
-            USER_TZ         VARCHAR,
-            USER_LZ         VARCHAR,
-            USER_LC         VARCHAR
-        )''')
-
-        # JOIN
-        cur.execute('''CREATE TABLE IF NOT EXISTS INVITE ( 
-            INVITE_ID           INTEGER     PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            INVITE_CHATTID      BIGINT      NOT NULL,
-            INVITE_USERTID      BIGINT      NOT NULL,
-            INVITE_MSGID        INTEGER,
-            INVITE_TYPE         VARCHAR,
-            INVITE_DATETIME     DATETIME,
-            UNIQUE (INVITE_CHATTID, INVITE_USERTID)
-        )''')
-
-        # POST
-        cur.execute('''CREATE TABLE IF NOT EXISTS POST ( 
-            POST_ID            INTEGER      PRIMARY KEY AUTOINCREMENT
-                                            UNIQUE
-                                            NOT NULL,
-            POST_TID           BIGINT       UNIQUE NOT NULL,
-            POST_CHATTID       BIGINT       NOT NULL,
-            POST_USERTID       BIGINT       NOT NULL,
-            POST_USERTUN       VARCHAR,
-            POST_TARGET        VARCHAR,
-            POST_MSGID         VARCHAR,
-            
-            POST_TYPE          VARCHAR,
-            POST_TEXT          VARCHAR,
-            POST_MEDIA         VARCHAR,
-            POST_BUTTONS       VARCHAR,
-            POST_CHKBOX        VARCHAR,
-
-            POST_WEB           VARCHAR,
-            POST_NFT           VARCHAR,
-            POST_PAY           VARCHAR,
-            POST_BLOG          VARCHAR,
-
-            POST_WATER         VARCHAR,
-            POST_STARS         VARCHAR,     
-            POST_WALL          VARCHAR,
-            POST_EMOJI         VARCHAR,
-            POST_THEME         VARCHAR,
-            POST_ISMINTED      BOOLEAN      DEFAULT 0,
-            POST_MINTLINK      VARCHAR,
-            POST_ISPRIVATE     BOOLEAN      DEFAULT 0,
-            
-            POST_TZ            VARCHAR,
-            POST_DT            VARCHAR,
-            POST_TR            VARCHAR,
-            POST_STATUS        BOOLEAN      DEFAULT 0
-        )''')
-
-        # VIEW
-        cur.execute('''CREATE TABLE IF NOT EXISTS VIEW ( 
-            VIEW_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            ENT_VID         VARCHAR     NOT NULL,
-            ENT_TYPE        VARCHAR     NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            UNIQUE (ENT_VID, ENT_TYPE, CHAT_TID)
-        )''')
-
-        # PUSH
-        cur.execute('''CREATE TABLE IF NOT EXISTS PUSH ( 
-            PUSH_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                        UNIQUE
-                                        NOT NULL,
-            CHAT_TID        BIGINT      NOT NULL,
-            CHAT_FULLNAME   VARCHAR,
-            CHAT_USERNAME   VARCHAR,
-            CHAT_ISPREMIUM  BOOLEAN,
-            CHAT_LC         VARCHAR,
-            
-            POST_ID         INTEGER     NOT NULL,
-            BTN_BID       INTEGER     NOT NULL,
-            UNIQUE (CHAT_TID, POST_ID, BTN_BID)
-        )''')
-
-        # BOOST
-        cur.execute('''CREATE TABLE IF NOT EXISTS BOOST ( 
-            BOOST_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-                                         UNIQUE
-                                         NOT NULL,
-            BOOST_TID       BIGINT       NOT NULL,
-            CHAT_TID        BIGINT,
-            USER_TID        BIGINT,
-            BOOST_STARTDT   VARCHAR,
-            BOOST_FINISHDT  VARCHAR,
-            BOOST_SRC       VARCHAR
-        )''')
-
-        # # CONTACT
-        # cur.execute('''CREATE TABLE IF NOT EXISTS CONTACT (
-        #     CONTACT_ID         INTEGER     PRIMARY KEY AUTOINCREMENT
-        #                                  UNIQUE
-        #                                  NOT NULL,
-        #     CHAT_TID        BIGINT,
-        #     USER_TID        BIGINT,
-        #     CONTACT_DT      VARCHAR
-        # )''')
-
-        con.commit()
-        cur.close()
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        con.close()
-
-
 async def db_select_columnames(TABLE_NAME=None, db=None):
     data = []
     try:
@@ -4167,129 +2890,6 @@ async def get_time_time(is_bid=False):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
-
-
-async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_P, lz, prompt='', BOT_TOKEN_=None):
-    result_txt = [{'role': 'system', 'content': f'You are a helpful assistant for Telegram {ENT_TYPE}.'},
-                  {'role': 'assistant', 'content': 'ok'}, ]
-    result_img = ''
-    try:
-        KEYS_JSON = os.path.join(EXTRA_D, 'keys.json')
-        print(f"train_ent_chatgpt start, {ENT_TYPE=}")
-
-        # region init
-        if ENT_TYPE == 'bot':
-            extra_bot = Bot(token=BOT_TOKEN_)
-            short = await extra_bot.get_my_short_description()
-            short = short.short_description if short.short_description else ''
-            desc = await extra_bot.get_my_description()
-            desc = desc.description if desc.description else ''
-
-            bot_info = f'Now I give you some details about this telegram app: @username is `@{ENT_USERNAME}`, ' \
-                       f'description is `{desc}`. ' \
-                       f'And short description is `{short}`'
-            result_txt.append({'role': 'user', 'content': bot_info}),
-            result_img = f"{short}"
-            if len(result_img) < 40: result_img = f"{result_img} {desc}"
-            await extra_bot.session.close()
-        elif ENT_TYPE in ['channel', 'group', 'supergroup']:
-            get_chat_ = await bot.get_chat(int(ENT_TID))
-            info_ = f'Now I give you some details about this telegram {ENT_TYPE}: link is `{ENT_USERNAME}`, ' \
-                    f'description is `{get_chat_.description}`, title is `{get_chat_.title}`'
-            result_txt.append({'role': 'user', 'content': info_}),
-            result_img = f"{get_chat_.description}, {get_chat_.title}"
-        # endregion
-
-        print(f"0 {BASE_P=}")
-        if ENT_TYPE == 'bot':
-            # region MSG
-            sql = f"SELECT MSG_TEXT, MSG_BUTTONS FROM BOT_{ENT_TID}.MSG"
-            data = await db_select_pg(sql, (), BASE_P)
-
-            for item in data[:5]:
-                try:
-                    MSG_TEXT, MSG_BUTTONS = item
-                    MSG_BUTTONS = json.loads(MSG_BUTTONS) if MSG_BUTTONS else []
-                    MSG_BUTTONS = ', '.join([it['lbl'] for it in MSG_BUTTONS if it and 'lbl' in it])
-
-                    if MSG_TEXT:
-                        result_txt.append({'role': 'user',
-                                           'content': f'There is a message of this telegram {ENT_TYPE}: {MSG_TEXT[:128]}'})  # result_img = f"{result_img}{MSG_TEXT}\n"
-                    if MSG_BUTTONS:
-                        result_txt.append({'role': 'user',
-                                           'content': f'There are some buttons of this telegram {ENT_TYPE}: {MSG_BUTTONS}'})  # result_img = f"{result_img}{MSG_BUTTONS}\n"
-                except Exception as e:
-                    logger.info(log_ % str(e))
-                    await asyncio.sleep(round(random.uniform(0, 1), 2))  # endregion
-        elif ENT_TYPE in ['channel']:
-            print(1, BASE_P, ENT_TID)
-            sql = "SELECT CHANNEL_LASTMSG FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
-            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
-            CHANNEL_LASTMSG = data_chn[0][0]
-
-            if CHANNEL_LASTMSG:
-                result_txt.append({'role': 'user',
-                                   'content': f'There is a message of this telegram {ENT_TYPE}: {CHANNEL_LASTMSG}'})  # result_img = f"{result_img}. {CHANNEL_LASTMSG[:32]}\n"
-        elif ENT_TYPE in ['group']:
-            sql = "SELECT GROUPP_LASTMSG FROM \"GROUPP\" WHERE GROUPP_TID=$1"
-            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
-            GROUPP_LASTMSG = data_chn[0][0]
-
-            if GROUPP_LASTMSG:
-                result_txt.append({'role': 'user',
-                                   'content': f'There is a message of this telegram {ENT_TYPE}: {GROUPP_LASTMSG}'})  # result_img = f"{result_img}. {CHANNEL_LASTMSG[:32]}\n"
-
-        # region pst
-        schema_name = 'USER'
-        if ENT_TYPE == 'bot':
-            schema_name = 'BOT'
-        elif ENT_TYPE == 'channel':
-            schema_name = 'CHANNEL'
-        elif ENT_TYPE == 'group':
-            schema_name = 'GROUPP'
-
-        sql = f"SELECT POST_TEXT, POST_BUTTONS FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST"
-        data = await db_select_pg(sql, (), BASE_P)
-
-        for item in data[:5]:
-            try:
-                POST_TEXT, POST_BUTTONS = item
-
-                if POST_TEXT:
-                    result_txt.append({'role': 'user',
-                                       'content': f'There is a message of this telegram {ENT_TYPE}: {POST_TEXT[:64]}'})  # if POST_BUTTONS:  #     result_txt.append({'role': 'user',  #                        'content': f'There are some buttons of this telegram {ENT_TYPE}: {POST_BUTTONS}'})
-            except Exception as e:
-                logger.info(log_ % str(e))
-                await asyncio.sleep(round(random.uniform(0, 1), 2))
-        # endregion
-
-        result_txt.append(
-            {'role': 'user', 'content': f'So, this is all the information that exists about this {ENT_TYPE}. '
-                                        'Your task is to generate new marketing text no more than 1024 symbols'})
-
-        if prompt:
-            result_txt.append({'role': 'user', 'content': prompt})
-
-        result_txt.append({'role': 'user', 'content': f'. Please give answer in ISO language code: `{lz}`'})
-        result_inter = f"{result_img} {prompt}".replace('  ', '')
-
-        print(f"{result_inter=}")
-        if is_all_latin(result_inter):
-            result_img = f"{result_inter}"
-            # result_img = f"{prompt}"
-        else:
-            lst = await outsource_generate({'type': 'tl', 'prompt': result_inter}, KEYS_JSON)
-            if len(lst) and lst[0]['answer']:
-                if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
-                    result_inter = lst[0]['answer'].split(':')[-1]
-                else:
-                    result_inter = lst[0]['answer']
-            result_img = f"{result_inter}"
-            print(f"{result_img=}")
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return result_txt, result_img
 
 
 async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MEDIA, ENT_TID, PROJECT_TYPE, ENT_USERNAME,
@@ -9082,7 +7682,6 @@ async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_we
                 extra_bot = Bot(token=BOT_TOKEN_E18B)
                 member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
                 if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-                print(f"get_vars_web_main -> get_chat_member {is_paid=}")
             except Exception as e:
                 logger.info(log_ % str(e))
             finally:
@@ -9209,7 +7808,6 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
                 extra_bot = Bot(token=BOT_TOKEN_E18B)
                 member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
                 if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-                print(f"get_vars_web_main -> get_chat_member {is_paid=}")
             except Exception as e:
                 logger.info(log_ % str(e))
             finally:
@@ -10829,7 +9427,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         lz = data_web['lz']
         post = data_web['post']
         ENT_TID = str(data_web['ENT_TID'])
-        tid_tmp = str(ENT_TID).replace('-', '')
+        tid = str(ENT_TID).replace('-', '')
         ENT_TOKEN = data_web['ENT_TOKEN'] if 'ENT_TOKEN' in data_web else None
         ENT_FIRSTNAME = data_web['ENT_FIRSTNAME'] if 'ENT_FIRSTNAME' in data_web else str_empty
         ENT_USERNAME = data_web['ENT_USERNAME'] if 'ENT_USERNAME' in data_web else str_empty
@@ -10899,10 +9497,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
             POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}&mode=fullscreen"
         else:
-            web_val = f"pst-{tid_tmp}-{POST_TID}"
+            web_val = f"pst-{tid}-{POST_TID}"
             print(f"{web_val=}")
             HASH_VAL = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
-            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}-{tid_tmp}"
+            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}-{tid}"
 
         print(f"{result=}, {POST_APPTOKEN=}")
         if ENT_TOKEN and len(POST_MEDIA):
@@ -10943,18 +9541,36 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                         file = await extra_bot.get_file(it['fileb_id'])
                         await extra_bot.download_file(file.file_path, str(POST_FNAME))
 
+                        print(f"{POST_FNAME=}")
+                        print(f"{os.path.exists(POST_FNAME)=}")
+
                         POST_FNAME_COPY = await add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D)
                         if not POST_FNAME_COPY: continue
 
-                        r_ = await extra_bot.send_photo(chat_id=chat_id,
-                                                        photo=types.FSInputFile(POST_FNAME_COPY),
-                                                        disable_notification=True)
-                        await extra_bot.delete_message(chat_id, r_.message_id)
+                        filew_id = filebw_id = ''
+                        try:
+                            r_ = await bot.send_photo(chat_id=chat_id,
+                                                    photo=types.FSInputFile(POST_FNAME_COPY),
+                                                    disable_notification=True)
+                            filew_id = r_.photo[-1].file_id
+                        except Exception as e:
+                            logger.info(log_ % str(e))
+                            # await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+                        try:
+                            rb_ = await extra_bot.send_photo(chat_id=chat_id,
+                                                            photo=types.FSInputFile(POST_FNAME_COPY),
+                                                            disable_notification=True)
+                            filebw_id = rb_.photo[-1].file_id
+                            await extra_bot.delete_message(chat_id, rb_.message_id)
+                        except Exception as e:
+                            logger.info(log_ % str(e))
+                            # await asyncio.sleep(round(random.uniform(0, 1), 2))
 
                         print(f"sooo ")
-                        filew_id = r_.photo[-1].file_id
                         print(f"sooo {filew_id=}")
                         it['filew_id'] = filew_id
+                        it['filebw_id'] = filebw_id
                     finally:
                         if os.path.exists(POST_FNAME): os.remove(POST_FNAME)
                         if os.path.exists(POST_FNAME_COPY): os.remove(POST_FNAME_COPY)
@@ -10974,11 +9590,11 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         for button in POST_BUTTONS:
             try:
                 if button['knd'] == 'web':
-                    web_val = f"pst-{tid_tmp}-{button['lnk']}"
+                    web_val = f"pst-{tid}-{button['lnk']}"
                     web_hash = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
                     button['web'] = web_hash
                 elif button['knd'] == 'nft':
-                    web_val = f"nft-{tid_tmp}-{POST_TID}"
+                    web_val = f"nft-{tid}-{POST_TID}"
                     web_hash = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
                     button['web'] = web_hash
                 elif button['knd'] == 'pay' and ENT_TOKEN:
@@ -11022,9 +9638,9 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                                                                    prices=prices)
 
                 prf = 'p' if PROJECT_UN in ['FereyBotBot'] else ''
-                web_val = f"{prf}pay-{tid_tmp}-{POST_TID}-{POST_STARS}-{tid_tmp}"
+                web_val = f"{prf}pay-{tid}-{POST_TID}-{POST_STARS}-{tid}"
                 HASH_VAL = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
-                POST_PAY = f"https://t.me/{PROJECT_UN}/web?startapp={prf}pay-{HASH_VAL}-{tid_tmp}"
+                POST_PAY = f"https://t.me/{PROJECT_UN}/web?startapp={prf}pay-{HASH_VAL}-{tid}"
 
                 await extra_bot.session.close()
             except Exception as e:
@@ -11036,19 +9652,19 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             print(f" = = = = = =  ={ENT_TOKEN=}")
             if PROJECT_UN == 'FereyChannelBot':
                 sql = "UPDATE \"CHANNEL\" SET CHANNEL_CPAYTOKEN=$1 WHERE CHANNEL_TID=$2"
-                await db_change_pg(sql, (ENT_TOKEN, str(ENT_TID),), BASE_P)
+                await db_change_pg(sql, (ENT_TOKEN, int(ENT_TID),), BASE_P)
             elif PROJECT_UN == 'FereyGroupBot':
                 sql = "UPDATE \"GROUPP\" SET GROUPP_CPAYTOKEN=$1 WHERE GROUPP_TID=$2"
-                await db_change_pg(sql, (ENT_TOKEN, str(ENT_TID),), BASE_P)
+                await db_change_pg(sql, (ENT_TOKEN, int(ENT_TID),), BASE_P)
         print(f"{POST_PAY=}, {POST_STARS=}")
         # endregion
 
         # region nft
         POST_NFT = ''
         if any(item['knd'] == 'nft' for item in POST_BUTTONS):
-            HASH_STR = f"nft-{tid_tmp}-{POST_TID}"
+            HASH_STR = f"nft-{tid}-{POST_TID}"
             HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
-            POST_NFT = f'https://t.me/{PROJECT_UN}/web?startapp=nft-{HASH_VAL}-{tid_tmp}'
+            POST_NFT = f'https://t.me/{PROJECT_UN}/web?startapp=nft-{HASH_VAL}-{tid}'
         print(f"{POST_NFT=}")
         # endregion
 
@@ -11073,10 +9689,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
 
         print(f"{ENT_TID=}, {POST_TID=}, {schema_name=}")
         if PROJECT_UN not in ['FereyUserBot']:
-            sql = f"DELETE FROM {schema_name}_{tid_tmp}.LANG WHERE POST_TID=$1"
+            sql = f"DELETE FROM {schema_name}_{tid}.LANG WHERE POST_TID=$1"
             await db_change_pg(sql, (POST_TID,), BASE_P)
 
-        sql = f"SELECT POST_TID, POST_MEDIA FROM {schema_name}_{tid_tmp}.POST WHERE POST_TID=$1"
+        sql = f"SELECT POST_TID, POST_MEDIA FROM {schema_name}_{tid}.POST WHERE POST_TID=$1"
         data_media = await db_select_pg(sql, (POST_TID,), BASE_P)
         if len(data_media):
             POST_TID, POST_MEDIA_OLD = data_media[0]
@@ -11113,7 +9729,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
 
         print(f"before post_save-db_change_pg")
         sql = f""" 
-            INSERT INTO {schema_name}_{tid_tmp}.POST (
+            INSERT INTO {schema_name}_{tid}.POST (
                 POST_TID, POST_CHATTID, POST_USERTID, POST_USERTUN, POST_TARGETTYPE, POST_TARGET,
                 POST_TYPE, POST_TEXT, POST_MEDIA, POST_BUTTONS, POST_CHKBOX, 
                 POST_WEB, POST_PAY, POST_INVOICE, POST_NFT, POST_BLOG, POST_ISPRIVATE, 
@@ -11148,7 +9764,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                 POST_PRIORITY = EXCLUDED.POST_PRIORITY
         """
         await db_change_pg(sql, (
-            POST_TID, str(ENT_TID), chat_id, username, POST_TARGETTYPE, POST_TARGET,
+            POST_TID, int(ENT_TID), chat_id, username, POST_TARGETTYPE, POST_TARGET,
             POST_TYPE, POST_TEXT, POST_MEDIA, POST_BUTTONS, POST_CHKBOX,
             POST_WEB or None, POST_PAY or None, POST_INVOICE or None, POST_NFT or None, POST_BLOG, POST_ISPRIVATE,
             POST_LZ or 'en', POST_TZ, POST_DT, POST_TR, POST_PRIORITY
@@ -11228,12 +9844,12 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                     POST_TEXT = f"{POST_TEXT}<a href='tg://user?id={it}'>{str_empty}</a>"
         if isinstance(POST_MEDIA, list) and not len(POST_MEDIA): POST_TYPE = 'text'
         if POST_TYPE != 'text': POST_TEXT = POST_TEXT[0:1024]
-        print(f"{is_paid=}, {POST_TEXT=}")
+        print(f"{POST_TEXT=}")
         # endregion
 
         # region pay
         print(f"region pay {POST_ISPAY=}, {POST_TYPE=}")
-        if not is_paid and POST_ISPAY and POST_PAY and POST_TYPE not in ['photo', 'video']:
+        if POST_ISPAY and POST_PAY and POST_TYPE not in ['photo', 'video']:
             print(f"{POST_PAY=}")
             reply_markup.row(types.InlineKeyboardButton(text=l_bot_pub_with_payment[lz], url=POST_PAY))
             # lp_options = LinkPreviewOptions(is_disabled=False, url=post_photo, prefer_small_media=True)
@@ -11244,7 +9860,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
             if PROJECT_UN in ['FereyChannelBot', 'FereyGroupBot'] and not is_priv:
                 sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
-                await db_change_pg(sql, (result.message_id, POST_TID,), BASE_P)
+                await db_change_pg(sql, (str(result.message_id), POST_TID,), BASE_P)
             return result
         # endregion
 
@@ -11271,15 +9887,15 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region send
         print(f"send ======================== {chat_id=}, {POST_TYPE=}")
-        if not is_paid and POST_ISPAY and POST_TYPE in ['photo', 'video']:
+        if POST_ISPAY and POST_TYPE in ['photo', 'video']:
             if PROJECT_UN in ['FereyChannelBot']:
                 sql = f"SELECT CHANNEL_CPAYTOKEN FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
-                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
+                data_ent = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             elif PROJECT_UN == 'FereyGroupBot':
                 sql = f"SELECT GROUPP_CPAYTOKEN FROM \"GROUPP\" WHERE GROUPP_TID=$1"
-                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
+                data_ent = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             else:
@@ -11368,47 +9984,13 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
             file_id = POST_MEDIA[index]['file_id']
             print(f"before {file_id=}, {POST_ISWATER=}, {POST_WATER=}")
-            if POST_ISWATER and POST_WATER:
-                if 'filew_id' not in POST_MEDIA[index]:
-                    BOT_TOKEN = None
-                    if PROJECT_UN == 'FereyBotBot':
-                        sql = f"SELECT BOT_TOKEN FROM \"BOT\" WHERE BOT_TID=$1"
-                        data_ent = await db_select_pg(sql, (ENT_TID,), BASE_P)
-                        if len(data_ent): BOT_TOKEN = data_ent[0][0]
+            if POST_ISWATER and POST_WATER and 'filew_id' in POST_MEDIA[index]:
+                file_id = POST_MEDIA[index]['filew_id']
 
-                    if BOT_TOKEN:
-                        os.makedirs(os.path.join(MEDIA_D, str(ENT_TID)), exist_ok=True, mode=0o777)
-                        POST_FNAME = os.path.join(MEDIA_D, str(ENT_TID), POST_MEDIA[index]['file_name'])
-                        POST_FNAME1, ext = os.path.splitext(POST_MEDIA[index]['file_name'])
-                        POST_FNAME_COPY = os.path.join(MEDIA_D, str(ENT_TID), f"{os.path.basename(POST_FNAME1)}_c{ext}")
-
-                        extra_bot = Bot(token=BOT_TOKEN)
-                        try:
-                            file = await extra_bot.get_file(file_id)
-                            await extra_bot.download_file(file.file_path, str(POST_FNAME))
-
-                            POST_FNAME_COPY = await add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D)
-
-                            r_ = await extra_bot.send_photo(chat_id, types.FSInputFile(POST_FNAME_COPY))
-                            await extra_bot.delete_message(chat_id, r_.message_id)
-
-                            print(f"sooo ")
-                            file_id = r_.photo[-1].file_id
-                            print(f"sooo {file_id=}")
-                            POST_MEDIA_COPY[index]['filew_id'] = file_id
-                            print(f"sooo {POST_MEDIA_COPY=}")
-
-                            sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MEDIA=$1 WHERE POST_TID=$2"
-                            await db_change_pg(sql, (
-                                json.dumps(POST_MEDIA_COPY, ensure_ascii=False),
-                                POST_TID,
-                            ), BASE_P)
-                        finally:
-                            if os.path.exists(POST_FNAME): os.remove(POST_FNAME)
-                            if os.path.exists(POST_FNAME_COPY): os.remove(POST_FNAME_COPY)
-                            await extra_bot.session.close()
-                else:
-                    file_id = POST_MEDIA[index]['filew_id']
+                # if is_priv:
+                #     file_id = POST_MEDIA[index]['filew_id']
+                # else:
+                #     file_id = POST_MEDIA[index]['filebw_id']
             elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024:
                 POST_TEXT_ = await correct_txt_tags_for_tg(POST_TEXT_)
                 print(f"{POST_TEXT_=}")
@@ -11588,7 +10170,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                 POST_MSGID = str(result.message_id)
             print(f'res: POST_MSGID = {POST_MSGID}')
             sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
-            await db_change_pg(sql, (POST_MSGID, POST_TID,), BASE_P)
+            await db_change_pg(sql, (str(POST_MSGID), POST_TID,), BASE_P)
         # endregion
 
         # region story
@@ -11609,14 +10191,15 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region podcast
         try:
-            if result and BASE_S and getattr(result, 'chat', None) and result.chat.username and POST_CHKBOX.get('POST_ISPODCAST', False) and int(
-                    chat_id) == int(
-                ENT_TID) and len(POST_MEDIA):
+            if (
+                    result and BASE_S and getattr(result, 'chat', None) and
+                    result.chat.username and POST_CHKBOX.get('POST_ISPODCAST', False) and
+                    int(chat_id) == int(ENT_TID) and len(POST_MEDIA)
+            ):
                 member_ = await bot.get_chat_member(chat_id=int(ENT_TID), user_id=bot.id)
 
                 if member_.can_manage_video_chats and member_.can_promote_members:
                     print(f"member_ can and promote")
-                    is_paid, till_paid, lz = await get_vars_web_main(chat_id, '', '', lz, '', '', BASE_P, '')
 
                     asyncio.create_task(
                         podcast_start(bot, POST_USERTID, lz, ENT_TID, POST_TID, POST_TYPE, POST_TEXT,
@@ -11741,21 +10324,13 @@ async def balance_html_tags_async(txt, self_closing=None):
 
 
 async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN):
-    """
-    Версия без импортов внутри функции.
-    Убирает/разворачивает все <span>, <div>, <tg-spoiler> и не остаёт запрещённых тегов.
-    Требует: json, re, random, asyncio, Telegraph (telegraph.aio), short_name, logger, log_, db_select_pg в области видимости.
-    """
     result = None
     try:
-        # нормализация POST_MEDIA (гарантируем список)
         POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else (POST_MEDIA or [])
         if isinstance(POST_MEDIA, dict):
             POST_MEDIA = [POST_MEDIA]
 
         POST_TEXT = POST_TEXT or ''
-
-        # --- helper: sanitize pre/code content, чтобы внутри них не осталось span/div/tg-spoiler ---
         placeholders = []
 
         def sanitize_pre_content(tag_html):
@@ -11819,34 +10394,25 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 text = text.replace(f"__PRECODE_PLACEHOLDER_{i}__", val)
             return text
 
-        # --- начало очистки ---
         safe = hide_pre_code(POST_TEXT)
 
-        # удалить tg-spoiler теги сразу (не хотим их оставлять)
         safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
 
-        # &nbsp; и <br> -> переводы строк
         safe = safe.replace('&nbsp;', ' ').replace('<br>', '\n')
 
-        # убрать caret-specific span
         safe = safe.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
 
-        # убрать span с background-color, оставить inner
         safe = re.sub(r'(?is)<span[^>]*style="[^"]*background-color:[^"]*"[^>]*>(.*?)</span>', r'\1', safe)
 
-        # rgba-hashtag -> оставить #tag
         safe = re.sub(r'(?is)<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>\s*(#[^<\s]+)\s*</span>', r'\1', safe)
 
-        # активно удаляем ВСЕ span теги (вне pre/code, т.к. они в плейсхолдерах): разворачиваем inner
         prev = None
         while prev != safe:
             prev = safe
             safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
 
-        # заменить <strike> на <s>
         safe = safe.replace('<strike>', '<s>').replace('</strike>', '</s>')
 
-        # вынести блоки из inline-обёрток (b/... вокруг block tags)
         inline_tags = r'(?:b|i|u|strong|em|a)'
         block_tags = r'(?:blockquote|pre|figure|aside|div|code)'
         pattern_unwrap = re.compile(rf'(?is)<\s*({inline_tags})\b[^>]*>\s*(<(?:{block_tags})\b[^>]*>.*?</(?:{block_tags})>)\s*</\1\s*>')
@@ -11869,28 +10435,21 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
 
         safe = re.sub(r'(?is)<div\s+class="tgui-79024fcb6d81ad79"([^>]*)>(.*?)</div>', lambda m: replace_tgui_790(m), safe)
 
-        # tgui-86... -> превращаем в blockquote (не tg-spoiler)
         safe = re.sub(r'(?is)<div\s+class="tgui-86f452d8e92a2075[^"]*"[^>]*>(.*?)</div>', r'<blockquote>\1</blockquote>', safe)
 
-        # остальные div -> разворачиваем содержимое (unwrap) / заменяем закрывающие на переносы
         safe = re.sub(r'(?is)</\s*div\s*>', '\n', safe)
         safe = re.sub(r'(?is)<\s*div\b[^>]*>', '\n', safe)
 
-        # нормализуем переносы
         safe = re.sub(r'\r', '\n', safe)
         safe = re.sub(r'\n\s*\n+', '\n\n', safe)
         safe = safe.strip()
 
-        # восстановим pre/code из плейсхолдеров (они уже санитизированы)
         safe = restore_pre_code(safe)
 
-        # дополнительно: удалить оставшиеся tg-spoiler/ span/ div явные случаи
         safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
         safe = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe)
-        # ещё раз убрать любые span
         safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
 
-        # разбиваем на логические блоки по двойному переносу
         blocks = []
         for raw in safe.split('\n\n'):
             b = raw.strip()
@@ -11898,7 +10457,6 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 continue
             blocks.append(b)
 
-        # --- собираем media ---
         figure_html = ''
         for item in POST_MEDIA:
             if not isinstance(item, dict):
@@ -11909,7 +10467,6 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             else:
                 figure_html += f'<figure><img src="{tgph_ph}"/><figcaption>Photo: {{ENT_LINK}}</figcaption></figure>'
 
-        # --- формируем p_html ---
         p_html = ''
         for blk in blocks:
             s = blk.strip()
@@ -11919,7 +10476,6 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 inner = re.sub(r'\n+', ' ', s)
                 p_html += f'<p>{inner}</p>'
 
-        # нормализуем <a>, <img>, <video> — оставляем только href/src
         def keep_a(m):
             href = m.group(1)
             inner = m.group(2) or ''
@@ -11937,18 +10493,14 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             return f'<video src="{src}">{inner}</video>'
         p_html = re.sub(r'(?is)<video\b[^>]*src=["\']([^"\']+)["\'][^>]*>(.*?)</video>', keep_video, p_html)
 
-        # убрать любые оставшиеся span/tg-spoiler/div внутри p_html
         p_html = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', p_html)
         p_html = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', p_html)
         p_html = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', p_html)
 
-        # удалить все атрибуты у тегов (оставить только имя тега), после нормализаций
         p_html = re.sub(r'(?is)<(\w+)(?:\s+[^>]*)>', r'<\1>', p_html)
 
-        # финальная страховка: удалить любые остаточные запрещённые теги словом (span, tg-spoiler, div)
         p_html = re.sub(r'(?is)</?(?:span|tg-spoiler|div)\b[^>]*>', '', p_html)
 
-        # --- ENT lookup (не менял логику) ---
         ENT_NAME = ENT_TID
         ENT_USERNAME = ''
         ENT_LINK = ''
@@ -11979,7 +10531,6 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
 
         html_ = f"{figure_html}{p_html}"
 
-        # --- создать telegraph-страницу ---
         try:
             telegraph_ = Telegraph()
             await telegraph_.create_account(short_name=short_name, author_name=ENT_USERNAME or ENT_NAME, author_url=ENT_LINK or '')
@@ -11992,7 +10543,6 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             logger.info(log_ % str(e) + f"{POST_TEXT=}")
             await asyncio.sleep(round(random.uniform(3, 5), 2))
             return result
-
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -12104,9 +10654,10 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
             schema_name = 'GROUPP'
         elif PROJECT_USERNAME == 'FereyUserBot':
             schema_name = 'UB'
+        tid = str(ENT_TID).replace('-', '')
 
         if POST_BUTTONS and len(POST_BUTTONS):
-            sql = f"SELECT BTN_BID FROM {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH WHERE ENT_VID=$1"
+            sql = f"SELECT BTN_BID FROM {schema_name}_{tid}.PUSH WHERE ENT_VID=$1"
             data = await db_select_pg(sql, (POST_TID,), BASE_P)
             counters = {str(it[0]): sum(1 for x in data if x[0] == it[0]) for it in data}
         else:
@@ -12177,7 +10728,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     NEXT_POST_TID = button['lnk']
                     if button['lnk'].strip() == '':
                         NEXT_POST_TID = POST_TID
-                        # sql = f"SELECT POST_TID FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST"
+                        # sql = f"SELECT POST_TID FROM {schema_name}_{tid}.POST"
                         # data_post = await db_select_pg(sql, (), BASE_P)
                         # if len(data_post) and data_post[0][0]:
                         #     NEXT_POST_TID = data_post[0][0]
@@ -12185,21 +10736,21 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                         #     continue
 
                     print(f"{NEXT_POST_TID=}")
-                    HASH_STR = f"pst-{str(ENT_TID).replace('-', '')}-{str(NEXT_POST_TID).replace('-', '')}"
+                    HASH_STR = f"pst-{tid}-{tid}"
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
                     # if PROJECT_USERNAME == 'FereyPostBot':
                     #     sql = "INSERT INTO \"HASH\" (HASH_STR, HASH_VAL) VALUES ($1, $2) ON CONFLICT DO NOTHING"
                     #     await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
 
-                    post_fix = '' if PROJECT_USERNAME == 'FereyPostBot' else f"-{str(ENT_TID).replace('-', '')}"
+                    post_fix = '' if PROJECT_USERNAME == 'FereyPostBot' else f"-{tid}"
                     url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}{post_fix}'
                     btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
                     rows[row_index].append(btn)
                 elif button['knd'] == 'nft':
-                    HASH_STR = f"nft-{str(ENT_TID).replace('-', '')}-{POST_TID}"
+                    HASH_STR = f"nft-{tid}-{POST_TID}"
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
 
-                    url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=nft-{HASH_VAL}-{str(ENT_TID).replace('-', '')}'
+                    url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=nft-{HASH_VAL}-{tid}'
                     btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
                     rows[row_index].append(btn)
                 elif button['knd'] == 'copy':
@@ -12438,13 +10989,14 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_P, PROJE
             schema_name = 'GROUPP'
         elif PROJECT_USERNAME == 'FereyUserBot':
             schema_name = 'UB'
+        tid = str(ENT_TID).replace('-', '')
 
         try:
             result = await bot.get_chat(user_id)
             user_id = result.id
             full_name = result.full_name
             username = result.username
-            sql = f"INSERT INTO {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
+            sql = f"INSERT INTO {schema_name}_{tid}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (user_id, full_name, username, POST_ID, -1,), BASE_P)
             print('user_id get_chat ', user_id)
         except TelegramRetryAfter as e:
@@ -12466,7 +11018,7 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_P, PROJE
             username = get_users_[0].username
             is_premium = get_users_[0].is_premium
             lc = get_users_[0].language_code
-            sql = f"INSERT INTO {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, CHAT_ISPREMIUM, CHAT_LC, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING"
+            sql = f"INSERT INTO {schema_name}_{tid}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, CHAT_ISPREMIUM, CHAT_LC, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (user_id, full_name, username, is_premium, lc, POST_ID, -1,), BASE_P)
             print('user_id get_users_ ', user_id)
         except (FloodWait, SlowmodeWait) as e:
@@ -16943,46 +15495,144 @@ async def convert_webm_to_mp4(webm_path, MEDIA_D, ENT_TID):
 
 async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
     result = None
+    print(f"[start] add_water_to_photo called with:\n  POST_FNAME={POST_FNAME}\n  POST_FNAME_COPY={POST_FNAME_COPY}\n  POST_WATER={POST_WATER}\n  EXTRA_D={EXTRA_D}")
     try:
-        # file_begin, ext = os.path.splitext(webm_path)
-        # output_path = os.path.join(MEDIA_D, str(ENT_TID), f"{os.path.basename(file_begin)}_copy.mp4")
+        if not os.path.exists(POST_FNAME):
+            print(f"[error] input file not found: {POST_FNAME}")
+            return None
+        print(f"[ok] input file exists: {POST_FNAME}")
 
+        print("[step] Opening image...")
         image = Image.open(POST_FNAME)
-        image = await correct_orientation(image)
+        print(f"[ok] Image opened. mode={image.mode}, size={image.size}, format={image.format}")
+        print("[step] Calling correct_orientation(...) (await)...")
+        try:
+            image = await correct_orientation(image)
+            print("[ok] correct_orientation returned image")
+        except Exception as e:
+            print("[warn] correct_orientation raised exception, will continue with original image")
+            traceback.print_exc()
+
+        print("[step] Converting to RGB...")
         image = image.convert('RGB')
-        image.save(POST_FNAME, format="JPEG")
+        print(f"[ok] Converted. mode={image.mode}")
+
+        try:
+            print(f"[step] Saving intermediate JPEG to {POST_FNAME} ...")
+            image.save(POST_FNAME, format="JPEG")
+            print("[ok] intermediate save done")
+        except Exception as e:
+            print(f"[warn] failed to save intermediate JPEG to {POST_FNAME}: {e}")
+            traceback.print_exc()
 
         width, height = image.size
+        print(f"[info] image width={width}, height={height}")
+
         draw = ImageDraw.Draw(image)
-
         truetype_ = os.path.join(EXTRA_D, 'Roboto-Regular.ttf')
-        font_sz = 25
-        font = ImageFont.truetype(truetype_, font_sz)
+        print(f"[info] Trying to load font from path: {truetype_}")
 
-        text = POST_WATER
-        text_w, text_h = draw.textbbox((0, 0), text, font=font)[2:]
+        font_sz = 25
+        font = None
+        try:
+            if os.path.exists(truetype_):
+                font = ImageFont.truetype(truetype_, font_sz)
+                print("[ok] truetype font loaded")
+            else:
+                print(f"[warn] truetype file not found at {truetype_}")
+                raise FileNotFoundError(truetype_)
+        except Exception as e:
+            print(f"[warn] Failed to load truetype font ({e}). Using ImageFont.load_default() as fallback.")
+            try:
+                font = ImageFont.load_default()
+                print("[ok] fallback font loaded (ImageFont.load_default())")
+            except Exception as e2:
+                print("[error] fallback font load failed!")
+                traceback.print_exc()
+                font = None
+
+        text = POST_WATER or ""
+        print(f"[info] watermark text: '{text}'")
+
+        try:
+            bbox = draw.textbbox((0, 0), text, font=font)  # (x0, y0, x1, y1)
+            x0, y0, x1, y1 = bbox
+            text_w = x1 - x0
+            text_h = y1 - y0
+            print(f"[ok] textbbox: {bbox} -> text_w={text_w}, text_h={text_h}")
+        except Exception as e:
+            print(f"[warn] textbbox failed: {e} — попробуем textsize")
+            try:
+                text_w, text_h = draw.textsize(text, font=font)
+                print(f"[ok] textsize -> text_w={text_w}, text_h={text_h}")
+            except Exception as e2:
+                print(f"[error] textsize also failed: {e2}")
+                traceback.print_exc()
+                text_w, text_h = (0, 0)
 
         padding = 10
         bg_radius = 15
-        bg_color = (0, 0, 0, 128)
+        bg_color = (0, 0, 0, 128)  # rgba
         x = width - text_w - 40
         y = height - text_h - 40
+        print(f"[info] computed text position -> x={x}, y={y}, padding={padding}, bg_radius={bg_radius}")
 
-        # rounded
-        bg_x1, bg_y1 = x - padding, y - padding
-        bg_x2, bg_y2 = x + text_w + padding, y + text_h + padding
+        bg_x1, bg_y1 = int(x - padding), int(y - padding)
+        bg_x2, bg_y2 = int(x + text_w + padding), int(y + text_h + padding)
+        print(f"[info] bg box -> ({bg_x1},{bg_y1}) - ({bg_x2},{bg_y2}) size=({bg_x2-bg_x1},{bg_y2-bg_y1})")
 
-        bg = Image.new("RGBA", (bg_x2 - bg_x1, bg_y2 - bg_y1), (0, 0, 0, 0))
-        bg_draw = ImageDraw.Draw(bg)
-        bg_draw.rounded_rectangle((0, 0, bg_x2 - bg_x1, bg_y2 - bg_y1), bg_radius, fill=bg_color)
+        try:
+            bg = Image.new("RGBA", (bg_x2 - bg_x1, bg_y2 - bg_y1), (0, 0, 0, 0))
+            bg_draw = ImageDraw.Draw(bg)
+            # rounded_rectangle expects a box (x0,y0,x1,y1)
+            print("[step] Drawing rounded rectangle on bg layer...")
+            bg_draw.rounded_rectangle((0, 0, bg_x2 - bg_x1, bg_y2 - bg_y1), radius=bg_radius, fill=bg_color)
+            print("[ok] rounded rectangle drawn")
+        except Exception as e:
+            print(f"[error] Failed to create/draw bg layer: {e}")
+            traceback.print_exc()
+            try:
+                bg = Image.new("RGBA", (bg_x2 - bg_x1, bg_y2 - bg_y1), bg_color)
+                print("[ok] fallback: plain bg created")
+            except Exception as e2:
+                print(f"[fatal] couldn't create fallback bg: {e2}")
+                traceback.print_exc()
+                bg = None
 
-        image.paste(bg, (bg_x1, bg_y1), bg)
+        try:
+            if bg is not None:
+                print(f"[step] Pasting bg onto main image at {(bg_x1, bg_y1)} ...")
+                image.paste(bg, (bg_x1, bg_y1), bg)
+                print("[ok] bg pasted")
+            else:
+                print("[warn] bg is None, skipping paste")
+        except Exception as e:
+            print(f"[error] paste bg failed: {e}")
+            traceback.print_exc()
 
-        # add txt to upper layer
-        draw.text((x, y), text, font=font, fill=(255, 255, 255))
-        image.save(POST_FNAME_COPY)
+        try:
+            print(f"[step] Drawing text at {(x, y)} ...")
+            draw.text((x, y), text, font=font, fill=(255, 255, 255))
+            print("[ok] text drawn")
+        except Exception as e:
+            print(f"[error] draw.text failed: {e}")
+            traceback.print_exc()
 
-        result = POST_FNAME_COPY
+        try:
+            print(f"[step] Saving final image to {POST_FNAME_COPY} ...")
+            image.save(POST_FNAME_COPY, format="JPEG", quality=95)
+            print("[ok] final image saved")
+            result = POST_FNAME_COPY
+        except Exception as e:
+            print(f"[error] Failed to save final image: {e}")
+            traceback.print_exc()
+            await asyncio.sleep(round(random.uniform(0, 1), 2))
+        finally:
+            try:
+                image.close()
+                print("[info] image closed")
+            except Exception:
+                pass
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))

@@ -79,7 +79,1396 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnChannelGroupProps:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannelGroup``.
+
+        :param channel_group_name: The name of the channel group.
+        :param description: The configuration for a MediaPackage V2 channel group.
+        :param tags: The tags associated with the channel group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            cfn_channel_group_props = mediapackagev2.CfnChannelGroupProps(
+                channel_group_name="channelGroupName",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The name of the channel group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-channelgroupname
+        '''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The configuration for a MediaPackage V2 channel group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the channel group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+        "policy": "policy",
+    },
+)
+class CfnChannelPolicyProps:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+        policy: typing.Any,
+    ) -> None:
+        '''Properties for defining a ``CfnChannelPolicy``.
+
+        :param channel_group_name: The name of the channel group associated with the channel policy.
+        :param channel_name: The name of the channel associated with the channel policy.
+        :param policy: The policy associated with the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            # policy: Any
+            
+            cfn_channel_policy_props = mediapackagev2.CfnChannelPolicyProps(
+                channel_group_name="channelGroupName",
+                channel_name="channelName",
+                policy=policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+            "policy": policy,
+        }
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The name of the channel group associated with the channel policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-channelgroupname
+        '''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel associated with the channel policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The policy associated with the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+        "description": "description",
+        "input_switch_configuration": "inputSwitchConfiguration",
+        "input_type": "inputType",
+        "output_header_configuration": "outputHeaderConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_type: typing.Optional[builtins.str] = None,
+        output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param channel_group_name: The name of the channel group associated with the channel configuration.
+        :param channel_name: The name of the channel.
+        :param description: The description of the channel.
+        :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
+        :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
+        :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            cfn_channel_props = mediapackagev2.CfnChannelProps(
+                channel_group_name="channelGroupName",
+                channel_name="channelName",
+            
+                # the properties below are optional
+                description="description",
+                input_switch_configuration=mediapackagev2.CfnChannel.InputSwitchConfigurationProperty(
+                    mqcs_input_switching=False,
+                    preferred_input=123
+                ),
+                input_type="inputType",
+                output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
+                    publish_mqcs=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument input_switch_configuration", value=input_switch_configuration, expected_type=type_hints["input_switch_configuration"])
+            check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
+            check_type(argname="argument output_header_configuration", value=output_header_configuration, expected_type=type_hints["output_header_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if input_switch_configuration is not None:
+            self._values["input_switch_configuration"] = input_switch_configuration
+        if input_type is not None:
+            self._values["input_type"] = input_type
+        if output_header_configuration is not None:
+            self._values["output_header_configuration"] = output_header_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The name of the channel group associated with the channel configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-channelgroupname
+        '''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_switch_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSwitchConfigurationProperty"]]:
+        '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-inputswitchconfiguration
+        '''
+        result = self._values.get("input_switch_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSwitchConfigurationProperty"]], result)
+
+    @builtins.property
+    def input_type(self) -> typing.Optional[builtins.str]:
+        '''The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest.
+
+        If unprovided, it will default to HLS to preserve current behavior.
+
+        The allowed values are:
+
+        - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments).
+        - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-inputtype
+        '''
+        result = self._values.get("input_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_header_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputHeaderConfigurationProperty"]]:
+        '''The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-outputheaderconfiguration
+        '''
+        result = self._values.get("output_header_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputHeaderConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+        "origin_endpoint_name": "originEndpointName",
+        "policy": "policy",
+        "cdn_auth_configuration": "cdnAuthConfiguration",
+    },
+)
+class CfnOriginEndpointPolicyProps:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+        origin_endpoint_name: builtins.str,
+        policy: typing.Any,
+        cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOriginEndpointPolicy``.
+
+        :param channel_group_name: The name of the channel group associated with the origin endpoint policy.
+        :param channel_name: The channel name associated with the origin endpoint policy.
+        :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint policy.
+        :param policy: The policy associated with the origin endpoint.
+        :param cdn_auth_configuration: The settings to enable CDN authorization headers in MediaPackage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            # policy: Any
+            
+            cfn_origin_endpoint_policy_props = mediapackagev2.CfnOriginEndpointPolicyProps(
+                channel_group_name="channelGroupName",
+                channel_name="channelName",
+                origin_endpoint_name="originEndpointName",
+                policy=policy,
+            
+                # the properties below are optional
+                cdn_auth_configuration=mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty(
+                    cdn_identifier_secret_arns=["cdnIdentifierSecretArns"],
+                    secrets_role_arn="secretsRoleArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument cdn_auth_configuration", value=cdn_auth_configuration, expected_type=type_hints["cdn_auth_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+            "origin_endpoint_name": origin_endpoint_name,
+            "policy": policy,
+        }
+        if cdn_auth_configuration is not None:
+            self._values["cdn_auth_configuration"] = cdn_auth_configuration
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The name of the channel group associated with the origin endpoint policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-channelgroupname
+        '''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The channel name associated with the origin endpoint policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def origin_endpoint_name(self) -> builtins.str:
+        '''The name of the origin endpoint associated with the origin endpoint policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-originendpointname
+        '''
+        result = self._values.get("origin_endpoint_name")
+        assert result is not None, "Required property 'origin_endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The policy associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def cdn_auth_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
+        '''The settings to enable CDN authorization headers in MediaPackage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration
+        '''
+        result = self._values.get("cdn_auth_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOriginEndpointPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+        "container_type": "containerType",
+        "origin_endpoint_name": "originEndpointName",
+        "dash_manifests": "dashManifests",
+        "description": "description",
+        "force_endpoint_error_configuration": "forceEndpointErrorConfiguration",
+        "hls_manifests": "hlsManifests",
+        "low_latency_hls_manifests": "lowLatencyHlsManifests",
+        "segment": "segment",
+        "startover_window_seconds": "startoverWindowSeconds",
+        "tags": "tags",
+    },
+)
+class CfnOriginEndpointProps:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+        container_type: builtins.str,
+        origin_endpoint_name: builtins.str,
+        dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.DashManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.HlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        startover_window_seconds: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOriginEndpoint``.
+
+        :param channel_group_name: The name of the channel group associated with the origin endpoint configuration.
+        :param channel_name: The channel name associated with the origin endpoint.
+        :param container_type: The container type associated with the origin endpoint configuration.
+        :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint configuration.
+        :param dash_manifests: A DASH manifest configuration.
+        :param description: The description associated with the origin endpoint.
+        :param force_endpoint_error_configuration: The failover settings for the endpoint.
+        :param hls_manifests: The HLS manifests associated with the origin endpoint configuration.
+        :param low_latency_hls_manifests: The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.
+        :param segment: The segment associated with the origin endpoint.
+        :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
+        :param tags: The tags associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            cfn_origin_endpoint_props = mediapackagev2.CfnOriginEndpointProps(
+                channel_group_name="channelGroupName",
+                channel_name="channelName",
+                container_type="containerType",
+                origin_endpoint_name="originEndpointName",
+            
+                # the properties below are optional
+                dash_manifests=[mediapackagev2.CfnOriginEndpoint.DashManifestConfigurationProperty(
+                    manifest_name="manifestName",
+            
+                    # the properties below are optional
+                    base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
+                        url="url",
+            
+                        # the properties below are optional
+                        dvb_priority=123,
+                        dvb_weight=123,
+                        service_location="serviceLocation"
+                    )],
+                    compactness="compactness",
+                    drm_signaling="drmSignaling",
+                    dvb_settings=mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
+                        error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
+                            reporting_url="reportingUrl",
+            
+                            # the properties below are optional
+                            probability=123
+                        )],
+                        font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
+                            font_family="fontFamily",
+                            mime_type="mimeType",
+                            url="url"
+                        )
+                    ),
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                        clip_start_time="clipStartTime",
+                        end="end",
+                        manifest_filter="manifestFilter",
+                        start="start",
+                        time_delay_seconds=123
+                    ),
+                    manifest_window_seconds=123,
+                    min_buffer_time_seconds=123,
+                    min_update_period_seconds=123,
+                    period_triggers=["periodTriggers"],
+                    profiles=["profiles"],
+                    program_information=mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
+                        copyright="copyright",
+                        language_code="languageCode",
+                        more_information_url="moreInformationUrl",
+                        source="source",
+                        title="title"
+                    ),
+                    scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
+                        ad_marker_dash="adMarkerDash"
+                    ),
+                    segment_template_format="segmentTemplateFormat",
+                    subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
+                        ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
+                            ttml_profile="ttmlProfile"
+                        )
+                    ),
+                    suggested_presentation_delay_seconds=123,
+                    utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
+                        timing_mode="timingMode",
+                        timing_source="timingSource"
+                    )
+                )],
+                description="description",
+                force_endpoint_error_configuration=mediapackagev2.CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty(
+                    endpoint_error_conditions=["endpointErrorConditions"]
+                ),
+                hls_manifests=[mediapackagev2.CfnOriginEndpoint.HlsManifestConfigurationProperty(
+                    manifest_name="manifestName",
+            
+                    # the properties below are optional
+                    child_manifest_name="childManifestName",
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                        clip_start_time="clipStartTime",
+                        end="end",
+                        manifest_filter="manifestFilter",
+                        start="start",
+                        time_delay_seconds=123
+                    ),
+                    manifest_window_seconds=123,
+                    program_date_time_interval_seconds=123,
+                    scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
+                        ad_marker_hls="adMarkerHls"
+                    ),
+                    start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
+                        time_offset=123,
+            
+                        # the properties below are optional
+                        precise=False
+                    ),
+                    url="url",
+                    url_encode_child_manifest=False
+                )],
+                low_latency_hls_manifests=[mediapackagev2.CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty(
+                    manifest_name="manifestName",
+            
+                    # the properties below are optional
+                    child_manifest_name="childManifestName",
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                        clip_start_time="clipStartTime",
+                        end="end",
+                        manifest_filter="manifestFilter",
+                        start="start",
+                        time_delay_seconds=123
+                    ),
+                    manifest_window_seconds=123,
+                    program_date_time_interval_seconds=123,
+                    scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
+                        ad_marker_hls="adMarkerHls"
+                    ),
+                    start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
+                        time_offset=123,
+            
+                        # the properties below are optional
+                        precise=False
+                    ),
+                    url="url",
+                    url_encode_child_manifest=False
+                )],
+                segment=mediapackagev2.CfnOriginEndpoint.SegmentProperty(
+                    encryption=mediapackagev2.CfnOriginEndpoint.EncryptionProperty(
+                        encryption_method=mediapackagev2.CfnOriginEndpoint.EncryptionMethodProperty(
+                            cmaf_encryption_method="cmafEncryptionMethod",
+                            ts_encryption_method="tsEncryptionMethod"
+                        ),
+                        speke_key_provider=mediapackagev2.CfnOriginEndpoint.SpekeKeyProviderProperty(
+                            drm_systems=["drmSystems"],
+                            encryption_contract_configuration=mediapackagev2.CfnOriginEndpoint.EncryptionContractConfigurationProperty(
+                                preset_speke20_audio="presetSpeke20Audio",
+                                preset_speke20_video="presetSpeke20Video"
+                            ),
+                            resource_id="resourceId",
+                            role_arn="roleArn",
+                            url="url"
+                        ),
+            
+                        # the properties below are optional
+                        cmaf_exclude_segment_drm_metadata=False,
+                        constant_initialization_vector="constantInitializationVector",
+                        key_rotation_interval_seconds=123
+                    ),
+                    include_iframe_only_streams=False,
+                    scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
+                        scte_filter=["scteFilter"]
+                    ),
+                    segment_duration_seconds=123,
+                    segment_name="segmentName",
+                    ts_include_dvb_subtitles=False,
+                    ts_use_audio_rendition_group=False
+                ),
+                startover_window_seconds=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument container_type", value=container_type, expected_type=type_hints["container_type"])
+            check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
+            check_type(argname="argument dash_manifests", value=dash_manifests, expected_type=type_hints["dash_manifests"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument force_endpoint_error_configuration", value=force_endpoint_error_configuration, expected_type=type_hints["force_endpoint_error_configuration"])
+            check_type(argname="argument hls_manifests", value=hls_manifests, expected_type=type_hints["hls_manifests"])
+            check_type(argname="argument low_latency_hls_manifests", value=low_latency_hls_manifests, expected_type=type_hints["low_latency_hls_manifests"])
+            check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
+            check_type(argname="argument startover_window_seconds", value=startover_window_seconds, expected_type=type_hints["startover_window_seconds"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+            "container_type": container_type,
+            "origin_endpoint_name": origin_endpoint_name,
+        }
+        if dash_manifests is not None:
+            self._values["dash_manifests"] = dash_manifests
+        if description is not None:
+            self._values["description"] = description
+        if force_endpoint_error_configuration is not None:
+            self._values["force_endpoint_error_configuration"] = force_endpoint_error_configuration
+        if hls_manifests is not None:
+            self._values["hls_manifests"] = hls_manifests
+        if low_latency_hls_manifests is not None:
+            self._values["low_latency_hls_manifests"] = low_latency_hls_manifests
+        if segment is not None:
+            self._values["segment"] = segment
+        if startover_window_seconds is not None:
+            self._values["startover_window_seconds"] = startover_window_seconds
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The name of the channel group associated with the origin endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-channelgroupname
+        '''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The channel name associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def container_type(self) -> builtins.str:
+        '''The container type associated with the origin endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-containertype
+        '''
+        result = self._values.get("container_type")
+        assert result is not None, "Required property 'container_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def origin_endpoint_name(self) -> builtins.str:
+        '''The name of the origin endpoint associated with the origin endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-originendpointname
+        '''
+        result = self._values.get("origin_endpoint_name")
+        assert result is not None, "Required property 'origin_endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dash_manifests(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]]:
+        '''A DASH manifest configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-dashmanifests
+        '''
+        result = self._values.get("dash_manifests")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def force_endpoint_error_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]]:
+        '''The failover settings for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-forceendpointerrorconfiguration
+        '''
+        result = self._values.get("force_endpoint_error_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]], result)
+
+    @builtins.property
+    def hls_manifests(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]]:
+        '''The HLS manifests associated with the origin endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-hlsmanifests
+        '''
+        result = self._values.get("hls_manifests")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def low_latency_hls_manifests(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]]:
+        '''The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifests
+        '''
+        result = self._values.get("low_latency_hls_manifests")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def segment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.SegmentProperty"]]:
+        '''The segment associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-segment
+        '''
+        result = self._values.get("segment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.SegmentProperty"]], result)
+
+    @builtins.property
+    def startover_window_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing.
+
+        Viewers can start-over or catch-up on content that falls within the window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-startoverwindowseconds
+        '''
+        result = self._values.get("startover_window_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the origin endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOriginEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.ChannelGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_group_arn": "channelGroupArn"},
+)
+class ChannelGroupReference:
+    def __init__(self, *, channel_group_arn: builtins.str) -> None:
+        '''A reference to a ChannelGroup resource.
+
+        :param channel_group_arn: The Arn of the ChannelGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            channel_group_reference = mediapackagev2.ChannelGroupReference(
+                channel_group_arn="channelGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c5453591c4130dc6a2b73acb0d740594d94e9743d026af1519ee0f1b76564ec)
+            check_type(argname="argument channel_group_arn", value=channel_group_arn, expected_type=type_hints["channel_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_arn": channel_group_arn,
+        }
+
+    @builtins.property
+    def channel_group_arn(self) -> builtins.str:
+        '''The Arn of the ChannelGroup resource.'''
+        result = self._values.get("channel_group_arn")
+        assert result is not None, "Required property 'channel_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.ChannelPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+    },
+)
+class ChannelPolicyReference:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+    ) -> None:
+        '''A reference to a ChannelPolicy resource.
+
+        :param channel_group_name: The ChannelGroupName of the ChannelPolicy resource.
+        :param channel_name: The ChannelName of the ChannelPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            channel_policy_reference = mediapackagev2.ChannelPolicyReference(
+                channel_group_name="channelGroupName",
+                channel_name="channelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70324836fab0ee183ee9765aca5a488a984d20c6bc7020e43d22d45e5acff8a5)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+        }
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The ChannelGroupName of the ChannelPolicy resource.'''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The ChannelName of the ChannelPolicy resource.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_arn": "channelArn"},
+)
+class ChannelReference:
+    def __init__(self, *, channel_arn: builtins.str) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_arn: The Arn of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            channel_reference = mediapackagev2.ChannelReference(
+                channel_arn="channelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c28acb3582b4aa5519ff94a3887957c9e865cecfc3b409def89257611a8996d)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The Arn of the Channel resource.'''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediapackagev2.IChannelGroupRef")
+class IChannelGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelGroupRef")
+    def channel_group_ref(self) -> ChannelGroupReference:
+        '''(experimental) A reference to a ChannelGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediapackagev2.IChannelGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelGroupRef")
+    def channel_group_ref(self) -> ChannelGroupReference:
+        '''(experimental) A reference to a ChannelGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelGroupReference, jsii.get(self, "channelGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelGroupRef).__jsii_proxy_class__ = lambda : _IChannelGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediapackagev2.IChannelPolicyRef")
+class IChannelPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''(experimental) A reference to a ChannelPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediapackagev2.IChannelPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''(experimental) A reference to a ChannelPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelPolicyReference, jsii.get(self, "channelPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelPolicyRef).__jsii_proxy_class__ = lambda : _IChannelPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediapackagev2.IChannelRef")
+class IChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediapackagev2.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediapackagev2.IOriginEndpointPolicyRef")
+class IOriginEndpointPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OriginEndpointPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointPolicyRef")
+    def origin_endpoint_policy_ref(self) -> "OriginEndpointPolicyReference":
+        '''(experimental) A reference to a OriginEndpointPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOriginEndpointPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OriginEndpointPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediapackagev2.IOriginEndpointPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointPolicyRef")
+    def origin_endpoint_policy_ref(self) -> "OriginEndpointPolicyReference":
+        '''(experimental) A reference to a OriginEndpointPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OriginEndpointPolicyReference", jsii.get(self, "originEndpointPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOriginEndpointPolicyRef).__jsii_proxy_class__ = lambda : _IOriginEndpointPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediapackagev2.IOriginEndpointRef")
+class IOriginEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a OriginEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointRef")
+    def origin_endpoint_ref(self) -> "OriginEndpointReference":
+        '''(experimental) A reference to a OriginEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOriginEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OriginEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediapackagev2.IOriginEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointRef")
+    def origin_endpoint_ref(self) -> "OriginEndpointReference":
+        '''(experimental) A reference to a OriginEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OriginEndpointReference", jsii.get(self, "originEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOriginEndpointRef).__jsii_proxy_class__ = lambda : _IOriginEndpointRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.OriginEndpointPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_group_name": "channelGroupName",
+        "channel_name": "channelName",
+        "origin_endpoint_name": "originEndpointName",
+    },
+)
+class OriginEndpointPolicyReference:
+    def __init__(
+        self,
+        *,
+        channel_group_name: builtins.str,
+        channel_name: builtins.str,
+        origin_endpoint_name: builtins.str,
+    ) -> None:
+        '''A reference to a OriginEndpointPolicy resource.
+
+        :param channel_group_name: The ChannelGroupName of the OriginEndpointPolicy resource.
+        :param channel_name: The ChannelName of the OriginEndpointPolicy resource.
+        :param origin_endpoint_name: The OriginEndpointName of the OriginEndpointPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            origin_endpoint_policy_reference = mediapackagev2.OriginEndpointPolicyReference(
+                channel_group_name="channelGroupName",
+                channel_name="channelName",
+                origin_endpoint_name="originEndpointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6bc774daf8999801d5ef624fbebab7e7e39c95298c88492654b8291e02e6ca3)
+            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_group_name": channel_group_name,
+            "channel_name": channel_name,
+            "origin_endpoint_name": origin_endpoint_name,
+        }
+
+    @builtins.property
+    def channel_group_name(self) -> builtins.str:
+        '''The ChannelGroupName of the OriginEndpointPolicy resource.'''
+        result = self._values.get("channel_group_name")
+        assert result is not None, "Required property 'channel_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The ChannelName of the OriginEndpointPolicy resource.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def origin_endpoint_name(self) -> builtins.str:
+        '''The OriginEndpointName of the OriginEndpointPolicy resource.'''
+        result = self._values.get("origin_endpoint_name")
+        assert result is not None, "Required property 'origin_endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OriginEndpointPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediapackagev2.OriginEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"origin_endpoint_arn": "originEndpointArn"},
+)
+class OriginEndpointReference:
+    def __init__(self, *, origin_endpoint_arn: builtins.str) -> None:
+        '''A reference to a OriginEndpoint resource.
+
+        :param origin_endpoint_arn: The Arn of the OriginEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediapackagev2 as mediapackagev2
+            
+            origin_endpoint_reference = mediapackagev2.OriginEndpointReference(
+                origin_endpoint_arn="originEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d99ee416d137b27f21aa648933cfdf8396af5def95615f9e7f0c794dc9ed5de)
+            check_type(argname="argument origin_endpoint_arn", value=origin_endpoint_arn, expected_type=type_hints["origin_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "origin_endpoint_arn": origin_endpoint_arn,
+        }
+
+    @builtins.property
+    def origin_endpoint_arn(self) -> builtins.str:
+        '''The Arn of the OriginEndpoint resource.'''
+        result = self._values.get("origin_endpoint_arn")
+        assert result is not None, "Required property 'origin_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OriginEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IChannelRef, _ITaggableV2_4e6798f8)
 class CfnChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -245,6 +1634,12 @@ class CfnChannel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''A reference to a Channel resource.'''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -555,7 +1950,7 @@ class CfnChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IChannelGroupRef, _ITaggableV2_4e6798f8)
 class CfnChannelGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -689,6 +2084,12 @@ class CfnChannelGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="channelGroupRef")
+    def channel_group_ref(self) -> ChannelGroupReference:
+        '''A reference to a ChannelGroup resource.'''
+        return typing.cast(ChannelGroupReference, jsii.get(self, "channelGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="channelGroupName")
     def channel_group_name(self) -> builtins.str:
         '''The name of the channel group.'''
@@ -728,103 +2129,7 @@ class CfnChannelGroup(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_group_name": "channelGroupName",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnChannelGroupProps:
-    def __init__(
-        self,
-        *,
-        channel_group_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannelGroup``.
-
-        :param channel_group_name: The name of the channel group.
-        :param description: The configuration for a MediaPackage V2 channel group.
-        :param tags: The tags associated with the channel group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediapackagev2 as mediapackagev2
-            
-            cfn_channel_group_props = mediapackagev2.CfnChannelGroupProps(
-                channel_group_name="channelGroupName",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e)
-            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_group_name": channel_group_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def channel_group_name(self) -> builtins.str:
-        '''The name of the channel group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-channelgroupname
-        '''
-        result = self._values.get("channel_group_name")
-        assert result is not None, "Required property 'channel_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The configuration for a MediaPackage V2 channel group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with the channel group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IChannelPolicyRef)
 class CfnChannelPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -915,6 +2220,12 @@ class CfnChannelPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''A reference to a ChannelPolicy resource.'''
+        return typing.cast(ChannelPolicyReference, jsii.get(self, "channelPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="channelGroupName")
     def channel_group_name(self) -> builtins.str:
         '''The name of the channel group associated with the channel policy.'''
@@ -954,275 +2265,7 @@ class CfnChannelPolicy(
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_group_name": "channelGroupName",
-        "channel_name": "channelName",
-        "policy": "policy",
-    },
-)
-class CfnChannelPolicyProps:
-    def __init__(
-        self,
-        *,
-        channel_group_name: builtins.str,
-        channel_name: builtins.str,
-        policy: typing.Any,
-    ) -> None:
-        '''Properties for defining a ``CfnChannelPolicy``.
-
-        :param channel_group_name: The name of the channel group associated with the channel policy.
-        :param channel_name: The name of the channel associated with the channel policy.
-        :param policy: The policy associated with the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediapackagev2 as mediapackagev2
-            
-            # policy: Any
-            
-            cfn_channel_policy_props = mediapackagev2.CfnChannelPolicyProps(
-                channel_group_name="channelGroupName",
-                channel_name="channelName",
-                policy=policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f)
-            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_group_name": channel_group_name,
-            "channel_name": channel_name,
-            "policy": policy,
-        }
-
-    @builtins.property
-    def channel_group_name(self) -> builtins.str:
-        '''The name of the channel group associated with the channel policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-channelgroupname
-        '''
-        result = self._values.get("channel_group_name")
-        assert result is not None, "Required property 'channel_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The name of the channel associated with the channel policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The policy associated with the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelpolicy.html#cfn-mediapackagev2-channelpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_group_name": "channelGroupName",
-        "channel_name": "channelName",
-        "description": "description",
-        "input_switch_configuration": "inputSwitchConfiguration",
-        "input_type": "inputType",
-        "output_header_configuration": "outputHeaderConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnChannelProps:
-    def __init__(
-        self,
-        *,
-        channel_group_name: builtins.str,
-        channel_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        input_type: typing.Optional[builtins.str] = None,
-        output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannel``.
-
-        :param channel_group_name: The name of the channel group associated with the channel configuration.
-        :param channel_name: The name of the channel.
-        :param description: The description of the channel.
-        :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
-        :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
-        :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediapackagev2 as mediapackagev2
-            
-            cfn_channel_props = mediapackagev2.CfnChannelProps(
-                channel_group_name="channelGroupName",
-                channel_name="channelName",
-            
-                # the properties below are optional
-                description="description",
-                input_switch_configuration=mediapackagev2.CfnChannel.InputSwitchConfigurationProperty(
-                    mqcs_input_switching=False,
-                    preferred_input=123
-                ),
-                input_type="inputType",
-                output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
-                    publish_mqcs=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f)
-            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument input_switch_configuration", value=input_switch_configuration, expected_type=type_hints["input_switch_configuration"])
-            check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
-            check_type(argname="argument output_header_configuration", value=output_header_configuration, expected_type=type_hints["output_header_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_group_name": channel_group_name,
-            "channel_name": channel_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if input_switch_configuration is not None:
-            self._values["input_switch_configuration"] = input_switch_configuration
-        if input_type is not None:
-            self._values["input_type"] = input_type
-        if output_header_configuration is not None:
-            self._values["output_header_configuration"] = output_header_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def channel_group_name(self) -> builtins.str:
-        '''The name of the channel group associated with the channel configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-channelgroupname
-        '''
-        result = self._values.get("channel_group_name")
-        assert result is not None, "Required property 'channel_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The name of the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_switch_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.InputSwitchConfigurationProperty]]:
-        '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-inputswitchconfiguration
-        '''
-        result = self._values.get("input_switch_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.InputSwitchConfigurationProperty]], result)
-
-    @builtins.property
-    def input_type(self) -> typing.Optional[builtins.str]:
-        '''The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest.
-
-        If unprovided, it will default to HLS to preserve current behavior.
-
-        The allowed values are:
-
-        - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments).
-        - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-inputtype
-        '''
-        result = self._values.get("input_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def output_header_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.OutputHeaderConfigurationProperty]]:
-        '''The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-outputheaderconfiguration
-        '''
-        result = self._values.get("output_header_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.OutputHeaderConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IOriginEndpointRef, _ITaggableV2_4e6798f8)
 class CfnOriginEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1552,6 +2595,12 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointRef")
+    def origin_endpoint_ref(self) -> OriginEndpointReference:
+        '''A reference to a OriginEndpoint resource.'''
+        return typing.cast(OriginEndpointReference, jsii.get(self, "originEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -4322,7 +5371,7 @@ class CfnOriginEndpoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IOriginEndpointPolicyRef)
 class CfnOriginEndpointPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4424,6 +5473,12 @@ class CfnOriginEndpointPolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="originEndpointPolicyRef")
+    def origin_endpoint_policy_ref(self) -> OriginEndpointPolicyReference:
+        '''A reference to a OriginEndpointPolicy resource.'''
+        return typing.cast(OriginEndpointPolicyReference, jsii.get(self, "originEndpointPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -4570,532 +5625,6 @@ class CfnOriginEndpointPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_group_name": "channelGroupName",
-        "channel_name": "channelName",
-        "origin_endpoint_name": "originEndpointName",
-        "policy": "policy",
-        "cdn_auth_configuration": "cdnAuthConfiguration",
-    },
-)
-class CfnOriginEndpointPolicyProps:
-    def __init__(
-        self,
-        *,
-        channel_group_name: builtins.str,
-        channel_name: builtins.str,
-        origin_endpoint_name: builtins.str,
-        policy: typing.Any,
-        cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOriginEndpointPolicy``.
-
-        :param channel_group_name: The name of the channel group associated with the origin endpoint policy.
-        :param channel_name: The channel name associated with the origin endpoint policy.
-        :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint policy.
-        :param policy: The policy associated with the origin endpoint.
-        :param cdn_auth_configuration: The settings to enable CDN authorization headers in MediaPackage.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediapackagev2 as mediapackagev2
-            
-            # policy: Any
-            
-            cfn_origin_endpoint_policy_props = mediapackagev2.CfnOriginEndpointPolicyProps(
-                channel_group_name="channelGroupName",
-                channel_name="channelName",
-                origin_endpoint_name="originEndpointName",
-                policy=policy,
-            
-                # the properties below are optional
-                cdn_auth_configuration=mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty(
-                    cdn_identifier_secret_arns=["cdnIdentifierSecretArns"],
-                    secrets_role_arn="secretsRoleArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35)
-            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument cdn_auth_configuration", value=cdn_auth_configuration, expected_type=type_hints["cdn_auth_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_group_name": channel_group_name,
-            "channel_name": channel_name,
-            "origin_endpoint_name": origin_endpoint_name,
-            "policy": policy,
-        }
-        if cdn_auth_configuration is not None:
-            self._values["cdn_auth_configuration"] = cdn_auth_configuration
-
-    @builtins.property
-    def channel_group_name(self) -> builtins.str:
-        '''The name of the channel group associated with the origin endpoint policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-channelgroupname
-        '''
-        result = self._values.get("channel_group_name")
-        assert result is not None, "Required property 'channel_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The channel name associated with the origin endpoint policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def origin_endpoint_name(self) -> builtins.str:
-        '''The name of the origin endpoint associated with the origin endpoint policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-originendpointname
-        '''
-        result = self._values.get("origin_endpoint_name")
-        assert result is not None, "Required property 'origin_endpoint_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The policy associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def cdn_auth_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]]:
-        '''The settings to enable CDN authorization headers in MediaPackage.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration
-        '''
-        result = self._values.get("cdn_auth_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOriginEndpointPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_group_name": "channelGroupName",
-        "channel_name": "channelName",
-        "container_type": "containerType",
-        "origin_endpoint_name": "originEndpointName",
-        "dash_manifests": "dashManifests",
-        "description": "description",
-        "force_endpoint_error_configuration": "forceEndpointErrorConfiguration",
-        "hls_manifests": "hlsManifests",
-        "low_latency_hls_manifests": "lowLatencyHlsManifests",
-        "segment": "segment",
-        "startover_window_seconds": "startoverWindowSeconds",
-        "tags": "tags",
-    },
-)
-class CfnOriginEndpointProps:
-    def __init__(
-        self,
-        *,
-        channel_group_name: builtins.str,
-        channel_name: builtins.str,
-        container_type: builtins.str,
-        origin_endpoint_name: builtins.str,
-        dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        startover_window_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOriginEndpoint``.
-
-        :param channel_group_name: The name of the channel group associated with the origin endpoint configuration.
-        :param channel_name: The channel name associated with the origin endpoint.
-        :param container_type: The container type associated with the origin endpoint configuration.
-        :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint configuration.
-        :param dash_manifests: A DASH manifest configuration.
-        :param description: The description associated with the origin endpoint.
-        :param force_endpoint_error_configuration: The failover settings for the endpoint.
-        :param hls_manifests: The HLS manifests associated with the origin endpoint configuration.
-        :param low_latency_hls_manifests: The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.
-        :param segment: The segment associated with the origin endpoint.
-        :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
-        :param tags: The tags associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediapackagev2 as mediapackagev2
-            
-            cfn_origin_endpoint_props = mediapackagev2.CfnOriginEndpointProps(
-                channel_group_name="channelGroupName",
-                channel_name="channelName",
-                container_type="containerType",
-                origin_endpoint_name="originEndpointName",
-            
-                # the properties below are optional
-                dash_manifests=[mediapackagev2.CfnOriginEndpoint.DashManifestConfigurationProperty(
-                    manifest_name="manifestName",
-            
-                    # the properties below are optional
-                    base_urls=[mediapackagev2.CfnOriginEndpoint.DashBaseUrlProperty(
-                        url="url",
-            
-                        # the properties below are optional
-                        dvb_priority=123,
-                        dvb_weight=123,
-                        service_location="serviceLocation"
-                    )],
-                    compactness="compactness",
-                    drm_signaling="drmSignaling",
-                    dvb_settings=mediapackagev2.CfnOriginEndpoint.DashDvbSettingsProperty(
-                        error_metrics=[mediapackagev2.CfnOriginEndpoint.DashDvbMetricsReportingProperty(
-                            reporting_url="reportingUrl",
-            
-                            # the properties below are optional
-                            probability=123
-                        )],
-                        font_download=mediapackagev2.CfnOriginEndpoint.DashDvbFontDownloadProperty(
-                            font_family="fontFamily",
-                            mime_type="mimeType",
-                            url="url"
-                        )
-                    ),
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
-                        clip_start_time="clipStartTime",
-                        end="end",
-                        manifest_filter="manifestFilter",
-                        start="start",
-                        time_delay_seconds=123
-                    ),
-                    manifest_window_seconds=123,
-                    min_buffer_time_seconds=123,
-                    min_update_period_seconds=123,
-                    period_triggers=["periodTriggers"],
-                    profiles=["profiles"],
-                    program_information=mediapackagev2.CfnOriginEndpoint.DashProgramInformationProperty(
-                        copyright="copyright",
-                        language_code="languageCode",
-                        more_information_url="moreInformationUrl",
-                        source="source",
-                        title="title"
-                    ),
-                    scte_dash=mediapackagev2.CfnOriginEndpoint.ScteDashProperty(
-                        ad_marker_dash="adMarkerDash"
-                    ),
-                    segment_template_format="segmentTemplateFormat",
-                    subtitle_configuration=mediapackagev2.CfnOriginEndpoint.DashSubtitleConfigurationProperty(
-                        ttml_configuration=mediapackagev2.CfnOriginEndpoint.DashTtmlConfigurationProperty(
-                            ttml_profile="ttmlProfile"
-                        )
-                    ),
-                    suggested_presentation_delay_seconds=123,
-                    utc_timing=mediapackagev2.CfnOriginEndpoint.DashUtcTimingProperty(
-                        timing_mode="timingMode",
-                        timing_source="timingSource"
-                    )
-                )],
-                description="description",
-                force_endpoint_error_configuration=mediapackagev2.CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty(
-                    endpoint_error_conditions=["endpointErrorConditions"]
-                ),
-                hls_manifests=[mediapackagev2.CfnOriginEndpoint.HlsManifestConfigurationProperty(
-                    manifest_name="manifestName",
-            
-                    # the properties below are optional
-                    child_manifest_name="childManifestName",
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
-                        clip_start_time="clipStartTime",
-                        end="end",
-                        manifest_filter="manifestFilter",
-                        start="start",
-                        time_delay_seconds=123
-                    ),
-                    manifest_window_seconds=123,
-                    program_date_time_interval_seconds=123,
-                    scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
-                    ),
-                    start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
-                        time_offset=123,
-            
-                        # the properties below are optional
-                        precise=False
-                    ),
-                    url="url",
-                    url_encode_child_manifest=False
-                )],
-                low_latency_hls_manifests=[mediapackagev2.CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty(
-                    manifest_name="manifestName",
-            
-                    # the properties below are optional
-                    child_manifest_name="childManifestName",
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
-                        clip_start_time="clipStartTime",
-                        end="end",
-                        manifest_filter="manifestFilter",
-                        start="start",
-                        time_delay_seconds=123
-                    ),
-                    manifest_window_seconds=123,
-                    program_date_time_interval_seconds=123,
-                    scte_hls=mediapackagev2.CfnOriginEndpoint.ScteHlsProperty(
-                        ad_marker_hls="adMarkerHls"
-                    ),
-                    start_tag=mediapackagev2.CfnOriginEndpoint.StartTagProperty(
-                        time_offset=123,
-            
-                        # the properties below are optional
-                        precise=False
-                    ),
-                    url="url",
-                    url_encode_child_manifest=False
-                )],
-                segment=mediapackagev2.CfnOriginEndpoint.SegmentProperty(
-                    encryption=mediapackagev2.CfnOriginEndpoint.EncryptionProperty(
-                        encryption_method=mediapackagev2.CfnOriginEndpoint.EncryptionMethodProperty(
-                            cmaf_encryption_method="cmafEncryptionMethod",
-                            ts_encryption_method="tsEncryptionMethod"
-                        ),
-                        speke_key_provider=mediapackagev2.CfnOriginEndpoint.SpekeKeyProviderProperty(
-                            drm_systems=["drmSystems"],
-                            encryption_contract_configuration=mediapackagev2.CfnOriginEndpoint.EncryptionContractConfigurationProperty(
-                                preset_speke20_audio="presetSpeke20Audio",
-                                preset_speke20_video="presetSpeke20Video"
-                            ),
-                            resource_id="resourceId",
-                            role_arn="roleArn",
-                            url="url"
-                        ),
-            
-                        # the properties below are optional
-                        cmaf_exclude_segment_drm_metadata=False,
-                        constant_initialization_vector="constantInitializationVector",
-                        key_rotation_interval_seconds=123
-                    ),
-                    include_iframe_only_streams=False,
-                    scte=mediapackagev2.CfnOriginEndpoint.ScteProperty(
-                        scte_filter=["scteFilter"]
-                    ),
-                    segment_duration_seconds=123,
-                    segment_name="segmentName",
-                    ts_include_dvb_subtitles=False,
-                    ts_use_audio_rendition_group=False
-                ),
-                startover_window_seconds=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402)
-            check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument container_type", value=container_type, expected_type=type_hints["container_type"])
-            check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
-            check_type(argname="argument dash_manifests", value=dash_manifests, expected_type=type_hints["dash_manifests"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument force_endpoint_error_configuration", value=force_endpoint_error_configuration, expected_type=type_hints["force_endpoint_error_configuration"])
-            check_type(argname="argument hls_manifests", value=hls_manifests, expected_type=type_hints["hls_manifests"])
-            check_type(argname="argument low_latency_hls_manifests", value=low_latency_hls_manifests, expected_type=type_hints["low_latency_hls_manifests"])
-            check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
-            check_type(argname="argument startover_window_seconds", value=startover_window_seconds, expected_type=type_hints["startover_window_seconds"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_group_name": channel_group_name,
-            "channel_name": channel_name,
-            "container_type": container_type,
-            "origin_endpoint_name": origin_endpoint_name,
-        }
-        if dash_manifests is not None:
-            self._values["dash_manifests"] = dash_manifests
-        if description is not None:
-            self._values["description"] = description
-        if force_endpoint_error_configuration is not None:
-            self._values["force_endpoint_error_configuration"] = force_endpoint_error_configuration
-        if hls_manifests is not None:
-            self._values["hls_manifests"] = hls_manifests
-        if low_latency_hls_manifests is not None:
-            self._values["low_latency_hls_manifests"] = low_latency_hls_manifests
-        if segment is not None:
-            self._values["segment"] = segment
-        if startover_window_seconds is not None:
-            self._values["startover_window_seconds"] = startover_window_seconds
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def channel_group_name(self) -> builtins.str:
-        '''The name of the channel group associated with the origin endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-channelgroupname
-        '''
-        result = self._values.get("channel_group_name")
-        assert result is not None, "Required property 'channel_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The channel name associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def container_type(self) -> builtins.str:
-        '''The container type associated with the origin endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-containertype
-        '''
-        result = self._values.get("container_type")
-        assert result is not None, "Required property 'container_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def origin_endpoint_name(self) -> builtins.str:
-        '''The name of the origin endpoint associated with the origin endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-originendpointname
-        '''
-        result = self._values.get("origin_endpoint_name")
-        assert result is not None, "Required property 'origin_endpoint_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dash_manifests(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.DashManifestConfigurationProperty]]]]:
-        '''A DASH manifest configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-dashmanifests
-        '''
-        result = self._values.get("dash_manifests")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.DashManifestConfigurationProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def force_endpoint_error_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty]]:
-        '''The failover settings for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-forceendpointerrorconfiguration
-        '''
-        result = self._values.get("force_endpoint_error_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty]], result)
-
-    @builtins.property
-    def hls_manifests(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.HlsManifestConfigurationProperty]]]]:
-        '''The HLS manifests associated with the origin endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-hlsmanifests
-        '''
-        result = self._values.get("hls_manifests")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.HlsManifestConfigurationProperty]]]], result)
-
-    @builtins.property
-    def low_latency_hls_manifests(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty]]]]:
-        '''The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifests
-        '''
-        result = self._values.get("low_latency_hls_manifests")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty]]]], result)
-
-    @builtins.property
-    def segment(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.SegmentProperty]]:
-        '''The segment associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-segment
-        '''
-        result = self._values.get("segment")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.SegmentProperty]], result)
-
-    @builtins.property
-    def startover_window_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing.
-
-        Viewers can start-over or catch-up on content that falls within the window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-startoverwindowseconds
-        '''
-        result = self._values.get("startover_window_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with the origin endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOriginEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnChannel",
     "CfnChannelGroup",
@@ -5107,9 +5636,117 @@ __all__ = [
     "CfnOriginEndpointPolicy",
     "CfnOriginEndpointPolicyProps",
     "CfnOriginEndpointProps",
+    "ChannelGroupReference",
+    "ChannelPolicyReference",
+    "ChannelReference",
+    "IChannelGroupRef",
+    "IChannelPolicyRef",
+    "IChannelRef",
+    "IOriginEndpointPolicyRef",
+    "IOriginEndpointRef",
+    "OriginEndpointPolicyReference",
+    "OriginEndpointReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e(
+    *,
+    channel_group_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+    policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_type: typing.Optional[builtins.str] = None,
+    output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+    origin_endpoint_name: builtins.str,
+    policy: typing.Any,
+    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+    container_type: builtins.str,
+    origin_endpoint_name: builtins.str,
+    dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    startover_window_seconds: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c5453591c4130dc6a2b73acb0d740594d94e9743d026af1519ee0f1b76564ec(
+    *,
+    channel_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70324836fab0ee183ee9765aca5a488a984d20c6bc7020e43d22d45e5acff8a5(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c28acb3582b4aa5519ff94a3887957c9e865cecfc3b409def89257611a8996d(
+    *,
+    channel_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6bc774daf8999801d5ef624fbebab7e7e39c95298c88492654b8291e02e6ca3(
+    *,
+    channel_group_name: builtins.str,
+    channel_name: builtins.str,
+    origin_endpoint_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d99ee416d137b27f21aa648933cfdf8396af5def95615f9e7f0c794dc9ed5de(
+    *,
+    origin_endpoint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e0e3c7c1(
     scope: _constructs_77d1e7e8.Construct,
@@ -5244,15 +5881,6 @@ def _typecheckingstub__07fbb1a31d1fae7c89e591bbcc359f5dc55386649647301df2f2e0b4e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e(
-    *,
-    channel_group_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b3bd3df241e2da49b066856cd5205c086667bdeae2c7accc2fb87dc6c27afcca(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5290,28 +5918,6 @@ def _typecheckingstub__ffc77e98d707d0206432d1f5669baff83936b87558c5f6b3966d25c6d
 
 def _typecheckingstub__9f9e54d124a239f2e45623971b96e9da027d679f90368ed2a8e63d67a707784f(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f(
-    *,
-    channel_group_name: builtins.str,
-    channel_name: builtins.str,
-    policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f(
-    *,
-    channel_group_name: builtins.str,
-    channel_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    input_type: typing.Optional[builtins.str] = None,
-    output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5698,35 +6304,6 @@ def _typecheckingstub__2efc99cbc23753feeba6e611700f7b275a0d9dbb8667ffa3a69bd7640
     *,
     cdn_identifier_secret_arns: typing.Sequence[builtins.str],
     secrets_role_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35(
-    *,
-    channel_group_name: builtins.str,
-    channel_name: builtins.str,
-    origin_endpoint_name: builtins.str,
-    policy: typing.Any,
-    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402(
-    *,
-    channel_group_name: builtins.str,
-    channel_name: builtins.str,
-    container_type: builtins.str,
-    origin_endpoint_name: builtins.str,
-    dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    startover_window_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

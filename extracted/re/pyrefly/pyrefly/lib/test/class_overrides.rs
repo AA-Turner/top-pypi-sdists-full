@@ -446,3 +446,41 @@ class Derived(Base):
     method = staticmethod(a_method)
     "#,
 );
+
+testcase!(
+    test_override_self,
+    r#"
+from typing import Self
+class Base:
+    def covariant(self) -> Self:
+        return self
+
+    def contravariant(self, other: Self) -> None:
+        pass
+
+    def invariant(self) -> list[Self]:
+        return []
+
+class Derived(Base):
+    def covariant(self) -> Self:
+        return self
+
+    def contravariant(self, other: Self) -> None:
+        pass
+
+    def invariant(self) -> list[Self]:
+        return []
+    "#,
+);
+
+testcase!(
+    test_param_name_change,
+    r#"
+class A:
+    def f(self, x: int):
+        pass
+class B(A):
+    def f(self, x1: int):  # E: Got parameter name `x1`, expected `x`
+        pass
+    "#,
+);

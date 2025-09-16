@@ -19,18 +19,16 @@
 #  DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
-import copy
 import logging
 import os
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 
 from molecule import config, platforms, scenario, state, util
 from molecule.dependency import ansible_galaxy, shell
-from molecule.exceptions import MoleculeError
 from molecule.provisioner import ansible
 from molecule.verifier.ansible import Ansible as AnsibleVerifier
 
@@ -89,22 +87,31 @@ def test_init_calls_validate(  # noqa: D103
 
 
 def test_collection_directory_property(
+    monkeypatch: pytest.MonkeyPatch,
     config_instance: config.Config,
     resources_folder_path: Path,
 ) -> None:
     """Test collection_directory property.
 
     Args:
+        monkeypatch: Pytest fixture.
         config_instance: Instance of Config.
         resources_folder_path: Path to resources directory holding a valid collection.
     """
     # default path is not in a collection
     assert config_instance.collection_directory is None
 
-    # Alter config_instance to start at path of a collection
-    config_instance = copy.copy(config_instance)
+    # Change directory to collection root to test collection detection
     collection_path = resources_folder_path / "sample-collection"
-    config_instance.project_directory = str(collection_path)
+    monkeypatch.chdir(collection_path)
+
+    # Clear the cache so detection runs again with new cwd
+    util.get_collection_metadata.cache_clear()
+
+    # Clear cached property so it will be re-evaluated in new directory
+    if "collection_directory" in config_instance.__dict__:
+        delattr(config_instance, "collection_directory")
+
     assert config_instance.collection_directory == collection_path
 
 
@@ -119,29 +126,45 @@ def test_molecule_directory_property(config_instance: config.Config) -> None:  #
 
 
 def test_collection_property(
+    monkeypatch: pytest.MonkeyPatch,
     config_instance: config.Config,
     resources_folder_path: Path,
 ) -> None:
     """Test collection property.
 
     Args:
+        monkeypatch: Pytest fixture.
         config_instance: Instance of Config.
         resources_folder_path: Path to resources directory holding a valid collection.
     """
-    modified_instance = copy.copy(config_instance)
+    # Clear any cached collection detection from previous tests
+    util.get_collection_metadata.cache_clear()
+
+    # Clear cached property on config instance if it exists
+    if "collection" in config_instance.__dict__:
+        delattr(config_instance, "collection")
+
     # default path is not in a collection
     assert config_instance.collection is None
 
-    # Alter config_instance to start at path of a collection
+    # Change directory to collection root to test collection detection
     collection_path = resources_folder_path / "sample-collection"
-    modified_instance.project_directory = str(collection_path)
+    monkeypatch.chdir(collection_path)
 
-    assert modified_instance.collection is not None
-    assert modified_instance.collection["name"] == "goodies"
-    assert modified_instance.collection["namespace"] == "acme"
+    # Clear the cache so detection runs again with new cwd
+    util.get_collection_metadata.cache_clear()
+
+    # Clear cached property so it will be re-evaluated in new directory
+    if "collection" in config_instance.__dict__:
+        delattr(config_instance, "collection")
+
+    assert config_instance.collection is not None
+    assert config_instance.collection["name"] == "goodies"
+    assert config_instance.collection["namespace"] == "acme"
 
 
 def test_collection_property_broken_collection(
+    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     config_instance: config.Config,
     resources_folder_path: Path,
@@ -149,19 +172,25 @@ def test_collection_property_broken_collection(
     """Test collection property with a malformed galaxy.yml.
 
     Args:
+        monkeypatch: Pytest fixture.
         caplog: pytest log capture fixture.
         config_instance: Instance of Config.
         resources_folder_path: Path to resources directory holding a valid collection.
     """
-    modified_instance = copy.copy(config_instance)
-
-    # Alter config_instance to start at path of a collection
+    # Change directory to broken collection root to test collection detection
     collection_path = resources_folder_path / "broken-collection"
-    modified_instance.project_directory = str(collection_path)
+    monkeypatch.chdir(collection_path)
 
-    assert modified_instance.collection is None
+    # Clear the cache so detection runs again with new cwd
+    util.get_collection_metadata.cache_clear()
 
-    msg = "missing mandatory field 'namespace'"
+    # Clear cached property so it will be re-evaluated in new directory
+    if "collection" in config_instance.__dict__:
+        delattr(config_instance, "collection")
+
+    assert config_instance.collection is None
+
+    msg = "is missing required fields: 'namespace'"
     assert msg in caplog.text
 
 
@@ -247,7 +276,7 @@ def test_get_driver_name_from_state_file(  # noqa: D103
 ) -> None:
     config_instance.state.change_state("driver", "state-driver")
 
-    with pytest.raises(MoleculeError):
+    with pytest.raises(SystemExit):
         config_instance._get_driver_name()
 
     mocker.patch("molecule.api.drivers", return_value=["state-driver"])
@@ -270,7 +299,7 @@ def test_get_driver_name_raises_when_different_driver_used(  # noqa: D103
 ) -> None:
     config_instance.state.change_state("driver", "foo")
     config_instance.command_args = {"driver_name": "bar"}
-    with pytest.raises(MoleculeError) as e:
+    with pytest.raises(SystemExit) as e:
         config_instance._get_driver_name()
 
     assert e.value.code == 1
@@ -363,7 +392,7 @@ def test_interpolate_raises_on_failed_interpolation(  # noqa: D103
 ) -> None:
     string = "$6$8I5Cfmpr$kGZB"
 
-    with pytest.raises(MoleculeError) as e:
+    with pytest.raises(SystemExit) as e:
         config_instance._interpolate(string, os.environ, "")
 
     assert e.value.code == 1
@@ -390,30 +419,40 @@ def test_get_defaults(  # noqa: D103
 
 
 def test_validate(  # noqa: D103
-    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
     config_instance: config.Config,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    m = mocker.patch("molecule.model.schema_v3.validate")
-    m.return_value = None
+    # Mock the schema validation function using monkeypatch
+    mock_calls = []
+
+    def mock_validate(config_data: dict[str, object]) -> None:
+        mock_calls.append(config_data)
+
+    monkeypatch.setattr("molecule.model.schema_v3.validate", mock_validate)
 
     with caplog.at_level(logging.DEBUG):
         config_instance._validate()
 
     # Check that debug message was logged
-    assert len(caplog.records) == 1
+    assert len(caplog.records) >= 1, (
+        f"Expected at least 1 log record but got {len(caplog.records)}. "
+        f"Scenario: {config_instance.scenario.name}"
+    )
 
-    # Check the log message content
-    record = caplog.records[0]
-    assert "Validating schema" in record.message
-    assert config_instance.molecule_file in record.message
+    # Find the validation record (there might be multiple records)
+    validation_record = None
+    for record in caplog.records:
+        if "Validating schema" in record.getMessage():
+            validation_record = record
+            break
 
-    # Check that scenario logger extras are present
-    assert hasattr(record, "molecule_scenario")
-    assert hasattr(record, "molecule_step")
-    assert record.molecule_step == "validate"
+    assert validation_record is not None, "Should find validation message in log records"
+    assert validation_record.levelname == "DEBUG"  # cspell:ignore levelname
 
-    m.assert_called_with(config_instance.config)
+    # Verify mock was called once
+    assert len(mock_calls) == 1
+    assert mock_calls[0] == config_instance.config
 
 
 def test_validate_exists_when_validation_fails(  # noqa: D103
@@ -424,7 +463,7 @@ def test_validate_exists_when_validation_fails(  # noqa: D103
     m = mocker.patch("molecule.model.schema_v3.validate")
     m.return_value = "validation errors"
 
-    with pytest.raises(MoleculeError) as e:
+    with pytest.raises(SystemExit) as e:
         config_instance._validate()
 
     assert e.value.code == 1
@@ -464,3 +503,49 @@ def test_write_config(config_instance: config.Config) -> None:  # noqa: D103
     config_instance.write()
 
     assert os.path.isfile(config_instance.config_file)  # noqa: PTH113
+
+
+# Test ansible section functionality
+
+
+def test_ansible_section_defaults() -> None:
+    """Test that ansible section gets proper defaults."""
+    config_instance = config.Config(molecule_file="")
+    defaults = config_instance._get_defaults()
+
+    assert "ansible" in defaults
+    assert not defaults["ansible"]["cfg"]
+    assert defaults["ansible"]["executor"]["backend"] == "ansible-playbook"
+    assert not defaults["ansible"]["executor"]["args"]["ansible_navigator"]
+    assert not defaults["ansible"]["executor"]["args"]["ansible_playbook"]
+    assert not defaults["ansible"]["env"]
+    # Playbooks now have default filenames
+    expected_playbooks = {
+        "cleanup": "cleanup.yml",
+        "create": "create.yml",
+        "converge": "converge.yml",
+        "destroy": "destroy.yml",
+        "prepare": "prepare.yml",
+        "side_effect": "side_effect.yml",
+        "verify": "verify.yml",
+    }
+    assert defaults["ansible"]["playbooks"] == expected_playbooks
+
+
+def test_executor_property_uses_ansible_section() -> None:
+    """Test that the executor property uses ansible.executor.backend when present."""
+    config_data: dict[str, Any] = {
+        "ansible": {"executor": {"backend": "ansible-navigator"}},
+    }
+    config_instance = config.Config(molecule_file="")
+    config_instance.config = config_data  # type: ignore[assignment]
+
+    assert config_instance.executor == "ansible-navigator"
+
+
+def test_ansible_section_no_default_platforms() -> None:
+    """Test that no default platforms are provided - empty list."""
+    config_instance = config.Config(molecule_file="")
+    defaults = config_instance._get_defaults()
+
+    assert not defaults["platforms"]

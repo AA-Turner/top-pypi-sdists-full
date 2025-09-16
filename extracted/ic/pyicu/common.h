@@ -449,7 +449,42 @@ Formattable *toFormattable(PyObject *arg);
 Formattable *toFormattableArray(PyObject *arg, size_t *len,
                                 classid id, PyTypeObject *type);
 
-UObject **pl2cpa(PyObject *arg, size_t *len, classid id, PyTypeObject *type);
+#include "bases.h"
+
+template <typename T>
+std::unique_ptr<T *[]> pl2cpa(PyObject *arg, size_t *len, classid id, PyTypeObject *type)
+{
+    std::unique_ptr<T *[]> array;
+
+    if (PySequence_Check(arg))
+    {
+        *len = (int) PySequence_Size(arg);
+        array.reset(new T *[*len]);
+        if (!array.get())
+            PyErr_NoMemory();
+        else
+        {
+            for (size_t i = 0; i < *len; i++) {
+                PyObject *obj = PySequence_GetItem(arg, i);
+
+                if (isInstance(obj, id, type))
+                {
+                    array[i] = reinterpret_cast<T *>(((t_uobject *) obj)->object);
+                    Py_DECREF(obj);
+                }
+                else
+                {
+                    Py_DECREF(obj);
+                    array.reset(nullptr);
+                    break;
+                }
+            }
+        }
+    }
+
+    return array;
+}
+
 PyObject *cpa2pl(UObject **array, size_t len, PyObject *(*wrap)(UObject *, int));
 
 int *toIntArray(PyObject *arg, size_t *len);

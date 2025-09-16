@@ -69,7 +69,682 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pipes.CfnPipeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "role_arn": "roleArn",
+        "source": "source",
+        "target": "target",
+        "description": "description",
+        "desired_state": "desiredState",
+        "enrichment": "enrichment",
+        "enrichment_parameters": "enrichmentParameters",
+        "kms_key_identifier": "kmsKeyIdentifier",
+        "log_configuration": "logConfiguration",
+        "name": "name",
+        "source_parameters": "sourceParameters",
+        "tags": "tags",
+        "target_parameters": "targetParameters",
+    },
+)
+class CfnPipeProps:
+    def __init__(
+        self,
+        *,
+        role_arn: builtins.str,
+        source: builtins.str,
+        target: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        desired_state: typing.Optional[builtins.str] = None,
+        enrichment: typing.Optional[builtins.str] = None,
+        enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipe.PipeEnrichmentParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipe.PipeLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPipe``.
+
+        :param role_arn: The ARN of the role that allows the pipe to send data to the target.
+        :param source: The ARN of the source resource.
+        :param target: The ARN of the target resource.
+        :param description: A description of the pipe.
+        :param desired_state: The state the pipe should be in.
+        :param enrichment: The ARN of the enrichment resource.
+        :param enrichment_parameters: The parameters required to set up enrichment on your pipe.
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt pipe data. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. To update a pipe that is using the default AWS owned key to use a customer managed key instead, or update a pipe that is using a customer managed key to use a different customer managed key, specify a customer managed key identifier. To update a pipe that is using a customer managed key to use the default AWS owned key , specify an empty string. For more information, see `Managing keys <https://docs.aws.amazon.com/kms/latest/developerguide/getting-started.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param log_configuration: The logging configuration settings for the pipe.
+        :param name: The name of the pipe.
+        :param source_parameters: The parameters required to set up a source for your pipe.
+        :param tags: The list of key-value pairs to associate with the pipe.
+        :param target_parameters: The parameters required to set up a target for your pipe. For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pipes as pipes
+            
+            cfn_pipe_props = pipes.CfnPipeProps(
+                role_arn="roleArn",
+                source="source",
+                target="target",
+            
+                # the properties below are optional
+                description="description",
+                desired_state="desiredState",
+                enrichment="enrichment",
+                enrichment_parameters=pipes.CfnPipe.PipeEnrichmentParametersProperty(
+                    http_parameters=pipes.CfnPipe.PipeEnrichmentHttpParametersProperty(
+                        header_parameters={
+                            "header_parameters_key": "headerParameters"
+                        },
+                        path_parameter_values=["pathParameterValues"],
+                        query_string_parameters={
+                            "query_string_parameters_key": "queryStringParameters"
+                        }
+                    ),
+                    input_template="inputTemplate"
+                ),
+                kms_key_identifier="kmsKeyIdentifier",
+                log_configuration=pipes.CfnPipe.PipeLogConfigurationProperty(
+                    cloudwatch_logs_log_destination=pipes.CfnPipe.CloudwatchLogsLogDestinationProperty(
+                        log_group_arn="logGroupArn"
+                    ),
+                    firehose_log_destination=pipes.CfnPipe.FirehoseLogDestinationProperty(
+                        delivery_stream_arn="deliveryStreamArn"
+                    ),
+                    include_execution_data=["includeExecutionData"],
+                    level="level",
+                    s3_log_destination=pipes.CfnPipe.S3LogDestinationProperty(
+                        bucket_name="bucketName",
+                        bucket_owner="bucketOwner",
+                        output_format="outputFormat",
+                        prefix="prefix"
+                    )
+                ),
+                name="name",
+                source_parameters=pipes.CfnPipe.PipeSourceParametersProperty(
+                    active_mq_broker_parameters=pipes.CfnPipe.PipeSourceActiveMQBrokerParametersProperty(
+                        credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
+                            basic_auth="basicAuth"
+                        ),
+                        queue_name="queueName",
+            
+                        # the properties below are optional
+                        batch_size=123,
+                        maximum_batching_window_in_seconds=123
+                    ),
+                    dynamo_db_stream_parameters=pipes.CfnPipe.PipeSourceDynamoDBStreamParametersProperty(
+                        starting_position="startingPosition",
+            
+                        # the properties below are optional
+                        batch_size=123,
+                        dead_letter_config=pipes.CfnPipe.DeadLetterConfigProperty(
+                            arn="arn"
+                        ),
+                        maximum_batching_window_in_seconds=123,
+                        maximum_record_age_in_seconds=123,
+                        maximum_retry_attempts=123,
+                        on_partial_batch_item_failure="onPartialBatchItemFailure",
+                        parallelization_factor=123
+                    ),
+                    filter_criteria=pipes.CfnPipe.FilterCriteriaProperty(
+                        filters=[pipes.CfnPipe.FilterProperty(
+                            pattern="pattern"
+                        )]
+                    ),
+                    kinesis_stream_parameters=pipes.CfnPipe.PipeSourceKinesisStreamParametersProperty(
+                        starting_position="startingPosition",
+            
+                        # the properties below are optional
+                        batch_size=123,
+                        dead_letter_config=pipes.CfnPipe.DeadLetterConfigProperty(
+                            arn="arn"
+                        ),
+                        maximum_batching_window_in_seconds=123,
+                        maximum_record_age_in_seconds=123,
+                        maximum_retry_attempts=123,
+                        on_partial_batch_item_failure="onPartialBatchItemFailure",
+                        parallelization_factor=123,
+                        starting_position_timestamp="startingPositionTimestamp"
+                    ),
+                    managed_streaming_kafka_parameters=pipes.CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty(
+                        topic_name="topicName",
+            
+                        # the properties below are optional
+                        batch_size=123,
+                        consumer_group_id="consumerGroupId",
+                        credentials=pipes.CfnPipe.MSKAccessCredentialsProperty(
+                            client_certificate_tls_auth="clientCertificateTlsAuth",
+                            sasl_scram512_auth="saslScram512Auth"
+                        ),
+                        maximum_batching_window_in_seconds=123,
+                        starting_position="startingPosition"
+                    ),
+                    rabbit_mq_broker_parameters=pipes.CfnPipe.PipeSourceRabbitMQBrokerParametersProperty(
+                        credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
+                            basic_auth="basicAuth"
+                        ),
+                        queue_name="queueName",
+            
+                        # the properties below are optional
+                        batch_size=123,
+                        maximum_batching_window_in_seconds=123,
+                        virtual_host="virtualHost"
+                    ),
+                    self_managed_kafka_parameters=pipes.CfnPipe.PipeSourceSelfManagedKafkaParametersProperty(
+                        topic_name="topicName",
+            
+                        # the properties below are optional
+                        additional_bootstrap_servers=["additionalBootstrapServers"],
+                        batch_size=123,
+                        consumer_group_id="consumerGroupId",
+                        credentials=pipes.CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty(
+                            basic_auth="basicAuth",
+                            client_certificate_tls_auth="clientCertificateTlsAuth",
+                            sasl_scram256_auth="saslScram256Auth",
+                            sasl_scram512_auth="saslScram512Auth"
+                        ),
+                        maximum_batching_window_in_seconds=123,
+                        server_root_ca_certificate="serverRootCaCertificate",
+                        starting_position="startingPosition",
+                        vpc=pipes.CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty(
+                            security_group=["securityGroup"],
+                            subnets=["subnets"]
+                        )
+                    ),
+                    sqs_queue_parameters=pipes.CfnPipe.PipeSourceSqsQueueParametersProperty(
+                        batch_size=123,
+                        maximum_batching_window_in_seconds=123
+                    )
+                ),
+                tags={
+                    "tags_key": "tags"
+                },
+                target_parameters=pipes.CfnPipe.PipeTargetParametersProperty(
+                    batch_job_parameters=pipes.CfnPipe.PipeTargetBatchJobParametersProperty(
+                        job_definition="jobDefinition",
+                        job_name="jobName",
+            
+                        # the properties below are optional
+                        array_properties=pipes.CfnPipe.BatchArrayPropertiesProperty(
+                            size=123
+                        ),
+                        container_overrides=pipes.CfnPipe.BatchContainerOverridesProperty(
+                            command=["command"],
+                            environment=[pipes.CfnPipe.BatchEnvironmentVariableProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            instance_type="instanceType",
+                            resource_requirements=[pipes.CfnPipe.BatchResourceRequirementProperty(
+                                type="type",
+                                value="value"
+                            )]
+                        ),
+                        depends_on=[pipes.CfnPipe.BatchJobDependencyProperty(
+                            job_id="jobId",
+                            type="type"
+                        )],
+                        parameters={
+                            "parameters_key": "parameters"
+                        },
+                        retry_strategy=pipes.CfnPipe.BatchRetryStrategyProperty(
+                            attempts=123
+                        )
+                    ),
+                    cloud_watch_logs_parameters=pipes.CfnPipe.PipeTargetCloudWatchLogsParametersProperty(
+                        log_stream_name="logStreamName",
+                        timestamp="timestamp"
+                    ),
+                    ecs_task_parameters=pipes.CfnPipe.PipeTargetEcsTaskParametersProperty(
+                        task_definition_arn="taskDefinitionArn",
+            
+                        # the properties below are optional
+                        capacity_provider_strategy=[pipes.CfnPipe.CapacityProviderStrategyItemProperty(
+                            capacity_provider="capacityProvider",
+            
+                            # the properties below are optional
+                            base=123,
+                            weight=123
+                        )],
+                        enable_ecs_managed_tags=False,
+                        enable_execute_command=False,
+                        group="group",
+                        launch_type="launchType",
+                        network_configuration=pipes.CfnPipe.NetworkConfigurationProperty(
+                            awsvpc_configuration=pipes.CfnPipe.AwsVpcConfigurationProperty(
+                                subnets=["subnets"],
+            
+                                # the properties below are optional
+                                assign_public_ip="assignPublicIp",
+                                security_groups=["securityGroups"]
+                            )
+                        ),
+                        overrides=pipes.CfnPipe.EcsTaskOverrideProperty(
+                            container_overrides=[pipes.CfnPipe.EcsContainerOverrideProperty(
+                                command=["command"],
+                                cpu=123,
+                                environment=[pipes.CfnPipe.EcsEnvironmentVariableProperty(
+                                    name="name",
+                                    value="value"
+                                )],
+                                environment_files=[pipes.CfnPipe.EcsEnvironmentFileProperty(
+                                    type="type",
+                                    value="value"
+                                )],
+                                memory=123,
+                                memory_reservation=123,
+                                name="name",
+                                resource_requirements=[pipes.CfnPipe.EcsResourceRequirementProperty(
+                                    type="type",
+                                    value="value"
+                                )]
+                            )],
+                            cpu="cpu",
+                            ephemeral_storage=pipes.CfnPipe.EcsEphemeralStorageProperty(
+                                size_in_gi_b=123
+                            ),
+                            execution_role_arn="executionRoleArn",
+                            inference_accelerator_overrides=[pipes.CfnPipe.EcsInferenceAcceleratorOverrideProperty(
+                                device_name="deviceName",
+                                device_type="deviceType"
+                            )],
+                            memory="memory",
+                            task_role_arn="taskRoleArn"
+                        ),
+                        placement_constraints=[pipes.CfnPipe.PlacementConstraintProperty(
+                            expression="expression",
+                            type="type"
+                        )],
+                        placement_strategy=[pipes.CfnPipe.PlacementStrategyProperty(
+                            field="field",
+                            type="type"
+                        )],
+                        platform_version="platformVersion",
+                        propagate_tags="propagateTags",
+                        reference_id="referenceId",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        task_count=123
+                    ),
+                    event_bridge_event_bus_parameters=pipes.CfnPipe.PipeTargetEventBridgeEventBusParametersProperty(
+                        detail_type="detailType",
+                        endpoint_id="endpointId",
+                        resources=["resources"],
+                        source="source",
+                        time="time"
+                    ),
+                    http_parameters=pipes.CfnPipe.PipeTargetHttpParametersProperty(
+                        header_parameters={
+                            "header_parameters_key": "headerParameters"
+                        },
+                        path_parameter_values=["pathParameterValues"],
+                        query_string_parameters={
+                            "query_string_parameters_key": "queryStringParameters"
+                        }
+                    ),
+                    input_template="inputTemplate",
+                    kinesis_stream_parameters=pipes.CfnPipe.PipeTargetKinesisStreamParametersProperty(
+                        partition_key="partitionKey"
+                    ),
+                    lambda_function_parameters=pipes.CfnPipe.PipeTargetLambdaFunctionParametersProperty(
+                        invocation_type="invocationType"
+                    ),
+                    redshift_data_parameters=pipes.CfnPipe.PipeTargetRedshiftDataParametersProperty(
+                        database="database",
+                        sqls=["sqls"],
+            
+                        # the properties below are optional
+                        db_user="dbUser",
+                        secret_manager_arn="secretManagerArn",
+                        statement_name="statementName",
+                        with_event=False
+                    ),
+                    sage_maker_pipeline_parameters=pipes.CfnPipe.PipeTargetSageMakerPipelineParametersProperty(
+                        pipeline_parameter_list=[pipes.CfnPipe.SageMakerPipelineParameterProperty(
+                            name="name",
+                            value="value"
+                        )]
+                    ),
+                    sqs_queue_parameters=pipes.CfnPipe.PipeTargetSqsQueueParametersProperty(
+                        message_deduplication_id="messageDeduplicationId",
+                        message_group_id="messageGroupId"
+                    ),
+                    step_function_state_machine_parameters=pipes.CfnPipe.PipeTargetStateMachineParametersProperty(
+                        invocation_type="invocationType"
+                    ),
+                    timestream_parameters=pipes.CfnPipe.PipeTargetTimestreamParametersProperty(
+                        dimension_mappings=[pipes.CfnPipe.DimensionMappingProperty(
+                            dimension_name="dimensionName",
+                            dimension_value="dimensionValue",
+                            dimension_value_type="dimensionValueType"
+                        )],
+                        time_value="timeValue",
+                        version_value="versionValue",
+            
+                        # the properties below are optional
+                        epoch_time_unit="epochTimeUnit",
+                        multi_measure_mappings=[pipes.CfnPipe.MultiMeasureMappingProperty(
+                            multi_measure_attribute_mappings=[pipes.CfnPipe.MultiMeasureAttributeMappingProperty(
+                                measure_value="measureValue",
+                                measure_value_type="measureValueType",
+                                multi_measure_attribute_name="multiMeasureAttributeName"
+                            )],
+                            multi_measure_name="multiMeasureName"
+                        )],
+                        single_measure_mappings=[pipes.CfnPipe.SingleMeasureMappingProperty(
+                            measure_name="measureName",
+                            measure_value="measureValue",
+                            measure_value_type="measureValueType"
+                        )],
+                        time_field_type="timeFieldType",
+                        timestamp_format="timestampFormat"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0)
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument desired_state", value=desired_state, expected_type=type_hints["desired_state"])
+            check_type(argname="argument enrichment", value=enrichment, expected_type=type_hints["enrichment"])
+            check_type(argname="argument enrichment_parameters", value=enrichment_parameters, expected_type=type_hints["enrichment_parameters"])
+            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument source_parameters", value=source_parameters, expected_type=type_hints["source_parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_parameters", value=target_parameters, expected_type=type_hints["target_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role_arn": role_arn,
+            "source": source,
+            "target": target,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if desired_state is not None:
+            self._values["desired_state"] = desired_state
+        if enrichment is not None:
+            self._values["enrichment"] = enrichment
+        if enrichment_parameters is not None:
+            self._values["enrichment_parameters"] = enrichment_parameters
+        if kms_key_identifier is not None:
+            self._values["kms_key_identifier"] = kms_key_identifier
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
+        if name is not None:
+            self._values["name"] = name
+        if source_parameters is not None:
+            self._values["source_parameters"] = source_parameters
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_parameters is not None:
+            self._values["target_parameters"] = target_parameters
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the role that allows the pipe to send data to the target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(self) -> builtins.str:
+        '''The ARN of the source resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target(self) -> builtins.str:
+        '''The ARN of the target resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-target
+        '''
+        result = self._values.get("target")
+        assert result is not None, "Required property 'target' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def desired_state(self) -> typing.Optional[builtins.str]:
+        '''The state the pipe should be in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-desiredstate
+        '''
+        result = self._values.get("desired_state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enrichment(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the enrichment resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichment
+        '''
+        result = self._values.get("enrichment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enrichment_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeEnrichmentParametersProperty"]]:
+        '''The parameters required to set up enrichment on your pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichmentparameters
+        '''
+        result = self._values.get("enrichment_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeEnrichmentParametersProperty"]], result)
+
+    @builtins.property
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt pipe data.
+
+        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
+
+        To update a pipe that is using the default AWS owned key to use a customer managed key instead, or update a pipe that is using a customer managed key to use a different customer managed key, specify a customer managed key identifier.
+
+        To update a pipe that is using a customer managed key to use the default AWS owned key , specify an empty string.
+
+        For more information, see `Managing keys <https://docs.aws.amazon.com/kms/latest/developerguide/getting-started.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-kmskeyidentifier
+        '''
+        result = self._values.get("kms_key_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeLogConfigurationProperty"]]:
+        '''The logging configuration settings for the pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeLogConfigurationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeSourceParametersProperty"]]:
+        '''The parameters required to set up a source for your pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-sourceparameters
+        '''
+        result = self._values.get("source_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeSourceParametersProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The list of key-value pairs to associate with the pipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def target_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeTargetParametersProperty"]]:
+        '''The parameters required to set up a target for your pipe.
+
+        For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-targetparameters
+        '''
+        result = self._values.get("target_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPipe.PipeTargetParametersProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPipeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_pipes.IPipeRef")
+class IPipeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Pipe.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pipeRef")
+    def pipe_ref(self) -> "PipeReference":
+        '''(experimental) A reference to a Pipe resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPipeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Pipe.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_pipes.IPipeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pipeRef")
+    def pipe_ref(self) -> "PipeReference":
+        '''(experimental) A reference to a Pipe resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PipeReference", jsii.get(self, "pipeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPipeRef).__jsii_proxy_class__ = lambda : _IPipeRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_pipes.PipeReference",
+    jsii_struct_bases=[],
+    name_mapping={"pipe_arn": "pipeArn", "pipe_name": "pipeName"},
+)
+class PipeReference:
+    def __init__(self, *, pipe_arn: builtins.str, pipe_name: builtins.str) -> None:
+        '''A reference to a Pipe resource.
+
+        :param pipe_arn: The ARN of the Pipe resource.
+        :param pipe_name: The Name of the Pipe resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_pipes as pipes
+            
+            pipe_reference = pipes.PipeReference(
+                pipe_arn="pipeArn",
+                pipe_name="pipeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b00612b984d790ffc1bcfe4775fba19ea93a8b2a8a850ce16f10f22d4c946e94)
+            check_type(argname="argument pipe_arn", value=pipe_arn, expected_type=type_hints["pipe_arn"])
+            check_type(argname="argument pipe_name", value=pipe_name, expected_type=type_hints["pipe_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipe_arn": pipe_arn,
+            "pipe_name": pipe_name,
+        }
+
+    @builtins.property
+    def pipe_arn(self) -> builtins.str:
+        '''The ARN of the Pipe resource.'''
+        result = self._values.get("pipe_arn")
+        assert result is not None, "Required property 'pipe_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def pipe_name(self) -> builtins.str:
+        '''The Name of the Pipe resource.'''
+        result = self._values.get("pipe_name")
+        assert result is not None, "Required property 'pipe_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PipeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IPipeRef, _ITaggable_36806126)
 class CfnPipe(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -552,6 +1227,12 @@ class CfnPipe(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipeRef")
+    def pipe_ref(self) -> PipeReference:
+        '''A reference to a Pipe resource.'''
+        return typing.cast(PipeReference, jsii.get(self, "pipeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7021,587 +7702,41 @@ class CfnPipe(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_pipes.CfnPipeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "role_arn": "roleArn",
-        "source": "source",
-        "target": "target",
-        "description": "description",
-        "desired_state": "desiredState",
-        "enrichment": "enrichment",
-        "enrichment_parameters": "enrichmentParameters",
-        "kms_key_identifier": "kmsKeyIdentifier",
-        "log_configuration": "logConfiguration",
-        "name": "name",
-        "source_parameters": "sourceParameters",
-        "tags": "tags",
-        "target_parameters": "targetParameters",
-    },
-)
-class CfnPipeProps:
-    def __init__(
-        self,
-        *,
-        role_arn: builtins.str,
-        source: builtins.str,
-        target: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        desired_state: typing.Optional[builtins.str] = None,
-        enrichment: typing.Optional[builtins.str] = None,
-        enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPipe``.
-
-        :param role_arn: The ARN of the role that allows the pipe to send data to the target.
-        :param source: The ARN of the source resource.
-        :param target: The ARN of the target resource.
-        :param description: A description of the pipe.
-        :param desired_state: The state the pipe should be in.
-        :param enrichment: The ARN of the enrichment resource.
-        :param enrichment_parameters: The parameters required to set up enrichment on your pipe.
-        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt pipe data. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. To update a pipe that is using the default AWS owned key to use a customer managed key instead, or update a pipe that is using a customer managed key to use a different customer managed key, specify a customer managed key identifier. To update a pipe that is using a customer managed key to use the default AWS owned key , specify an empty string. For more information, see `Managing keys <https://docs.aws.amazon.com/kms/latest/developerguide/getting-started.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param log_configuration: The logging configuration settings for the pipe.
-        :param name: The name of the pipe.
-        :param source_parameters: The parameters required to set up a source for your pipe.
-        :param tags: The list of key-value pairs to associate with the pipe.
-        :param target_parameters: The parameters required to set up a target for your pipe. For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_pipes as pipes
-            
-            cfn_pipe_props = pipes.CfnPipeProps(
-                role_arn="roleArn",
-                source="source",
-                target="target",
-            
-                # the properties below are optional
-                description="description",
-                desired_state="desiredState",
-                enrichment="enrichment",
-                enrichment_parameters=pipes.CfnPipe.PipeEnrichmentParametersProperty(
-                    http_parameters=pipes.CfnPipe.PipeEnrichmentHttpParametersProperty(
-                        header_parameters={
-                            "header_parameters_key": "headerParameters"
-                        },
-                        path_parameter_values=["pathParameterValues"],
-                        query_string_parameters={
-                            "query_string_parameters_key": "queryStringParameters"
-                        }
-                    ),
-                    input_template="inputTemplate"
-                ),
-                kms_key_identifier="kmsKeyIdentifier",
-                log_configuration=pipes.CfnPipe.PipeLogConfigurationProperty(
-                    cloudwatch_logs_log_destination=pipes.CfnPipe.CloudwatchLogsLogDestinationProperty(
-                        log_group_arn="logGroupArn"
-                    ),
-                    firehose_log_destination=pipes.CfnPipe.FirehoseLogDestinationProperty(
-                        delivery_stream_arn="deliveryStreamArn"
-                    ),
-                    include_execution_data=["includeExecutionData"],
-                    level="level",
-                    s3_log_destination=pipes.CfnPipe.S3LogDestinationProperty(
-                        bucket_name="bucketName",
-                        bucket_owner="bucketOwner",
-                        output_format="outputFormat",
-                        prefix="prefix"
-                    )
-                ),
-                name="name",
-                source_parameters=pipes.CfnPipe.PipeSourceParametersProperty(
-                    active_mq_broker_parameters=pipes.CfnPipe.PipeSourceActiveMQBrokerParametersProperty(
-                        credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
-                            basic_auth="basicAuth"
-                        ),
-                        queue_name="queueName",
-            
-                        # the properties below are optional
-                        batch_size=123,
-                        maximum_batching_window_in_seconds=123
-                    ),
-                    dynamo_db_stream_parameters=pipes.CfnPipe.PipeSourceDynamoDBStreamParametersProperty(
-                        starting_position="startingPosition",
-            
-                        # the properties below are optional
-                        batch_size=123,
-                        dead_letter_config=pipes.CfnPipe.DeadLetterConfigProperty(
-                            arn="arn"
-                        ),
-                        maximum_batching_window_in_seconds=123,
-                        maximum_record_age_in_seconds=123,
-                        maximum_retry_attempts=123,
-                        on_partial_batch_item_failure="onPartialBatchItemFailure",
-                        parallelization_factor=123
-                    ),
-                    filter_criteria=pipes.CfnPipe.FilterCriteriaProperty(
-                        filters=[pipes.CfnPipe.FilterProperty(
-                            pattern="pattern"
-                        )]
-                    ),
-                    kinesis_stream_parameters=pipes.CfnPipe.PipeSourceKinesisStreamParametersProperty(
-                        starting_position="startingPosition",
-            
-                        # the properties below are optional
-                        batch_size=123,
-                        dead_letter_config=pipes.CfnPipe.DeadLetterConfigProperty(
-                            arn="arn"
-                        ),
-                        maximum_batching_window_in_seconds=123,
-                        maximum_record_age_in_seconds=123,
-                        maximum_retry_attempts=123,
-                        on_partial_batch_item_failure="onPartialBatchItemFailure",
-                        parallelization_factor=123,
-                        starting_position_timestamp="startingPositionTimestamp"
-                    ),
-                    managed_streaming_kafka_parameters=pipes.CfnPipe.PipeSourceManagedStreamingKafkaParametersProperty(
-                        topic_name="topicName",
-            
-                        # the properties below are optional
-                        batch_size=123,
-                        consumer_group_id="consumerGroupId",
-                        credentials=pipes.CfnPipe.MSKAccessCredentialsProperty(
-                            client_certificate_tls_auth="clientCertificateTlsAuth",
-                            sasl_scram512_auth="saslScram512Auth"
-                        ),
-                        maximum_batching_window_in_seconds=123,
-                        starting_position="startingPosition"
-                    ),
-                    rabbit_mq_broker_parameters=pipes.CfnPipe.PipeSourceRabbitMQBrokerParametersProperty(
-                        credentials=pipes.CfnPipe.MQBrokerAccessCredentialsProperty(
-                            basic_auth="basicAuth"
-                        ),
-                        queue_name="queueName",
-            
-                        # the properties below are optional
-                        batch_size=123,
-                        maximum_batching_window_in_seconds=123,
-                        virtual_host="virtualHost"
-                    ),
-                    self_managed_kafka_parameters=pipes.CfnPipe.PipeSourceSelfManagedKafkaParametersProperty(
-                        topic_name="topicName",
-            
-                        # the properties below are optional
-                        additional_bootstrap_servers=["additionalBootstrapServers"],
-                        batch_size=123,
-                        consumer_group_id="consumerGroupId",
-                        credentials=pipes.CfnPipe.SelfManagedKafkaAccessConfigurationCredentialsProperty(
-                            basic_auth="basicAuth",
-                            client_certificate_tls_auth="clientCertificateTlsAuth",
-                            sasl_scram256_auth="saslScram256Auth",
-                            sasl_scram512_auth="saslScram512Auth"
-                        ),
-                        maximum_batching_window_in_seconds=123,
-                        server_root_ca_certificate="serverRootCaCertificate",
-                        starting_position="startingPosition",
-                        vpc=pipes.CfnPipe.SelfManagedKafkaAccessConfigurationVpcProperty(
-                            security_group=["securityGroup"],
-                            subnets=["subnets"]
-                        )
-                    ),
-                    sqs_queue_parameters=pipes.CfnPipe.PipeSourceSqsQueueParametersProperty(
-                        batch_size=123,
-                        maximum_batching_window_in_seconds=123
-                    )
-                ),
-                tags={
-                    "tags_key": "tags"
-                },
-                target_parameters=pipes.CfnPipe.PipeTargetParametersProperty(
-                    batch_job_parameters=pipes.CfnPipe.PipeTargetBatchJobParametersProperty(
-                        job_definition="jobDefinition",
-                        job_name="jobName",
-            
-                        # the properties below are optional
-                        array_properties=pipes.CfnPipe.BatchArrayPropertiesProperty(
-                            size=123
-                        ),
-                        container_overrides=pipes.CfnPipe.BatchContainerOverridesProperty(
-                            command=["command"],
-                            environment=[pipes.CfnPipe.BatchEnvironmentVariableProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            instance_type="instanceType",
-                            resource_requirements=[pipes.CfnPipe.BatchResourceRequirementProperty(
-                                type="type",
-                                value="value"
-                            )]
-                        ),
-                        depends_on=[pipes.CfnPipe.BatchJobDependencyProperty(
-                            job_id="jobId",
-                            type="type"
-                        )],
-                        parameters={
-                            "parameters_key": "parameters"
-                        },
-                        retry_strategy=pipes.CfnPipe.BatchRetryStrategyProperty(
-                            attempts=123
-                        )
-                    ),
-                    cloud_watch_logs_parameters=pipes.CfnPipe.PipeTargetCloudWatchLogsParametersProperty(
-                        log_stream_name="logStreamName",
-                        timestamp="timestamp"
-                    ),
-                    ecs_task_parameters=pipes.CfnPipe.PipeTargetEcsTaskParametersProperty(
-                        task_definition_arn="taskDefinitionArn",
-            
-                        # the properties below are optional
-                        capacity_provider_strategy=[pipes.CfnPipe.CapacityProviderStrategyItemProperty(
-                            capacity_provider="capacityProvider",
-            
-                            # the properties below are optional
-                            base=123,
-                            weight=123
-                        )],
-                        enable_ecs_managed_tags=False,
-                        enable_execute_command=False,
-                        group="group",
-                        launch_type="launchType",
-                        network_configuration=pipes.CfnPipe.NetworkConfigurationProperty(
-                            awsvpc_configuration=pipes.CfnPipe.AwsVpcConfigurationProperty(
-                                subnets=["subnets"],
-            
-                                # the properties below are optional
-                                assign_public_ip="assignPublicIp",
-                                security_groups=["securityGroups"]
-                            )
-                        ),
-                        overrides=pipes.CfnPipe.EcsTaskOverrideProperty(
-                            container_overrides=[pipes.CfnPipe.EcsContainerOverrideProperty(
-                                command=["command"],
-                                cpu=123,
-                                environment=[pipes.CfnPipe.EcsEnvironmentVariableProperty(
-                                    name="name",
-                                    value="value"
-                                )],
-                                environment_files=[pipes.CfnPipe.EcsEnvironmentFileProperty(
-                                    type="type",
-                                    value="value"
-                                )],
-                                memory=123,
-                                memory_reservation=123,
-                                name="name",
-                                resource_requirements=[pipes.CfnPipe.EcsResourceRequirementProperty(
-                                    type="type",
-                                    value="value"
-                                )]
-                            )],
-                            cpu="cpu",
-                            ephemeral_storage=pipes.CfnPipe.EcsEphemeralStorageProperty(
-                                size_in_gi_b=123
-                            ),
-                            execution_role_arn="executionRoleArn",
-                            inference_accelerator_overrides=[pipes.CfnPipe.EcsInferenceAcceleratorOverrideProperty(
-                                device_name="deviceName",
-                                device_type="deviceType"
-                            )],
-                            memory="memory",
-                            task_role_arn="taskRoleArn"
-                        ),
-                        placement_constraints=[pipes.CfnPipe.PlacementConstraintProperty(
-                            expression="expression",
-                            type="type"
-                        )],
-                        placement_strategy=[pipes.CfnPipe.PlacementStrategyProperty(
-                            field="field",
-                            type="type"
-                        )],
-                        platform_version="platformVersion",
-                        propagate_tags="propagateTags",
-                        reference_id="referenceId",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        task_count=123
-                    ),
-                    event_bridge_event_bus_parameters=pipes.CfnPipe.PipeTargetEventBridgeEventBusParametersProperty(
-                        detail_type="detailType",
-                        endpoint_id="endpointId",
-                        resources=["resources"],
-                        source="source",
-                        time="time"
-                    ),
-                    http_parameters=pipes.CfnPipe.PipeTargetHttpParametersProperty(
-                        header_parameters={
-                            "header_parameters_key": "headerParameters"
-                        },
-                        path_parameter_values=["pathParameterValues"],
-                        query_string_parameters={
-                            "query_string_parameters_key": "queryStringParameters"
-                        }
-                    ),
-                    input_template="inputTemplate",
-                    kinesis_stream_parameters=pipes.CfnPipe.PipeTargetKinesisStreamParametersProperty(
-                        partition_key="partitionKey"
-                    ),
-                    lambda_function_parameters=pipes.CfnPipe.PipeTargetLambdaFunctionParametersProperty(
-                        invocation_type="invocationType"
-                    ),
-                    redshift_data_parameters=pipes.CfnPipe.PipeTargetRedshiftDataParametersProperty(
-                        database="database",
-                        sqls=["sqls"],
-            
-                        # the properties below are optional
-                        db_user="dbUser",
-                        secret_manager_arn="secretManagerArn",
-                        statement_name="statementName",
-                        with_event=False
-                    ),
-                    sage_maker_pipeline_parameters=pipes.CfnPipe.PipeTargetSageMakerPipelineParametersProperty(
-                        pipeline_parameter_list=[pipes.CfnPipe.SageMakerPipelineParameterProperty(
-                            name="name",
-                            value="value"
-                        )]
-                    ),
-                    sqs_queue_parameters=pipes.CfnPipe.PipeTargetSqsQueueParametersProperty(
-                        message_deduplication_id="messageDeduplicationId",
-                        message_group_id="messageGroupId"
-                    ),
-                    step_function_state_machine_parameters=pipes.CfnPipe.PipeTargetStateMachineParametersProperty(
-                        invocation_type="invocationType"
-                    ),
-                    timestream_parameters=pipes.CfnPipe.PipeTargetTimestreamParametersProperty(
-                        dimension_mappings=[pipes.CfnPipe.DimensionMappingProperty(
-                            dimension_name="dimensionName",
-                            dimension_value="dimensionValue",
-                            dimension_value_type="dimensionValueType"
-                        )],
-                        time_value="timeValue",
-                        version_value="versionValue",
-            
-                        # the properties below are optional
-                        epoch_time_unit="epochTimeUnit",
-                        multi_measure_mappings=[pipes.CfnPipe.MultiMeasureMappingProperty(
-                            multi_measure_attribute_mappings=[pipes.CfnPipe.MultiMeasureAttributeMappingProperty(
-                                measure_value="measureValue",
-                                measure_value_type="measureValueType",
-                                multi_measure_attribute_name="multiMeasureAttributeName"
-                            )],
-                            multi_measure_name="multiMeasureName"
-                        )],
-                        single_measure_mappings=[pipes.CfnPipe.SingleMeasureMappingProperty(
-                            measure_name="measureName",
-                            measure_value="measureValue",
-                            measure_value_type="measureValueType"
-                        )],
-                        time_field_type="timeFieldType",
-                        timestamp_format="timestampFormat"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0)
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument desired_state", value=desired_state, expected_type=type_hints["desired_state"])
-            check_type(argname="argument enrichment", value=enrichment, expected_type=type_hints["enrichment"])
-            check_type(argname="argument enrichment_parameters", value=enrichment_parameters, expected_type=type_hints["enrichment_parameters"])
-            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
-            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument source_parameters", value=source_parameters, expected_type=type_hints["source_parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_parameters", value=target_parameters, expected_type=type_hints["target_parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role_arn": role_arn,
-            "source": source,
-            "target": target,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if desired_state is not None:
-            self._values["desired_state"] = desired_state
-        if enrichment is not None:
-            self._values["enrichment"] = enrichment
-        if enrichment_parameters is not None:
-            self._values["enrichment_parameters"] = enrichment_parameters
-        if kms_key_identifier is not None:
-            self._values["kms_key_identifier"] = kms_key_identifier
-        if log_configuration is not None:
-            self._values["log_configuration"] = log_configuration
-        if name is not None:
-            self._values["name"] = name
-        if source_parameters is not None:
-            self._values["source_parameters"] = source_parameters
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_parameters is not None:
-            self._values["target_parameters"] = target_parameters
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the role that allows the pipe to send data to the target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source(self) -> builtins.str:
-        '''The ARN of the source resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-source
-        '''
-        result = self._values.get("source")
-        assert result is not None, "Required property 'source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target(self) -> builtins.str:
-        '''The ARN of the target resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-target
-        '''
-        result = self._values.get("target")
-        assert result is not None, "Required property 'target' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def desired_state(self) -> typing.Optional[builtins.str]:
-        '''The state the pipe should be in.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-desiredstate
-        '''
-        result = self._values.get("desired_state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enrichment(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the enrichment resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichment
-        '''
-        result = self._values.get("enrichment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enrichment_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeEnrichmentParametersProperty]]:
-        '''The parameters required to set up enrichment on your pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-enrichmentparameters
-        '''
-        result = self._values.get("enrichment_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeEnrichmentParametersProperty]], result)
-
-    @builtins.property
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt pipe data.
-
-        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
-
-        To update a pipe that is using the default AWS owned key to use a customer managed key instead, or update a pipe that is using a customer managed key to use a different customer managed key, specify a customer managed key identifier.
-
-        To update a pipe that is using a customer managed key to use the default AWS owned key , specify an empty string.
-
-        For more information, see `Managing keys <https://docs.aws.amazon.com/kms/latest/developerguide/getting-started.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-kmskeyidentifier
-        '''
-        result = self._values.get("kms_key_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeLogConfigurationProperty]]:
-        '''The logging configuration settings for the pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-logconfiguration
-        '''
-        result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeLogConfigurationProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeSourceParametersProperty]]:
-        '''The parameters required to set up a source for your pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-sourceparameters
-        '''
-        result = self._values.get("source_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeSourceParametersProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The list of key-value pairs to associate with the pipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def target_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeTargetParametersProperty]]:
-        '''The parameters required to set up a target for your pipe.
-
-        For more information about pipe target parameters, including how to use dynamic path parameters, see `Target parameters <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-event-target.html>`_ in the *Amazon EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pipes-pipe.html#cfn-pipes-pipe-targetparameters
-        '''
-        result = self._values.get("target_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPipe.PipeTargetParametersProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPipeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnPipe",
     "CfnPipeProps",
+    "IPipeRef",
+    "PipeReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0(
+    *,
+    role_arn: builtins.str,
+    source: builtins.str,
+    target: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    desired_state: typing.Optional[builtins.str] = None,
+    enrichment: typing.Optional[builtins.str] = None,
+    enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b00612b984d790ffc1bcfe4775fba19ea93a8b2a8a850ce16f10f22d4c946e94(
+    *,
+    pipe_arn: builtins.str,
+    pipe_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__2590746a77e697feb25a71ec367eb957a7632f9fe5a46ae7e30476068534d683(
     scope: _constructs_77d1e7e8.Construct,
@@ -8256,25 +8391,6 @@ def _typecheckingstub__6f2cbc8cdc4847f4898a4137ea8b22908f1ad5c472f632396cf65a72a
     measure_name: builtins.str,
     measure_value: builtins.str,
     measure_value_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6a6720db1bd2e7acc178f6bd481fd8e3e740405a24c01b669c4c4595318b8c0(
-    *,
-    role_arn: builtins.str,
-    source: builtins.str,
-    target: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    desired_state: typing.Optional[builtins.str] = None,
-    enrichment: typing.Optional[builtins.str] = None,
-    enrichment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeEnrichmentParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeLogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    source_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    target_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

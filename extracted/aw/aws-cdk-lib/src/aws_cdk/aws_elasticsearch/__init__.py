@@ -494,7 +494,7 @@ from ..aws_iam import (
     IRole as _IRole_235f5d8e,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
 from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
 
@@ -775,1849 +775,6 @@ class CapacityConfig:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnDomain(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain",
-):
-    '''The AWS::Elasticsearch::Domain resource creates an Amazon OpenSearch Service domain.
-
-    .. epigraph::
-
-       The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and legacy Elasticsearch. For instructions to upgrade domains defined within CloudFormation from Elasticsearch to OpenSearch, see `Remarks <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--remarks>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
-    :cloudformationResource: AWS::Elasticsearch::Domain
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticsearch as elasticsearch
-        
-        # access_policies: Any
-        
-        cfn_domain = elasticsearch.CfnDomain(self, "MyCfnDomain",
-            access_policies=access_policies,
-            advanced_options={
-                "advanced_options_key": "advancedOptions"
-            },
-            advanced_security_options=elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty(
-                anonymous_auth_enabled=False,
-                enabled=False,
-                internal_user_database_enabled=False,
-                master_user_options=elasticsearch.CfnDomain.MasterUserOptionsProperty(
-                    master_user_arn="masterUserArn",
-                    master_user_name="masterUserName",
-                    master_user_password="masterUserPassword"
-                )
-            ),
-            cognito_options=elasticsearch.CfnDomain.CognitoOptionsProperty(
-                enabled=False,
-                identity_pool_id="identityPoolId",
-                role_arn="roleArn",
-                user_pool_id="userPoolId"
-            ),
-            domain_arn="domainArn",
-            domain_endpoint_options=elasticsearch.CfnDomain.DomainEndpointOptionsProperty(
-                custom_endpoint="customEndpoint",
-                custom_endpoint_certificate_arn="customEndpointCertificateArn",
-                custom_endpoint_enabled=False,
-                enforce_https=False,
-                tls_security_policy="tlsSecurityPolicy"
-            ),
-            domain_name="domainName",
-            ebs_options=elasticsearch.CfnDomain.EBSOptionsProperty(
-                ebs_enabled=False,
-                iops=123,
-                volume_size=123,
-                volume_type="volumeType"
-            ),
-            elasticsearch_cluster_config=elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty(
-                cold_storage_options=elasticsearch.CfnDomain.ColdStorageOptionsProperty(
-                    enabled=False
-                ),
-                dedicated_master_count=123,
-                dedicated_master_enabled=False,
-                dedicated_master_type="dedicatedMasterType",
-                instance_count=123,
-                instance_type="instanceType",
-                warm_count=123,
-                warm_enabled=False,
-                warm_type="warmType",
-                zone_awareness_config=elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
-                    availability_zone_count=123
-                ),
-                zone_awareness_enabled=False
-            ),
-            elasticsearch_version="elasticsearchVersion",
-            encryption_at_rest_options=elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
-                enabled=False,
-                kms_key_id="kmsKeyId"
-            ),
-            log_publishing_options={
-                "log_publishing_options_key": elasticsearch.CfnDomain.LogPublishingOptionProperty(
-                    cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
-                    enabled=False
-                )
-            },
-            node_to_node_encryption_options=elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty(
-                enabled=False
-            ),
-            snapshot_options=elasticsearch.CfnDomain.SnapshotOptionsProperty(
-                automated_snapshot_start_hour=123
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            vpc_options=elasticsearch.CfnDomain.VPCOptionsProperty(
-                security_group_ids=["securityGroupIds"],
-                subnet_ids=["subnetIds"]
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        access_policies: typing.Any = None,
-        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain_arn: typing.Optional[builtins.str] = None,
-        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain_name: typing.Optional[builtins.str] = None,
-        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ElasticsearchClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_version: typing.Optional[builtins.str] = None,
-        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guid* e.
-        :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `Advanced cluster parameters <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html#createdomain-configure-advanced-options>`_ in the *Amazon OpenSearch Service Developer Guide* .
-        :param advanced_security_options: Specifies options for fine-grained access control.
-        :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-        :param domain_arn: 
-        :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
-        :param domain_name: A name for the OpenSearch Service domain. For valid values, see the `DomainName <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/configuration-api.html#configuration-api-datatypes-domainname>`_ data type in the *Amazon OpenSearch Service Developer Guide* . If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-        :param elasticsearch_cluster_config: ElasticsearchClusterConfig is a property of the AWS::Elasticsearch::Domain resource that configures the cluster of an Amazon OpenSearch Service domain.
-        :param elasticsearch_version: The version of Elasticsearch to use, such as 2.3. If not specified, 1.5 is used as the default. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``ElasticsearchVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``ElasticsearchVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
-        :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
-        :param log_publishing_options: An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish. Each key needs a valid ``LogPublishingOption`` value.
-        :param node_to_node_encryption_options: Specifies whether node-to-node encryption is enabled. See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
-        :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indices.
-        :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
-        :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63b7f3680a648547d6da1f542a01684f9c4d84033f4c9aee8eaecae81537b8f4)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDomainProps(
-            access_policies=access_policies,
-            advanced_options=advanced_options,
-            advanced_security_options=advanced_security_options,
-            cognito_options=cognito_options,
-            domain_arn=domain_arn,
-            domain_endpoint_options=domain_endpoint_options,
-            domain_name=domain_name,
-            ebs_options=ebs_options,
-            elasticsearch_cluster_config=elasticsearch_cluster_config,
-            elasticsearch_version=elasticsearch_version,
-            encryption_at_rest_options=encryption_at_rest_options,
-            log_publishing_options=log_publishing_options,
-            node_to_node_encryption_options=node_to_node_encryption_options,
-            snapshot_options=snapshot_options,
-            tags=tags,
-            vpc_options=vpc_options,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd2d18eaac7c83ff0634d3cb6e2c71e76889773e8b7a399c0dd5aa637bd6ae89)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f966c6cd4c4c0e8fc1b00589d54a432ec5b02208b1097ed5e485a3deaa1a3737)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the domain, such as ``arn:aws:es:us-west-2:123456789012:domain/mystack-elasti-1ab2cdefghij`` .
-
-        This returned value is the same as the one returned by ``AWS::Elasticsearch::Domain.DomainArn`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDomainEndpoint")
-    def attr_domain_endpoint(self) -> builtins.str:
-        '''The domain-specific endpoint that's used for requests to the OpenSearch APIs, such as ``search-mystack-elasti-1ab2cdefghij-ab1c2deckoyb3hofw7wpqa3cm.us-west-1.es.amazonaws.com`` .
-
-        :cloudformationAttribute: DomainEndpoint
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDomainEndpoint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accessPolicies")
-    def access_policies(self) -> typing.Any:
-        '''An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions.'''
-        return typing.cast(typing.Any, jsii.get(self, "accessPolicies"))
-
-    @access_policies.setter
-    def access_policies(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e88303355599d25861730b061f1bc223b85a3768dad89b9fe895dcb0acbb018)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessPolicies", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="advancedOptions")
-    def advanced_options(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Additional options to specify for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "advancedOptions"))
-
-    @advanced_options.setter
-    def advanced_options(
-        self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eccb4465105fe2d68c634cb9897defc7a979b09c5873770bdb861cc3cf9f6050)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "advancedOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="advancedSecurityOptions")
-    def advanced_security_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
-        '''Specifies options for fine-grained access control.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]], jsii.get(self, "advancedSecurityOptions"))
-
-    @advanced_security_options.setter
-    def advanced_security_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9970ee48d4d95c4a50fba27f7ecf5d29a7799901a417a50d5ea2d80bb2a7da73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "advancedSecurityOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="cognitoOptions")
-    def cognito_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]]:
-        '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]], jsii.get(self, "cognitoOptions"))
-
-    @cognito_options.setter
-    def cognito_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee253fc130f6145a5f54d7b09ff1166a449bd9ecc8b1142d2cd799fd8c3e8122)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="domainArn")
-    def domain_arn(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainArn"))
-
-    @domain_arn.setter
-    def domain_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8adbdde3df8afce52a188616c8a9ed40b29c6c6ea3a14493572b5169a4bbcaaf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="domainEndpointOptions")
-    def domain_endpoint_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]]:
-        '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]], jsii.get(self, "domainEndpointOptions"))
-
-    @domain_endpoint_options.setter
-    def domain_endpoint_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff33eeb03219f470f43d7c038ac4ad48acfa3561168de4acd90068625c223f8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainEndpointOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="domainName")
-    def domain_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainName"))
-
-    @domain_name.setter
-    def domain_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__547819c192aff9b477504559c5f7c768a4e9c9606b6bcb8fed954fa8a2f967c5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ebsOptions")
-    def ebs_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]]:
-        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]], jsii.get(self, "ebsOptions"))
-
-    @ebs_options.setter
-    def ebs_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92aff95c5a4b46939639f06cb47d5cb23bc8cce780233b7fed861d0a33b21b3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ebsOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticsearchClusterConfig")
-    def elasticsearch_cluster_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]]:
-        '''ElasticsearchClusterConfig is a property of the AWS::Elasticsearch::Domain resource that configures the cluster of an Amazon OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]], jsii.get(self, "elasticsearchClusterConfig"))
-
-    @elasticsearch_cluster_config.setter
-    def elasticsearch_cluster_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02e4164981f0950c083faf5427ec43d8fa41b58062af5ea5e2be947066d05721)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticsearchClusterConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="elasticsearchVersion")
-    def elasticsearch_version(self) -> typing.Optional[builtins.str]:
-        '''The version of Elasticsearch to use, such as 2.3. If not specified, 1.5 is used as the default. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "elasticsearchVersion"))
-
-    @elasticsearch_version.setter
-    def elasticsearch_version(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2effedbe60ffc2fb8fe65b2cdddd9a29cfdcb61eef184721846e6b028414da)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticsearchVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionAtRestOptions")
-    def encryption_at_rest_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]]:
-        '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]], jsii.get(self, "encryptionAtRestOptions"))
-
-    @encryption_at_rest_options.setter
-    def encryption_at_rest_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c2f6f3e7bbcfd1c4ed35e1ea39cf14fc7af68d4b175db0fd18d69c66b89ad9d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionAtRestOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="logPublishingOptions")
-    def log_publishing_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]]:
-        '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]], jsii.get(self, "logPublishingOptions"))
-
-    @log_publishing_options.setter
-    def log_publishing_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b68ea5f4731e0bc02f7a196cd4b14d0ac22f6e22a661283031c3be761ff5c610)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logPublishingOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="nodeToNodeEncryptionOptions")
-    def node_to_node_encryption_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
-        '''Specifies whether node-to-node encryption is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], jsii.get(self, "nodeToNodeEncryptionOptions"))
-
-    @node_to_node_encryption_options.setter
-    def node_to_node_encryption_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a665cc917a112af2348ce54c28aa2743e93ef9dabf60cfbee200092f3bb7c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodeToNodeEncryptionOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="snapshotOptions")
-    def snapshot_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]]:
-        '''*DEPRECATED* .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]], jsii.get(self, "snapshotOptions"))
-
-    @snapshot_options.setter
-    def snapshot_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ceb39ec0c3dca28571cbfbe9689bd6457a60fd17d054c9abf0a2c09165aef74)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotOptions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9076d2462cf49a948d9ea5d30b6392387174b389efc4e1dda4e4789f95edc66)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcOptions")
-    def vpc_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]]:
-        '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]], jsii.get(self, "vpcOptions"))
-
-    @vpc_options.setter
-    def vpc_options(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dff64c1f5c7bb8053ed4408ea633c0472baa0e83f0f43be1e87eb569f30f6739)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcOptions", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "anonymous_auth_enabled": "anonymousAuthEnabled",
-            "enabled": "enabled",
-            "internal_user_database_enabled": "internalUserDatabaseEnabled",
-            "master_user_options": "masterUserOptions",
-        },
-    )
-    class AdvancedSecurityOptionsInputProperty:
-        def __init__(
-            self,
-            *,
-            anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MasterUserOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Specifies options for fine-grained access control.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param anonymous_auth_enabled: 
-            :param enabled: True to enable fine-grained access control. You must also enable encryption of data at rest and node-to-node encryption.
-            :param internal_user_database_enabled: True to enable the internal user database.
-            :param master_user_options: Specifies information about the master user.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                advanced_security_options_input_property = elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty(
-                    anonymous_auth_enabled=False,
-                    enabled=False,
-                    internal_user_database_enabled=False,
-                    master_user_options=elasticsearch.CfnDomain.MasterUserOptionsProperty(
-                        master_user_arn="masterUserArn",
-                        master_user_name="masterUserName",
-                        master_user_password="masterUserPassword"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__20207c85ae0a336344b4986652cfbfc4af27b1a56d54ba31ff6505ea1db70a1b)
-                check_type(argname="argument anonymous_auth_enabled", value=anonymous_auth_enabled, expected_type=type_hints["anonymous_auth_enabled"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument internal_user_database_enabled", value=internal_user_database_enabled, expected_type=type_hints["internal_user_database_enabled"])
-                check_type(argname="argument master_user_options", value=master_user_options, expected_type=type_hints["master_user_options"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if anonymous_auth_enabled is not None:
-                self._values["anonymous_auth_enabled"] = anonymous_auth_enabled
-            if enabled is not None:
-                self._values["enabled"] = enabled
-            if internal_user_database_enabled is not None:
-                self._values["internal_user_database_enabled"] = internal_user_database_enabled
-            if master_user_options is not None:
-                self._values["master_user_options"] = master_user_options
-
-        @builtins.property
-        def anonymous_auth_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-anonymousauthenabled
-            '''
-            result = self._values.get("anonymous_auth_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''True to enable fine-grained access control.
-
-            You must also enable encryption of data at rest and node-to-node encryption.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def internal_user_database_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''True to enable the internal user database.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-internaluserdatabaseenabled
-            '''
-            result = self._values.get("internal_user_database_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def master_user_options(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MasterUserOptionsProperty"]]:
-            '''Specifies information about the master user.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-masteruseroptions
-            '''
-            result = self._values.get("master_user_options")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MasterUserOptionsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "AdvancedSecurityOptionsInputProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.CognitoOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "enabled": "enabled",
-            "identity_pool_id": "identityPoolId",
-            "role_arn": "roleArn",
-            "user_pool_id": "userPoolId",
-        },
-    )
-    class CognitoOptionsProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            identity_pool_id: typing.Optional[builtins.str] = None,
-            role_arn: typing.Optional[builtins.str] = None,
-            user_pool_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param enabled: Whether to enable or disable Amazon Cognito authentication for OpenSearch Dashboards. See `Amazon Cognito authentication for OpenSearch Dashboards <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html>`_ .
-            :param identity_pool_id: The Amazon Cognito identity pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication. Required if you enable Cognito authentication.
-            :param role_arn: The ``AmazonESCognitoAccess`` role that allows OpenSearch Service to configure your user pool and identity pool. Required if you enable Cognito authentication.
-            :param user_pool_id: The Amazon Cognito user pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication. Required if you enable Cognito authentication.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                cognito_options_property = elasticsearch.CfnDomain.CognitoOptionsProperty(
-                    enabled=False,
-                    identity_pool_id="identityPoolId",
-                    role_arn="roleArn",
-                    user_pool_id="userPoolId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__595a6b3cdf3d5b32c86feb7dca3af8642c7eda687b4fb444faedfa8415028e7d)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-                check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-            if identity_pool_id is not None:
-                self._values["identity_pool_id"] = identity_pool_id
-            if role_arn is not None:
-                self._values["role_arn"] = role_arn
-            if user_pool_id is not None:
-                self._values["user_pool_id"] = user_pool_id
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Whether to enable or disable Amazon Cognito authentication for OpenSearch Dashboards.
-
-            See `Amazon Cognito authentication for OpenSearch Dashboards <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def identity_pool_id(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Cognito identity pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication.
-
-            Required if you enable Cognito authentication.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-identitypoolid
-            '''
-            result = self._values.get("identity_pool_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def role_arn(self) -> typing.Optional[builtins.str]:
-            '''The ``AmazonESCognitoAccess`` role that allows OpenSearch Service to configure your user pool and identity pool.
-
-            Required if you enable Cognito authentication.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-rolearn
-            '''
-            result = self._values.get("role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def user_pool_id(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Cognito user pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication.
-
-            Required if you enable Cognito authentication.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-userpoolid
-            '''
-            result = self._values.get("user_pool_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CognitoOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ColdStorageOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
-    )
-    class ColdStorageOptionsProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Specifies options for cold storage. For more information, see `Cold storage for Amazon Elasticsearch Service <https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/cold-storage.html>`_ .
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param enabled: Whether to enable or disable cold storage on the domain. You must enable UltraWarm storage in order to enable cold storage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-coldstorageoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                cold_storage_options_property = elasticsearch.CfnDomain.ColdStorageOptionsProperty(
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b29fbd709c231836e96b61f6b1dd17e4b87fdbcd26d4ec292f768b17478c922f)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Whether to enable or disable cold storage on the domain.
-
-            You must enable UltraWarm storage in order to enable cold storage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-coldstorageoptions.html#cfn-elasticsearch-domain-coldstorageoptions-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ColdStorageOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.DomainEndpointOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "custom_endpoint": "customEndpoint",
-            "custom_endpoint_certificate_arn": "customEndpointCertificateArn",
-            "custom_endpoint_enabled": "customEndpointEnabled",
-            "enforce_https": "enforceHttps",
-            "tls_security_policy": "tlsSecurityPolicy",
-        },
-    )
-    class DomainEndpointOptionsProperty:
-        def __init__(
-            self,
-            *,
-            custom_endpoint: typing.Optional[builtins.str] = None,
-            custom_endpoint_certificate_arn: typing.Optional[builtins.str] = None,
-            custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enforce_https: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            tls_security_policy: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param custom_endpoint: The fully qualified URL for your custom endpoint. Required if you enabled a custom endpoint for the domain.
-            :param custom_endpoint_certificate_arn: The AWS Certificate Manager ARN for your domain's SSL/TLS certificate. Required if you enabled a custom endpoint for the domain.
-            :param custom_endpoint_enabled: True to enable a custom endpoint for the domain. If enabled, you must also provide values for ``CustomEndpoint`` and ``CustomEndpointCertificateArn`` .
-            :param enforce_https: True to require that all traffic to the domain arrive over HTTPS.
-            :param tls_security_policy: The minimum TLS version required for traffic to the domain. Valid values are TLS 1.3 (recommended) or 1.2:. - ``Policy-Min-TLS-1-0-2019-07`` - ``Policy-Min-TLS-1-2-2019-07``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                domain_endpoint_options_property = elasticsearch.CfnDomain.DomainEndpointOptionsProperty(
-                    custom_endpoint="customEndpoint",
-                    custom_endpoint_certificate_arn="customEndpointCertificateArn",
-                    custom_endpoint_enabled=False,
-                    enforce_https=False,
-                    tls_security_policy="tlsSecurityPolicy"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a315182feb03d4b11e7632eea35a2f35d8b19b801ecb799c3744b2ed0bc11a76)
-                check_type(argname="argument custom_endpoint", value=custom_endpoint, expected_type=type_hints["custom_endpoint"])
-                check_type(argname="argument custom_endpoint_certificate_arn", value=custom_endpoint_certificate_arn, expected_type=type_hints["custom_endpoint_certificate_arn"])
-                check_type(argname="argument custom_endpoint_enabled", value=custom_endpoint_enabled, expected_type=type_hints["custom_endpoint_enabled"])
-                check_type(argname="argument enforce_https", value=enforce_https, expected_type=type_hints["enforce_https"])
-                check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if custom_endpoint is not None:
-                self._values["custom_endpoint"] = custom_endpoint
-            if custom_endpoint_certificate_arn is not None:
-                self._values["custom_endpoint_certificate_arn"] = custom_endpoint_certificate_arn
-            if custom_endpoint_enabled is not None:
-                self._values["custom_endpoint_enabled"] = custom_endpoint_enabled
-            if enforce_https is not None:
-                self._values["enforce_https"] = enforce_https
-            if tls_security_policy is not None:
-                self._values["tls_security_policy"] = tls_security_policy
-
-        @builtins.property
-        def custom_endpoint(self) -> typing.Optional[builtins.str]:
-            '''The fully qualified URL for your custom endpoint.
-
-            Required if you enabled a custom endpoint for the domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpoint
-            '''
-            result = self._values.get("custom_endpoint")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def custom_endpoint_certificate_arn(self) -> typing.Optional[builtins.str]:
-            '''The AWS Certificate Manager ARN for your domain's SSL/TLS certificate.
-
-            Required if you enabled a custom endpoint for the domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpointcertificatearn
-            '''
-            result = self._values.get("custom_endpoint_certificate_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def custom_endpoint_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''True to enable a custom endpoint for the domain.
-
-            If enabled, you must also provide values for ``CustomEndpoint`` and ``CustomEndpointCertificateArn`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpointenabled
-            '''
-            result = self._values.get("custom_endpoint_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def enforce_https(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''True to require that all traffic to the domain arrive over HTTPS.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-enforcehttps
-            '''
-            result = self._values.get("enforce_https")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def tls_security_policy(self) -> typing.Optional[builtins.str]:
-            '''The minimum TLS version required for traffic to the domain. Valid values are TLS 1.3 (recommended) or 1.2:.
-
-            - ``Policy-Min-TLS-1-0-2019-07``
-            - ``Policy-Min-TLS-1-2-2019-07``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-tlssecuritypolicy
-            '''
-            result = self._values.get("tls_security_policy")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DomainEndpointOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.EBSOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "ebs_enabled": "ebsEnabled",
-            "iops": "iops",
-            "volume_size": "volumeSize",
-            "volume_type": "volumeType",
-        },
-    )
-    class EBSOptionsProperty:
-        def __init__(
-            self,
-            *,
-            ebs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            iops: typing.Optional[jsii.Number] = None,
-            volume_size: typing.Optional[jsii.Number] = None,
-            volume_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
-
-            For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param ebs_enabled: Specifies whether Amazon EBS volumes are attached to data nodes in the OpenSearch Service domain.
-            :param iops: The number of I/O operations per second (IOPS) that the volume supports. This property applies only to provisioned IOPS EBS volume types.
-            :param volume_size: The size (in GiB) of the EBS volume for each data node. The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-            :param volume_type: The EBS volume type to use with the OpenSearch Service domain, such as standard, gp2, or io1. For more information about each type, see `Amazon EBS volume types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html>`_ in the *Amazon EC2 User Guide for Linux Instances* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                e_bSOptions_property = elasticsearch.CfnDomain.EBSOptionsProperty(
-                    ebs_enabled=False,
-                    iops=123,
-                    volume_size=123,
-                    volume_type="volumeType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a0a4bb0d03dd89e8279b9e57e4a68e7f2fce71595722dbad5fada43cc1b15616)
-                check_type(argname="argument ebs_enabled", value=ebs_enabled, expected_type=type_hints["ebs_enabled"])
-                check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
-                check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
-                check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if ebs_enabled is not None:
-                self._values["ebs_enabled"] = ebs_enabled
-            if iops is not None:
-                self._values["iops"] = iops
-            if volume_size is not None:
-                self._values["volume_size"] = volume_size
-            if volume_type is not None:
-                self._values["volume_type"] = volume_type
-
-        @builtins.property
-        def ebs_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether Amazon EBS volumes are attached to data nodes in the OpenSearch Service domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-ebsenabled
-            '''
-            result = self._values.get("ebs_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def iops(self) -> typing.Optional[jsii.Number]:
-            '''The number of I/O operations per second (IOPS) that the volume supports.
-
-            This property applies only to provisioned IOPS EBS volume types.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-iops
-            '''
-            result = self._values.get("iops")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def volume_size(self) -> typing.Optional[jsii.Number]:
-            '''The size (in GiB) of the EBS volume for each data node.
-
-            The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-volumesize
-            '''
-            result = self._values.get("volume_size")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def volume_type(self) -> typing.Optional[builtins.str]:
-            '''The EBS volume type to use with the OpenSearch Service domain, such as standard, gp2, or io1.
-
-            For more information about each type, see `Amazon EBS volume types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html>`_ in the *Amazon EC2 User Guide for Linux Instances* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-volumetype
-            '''
-            result = self._values.get("volume_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EBSOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "cold_storage_options": "coldStorageOptions",
-            "dedicated_master_count": "dedicatedMasterCount",
-            "dedicated_master_enabled": "dedicatedMasterEnabled",
-            "dedicated_master_type": "dedicatedMasterType",
-            "instance_count": "instanceCount",
-            "instance_type": "instanceType",
-            "warm_count": "warmCount",
-            "warm_enabled": "warmEnabled",
-            "warm_type": "warmType",
-            "zone_awareness_config": "zoneAwarenessConfig",
-            "zone_awareness_enabled": "zoneAwarenessEnabled",
-        },
-    )
-    class ElasticsearchClusterConfigProperty:
-        def __init__(
-            self,
-            *,
-            cold_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ColdStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dedicated_master_count: typing.Optional[jsii.Number] = None,
-            dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            dedicated_master_type: typing.Optional[builtins.str] = None,
-            instance_count: typing.Optional[jsii.Number] = None,
-            instance_type: typing.Optional[builtins.str] = None,
-            warm_count: typing.Optional[jsii.Number] = None,
-            warm_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            warm_type: typing.Optional[builtins.str] = None,
-            zone_awareness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ZoneAwarenessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''The cluster configuration for the OpenSearch Service domain.
-
-            You can specify options such as the instance type and the number of instances. For more information, see `Creating and managing Amazon OpenSearch Service domains <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param cold_storage_options: Specifies cold storage options for the domain.
-            :param dedicated_master_count: The number of instances to use for the master node. If you specify this property, you must specify true for the DedicatedMasterEnabled property.
-            :param dedicated_master_enabled: Indicates whether to use a dedicated master node for the OpenSearch Service domain. A dedicated master node is a cluster node that performs cluster management tasks, but doesn't hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. See `Dedicated master nodes in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-dedicatedmasternodes.html>`_ .
-            :param dedicated_master_type: The hardware configuration of the computer that hosts the dedicated master node, such as ``m3.medium.elasticsearch`` . If you specify this property, you must specify true for the ``DedicatedMasterEnabled`` property. For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
-            :param instance_count: The number of data nodes (instances) to use in the OpenSearch Service domain.
-            :param instance_type: The instance type for your data nodes, such as ``m3.medium.elasticsearch`` . For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
-            :param warm_count: The number of warm nodes in the cluster. Required if you enable warm storage.
-            :param warm_enabled: Whether to enable warm storage for the cluster.
-            :param warm_type: The instance type for the cluster's warm nodes. Required if you enable warm storage.
-            :param zone_awareness_config: Specifies zone awareness configuration options. Only use if ``ZoneAwarenessEnabled`` is ``true`` .
-            :param zone_awareness_enabled: Indicates whether to enable zone awareness for the OpenSearch Service domain. When you enable zone awareness, OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a multi-AZ domain in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                elasticsearch_cluster_config_property = elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty(
-                    cold_storage_options=elasticsearch.CfnDomain.ColdStorageOptionsProperty(
-                        enabled=False
-                    ),
-                    dedicated_master_count=123,
-                    dedicated_master_enabled=False,
-                    dedicated_master_type="dedicatedMasterType",
-                    instance_count=123,
-                    instance_type="instanceType",
-                    warm_count=123,
-                    warm_enabled=False,
-                    warm_type="warmType",
-                    zone_awareness_config=elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
-                        availability_zone_count=123
-                    ),
-                    zone_awareness_enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36ac2eb43dd2dc644b88b3f9db0f58ead2dbb47ffc23f3d8fc546f53bfcefb4a)
-                check_type(argname="argument cold_storage_options", value=cold_storage_options, expected_type=type_hints["cold_storage_options"])
-                check_type(argname="argument dedicated_master_count", value=dedicated_master_count, expected_type=type_hints["dedicated_master_count"])
-                check_type(argname="argument dedicated_master_enabled", value=dedicated_master_enabled, expected_type=type_hints["dedicated_master_enabled"])
-                check_type(argname="argument dedicated_master_type", value=dedicated_master_type, expected_type=type_hints["dedicated_master_type"])
-                check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
-                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-                check_type(argname="argument warm_count", value=warm_count, expected_type=type_hints["warm_count"])
-                check_type(argname="argument warm_enabled", value=warm_enabled, expected_type=type_hints["warm_enabled"])
-                check_type(argname="argument warm_type", value=warm_type, expected_type=type_hints["warm_type"])
-                check_type(argname="argument zone_awareness_config", value=zone_awareness_config, expected_type=type_hints["zone_awareness_config"])
-                check_type(argname="argument zone_awareness_enabled", value=zone_awareness_enabled, expected_type=type_hints["zone_awareness_enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if cold_storage_options is not None:
-                self._values["cold_storage_options"] = cold_storage_options
-            if dedicated_master_count is not None:
-                self._values["dedicated_master_count"] = dedicated_master_count
-            if dedicated_master_enabled is not None:
-                self._values["dedicated_master_enabled"] = dedicated_master_enabled
-            if dedicated_master_type is not None:
-                self._values["dedicated_master_type"] = dedicated_master_type
-            if instance_count is not None:
-                self._values["instance_count"] = instance_count
-            if instance_type is not None:
-                self._values["instance_type"] = instance_type
-            if warm_count is not None:
-                self._values["warm_count"] = warm_count
-            if warm_enabled is not None:
-                self._values["warm_enabled"] = warm_enabled
-            if warm_type is not None:
-                self._values["warm_type"] = warm_type
-            if zone_awareness_config is not None:
-                self._values["zone_awareness_config"] = zone_awareness_config
-            if zone_awareness_enabled is not None:
-                self._values["zone_awareness_enabled"] = zone_awareness_enabled
-
-        @builtins.property
-        def cold_storage_options(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ColdStorageOptionsProperty"]]:
-            '''Specifies cold storage options for the domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-coldstorageoptions
-            '''
-            result = self._values.get("cold_storage_options")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ColdStorageOptionsProperty"]], result)
-
-        @builtins.property
-        def dedicated_master_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of instances to use for the master node.
-
-            If you specify this property, you must specify true for the DedicatedMasterEnabled property.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmastercount
-            '''
-            result = self._values.get("dedicated_master_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def dedicated_master_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether to use a dedicated master node for the OpenSearch Service domain.
-
-            A dedicated master node is a cluster node that performs cluster management tasks, but doesn't hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. See `Dedicated master nodes in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-dedicatedmasternodes.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmasterenabled
-            '''
-            result = self._values.get("dedicated_master_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def dedicated_master_type(self) -> typing.Optional[builtins.str]:
-            '''The hardware configuration of the computer that hosts the dedicated master node, such as ``m3.medium.elasticsearch`` . If you specify this property, you must specify true for the ``DedicatedMasterEnabled`` property. For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmastertype
-            '''
-            result = self._values.get("dedicated_master_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def instance_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of data nodes (instances) to use in the OpenSearch Service domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-instancecount
-            '''
-            result = self._values.get("instance_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def instance_type(self) -> typing.Optional[builtins.str]:
-            '''The instance type for your data nodes, such as ``m3.medium.elasticsearch`` . For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-instancetype
-            '''
-            result = self._values.get("instance_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def warm_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of warm nodes in the cluster.
-
-            Required if you enable warm storage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmcount
-            '''
-            result = self._values.get("warm_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def warm_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Whether to enable warm storage for the cluster.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmenabled
-            '''
-            result = self._values.get("warm_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def warm_type(self) -> typing.Optional[builtins.str]:
-            '''The instance type for the cluster's warm nodes.
-
-            Required if you enable warm storage.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmtype
-            '''
-            result = self._values.get("warm_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def zone_awareness_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ZoneAwarenessConfigProperty"]]:
-            '''Specifies zone awareness configuration options.
-
-            Only use if ``ZoneAwarenessEnabled`` is ``true`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-zoneawarenessconfig
-            '''
-            result = self._values.get("zone_awareness_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ZoneAwarenessConfigProperty"]], result)
-
-        @builtins.property
-        def zone_awareness_enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Indicates whether to enable zone awareness for the OpenSearch Service domain.
-
-            When you enable zone awareness, OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a multi-AZ domain in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-zoneawarenessenabled
-            '''
-            result = self._values.get("zone_awareness_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ElasticsearchClusterConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled", "kms_key_id": "kmsKeyId"},
-    )
-    class EncryptionAtRestOptionsProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            kms_key_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param enabled: Specify ``true`` to enable encryption at rest.
-            :param kms_key_id: The KMS key ID. Takes the form ``1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a`` . Required if you enable encryption at rest.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                encryption_at_rest_options_property = elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
-                    enabled=False,
-                    kms_key_id="kmsKeyId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0ee9f0aff26691f651a27c328864208a5480af26681c2baa3afdcc6b1f8cb27b)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-            if kms_key_id is not None:
-                self._values["kms_key_id"] = kms_key_id
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specify ``true`` to enable encryption at rest.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html#cfn-elasticsearch-domain-encryptionatrestoptions-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The KMS key ID.
-
-            Takes the form ``1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a`` . Required if you enable encryption at rest.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html#cfn-elasticsearch-domain-encryptionatrestoptions-kmskeyid
-            '''
-            result = self._values.get("kms_key_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "EncryptionAtRestOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.LogPublishingOptionProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "cloud_watch_logs_log_group_arn": "cloudWatchLogsLogGroupArn",
-            "enabled": "enabled",
-        },
-    )
-    class LogPublishingOptionProperty:
-        def __init__(
-            self,
-            *,
-            cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''.. epigraph::
-
-   The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            Specifies whether the OpenSearch Service domain publishes the Elasticsearch application, search slow logs, or index slow logs to Amazon CloudWatch. Each option must be an object of name ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , or ``AUDIT_LOGS`` depending on the type of logs you want to publish.
-
-            If you enable a slow log, you still have to enable the *collection* of slow logs using the Configuration API. To learn more, see `Enabling log publishing ( AWS CLI) <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createdomain-configure-slow-logs.html#createdomain-configure-slow-logs-cli>`_ .
-
-            :param cloud_watch_logs_log_group_arn: Specifies the CloudWatch log group to publish to. Required if you enable log publishing for the domain.
-            :param enabled: If ``true`` , enables the publishing of logs to CloudWatch. Default: ``false`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                log_publishing_option_property = elasticsearch.CfnDomain.LogPublishingOptionProperty(
-                    cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0e7d124e6174f5352d66bdbb642c851ec6bf4aba9f8fcb6bf19e34809e37f6a9)
-                check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if cloud_watch_logs_log_group_arn is not None:
-                self._values["cloud_watch_logs_log_group_arn"] = cloud_watch_logs_log_group_arn
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def cloud_watch_logs_log_group_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the CloudWatch log group to publish to.
-
-            Required if you enable log publishing for the domain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html#cfn-elasticsearch-domain-logpublishingoption-cloudwatchlogsloggrouparn
-            '''
-            result = self._values.get("cloud_watch_logs_log_group_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''If ``true`` , enables the publishing of logs to CloudWatch.
-
-            Default: ``false`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html#cfn-elasticsearch-domain-logpublishingoption-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LogPublishingOptionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.MasterUserOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "master_user_arn": "masterUserArn",
-            "master_user_name": "masterUserName",
-            "master_user_password": "masterUserPassword",
-        },
-    )
-    class MasterUserOptionsProperty:
-        def __init__(
-            self,
-            *,
-            master_user_arn: typing.Optional[builtins.str] = None,
-            master_user_name: typing.Optional[builtins.str] = None,
-            master_user_password: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Specifies information about the master user. Required if you enabled the internal user database.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param master_user_arn: ARN for the master user. Only specify if ``InternalUserDatabaseEnabled`` is false in ``AdvancedSecurityOptions`` .
-            :param master_user_name: Username for the master user. Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
-            :param master_user_password: Password for the master user. Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                master_user_options_property = elasticsearch.CfnDomain.MasterUserOptionsProperty(
-                    master_user_arn="masterUserArn",
-                    master_user_name="masterUserName",
-                    master_user_password="masterUserPassword"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86df1024036528c38c1cc3918e4413fdd5adee94c59ff0dba9e2625c1f7f6735)
-                check_type(argname="argument master_user_arn", value=master_user_arn, expected_type=type_hints["master_user_arn"])
-                check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
-                check_type(argname="argument master_user_password", value=master_user_password, expected_type=type_hints["master_user_password"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if master_user_arn is not None:
-                self._values["master_user_arn"] = master_user_arn
-            if master_user_name is not None:
-                self._values["master_user_name"] = master_user_name
-            if master_user_password is not None:
-                self._values["master_user_password"] = master_user_password
-
-        @builtins.property
-        def master_user_arn(self) -> typing.Optional[builtins.str]:
-            '''ARN for the master user.
-
-            Only specify if ``InternalUserDatabaseEnabled`` is false in ``AdvancedSecurityOptions`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masteruserarn
-            '''
-            result = self._values.get("master_user_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def master_user_name(self) -> typing.Optional[builtins.str]:
-            '''Username for the master user.
-
-            Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masterusername
-            '''
-            result = self._values.get("master_user_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def master_user_password(self) -> typing.Optional[builtins.str]:
-            '''Password for the master user.
-
-            Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masteruserpassword
-            '''
-            result = self._values.get("master_user_password")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MasterUserOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
-    )
-    class NodeToNodeEncryptionOptionsProperty:
-        def __init__(
-            self,
-            *,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Specifies whether node-to-node encryption is enabled.
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param enabled: Specifies whether node-to-node encryption is enabled, as a Boolean.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-nodetonodeencryptionoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                node_to_node_encryption_options_property = elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty(
-                    enabled=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__79b4e8cc645055321e0aea8e7724655ea101aae985769f93812bc6db0624eb53)
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if enabled is not None:
-                self._values["enabled"] = enabled
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether node-to-node encryption is enabled, as a Boolean.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-nodetonodeencryptionoptions.html#cfn-elasticsearch-domain-nodetonodeencryptionoptions-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "NodeToNodeEncryptionOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.SnapshotOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"automated_snapshot_start_hour": "automatedSnapshotStartHour"},
-    )
-    class SnapshotOptionsProperty:
-        def __init__(
-            self,
-            *,
-            automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''.. epigraph::
-
-   The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            *DEPRECATED* . For domains running Elasticsearch 5.3 and later, OpenSearch Service takes hourly automated snapshots, making this setting irrelevant. For domains running earlier versions of Elasticsearch, OpenSearch Service takes daily automated snapshots.
-
-            The automated snapshot configuration for the OpenSearch Service domain indices.
-
-            :param automated_snapshot_start_hour: The hour in UTC during which the service takes an automated daily snapshot of the indices in the OpenSearch Service domain. For example, if you specify 0, OpenSearch Service takes an automated snapshot everyday between midnight and 1 am. You can specify a value between 0 and 23.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-snapshotoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                snapshot_options_property = elasticsearch.CfnDomain.SnapshotOptionsProperty(
-                    automated_snapshot_start_hour=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd199cc313b4bdbae2613aaf1084d93eab6fb227123efcd5eccb919a3c431497)
-                check_type(argname="argument automated_snapshot_start_hour", value=automated_snapshot_start_hour, expected_type=type_hints["automated_snapshot_start_hour"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if automated_snapshot_start_hour is not None:
-                self._values["automated_snapshot_start_hour"] = automated_snapshot_start_hour
-
-        @builtins.property
-        def automated_snapshot_start_hour(self) -> typing.Optional[jsii.Number]:
-            '''The hour in UTC during which the service takes an automated daily snapshot of the indices in the OpenSearch Service domain.
-
-            For example, if you specify 0, OpenSearch Service takes an automated snapshot everyday between midnight and 1 am. You can specify a value between 0 and 23.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-snapshotoptions.html#cfn-elasticsearch-domain-snapshotoptions-automatedsnapshotstarthour
-            '''
-            result = self._values.get("automated_snapshot_start_hour")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SnapshotOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.VPCOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "security_group_ids": "securityGroupIds",
-            "subnet_ids": "subnetIds",
-        },
-    )
-    class VPCOptionsProperty:
-        def __init__(
-            self,
-            *,
-            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
-
-            For more information, see `Launching your Amazon OpenSearch Service domains using a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param security_group_ids: The list of security group IDs that are associated with the VPC endpoints for the domain. If you don't provide a security group ID, OpenSearch Service uses the default security group for the VPC. To learn more, see `Security groups for your VPC <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
-            :param subnet_ids: Provide one subnet ID for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. To learn more, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* . Required if you're creating your domain inside a VPC.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                v_pCOptions_property = elasticsearch.CfnDomain.VPCOptionsProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__931aa1b11d25d7c92725f2e141ddba7562e992b6b38363844ccfcbd524041b69)
-                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if security_group_ids is not None:
-                self._values["security_group_ids"] = security_group_ids
-            if subnet_ids is not None:
-                self._values["subnet_ids"] = subnet_ids
-
-        @builtins.property
-        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The list of security group IDs that are associated with the VPC endpoints for the domain.
-
-            If you don't provide a security group ID, OpenSearch Service uses the default security group for the VPC. To learn more, see `Security groups for your VPC <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html#cfn-elasticsearch-domain-vpcoptions-securitygroupids
-            '''
-            result = self._values.get("security_group_ids")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''Provide one subnet ID for each Availability Zone that your domain uses.
-
-            For example, you must specify three subnet IDs for a three Availability Zone domain. To learn more, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* .
-
-            Required if you're creating your domain inside a VPC.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html#cfn-elasticsearch-domain-vpcoptions-subnetids
-            '''
-            result = self._values.get("subnet_ids")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "VPCOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ZoneAwarenessConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"availability_zone_count": "availabilityZoneCount"},
-    )
-    class ZoneAwarenessConfigProperty:
-        def __init__(
-            self,
-            *,
-            availability_zone_count: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Specifies zone awareness configuration options. Only use if ``ZoneAwarenessEnabled`` is ``true`` .
-
-            .. epigraph::
-
-               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
-
-            :param availability_zone_count: If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use. Valid values are ``2`` and ``3`` . Default is 2.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-zoneawarenessconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticsearch as elasticsearch
-                
-                zone_awareness_config_property = elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
-                    availability_zone_count=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ee73d0667237b38d27f617dfe56f8c57182f358686fa721ebadbe9d9730d747)
-                check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if availability_zone_count is not None:
-                self._values["availability_zone_count"] = availability_zone_count
-
-        @builtins.property
-        def availability_zone_count(self) -> typing.Optional[jsii.Number]:
-            '''If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use.
-
-            Valid values are ``2`` and ``3`` . Default is 2.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-zoneawarenessconfig.html#cfn-elasticsearch-domain-zoneawarenessconfig-availabilityzonecount
-            '''
-            result = self._values.get("availability_zone_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ZoneAwarenessConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomainProps",
     jsii_struct_bases=[],
@@ -2646,20 +803,20 @@ class CfnDomainProps:
         *,
         access_policies: typing.Any = None,
         advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
-        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_name: typing.Optional[builtins.str] = None,
-        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ElasticsearchClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ElasticsearchClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         elasticsearch_version: typing.Optional[builtins.str] = None,
-        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
 
@@ -2850,24 +1007,24 @@ class CfnDomainProps:
     @builtins.property
     def advanced_security_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AdvancedSecurityOptionsInputProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
         '''Specifies options for fine-grained access control.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-advancedsecurityoptions
         '''
         result = self._values.get("advanced_security_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.AdvancedSecurityOptionsInputProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]], result)
 
     @builtins.property
     def cognito_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]]:
         '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-cognitooptions
         '''
         result = self._values.get("cognito_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]], result)
 
     @builtins.property
     def domain_arn(self) -> typing.Optional[builtins.str]:
@@ -2880,13 +1037,13 @@ class CfnDomainProps:
     @builtins.property
     def domain_endpoint_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEndpointOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]]:
         '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-domainendpointoptions
         '''
         result = self._values.get("domain_endpoint_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEndpointOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -2905,7 +1062,7 @@ class CfnDomainProps:
     @builtins.property
     def ebs_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EBSOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]]:
         '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
 
         For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
@@ -2913,18 +1070,18 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-ebsoptions
         '''
         result = self._values.get("ebs_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EBSOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]], result)
 
     @builtins.property
     def elasticsearch_cluster_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.ElasticsearchClusterConfigProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]]:
         '''ElasticsearchClusterConfig is a property of the AWS::Elasticsearch::Domain resource that configures the cluster of an Amazon OpenSearch Service domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-elasticsearchclusterconfig
         '''
         result = self._values.get("elasticsearch_cluster_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.ElasticsearchClusterConfigProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]], result)
 
     @builtins.property
     def elasticsearch_version(self) -> typing.Optional[builtins.str]:
@@ -2940,7 +1097,7 @@ class CfnDomainProps:
     @builtins.property
     def encryption_at_rest_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EncryptionAtRestOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]]:
         '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.
 
         See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
@@ -2948,12 +1105,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-encryptionatrestoptions
         '''
         result = self._values.get("encryption_at_rest_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.EncryptionAtRestOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]], result)
 
     @builtins.property
     def log_publishing_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomain.LogPublishingOptionProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]]:
         '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.
 
         Each key needs a valid ``LogPublishingOption`` value.
@@ -2961,12 +1118,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-logpublishingoptions
         '''
         result = self._values.get("log_publishing_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDomain.LogPublishingOptionProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]], result)
 
     @builtins.property
     def node_to_node_encryption_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.NodeToNodeEncryptionOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
         '''Specifies whether node-to-node encryption is enabled.
 
         See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
@@ -2974,12 +1131,12 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-nodetonodeencryptionoptions
         '''
         result = self._values.get("node_to_node_encryption_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.NodeToNodeEncryptionOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], result)
 
     @builtins.property
     def snapshot_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SnapshotOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]]:
         '''*DEPRECATED* .
 
         The automated snapshot configuration for the OpenSearch Service domain indices.
@@ -2987,7 +1144,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-snapshotoptions
         '''
         result = self._values.get("snapshot_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.SnapshotOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -3001,7 +1158,7 @@ class CfnDomainProps:
     @builtins.property
     def vpc_options(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.VPCOptionsProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]]:
         '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
 
         For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
@@ -3009,7 +1166,7 @@ class CfnDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html#cfn-elasticsearch-domain-vpcoptions
         '''
         result = self._values.get("vpc_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.VPCOptionsProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3828,6 +1985,66 @@ class DomainProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticsearch.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_arn": "domainArn", "domain_id": "domainId"},
+)
+class DomainReference:
+    def __init__(self, *, domain_arn: builtins.str, domain_id: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_arn: The ARN of the Domain resource.
+        :param domain_id: The Id of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticsearch as elasticsearch
+            
+            domain_reference = elasticsearch.DomainReference(
+                domain_arn="domainArn",
+                domain_id="domainId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2dcecb1e096122d0655c9eddc3eb9983e82a209c47ca6c399630d0d7e3dd5139)
+            check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_arn": domain_arn,
+            "domain_id": domain_id,
+        }
+
+    @builtins.property
+    def domain_arn(self) -> builtins.str:
+        '''The ARN of the Domain resource.'''
+        result = self._values.get("domain_arn")
+        assert result is not None, "Required property 'domain_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The Id of the Domain resource.'''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticsearch.EbsOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -4144,7 +2361,7 @@ class EncryptionAtRestOptions:
         self,
         *,
         enabled: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     ) -> None:
         '''(deprecated) Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service (KMS) key to use.
 
@@ -4199,7 +2416,7 @@ class EncryptionAtRestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''(deprecated) Supply if using KMS key for encryption at rest.
 
         :default: - uses default aws/es KMS key.
@@ -4209,7 +2426,7 @@ class EncryptionAtRestOptions:
         :stability: deprecated
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6153,6 +4370,46 @@ class _IDomainProxy(
 typing.cast(typing.Any, IDomain).__jsii_proxy_class__ = lambda : _IDomainProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticsearch.IDomainRef")
+class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticsearch.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticsearch.LoggingOptions",
     jsii_struct_bases=[],
@@ -6493,6 +4750,1855 @@ class ZoneAwarenessConfig:
         return "ZoneAwarenessConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, IDomainRef, _ITaggable_36806126)
+class CfnDomain(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain",
+):
+    '''The AWS::Elasticsearch::Domain resource creates an Amazon OpenSearch Service domain.
+
+    .. epigraph::
+
+       The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and legacy Elasticsearch. For instructions to upgrade domains defined within CloudFormation from Elasticsearch to OpenSearch, see `Remarks <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#aws-resource-opensearchservice-domain--remarks>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticsearch-domain.html
+    :cloudformationResource: AWS::Elasticsearch::Domain
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticsearch as elasticsearch
+        
+        # access_policies: Any
+        
+        cfn_domain = elasticsearch.CfnDomain(self, "MyCfnDomain",
+            access_policies=access_policies,
+            advanced_options={
+                "advanced_options_key": "advancedOptions"
+            },
+            advanced_security_options=elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty(
+                anonymous_auth_enabled=False,
+                enabled=False,
+                internal_user_database_enabled=False,
+                master_user_options=elasticsearch.CfnDomain.MasterUserOptionsProperty(
+                    master_user_arn="masterUserArn",
+                    master_user_name="masterUserName",
+                    master_user_password="masterUserPassword"
+                )
+            ),
+            cognito_options=elasticsearch.CfnDomain.CognitoOptionsProperty(
+                enabled=False,
+                identity_pool_id="identityPoolId",
+                role_arn="roleArn",
+                user_pool_id="userPoolId"
+            ),
+            domain_arn="domainArn",
+            domain_endpoint_options=elasticsearch.CfnDomain.DomainEndpointOptionsProperty(
+                custom_endpoint="customEndpoint",
+                custom_endpoint_certificate_arn="customEndpointCertificateArn",
+                custom_endpoint_enabled=False,
+                enforce_https=False,
+                tls_security_policy="tlsSecurityPolicy"
+            ),
+            domain_name="domainName",
+            ebs_options=elasticsearch.CfnDomain.EBSOptionsProperty(
+                ebs_enabled=False,
+                iops=123,
+                volume_size=123,
+                volume_type="volumeType"
+            ),
+            elasticsearch_cluster_config=elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty(
+                cold_storage_options=elasticsearch.CfnDomain.ColdStorageOptionsProperty(
+                    enabled=False
+                ),
+                dedicated_master_count=123,
+                dedicated_master_enabled=False,
+                dedicated_master_type="dedicatedMasterType",
+                instance_count=123,
+                instance_type="instanceType",
+                warm_count=123,
+                warm_enabled=False,
+                warm_type="warmType",
+                zone_awareness_config=elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
+                    availability_zone_count=123
+                ),
+                zone_awareness_enabled=False
+            ),
+            elasticsearch_version="elasticsearchVersion",
+            encryption_at_rest_options=elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
+                enabled=False,
+                kms_key_id="kmsKeyId"
+            ),
+            log_publishing_options={
+                "log_publishing_options_key": elasticsearch.CfnDomain.LogPublishingOptionProperty(
+                    cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+                    enabled=False
+                )
+            },
+            node_to_node_encryption_options=elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty(
+                enabled=False
+            ),
+            snapshot_options=elasticsearch.CfnDomain.SnapshotOptionsProperty(
+                automated_snapshot_start_hour=123
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            vpc_options=elasticsearch.CfnDomain.VPCOptionsProperty(
+                security_group_ids=["securityGroupIds"],
+                subnet_ids=["subnetIds"]
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        access_policies: typing.Any = None,
+        advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AdvancedSecurityOptionsInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_arn: typing.Optional[builtins.str] = None,
+        domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_name: typing.Optional[builtins.str] = None,
+        ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ElasticsearchClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_version: typing.Optional[builtins.str] = None,
+        encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.LogPublishingOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.NodeToNodeEncryptionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param access_policies: An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions. For more information, see `Configuring access policies <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#ac-creating>`_ in the *Amazon OpenSearch Service Developer Guid* e.
+        :param advanced_options: Additional options to specify for the OpenSearch Service domain. For more information, see `Advanced cluster parameters <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html#createdomain-configure-advanced-options>`_ in the *Amazon OpenSearch Service Developer Guide* .
+        :param advanced_security_options: Specifies options for fine-grained access control.
+        :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+        :param domain_arn: 
+        :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
+        :param domain_name: A name for the OpenSearch Service domain. For valid values, see the `DomainName <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/configuration-api.html#configuration-api-datatypes-domainname>`_ data type in the *Amazon OpenSearch Service Developer Guide* . If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+        :param elasticsearch_cluster_config: ElasticsearchClusterConfig is a property of the AWS::Elasticsearch::Domain resource that configures the cluster of an Amazon OpenSearch Service domain.
+        :param elasticsearch_version: The version of Elasticsearch to use, such as 2.3. If not specified, 1.5 is used as the default. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``ElasticsearchVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``ElasticsearchVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
+        :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ .
+        :param log_publishing_options: An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish. Each key needs a valid ``LogPublishingOption`` value.
+        :param node_to_node_encryption_options: Specifies whether node-to-node encryption is enabled. See `Node-to-node encryption for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ntn.html>`_ .
+        :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indices.
+        :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
+        :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63b7f3680a648547d6da1f542a01684f9c4d84033f4c9aee8eaecae81537b8f4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainProps(
+            access_policies=access_policies,
+            advanced_options=advanced_options,
+            advanced_security_options=advanced_security_options,
+            cognito_options=cognito_options,
+            domain_arn=domain_arn,
+            domain_endpoint_options=domain_endpoint_options,
+            domain_name=domain_name,
+            ebs_options=ebs_options,
+            elasticsearch_cluster_config=elasticsearch_cluster_config,
+            elasticsearch_version=elasticsearch_version,
+            encryption_at_rest_options=encryption_at_rest_options,
+            log_publishing_options=log_publishing_options,
+            node_to_node_encryption_options=node_to_node_encryption_options,
+            snapshot_options=snapshot_options,
+            tags=tags,
+            vpc_options=vpc_options,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd2d18eaac7c83ff0634d3cb6e2c71e76889773e8b7a399c0dd5aa637bd6ae89)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f966c6cd4c4c0e8fc1b00589d54a432ec5b02208b1097ed5e485a3deaa1a3737)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the domain, such as ``arn:aws:es:us-west-2:123456789012:domain/mystack-elasti-1ab2cdefghij`` .
+
+        This returned value is the same as the one returned by ``AWS::Elasticsearch::Domain.DomainArn`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainEndpoint")
+    def attr_domain_endpoint(self) -> builtins.str:
+        '''The domain-specific endpoint that's used for requests to the OpenSearch APIs, such as ``search-mystack-elasti-1ab2cdefghij-ab1c2deckoyb3hofw7wpqa3cm.us-west-1.es.amazonaws.com`` .
+
+        :cloudformationAttribute: DomainEndpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''A reference to a Domain resource.'''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicies")
+    def access_policies(self) -> typing.Any:
+        '''An AWS Identity and Access Management ( IAM ) policy document that specifies who can access the OpenSearch Service domain and their permissions.'''
+        return typing.cast(typing.Any, jsii.get(self, "accessPolicies"))
+
+    @access_policies.setter
+    def access_policies(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e88303355599d25861730b061f1bc223b85a3768dad89b9fe895dcb0acbb018)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessPolicies", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="advancedOptions")
+    def advanced_options(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Additional options to specify for the OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "advancedOptions"))
+
+    @advanced_options.setter
+    def advanced_options(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eccb4465105fe2d68c634cb9897defc7a979b09c5873770bdb861cc3cf9f6050)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "advancedOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="advancedSecurityOptions")
+    def advanced_security_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]]:
+        '''Specifies options for fine-grained access control.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]], jsii.get(self, "advancedSecurityOptions"))
+
+    @advanced_security_options.setter
+    def advanced_security_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AdvancedSecurityOptionsInputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9970ee48d4d95c4a50fba27f7ecf5d29a7799901a417a50d5ea2d80bb2a7da73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "advancedSecurityOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cognitoOptions")
+    def cognito_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]]:
+        '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]], jsii.get(self, "cognitoOptions"))
+
+    @cognito_options.setter
+    def cognito_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.CognitoOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee253fc130f6145a5f54d7b09ff1166a449bd9ecc8b1142d2cd799fd8c3e8122)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cognitoOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainArn")
+    def domain_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainArn"))
+
+    @domain_arn.setter
+    def domain_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8adbdde3df8afce52a188616c8a9ed40b29c6c6ea3a14493572b5169a4bbcaaf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainEndpointOptions")
+    def domain_endpoint_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]]:
+        '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]], jsii.get(self, "domainEndpointOptions"))
+
+    @domain_endpoint_options.setter
+    def domain_endpoint_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEndpointOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff33eeb03219f470f43d7c038ac4ad48acfa3561168de4acd90068625c223f8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainEndpointOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__547819c192aff9b477504559c5f7c768a4e9c9606b6bcb8fed954fa8a2f967c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ebsOptions")
+    def ebs_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]]:
+        '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]], jsii.get(self, "ebsOptions"))
+
+    @ebs_options.setter
+    def ebs_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EBSOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b92aff95c5a4b46939639f06cb47d5cb23bc8cce780233b7fed861d0a33b21b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ebsOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticsearchClusterConfig")
+    def elasticsearch_cluster_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]]:
+        '''ElasticsearchClusterConfig is a property of the AWS::Elasticsearch::Domain resource that configures the cluster of an Amazon OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]], jsii.get(self, "elasticsearchClusterConfig"))
+
+    @elasticsearch_cluster_config.setter
+    def elasticsearch_cluster_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ElasticsearchClusterConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02e4164981f0950c083faf5427ec43d8fa41b58062af5ea5e2be947066d05721)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "elasticsearchClusterConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticsearchVersion")
+    def elasticsearch_version(self) -> typing.Optional[builtins.str]:
+        '''The version of Elasticsearch to use, such as 2.3. If not specified, 1.5 is used as the default. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* .'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "elasticsearchVersion"))
+
+    @elasticsearch_version.setter
+    def elasticsearch_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e2effedbe60ffc2fb8fe65b2cdddd9a29cfdcb61eef184721846e6b028414da)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "elasticsearchVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionAtRestOptions")
+    def encryption_at_rest_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]]:
+        '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]], jsii.get(self, "encryptionAtRestOptions"))
+
+    @encryption_at_rest_options.setter
+    def encryption_at_rest_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.EncryptionAtRestOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c2f6f3e7bbcfd1c4ed35e1ea39cf14fc7af68d4b175db0fd18d69c66b89ad9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionAtRestOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logPublishingOptions")
+    def log_publishing_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]]:
+        '''An object with one or more of the following keys: ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , ``AUDIT_LOGS`` , depending on the types of logs you want to publish.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]], jsii.get(self, "logPublishingOptions"))
+
+    @log_publishing_options.setter
+    def log_publishing_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDomain.LogPublishingOptionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b68ea5f4731e0bc02f7a196cd4b14d0ac22f6e22a661283031c3be761ff5c610)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logPublishingOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeToNodeEncryptionOptions")
+    def node_to_node_encryption_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]]:
+        '''Specifies whether node-to-node encryption is enabled.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]], jsii.get(self, "nodeToNodeEncryptionOptions"))
+
+    @node_to_node_encryption_options.setter
+    def node_to_node_encryption_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.NodeToNodeEncryptionOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20a665cc917a112af2348ce54c28aa2743e93ef9dabf60cfbee200092f3bb7c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeToNodeEncryptionOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="snapshotOptions")
+    def snapshot_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]]:
+        '''*DEPRECATED* .'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]], jsii.get(self, "snapshotOptions"))
+
+    @snapshot_options.setter
+    def snapshot_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.SnapshotOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ceb39ec0c3dca28571cbfbe9689bd6457a60fd17d054c9abf0a2c09165aef74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "snapshotOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9076d2462cf49a948d9ea5d30b6392387174b389efc4e1dda4e4789f95edc66)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcOptions")
+    def vpc_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]]:
+        '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]], jsii.get(self, "vpcOptions"))
+
+    @vpc_options.setter
+    def vpc_options(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.VPCOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dff64c1f5c7bb8053ed4408ea633c0472baa0e83f0f43be1e87eb569f30f6739)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcOptions", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "anonymous_auth_enabled": "anonymousAuthEnabled",
+            "enabled": "enabled",
+            "internal_user_database_enabled": "internalUserDatabaseEnabled",
+            "master_user_options": "masterUserOptions",
+        },
+    )
+    class AdvancedSecurityOptionsInputProperty:
+        def __init__(
+            self,
+            *,
+            anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MasterUserOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies options for fine-grained access control.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param anonymous_auth_enabled: 
+            :param enabled: True to enable fine-grained access control. You must also enable encryption of data at rest and node-to-node encryption.
+            :param internal_user_database_enabled: True to enable the internal user database.
+            :param master_user_options: Specifies information about the master user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                advanced_security_options_input_property = elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty(
+                    anonymous_auth_enabled=False,
+                    enabled=False,
+                    internal_user_database_enabled=False,
+                    master_user_options=elasticsearch.CfnDomain.MasterUserOptionsProperty(
+                        master_user_arn="masterUserArn",
+                        master_user_name="masterUserName",
+                        master_user_password="masterUserPassword"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__20207c85ae0a336344b4986652cfbfc4af27b1a56d54ba31ff6505ea1db70a1b)
+                check_type(argname="argument anonymous_auth_enabled", value=anonymous_auth_enabled, expected_type=type_hints["anonymous_auth_enabled"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument internal_user_database_enabled", value=internal_user_database_enabled, expected_type=type_hints["internal_user_database_enabled"])
+                check_type(argname="argument master_user_options", value=master_user_options, expected_type=type_hints["master_user_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if anonymous_auth_enabled is not None:
+                self._values["anonymous_auth_enabled"] = anonymous_auth_enabled
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if internal_user_database_enabled is not None:
+                self._values["internal_user_database_enabled"] = internal_user_database_enabled
+            if master_user_options is not None:
+                self._values["master_user_options"] = master_user_options
+
+        @builtins.property
+        def anonymous_auth_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-anonymousauthenabled
+            '''
+            result = self._values.get("anonymous_auth_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''True to enable fine-grained access control.
+
+            You must also enable encryption of data at rest and node-to-node encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def internal_user_database_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''True to enable the internal user database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-internaluserdatabaseenabled
+            '''
+            result = self._values.get("internal_user_database_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def master_user_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MasterUserOptionsProperty"]]:
+            '''Specifies information about the master user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-advancedsecurityoptionsinput.html#cfn-elasticsearch-domain-advancedsecurityoptionsinput-masteruseroptions
+            '''
+            result = self._values.get("master_user_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MasterUserOptionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdvancedSecurityOptionsInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.CognitoOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "identity_pool_id": "identityPoolId",
+            "role_arn": "roleArn",
+            "user_pool_id": "userPoolId",
+        },
+    )
+    class CognitoOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            identity_pool_id: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+            user_pool_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param enabled: Whether to enable or disable Amazon Cognito authentication for OpenSearch Dashboards. See `Amazon Cognito authentication for OpenSearch Dashboards <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html>`_ .
+            :param identity_pool_id: The Amazon Cognito identity pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication. Required if you enable Cognito authentication.
+            :param role_arn: The ``AmazonESCognitoAccess`` role that allows OpenSearch Service to configure your user pool and identity pool. Required if you enable Cognito authentication.
+            :param user_pool_id: The Amazon Cognito user pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication. Required if you enable Cognito authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                cognito_options_property = elasticsearch.CfnDomain.CognitoOptionsProperty(
+                    enabled=False,
+                    identity_pool_id="identityPoolId",
+                    role_arn="roleArn",
+                    user_pool_id="userPoolId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__595a6b3cdf3d5b32c86feb7dca3af8642c7eda687b4fb444faedfa8415028e7d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if identity_pool_id is not None:
+                self._values["identity_pool_id"] = identity_pool_id
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+            if user_pool_id is not None:
+                self._values["user_pool_id"] = user_pool_id
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Whether to enable or disable Amazon Cognito authentication for OpenSearch Dashboards.
+
+            See `Amazon Cognito authentication for OpenSearch Dashboards <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/cognito-auth.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def identity_pool_id(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Cognito identity pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication.
+
+            Required if you enable Cognito authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-identitypoolid
+            '''
+            result = self._values.get("identity_pool_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''The ``AmazonESCognitoAccess`` role that allows OpenSearch Service to configure your user pool and identity pool.
+
+            Required if you enable Cognito authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_pool_id(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Cognito user pool ID that you want OpenSearch Service to use for OpenSearch Dashboards authentication.
+
+            Required if you enable Cognito authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-cognitooptions.html#cfn-elasticsearch-domain-cognitooptions-userpoolid
+            '''
+            result = self._values.get("user_pool_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CognitoOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ColdStorageOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class ColdStorageOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Specifies options for cold storage. For more information, see `Cold storage for Amazon Elasticsearch Service <https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/cold-storage.html>`_ .
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param enabled: Whether to enable or disable cold storage on the domain. You must enable UltraWarm storage in order to enable cold storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-coldstorageoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                cold_storage_options_property = elasticsearch.CfnDomain.ColdStorageOptionsProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b29fbd709c231836e96b61f6b1dd17e4b87fdbcd26d4ec292f768b17478c922f)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Whether to enable or disable cold storage on the domain.
+
+            You must enable UltraWarm storage in order to enable cold storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-coldstorageoptions.html#cfn-elasticsearch-domain-coldstorageoptions-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ColdStorageOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.DomainEndpointOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "custom_endpoint": "customEndpoint",
+            "custom_endpoint_certificate_arn": "customEndpointCertificateArn",
+            "custom_endpoint_enabled": "customEndpointEnabled",
+            "enforce_https": "enforceHttps",
+            "tls_security_policy": "tlsSecurityPolicy",
+        },
+    )
+    class DomainEndpointOptionsProperty:
+        def __init__(
+            self,
+            *,
+            custom_endpoint: typing.Optional[builtins.str] = None,
+            custom_endpoint_certificate_arn: typing.Optional[builtins.str] = None,
+            custom_endpoint_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enforce_https: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            tls_security_policy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param custom_endpoint: The fully qualified URL for your custom endpoint. Required if you enabled a custom endpoint for the domain.
+            :param custom_endpoint_certificate_arn: The AWS Certificate Manager ARN for your domain's SSL/TLS certificate. Required if you enabled a custom endpoint for the domain.
+            :param custom_endpoint_enabled: True to enable a custom endpoint for the domain. If enabled, you must also provide values for ``CustomEndpoint`` and ``CustomEndpointCertificateArn`` .
+            :param enforce_https: True to require that all traffic to the domain arrive over HTTPS.
+            :param tls_security_policy: The minimum TLS version required for traffic to the domain. Valid values are TLS 1.3 (recommended) or 1.2:. - ``Policy-Min-TLS-1-0-2019-07`` - ``Policy-Min-TLS-1-2-2019-07``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                domain_endpoint_options_property = elasticsearch.CfnDomain.DomainEndpointOptionsProperty(
+                    custom_endpoint="customEndpoint",
+                    custom_endpoint_certificate_arn="customEndpointCertificateArn",
+                    custom_endpoint_enabled=False,
+                    enforce_https=False,
+                    tls_security_policy="tlsSecurityPolicy"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a315182feb03d4b11e7632eea35a2f35d8b19b801ecb799c3744b2ed0bc11a76)
+                check_type(argname="argument custom_endpoint", value=custom_endpoint, expected_type=type_hints["custom_endpoint"])
+                check_type(argname="argument custom_endpoint_certificate_arn", value=custom_endpoint_certificate_arn, expected_type=type_hints["custom_endpoint_certificate_arn"])
+                check_type(argname="argument custom_endpoint_enabled", value=custom_endpoint_enabled, expected_type=type_hints["custom_endpoint_enabled"])
+                check_type(argname="argument enforce_https", value=enforce_https, expected_type=type_hints["enforce_https"])
+                check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_endpoint is not None:
+                self._values["custom_endpoint"] = custom_endpoint
+            if custom_endpoint_certificate_arn is not None:
+                self._values["custom_endpoint_certificate_arn"] = custom_endpoint_certificate_arn
+            if custom_endpoint_enabled is not None:
+                self._values["custom_endpoint_enabled"] = custom_endpoint_enabled
+            if enforce_https is not None:
+                self._values["enforce_https"] = enforce_https
+            if tls_security_policy is not None:
+                self._values["tls_security_policy"] = tls_security_policy
+
+        @builtins.property
+        def custom_endpoint(self) -> typing.Optional[builtins.str]:
+            '''The fully qualified URL for your custom endpoint.
+
+            Required if you enabled a custom endpoint for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpoint
+            '''
+            result = self._values.get("custom_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def custom_endpoint_certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''The AWS Certificate Manager ARN for your domain's SSL/TLS certificate.
+
+            Required if you enabled a custom endpoint for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpointcertificatearn
+            '''
+            result = self._values.get("custom_endpoint_certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def custom_endpoint_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''True to enable a custom endpoint for the domain.
+
+            If enabled, you must also provide values for ``CustomEndpoint`` and ``CustomEndpointCertificateArn`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-customendpointenabled
+            '''
+            result = self._values.get("custom_endpoint_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def enforce_https(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''True to require that all traffic to the domain arrive over HTTPS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-enforcehttps
+            '''
+            result = self._values.get("enforce_https")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def tls_security_policy(self) -> typing.Optional[builtins.str]:
+            '''The minimum TLS version required for traffic to the domain. Valid values are TLS 1.3 (recommended) or 1.2:.
+
+            - ``Policy-Min-TLS-1-0-2019-07``
+            - ``Policy-Min-TLS-1-2-2019-07``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-domainendpointoptions.html#cfn-elasticsearch-domain-domainendpointoptions-tlssecuritypolicy
+            '''
+            result = self._values.get("tls_security_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainEndpointOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.EBSOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ebs_enabled": "ebsEnabled",
+            "iops": "iops",
+            "volume_size": "volumeSize",
+            "volume_type": "volumeType",
+        },
+    )
+    class EBSOptionsProperty:
+        def __init__(
+            self,
+            *,
+            ebs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            iops: typing.Optional[jsii.Number] = None,
+            volume_size: typing.Optional[jsii.Number] = None,
+            volume_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain.
+
+            For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param ebs_enabled: Specifies whether Amazon EBS volumes are attached to data nodes in the OpenSearch Service domain.
+            :param iops: The number of I/O operations per second (IOPS) that the volume supports. This property applies only to provisioned IOPS EBS volume types.
+            :param volume_size: The size (in GiB) of the EBS volume for each data node. The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+            :param volume_type: The EBS volume type to use with the OpenSearch Service domain, such as standard, gp2, or io1. For more information about each type, see `Amazon EBS volume types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html>`_ in the *Amazon EC2 User Guide for Linux Instances* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                e_bSOptions_property = elasticsearch.CfnDomain.EBSOptionsProperty(
+                    ebs_enabled=False,
+                    iops=123,
+                    volume_size=123,
+                    volume_type="volumeType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a0a4bb0d03dd89e8279b9e57e4a68e7f2fce71595722dbad5fada43cc1b15616)
+                check_type(argname="argument ebs_enabled", value=ebs_enabled, expected_type=type_hints["ebs_enabled"])
+                check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
+                check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
+                check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ebs_enabled is not None:
+                self._values["ebs_enabled"] = ebs_enabled
+            if iops is not None:
+                self._values["iops"] = iops
+            if volume_size is not None:
+                self._values["volume_size"] = volume_size
+            if volume_type is not None:
+                self._values["volume_type"] = volume_type
+
+        @builtins.property
+        def ebs_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether Amazon EBS volumes are attached to data nodes in the OpenSearch Service domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-ebsenabled
+            '''
+            result = self._values.get("ebs_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def iops(self) -> typing.Optional[jsii.Number]:
+            '''The number of I/O operations per second (IOPS) that the volume supports.
+
+            This property applies only to provisioned IOPS EBS volume types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-iops
+            '''
+            result = self._values.get("iops")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def volume_size(self) -> typing.Optional[jsii.Number]:
+            '''The size (in GiB) of the EBS volume for each data node.
+
+            The minimum and maximum size of an EBS volume depends on the EBS volume type and the instance type to which it is attached. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-volumesize
+            '''
+            result = self._values.get("volume_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def volume_type(self) -> typing.Optional[builtins.str]:
+            '''The EBS volume type to use with the OpenSearch Service domain, such as standard, gp2, or io1.
+
+            For more information about each type, see `Amazon EBS volume types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html>`_ in the *Amazon EC2 User Guide for Linux Instances* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-ebsoptions.html#cfn-elasticsearch-domain-ebsoptions-volumetype
+            '''
+            result = self._values.get("volume_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EBSOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cold_storage_options": "coldStorageOptions",
+            "dedicated_master_count": "dedicatedMasterCount",
+            "dedicated_master_enabled": "dedicatedMasterEnabled",
+            "dedicated_master_type": "dedicatedMasterType",
+            "instance_count": "instanceCount",
+            "instance_type": "instanceType",
+            "warm_count": "warmCount",
+            "warm_enabled": "warmEnabled",
+            "warm_type": "warmType",
+            "zone_awareness_config": "zoneAwarenessConfig",
+            "zone_awareness_enabled": "zoneAwarenessEnabled",
+        },
+    )
+    class ElasticsearchClusterConfigProperty:
+        def __init__(
+            self,
+            *,
+            cold_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ColdStorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dedicated_master_count: typing.Optional[jsii.Number] = None,
+            dedicated_master_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            dedicated_master_type: typing.Optional[builtins.str] = None,
+            instance_count: typing.Optional[jsii.Number] = None,
+            instance_type: typing.Optional[builtins.str] = None,
+            warm_count: typing.Optional[jsii.Number] = None,
+            warm_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            warm_type: typing.Optional[builtins.str] = None,
+            zone_awareness_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ZoneAwarenessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''The cluster configuration for the OpenSearch Service domain.
+
+            You can specify options such as the instance type and the number of instances. For more information, see `Creating and managing Amazon OpenSearch Service domains <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createupdatedomains.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param cold_storage_options: Specifies cold storage options for the domain.
+            :param dedicated_master_count: The number of instances to use for the master node. If you specify this property, you must specify true for the DedicatedMasterEnabled property.
+            :param dedicated_master_enabled: Indicates whether to use a dedicated master node for the OpenSearch Service domain. A dedicated master node is a cluster node that performs cluster management tasks, but doesn't hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. See `Dedicated master nodes in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-dedicatedmasternodes.html>`_ .
+            :param dedicated_master_type: The hardware configuration of the computer that hosts the dedicated master node, such as ``m3.medium.elasticsearch`` . If you specify this property, you must specify true for the ``DedicatedMasterEnabled`` property. For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
+            :param instance_count: The number of data nodes (instances) to use in the OpenSearch Service domain.
+            :param instance_type: The instance type for your data nodes, such as ``m3.medium.elasticsearch`` . For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
+            :param warm_count: The number of warm nodes in the cluster. Required if you enable warm storage.
+            :param warm_enabled: Whether to enable warm storage for the cluster.
+            :param warm_type: The instance type for the cluster's warm nodes. Required if you enable warm storage.
+            :param zone_awareness_config: Specifies zone awareness configuration options. Only use if ``ZoneAwarenessEnabled`` is ``true`` .
+            :param zone_awareness_enabled: Indicates whether to enable zone awareness for the OpenSearch Service domain. When you enable zone awareness, OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a multi-AZ domain in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                elasticsearch_cluster_config_property = elasticsearch.CfnDomain.ElasticsearchClusterConfigProperty(
+                    cold_storage_options=elasticsearch.CfnDomain.ColdStorageOptionsProperty(
+                        enabled=False
+                    ),
+                    dedicated_master_count=123,
+                    dedicated_master_enabled=False,
+                    dedicated_master_type="dedicatedMasterType",
+                    instance_count=123,
+                    instance_type="instanceType",
+                    warm_count=123,
+                    warm_enabled=False,
+                    warm_type="warmType",
+                    zone_awareness_config=elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
+                        availability_zone_count=123
+                    ),
+                    zone_awareness_enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__36ac2eb43dd2dc644b88b3f9db0f58ead2dbb47ffc23f3d8fc546f53bfcefb4a)
+                check_type(argname="argument cold_storage_options", value=cold_storage_options, expected_type=type_hints["cold_storage_options"])
+                check_type(argname="argument dedicated_master_count", value=dedicated_master_count, expected_type=type_hints["dedicated_master_count"])
+                check_type(argname="argument dedicated_master_enabled", value=dedicated_master_enabled, expected_type=type_hints["dedicated_master_enabled"])
+                check_type(argname="argument dedicated_master_type", value=dedicated_master_type, expected_type=type_hints["dedicated_master_type"])
+                check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument warm_count", value=warm_count, expected_type=type_hints["warm_count"])
+                check_type(argname="argument warm_enabled", value=warm_enabled, expected_type=type_hints["warm_enabled"])
+                check_type(argname="argument warm_type", value=warm_type, expected_type=type_hints["warm_type"])
+                check_type(argname="argument zone_awareness_config", value=zone_awareness_config, expected_type=type_hints["zone_awareness_config"])
+                check_type(argname="argument zone_awareness_enabled", value=zone_awareness_enabled, expected_type=type_hints["zone_awareness_enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cold_storage_options is not None:
+                self._values["cold_storage_options"] = cold_storage_options
+            if dedicated_master_count is not None:
+                self._values["dedicated_master_count"] = dedicated_master_count
+            if dedicated_master_enabled is not None:
+                self._values["dedicated_master_enabled"] = dedicated_master_enabled
+            if dedicated_master_type is not None:
+                self._values["dedicated_master_type"] = dedicated_master_type
+            if instance_count is not None:
+                self._values["instance_count"] = instance_count
+            if instance_type is not None:
+                self._values["instance_type"] = instance_type
+            if warm_count is not None:
+                self._values["warm_count"] = warm_count
+            if warm_enabled is not None:
+                self._values["warm_enabled"] = warm_enabled
+            if warm_type is not None:
+                self._values["warm_type"] = warm_type
+            if zone_awareness_config is not None:
+                self._values["zone_awareness_config"] = zone_awareness_config
+            if zone_awareness_enabled is not None:
+                self._values["zone_awareness_enabled"] = zone_awareness_enabled
+
+        @builtins.property
+        def cold_storage_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ColdStorageOptionsProperty"]]:
+            '''Specifies cold storage options for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-coldstorageoptions
+            '''
+            result = self._values.get("cold_storage_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ColdStorageOptionsProperty"]], result)
+
+        @builtins.property
+        def dedicated_master_count(self) -> typing.Optional[jsii.Number]:
+            '''The number of instances to use for the master node.
+
+            If you specify this property, you must specify true for the DedicatedMasterEnabled property.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmastercount
+            '''
+            result = self._values.get("dedicated_master_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def dedicated_master_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether to use a dedicated master node for the OpenSearch Service domain.
+
+            A dedicated master node is a cluster node that performs cluster management tasks, but doesn't hold data or respond to data upload requests. Dedicated master nodes offload cluster management tasks to increase the stability of your search clusters. See `Dedicated master nodes in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-dedicatedmasternodes.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmasterenabled
+            '''
+            result = self._values.get("dedicated_master_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def dedicated_master_type(self) -> typing.Optional[builtins.str]:
+            '''The hardware configuration of the computer that hosts the dedicated master node, such as ``m3.medium.elasticsearch`` . If you specify this property, you must specify true for the ``DedicatedMasterEnabled`` property. For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-dedicatedmastertype
+            '''
+            result = self._values.get("dedicated_master_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def instance_count(self) -> typing.Optional[jsii.Number]:
+            '''The number of data nodes (instances) to use in the OpenSearch Service domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-instancecount
+            '''
+            result = self._values.get("instance_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def instance_type(self) -> typing.Optional[builtins.str]:
+            '''The instance type for your data nodes, such as ``m3.medium.elasticsearch`` . For valid values, see `Supported instance types in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-instance-types.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-instancetype
+            '''
+            result = self._values.get("instance_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def warm_count(self) -> typing.Optional[jsii.Number]:
+            '''The number of warm nodes in the cluster.
+
+            Required if you enable warm storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmcount
+            '''
+            result = self._values.get("warm_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def warm_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Whether to enable warm storage for the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmenabled
+            '''
+            result = self._values.get("warm_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def warm_type(self) -> typing.Optional[builtins.str]:
+            '''The instance type for the cluster's warm nodes.
+
+            Required if you enable warm storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-warmtype
+            '''
+            result = self._values.get("warm_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def zone_awareness_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ZoneAwarenessConfigProperty"]]:
+            '''Specifies zone awareness configuration options.
+
+            Only use if ``ZoneAwarenessEnabled`` is ``true`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-zoneawarenessconfig
+            '''
+            result = self._values.get("zone_awareness_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ZoneAwarenessConfigProperty"]], result)
+
+        @builtins.property
+        def zone_awareness_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether to enable zone awareness for the OpenSearch Service domain.
+
+            When you enable zone awareness, OpenSearch Service allocates the nodes and replica index shards that belong to a cluster across two Availability Zones (AZs) in the same region to prevent data loss and minimize downtime in the event of node or data center failure. Don't enable zone awareness if your cluster has no replica index shards or is a single-node cluster. For more information, see `Configuring a multi-AZ domain in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-elasticsearchclusterconfig.html#cfn-elasticsearch-domain-elasticsearchclusterconfig-zoneawarenessenabled
+            '''
+            result = self._values.get("zone_awareness_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ElasticsearchClusterConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "kms_key_id": "kmsKeyId"},
+    )
+    class EncryptionAtRestOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Whether the domain should encrypt data at rest, and if so, the AWS Key Management Service key to use.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param enabled: Specify ``true`` to enable encryption at rest.
+            :param kms_key_id: The KMS key ID. Takes the form ``1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a`` . Required if you enable encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                encryption_at_rest_options_property = elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
+                    enabled=False,
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0ee9f0aff26691f651a27c328864208a5480af26681c2baa3afdcc6b1f8cb27b)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specify ``true`` to enable encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html#cfn-elasticsearch-domain-encryptionatrestoptions-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The KMS key ID.
+
+            Takes the form ``1a2a3a4-1a2a-3a4a-5a6a-1a2a3a4a5a6a`` . Required if you enable encryption at rest.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-encryptionatrestoptions.html#cfn-elasticsearch-domain-encryptionatrestoptions-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionAtRestOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.LogPublishingOptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cloud_watch_logs_log_group_arn": "cloudWatchLogsLogGroupArn",
+            "enabled": "enabled",
+        },
+    )
+    class LogPublishingOptionProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs_log_group_arn: typing.Optional[builtins.str] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''.. epigraph::
+
+   The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            Specifies whether the OpenSearch Service domain publishes the Elasticsearch application, search slow logs, or index slow logs to Amazon CloudWatch. Each option must be an object of name ``SEARCH_SLOW_LOGS`` , ``ES_APPLICATION_LOGS`` , ``INDEX_SLOW_LOGS`` , or ``AUDIT_LOGS`` depending on the type of logs you want to publish.
+
+            If you enable a slow log, you still have to enable the *collection* of slow logs using the Configuration API. To learn more, see `Enabling log publishing ( AWS CLI) <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/createdomain-configure-slow-logs.html#createdomain-configure-slow-logs-cli>`_ .
+
+            :param cloud_watch_logs_log_group_arn: Specifies the CloudWatch log group to publish to. Required if you enable log publishing for the domain.
+            :param enabled: If ``true`` , enables the publishing of logs to CloudWatch. Default: ``false`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                log_publishing_option_property = elasticsearch.CfnDomain.LogPublishingOptionProperty(
+                    cloud_watch_logs_log_group_arn="cloudWatchLogsLogGroupArn",
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0e7d124e6174f5352d66bdbb642c851ec6bf4aba9f8fcb6bf19e34809e37f6a9)
+                check_type(argname="argument cloud_watch_logs_log_group_arn", value=cloud_watch_logs_log_group_arn, expected_type=type_hints["cloud_watch_logs_log_group_arn"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_logs_log_group_arn is not None:
+                self._values["cloud_watch_logs_log_group_arn"] = cloud_watch_logs_log_group_arn
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def cloud_watch_logs_log_group_arn(self) -> typing.Optional[builtins.str]:
+            '''Specifies the CloudWatch log group to publish to.
+
+            Required if you enable log publishing for the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html#cfn-elasticsearch-domain-logpublishingoption-cloudwatchlogsloggrouparn
+            '''
+            result = self._values.get("cloud_watch_logs_log_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''If ``true`` , enables the publishing of logs to CloudWatch.
+
+            Default: ``false`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-logpublishingoption.html#cfn-elasticsearch-domain-logpublishingoption-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogPublishingOptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.MasterUserOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "master_user_arn": "masterUserArn",
+            "master_user_name": "masterUserName",
+            "master_user_password": "masterUserPassword",
+        },
+    )
+    class MasterUserOptionsProperty:
+        def __init__(
+            self,
+            *,
+            master_user_arn: typing.Optional[builtins.str] = None,
+            master_user_name: typing.Optional[builtins.str] = None,
+            master_user_password: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies information about the master user. Required if you enabled the internal user database.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param master_user_arn: ARN for the master user. Only specify if ``InternalUserDatabaseEnabled`` is false in ``AdvancedSecurityOptions`` .
+            :param master_user_name: Username for the master user. Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
+            :param master_user_password: Password for the master user. Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                master_user_options_property = elasticsearch.CfnDomain.MasterUserOptionsProperty(
+                    master_user_arn="masterUserArn",
+                    master_user_name="masterUserName",
+                    master_user_password="masterUserPassword"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__86df1024036528c38c1cc3918e4413fdd5adee94c59ff0dba9e2625c1f7f6735)
+                check_type(argname="argument master_user_arn", value=master_user_arn, expected_type=type_hints["master_user_arn"])
+                check_type(argname="argument master_user_name", value=master_user_name, expected_type=type_hints["master_user_name"])
+                check_type(argname="argument master_user_password", value=master_user_password, expected_type=type_hints["master_user_password"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if master_user_arn is not None:
+                self._values["master_user_arn"] = master_user_arn
+            if master_user_name is not None:
+                self._values["master_user_name"] = master_user_name
+            if master_user_password is not None:
+                self._values["master_user_password"] = master_user_password
+
+        @builtins.property
+        def master_user_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN for the master user.
+
+            Only specify if ``InternalUserDatabaseEnabled`` is false in ``AdvancedSecurityOptions`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masteruserarn
+            '''
+            result = self._values.get("master_user_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def master_user_name(self) -> typing.Optional[builtins.str]:
+            '''Username for the master user.
+
+            Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masterusername
+            '''
+            result = self._values.get("master_user_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def master_user_password(self) -> typing.Optional[builtins.str]:
+            '''Password for the master user.
+
+            Only specify if ``InternalUserDatabaseEnabled`` is true in ``AdvancedSecurityOptions`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-masteruseroptions.html#cfn-elasticsearch-domain-masteruseroptions-masteruserpassword
+            '''
+            result = self._values.get("master_user_password")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MasterUserOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class NodeToNodeEncryptionOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Specifies whether node-to-node encryption is enabled.
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param enabled: Specifies whether node-to-node encryption is enabled, as a Boolean.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-nodetonodeencryptionoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                node_to_node_encryption_options_property = elasticsearch.CfnDomain.NodeToNodeEncryptionOptionsProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__79b4e8cc645055321e0aea8e7724655ea101aae985769f93812bc6db0624eb53)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Specifies whether node-to-node encryption is enabled, as a Boolean.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-nodetonodeencryptionoptions.html#cfn-elasticsearch-domain-nodetonodeencryptionoptions-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeToNodeEncryptionOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.SnapshotOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"automated_snapshot_start_hour": "automatedSnapshotStartHour"},
+    )
+    class SnapshotOptionsProperty:
+        def __init__(
+            self,
+            *,
+            automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''.. epigraph::
+
+   The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            *DEPRECATED* . For domains running Elasticsearch 5.3 and later, OpenSearch Service takes hourly automated snapshots, making this setting irrelevant. For domains running earlier versions of Elasticsearch, OpenSearch Service takes daily automated snapshots.
+
+            The automated snapshot configuration for the OpenSearch Service domain indices.
+
+            :param automated_snapshot_start_hour: The hour in UTC during which the service takes an automated daily snapshot of the indices in the OpenSearch Service domain. For example, if you specify 0, OpenSearch Service takes an automated snapshot everyday between midnight and 1 am. You can specify a value between 0 and 23.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-snapshotoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                snapshot_options_property = elasticsearch.CfnDomain.SnapshotOptionsProperty(
+                    automated_snapshot_start_hour=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd199cc313b4bdbae2613aaf1084d93eab6fb227123efcd5eccb919a3c431497)
+                check_type(argname="argument automated_snapshot_start_hour", value=automated_snapshot_start_hour, expected_type=type_hints["automated_snapshot_start_hour"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if automated_snapshot_start_hour is not None:
+                self._values["automated_snapshot_start_hour"] = automated_snapshot_start_hour
+
+        @builtins.property
+        def automated_snapshot_start_hour(self) -> typing.Optional[jsii.Number]:
+            '''The hour in UTC during which the service takes an automated daily snapshot of the indices in the OpenSearch Service domain.
+
+            For example, if you specify 0, OpenSearch Service takes an automated snapshot everyday between midnight and 1 am. You can specify a value between 0 and 23.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-snapshotoptions.html#cfn-elasticsearch-domain-snapshotoptions-automatedsnapshotstarthour
+            '''
+            result = self._values.get("automated_snapshot_start_hour")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SnapshotOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.VPCOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+        },
+    )
+    class VPCOptionsProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The virtual private cloud (VPC) configuration for the OpenSearch Service domain.
+
+            For more information, see `Launching your Amazon OpenSearch Service domains using a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* .
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param security_group_ids: The list of security group IDs that are associated with the VPC endpoints for the domain. If you don't provide a security group ID, OpenSearch Service uses the default security group for the VPC. To learn more, see `Security groups for your VPC <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
+            :param subnet_ids: Provide one subnet ID for each Availability Zone that your domain uses. For example, you must specify three subnet IDs for a three Availability Zone domain. To learn more, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* . Required if you're creating your domain inside a VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                v_pCOptions_property = elasticsearch.CfnDomain.VPCOptionsProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__931aa1b11d25d7c92725f2e141ddba7562e992b6b38363844ccfcbd524041b69)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnet_ids is not None:
+                self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of security group IDs that are associated with the VPC endpoints for the domain.
+
+            If you don't provide a security group ID, OpenSearch Service uses the default security group for the VPC. To learn more, see `Security groups for your VPC <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html>`_ in the *Amazon VPC User Guide* .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html#cfn-elasticsearch-domain-vpcoptions-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Provide one subnet ID for each Availability Zone that your domain uses.
+
+            For example, you must specify three subnet IDs for a three Availability Zone domain. To learn more, see `VPCs and subnets <https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html>`_ in the *Amazon VPC User Guide* .
+
+            Required if you're creating your domain inside a VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-vpcoptions.html#cfn-elasticsearch-domain-vpcoptions-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VPCOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.ZoneAwarenessConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"availability_zone_count": "availabilityZoneCount"},
+    )
+    class ZoneAwarenessConfigProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone_count: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Specifies zone awareness configuration options. Only use if ``ZoneAwarenessEnabled`` is ``true`` .
+
+            .. epigraph::
+
+               The ``AWS::Elasticsearch::Domain`` resource is being replaced by the `AWS::OpenSearchService::Domain <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html>`_ resource. While the legacy Elasticsearch resource and options are still supported, we recommend modifying your existing Cloudformation templates to use the new OpenSearch Service resource, which supports both OpenSearch and Elasticsearch. For more information about the service rename, see `New resource types <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html#rename-resource>`_ in the *Amazon OpenSearch Service Developer Guide* .
+
+            :param availability_zone_count: If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use. Valid values are ``2`` and ``3`` . Default is 2.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-zoneawarenessconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticsearch as elasticsearch
+                
+                zone_awareness_config_property = elasticsearch.CfnDomain.ZoneAwarenessConfigProperty(
+                    availability_zone_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ee73d0667237b38d27f617dfe56f8c57182f358686fa721ebadbe9d9730d747)
+                check_type(argname="argument availability_zone_count", value=availability_zone_count, expected_type=type_hints["availability_zone_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone_count is not None:
+                self._values["availability_zone_count"] = availability_zone_count
+
+        @builtins.property
+        def availability_zone_count(self) -> typing.Optional[jsii.Number]:
+            '''If you enabled multiple Availability Zones (AZs), the number of AZs that you want the domain to use.
+
+            Valid values are ``2`` and ``3`` . Default is 2.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticsearch-domain-zoneawarenessconfig.html#cfn-elasticsearch-domain-zoneawarenessconfig-availabilityzonecount
+            '''
+            result = self._values.get("availability_zone_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ZoneAwarenessConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.implements(IDomain, _IConnectable_10015a05)
@@ -7864,10 +7970,12 @@ __all__ = [
     "Domain",
     "DomainAttributes",
     "DomainProps",
+    "DomainReference",
     "EbsOptions",
     "ElasticsearchVersion",
     "EncryptionAtRestOptions",
     "IDomain",
+    "IDomainRef",
     "LoggingOptions",
     "TLSSecurityPolicy",
     "ZoneAwarenessConfig",
@@ -7892,6 +8000,215 @@ def _typecheckingstub__d904c51cccabe441d3da72a1444303ff901ccd33acf1e26faf7fc1070
     master_nodes: typing.Optional[jsii.Number] = None,
     warm_instance_type: typing.Optional[builtins.str] = None,
     warm_nodes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9cf4a1cacc663baa0bc99c7e4784f1bb4a208a6851dceb6a846d215d5062938(
+    *,
+    access_policies: typing.Any = None,
+    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_arn: typing.Optional[builtins.str] = None,
+    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ElasticsearchClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elasticsearch_version: typing.Optional[builtins.str] = None,
+    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b524e8e96dadc613c3ade2864195ce643f52df86cc22205eeea1f5a1b04715fa(
+    *,
+    identity_pool_id: builtins.str,
+    role: _IRole_235f5d8e,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ea711a6b742c02c3c27fa537028f874f857943b01e96d2167b14a0d27de9a54(
+    *,
+    domain_name: builtins.str,
+    certificate: typing.Optional[_ICertificate_c194c70b] = None,
+    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72419130e136fdde5577319d89e912d0d4cabd7e160115eb7fb1c0f589469870(
+    *,
+    domain_arn: builtins.str,
+    domain_endpoint: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__572eb3999b8c38b39f33fa525daa95c090ed063b8212bb3a0e6f1f533bb2064e(
+    *,
+    version: ElasticsearchVersion,
+    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+    advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
+    capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    cognito_kibana_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    ebs: typing.Optional[typing.Union[EbsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_version_upgrade: typing.Optional[builtins.bool] = None,
+    encryption_at_rest: typing.Optional[typing.Union[EncryptionAtRestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enforce_https: typing.Optional[builtins.bool] = None,
+    fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    logging: typing.Optional[typing.Union[LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    node_to_node_encryption: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
+    use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
+    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2dcecb1e096122d0655c9eddc3eb9983e82a209c47ca6c399630d0d7e3dd5139(
+    *,
+    domain_arn: builtins.str,
+    domain_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__653b4b977dd3a1aabb16baf6f32203c90668a1bdcac85452086445b36c330954(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    iops: typing.Optional[jsii.Number] = None,
+    volume_size: typing.Optional[jsii.Number] = None,
+    volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94cee41a2246511ec77c9b6a556875c250b85ee87cddd5b0cc76dea112a4625f(
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a0566221450862dc46d961944b4613c299ea2ba900c19e9652b8e47501e1b0a(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ccaeb238f7b30786401c2827c04ce6111825e522dfae29b740cdd37dfe6cbdc(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f9c08c3a8f02f3fa1bf1576162ae32dca8f3f784605722c4965e4db438431d7(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02ff8227a073e4e0bbfef61ac9a5f0106e87d5f21bfb7388d80fc97728c78f8f(
+    index: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11b70f21de6a644862e1a9d9fb04c077e840536e44a77dc6b752a309e6fea5e9(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3407a57df41c3c7228d78915f438b58ac3d079382524e1727d81cb9836a823cc(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__909088dd22e53a68a48b32ef1075f5f1624d5086e79fe28cc31ce5b5641f8c0e(
+    path: builtins.str,
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__826cd495c921e8d66ca83b7c48850a58a1663c9d03417a086568dd8c28203c26(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f32909cfa0ecc236577c82eef5f45436aa6ff604ae5e26615268e050526fc541(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60413c39e0553f4a8e7c63645adcfd98e0ecac2f73913f52489bbdb210fea003(
+    identity: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d57eb3601bc759c24057dad569672fc2cb9079f04ceb6aebc5be032bb2452f54(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dda0d8a76f54b8392ae9f0570bfa9e5b2abb8a42412783d369ed3f3a3648d67(
+    *,
+    app_log_enabled: typing.Optional[builtins.bool] = None,
+    app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    audit_log_enabled: typing.Optional[builtins.bool] = None,
+    audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    slow_index_log_enabled: typing.Optional[builtins.bool] = None,
+    slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+    slow_search_log_enabled: typing.Optional[builtins.bool] = None,
+    slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9faeff8741d3083b95e5e5ad11c13dcf9b4880459b57a225fd03f80709d2bc91(
+    *,
+    availability_zone_count: typing.Optional[jsii.Number] = None,
+    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8143,207 +8460,6 @@ def _typecheckingstub__931aa1b11d25d7c92725f2e141ddba7562e992b6b38363844ccfcbd52
 def _typecheckingstub__1ee73d0667237b38d27f617dfe56f8c57182f358686fa721ebadbe9d9730d747(
     *,
     availability_zone_count: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e9cf4a1cacc663baa0bc99c7e4784f1bb4a208a6851dceb6a846d215d5062938(
-    *,
-    access_policies: typing.Any = None,
-    advanced_options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    advanced_security_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AdvancedSecurityOptionsInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain_arn: typing.Optional[builtins.str] = None,
-    domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    ebs_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    elasticsearch_cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ElasticsearchClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    elasticsearch_version: typing.Optional[builtins.str] = None,
-    encryption_at_rest_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_publishing_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.LogPublishingOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    node_to_node_encryption_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.NodeToNodeEncryptionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snapshot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b524e8e96dadc613c3ade2864195ce643f52df86cc22205eeea1f5a1b04715fa(
-    *,
-    identity_pool_id: builtins.str,
-    role: _IRole_235f5d8e,
-    user_pool_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3ea711a6b742c02c3c27fa537028f874f857943b01e96d2167b14a0d27de9a54(
-    *,
-    domain_name: builtins.str,
-    certificate: typing.Optional[_ICertificate_c194c70b] = None,
-    hosted_zone: typing.Optional[_IHostedZone_9a6907ad] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72419130e136fdde5577319d89e912d0d4cabd7e160115eb7fb1c0f589469870(
-    *,
-    domain_arn: builtins.str,
-    domain_endpoint: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__572eb3999b8c38b39f33fa525daa95c090ed063b8212bb3a0e6f1f533bb2064e(
-    *,
-    version: ElasticsearchVersion,
-    access_policies: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-    advanced_options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    automated_snapshot_start_hour: typing.Optional[jsii.Number] = None,
-    capacity: typing.Optional[typing.Union[CapacityConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-    cognito_kibana_auth: typing.Optional[typing.Union[CognitoOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    custom_endpoint: typing.Optional[typing.Union[CustomEndpointOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    ebs: typing.Optional[typing.Union[EbsOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    enable_version_upgrade: typing.Optional[builtins.bool] = None,
-    encryption_at_rest: typing.Optional[typing.Union[EncryptionAtRestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    enforce_https: typing.Optional[builtins.bool] = None,
-    fine_grained_access_control: typing.Optional[typing.Union[AdvancedSecurityOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    logging: typing.Optional[typing.Union[LoggingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    node_to_node_encryption: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
-    use_unsigned_basic_auth: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zone_awareness: typing.Optional[typing.Union[ZoneAwarenessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__653b4b977dd3a1aabb16baf6f32203c90668a1bdcac85452086445b36c330954(
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    iops: typing.Optional[jsii.Number] = None,
-    volume_size: typing.Optional[jsii.Number] = None,
-    volume_type: typing.Optional[_EbsDeviceVolumeType_6792555b] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94cee41a2246511ec77c9b6a556875c250b85ee87cddd5b0cc76dea112a4625f(
-    version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a0566221450862dc46d961944b4613c299ea2ba900c19e9652b8e47501e1b0a(
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ccaeb238f7b30786401c2827c04ce6111825e522dfae29b740cdd37dfe6cbdc(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f9c08c3a8f02f3fa1bf1576162ae32dca8f3f784605722c4965e4db438431d7(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__02ff8227a073e4e0bbfef61ac9a5f0106e87d5f21bfb7388d80fc97728c78f8f(
-    index: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__11b70f21de6a644862e1a9d9fb04c077e840536e44a77dc6b752a309e6fea5e9(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3407a57df41c3c7228d78915f438b58ac3d079382524e1727d81cb9836a823cc(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__909088dd22e53a68a48b32ef1075f5f1624d5086e79fe28cc31ce5b5641f8c0e(
-    path: builtins.str,
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__826cd495c921e8d66ca83b7c48850a58a1663c9d03417a086568dd8c28203c26(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f32909cfa0ecc236577c82eef5f45436aa6ff604ae5e26615268e050526fc541(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60413c39e0553f4a8e7c63645adcfd98e0ecac2f73913f52489bbdb210fea003(
-    identity: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d57eb3601bc759c24057dad569672fc2cb9079f04ceb6aebc5be032bb2452f54(
-    metric_name: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    color: typing.Optional[builtins.str] = None,
-    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    id: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
-    region: typing.Optional[builtins.str] = None,
-    stack_account: typing.Optional[builtins.str] = None,
-    stack_region: typing.Optional[builtins.str] = None,
-    statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
-    visible: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1dda0d8a76f54b8392ae9f0570bfa9e5b2abb8a42412783d369ed3f3a3648d67(
-    *,
-    app_log_enabled: typing.Optional[builtins.bool] = None,
-    app_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    audit_log_enabled: typing.Optional[builtins.bool] = None,
-    audit_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    slow_index_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_index_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-    slow_search_log_enabled: typing.Optional[builtins.bool] = None,
-    slow_search_log_group: typing.Optional[_ILogGroup_3c4fa718] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9faeff8741d3083b95e5e5ad11c13dcf9b4880459b57a225fd03f80709d2bc91(
-    *,
-    availability_zone_count: typing.Optional[jsii.Number] = None,
-    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

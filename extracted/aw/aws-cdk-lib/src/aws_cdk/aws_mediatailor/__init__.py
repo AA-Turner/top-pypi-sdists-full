@@ -70,7 +70,1792 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannelPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"channel_name": "channelName", "policy": "policy"},
+)
+class CfnChannelPolicyProps:
+    def __init__(self, *, channel_name: builtins.str, policy: typing.Any) -> None:
+        '''Properties for defining a ``CfnChannelPolicy``.
+
+        :param channel_name: The name of the channel associated with this Channel Policy.
+        :param policy: The IAM policy for the channel. IAM policies are used to control access to your channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            # policy: Any
+            
+            cfn_channel_policy_props = mediatailor.CfnChannelPolicyProps(
+                channel_name="channelName",
+                policy=policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "policy": policy,
+        }
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel associated with this Channel Policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html#cfn-mediatailor-channelpolicy-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The IAM policy for the channel.
+
+        IAM policies are used to control access to your channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html#cfn-mediatailor-channelpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_name": "channelName",
+        "outputs": "outputs",
+        "playback_mode": "playbackMode",
+        "audiences": "audiences",
+        "filler_slate": "fillerSlate",
+        "log_configuration": "logConfiguration",
+        "tags": "tags",
+        "tier": "tier",
+        "time_shift_configuration": "timeShiftConfiguration",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RequestOutputItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        playback_mode: builtins.str,
+        audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.LogConfigurationForChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tier: typing.Optional[builtins.str] = None,
+        time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimeShiftConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param channel_name: The name of the channel.
+        :param outputs: The channel's output properties.
+        :param playback_mode: The type of playback mode for this channel. ``LINEAR`` - Programs play back-to-back only once. ``LOOP`` - Programs play back-to-back in an endless loop. When the last program in the schedule plays, playback loops back to the first program in the schedule.
+        :param audiences: The list of audiences defined in channel.
+        :param filler_slate: The slate used to fill gaps between programs in the schedule. You must configure filler slate if your channel uses the ``LINEAR`` ``PlaybackMode`` . MediaTailor doesn't support filler slate for channels using the ``LOOP`` ``PlaybackMode`` .
+        :param log_configuration: The log configuration.
+        :param tags: The tags to assign to the channel. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+        :param tier: The tier for this channel. STANDARD tier channels can contain live programs.
+        :param time_shift_configuration: The configuration for time-shifted viewing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_channel_props = mediatailor.CfnChannelProps(
+                channel_name="channelName",
+                outputs=[mediatailor.CfnChannel.RequestOutputItemProperty(
+                    manifest_name="manifestName",
+                    source_group="sourceGroup",
+            
+                    # the properties below are optional
+                    dash_playlist_settings=mediatailor.CfnChannel.DashPlaylistSettingsProperty(
+                        manifest_window_seconds=123,
+                        min_buffer_time_seconds=123,
+                        min_update_period_seconds=123,
+                        suggested_presentation_delay_seconds=123
+                    ),
+                    hls_playlist_settings=mediatailor.CfnChannel.HlsPlaylistSettingsProperty(
+                        ad_markup_type=["adMarkupType"],
+                        manifest_window_seconds=123
+                    )
+                )],
+                playback_mode="playbackMode",
+            
+                # the properties below are optional
+                audiences=["audiences"],
+                filler_slate=mediatailor.CfnChannel.SlateSourceProperty(
+                    source_location_name="sourceLocationName",
+                    vod_source_name="vodSourceName"
+                ),
+                log_configuration=mediatailor.CfnChannel.LogConfigurationForChannelProperty(
+                    log_types=["logTypes"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tier="tier",
+                time_shift_configuration=mediatailor.CfnChannel.TimeShiftConfigurationProperty(
+                    max_time_delay_seconds=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument playback_mode", value=playback_mode, expected_type=type_hints["playback_mode"])
+            check_type(argname="argument audiences", value=audiences, expected_type=type_hints["audiences"])
+            check_type(argname="argument filler_slate", value=filler_slate, expected_type=type_hints["filler_slate"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+            check_type(argname="argument time_shift_configuration", value=time_shift_configuration, expected_type=type_hints["time_shift_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "outputs": outputs,
+            "playback_mode": playback_mode,
+        }
+        if audiences is not None:
+            self._values["audiences"] = audiences
+        if filler_slate is not None:
+            self._values["filler_slate"] = filler_slate
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if tier is not None:
+            self._values["tier"] = tier
+        if time_shift_configuration is not None:
+            self._values["time_shift_configuration"] = time_shift_configuration
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-channelname
+        '''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def outputs(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.RequestOutputItemProperty"]]]:
+        '''The channel's output properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-outputs
+        '''
+        result = self._values.get("outputs")
+        assert result is not None, "Required property 'outputs' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.RequestOutputItemProperty"]]], result)
+
+    @builtins.property
+    def playback_mode(self) -> builtins.str:
+        '''The type of playback mode for this channel.
+
+        ``LINEAR`` - Programs play back-to-back only once.
+
+        ``LOOP`` - Programs play back-to-back in an endless loop. When the last program in the schedule plays, playback loops back to the first program in the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-playbackmode
+        '''
+        result = self._values.get("playback_mode")
+        assert result is not None, "Required property 'playback_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def audiences(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of audiences defined in channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-audiences
+        '''
+        result = self._values.get("audiences")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def filler_slate(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SlateSourceProperty"]]:
+        '''The slate used to fill gaps between programs in the schedule.
+
+        You must configure filler slate if your channel uses the ``LINEAR`` ``PlaybackMode`` . MediaTailor doesn't support filler slate for channels using the ``LOOP`` ``PlaybackMode`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-fillerslate
+        '''
+        result = self._values.get("filler_slate")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SlateSourceProperty"]], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.LogConfigurationForChannelProperty"]]:
+        '''The log configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.LogConfigurationForChannelProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to assign to the channel.
+
+        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def tier(self) -> typing.Optional[builtins.str]:
+        '''The tier for this channel.
+
+        STANDARD tier channels can contain live programs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-tier
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def time_shift_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimeShiftConfigurationProperty"]]:
+        '''The configuration for time-shifted viewing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-timeshiftconfiguration
+        '''
+        result = self._values.get("time_shift_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimeShiftConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnLiveSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "http_package_configurations": "httpPackageConfigurations",
+        "live_source_name": "liveSourceName",
+        "source_location_name": "sourceLocationName",
+        "tags": "tags",
+    },
+)
+class CfnLiveSourceProps:
+    def __init__(
+        self,
+        *,
+        http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLiveSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        live_source_name: builtins.str,
+        source_location_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLiveSource``.
+
+        :param http_package_configurations: The HTTP package configurations for the live source.
+        :param live_source_name: The name that's used to refer to a live source.
+        :param source_location_name: The name of the source location.
+        :param tags: The tags assigned to the live source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_live_source_props = mediatailor.CfnLiveSourceProps(
+                http_package_configurations=[mediatailor.CfnLiveSource.HttpPackageConfigurationProperty(
+                    path="path",
+                    source_group="sourceGroup",
+                    type="type"
+                )],
+                live_source_name="liveSourceName",
+                source_location_name="sourceLocationName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079)
+            check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
+            check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "http_package_configurations": http_package_configurations,
+            "live_source_name": live_source_name,
+            "source_location_name": source_location_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def http_package_configurations(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLiveSource.HttpPackageConfigurationProperty"]]]:
+        '''The HTTP package configurations for the live source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-httppackageconfigurations
+        '''
+        result = self._values.get("http_package_configurations")
+        assert result is not None, "Required property 'http_package_configurations' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLiveSource.HttpPackageConfigurationProperty"]]], result)
+
+    @builtins.property
+    def live_source_name(self) -> builtins.str:
+        '''The name that's used to refer to a live source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-livesourcename
+        '''
+        result = self._values.get("live_source_name")
+        assert result is not None, "Required property 'live_source_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The name of the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-sourcelocationname
+        '''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the live source.
+
+        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLiveSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ad_decision_server_url": "adDecisionServerUrl",
+        "name": "name",
+        "video_content_source_url": "videoContentSourceUrl",
+        "ad_conditioning_configuration": "adConditioningConfiguration",
+        "avail_suppression": "availSuppression",
+        "bumper": "bumper",
+        "cdn_configuration": "cdnConfiguration",
+        "configuration_aliases": "configurationAliases",
+        "dash_configuration": "dashConfiguration",
+        "hls_configuration": "hlsConfiguration",
+        "insertion_mode": "insertionMode",
+        "live_pre_roll_configuration": "livePreRollConfiguration",
+        "log_configuration": "logConfiguration",
+        "manifest_processing_rules": "manifestProcessingRules",
+        "personalization_threshold_seconds": "personalizationThresholdSeconds",
+        "slate_ad_url": "slateAdUrl",
+        "tags": "tags",
+        "transcode_profile_name": "transcodeProfileName",
+    },
+)
+class CfnPlaybackConfigurationProps:
+    def __init__(
+        self,
+        *,
+        ad_decision_server_url: builtins.str,
+        name: builtins.str,
+        video_content_source_url: builtins.str,
+        ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
+        dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        insertion_mode: typing.Optional[builtins.str] = None,
+        live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
+        slate_ad_url: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        transcode_profile_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPlaybackConfiguration``.
+
+        :param ad_decision_server_url: The URL for the ad decision server (ADS). This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
+        :param name: The identifier for the playback configuration.
+        :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
+        :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
+        :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+        :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
+        :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
+        :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
+        :param dash_configuration: The configuration for a DASH source.
+        :param hls_configuration: The configuration for HLS content.
+        :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
+        :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
+        :param log_configuration: Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
+        :param manifest_processing_rules: The configuration for manifest processing rules. Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
+        :param personalization_threshold_seconds: Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break. If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+        :param slate_ad_url: The URL for a video asset to transcode and use to fill in time that's not used by ads. AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
+        :param tags: The tags to assign to the playback configuration. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+        :param transcode_profile_name: The name that is used to associate this playback configuration with a custom transcode profile. This overrides the dynamic transcoding defaults of MediaTailor. Use this only if you have already set up custom profiles with the help of AWS Support.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            # configuration_aliases: Any
+            
+            cfn_playback_configuration_props = mediatailor.CfnPlaybackConfigurationProps(
+                ad_decision_server_url="adDecisionServerUrl",
+                name="name",
+                video_content_source_url="videoContentSourceUrl",
+            
+                # the properties below are optional
+                ad_conditioning_configuration=mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty(
+                    streaming_media_file_conditioning="streamingMediaFileConditioning"
+                ),
+                avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
+                    fill_policy="fillPolicy",
+                    mode="mode",
+                    value="value"
+                ),
+                bumper=mediatailor.CfnPlaybackConfiguration.BumperProperty(
+                    end_url="endUrl",
+                    start_url="startUrl"
+                ),
+                cdn_configuration=mediatailor.CfnPlaybackConfiguration.CdnConfigurationProperty(
+                    ad_segment_url_prefix="adSegmentUrlPrefix",
+                    content_segment_url_prefix="contentSegmentUrlPrefix"
+                ),
+                configuration_aliases={
+                    "configuration_aliases_key": configuration_aliases
+                },
+                dash_configuration=mediatailor.CfnPlaybackConfiguration.DashConfigurationProperty(
+                    manifest_endpoint_prefix="manifestEndpointPrefix",
+                    mpd_location="mpdLocation",
+                    origin_manifest_type="originManifestType"
+                ),
+                hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
+                    manifest_endpoint_prefix="manifestEndpointPrefix"
+                ),
+                insertion_mode="insertionMode",
+                live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
+                    ad_decision_server_url="adDecisionServerUrl",
+                    max_duration_seconds=123
+                ),
+                log_configuration=mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty(
+                    percent_enabled=123,
+            
+                    # the properties below are optional
+                    ads_interaction_log=mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"],
+                        publish_opt_in_event_types=["publishOptInEventTypes"]
+                    ),
+                    enabled_logging_strategies=["enabledLoggingStrategies"],
+                    manifest_service_interaction_log=mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
+                        exclude_event_types=["excludeEventTypes"]
+                    )
+                ),
+                manifest_processing_rules=mediatailor.CfnPlaybackConfiguration.ManifestProcessingRulesProperty(
+                    ad_marker_passthrough=mediatailor.CfnPlaybackConfiguration.AdMarkerPassthroughProperty(
+                        enabled=False
+                    )
+                ),
+                personalization_threshold_seconds=123,
+                slate_ad_url="slateAdUrl",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                transcode_profile_name="transcodeProfileName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8)
+            check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument video_content_source_url", value=video_content_source_url, expected_type=type_hints["video_content_source_url"])
+            check_type(argname="argument ad_conditioning_configuration", value=ad_conditioning_configuration, expected_type=type_hints["ad_conditioning_configuration"])
+            check_type(argname="argument avail_suppression", value=avail_suppression, expected_type=type_hints["avail_suppression"])
+            check_type(argname="argument bumper", value=bumper, expected_type=type_hints["bumper"])
+            check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
+            check_type(argname="argument configuration_aliases", value=configuration_aliases, expected_type=type_hints["configuration_aliases"])
+            check_type(argname="argument dash_configuration", value=dash_configuration, expected_type=type_hints["dash_configuration"])
+            check_type(argname="argument hls_configuration", value=hls_configuration, expected_type=type_hints["hls_configuration"])
+            check_type(argname="argument insertion_mode", value=insertion_mode, expected_type=type_hints["insertion_mode"])
+            check_type(argname="argument live_pre_roll_configuration", value=live_pre_roll_configuration, expected_type=type_hints["live_pre_roll_configuration"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument manifest_processing_rules", value=manifest_processing_rules, expected_type=type_hints["manifest_processing_rules"])
+            check_type(argname="argument personalization_threshold_seconds", value=personalization_threshold_seconds, expected_type=type_hints["personalization_threshold_seconds"])
+            check_type(argname="argument slate_ad_url", value=slate_ad_url, expected_type=type_hints["slate_ad_url"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument transcode_profile_name", value=transcode_profile_name, expected_type=type_hints["transcode_profile_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ad_decision_server_url": ad_decision_server_url,
+            "name": name,
+            "video_content_source_url": video_content_source_url,
+        }
+        if ad_conditioning_configuration is not None:
+            self._values["ad_conditioning_configuration"] = ad_conditioning_configuration
+        if avail_suppression is not None:
+            self._values["avail_suppression"] = avail_suppression
+        if bumper is not None:
+            self._values["bumper"] = bumper
+        if cdn_configuration is not None:
+            self._values["cdn_configuration"] = cdn_configuration
+        if configuration_aliases is not None:
+            self._values["configuration_aliases"] = configuration_aliases
+        if dash_configuration is not None:
+            self._values["dash_configuration"] = dash_configuration
+        if hls_configuration is not None:
+            self._values["hls_configuration"] = hls_configuration
+        if insertion_mode is not None:
+            self._values["insertion_mode"] = insertion_mode
+        if live_pre_roll_configuration is not None:
+            self._values["live_pre_roll_configuration"] = live_pre_roll_configuration
+        if log_configuration is not None:
+            self._values["log_configuration"] = log_configuration
+        if manifest_processing_rules is not None:
+            self._values["manifest_processing_rules"] = manifest_processing_rules
+        if personalization_threshold_seconds is not None:
+            self._values["personalization_threshold_seconds"] = personalization_threshold_seconds
+        if slate_ad_url is not None:
+            self._values["slate_ad_url"] = slate_ad_url
+        if tags is not None:
+            self._values["tags"] = tags
+        if transcode_profile_name is not None:
+            self._values["transcode_profile_name"] = transcode_profile_name
+
+    @builtins.property
+    def ad_decision_server_url(self) -> builtins.str:
+        '''The URL for the ad decision server (ADS).
+
+        This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverurl
+        '''
+        result = self._values.get("ad_decision_server_url")
+        assert result is not None, "Required property 'ad_decision_server_url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The identifier for the playback configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def video_content_source_url(self) -> builtins.str:
+        '''The URL prefix for the parent manifest for the stream, minus the asset ID.
+
+        The maximum length is 512 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-videocontentsourceurl
+        '''
+        result = self._values.get("video_content_source_url")
+        assert result is not None, "Required property 'video_content_source_url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ad_conditioning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
+        '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adconditioningconfiguration
+        '''
+        result = self._values.get("ad_conditioning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], result)
+
+    @builtins.property
+    def avail_suppression(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AvailSuppressionProperty"]]:
+        '''The configuration for avail suppression, also known as ad suppression.
+
+        For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-availsuppression
+        '''
+        result = self._values.get("avail_suppression")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AvailSuppressionProperty"]], result)
+
+    @builtins.property
+    def bumper(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.BumperProperty"]]:
+        '''The configuration for bumpers.
+
+        Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-bumper
+        '''
+        result = self._values.get("bumper")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.BumperProperty"]], result)
+
+    @builtins.property
+    def cdn_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.CdnConfigurationProperty"]]:
+        '''The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-cdnconfiguration
+        '''
+        result = self._values.get("cdn_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.CdnConfigurationProperty"]], result)
+
+    @builtins.property
+    def configuration_aliases(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]]:
+        '''The player parameters and aliases used as dynamic variables during session initialization.
+
+        For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-configurationaliases
+        '''
+        result = self._values.get("configuration_aliases")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def dash_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.DashConfigurationProperty"]]:
+        '''The configuration for a DASH source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-dashconfiguration
+        '''
+        result = self._values.get("dash_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.DashConfigurationProperty"]], result)
+
+    @builtins.property
+    def hls_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.HlsConfigurationProperty"]]:
+        '''The configuration for HLS content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-hlsconfiguration
+        '''
+        result = self._values.get("hls_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.HlsConfigurationProperty"]], result)
+
+    @builtins.property
+    def insertion_mode(self) -> typing.Optional[builtins.str]:
+        '''The setting that controls whether players can use stitched or guided ad insertion.
+
+        The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-insertionmode
+        '''
+        result = self._values.get("insertion_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def live_pre_roll_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]]:
+        '''The configuration for pre-roll ad insertion.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-liveprerollconfiguration
+        '''
+        result = self._values.get("live_pre_roll_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
+        '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.LogConfigurationProperty"]], result)
+
+    @builtins.property
+    def manifest_processing_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]]:
+        '''The configuration for manifest processing rules.
+
+        Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-manifestprocessingrules
+        '''
+        result = self._values.get("manifest_processing_rules")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]], result)
+
+    @builtins.property
+    def personalization_threshold_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break.
+
+        If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-personalizationthresholdseconds
+        '''
+        result = self._values.get("personalization_threshold_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def slate_ad_url(self) -> typing.Optional[builtins.str]:
+        '''The URL for a video asset to transcode and use to fill in time that's not used by ads.
+
+        AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-slateadurl
+        '''
+        result = self._values.get("slate_ad_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to assign to the playback configuration.
+
+        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def transcode_profile_name(self) -> typing.Optional[builtins.str]:
+        '''The name that is used to associate this playback configuration with a custom transcode profile.
+
+        This overrides the dynamic transcoding defaults of MediaTailor. Use this only if you have already set up custom profiles with the help of AWS Support.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-transcodeprofilename
+        '''
+        result = self._values.get("transcode_profile_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPlaybackConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnSourceLocationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "http_configuration": "httpConfiguration",
+        "source_location_name": "sourceLocationName",
+        "access_configuration": "accessConfiguration",
+        "default_segment_delivery_configuration": "defaultSegmentDeliveryConfiguration",
+        "segment_delivery_configurations": "segmentDeliveryConfigurations",
+        "tags": "tags",
+    },
+)
+class CfnSourceLocationProps:
+    def __init__(
+        self,
+        *,
+        http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSourceLocation.HttpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_location_name: builtins.str,
+        access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSourceLocation.AccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSourceLocation.SegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSourceLocation``.
+
+        :param http_configuration: The HTTP configuration for the source location.
+        :param source_location_name: The name of the source location.
+        :param access_configuration: The access configuration for the source location.
+        :param default_segment_delivery_configuration: The default segment delivery configuration.
+        :param segment_delivery_configurations: The segment delivery configurations for the source location.
+        :param tags: The tags assigned to the source location. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_source_location_props = mediatailor.CfnSourceLocationProps(
+                http_configuration=mediatailor.CfnSourceLocation.HttpConfigurationProperty(
+                    base_url="baseUrl"
+                ),
+                source_location_name="sourceLocationName",
+            
+                # the properties below are optional
+                access_configuration=mediatailor.CfnSourceLocation.AccessConfigurationProperty(
+                    access_type="accessType",
+                    secrets_manager_access_token_configuration=mediatailor.CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty(
+                        header_name="headerName",
+                        secret_arn="secretArn",
+                        secret_string_key="secretStringKey"
+                    )
+                ),
+                default_segment_delivery_configuration=mediatailor.CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty(
+                    base_url="baseUrl"
+                ),
+                segment_delivery_configurations=[mediatailor.CfnSourceLocation.SegmentDeliveryConfigurationProperty(
+                    base_url="baseUrl",
+                    name="name"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c)
+            check_type(argname="argument http_configuration", value=http_configuration, expected_type=type_hints["http_configuration"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+            check_type(argname="argument access_configuration", value=access_configuration, expected_type=type_hints["access_configuration"])
+            check_type(argname="argument default_segment_delivery_configuration", value=default_segment_delivery_configuration, expected_type=type_hints["default_segment_delivery_configuration"])
+            check_type(argname="argument segment_delivery_configurations", value=segment_delivery_configurations, expected_type=type_hints["segment_delivery_configurations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "http_configuration": http_configuration,
+            "source_location_name": source_location_name,
+        }
+        if access_configuration is not None:
+            self._values["access_configuration"] = access_configuration
+        if default_segment_delivery_configuration is not None:
+            self._values["default_segment_delivery_configuration"] = default_segment_delivery_configuration
+        if segment_delivery_configurations is not None:
+            self._values["segment_delivery_configurations"] = segment_delivery_configurations
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def http_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.HttpConfigurationProperty"]:
+        '''The HTTP configuration for the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-httpconfiguration
+        '''
+        result = self._values.get("http_configuration")
+        assert result is not None, "Required property 'http_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.HttpConfigurationProperty"], result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The name of the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-sourcelocationname
+        '''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.AccessConfigurationProperty"]]:
+        '''The access configuration for the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-accessconfiguration
+        '''
+        result = self._values.get("access_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.AccessConfigurationProperty"]], result)
+
+    @builtins.property
+    def default_segment_delivery_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]]:
+        '''The default segment delivery configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-defaultsegmentdeliveryconfiguration
+        '''
+        result = self._values.get("default_segment_delivery_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def segment_delivery_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]]:
+        '''The segment delivery configurations for the source location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-segmentdeliveryconfigurations
+        '''
+        result = self._values.get("segment_delivery_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the source location.
+
+        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSourceLocationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.CfnVodSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "http_package_configurations": "httpPackageConfigurations",
+        "source_location_name": "sourceLocationName",
+        "vod_source_name": "vodSourceName",
+        "tags": "tags",
+    },
+)
+class CfnVodSourceProps:
+    def __init__(
+        self,
+        *,
+        http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVodSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        source_location_name: builtins.str,
+        vod_source_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVodSource``.
+
+        :param http_package_configurations: The HTTP package configurations for the VOD source.
+        :param source_location_name: The name of the source location that the VOD source is associated with.
+        :param vod_source_name: The name of the VOD source.
+        :param tags: The tags assigned to the VOD source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            cfn_vod_source_props = mediatailor.CfnVodSourceProps(
+                http_package_configurations=[mediatailor.CfnVodSource.HttpPackageConfigurationProperty(
+                    path="path",
+                    source_group="sourceGroup",
+                    type="type"
+                )],
+                source_location_name="sourceLocationName",
+                vod_source_name="vodSourceName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9)
+            check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+            check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "http_package_configurations": http_package_configurations,
+            "source_location_name": source_location_name,
+            "vod_source_name": vod_source_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def http_package_configurations(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVodSource.HttpPackageConfigurationProperty"]]]:
+        '''The HTTP package configurations for the VOD source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-httppackageconfigurations
+        '''
+        result = self._values.get("http_package_configurations")
+        assert result is not None, "Required property 'http_package_configurations' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVodSource.HttpPackageConfigurationProperty"]]], result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The name of the source location that the VOD source is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-sourcelocationname
+        '''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vod_source_name(self) -> builtins.str:
+        '''The name of the VOD source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-vodsourcename
+        '''
+        result = self._values.get("vod_source_name")
+        assert result is not None, "Required property 'vod_source_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the VOD source.
+
+        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVodSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.ChannelPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_name": "channelName"},
+)
+class ChannelPolicyReference:
+    def __init__(self, *, channel_name: builtins.str) -> None:
+        '''A reference to a ChannelPolicy resource.
+
+        :param channel_name: The ChannelName of the ChannelPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            channel_policy_reference = mediatailor.ChannelPolicyReference(
+                channel_name="channelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02b9124a39aed2b4d9afbee0caca85e7e458c4eb2ec70199dfc51753b0087584)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+        }
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The ChannelName of the ChannelPolicy resource.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_arn": "channelArn", "channel_name": "channelName"},
+)
+class ChannelReference:
+    def __init__(
+        self,
+        *,
+        channel_arn: builtins.str,
+        channel_name: builtins.str,
+    ) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_arn: The ARN of the Channel resource.
+        :param channel_name: The ChannelName of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            channel_reference = mediatailor.ChannelReference(
+                channel_arn="channelArn",
+                channel_name="channelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df5c25fd3b44a42930b4655e0f9b9798c5003fc244e4b50c89d044c4eb9f6491)
+            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_arn": channel_arn,
+            "channel_name": channel_name,
+        }
+
+    @builtins.property
+    def channel_arn(self) -> builtins.str:
+        '''The ARN of the Channel resource.'''
+        result = self._values.get("channel_arn")
+        assert result is not None, "Required property 'channel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The ChannelName of the Channel resource.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.IChannelPolicyRef")
+class IChannelPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''(experimental) A reference to a ChannelPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.IChannelPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''(experimental) A reference to a ChannelPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelPolicyReference, jsii.get(self, "channelPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelPolicyRef).__jsii_proxy_class__ = lambda : _IChannelPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.IChannelRef")
+class IChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.ILiveSourceRef")
+class ILiveSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LiveSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="liveSourceRef")
+    def live_source_ref(self) -> "LiveSourceReference":
+        '''(experimental) A reference to a LiveSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILiveSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LiveSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.ILiveSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="liveSourceRef")
+    def live_source_ref(self) -> "LiveSourceReference":
+        '''(experimental) A reference to a LiveSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LiveSourceReference", jsii.get(self, "liveSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILiveSourceRef).__jsii_proxy_class__ = lambda : _ILiveSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.IPlaybackConfigurationRef")
+class IPlaybackConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PlaybackConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="playbackConfigurationRef")
+    def playback_configuration_ref(self) -> "PlaybackConfigurationReference":
+        '''(experimental) A reference to a PlaybackConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPlaybackConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PlaybackConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.IPlaybackConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="playbackConfigurationRef")
+    def playback_configuration_ref(self) -> "PlaybackConfigurationReference":
+        '''(experimental) A reference to a PlaybackConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PlaybackConfigurationReference", jsii.get(self, "playbackConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPlaybackConfigurationRef).__jsii_proxy_class__ = lambda : _IPlaybackConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.ISourceLocationRef")
+class ISourceLocationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SourceLocation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceLocationRef")
+    def source_location_ref(self) -> "SourceLocationReference":
+        '''(experimental) A reference to a SourceLocation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISourceLocationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SourceLocation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.ISourceLocationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceLocationRef")
+    def source_location_ref(self) -> "SourceLocationReference":
+        '''(experimental) A reference to a SourceLocation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SourceLocationReference", jsii.get(self, "sourceLocationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISourceLocationRef).__jsii_proxy_class__ = lambda : _ISourceLocationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediatailor.IVodSourceRef")
+class IVodSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a VodSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="vodSourceRef")
+    def vod_source_ref(self) -> "VodSourceReference":
+        '''(experimental) A reference to a VodSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVodSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VodSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediatailor.IVodSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="vodSourceRef")
+    def vod_source_ref(self) -> "VodSourceReference":
+        '''(experimental) A reference to a VodSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VodSourceReference", jsii.get(self, "vodSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVodSourceRef).__jsii_proxy_class__ = lambda : _IVodSourceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.LiveSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "live_source_arn": "liveSourceArn",
+        "live_source_name": "liveSourceName",
+        "source_location_name": "sourceLocationName",
+    },
+)
+class LiveSourceReference:
+    def __init__(
+        self,
+        *,
+        live_source_arn: builtins.str,
+        live_source_name: builtins.str,
+        source_location_name: builtins.str,
+    ) -> None:
+        '''A reference to a LiveSource resource.
+
+        :param live_source_arn: The ARN of the LiveSource resource.
+        :param live_source_name: The LiveSourceName of the LiveSource resource.
+        :param source_location_name: The SourceLocationName of the LiveSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            live_source_reference = mediatailor.LiveSourceReference(
+                live_source_arn="liveSourceArn",
+                live_source_name="liveSourceName",
+                source_location_name="sourceLocationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d8f178a10f2d80ae88a1755b364b99392a9cac67cc81dbf56482e0e0d332e01)
+            check_type(argname="argument live_source_arn", value=live_source_arn, expected_type=type_hints["live_source_arn"])
+            check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "live_source_arn": live_source_arn,
+            "live_source_name": live_source_name,
+            "source_location_name": source_location_name,
+        }
+
+    @builtins.property
+    def live_source_arn(self) -> builtins.str:
+        '''The ARN of the LiveSource resource.'''
+        result = self._values.get("live_source_arn")
+        assert result is not None, "Required property 'live_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def live_source_name(self) -> builtins.str:
+        '''The LiveSourceName of the LiveSource resource.'''
+        result = self._values.get("live_source_name")
+        assert result is not None, "Required property 'live_source_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The SourceLocationName of the LiveSource resource.'''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LiveSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.PlaybackConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "playback_configuration_arn": "playbackConfigurationArn",
+        "playback_configuration_name": "playbackConfigurationName",
+    },
+)
+class PlaybackConfigurationReference:
+    def __init__(
+        self,
+        *,
+        playback_configuration_arn: builtins.str,
+        playback_configuration_name: builtins.str,
+    ) -> None:
+        '''A reference to a PlaybackConfiguration resource.
+
+        :param playback_configuration_arn: The ARN of the PlaybackConfiguration resource.
+        :param playback_configuration_name: The Name of the PlaybackConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            playback_configuration_reference = mediatailor.PlaybackConfigurationReference(
+                playback_configuration_arn="playbackConfigurationArn",
+                playback_configuration_name="playbackConfigurationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c9ec226813362d23f3eff40d15d56d010b2e5898b76c4d7c3c945a45e0b951f)
+            check_type(argname="argument playback_configuration_arn", value=playback_configuration_arn, expected_type=type_hints["playback_configuration_arn"])
+            check_type(argname="argument playback_configuration_name", value=playback_configuration_name, expected_type=type_hints["playback_configuration_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "playback_configuration_arn": playback_configuration_arn,
+            "playback_configuration_name": playback_configuration_name,
+        }
+
+    @builtins.property
+    def playback_configuration_arn(self) -> builtins.str:
+        '''The ARN of the PlaybackConfiguration resource.'''
+        result = self._values.get("playback_configuration_arn")
+        assert result is not None, "Required property 'playback_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def playback_configuration_name(self) -> builtins.str:
+        '''The Name of the PlaybackConfiguration resource.'''
+        result = self._values.get("playback_configuration_name")
+        assert result is not None, "Required property 'playback_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PlaybackConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.SourceLocationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "source_location_arn": "sourceLocationArn",
+        "source_location_name": "sourceLocationName",
+    },
+)
+class SourceLocationReference:
+    def __init__(
+        self,
+        *,
+        source_location_arn: builtins.str,
+        source_location_name: builtins.str,
+    ) -> None:
+        '''A reference to a SourceLocation resource.
+
+        :param source_location_arn: The ARN of the SourceLocation resource.
+        :param source_location_name: The SourceLocationName of the SourceLocation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            source_location_reference = mediatailor.SourceLocationReference(
+                source_location_arn="sourceLocationArn",
+                source_location_name="sourceLocationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b717521c3c4a08fcd69831e4bd91a604c11da920d164c571a5b5757d817509e)
+            check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_location_arn": source_location_arn,
+            "source_location_name": source_location_name,
+        }
+
+    @builtins.property
+    def source_location_arn(self) -> builtins.str:
+        '''The ARN of the SourceLocation resource.'''
+        result = self._values.get("source_location_arn")
+        assert result is not None, "Required property 'source_location_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The SourceLocationName of the SourceLocation resource.'''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SourceLocationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediatailor.VodSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "source_location_name": "sourceLocationName",
+        "vod_source_arn": "vodSourceArn",
+        "vod_source_name": "vodSourceName",
+    },
+)
+class VodSourceReference:
+    def __init__(
+        self,
+        *,
+        source_location_name: builtins.str,
+        vod_source_arn: builtins.str,
+        vod_source_name: builtins.str,
+    ) -> None:
+        '''A reference to a VodSource resource.
+
+        :param source_location_name: The SourceLocationName of the VodSource resource.
+        :param vod_source_arn: The ARN of the VodSource resource.
+        :param vod_source_name: The VodSourceName of the VodSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediatailor as mediatailor
+            
+            vod_source_reference = mediatailor.VodSourceReference(
+                source_location_name="sourceLocationName",
+                vod_source_arn="vodSourceArn",
+                vod_source_name="vodSourceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbda4ed53d319bc2d102bb00cbc3975cc10e82744c064dd0e4dc4fdd6b1027d1)
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+            check_type(argname="argument vod_source_arn", value=vod_source_arn, expected_type=type_hints["vod_source_arn"])
+            check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_location_name": source_location_name,
+            "vod_source_arn": vod_source_arn,
+            "vod_source_name": vod_source_name,
+        }
+
+    @builtins.property
+    def source_location_name(self) -> builtins.str:
+        '''The SourceLocationName of the VodSource resource.'''
+        result = self._values.get("source_location_name")
+        assert result is not None, "Required property 'source_location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vod_source_arn(self) -> builtins.str:
+        '''The ARN of the VodSource resource.'''
+        result = self._values.get("vod_source_arn")
+        assert result is not None, "Required property 'vod_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vod_source_name(self) -> builtins.str:
+        '''The VodSourceName of the VodSource resource.'''
+        result = self._values.get("vod_source_name")
+        assert result is not None, "Required property 'vod_source_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VodSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IChannelRef, _ITaggableV2_4e6798f8)
 class CfnChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -224,6 +2009,12 @@ class CfnChannel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''A reference to a Channel resource.'''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -859,7 +2650,7 @@ class CfnChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IChannelPolicyRef)
 class CfnChannelPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -945,6 +2736,12 @@ class CfnChannelPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="channelPolicyRef")
+    def channel_policy_ref(self) -> ChannelPolicyReference:
+        '''A reference to a ChannelPolicy resource.'''
+        return typing.cast(ChannelPolicyReference, jsii.get(self, "channelPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="channelName")
     def channel_name(self) -> builtins.str:
         '''The name of the channel associated with this Channel Policy.'''
@@ -971,310 +2768,7 @@ class CfnChannelPolicy(
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannelPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"channel_name": "channelName", "policy": "policy"},
-)
-class CfnChannelPolicyProps:
-    def __init__(self, *, channel_name: builtins.str, policy: typing.Any) -> None:
-        '''Properties for defining a ``CfnChannelPolicy``.
-
-        :param channel_name: The name of the channel associated with this Channel Policy.
-        :param policy: The IAM policy for the channel. IAM policies are used to control access to your channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            # policy: Any
-            
-            cfn_channel_policy_props = mediatailor.CfnChannelPolicyProps(
-                channel_name="channelName",
-                policy=policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d)
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_name": channel_name,
-            "policy": policy,
-        }
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The name of the channel associated with this Channel Policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html#cfn-mediatailor-channelpolicy-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The IAM policy for the channel.
-
-        IAM policies are used to control access to your channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channelpolicy.html#cfn-mediatailor-channelpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_name": "channelName",
-        "outputs": "outputs",
-        "playback_mode": "playbackMode",
-        "audiences": "audiences",
-        "filler_slate": "fillerSlate",
-        "log_configuration": "logConfiguration",
-        "tags": "tags",
-        "tier": "tier",
-        "time_shift_configuration": "timeShiftConfiguration",
-    },
-)
-class CfnChannelProps:
-    def __init__(
-        self,
-        *,
-        channel_name: builtins.str,
-        outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        playback_mode: builtins.str,
-        audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-        filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tier: typing.Optional[builtins.str] = None,
-        time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannel``.
-
-        :param channel_name: The name of the channel.
-        :param outputs: The channel's output properties.
-        :param playback_mode: The type of playback mode for this channel. ``LINEAR`` - Programs play back-to-back only once. ``LOOP`` - Programs play back-to-back in an endless loop. When the last program in the schedule plays, playback loops back to the first program in the schedule.
-        :param audiences: The list of audiences defined in channel.
-        :param filler_slate: The slate used to fill gaps between programs in the schedule. You must configure filler slate if your channel uses the ``LINEAR`` ``PlaybackMode`` . MediaTailor doesn't support filler slate for channels using the ``LOOP`` ``PlaybackMode`` .
-        :param log_configuration: The log configuration.
-        :param tags: The tags to assign to the channel. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-        :param tier: The tier for this channel. STANDARD tier channels can contain live programs.
-        :param time_shift_configuration: The configuration for time-shifted viewing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            cfn_channel_props = mediatailor.CfnChannelProps(
-                channel_name="channelName",
-                outputs=[mediatailor.CfnChannel.RequestOutputItemProperty(
-                    manifest_name="manifestName",
-                    source_group="sourceGroup",
-            
-                    # the properties below are optional
-                    dash_playlist_settings=mediatailor.CfnChannel.DashPlaylistSettingsProperty(
-                        manifest_window_seconds=123,
-                        min_buffer_time_seconds=123,
-                        min_update_period_seconds=123,
-                        suggested_presentation_delay_seconds=123
-                    ),
-                    hls_playlist_settings=mediatailor.CfnChannel.HlsPlaylistSettingsProperty(
-                        ad_markup_type=["adMarkupType"],
-                        manifest_window_seconds=123
-                    )
-                )],
-                playback_mode="playbackMode",
-            
-                # the properties below are optional
-                audiences=["audiences"],
-                filler_slate=mediatailor.CfnChannel.SlateSourceProperty(
-                    source_location_name="sourceLocationName",
-                    vod_source_name="vodSourceName"
-                ),
-                log_configuration=mediatailor.CfnChannel.LogConfigurationForChannelProperty(
-                    log_types=["logTypes"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tier="tier",
-                time_shift_configuration=mediatailor.CfnChannel.TimeShiftConfigurationProperty(
-                    max_time_delay_seconds=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913)
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
-            check_type(argname="argument playback_mode", value=playback_mode, expected_type=type_hints["playback_mode"])
-            check_type(argname="argument audiences", value=audiences, expected_type=type_hints["audiences"])
-            check_type(argname="argument filler_slate", value=filler_slate, expected_type=type_hints["filler_slate"])
-            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-            check_type(argname="argument time_shift_configuration", value=time_shift_configuration, expected_type=type_hints["time_shift_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_name": channel_name,
-            "outputs": outputs,
-            "playback_mode": playback_mode,
-        }
-        if audiences is not None:
-            self._values["audiences"] = audiences
-        if filler_slate is not None:
-            self._values["filler_slate"] = filler_slate
-        if log_configuration is not None:
-            self._values["log_configuration"] = log_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if tier is not None:
-            self._values["tier"] = tier
-        if time_shift_configuration is not None:
-            self._values["time_shift_configuration"] = time_shift_configuration
-
-    @builtins.property
-    def channel_name(self) -> builtins.str:
-        '''The name of the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-channelname
-        '''
-        result = self._values.get("channel_name")
-        assert result is not None, "Required property 'channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def outputs(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.RequestOutputItemProperty]]]:
-        '''The channel's output properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-outputs
-        '''
-        result = self._values.get("outputs")
-        assert result is not None, "Required property 'outputs' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.RequestOutputItemProperty]]], result)
-
-    @builtins.property
-    def playback_mode(self) -> builtins.str:
-        '''The type of playback mode for this channel.
-
-        ``LINEAR`` - Programs play back-to-back only once.
-
-        ``LOOP`` - Programs play back-to-back in an endless loop. When the last program in the schedule plays, playback loops back to the first program in the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-playbackmode
-        '''
-        result = self._values.get("playback_mode")
-        assert result is not None, "Required property 'playback_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def audiences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of audiences defined in channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-audiences
-        '''
-        result = self._values.get("audiences")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def filler_slate(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.SlateSourceProperty]]:
-        '''The slate used to fill gaps between programs in the schedule.
-
-        You must configure filler slate if your channel uses the ``LINEAR`` ``PlaybackMode`` . MediaTailor doesn't support filler slate for channels using the ``LOOP`` ``PlaybackMode`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-fillerslate
-        '''
-        result = self._values.get("filler_slate")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.SlateSourceProperty]], result)
-
-    @builtins.property
-    def log_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.LogConfigurationForChannelProperty]]:
-        '''The log configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-logconfiguration
-        '''
-        result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.LogConfigurationForChannelProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to the channel.
-
-        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def tier(self) -> typing.Optional[builtins.str]:
-        '''The tier for this channel.
-
-        STANDARD tier channels can contain live programs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-tier
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def time_shift_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.TimeShiftConfigurationProperty]]:
-        '''The configuration for time-shifted viewing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-timeshiftconfiguration
-        '''
-        result = self._values.get("time_shift_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.TimeShiftConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ILiveSourceRef, _ITaggableV2_4e6798f8)
 class CfnLiveSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1388,6 +2882,12 @@ class CfnLiveSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="liveSourceRef")
+    def live_source_ref(self) -> LiveSourceReference:
+        '''A reference to a LiveSource resource.'''
+        return typing.cast(LiveSourceReference, jsii.get(self, "liveSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpPackageConfigurations")
@@ -1539,127 +3039,7 @@ class CfnLiveSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnLiveSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "http_package_configurations": "httpPackageConfigurations",
-        "live_source_name": "liveSourceName",
-        "source_location_name": "sourceLocationName",
-        "tags": "tags",
-    },
-)
-class CfnLiveSourceProps:
-    def __init__(
-        self,
-        *,
-        http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        live_source_name: builtins.str,
-        source_location_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLiveSource``.
-
-        :param http_package_configurations: The HTTP package configurations for the live source.
-        :param live_source_name: The name that's used to refer to a live source.
-        :param source_location_name: The name of the source location.
-        :param tags: The tags assigned to the live source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            cfn_live_source_props = mediatailor.CfnLiveSourceProps(
-                http_package_configurations=[mediatailor.CfnLiveSource.HttpPackageConfigurationProperty(
-                    path="path",
-                    source_group="sourceGroup",
-                    type="type"
-                )],
-                live_source_name="liveSourceName",
-                source_location_name="sourceLocationName",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079)
-            check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
-            check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
-            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "http_package_configurations": http_package_configurations,
-            "live_source_name": live_source_name,
-            "source_location_name": source_location_name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def http_package_configurations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLiveSource.HttpPackageConfigurationProperty]]]:
-        '''The HTTP package configurations for the live source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-httppackageconfigurations
-        '''
-        result = self._values.get("http_package_configurations")
-        assert result is not None, "Required property 'http_package_configurations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLiveSource.HttpPackageConfigurationProperty]]], result)
-
-    @builtins.property
-    def live_source_name(self) -> builtins.str:
-        '''The name that's used to refer to a live source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-livesourcename
-        '''
-        result = self._values.get("live_source_name")
-        assert result is not None, "Required property 'live_source_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_location_name(self) -> builtins.str:
-        '''The name of the source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-sourcelocationname
-        '''
-        result = self._values.get("source_location_name")
-        assert result is not None, "Required property 'source_location_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the live source.
-
-        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLiveSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPlaybackConfigurationRef, _ITaggable_36806126)
 class CfnPlaybackConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1903,6 +3283,12 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="playbackConfigurationRef")
+    def playback_configuration_ref(self) -> PlaybackConfigurationReference:
+        '''A reference to a PlaybackConfiguration resource.'''
+        return typing.cast(PlaybackConfigurationReference, jsii.get(self, "playbackConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3106,426 +4492,7 @@ class CfnPlaybackConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ad_decision_server_url": "adDecisionServerUrl",
-        "name": "name",
-        "video_content_source_url": "videoContentSourceUrl",
-        "ad_conditioning_configuration": "adConditioningConfiguration",
-        "avail_suppression": "availSuppression",
-        "bumper": "bumper",
-        "cdn_configuration": "cdnConfiguration",
-        "configuration_aliases": "configurationAliases",
-        "dash_configuration": "dashConfiguration",
-        "hls_configuration": "hlsConfiguration",
-        "insertion_mode": "insertionMode",
-        "live_pre_roll_configuration": "livePreRollConfiguration",
-        "log_configuration": "logConfiguration",
-        "manifest_processing_rules": "manifestProcessingRules",
-        "personalization_threshold_seconds": "personalizationThresholdSeconds",
-        "slate_ad_url": "slateAdUrl",
-        "tags": "tags",
-        "transcode_profile_name": "transcodeProfileName",
-    },
-)
-class CfnPlaybackConfigurationProps:
-    def __init__(
-        self,
-        *,
-        ad_decision_server_url: builtins.str,
-        name: builtins.str,
-        video_content_source_url: builtins.str,
-        ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
-        dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        insertion_mode: typing.Optional[builtins.str] = None,
-        live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
-        slate_ad_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        transcode_profile_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPlaybackConfiguration``.
-
-        :param ad_decision_server_url: The URL for the ad decision server (ADS). This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
-        :param name: The identifier for the playback configuration.
-        :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
-        :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
-        :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
-        :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
-        :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
-        :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
-        :param dash_configuration: The configuration for a DASH source.
-        :param hls_configuration: The configuration for HLS content.
-        :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
-        :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
-        :param log_configuration: Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
-        :param manifest_processing_rules: The configuration for manifest processing rules. Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
-        :param personalization_threshold_seconds: Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break. If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
-        :param slate_ad_url: The URL for a video asset to transcode and use to fill in time that's not used by ads. AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
-        :param tags: The tags to assign to the playback configuration. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-        :param transcode_profile_name: The name that is used to associate this playback configuration with a custom transcode profile. This overrides the dynamic transcoding defaults of MediaTailor. Use this only if you have already set up custom profiles with the help of AWS Support.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            # configuration_aliases: Any
-            
-            cfn_playback_configuration_props = mediatailor.CfnPlaybackConfigurationProps(
-                ad_decision_server_url="adDecisionServerUrl",
-                name="name",
-                video_content_source_url="videoContentSourceUrl",
-            
-                # the properties below are optional
-                ad_conditioning_configuration=mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty(
-                    streaming_media_file_conditioning="streamingMediaFileConditioning"
-                ),
-                avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
-                    fill_policy="fillPolicy",
-                    mode="mode",
-                    value="value"
-                ),
-                bumper=mediatailor.CfnPlaybackConfiguration.BumperProperty(
-                    end_url="endUrl",
-                    start_url="startUrl"
-                ),
-                cdn_configuration=mediatailor.CfnPlaybackConfiguration.CdnConfigurationProperty(
-                    ad_segment_url_prefix="adSegmentUrlPrefix",
-                    content_segment_url_prefix="contentSegmentUrlPrefix"
-                ),
-                configuration_aliases={
-                    "configuration_aliases_key": configuration_aliases
-                },
-                dash_configuration=mediatailor.CfnPlaybackConfiguration.DashConfigurationProperty(
-                    manifest_endpoint_prefix="manifestEndpointPrefix",
-                    mpd_location="mpdLocation",
-                    origin_manifest_type="originManifestType"
-                ),
-                hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
-                    manifest_endpoint_prefix="manifestEndpointPrefix"
-                ),
-                insertion_mode="insertionMode",
-                live_pre_roll_configuration=mediatailor.CfnPlaybackConfiguration.LivePreRollConfigurationProperty(
-                    ad_decision_server_url="adDecisionServerUrl",
-                    max_duration_seconds=123
-                ),
-                log_configuration=mediatailor.CfnPlaybackConfiguration.LogConfigurationProperty(
-                    percent_enabled=123,
-            
-                    # the properties below are optional
-                    ads_interaction_log=mediatailor.CfnPlaybackConfiguration.AdsInteractionLogProperty(
-                        exclude_event_types=["excludeEventTypes"],
-                        publish_opt_in_event_types=["publishOptInEventTypes"]
-                    ),
-                    enabled_logging_strategies=["enabledLoggingStrategies"],
-                    manifest_service_interaction_log=mediatailor.CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty(
-                        exclude_event_types=["excludeEventTypes"]
-                    )
-                ),
-                manifest_processing_rules=mediatailor.CfnPlaybackConfiguration.ManifestProcessingRulesProperty(
-                    ad_marker_passthrough=mediatailor.CfnPlaybackConfiguration.AdMarkerPassthroughProperty(
-                        enabled=False
-                    )
-                ),
-                personalization_threshold_seconds=123,
-                slate_ad_url="slateAdUrl",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                transcode_profile_name="transcodeProfileName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8)
-            check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument video_content_source_url", value=video_content_source_url, expected_type=type_hints["video_content_source_url"])
-            check_type(argname="argument ad_conditioning_configuration", value=ad_conditioning_configuration, expected_type=type_hints["ad_conditioning_configuration"])
-            check_type(argname="argument avail_suppression", value=avail_suppression, expected_type=type_hints["avail_suppression"])
-            check_type(argname="argument bumper", value=bumper, expected_type=type_hints["bumper"])
-            check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
-            check_type(argname="argument configuration_aliases", value=configuration_aliases, expected_type=type_hints["configuration_aliases"])
-            check_type(argname="argument dash_configuration", value=dash_configuration, expected_type=type_hints["dash_configuration"])
-            check_type(argname="argument hls_configuration", value=hls_configuration, expected_type=type_hints["hls_configuration"])
-            check_type(argname="argument insertion_mode", value=insertion_mode, expected_type=type_hints["insertion_mode"])
-            check_type(argname="argument live_pre_roll_configuration", value=live_pre_roll_configuration, expected_type=type_hints["live_pre_roll_configuration"])
-            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
-            check_type(argname="argument manifest_processing_rules", value=manifest_processing_rules, expected_type=type_hints["manifest_processing_rules"])
-            check_type(argname="argument personalization_threshold_seconds", value=personalization_threshold_seconds, expected_type=type_hints["personalization_threshold_seconds"])
-            check_type(argname="argument slate_ad_url", value=slate_ad_url, expected_type=type_hints["slate_ad_url"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument transcode_profile_name", value=transcode_profile_name, expected_type=type_hints["transcode_profile_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ad_decision_server_url": ad_decision_server_url,
-            "name": name,
-            "video_content_source_url": video_content_source_url,
-        }
-        if ad_conditioning_configuration is not None:
-            self._values["ad_conditioning_configuration"] = ad_conditioning_configuration
-        if avail_suppression is not None:
-            self._values["avail_suppression"] = avail_suppression
-        if bumper is not None:
-            self._values["bumper"] = bumper
-        if cdn_configuration is not None:
-            self._values["cdn_configuration"] = cdn_configuration
-        if configuration_aliases is not None:
-            self._values["configuration_aliases"] = configuration_aliases
-        if dash_configuration is not None:
-            self._values["dash_configuration"] = dash_configuration
-        if hls_configuration is not None:
-            self._values["hls_configuration"] = hls_configuration
-        if insertion_mode is not None:
-            self._values["insertion_mode"] = insertion_mode
-        if live_pre_roll_configuration is not None:
-            self._values["live_pre_roll_configuration"] = live_pre_roll_configuration
-        if log_configuration is not None:
-            self._values["log_configuration"] = log_configuration
-        if manifest_processing_rules is not None:
-            self._values["manifest_processing_rules"] = manifest_processing_rules
-        if personalization_threshold_seconds is not None:
-            self._values["personalization_threshold_seconds"] = personalization_threshold_seconds
-        if slate_ad_url is not None:
-            self._values["slate_ad_url"] = slate_ad_url
-        if tags is not None:
-            self._values["tags"] = tags
-        if transcode_profile_name is not None:
-            self._values["transcode_profile_name"] = transcode_profile_name
-
-    @builtins.property
-    def ad_decision_server_url(self) -> builtins.str:
-        '''The URL for the ad decision server (ADS).
-
-        This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverurl
-        '''
-        result = self._values.get("ad_decision_server_url")
-        assert result is not None, "Required property 'ad_decision_server_url' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The identifier for the playback configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def video_content_source_url(self) -> builtins.str:
-        '''The URL prefix for the parent manifest for the stream, minus the asset ID.
-
-        The maximum length is 512 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-videocontentsourceurl
-        '''
-        result = self._values.get("video_content_source_url")
-        assert result is not None, "Required property 'video_content_source_url' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ad_conditioning_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]]:
-        '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adconditioningconfiguration
-        '''
-        result = self._values.get("ad_conditioning_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]], result)
-
-    @builtins.property
-    def avail_suppression(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AvailSuppressionProperty]]:
-        '''The configuration for avail suppression, also known as ad suppression.
-
-        For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-availsuppression
-        '''
-        result = self._values.get("avail_suppression")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AvailSuppressionProperty]], result)
-
-    @builtins.property
-    def bumper(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.BumperProperty]]:
-        '''The configuration for bumpers.
-
-        Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-bumper
-        '''
-        result = self._values.get("bumper")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.BumperProperty]], result)
-
-    @builtins.property
-    def cdn_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.CdnConfigurationProperty]]:
-        '''The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-cdnconfiguration
-        '''
-        result = self._values.get("cdn_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.CdnConfigurationProperty]], result)
-
-    @builtins.property
-    def configuration_aliases(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]]:
-        '''The player parameters and aliases used as dynamic variables during session initialization.
-
-        For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-configurationaliases
-        '''
-        result = self._values.get("configuration_aliases")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def dash_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.DashConfigurationProperty]]:
-        '''The configuration for a DASH source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-dashconfiguration
-        '''
-        result = self._values.get("dash_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.DashConfigurationProperty]], result)
-
-    @builtins.property
-    def hls_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.HlsConfigurationProperty]]:
-        '''The configuration for HLS content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-hlsconfiguration
-        '''
-        result = self._values.get("hls_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.HlsConfigurationProperty]], result)
-
-    @builtins.property
-    def insertion_mode(self) -> typing.Optional[builtins.str]:
-        '''The setting that controls whether players can use stitched or guided ad insertion.
-
-        The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-insertionmode
-        '''
-        result = self._values.get("insertion_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def live_pre_roll_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]]:
-        '''The configuration for pre-roll ad insertion.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-liveprerollconfiguration
-        '''
-        result = self._values.get("live_pre_roll_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]], result)
-
-    @builtins.property
-    def log_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]]:
-        '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration
-        '''
-        result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]], result)
-
-    @builtins.property
-    def manifest_processing_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.ManifestProcessingRulesProperty]]:
-        '''The configuration for manifest processing rules.
-
-        Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-manifestprocessingrules
-        '''
-        result = self._values.get("manifest_processing_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.ManifestProcessingRulesProperty]], result)
-
-    @builtins.property
-    def personalization_threshold_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Defines the maximum duration of underfilled ad time (in seconds) allowed in an ad break.
-
-        If the duration of underfilled ad time exceeds the personalization threshold, then the personalization of the ad break is abandoned and the underlying content is shown. This feature applies to *ad replacement* in live and VOD streams, rather than ad insertion, because it relies on an underlying content stream. For more information about ad break behavior, including ad replacement and insertion, see `Ad Behavior in AWS Elemental MediaTailor <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-personalizationthresholdseconds
-        '''
-        result = self._values.get("personalization_threshold_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def slate_ad_url(self) -> typing.Optional[builtins.str]:
-        '''The URL for a video asset to transcode and use to fill in time that's not used by ads.
-
-        AWS Elemental MediaTailor shows the slate to fill in gaps in media content. Configuring the slate is optional for non-VPAID playback configurations. For VPAID, the slate is required because MediaTailor provides it in the slots designated for dynamic ad content. The slate must be a high-quality asset that contains both audio and video.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-slateadurl
-        '''
-        result = self._values.get("slate_ad_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to the playback configuration.
-
-        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def transcode_profile_name(self) -> typing.Optional[builtins.str]:
-        '''The name that is used to associate this playback configuration with a custom transcode profile.
-
-        This overrides the dynamic transcoding defaults of MediaTailor. Use this only if you have already set up custom profiles with the help of AWS Support.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-transcodeprofilename
-        '''
-        result = self._values.get("transcode_profile_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPlaybackConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISourceLocationRef, _ITaggableV2_4e6798f8)
 class CfnSourceLocation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3659,6 +4626,12 @@ class CfnSourceLocation(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceLocationRef")
+    def source_location_ref(self) -> SourceLocationReference:
+        '''A reference to a SourceLocation resource.'''
+        return typing.cast(SourceLocationReference, jsii.get(self, "sourceLocationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpConfiguration")
@@ -4120,175 +5093,7 @@ class CfnSourceLocation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnSourceLocationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "http_configuration": "httpConfiguration",
-        "source_location_name": "sourceLocationName",
-        "access_configuration": "accessConfiguration",
-        "default_segment_delivery_configuration": "defaultSegmentDeliveryConfiguration",
-        "segment_delivery_configurations": "segmentDeliveryConfigurations",
-        "tags": "tags",
-    },
-)
-class CfnSourceLocationProps:
-    def __init__(
-        self,
-        *,
-        http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        source_location_name: builtins.str,
-        access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSourceLocation``.
-
-        :param http_configuration: The HTTP configuration for the source location.
-        :param source_location_name: The name of the source location.
-        :param access_configuration: The access configuration for the source location.
-        :param default_segment_delivery_configuration: The default segment delivery configuration.
-        :param segment_delivery_configurations: The segment delivery configurations for the source location.
-        :param tags: The tags assigned to the source location. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            cfn_source_location_props = mediatailor.CfnSourceLocationProps(
-                http_configuration=mediatailor.CfnSourceLocation.HttpConfigurationProperty(
-                    base_url="baseUrl"
-                ),
-                source_location_name="sourceLocationName",
-            
-                # the properties below are optional
-                access_configuration=mediatailor.CfnSourceLocation.AccessConfigurationProperty(
-                    access_type="accessType",
-                    secrets_manager_access_token_configuration=mediatailor.CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty(
-                        header_name="headerName",
-                        secret_arn="secretArn",
-                        secret_string_key="secretStringKey"
-                    )
-                ),
-                default_segment_delivery_configuration=mediatailor.CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty(
-                    base_url="baseUrl"
-                ),
-                segment_delivery_configurations=[mediatailor.CfnSourceLocation.SegmentDeliveryConfigurationProperty(
-                    base_url="baseUrl",
-                    name="name"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c)
-            check_type(argname="argument http_configuration", value=http_configuration, expected_type=type_hints["http_configuration"])
-            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
-            check_type(argname="argument access_configuration", value=access_configuration, expected_type=type_hints["access_configuration"])
-            check_type(argname="argument default_segment_delivery_configuration", value=default_segment_delivery_configuration, expected_type=type_hints["default_segment_delivery_configuration"])
-            check_type(argname="argument segment_delivery_configurations", value=segment_delivery_configurations, expected_type=type_hints["segment_delivery_configurations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "http_configuration": http_configuration,
-            "source_location_name": source_location_name,
-        }
-        if access_configuration is not None:
-            self._values["access_configuration"] = access_configuration
-        if default_segment_delivery_configuration is not None:
-            self._values["default_segment_delivery_configuration"] = default_segment_delivery_configuration
-        if segment_delivery_configurations is not None:
-            self._values["segment_delivery_configurations"] = segment_delivery_configurations
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def http_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSourceLocation.HttpConfigurationProperty]:
-        '''The HTTP configuration for the source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-httpconfiguration
-        '''
-        result = self._values.get("http_configuration")
-        assert result is not None, "Required property 'http_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSourceLocation.HttpConfigurationProperty], result)
-
-    @builtins.property
-    def source_location_name(self) -> builtins.str:
-        '''The name of the source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-sourcelocationname
-        '''
-        result = self._values.get("source_location_name")
-        assert result is not None, "Required property 'source_location_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.AccessConfigurationProperty]]:
-        '''The access configuration for the source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-accessconfiguration
-        '''
-        result = self._values.get("access_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.AccessConfigurationProperty]], result)
-
-    @builtins.property
-    def default_segment_delivery_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty]]:
-        '''The default segment delivery configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-defaultsegmentdeliveryconfiguration
-        '''
-        result = self._values.get("default_segment_delivery_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty]], result)
-
-    @builtins.property
-    def segment_delivery_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.SegmentDeliveryConfigurationProperty]]]]:
-        '''The segment delivery configurations for the source location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-segmentdeliveryconfigurations
-        '''
-        result = self._values.get("segment_delivery_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.SegmentDeliveryConfigurationProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the source location.
-
-        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSourceLocationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IVodSourceRef, _ITaggableV2_4e6798f8)
 class CfnVodSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4402,6 +5207,12 @@ class CfnVodSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vodSourceRef")
+    def vod_source_ref(self) -> VodSourceReference:
+        '''A reference to a VodSource resource.'''
+        return typing.cast(VodSourceReference, jsii.get(self, "vodSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpPackageConfigurations")
@@ -4553,126 +5364,6 @@ class CfnVodSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediatailor.CfnVodSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "http_package_configurations": "httpPackageConfigurations",
-        "source_location_name": "sourceLocationName",
-        "vod_source_name": "vodSourceName",
-        "tags": "tags",
-    },
-)
-class CfnVodSourceProps:
-    def __init__(
-        self,
-        *,
-        http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        source_location_name: builtins.str,
-        vod_source_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVodSource``.
-
-        :param http_package_configurations: The HTTP package configurations for the VOD source.
-        :param source_location_name: The name of the source location that the VOD source is associated with.
-        :param vod_source_name: The name of the VOD source.
-        :param tags: The tags assigned to the VOD source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediatailor as mediatailor
-            
-            cfn_vod_source_props = mediatailor.CfnVodSourceProps(
-                http_package_configurations=[mediatailor.CfnVodSource.HttpPackageConfigurationProperty(
-                    path="path",
-                    source_group="sourceGroup",
-                    type="type"
-                )],
-                source_location_name="sourceLocationName",
-                vod_source_name="vodSourceName",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9)
-            check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
-            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
-            check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "http_package_configurations": http_package_configurations,
-            "source_location_name": source_location_name,
-            "vod_source_name": vod_source_name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def http_package_configurations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVodSource.HttpPackageConfigurationProperty]]]:
-        '''The HTTP package configurations for the VOD source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-httppackageconfigurations
-        '''
-        result = self._values.get("http_package_configurations")
-        assert result is not None, "Required property 'http_package_configurations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVodSource.HttpPackageConfigurationProperty]]], result)
-
-    @builtins.property
-    def source_location_name(self) -> builtins.str:
-        '''The name of the source location that the VOD source is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-sourcelocationname
-        '''
-        result = self._values.get("source_location_name")
-        assert result is not None, "Required property 'source_location_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vod_source_name(self) -> builtins.str:
-        '''The name of the VOD source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-vodsourcename
-        '''
-        result = self._values.get("vod_source_name")
-        assert result is not None, "Required property 'vod_source_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the VOD source.
-
-        Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVodSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnChannel",
     "CfnChannelPolicy",
@@ -4686,9 +5377,149 @@ __all__ = [
     "CfnSourceLocationProps",
     "CfnVodSource",
     "CfnVodSourceProps",
+    "ChannelPolicyReference",
+    "ChannelReference",
+    "IChannelPolicyRef",
+    "IChannelRef",
+    "ILiveSourceRef",
+    "IPlaybackConfigurationRef",
+    "ISourceLocationRef",
+    "IVodSourceRef",
+    "LiveSourceReference",
+    "PlaybackConfigurationReference",
+    "SourceLocationReference",
+    "VodSourceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d(
+    *,
+    channel_name: builtins.str,
+    policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913(
+    *,
+    channel_name: builtins.str,
+    outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    playback_mode: builtins.str,
+    audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
+    filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tier: typing.Optional[builtins.str] = None,
+    time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079(
+    *,
+    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    live_source_name: builtins.str,
+    source_location_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8(
+    *,
+    ad_decision_server_url: builtins.str,
+    name: builtins.str,
+    video_content_source_url: builtins.str,
+    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
+    dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    insertion_mode: typing.Optional[builtins.str] = None,
+    live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
+    slate_ad_url: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transcode_profile_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c(
+    *,
+    http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_location_name: builtins.str,
+    access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9(
+    *,
+    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    source_location_name: builtins.str,
+    vod_source_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02b9124a39aed2b4d9afbee0caca85e7e458c4eb2ec70199dfc51753b0087584(
+    *,
+    channel_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df5c25fd3b44a42930b4655e0f9b9798c5003fc244e4b50c89d044c4eb9f6491(
+    *,
+    channel_arn: builtins.str,
+    channel_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d8f178a10f2d80ae88a1755b364b99392a9cac67cc81dbf56482e0e0d332e01(
+    *,
+    live_source_arn: builtins.str,
+    live_source_name: builtins.str,
+    source_location_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c9ec226813362d23f3eff40d15d56d010b2e5898b76c4d7c3c945a45e0b951f(
+    *,
+    playback_configuration_arn: builtins.str,
+    playback_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b717521c3c4a08fcd69831e4bd91a604c11da920d164c571a5b5757d817509e(
+    *,
+    source_location_arn: builtins.str,
+    source_location_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbda4ed53d319bc2d102bb00cbc3975cc10e82744c064dd0e4dc4fdd6b1027d1(
+    *,
+    source_location_name: builtins.str,
+    vod_source_arn: builtins.str,
+    vod_source_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__95afc802641850838d7d754c58072c279165a93bff5fc055789c1090a21b9714(
     scope: _constructs_77d1e7e8.Construct,
@@ -4857,29 +5688,6 @@ def _typecheckingstub__d60990c1542e708efa866295766195f2b5035b80cea3aacc1e22a1d78
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d(
-    *,
-    channel_name: builtins.str,
-    policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913(
-    *,
-    channel_name: builtins.str,
-    outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    playback_mode: builtins.str,
-    audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-    filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tier: typing.Optional[builtins.str] = None,
-    time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__caad9e925cf2074f54088c0241999fdbc5c194736555867b7765527f3cac0b4a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4933,16 +5741,6 @@ def _typecheckingstub__13f0630b3469ba702929b845c7fafefb841b9e63dd48246c3a1e48801
     path: builtins.str,
     source_group: builtins.str,
     type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079(
-    *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    live_source_name: builtins.str,
-    source_location_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5188,30 +5986,6 @@ def _typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8(
-    *,
-    ad_decision_server_url: builtins.str,
-    name: builtins.str,
-    video_content_source_url: builtins.str,
-    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
-    dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    insertion_mode: typing.Optional[builtins.str] = None,
-    live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
-    slate_ad_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    transcode_profile_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f5f7e59d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5313,18 +6087,6 @@ def _typecheckingstub__383b15aa1a1faec4ed8f2f0982e5ba8e88dfe9184d36b17c3b787e66a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c(
-    *,
-    http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    source_location_name: builtins.str,
-    access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__456acf01c6ad372c9c8ba7c229fe88f13ceaab57f8599ae26cb522443527fd9d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5378,16 +6140,6 @@ def _typecheckingstub__0eb3dfa97b84bfa86c7915674bc55816a5f4e9bec9047c683b97e5bd6
     path: builtins.str,
     source_group: builtins.str,
     type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9(
-    *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    source_location_name: builtins.str,
-    vod_source_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

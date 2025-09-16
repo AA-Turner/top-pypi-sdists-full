@@ -25,7 +25,7 @@ env:
   WEAVIATE_129: 1.29.9
   WEAVIATE_130: 1.30.12
   WEAVIATE_131: 1.31.5
-  WEAVIATE_132: 1.32.0-rc.1-098c594
+  WEAVIATE_132: 1.32.5
 
 jobs:
   lint-and-format:
@@ -184,7 +184,6 @@ jobs:
       - name: Run integration tests with auth secrets
         if: ${{ !github.event.pull_request.head.repo.fork && github.triggering_actor != 'dependabot[bot]' }}
         env:
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           OKTA_CLIENT_SECRET: ${{ secrets.OKTA_CLIENT_SECRET }}
           WCS_DUMMY_CI_PW: ${{ secrets.WCS_DUMMY_CI_PW }}
           OKTA_DUMMY_CI_PW: ${{ secrets.OKTA_DUMMY_CI_PW }}

@@ -69,7 +69,1139 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "application_identifier": "applicationIdentifier",
+        "environment_identifier": "environmentIdentifier",
+    },
+)
+class ApplicationReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        application_identifier: builtins.str,
+        environment_identifier: builtins.str,
+    ) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ARN of the Application resource.
+        :param application_identifier: The ApplicationIdentifier of the Application resource.
+        :param environment_identifier: The EnvironmentIdentifier of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            application_reference = refactorspaces.ApplicationReference(
+                application_arn="applicationArn",
+                application_identifier="applicationIdentifier",
+                environment_identifier="environmentIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6272b87a6ffb1b6bf459757410ca116897c6c9acbaa1b55cb5aaf8a8e92adf9e)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "application_identifier": application_identifier,
+            "environment_identifier": environment_identifier,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The ApplicationIdentifier of the Application resource.'''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The EnvironmentIdentifier of the Application resource.'''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_identifier": "environmentIdentifier",
+        "name": "name",
+        "proxy_type": "proxyType",
+        "vpc_id": "vpcId",
+        "api_gateway_proxy": "apiGatewayProxy",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        environment_identifier: builtins.str,
+        name: builtins.str,
+        proxy_type: builtins.str,
+        vpc_id: builtins.str,
+        api_gateway_proxy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApiGatewayProxyInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param environment_identifier: The unique identifier of the environment.
+        :param name: The name of the application.
+        :param proxy_type: The proxy type of the proxy created within the application.
+        :param vpc_id: The ID of the virtual private cloud (VPC).
+        :param api_gateway_proxy: The endpoint URL of the Amazon API Gateway proxy.
+        :param tags: The tags assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            cfn_application_props = refactorspaces.CfnApplicationProps(
+                environment_identifier="environmentIdentifier",
+                name="name",
+                proxy_type="proxyType",
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                api_gateway_proxy=refactorspaces.CfnApplication.ApiGatewayProxyInputProperty(
+                    endpoint_type="endpointType",
+                    stage_name="stageName"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5974ddb2dc67ffb28c95d9f66ee42fa70224d0f4aa23981df037681d6c4fdf1)
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument proxy_type", value=proxy_type, expected_type=type_hints["proxy_type"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument api_gateway_proxy", value=api_gateway_proxy, expected_type=type_hints["api_gateway_proxy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_identifier": environment_identifier,
+            "name": name,
+            "proxy_type": proxy_type,
+            "vpc_id": vpc_id,
+        }
+        if api_gateway_proxy is not None:
+            self._values["api_gateway_proxy"] = api_gateway_proxy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The unique identifier of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-environmentidentifier
+        '''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def proxy_type(self) -> builtins.str:
+        '''The proxy type of the proxy created within the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-proxytype
+        '''
+        result = self._values.get("proxy_type")
+        assert result is not None, "Required property 'proxy_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The ID of the virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_gateway_proxy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApiGatewayProxyInputProperty"]]:
+        '''The endpoint URL of the Amazon API Gateway proxy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-apigatewayproxy
+        '''
+        result = self._values.get("api_gateway_proxy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApiGatewayProxyInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnEnvironmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "network_fabric_type": "networkFabricType",
+        "tags": "tags",
+    },
+)
+class CfnEnvironmentProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_fabric_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnvironment``.
+
+        :param description: A description of the environment.
+        :param name: The name of the environment.
+        :param network_fabric_type: The network fabric type of the environment.
+        :param tags: The tags assigned to the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            cfn_environment_props = refactorspaces.CfnEnvironmentProps(
+                description="description",
+                name="name",
+                network_fabric_type="networkFabricType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc993226fa6d6cb56a25f6ae5fb96e6ea288e1bcd336e16e685ce08129bd9ae6)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_fabric_type", value=network_fabric_type, expected_type=type_hints["network_fabric_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if network_fabric_type is not None:
+            self._values["network_fabric_type"] = network_fabric_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_fabric_type(self) -> typing.Optional[builtins.str]:
+        '''The network fabric type of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-networkfabrictype
+        '''
+        result = self._values.get("network_fabric_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnRouteProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "environment_identifier": "environmentIdentifier",
+        "route_type": "routeType",
+        "service_identifier": "serviceIdentifier",
+        "default_route": "defaultRoute",
+        "tags": "tags",
+        "uri_path_route": "uriPathRoute",
+    },
+)
+class CfnRouteProps:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        environment_identifier: builtins.str,
+        route_type: builtins.str,
+        service_identifier: builtins.str,
+        default_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRoute.DefaultRouteInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        uri_path_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRoute.UriPathRouteInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRoute``.
+
+        :param application_identifier: The unique identifier of the application.
+        :param environment_identifier: The unique identifier of the environment.
+        :param route_type: The route type of the route.
+        :param service_identifier: The unique identifier of the service.
+        :param default_route: Configuration for the default route type.
+        :param tags: The tags assigned to the route.
+        :param uri_path_route: The configuration for the URI path route type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            cfn_route_props = refactorspaces.CfnRouteProps(
+                application_identifier="applicationIdentifier",
+                environment_identifier="environmentIdentifier",
+                route_type="routeType",
+                service_identifier="serviceIdentifier",
+            
+                # the properties below are optional
+                default_route=refactorspaces.CfnRoute.DefaultRouteInputProperty(
+                    activation_state="activationState"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                uri_path_route=refactorspaces.CfnRoute.UriPathRouteInputProperty(
+                    activation_state="activationState",
+            
+                    # the properties below are optional
+                    append_source_path=False,
+                    include_child_paths=False,
+                    methods=["methods"],
+                    source_path="sourcePath"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58f3ed916c6586128a311abab14b0fec6e77c0d76bd30bce92f9ecaf0e766f82)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+            check_type(argname="argument route_type", value=route_type, expected_type=type_hints["route_type"])
+            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
+            check_type(argname="argument default_route", value=default_route, expected_type=type_hints["default_route"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument uri_path_route", value=uri_path_route, expected_type=type_hints["uri_path_route"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "environment_identifier": environment_identifier,
+            "route_type": route_type,
+            "service_identifier": service_identifier,
+        }
+        if default_route is not None:
+            self._values["default_route"] = default_route
+        if tags is not None:
+            self._values["tags"] = tags
+        if uri_path_route is not None:
+            self._values["uri_path_route"] = uri_path_route
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The unique identifier of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-applicationidentifier
+        '''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The unique identifier of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-environmentidentifier
+        '''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def route_type(self) -> builtins.str:
+        '''The route type of the route.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-routetype
+        '''
+        result = self._values.get("route_type")
+        assert result is not None, "Required property 'route_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_identifier(self) -> builtins.str:
+        '''The unique identifier of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-serviceidentifier
+        '''
+        result = self._values.get("service_identifier")
+        assert result is not None, "Required property 'service_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_route(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoute.DefaultRouteInputProperty"]]:
+        '''Configuration for the default route type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-defaultroute
+        '''
+        result = self._values.get("default_route")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoute.DefaultRouteInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the route.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def uri_path_route(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoute.UriPathRouteInputProperty"]]:
+        '''The configuration for the URI path route type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-uripathroute
+        '''
+        result = self._values.get("uri_path_route")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoute.UriPathRouteInputProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRouteProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnServiceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "endpoint_type": "endpointType",
+        "environment_identifier": "environmentIdentifier",
+        "name": "name",
+        "description": "description",
+        "lambda_endpoint": "lambdaEndpoint",
+        "tags": "tags",
+        "url_endpoint": "urlEndpoint",
+        "vpc_id": "vpcId",
+    },
+)
+class CfnServiceProps:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        endpoint_type: builtins.str,
+        environment_identifier: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        lambda_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.LambdaEndpointInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        url_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.UrlEndpointInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnService``.
+
+        :param application_identifier: The unique identifier of the application.
+        :param endpoint_type: The endpoint type of the service.
+        :param environment_identifier: The unique identifier of the environment.
+        :param name: The name of the service.
+        :param description: A description of the service.
+        :param lambda_endpoint: A summary of the configuration for the AWS Lambda endpoint type.
+        :param tags: The tags assigned to the service.
+        :param url_endpoint: The summary of the configuration for the URL endpoint type.
+        :param vpc_id: The ID of the virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            cfn_service_props = refactorspaces.CfnServiceProps(
+                application_identifier="applicationIdentifier",
+                endpoint_type="endpointType",
+                environment_identifier="environmentIdentifier",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                lambda_endpoint=refactorspaces.CfnService.LambdaEndpointInputProperty(
+                    arn="arn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                url_endpoint=refactorspaces.CfnService.UrlEndpointInputProperty(
+                    url="url",
+            
+                    # the properties below are optional
+                    health_url="healthUrl"
+                ),
+                vpc_id="vpcId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf70d7a4201e85912150041ac9f121f471751b70ebb43643750e3cc404c36803)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument lambda_endpoint", value=lambda_endpoint, expected_type=type_hints["lambda_endpoint"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument url_endpoint", value=url_endpoint, expected_type=type_hints["url_endpoint"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "endpoint_type": endpoint_type,
+            "environment_identifier": environment_identifier,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if lambda_endpoint is not None:
+            self._values["lambda_endpoint"] = lambda_endpoint
+        if tags is not None:
+            self._values["tags"] = tags
+        if url_endpoint is not None:
+            self._values["url_endpoint"] = url_endpoint
+        if vpc_id is not None:
+            self._values["vpc_id"] = vpc_id
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The unique identifier of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-applicationidentifier
+        '''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_type(self) -> builtins.str:
+        '''The endpoint type of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-endpointtype
+        '''
+        result = self._values.get("endpoint_type")
+        assert result is not None, "Required property 'endpoint_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The unique identifier of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-environmentidentifier
+        '''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def lambda_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.LambdaEndpointInputProperty"]]:
+        '''A summary of the configuration for the AWS Lambda endpoint type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-lambdaendpoint
+        '''
+        result = self._values.get("lambda_endpoint")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.LambdaEndpointInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags assigned to the service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def url_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.UrlEndpointInputProperty"]]:
+        '''The summary of the configuration for the URL endpoint type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-urlendpoint
+        '''
+        result = self._values.get("url_endpoint")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.UrlEndpointInputProperty"]], result)
+
+    @builtins.property
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.EnvironmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_arn": "environmentArn",
+        "environment_identifier": "environmentIdentifier",
+    },
+)
+class EnvironmentReference:
+    def __init__(
+        self,
+        *,
+        environment_arn: builtins.str,
+        environment_identifier: builtins.str,
+    ) -> None:
+        '''A reference to a Environment resource.
+
+        :param environment_arn: The ARN of the Environment resource.
+        :param environment_identifier: The EnvironmentIdentifier of the Environment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            environment_reference = refactorspaces.EnvironmentReference(
+                environment_arn="environmentArn",
+                environment_identifier="environmentIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc2070ae1350d0b87ebc506f25b3e0a26009059ccb3230f59388b66b2db19345)
+            check_type(argname="argument environment_arn", value=environment_arn, expected_type=type_hints["environment_arn"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_arn": environment_arn,
+            "environment_identifier": environment_identifier,
+        }
+
+    @builtins.property
+    def environment_arn(self) -> builtins.str:
+        '''The ARN of the Environment resource.'''
+        result = self._values.get("environment_arn")
+        assert result is not None, "Required property 'environment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The EnvironmentIdentifier of the Environment resource.'''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_refactorspaces.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_refactorspaces.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_refactorspaces.IEnvironmentRef")
+class IEnvironmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEnvironmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Environment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_refactorspaces.IEnvironmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''(experimental) A reference to a Environment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvironmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_refactorspaces.IRouteRef")
+class IRouteRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Route.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="routeRef")
+    def route_ref(self) -> "RouteReference":
+        '''(experimental) A reference to a Route resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRouteRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Route.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_refactorspaces.IRouteRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="routeRef")
+    def route_ref(self) -> "RouteReference":
+        '''(experimental) A reference to a Route resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RouteReference", jsii.get(self, "routeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRouteRef).__jsii_proxy_class__ = lambda : _IRouteRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_refactorspaces.IServiceRef")
+class IServiceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Service.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> "ServiceReference":
+        '''(experimental) A reference to a Service resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Service.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_refactorspaces.IServiceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> "ServiceReference":
+        '''(experimental) A reference to a Service resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceReference", jsii.get(self, "serviceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.RouteReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "environment_identifier": "environmentIdentifier",
+        "route_arn": "routeArn",
+        "route_identifier": "routeIdentifier",
+    },
+)
+class RouteReference:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        environment_identifier: builtins.str,
+        route_arn: builtins.str,
+        route_identifier: builtins.str,
+    ) -> None:
+        '''A reference to a Route resource.
+
+        :param application_identifier: The ApplicationIdentifier of the Route resource.
+        :param environment_identifier: The EnvironmentIdentifier of the Route resource.
+        :param route_arn: The ARN of the Route resource.
+        :param route_identifier: The RouteIdentifier of the Route resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            route_reference = refactorspaces.RouteReference(
+                application_identifier="applicationIdentifier",
+                environment_identifier="environmentIdentifier",
+                route_arn="routeArn",
+                route_identifier="routeIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ff6bdedb26532218027b2954f03eae0e70573c69c01293bc280feffa839a3ea)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+            check_type(argname="argument route_arn", value=route_arn, expected_type=type_hints["route_arn"])
+            check_type(argname="argument route_identifier", value=route_identifier, expected_type=type_hints["route_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "environment_identifier": environment_identifier,
+            "route_arn": route_arn,
+            "route_identifier": route_identifier,
+        }
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The ApplicationIdentifier of the Route resource.'''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The EnvironmentIdentifier of the Route resource.'''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def route_arn(self) -> builtins.str:
+        '''The ARN of the Route resource.'''
+        result = self._values.get("route_arn")
+        assert result is not None, "Required property 'route_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def route_identifier(self) -> builtins.str:
+        '''The RouteIdentifier of the Route resource.'''
+        result = self._values.get("route_identifier")
+        assert result is not None, "Required property 'route_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RouteReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_refactorspaces.ServiceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "environment_identifier": "environmentIdentifier",
+        "service_arn": "serviceArn",
+        "service_identifier": "serviceIdentifier",
+    },
+)
+class ServiceReference:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        environment_identifier: builtins.str,
+        service_arn: builtins.str,
+        service_identifier: builtins.str,
+    ) -> None:
+        '''A reference to a Service resource.
+
+        :param application_identifier: The ApplicationIdentifier of the Service resource.
+        :param environment_identifier: The EnvironmentIdentifier of the Service resource.
+        :param service_arn: The ARN of the Service resource.
+        :param service_identifier: The ServiceIdentifier of the Service resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_refactorspaces as refactorspaces
+            
+            service_reference = refactorspaces.ServiceReference(
+                application_identifier="applicationIdentifier",
+                environment_identifier="environmentIdentifier",
+                service_arn="serviceArn",
+                service_identifier="serviceIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46104bfd599e262653e10c743e283974957b8c3cda3c72c9b9786b6076d83797)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
+            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
+            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "environment_identifier": environment_identifier,
+            "service_arn": service_arn,
+            "service_identifier": service_identifier,
+        }
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The ApplicationIdentifier of the Service resource.'''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_identifier(self) -> builtins.str:
+        '''The EnvironmentIdentifier of the Service resource.'''
+        result = self._values.get("environment_identifier")
+        assert result is not None, "Required property 'environment_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_arn(self) -> builtins.str:
+        '''The ARN of the Service resource.'''
+        result = self._values.get("service_arn")
+        assert result is not None, "Required property 'service_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_identifier(self) -> builtins.str:
+        '''The ServiceIdentifier of the Service resource.'''
+        result = self._values.get("service_identifier")
+        assert result is not None, "Required property 'service_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -175,6 +1307,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApiGatewayId")
@@ -421,156 +1559,7 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "environment_identifier": "environmentIdentifier",
-        "name": "name",
-        "proxy_type": "proxyType",
-        "vpc_id": "vpcId",
-        "api_gateway_proxy": "apiGatewayProxy",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        environment_identifier: builtins.str,
-        name: builtins.str,
-        proxy_type: builtins.str,
-        vpc_id: builtins.str,
-        api_gateway_proxy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApiGatewayProxyInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param environment_identifier: The unique identifier of the environment.
-        :param name: The name of the application.
-        :param proxy_type: The proxy type of the proxy created within the application.
-        :param vpc_id: The ID of the virtual private cloud (VPC).
-        :param api_gateway_proxy: The endpoint URL of the Amazon API Gateway proxy.
-        :param tags: The tags assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_refactorspaces as refactorspaces
-            
-            cfn_application_props = refactorspaces.CfnApplicationProps(
-                environment_identifier="environmentIdentifier",
-                name="name",
-                proxy_type="proxyType",
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                api_gateway_proxy=refactorspaces.CfnApplication.ApiGatewayProxyInputProperty(
-                    endpoint_type="endpointType",
-                    stage_name="stageName"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5974ddb2dc67ffb28c95d9f66ee42fa70224d0f4aa23981df037681d6c4fdf1)
-            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument proxy_type", value=proxy_type, expected_type=type_hints["proxy_type"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument api_gateway_proxy", value=api_gateway_proxy, expected_type=type_hints["api_gateway_proxy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "environment_identifier": environment_identifier,
-            "name": name,
-            "proxy_type": proxy_type,
-            "vpc_id": vpc_id,
-        }
-        if api_gateway_proxy is not None:
-            self._values["api_gateway_proxy"] = api_gateway_proxy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def environment_identifier(self) -> builtins.str:
-        '''The unique identifier of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-environmentidentifier
-        '''
-        result = self._values.get("environment_identifier")
-        assert result is not None, "Required property 'environment_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def proxy_type(self) -> builtins.str:
-        '''The proxy type of the proxy created within the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-proxytype
-        '''
-        result = self._values.get("proxy_type")
-        assert result is not None, "Required property 'proxy_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The ID of the virtual private cloud (VPC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def api_gateway_proxy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApiGatewayProxyInputProperty]]:
-        '''The endpoint URL of the Amazon API Gateway proxy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-apigatewayproxy
-        '''
-        result = self._values.get("api_gateway_proxy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApiGatewayProxyInputProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-application.html#cfn-refactorspaces-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEnvironmentRef, _ITaggable_36806126)
 class CfnEnvironment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -697,6 +1686,12 @@ class CfnEnvironment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="environmentRef")
+    def environment_ref(self) -> EnvironmentReference:
+        '''A reference to a Environment resource.'''
+        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -755,116 +1750,7 @@ class CfnEnvironment(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnEnvironmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "name": "name",
-        "network_fabric_type": "networkFabricType",
-        "tags": "tags",
-    },
-)
-class CfnEnvironmentProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        network_fabric_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnvironment``.
-
-        :param description: A description of the environment.
-        :param name: The name of the environment.
-        :param network_fabric_type: The network fabric type of the environment.
-        :param tags: The tags assigned to the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_refactorspaces as refactorspaces
-            
-            cfn_environment_props = refactorspaces.CfnEnvironmentProps(
-                description="description",
-                name="name",
-                network_fabric_type="networkFabricType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc993226fa6d6cb56a25f6ae5fb96e6ea288e1bcd336e16e685ce08129bd9ae6)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_fabric_type", value=network_fabric_type, expected_type=type_hints["network_fabric_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if network_fabric_type is not None:
-            self._values["network_fabric_type"] = network_fabric_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_fabric_type(self) -> typing.Optional[builtins.str]:
-        '''The network fabric type of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-networkfabrictype
-        '''
-        result = self._values.get("network_fabric_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-environment.html#cfn-refactorspaces-environment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnvironmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRouteRef, _ITaggable_36806126)
 class CfnRoute(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1042,6 +1928,12 @@ class CfnRoute(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routeRef")
+    def route_ref(self) -> RouteReference:
+        '''A reference to a Route resource.'''
+        return typing.cast(RouteReference, jsii.get(self, "routeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1337,181 +2229,7 @@ class CfnRoute(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnRouteProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_identifier": "applicationIdentifier",
-        "environment_identifier": "environmentIdentifier",
-        "route_type": "routeType",
-        "service_identifier": "serviceIdentifier",
-        "default_route": "defaultRoute",
-        "tags": "tags",
-        "uri_path_route": "uriPathRoute",
-    },
-)
-class CfnRouteProps:
-    def __init__(
-        self,
-        *,
-        application_identifier: builtins.str,
-        environment_identifier: builtins.str,
-        route_type: builtins.str,
-        service_identifier: builtins.str,
-        default_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.DefaultRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        uri_path_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.UriPathRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRoute``.
-
-        :param application_identifier: The unique identifier of the application.
-        :param environment_identifier: The unique identifier of the environment.
-        :param route_type: The route type of the route.
-        :param service_identifier: The unique identifier of the service.
-        :param default_route: Configuration for the default route type.
-        :param tags: The tags assigned to the route.
-        :param uri_path_route: The configuration for the URI path route type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_refactorspaces as refactorspaces
-            
-            cfn_route_props = refactorspaces.CfnRouteProps(
-                application_identifier="applicationIdentifier",
-                environment_identifier="environmentIdentifier",
-                route_type="routeType",
-                service_identifier="serviceIdentifier",
-            
-                # the properties below are optional
-                default_route=refactorspaces.CfnRoute.DefaultRouteInputProperty(
-                    activation_state="activationState"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                uri_path_route=refactorspaces.CfnRoute.UriPathRouteInputProperty(
-                    activation_state="activationState",
-            
-                    # the properties below are optional
-                    append_source_path=False,
-                    include_child_paths=False,
-                    methods=["methods"],
-                    source_path="sourcePath"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58f3ed916c6586128a311abab14b0fec6e77c0d76bd30bce92f9ecaf0e766f82)
-            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
-            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
-            check_type(argname="argument route_type", value=route_type, expected_type=type_hints["route_type"])
-            check_type(argname="argument service_identifier", value=service_identifier, expected_type=type_hints["service_identifier"])
-            check_type(argname="argument default_route", value=default_route, expected_type=type_hints["default_route"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument uri_path_route", value=uri_path_route, expected_type=type_hints["uri_path_route"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_identifier": application_identifier,
-            "environment_identifier": environment_identifier,
-            "route_type": route_type,
-            "service_identifier": service_identifier,
-        }
-        if default_route is not None:
-            self._values["default_route"] = default_route
-        if tags is not None:
-            self._values["tags"] = tags
-        if uri_path_route is not None:
-            self._values["uri_path_route"] = uri_path_route
-
-    @builtins.property
-    def application_identifier(self) -> builtins.str:
-        '''The unique identifier of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-applicationidentifier
-        '''
-        result = self._values.get("application_identifier")
-        assert result is not None, "Required property 'application_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def environment_identifier(self) -> builtins.str:
-        '''The unique identifier of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-environmentidentifier
-        '''
-        result = self._values.get("environment_identifier")
-        assert result is not None, "Required property 'environment_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def route_type(self) -> builtins.str:
-        '''The route type of the route.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-routetype
-        '''
-        result = self._values.get("route_type")
-        assert result is not None, "Required property 'route_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_identifier(self) -> builtins.str:
-        '''The unique identifier of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-serviceidentifier
-        '''
-        result = self._values.get("service_identifier")
-        assert result is not None, "Required property 'service_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_route(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoute.DefaultRouteInputProperty]]:
-        '''Configuration for the default route type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-defaultroute
-        '''
-        result = self._values.get("default_route")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoute.DefaultRouteInputProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the route.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def uri_path_route(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoute.UriPathRouteInputProperty]]:
-        '''The configuration for the URI path route type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-route.html#cfn-refactorspaces-route-uripathroute
-        '''
-        result = self._values.get("uri_path_route")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoute.UriPathRouteInputProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRouteProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServiceRef, _ITaggable_36806126)
 class CfnService(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1657,6 +2375,12 @@ class CfnService(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> ServiceReference:
+        '''A reference to a Service resource.'''
+        return typing.cast(ServiceReference, jsii.get(self, "serviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1921,210 +2645,8 @@ class CfnService(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_refactorspaces.CfnServiceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_identifier": "applicationIdentifier",
-        "endpoint_type": "endpointType",
-        "environment_identifier": "environmentIdentifier",
-        "name": "name",
-        "description": "description",
-        "lambda_endpoint": "lambdaEndpoint",
-        "tags": "tags",
-        "url_endpoint": "urlEndpoint",
-        "vpc_id": "vpcId",
-    },
-)
-class CfnServiceProps:
-    def __init__(
-        self,
-        *,
-        application_identifier: builtins.str,
-        endpoint_type: builtins.str,
-        environment_identifier: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        lambda_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LambdaEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        url_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.UrlEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnService``.
-
-        :param application_identifier: The unique identifier of the application.
-        :param endpoint_type: The endpoint type of the service.
-        :param environment_identifier: The unique identifier of the environment.
-        :param name: The name of the service.
-        :param description: A description of the service.
-        :param lambda_endpoint: A summary of the configuration for the AWS Lambda endpoint type.
-        :param tags: The tags assigned to the service.
-        :param url_endpoint: The summary of the configuration for the URL endpoint type.
-        :param vpc_id: The ID of the virtual private cloud (VPC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_refactorspaces as refactorspaces
-            
-            cfn_service_props = refactorspaces.CfnServiceProps(
-                application_identifier="applicationIdentifier",
-                endpoint_type="endpointType",
-                environment_identifier="environmentIdentifier",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                lambda_endpoint=refactorspaces.CfnService.LambdaEndpointInputProperty(
-                    arn="arn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                url_endpoint=refactorspaces.CfnService.UrlEndpointInputProperty(
-                    url="url",
-            
-                    # the properties below are optional
-                    health_url="healthUrl"
-                ),
-                vpc_id="vpcId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf70d7a4201e85912150041ac9f121f471751b70ebb43643750e3cc404c36803)
-            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
-            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
-            check_type(argname="argument environment_identifier", value=environment_identifier, expected_type=type_hints["environment_identifier"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument lambda_endpoint", value=lambda_endpoint, expected_type=type_hints["lambda_endpoint"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument url_endpoint", value=url_endpoint, expected_type=type_hints["url_endpoint"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_identifier": application_identifier,
-            "endpoint_type": endpoint_type,
-            "environment_identifier": environment_identifier,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if lambda_endpoint is not None:
-            self._values["lambda_endpoint"] = lambda_endpoint
-        if tags is not None:
-            self._values["tags"] = tags
-        if url_endpoint is not None:
-            self._values["url_endpoint"] = url_endpoint
-        if vpc_id is not None:
-            self._values["vpc_id"] = vpc_id
-
-    @builtins.property
-    def application_identifier(self) -> builtins.str:
-        '''The unique identifier of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-applicationidentifier
-        '''
-        result = self._values.get("application_identifier")
-        assert result is not None, "Required property 'application_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def endpoint_type(self) -> builtins.str:
-        '''The endpoint type of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-endpointtype
-        '''
-        result = self._values.get("endpoint_type")
-        assert result is not None, "Required property 'endpoint_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def environment_identifier(self) -> builtins.str:
-        '''The unique identifier of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-environmentidentifier
-        '''
-        result = self._values.get("environment_identifier")
-        assert result is not None, "Required property 'environment_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def lambda_endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.LambdaEndpointInputProperty]]:
-        '''A summary of the configuration for the AWS Lambda endpoint type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-lambdaendpoint
-        '''
-        result = self._values.get("lambda_endpoint")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.LambdaEndpointInputProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags assigned to the service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def url_endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.UrlEndpointInputProperty]]:
-        '''The summary of the configuration for the URL endpoint type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-urlendpoint
-        '''
-        result = self._values.get("url_endpoint")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.UrlEndpointInputProperty]], result)
-
-    @builtins.property
-    def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the virtual private cloud (VPC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-refactorspaces-service.html#cfn-refactorspaces-service-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServiceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnEnvironment",
@@ -2133,9 +2655,103 @@ __all__ = [
     "CfnRouteProps",
     "CfnService",
     "CfnServiceProps",
+    "EnvironmentReference",
+    "IApplicationRef",
+    "IEnvironmentRef",
+    "IRouteRef",
+    "IServiceRef",
+    "RouteReference",
+    "ServiceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__6272b87a6ffb1b6bf459757410ca116897c6c9acbaa1b55cb5aaf8a8e92adf9e(
+    *,
+    application_arn: builtins.str,
+    application_identifier: builtins.str,
+    environment_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5974ddb2dc67ffb28c95d9f66ee42fa70224d0f4aa23981df037681d6c4fdf1(
+    *,
+    environment_identifier: builtins.str,
+    name: builtins.str,
+    proxy_type: builtins.str,
+    vpc_id: builtins.str,
+    api_gateway_proxy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApiGatewayProxyInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc993226fa6d6cb56a25f6ae5fb96e6ea288e1bcd336e16e685ce08129bd9ae6(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_fabric_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58f3ed916c6586128a311abab14b0fec6e77c0d76bd30bce92f9ecaf0e766f82(
+    *,
+    application_identifier: builtins.str,
+    environment_identifier: builtins.str,
+    route_type: builtins.str,
+    service_identifier: builtins.str,
+    default_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.DefaultRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri_path_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.UriPathRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf70d7a4201e85912150041ac9f121f471751b70ebb43643750e3cc404c36803(
+    *,
+    application_identifier: builtins.str,
+    endpoint_type: builtins.str,
+    environment_identifier: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    lambda_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LambdaEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    url_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.UrlEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc2070ae1350d0b87ebc506f25b3e0a26009059ccb3230f59388b66b2db19345(
+    *,
+    environment_arn: builtins.str,
+    environment_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ff6bdedb26532218027b2954f03eae0e70573c69c01293bc280feffa839a3ea(
+    *,
+    application_identifier: builtins.str,
+    environment_identifier: builtins.str,
+    route_arn: builtins.str,
+    route_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46104bfd599e262653e10c743e283974957b8c3cda3c72c9b9786b6076d83797(
+    *,
+    application_identifier: builtins.str,
+    environment_identifier: builtins.str,
+    service_arn: builtins.str,
+    service_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__efe09dd43c3fb974d0c5c81b4c42f5319245347d1ba0af51a0027fe77e6aad92(
     scope: _constructs_77d1e7e8.Construct,
@@ -2207,18 +2823,6 @@ def _typecheckingstub__bf716c9691040b260b80d99cde314be1acfd63ad22719816a1f0749c8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c5974ddb2dc67ffb28c95d9f66ee42fa70224d0f4aa23981df037681d6c4fdf1(
-    *,
-    environment_identifier: builtins.str,
-    name: builtins.str,
-    proxy_type: builtins.str,
-    vpc_id: builtins.str,
-    api_gateway_proxy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApiGatewayProxyInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0a536c3debb5766a7d9c84ccebc269b62327808a31254e1265a594b329b64555(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2263,16 +2867,6 @@ def _typecheckingstub__7218caf601ef511e6c489e41a01233a12b0895a28a26b826e4c2c36d3
 
 def _typecheckingstub__49a8b10d6ea6b81c02ef39ee701909acec2186e1d9db3d4d4ad46420728b6698(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cc993226fa6d6cb56a25f6ae5fb96e6ea288e1bcd336e16e685ce08129bd9ae6(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    network_fabric_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2360,19 +2954,6 @@ def _typecheckingstub__37bbcddaf33ba9305fa2a3feb1d85f7802a55919b9491e2ea4b5663e0
     include_child_paths: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     methods: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_path: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58f3ed916c6586128a311abab14b0fec6e77c0d76bd30bce92f9ecaf0e766f82(
-    *,
-    application_identifier: builtins.str,
-    environment_identifier: builtins.str,
-    route_type: builtins.str,
-    service_identifier: builtins.str,
-    default_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.DefaultRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uri_path_route: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoute.UriPathRouteInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2471,21 +3052,6 @@ def _typecheckingstub__7d86383e689f1caa847c77d7b82f3353251e619448c701919f0bc57ed
     *,
     url: builtins.str,
     health_url: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf70d7a4201e85912150041ac9f121f471751b70ebb43643750e3cc404c36803(
-    *,
-    application_identifier: builtins.str,
-    endpoint_type: builtins.str,
-    environment_identifier: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    lambda_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.LambdaEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    url_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.UrlEndpointInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

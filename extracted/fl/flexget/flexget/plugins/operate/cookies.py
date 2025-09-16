@@ -118,7 +118,7 @@ class PluginCookies:
                 except OSError:
 
                     def to_hex(x):
-                        return ''.join([hex(ord(c))[2:].zfill(2) for c in x])
+                        return ''.join(f'{ord(c):02x}' for c in x)
 
                     for i, val in enumerate(item):
                         if isinstance(val, str):

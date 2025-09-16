@@ -165,7 +165,17 @@ class Pods:
         v1 = client.CoreV1Api()
         return v1.read_namespaced_pod(name=pod_name, namespace=namespace)
 
-    def create_pod_spec(name: str, image: str, image_pull_secret: str, envs: list, container_security_context: client.V1SecurityContext, volume_name: str, pvc_name:str, mount_path:str, command: list[str]=None, sa_name=None):
+    def get_with_selector(namespace: str, label_selector: str):
+        v1 = client.CoreV1Api()
+
+        ret = v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
+        for i in ret.items:
+            return v1.read_namespaced_pod(name=i.metadata.name, namespace=namespace)
+
+    def create_pod_spec(name: str, image: str, image_pull_secret: str,
+                        envs: list, container_security_context: client.V1SecurityContext,
+                        volume_name: str, pvc_name:str, mount_path:str,
+                        command: list[str]=None, sa_name=None, restart_policy="Never"):
         volume_mounts = []
         if volume_name and pvc_name and mount_path:
             volume_mounts=[client.V1VolumeMount(mount_path=mount_path, name=volume_name)]
@@ -182,7 +192,7 @@ class Pods:
             security_context=client.V1PodSecurityContext(run_as_user=1001, run_as_group=1001, fs_group=1001)
 
         return client.V1PodSpec(
-            restart_policy="Never",
+            restart_policy=restart_policy,
             containers=[container],
             image_pull_secrets=[client.V1LocalObjectReference(name=image_pull_secret)],
             security_context=security_context,
@@ -213,10 +223,10 @@ class Pods:
             ))
         )
 
-    def wait_for_running(namespace: str, pod_name: str, msg: str=None):
+    def wait_for_running(namespace: str, pod_name: str, msg: str=None, label_selector: str = None):
         msged = False
 
-        while Pods.get(namespace, pod_name).status.phase != 'Running':
+        while (Pods.get_with_selector(namespace, label_selector) if label_selector else Pods.get(namespace, pod_name)).status.phase != 'Running':
             if not msged:
                 if not msg:
                     msg = f'Waiting for the {pod_name} pod to start up...'

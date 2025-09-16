@@ -37,6 +37,7 @@ use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
@@ -61,6 +62,8 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionHandle;
 use crate::types::display::TypeDisplayContext;
+
+const REPR: Name = Name::new_static("__repr__");
 
 pub struct Query {
     /// The state that we use.
@@ -96,6 +99,7 @@ fn display_range_for_expr(
     module_info: &ModuleInfo,
     original_range: TextRange,
     expr: &Expr,
+    parent_expr: Option<&Expr>,
 ) -> DisplayRange {
     let expression_range = if let Expr::Generator(e) = expr {
         // python AST module reports locations of all generator expressions as if they are parenthesized
@@ -107,6 +111,14 @@ fn display_range_for_expr(
         // need to adjust start/end column offsets
         if e.parenthesized {
             original_range
+        } else if let Some(Expr::Call(p)) = parent_expr
+            && p.arguments.len() == 1
+            && p.arguments.inner_range().contains_range(original_range)
+        {
+            TextRange::new(
+                p.arguments.l_paren_range().start(),
+                p.arguments.r_paren_range().end(),
+            )
         } else {
             original_range
                 .sub_start(TextSize::new(1))
@@ -187,16 +199,17 @@ impl Query {
         self.files.lock().extend(files.clone());
         let mut transaction = self
             .state
-            .new_committable_transaction(Require::Everything, None);
+            .new_committable_transaction(Require::Exports, None);
         let handles = files.into_map(|(name, file)| self.make_handle(name, file));
         transaction.as_mut().run(&handles, Require::Everything);
         let errors = transaction.as_mut().get_errors(&handles);
         self.state.commit_transaction(transaction);
+        let project_root = PathBuf::new();
         errors.collect_errors().shown.map(|e| {
             // We deliberately don't have a Display for `Error`, to encourage doing the right thing.
             // But we just hack something up as this code is experimental.
             let mut s = Cursor::new(Vec::new());
-            e.write_line(&mut s, false).unwrap();
+            e.write_line(&mut s, project_root.as_path(), false).unwrap();
             String::from_utf8_lossy(&s.into_inner()).into_owned()
         })
     }
@@ -277,16 +290,22 @@ impl Query {
                 panic!("class_name_from_def_kind - unsupported function kind: {kind:?}");
             }
         }
-        fn target_from_def_kind(kind: &FunctionKind) -> String {
+        fn target_from_def_kind(kind: &FunctionKind, module_name_override: Option<&str>) -> String {
             match kind {
-                FunctionKind::Def(f) => match &f.cls {
-                    Some(class_name) => {
-                        format!("{}.{}.{}", f.module, class_name, f.func)
+                FunctionKind::Def(f) => {
+                    if let Some(module_name_override) = module_name_override {
+                        format!("{module_name_override}.{}", f.func)
+                    } else {
+                        match &f.cls {
+                            Some(class_name) => {
+                                format!("{}.{}.{}", f.module, class_name, f.func)
+                            }
+                            None => {
+                                format!("{}.{}", f.module, f.func)
+                            }
+                        }
                     }
-                    None => {
-                        format!("{}.{}", f.module, f.func)
-                    }
-                },
+                }
                 FunctionKind::IsInstance => String::from("isinstance"),
                 FunctionKind::IsSubclass => String::from("issubclass"),
                 FunctionKind::Cast => String::from("typing.cast"),
@@ -299,25 +318,67 @@ impl Query {
                 _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
             }
         }
+        fn repr_from_arguments(
+            arguments: &Arguments,
+            answers: &Answers,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
+        ) -> Option<Callee> {
+            // Use the type of the first argument to find the callee.
+            if let Some(arg_type) = answers.get_type_trace(arguments.args[0].range())
+                && let Type::ClassType(class) = &arg_type
+            {
+                let repr_callees = callee_from_mro(
+                    class.class_object(),
+                    transaction,
+                    handle,
+                    "__repr__",
+                    |_solver, c| {
+                        if c.contains(&REPR) {
+                            Some(format!("{}.{}.__repr__", c.module_name(), c.name()))
+                        } else {
+                            None
+                        }
+                    },
+                );
+                if !repr_callees.is_empty() {
+                    return Some(repr_callees[0].clone());
+                }
+            }
+            None
+        }
         fn callee_from_function(
             f: &Function,
             call_target: Option<&Expr>,
+            call_arguments: Option<&Arguments>,
             answers: &Answers,
+            transaction: &Transaction<'_>,
+            handle: &Handle,
         ) -> Callee {
             if f.metadata.flags.is_staticmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_STATICMETHOD),
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else if f.metadata.flags.is_classmethod {
                 Callee {
                     kind: String::from(CALLEE_KIND_CLASSMETHOD),
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     // TODO: use type of receiver
                     class_name: Some(class_name_from_def_kind(&f.metadata.kind)),
                 }
             } else {
+                // Check if this is a builtins function that needs special casing.
+                if let FunctionKind::Def(def) = &f.metadata.kind
+                    && def.module.as_str() == "builtins"
+                    && def.func == "repr"
+                    && let Some(args) = call_arguments
+                    && let Some(callee) = repr_from_arguments(args, answers, transaction, handle)
+                {
+                    return callee;
+                }
+
                 let class_name = class_name_from_call_target(call_target, answers);
                 let kind = if class_name.is_some() {
                     String::from(CALLEE_KIND_METHOD)
@@ -327,16 +388,30 @@ impl Query {
 
                 Callee {
                     kind,
-                    target: target_from_def_kind(&f.metadata.kind),
+                    target: target_from_def_kind(&f.metadata.kind, None),
                     class_name,
                 }
             }
         }
-        fn target_from_bound_method_type(m: &BoundMethodType) -> String {
+        fn target_from_bound_method_type(
+            m: &BoundMethodType,
+            method_of_typed_dict: bool,
+        ) -> String {
+            let module_name_override = if method_of_typed_dict {
+                Some("TypedDictionary")
+            } else {
+                None
+            };
             match m {
-                BoundMethodType::Function(f) => target_from_def_kind(&f.metadata.kind),
-                BoundMethodType::Forall(f) => target_from_def_kind(&f.body.metadata.kind),
-                BoundMethodType::Overload(f) => target_from_def_kind(&f.metadata.kind),
+                BoundMethodType::Function(f) => {
+                    target_from_def_kind(&f.metadata.kind, module_name_override)
+                }
+                BoundMethodType::Forall(f) => {
+                    target_from_def_kind(&f.body.metadata.kind, module_name_override)
+                }
+                BoundMethodType::Overload(f) => {
+                    target_from_def_kind(&f.metadata.kind, module_name_override)
+                }
             }
         }
         fn callee_method_kind_from_function_metadata(m: &FuncMetadata) -> String {
@@ -361,31 +436,32 @@ impl Query {
                 }
             }
         }
-        fn class_names_from_bound_obj(ty: &Type) -> Vec<String> {
+        fn class_info_for_qname(qname: &QName, is_typed_dict: bool) -> Vec<(String, bool)> {
+            vec![(qname_to_string(qname), is_typed_dict)]
+        }
+        fn class_info_from_bound_obj(ty: &Type) -> Vec<(String, bool)> {
             match ty {
-                Type::SelfType(c) => vec![qname_to_string(c.qname())],
-                Type::Type(t) => class_names_from_bound_obj(t),
-                Type::ClassType(c) => vec![qname_to_string(c.qname())],
-                Type::ClassDef(c) => vec![qname_to_string(c.qname())],
-                Type::TypedDict(d) => vec![qname_to_string(d.qname())],
+                Type::SelfType(c) => class_info_for_qname(c.qname(), false),
+                // TODO: wrap in 'type'
+                Type::Type(t) => class_info_from_bound_obj(t),
+                Type::ClassType(c) => class_info_for_qname(c.qname(), false),
+                Type::ClassDef(c) => class_info_for_qname(c.qname(), false),
+                Type::TypedDict(d) => class_info_for_qname(d.qname(), true),
                 Type::Literal(Lit::Str(_)) | Type::LiteralString => {
-                    vec![String::from("builtins.str")]
+                    vec![(String::from("builtins.str"), false)]
                 }
-                Type::Literal(Lit::Int(_)) => vec![String::from("builtins.int")],
-                Type::Literal(Lit::Bool(_)) => vec![String::from("builtins.bool")],
+                Type::Literal(Lit::Int(_)) => vec![(String::from("builtins.int"), false)],
+                Type::Literal(Lit::Bool(_)) => vec![(String::from("builtins.bool"), false)],
                 Type::Quantified(q) => match &q.restriction {
                     // for explicit bound - use name of the type used as bound
-                    Restriction::Bound(b) => class_names_from_bound_obj(b),
+                    Restriction::Bound(b) => class_info_from_bound_obj(b),
                     // no bound - use name of the type variable (not very useful but not worse than status quo)
-                    Restriction::Unrestricted => vec![q.name().to_string()],
+                    Restriction::Unrestricted => vec![(q.name().to_string(), false)],
                     Restriction::Constraints(_) => {
                         panic!("unexpected restriction: {q:?}")
                     }
                 },
-                Type::Union(tys) => tys
-                    .iter()
-                    .flat_map(class_names_from_bound_obj)
-                    .collect_vec(),
+                Type::Union(tys) => tys.iter().flat_map(class_info_from_bound_obj).collect_vec(),
                 _ => panic!("unexpected type: {ty:?}"),
             }
         }
@@ -436,16 +512,21 @@ impl Query {
                 vec![]
             } else if defs.len() == 1 {
                 // TODO: decide what do to with multiple definitions
-                match &defs[0].metadata {
-                    DefinitionMetadata::Variable(_) => {
-                        let name = module_info.code_at(defs[0].definition_range);
-                        vec![Callee {
-                            kind: String::from(CALLEE_KIND_FUNCTION),
-                            target: format!("$parameter${name}"),
-                            class_name: None,
-                        }]
+                let def0 = &defs[0];
+                if def0.module.name() == handle.module() {
+                    match &def0.metadata {
+                        DefinitionMetadata::Variable(_) => {
+                            let name = module_info.code_at(defs[0].definition_range);
+                            vec![Callee {
+                                kind: String::from(CALLEE_KIND_FUNCTION),
+                                target: format!("$parameter${name}"),
+                                class_name: None,
+                            }]
+                        }
+                        x => panic!("callable ty - unexpected metadata kind, {x:?}"),
                     }
-                    x => panic!("callable ty - unexpected metadata kind, {x:?}"),
+                } else {
+                    vec![]
                 }
             } else {
                 panic!(
@@ -530,6 +611,7 @@ impl Query {
             ty: &Type,
             call_target: Option<&Expr>,
             callee_range: TextRange,
+            call_arguments: Option<&Arguments>,
             module_info: &ModuleInfo,
             transaction: &Transaction<'_>,
             handle: &Handle,
@@ -541,6 +623,7 @@ impl Query {
                         b,
                         call_target,
                         callee_range,
+                        call_arguments,
                         module_info,
                         transaction,
                         handle,
@@ -560,6 +643,7 @@ impl Query {
                                 t,
                                 call_target,
                                 callee_range,
+                                call_arguments,
                                 module_info,
                                 transaction,
                                 handle,
@@ -571,12 +655,12 @@ impl Query {
                         .sorted_by(|a, b| a.target.cmp(&b.target))
                         .collect_vec()
                 }
-                Type::BoundMethod(m) => class_names_from_bound_obj(&m.obj)
+                Type::BoundMethod(m) => class_info_from_bound_obj(&m.obj)
                     .into_iter()
-                    .map(|c| Callee {
+                    .map(|(class_name, class_is_typed_dict)| Callee {
                         kind: callee_method_kind_from_bound_method_type(&m.func),
-                        target: target_from_bound_method_type(&m.func),
-                        class_name: Some(c),
+                        target: target_from_bound_method_type(&m.func, class_is_typed_dict),
+                        class_name: Some(class_name),
                     })
                     .unique()
                     // return sorted by target
@@ -584,7 +668,14 @@ impl Query {
                     .collect_vec(),
 
                 Type::Function(f) => {
-                    vec![callee_from_function(f, call_target, answers)]
+                    vec![callee_from_function(
+                        f,
+                        call_target,
+                        call_arguments,
+                        answers,
+                        transaction,
+                        handle,
+                    )]
                 }
                 Type::Overload(f) => {
                     let class_name = class_name_from_call_target(call_target, answers);
@@ -597,11 +688,11 @@ impl Query {
                     // are handled by BoundMethod case
                     vec![Callee {
                         kind,
-                        target: target_from_def_kind(&f.metadata.kind),
+                        target: target_from_def_kind(&f.metadata.kind, None),
                         class_name,
                     }]
                 }
-                Type::Callable(_) => for_callable(callee_range, module_info, transaction, handle),
+                Type::Callable(..) => for_callable(callee_range, module_info, transaction, handle),
                 Type::Type(box ty) => {
                     init_or_new_from_type(ty, callee_range, transaction, handle, module_info)
                 }
@@ -609,12 +700,28 @@ impl Query {
                 Type::ClassDef(cls) => find_init_or_new(cls, transaction, handle),
                 Type::Forall(v) => match &v.body {
                     Forallable::Function(func) => {
-                        vec![callee_from_function(func, call_target, answers)]
+                        vec![callee_from_function(
+                            func,
+                            call_target,
+                            call_arguments,
+                            answers,
+                            transaction,
+                            handle,
+                        )]
                     }
                     Forallable::Callable(_) => {
                         for_callable(callee_range, module_info, transaction, handle)
                     }
-                    _ => panic!("unsupported forallable type {:?}", v.body),
+                    Forallable::TypeAlias(t) => callee_from_type(
+                        &t.as_type(),
+                        call_target,
+                        callee_range,
+                        call_arguments,
+                        module_info,
+                        transaction,
+                        handle,
+                        answers,
+                    ),
                 },
                 Type::SelfType(c) | Type::ClassType(c) => callee_from_mro(
                     c.class_object(),
@@ -634,6 +741,7 @@ impl Query {
                     &t.as_type(),
                     call_target,
                     callee_range,
+                    call_arguments,
                     module_info,
                     transaction,
                     handle,
@@ -655,26 +763,30 @@ impl Query {
             handle: &Handle,
             res: &mut Vec<(DisplayRange, Callee)>,
         ) {
-            let (callee_ty, callee_range, call_target) = if let Expr::Attribute(attr) = x {
-                (
-                    answers.try_get_getter_for_range(attr.range()),
-                    attr.range(),
-                    None,
-                )
-            } else if let Expr::Call(call) = x {
-                (
-                    answers.get_type_trace(call.func.range()),
-                    call.func.range(),
-                    Some(&*call.func),
-                )
-            } else {
-                (None, x.range(), None)
-            };
+            let (callee_ty, callee_range, call_target, call_arguments) =
+                if let Expr::Attribute(attr) = x {
+                    (
+                        answers.try_get_getter_for_range(attr.range()),
+                        attr.range(),
+                        None,
+                        None,
+                    )
+                } else if let Expr::Call(call) = x {
+                    (
+                        answers.get_type_trace(call.func.range()),
+                        call.func.range(),
+                        Some(&*call.func),
+                        Some(&call.arguments),
+                    )
+                } else {
+                    (None, x.range(), None, None)
+                };
             if let Some(func_ty) = callee_ty {
                 callee_from_type(
                     &func_ty,
                     call_target,
                     callee_range,
+                    call_arguments,
                     module_info,
                     transaction,
                     handle,
@@ -711,12 +823,13 @@ impl Query {
         fn add_type(
             ty: &Type,
             e: &Expr,
+            parent: Option<&Expr>,
             range: TextRange,
             module_info: &ModuleInfo,
             res: &mut Vec<(DisplayRange, String)>,
         ) {
             res.push((
-                display_range_for_expr(module_info, range, e),
+                display_range_for_expr(module_info, range, e, parent),
                 type_to_string(ty),
             ));
         }
@@ -734,6 +847,7 @@ impl Query {
         }
         fn f(
             x: &Expr,
+            parent: Option<&Expr>,
             module_info: &ModuleInfo,
             answers: &Answers,
             bindings: &Bindings,
@@ -744,14 +858,14 @@ impl Query {
                 && let Some(key) = try_find_key_for_name(name, bindings)
                 && let Some(ty) = answers.get_type_at(bindings.key_to_idx(&key))
             {
-                add_type(&ty, x, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res);
             } else if let Some(ty) = answers.get_type_trace(range) {
-                add_type(&ty, x, range, module_info, res);
+                add_type(&ty, x, parent, range, module_info, res);
             }
-            x.recurse(&mut |x| f(x, module_info, answers, bindings, res));
+            x.recurse(&mut |c| f(c, Some(x), module_info, answers, bindings, res));
         }
 
-        ast.visit(&mut |x| f(x, &module_info, &answers, &bindings, &mut res));
+        ast.visit(&mut |x| f(x, None, &module_info, &answers, &bindings, &mut res));
         Some(res)
     }
 
@@ -847,8 +961,10 @@ impl Query {
         let errors = t.get_errors([&h]).collect_errors();
         if !errors.shown.is_empty() {
             let mut res = Vec::new();
+            let project_root = PathBuf::new();
             for e in errors.shown {
-                e.write_line(&mut Cursor::new(&mut res), true).unwrap();
+                e.write_line(&mut Cursor::new(&mut res), project_root.as_path(), true)
+                    .unwrap();
             }
             return Err(format!(
                 "Errors from is_subtype `{lt}` <: `{gt}`\n{}\n\nSource code:\n{before}",

@@ -3,53 +3,27 @@ from orionis.services.file.contracts.directory import IDirectory
 from orionis.services.file.directory import Directory
 
 class DirectoryProvider(ServiceProvider):
-    """
-    Service provider for registering the directory service in the application container.
-
-    This provider binds the `IDirectory` interface to its concrete implementation (`Directory`)
-    as a singleton. This ensures that a single shared instance of the directory service is
-    available for dependency injection throughout the application.
-
-    Attributes
-    ----------
-    app : Application
-        The application container instance where services are registered.
-
-    Methods
-    -------
-    register()
-        Registers the directory service as a singleton in the application container.
-    boot()
-        Performs post-registration actions if necessary.
-    """
 
     def register(self) -> None:
         """
-        Register the directory service as a singleton in the application container.
+        Registers the directory service as a singleton within the application container.
 
-        This method binds the `IDirectory` interface to the `Directory` implementation with
-        a specific alias. Only one instance of `Directory` will be created and shared
-        throughout the application's lifecycle.
+        This method binds the `IDirectory` interface to its concrete implementation `Directory`
+        as a singleton. The binding is associated with a specific alias, ensuring that only one
+        instance of `Directory` is created and shared across the application's lifecycle. This
+        promotes efficient resource usage and consistent behavior when accessing directory-related
+        services.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
         None
-            This method does not return any value.
+            This method does not return any value. It performs registration as a side effect.
         """
-        # Bind IDirectory to Directory as a singleton with a specific alias
-        self.app.singleton(IDirectory, Directory, alias=f"x-{IDirectory.__module__}.{IDirectory.__name__}")
 
-    def boot(self) -> None:
-        """
-        Perform actions required after all providers have been registered.
-
-        This method is called after the `register` phase. It can be used for additional
-        initialization if needed. No additional boot logic is required for this provider.
-
-        Returns
-        -------
-        None
-            This method does not return any value.
-        """
-        # No additional boot logic required for this provider
-        pass
+        # Bind the IDirectory interface to the Directory implementation as a singleton.
+        # The alias ensures unique identification within the container.
+        self.app.singleton(IDirectory, Directory, alias="x-orionis.services.file.contracts.directory.IDirectory")

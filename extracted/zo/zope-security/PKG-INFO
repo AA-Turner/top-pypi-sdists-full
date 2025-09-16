@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.security
-Version: 7.3
+Version: 8.0
 Summary: Zope Security Framework
 Home-page: http://github.com/zopefoundation/zope.security
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Project-URL: Documentation, https://zopesecurity.readthedocs.io
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.security/issues
 Project-URL: Sources, https://github.com/zopefoundation/zope.security
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -28,14 +27,14 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zope.component
 Requires-Dist: zope.i18nmessageid
 Requires-Dist: zope.interface
 Requires-Dist: zope.location
-Requires-Dist: zope.proxy>=5.2
+Requires-Dist: zope.proxy>=6.1
 Requires-Dist: zope.schema>=4.2.0
 Provides-Extra: pytz
 Requires-Dist: pytz; extra == "pytz"
@@ -49,13 +48,26 @@ Requires-Dist: zope.component; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.location; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: zope.configuration; extra == "docs"
 Requires-Dist: zope.testing; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===================
  ``zope.security``
@@ -90,6 +102,16 @@ Documentation is available at https://zopesecurity.readthedocs.io/
 =========
  Changes
 =========
+
+8.0 (2025-09-15)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Drop support for Python 3.8.
+
+- Add preliminary support for Python 3.14.
+
 
 7.3 (2024-10-02)
 ----------------

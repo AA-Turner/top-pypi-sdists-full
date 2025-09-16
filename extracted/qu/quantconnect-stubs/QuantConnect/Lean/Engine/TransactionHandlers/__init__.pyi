@@ -299,7 +299,7 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
-    def initialize_transaction_thread(self, processing_threads_count: int) -> None:
+    def initialize_transaction_thread(self) -> None:
         """
         Create and start the transaction thread, who will be in charge of processing
         the order requests
@@ -398,7 +398,7 @@ class BacktestingTransactionHandler(QuantConnect.Lean.Engine.TransactionHandlers
         """
         ...
 
-    def initialize_transaction_thread(self, thread_id: int) -> None:
+    def initialize_transaction_thread(self) -> None:
         """
         For backtesting order requests will be processed by the algorithm thread
         sequentially at WaitForOrderSubmission and ProcessSynchronousEvents

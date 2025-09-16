@@ -69,7 +69,362 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_auditmanager.AssessmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"assessment_arn": "assessmentArn", "assessment_id": "assessmentId"},
+)
+class AssessmentReference:
+    def __init__(
+        self,
+        *,
+        assessment_arn: builtins.str,
+        assessment_id: builtins.str,
+    ) -> None:
+        '''A reference to a Assessment resource.
+
+        :param assessment_arn: The ARN of the Assessment resource.
+        :param assessment_id: The AssessmentId of the Assessment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_auditmanager as auditmanager
+            
+            assessment_reference = auditmanager.AssessmentReference(
+                assessment_arn="assessmentArn",
+                assessment_id="assessmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdad30682e9881db8850a154a66c782dae8e5ebf3c80ebd19c30b57a9c0fc993)
+            check_type(argname="argument assessment_arn", value=assessment_arn, expected_type=type_hints["assessment_arn"])
+            check_type(argname="argument assessment_id", value=assessment_id, expected_type=type_hints["assessment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assessment_arn": assessment_arn,
+            "assessment_id": assessment_id,
+        }
+
+    @builtins.property
+    def assessment_arn(self) -> builtins.str:
+        '''The ARN of the Assessment resource.'''
+        result = self._values.get("assessment_arn")
+        assert result is not None, "Required property 'assessment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def assessment_id(self) -> builtins.str:
+        '''The AssessmentId of the Assessment resource.'''
+        result = self._values.get("assessment_id")
+        assert result is not None, "Required property 'assessment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssessmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "assessment_reports_destination": "assessmentReportsDestination",
+        "aws_account": "awsAccount",
+        "delegations": "delegations",
+        "description": "description",
+        "framework_id": "frameworkId",
+        "name": "name",
+        "roles": "roles",
+        "scope": "scope",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnAssessmentProps:
+    def __init__(
+        self,
+        *,
+        assessment_reports_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssessment.AssessmentReportsDestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        aws_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssessment.AWSAccountProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delegations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssessment.DelegationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        framework_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssessment.RoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssessment.ScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssessment``.
+
+        :param assessment_reports_destination: The destination that evidence reports are stored in for the assessment.
+        :param aws_account: The AWS account that's associated with the assessment.
+        :param delegations: The delegations that are associated with the assessment.
+        :param description: The description of the assessment.
+        :param framework_id: The unique identifier for the framework.
+        :param name: The name of the assessment.
+        :param roles: The roles that are associated with the assessment.
+        :param scope: The wrapper of AWS accounts and services that are in scope for the assessment.
+        :param status: The overall status of the assessment. When you create a new assessment, the initial ``Status`` value is always ``ACTIVE`` . When you create an assessment, even if you specify the value as ``INACTIVE`` , the value overrides to ``ACTIVE`` . After you create an assessment, you can change the value of the ``Status`` property at any time. For example, when you want to stop collecting evidence for your assessment, you can change the assessment status to ``INACTIVE`` .
+        :param tags: The tags that are associated with the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_auditmanager as auditmanager
+            
+            cfn_assessment_props = auditmanager.CfnAssessmentProps(
+                assessment_reports_destination=auditmanager.CfnAssessment.AssessmentReportsDestinationProperty(
+                    destination="destination",
+                    destination_type="destinationType"
+                ),
+                aws_account=auditmanager.CfnAssessment.AWSAccountProperty(
+                    email_address="emailAddress",
+                    id="id",
+                    name="name"
+                ),
+                delegations=[auditmanager.CfnAssessment.DelegationProperty(
+                    assessment_id="assessmentId",
+                    assessment_name="assessmentName",
+                    comment="comment",
+                    control_set_id="controlSetId",
+                    created_by="createdBy",
+                    creation_time=123,
+                    id="id",
+                    last_updated=123,
+                    role_arn="roleArn",
+                    role_type="roleType",
+                    status="status"
+                )],
+                description="description",
+                framework_id="frameworkId",
+                name="name",
+                roles=[auditmanager.CfnAssessment.RoleProperty(
+                    role_arn="roleArn",
+                    role_type="roleType"
+                )],
+                scope=auditmanager.CfnAssessment.ScopeProperty(
+                    aws_accounts=[auditmanager.CfnAssessment.AWSAccountProperty(
+                        email_address="emailAddress",
+                        id="id",
+                        name="name"
+                    )],
+                    aws_services=[auditmanager.CfnAssessment.AWSServiceProperty(
+                        service_name="serviceName"
+                    )]
+                ),
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2850511e546d810588bf13d31b8000ce88bdb15623b9e2fb6677d33dba4aa4c5)
+            check_type(argname="argument assessment_reports_destination", value=assessment_reports_destination, expected_type=type_hints["assessment_reports_destination"])
+            check_type(argname="argument aws_account", value=aws_account, expected_type=type_hints["aws_account"])
+            check_type(argname="argument delegations", value=delegations, expected_type=type_hints["delegations"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument framework_id", value=framework_id, expected_type=type_hints["framework_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument roles", value=roles, expected_type=type_hints["roles"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if assessment_reports_destination is not None:
+            self._values["assessment_reports_destination"] = assessment_reports_destination
+        if aws_account is not None:
+            self._values["aws_account"] = aws_account
+        if delegations is not None:
+            self._values["delegations"] = delegations
+        if description is not None:
+            self._values["description"] = description
+        if framework_id is not None:
+            self._values["framework_id"] = framework_id
+        if name is not None:
+            self._values["name"] = name
+        if roles is not None:
+            self._values["roles"] = roles
+        if scope is not None:
+            self._values["scope"] = scope
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def assessment_reports_destination(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.AssessmentReportsDestinationProperty"]]:
+        '''The destination that evidence reports are stored in for the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-assessmentreportsdestination
+        '''
+        result = self._values.get("assessment_reports_destination")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.AssessmentReportsDestinationProperty"]], result)
+
+    @builtins.property
+    def aws_account(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.AWSAccountProperty"]]:
+        '''The AWS account that's associated with the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-awsaccount
+        '''
+        result = self._values.get("aws_account")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.AWSAccountProperty"]], result)
+
+    @builtins.property
+    def delegations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssessment.DelegationProperty"]]]]:
+        '''The delegations that are associated with the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-delegations
+        '''
+        result = self._values.get("delegations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssessment.DelegationProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def framework_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier for the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-frameworkid
+        '''
+        result = self._values.get("framework_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def roles(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssessment.RoleProperty"]]]]:
+        '''The roles that are associated with the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-roles
+        '''
+        result = self._values.get("roles")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssessment.RoleProperty"]]]], result)
+
+    @builtins.property
+    def scope(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.ScopeProperty"]]:
+        '''The wrapper of AWS accounts and services that are in scope for the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssessment.ScopeProperty"]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The overall status of the assessment.
+
+        When you create a new assessment, the initial ``Status`` value is always ``ACTIVE`` . When you create an assessment, even if you specify the value as ``INACTIVE`` , the value overrides to ``ACTIVE`` .
+
+        After you create an assessment, you can change the value of the ``Status`` property at any time. For example, when you want to stop collecting evidence for your assessment, you can change the assessment status to ``INACTIVE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags that are associated with the assessment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssessmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_auditmanager.IAssessmentRef")
+class IAssessmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Assessment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assessmentRef")
+    def assessment_ref(self) -> AssessmentReference:
+        '''(experimental) A reference to a Assessment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssessmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Assessment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_auditmanager.IAssessmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assessmentRef")
+    def assessment_ref(self) -> AssessmentReference:
+        '''(experimental) A reference to a Assessment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssessmentReference, jsii.get(self, "assessmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssessmentRef).__jsii_proxy_class__ = lambda : _IAssessmentRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAssessmentRef, _ITaggable_36806126)
 class CfnAssessment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -215,6 +570,12 @@ class CfnAssessment(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assessmentRef")
+    def assessment_ref(self) -> AssessmentReference:
+        '''A reference to a Assessment resource.'''
+        return typing.cast(AssessmentReference, jsii.get(self, "assessmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -1016,262 +1377,38 @@ class CfnAssessment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "assessment_reports_destination": "assessmentReportsDestination",
-        "aws_account": "awsAccount",
-        "delegations": "delegations",
-        "description": "description",
-        "framework_id": "frameworkId",
-        "name": "name",
-        "roles": "roles",
-        "scope": "scope",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnAssessmentProps:
-    def __init__(
-        self,
-        *,
-        assessment_reports_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AssessmentReportsDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        aws_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AWSAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        delegations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.DelegationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        framework_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.RoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAssessment``.
-
-        :param assessment_reports_destination: The destination that evidence reports are stored in for the assessment.
-        :param aws_account: The AWS account that's associated with the assessment.
-        :param delegations: The delegations that are associated with the assessment.
-        :param description: The description of the assessment.
-        :param framework_id: The unique identifier for the framework.
-        :param name: The name of the assessment.
-        :param roles: The roles that are associated with the assessment.
-        :param scope: The wrapper of AWS accounts and services that are in scope for the assessment.
-        :param status: The overall status of the assessment. When you create a new assessment, the initial ``Status`` value is always ``ACTIVE`` . When you create an assessment, even if you specify the value as ``INACTIVE`` , the value overrides to ``ACTIVE`` . After you create an assessment, you can change the value of the ``Status`` property at any time. For example, when you want to stop collecting evidence for your assessment, you can change the assessment status to ``INACTIVE`` .
-        :param tags: The tags that are associated with the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_auditmanager as auditmanager
-            
-            cfn_assessment_props = auditmanager.CfnAssessmentProps(
-                assessment_reports_destination=auditmanager.CfnAssessment.AssessmentReportsDestinationProperty(
-                    destination="destination",
-                    destination_type="destinationType"
-                ),
-                aws_account=auditmanager.CfnAssessment.AWSAccountProperty(
-                    email_address="emailAddress",
-                    id="id",
-                    name="name"
-                ),
-                delegations=[auditmanager.CfnAssessment.DelegationProperty(
-                    assessment_id="assessmentId",
-                    assessment_name="assessmentName",
-                    comment="comment",
-                    control_set_id="controlSetId",
-                    created_by="createdBy",
-                    creation_time=123,
-                    id="id",
-                    last_updated=123,
-                    role_arn="roleArn",
-                    role_type="roleType",
-                    status="status"
-                )],
-                description="description",
-                framework_id="frameworkId",
-                name="name",
-                roles=[auditmanager.CfnAssessment.RoleProperty(
-                    role_arn="roleArn",
-                    role_type="roleType"
-                )],
-                scope=auditmanager.CfnAssessment.ScopeProperty(
-                    aws_accounts=[auditmanager.CfnAssessment.AWSAccountProperty(
-                        email_address="emailAddress",
-                        id="id",
-                        name="name"
-                    )],
-                    aws_services=[auditmanager.CfnAssessment.AWSServiceProperty(
-                        service_name="serviceName"
-                    )]
-                ),
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2850511e546d810588bf13d31b8000ce88bdb15623b9e2fb6677d33dba4aa4c5)
-            check_type(argname="argument assessment_reports_destination", value=assessment_reports_destination, expected_type=type_hints["assessment_reports_destination"])
-            check_type(argname="argument aws_account", value=aws_account, expected_type=type_hints["aws_account"])
-            check_type(argname="argument delegations", value=delegations, expected_type=type_hints["delegations"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument framework_id", value=framework_id, expected_type=type_hints["framework_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument roles", value=roles, expected_type=type_hints["roles"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if assessment_reports_destination is not None:
-            self._values["assessment_reports_destination"] = assessment_reports_destination
-        if aws_account is not None:
-            self._values["aws_account"] = aws_account
-        if delegations is not None:
-            self._values["delegations"] = delegations
-        if description is not None:
-            self._values["description"] = description
-        if framework_id is not None:
-            self._values["framework_id"] = framework_id
-        if name is not None:
-            self._values["name"] = name
-        if roles is not None:
-            self._values["roles"] = roles
-        if scope is not None:
-            self._values["scope"] = scope
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def assessment_reports_destination(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.AssessmentReportsDestinationProperty]]:
-        '''The destination that evidence reports are stored in for the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-assessmentreportsdestination
-        '''
-        result = self._values.get("assessment_reports_destination")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.AssessmentReportsDestinationProperty]], result)
-
-    @builtins.property
-    def aws_account(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.AWSAccountProperty]]:
-        '''The AWS account that's associated with the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-awsaccount
-        '''
-        result = self._values.get("aws_account")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.AWSAccountProperty]], result)
-
-    @builtins.property
-    def delegations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssessment.DelegationProperty]]]]:
-        '''The delegations that are associated with the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-delegations
-        '''
-        result = self._values.get("delegations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssessment.DelegationProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def framework_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier for the framework.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-frameworkid
-        '''
-        result = self._values.get("framework_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def roles(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssessment.RoleProperty]]]]:
-        '''The roles that are associated with the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-roles
-        '''
-        result = self._values.get("roles")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssessment.RoleProperty]]]], result)
-
-    @builtins.property
-    def scope(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.ScopeProperty]]:
-        '''The wrapper of AWS accounts and services that are in scope for the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-scope
-        '''
-        result = self._values.get("scope")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssessment.ScopeProperty]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The overall status of the assessment.
-
-        When you create a new assessment, the initial ``Status`` value is always ``ACTIVE`` . When you create an assessment, even if you specify the value as ``INACTIVE`` , the value overrides to ``ACTIVE`` .
-
-        After you create an assessment, you can change the value of the ``Status`` property at any time. For example, when you want to stop collecting evidence for your assessment, you can change the assessment status to ``INACTIVE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags that are associated with the assessment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessment.html#cfn-auditmanager-assessment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssessmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AssessmentReference",
     "CfnAssessment",
     "CfnAssessmentProps",
+    "IAssessmentRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__cdad30682e9881db8850a154a66c782dae8e5ebf3c80ebd19c30b57a9c0fc993(
+    *,
+    assessment_arn: builtins.str,
+    assessment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2850511e546d810588bf13d31b8000ce88bdb15623b9e2fb6677d33dba4aa4c5(
+    *,
+    assessment_reports_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AssessmentReportsDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aws_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AWSAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delegations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.DelegationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    framework_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.RoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__92bc07048cc88ff5fa41ca724a6b42a6ae66b35846d9ddafe90b7f4869459869(
     scope_: _constructs_77d1e7e8.Construct,
@@ -1416,22 +1553,6 @@ def _typecheckingstub__05fcd83833b2ad06bd1bbfa294b9e1cfa8cbd4951ac7be53a73189186
     *,
     aws_accounts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AWSAccountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     aws_services: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AWSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2850511e546d810588bf13d31b8000ce88bdb15623b9e2fb6677d33dba4aa4c5(
-    *,
-    assessment_reports_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AssessmentReportsDestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    aws_account: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.AWSAccountProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delegations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.DelegationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    framework_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.RoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssessment.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

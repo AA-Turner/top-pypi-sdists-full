@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs",
-    version="1.40.30",
+    version="1.40.31",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.40.30 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.40.31 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.40.0, <1.41.0"],
-        "boto3": ["boto3==1.40.30"],
+        "boto3": ["boto3==1.40.31"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.40.0, <1.41.0",
             "mypy-boto3-account>=1.40.0, <1.41.0",
@@ -421,7 +421,6 @@ setup(
             "mypy-boto3-shield>=1.40.0, <1.41.0",
             "mypy-boto3-signer>=1.40.0, <1.41.0",
             "mypy-boto3-simspaceweaver>=1.40.0, <1.41.0",
-            "mypy-boto3-sms>=1.40.0, <1.41.0",
             "mypy-boto3-snow-device-management>=1.40.0, <1.41.0",
             "mypy-boto3-snowball>=1.40.0, <1.41.0",
             "mypy-boto3-sns>=1.40.0, <1.41.0",
@@ -862,7 +861,6 @@ setup(
         "shield": ["mypy-boto3-shield>=1.40.0, <1.41.0"],
         "signer": ["mypy-boto3-signer>=1.40.0, <1.41.0"],
         "simspaceweaver": ["mypy-boto3-simspaceweaver>=1.40.0, <1.41.0"],
-        "sms": ["mypy-boto3-sms>=1.40.0, <1.41.0"],
         "snow-device-management": ["mypy-boto3-snow-device-management>=1.40.0, <1.41.0"],
         "snowball": ["mypy-boto3-snowball>=1.40.0, <1.41.0"],
         "sns": ["mypy-boto3-sns>=1.40.0, <1.41.0"],

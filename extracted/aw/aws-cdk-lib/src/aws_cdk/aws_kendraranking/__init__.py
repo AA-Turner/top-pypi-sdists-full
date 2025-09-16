@@ -69,7 +69,235 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendraranking.CfnExecutionPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "capacity_units": "capacityUnits",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnExecutionPlanProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnExecutionPlan.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExecutionPlan``.
+
+        :param name: A name for the rescore execution plan.
+        :param capacity_units: You can set additional capacity units to meet the needs of your rescore execution plan. You are given a single capacity unit by default. If you want to use the default capacity, you don't set additional capacity units. For more information on the default capacity and additional capacity units, see `Adjusting capacity <https://docs.aws.amazon.com/kendra/latest/dg/adjusting-capacity.html>`_ .
+        :param description: A description for the rescore execution plan.
+        :param tags: A list of key-value pairs that identify or categorize your rescore execution plan. You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendraranking as kendraranking
+            
+            cfn_execution_plan_props = kendraranking.CfnExecutionPlanProps(
+                name="name",
+            
+                # the properties below are optional
+                capacity_units=kendraranking.CfnExecutionPlan.CapacityUnitsConfigurationProperty(
+                    rescore_capacity_units=123
+                ),
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if capacity_units is not None:
+            self._values["capacity_units"] = capacity_units
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the rescore execution plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capacity_units(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]]:
+        '''You can set additional capacity units to meet the needs of your rescore execution plan.
+
+        You are given a single capacity unit by default. If you want to use the default capacity, you don't set additional capacity units. For more information on the default capacity and additional capacity units, see `Adjusting capacity <https://docs.aws.amazon.com/kendra/latest/dg/adjusting-capacity.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-capacityunits
+        '''
+        result = self._values.get("capacity_units")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnExecutionPlan.CapacityUnitsConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the rescore execution plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize your rescore execution plan.
+
+        You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExecutionPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendraranking.ExecutionPlanReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_plan_arn": "executionPlanArn",
+        "execution_plan_id": "executionPlanId",
+    },
+)
+class ExecutionPlanReference:
+    def __init__(
+        self,
+        *,
+        execution_plan_arn: builtins.str,
+        execution_plan_id: builtins.str,
+    ) -> None:
+        '''A reference to a ExecutionPlan resource.
+
+        :param execution_plan_arn: The ARN of the ExecutionPlan resource.
+        :param execution_plan_id: The Id of the ExecutionPlan resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendraranking as kendraranking
+            
+            execution_plan_reference = kendraranking.ExecutionPlanReference(
+                execution_plan_arn="executionPlanArn",
+                execution_plan_id="executionPlanId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65b2371a9670e7898276a3f86a5bad7ed049916af70e93a3d32933f1657beb28)
+            check_type(argname="argument execution_plan_arn", value=execution_plan_arn, expected_type=type_hints["execution_plan_arn"])
+            check_type(argname="argument execution_plan_id", value=execution_plan_id, expected_type=type_hints["execution_plan_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_plan_arn": execution_plan_arn,
+            "execution_plan_id": execution_plan_id,
+        }
+
+    @builtins.property
+    def execution_plan_arn(self) -> builtins.str:
+        '''The ARN of the ExecutionPlan resource.'''
+        result = self._values.get("execution_plan_arn")
+        assert result is not None, "Required property 'execution_plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_plan_id(self) -> builtins.str:
+        '''The Id of the ExecutionPlan resource.'''
+        result = self._values.get("execution_plan_id")
+        assert result is not None, "Required property 'execution_plan_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExecutionPlanReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kendraranking.IExecutionPlanRef")
+class IExecutionPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ExecutionPlan.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="executionPlanRef")
+    def execution_plan_ref(self) -> ExecutionPlanReference:
+        '''(experimental) A reference to a ExecutionPlan resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExecutionPlanRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ExecutionPlan.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kendraranking.IExecutionPlanRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="executionPlanRef")
+    def execution_plan_ref(self) -> ExecutionPlanReference:
+        '''(experimental) A reference to a ExecutionPlan resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ExecutionPlanReference, jsii.get(self, "executionPlanRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExecutionPlanRef).__jsii_proxy_class__ = lambda : _IExecutionPlanRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IExecutionPlanRef, _ITaggable_36806126)
 class CfnExecutionPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -191,6 +419,12 @@ class CfnExecutionPlan(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="executionPlanRef")
+    def execution_plan_ref(self) -> ExecutionPlanReference:
+        '''A reference to a ExecutionPlan resource.'''
+        return typing.cast(ExecutionPlanReference, jsii.get(self, "executionPlanRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -310,132 +544,32 @@ class CfnExecutionPlan(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kendraranking.CfnExecutionPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "capacity_units": "capacityUnits",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnExecutionPlanProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnExecutionPlan``.
-
-        :param name: A name for the rescore execution plan.
-        :param capacity_units: You can set additional capacity units to meet the needs of your rescore execution plan. You are given a single capacity unit by default. If you want to use the default capacity, you don't set additional capacity units. For more information on the default capacity and additional capacity units, see `Adjusting capacity <https://docs.aws.amazon.com/kendra/latest/dg/adjusting-capacity.html>`_ .
-        :param description: A description for the rescore execution plan.
-        :param tags: A list of key-value pairs that identify or categorize your rescore execution plan. You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kendraranking as kendraranking
-            
-            cfn_execution_plan_props = kendraranking.CfnExecutionPlanProps(
-                name="name",
-            
-                # the properties below are optional
-                capacity_units=kendraranking.CfnExecutionPlan.CapacityUnitsConfigurationProperty(
-                    rescore_capacity_units=123
-                ),
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if capacity_units is not None:
-            self._values["capacity_units"] = capacity_units
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the rescore execution plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def capacity_units(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnExecutionPlan.CapacityUnitsConfigurationProperty]]:
-        '''You can set additional capacity units to meet the needs of your rescore execution plan.
-
-        You are given a single capacity unit by default. If you want to use the default capacity, you don't set additional capacity units. For more information on the default capacity and additional capacity units, see `Adjusting capacity <https://docs.aws.amazon.com/kendra/latest/dg/adjusting-capacity.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-capacityunits
-        '''
-        result = self._values.get("capacity_units")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnExecutionPlan.CapacityUnitsConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the rescore execution plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize your rescore execution plan.
-
-        You can also use tags to help control access to the rescore execution plan. Tag keys and values can consist of Unicode letters, digits, white space. They can also consist of underscore, period, colon, equal, plus, and asperand.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendraranking-executionplan.html#cfn-kendraranking-executionplan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnExecutionPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnExecutionPlan",
     "CfnExecutionPlanProps",
+    "ExecutionPlanReference",
+    "IExecutionPlanRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c(
+    *,
+    name: builtins.str,
+    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65b2371a9670e7898276a3f86a5bad7ed049916af70e93a3d32933f1657beb28(
+    *,
+    execution_plan_arn: builtins.str,
+    execution_plan_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__10ad8ffee997e60c547397dcad2b6175d967468b936a768fcba47720363d43bd(
     scope: _constructs_77d1e7e8.Construct,
@@ -488,16 +622,6 @@ def _typecheckingstub__55d68c9f299d528d643242539117e67cdcb6d318233fbecc0794963d3
 def _typecheckingstub__6a681fa857411b5b813fd3ea51ba3c2278b7c1fb3b2c743dbcaf4c754eb37600(
     *,
     rescore_capacity_units: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6824e9d616fc4857909be0579f7bafbf44cfdbe1f17d09ace318ad6214947d0c(
-    *,
-    name: builtins.str,
-    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExecutionPlan.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

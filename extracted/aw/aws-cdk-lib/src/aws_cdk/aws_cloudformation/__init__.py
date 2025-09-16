@@ -47,7 +47,4223 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnCustomResourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "service_token": "serviceToken",
+        "service_timeout": "serviceTimeout",
+    },
+)
+class CfnCustomResourceProps:
+    def __init__(
+        self,
+        *,
+        service_token: builtins.str,
+        service_timeout: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCustomResource``.
+
+        :param service_token: The service token, such as an Amazon SNS topic ARN or Lambda function ARN. The service token must be from the same Region as the stack. Updates aren't supported.
+        :param service_timeout: The maximum time, in seconds, that can elapse before a custom resource operation times out. The value must be an integer from 1 to 3600. The default value is 3600 seconds (1 hour).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_custom_resource_props = cloudformation.CfnCustomResourceProps(
+                service_token="serviceToken",
+            
+                # the properties below are optional
+                service_timeout=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f766b9f5ea2582bff4d2cb33b19a38fbdabfbe380c61d04a056e8e0d2a00b54a)
+            check_type(argname="argument service_token", value=service_token, expected_type=type_hints["service_token"])
+            check_type(argname="argument service_timeout", value=service_timeout, expected_type=type_hints["service_timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_token": service_token,
+        }
+        if service_timeout is not None:
+            self._values["service_timeout"] = service_timeout
+
+    @builtins.property
+    def service_token(self) -> builtins.str:
+        '''The service token, such as an Amazon SNS topic ARN or Lambda function ARN.
+
+        The service token must be from the same Region as the stack.
+
+        Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html#cfn-cloudformation-customresource-servicetoken
+        '''
+        result = self._values.get("service_token")
+        assert result is not None, "Required property 'service_token' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_timeout(self) -> typing.Optional[jsii.Number]:
+        '''The maximum time, in seconds, that can elapse before a custom resource operation times out.
+
+        The value must be an integer from 1 to 3600. The default value is 3600 seconds (1 hour).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html#cfn-cloudformation-customresource-servicetimeout
+        '''
+        result = self._values.get("service_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCustomResourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnGuardHookProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alias": "alias",
+        "execution_role": "executionRole",
+        "failure_mode": "failureMode",
+        "hook_status": "hookStatus",
+        "rule_location": "ruleLocation",
+        "target_operations": "targetOperations",
+        "log_bucket": "logBucket",
+        "options": "options",
+        "stack_filters": "stackFilters",
+        "target_filters": "targetFilters",
+    },
+)
+class CfnGuardHookProps:
+    def __init__(
+        self,
+        *,
+        alias: builtins.str,
+        execution_role: builtins.str,
+        failure_mode: builtins.str,
+        hook_status: builtins.str,
+        rule_location: typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardHook.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        target_operations: typing.Sequence[builtins.str],
+        log_bucket: typing.Optional[builtins.str] = None,
+        options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardHook.OptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardHook.StackFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardHook.TargetFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGuardHook``.
+
+        :param alias: The type name alias for the Hook. This alias must be unique per account and Region. The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Guard::MyTestHook`` .
+        :param execution_role: The IAM role that the Hook assumes to retrieve your Guard rules from S3 and optionally write a detailed Guard output report back.
+        :param failure_mode: Specifies how the Hook responds when rules fail their evaluation. - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies. - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks. Default: - "WARN"
+        :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "DISABLED"
+        :param rule_location: Specifies the S3 location of your Guard rules.
+        :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+        :param log_bucket: Specifies the name of an S3 bucket to store the Guard output report. This report contains the results of your Guard rule validations.
+        :param options: Specifies the S3 location of your input parameters.
+        :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_guard_hook_props = cloudformation.CfnGuardHookProps(
+                alias="alias",
+                execution_role="executionRole",
+                failure_mode="failureMode",
+                hook_status="hookStatus",
+                rule_location=cloudformation.CfnGuardHook.S3LocationProperty(
+                    uri="uri",
+            
+                    # the properties below are optional
+                    version_id="versionId"
+                ),
+                target_operations=["targetOperations"],
+            
+                # the properties below are optional
+                log_bucket="logBucket",
+                options=cloudformation.CfnGuardHook.OptionsProperty(
+                    input_params=cloudformation.CfnGuardHook.S3LocationProperty(
+                        uri="uri",
+            
+                        # the properties below are optional
+                        version_id="versionId"
+                    )
+                ),
+                stack_filters=cloudformation.CfnGuardHook.StackFiltersProperty(
+                    filtering_criteria="filteringCriteria",
+            
+                    # the properties below are optional
+                    stack_names=cloudformation.CfnGuardHook.StackNamesProperty(
+                        exclude=["exclude"],
+                        include=["include"]
+                    ),
+                    stack_roles=cloudformation.CfnGuardHook.StackRolesProperty(
+                        exclude=["exclude"],
+                        include=["include"]
+                    )
+                ),
+                target_filters=cloudformation.CfnGuardHook.TargetFiltersProperty(
+                    targets=[cloudformation.CfnGuardHook.HookTargetProperty(
+                        action="action",
+                        invocation_point="invocationPoint",
+                        target_name="targetName"
+                    )],
+            
+                    # the properties below are optional
+                    actions=["actions"],
+                    invocation_points=["invocationPoints"],
+                    target_names=["targetNames"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__102e29368f2c52ece5c053d50bb54873288bc91ca7d6f01a1ad3bb84ffdc3b76)
+            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument failure_mode", value=failure_mode, expected_type=type_hints["failure_mode"])
+            check_type(argname="argument hook_status", value=hook_status, expected_type=type_hints["hook_status"])
+            check_type(argname="argument rule_location", value=rule_location, expected_type=type_hints["rule_location"])
+            check_type(argname="argument target_operations", value=target_operations, expected_type=type_hints["target_operations"])
+            check_type(argname="argument log_bucket", value=log_bucket, expected_type=type_hints["log_bucket"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument stack_filters", value=stack_filters, expected_type=type_hints["stack_filters"])
+            check_type(argname="argument target_filters", value=target_filters, expected_type=type_hints["target_filters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias": alias,
+            "execution_role": execution_role,
+            "failure_mode": failure_mode,
+            "hook_status": hook_status,
+            "rule_location": rule_location,
+            "target_operations": target_operations,
+        }
+        if log_bucket is not None:
+            self._values["log_bucket"] = log_bucket
+        if options is not None:
+            self._values["options"] = options
+        if stack_filters is not None:
+            self._values["stack_filters"] = stack_filters
+        if target_filters is not None:
+            self._values["target_filters"] = target_filters
+
+    @builtins.property
+    def alias(self) -> builtins.str:
+        '''The type name alias for the Hook. This alias must be unique per account and Region.
+
+        The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Guard::MyTestHook`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-alias
+        '''
+        result = self._values.get("alias")
+        assert result is not None, "Required property 'alias' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role(self) -> builtins.str:
+        '''The IAM role that the Hook assumes to retrieve your Guard rules from S3 and optionally write a detailed Guard output report back.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-executionrole
+        '''
+        result = self._values.get("execution_role")
+        assert result is not None, "Required property 'execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def failure_mode(self) -> builtins.str:
+        '''Specifies how the Hook responds when rules fail their evaluation.
+
+        - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies.
+        - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
+
+        :default: - "WARN"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-failuremode
+        '''
+        result = self._values.get("failure_mode")
+        assert result is not None, "Required property 'failure_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def hook_status(self) -> builtins.str:
+        '''Specifies if the Hook is ``ENABLED`` or ``DISABLED`` .
+
+        :default: - "DISABLED"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-hookstatus
+        '''
+        result = self._values.get("hook_status")
+        assert result is not None, "Required property 'hook_status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_location(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnGuardHook.S3LocationProperty"]:
+        '''Specifies the S3 location of your Guard rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-rulelocation
+        '''
+        result = self._values.get("rule_location")
+        assert result is not None, "Required property 'rule_location' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnGuardHook.S3LocationProperty"], result)
+
+    @builtins.property
+    def target_operations(self) -> typing.List[builtins.str]:
+        '''Specifies the list of operations the Hook is run against.
+
+        For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* .
+
+        Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-targetoperations
+        '''
+        result = self._values.get("target_operations")
+        assert result is not None, "Required property 'target_operations' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def log_bucket(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of an S3 bucket to store the Guard output report.
+
+        This report contains the results of your Guard rule validations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-logbucket
+        '''
+        result = self._values.get("log_bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.OptionsProperty"]]:
+        '''Specifies the S3 location of your input parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-options
+        '''
+        result = self._values.get("options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.OptionsProperty"]], result)
+
+    @builtins.property
+    def stack_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.StackFiltersProperty"]]:
+        '''Specifies the stack level filters for the Hook.
+
+        Example stack level filter in JSON:
+
+        ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}``
+
+        Example stack level filter in YAML:
+
+        ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-stackfilters
+        '''
+        result = self._values.get("stack_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.StackFiltersProperty"]], result)
+
+    @builtins.property
+    def target_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.TargetFiltersProperty"]]:
+        '''Specifies the target filters for the Hook.
+
+        Example target filter in JSON:
+
+        ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}``
+
+        Example target filter in YAML:
+
+        ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-targetfilters
+        '''
+        result = self._values.get("target_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardHook.TargetFiltersProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGuardHookProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookDefaultVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type_name": "typeName",
+        "type_version_arn": "typeVersionArn",
+        "version_id": "versionId",
+    },
+)
+class CfnHookDefaultVersionProps:
+    def __init__(
+        self,
+        *,
+        type_name: typing.Optional[builtins.str] = None,
+        type_version_arn: typing.Optional[builtins.str] = None,
+        version_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHookDefaultVersion``.
+
+        :param type_name: The name of the Hook. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+        :param type_version_arn: The version ID of the type configuration. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+        :param version_id: The version ID of the type specified. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_hook_default_version_props = cloudformation.CfnHookDefaultVersionProps(
+                type_name="typeName",
+                type_version_arn="typeVersionArn",
+                version_id="versionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86e582779d0fb8b475195467d988078f1c65515c6a403bf9dc6b5ef8aced149f)
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+            check_type(argname="argument type_version_arn", value=type_version_arn, expected_type=type_hints["type_version_arn"])
+            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if type_name is not None:
+            self._values["type_name"] = type_name
+        if type_version_arn is not None:
+            self._values["type_version_arn"] = type_version_arn
+        if version_id is not None:
+            self._values["version_id"] = version_id
+
+    @builtins.property
+    def type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Hook.
+
+        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-typename
+        '''
+        result = self._values.get("type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The version ID of the type configuration.
+
+        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-typeversionarn
+        '''
+        result = self._values.get("type_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_id(self) -> typing.Optional[builtins.str]:
+        '''The version ID of the type specified.
+
+        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-versionid
+        '''
+        result = self._values.get("version_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHookDefaultVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookTypeConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "configuration_alias": "configurationAlias",
+        "type_arn": "typeArn",
+        "type_name": "typeName",
+    },
+)
+class CfnHookTypeConfigProps:
+    def __init__(
+        self,
+        *,
+        configuration: builtins.str,
+        configuration_alias: typing.Optional[builtins.str] = None,
+        type_arn: typing.Optional[builtins.str] = None,
+        type_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHookTypeConfig``.
+
+        :param configuration: Specifies the activated Hook type configuration, in this AWS account and AWS Region . You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+        :param configuration_alias: An alias by which to refer to this configuration data. Defaults to ``default`` alias. Hook types currently support default configuration alias. Default: - "default"
+        :param type_arn: The Amazon Resource Number (ARN) for the Hook to set ``Configuration`` for. You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+        :param type_name: The unique name for your Hook. Specifies a three-part namespace for your Hook, with a recommended pattern of ``Organization::Service::Hook`` . You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_hook_type_config_props = cloudformation.CfnHookTypeConfigProps(
+                configuration="configuration",
+            
+                # the properties below are optional
+                configuration_alias="configurationAlias",
+                type_arn="typeArn",
+                type_name="typeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef5f9608def2c7b14e7449a6bceadbd90b6e5242e86707d305d4923d050f8f9a)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument configuration_alias", value=configuration_alias, expected_type=type_hints["configuration_alias"])
+            check_type(argname="argument type_arn", value=type_arn, expected_type=type_hints["type_arn"])
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration": configuration,
+        }
+        if configuration_alias is not None:
+            self._values["configuration_alias"] = configuration_alias
+        if type_arn is not None:
+            self._values["type_arn"] = type_arn
+        if type_name is not None:
+            self._values["type_name"] = type_name
+
+    @builtins.property
+    def configuration(self) -> builtins.str:
+        '''Specifies the activated Hook type configuration, in this AWS account and AWS Region .
+
+        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_alias(self) -> typing.Optional[builtins.str]:
+        '''An alias by which to refer to this configuration data.
+
+        Defaults to ``default`` alias. Hook types currently support default configuration alias.
+
+        :default: - "default"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-configurationalias
+        '''
+        result = self._values.get("configuration_alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Number (ARN) for the Hook to set ``Configuration`` for.
+
+        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-typearn
+        '''
+        result = self._values.get("type_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_name(self) -> typing.Optional[builtins.str]:
+        '''The unique name for your Hook.
+
+        Specifies a three-part namespace for your Hook, with a recommended pattern of ``Organization::Service::Hook`` .
+
+        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-typename
+        '''
+        result = self._values.get("type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHookTypeConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "schema_handler_package": "schemaHandlerPackage",
+        "type_name": "typeName",
+        "execution_role_arn": "executionRoleArn",
+        "logging_config": "loggingConfig",
+    },
+)
+class CfnHookVersionProps:
+    def __init__(
+        self,
+        *,
+        schema_handler_package: builtins.str,
+        type_name: builtins.str,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHookVersion.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHookVersion``.
+
+        :param schema_handler_package: A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param type_name: The unique name for your hook. Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` . .. epigraph:: The following organization namespaces are reserved and can't be used in your hook type names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``ASK`` - ``AWS`` - ``Custom`` - ``Dev``
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
+        :param logging_config: Contains logging configuration information for an extension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_hook_version_props = cloudformation.CfnHookVersionProps(
+                schema_handler_package="schemaHandlerPackage",
+                type_name="typeName",
+            
+                # the properties below are optional
+                execution_role_arn="executionRoleArn",
+                logging_config=cloudformation.CfnHookVersion.LoggingConfigProperty(
+                    log_group_name="logGroupName",
+                    log_role_arn="logRoleArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a9bb2ef202f6ed27272b4d9787339d2a26c63beb648e39f3c4977200bcc65b1)
+            check_type(argname="argument schema_handler_package", value=schema_handler_package, expected_type=type_hints["schema_handler_package"])
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schema_handler_package": schema_handler_package,
+            "type_name": type_name,
+        }
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
+
+    @builtins.property
+    def schema_handler_package(self) -> builtins.str:
+        '''A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register.
+
+        For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* .
+        .. epigraph::
+
+           To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-schemahandlerpackage
+        '''
+        result = self._values.get("schema_handler_package")
+        assert result is not None, "Required property 'schema_handler_package' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type_name(self) -> builtins.str:
+        '''The unique name for your hook.
+
+        Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` .
+        .. epigraph::
+
+           The following organization namespaces are reserved and can't be used in your hook type names:
+
+           - ``Alexa``
+           - ``AMZN``
+           - ``Amazon``
+           - ``ASK``
+           - ``AWS``
+           - ``Custom``
+           - ``Dev``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-typename
+        '''
+        result = self._values.get("type_name")
+        assert result is not None, "Required property 'type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHookVersion.LoggingConfigProperty"]]:
+        '''Contains logging configuration information for an extension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-loggingconfig
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHookVersion.LoggingConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHookVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnLambdaHookProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alias": "alias",
+        "execution_role": "executionRole",
+        "failure_mode": "failureMode",
+        "hook_status": "hookStatus",
+        "lambda_function": "lambdaFunction",
+        "target_operations": "targetOperations",
+        "stack_filters": "stackFilters",
+        "target_filters": "targetFilters",
+    },
+)
+class CfnLambdaHookProps:
+    def __init__(
+        self,
+        *,
+        alias: builtins.str,
+        execution_role: builtins.str,
+        failure_mode: builtins.str,
+        hook_status: builtins.str,
+        lambda_function: builtins.str,
+        target_operations: typing.Sequence[builtins.str],
+        stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLambdaHook.StackFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLambdaHook.TargetFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLambdaHook``.
+
+        :param alias: The type name alias for the Hook. This alias must be unique per account and Region. The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Lambda::MyTestHook`` .
+        :param execution_role: The IAM role that the Hook assumes to invoke your Lambda function.
+        :param failure_mode: Specifies how the Hook responds when the Lambda function invoked by the Hook returns a ``FAILED`` response. - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies. - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
+        :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "ENABLED"
+        :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
+        :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+        :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
+        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_lambda_hook_props = cloudformation.CfnLambdaHookProps(
+                alias="alias",
+                execution_role="executionRole",
+                failure_mode="failureMode",
+                hook_status="hookStatus",
+                lambda_function="lambdaFunction",
+                target_operations=["targetOperations"],
+            
+                # the properties below are optional
+                stack_filters=cloudformation.CfnLambdaHook.StackFiltersProperty(
+                    filtering_criteria="filteringCriteria",
+            
+                    # the properties below are optional
+                    stack_names=cloudformation.CfnLambdaHook.StackNamesProperty(
+                        exclude=["exclude"],
+                        include=["include"]
+                    ),
+                    stack_roles=cloudformation.CfnLambdaHook.StackRolesProperty(
+                        exclude=["exclude"],
+                        include=["include"]
+                    )
+                ),
+                target_filters=cloudformation.CfnLambdaHook.TargetFiltersProperty(
+                    targets=[cloudformation.CfnLambdaHook.HookTargetProperty(
+                        action="action",
+                        invocation_point="invocationPoint",
+                        target_name="targetName"
+                    )],
+            
+                    # the properties below are optional
+                    actions=["actions"],
+                    invocation_points=["invocationPoints"],
+                    target_names=["targetNames"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08ef8befa45effdca3c0a1b699ffb2fae0aaed2060b19e128bdcc021cfcb0b95)
+            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument failure_mode", value=failure_mode, expected_type=type_hints["failure_mode"])
+            check_type(argname="argument hook_status", value=hook_status, expected_type=type_hints["hook_status"])
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+            check_type(argname="argument target_operations", value=target_operations, expected_type=type_hints["target_operations"])
+            check_type(argname="argument stack_filters", value=stack_filters, expected_type=type_hints["stack_filters"])
+            check_type(argname="argument target_filters", value=target_filters, expected_type=type_hints["target_filters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias": alias,
+            "execution_role": execution_role,
+            "failure_mode": failure_mode,
+            "hook_status": hook_status,
+            "lambda_function": lambda_function,
+            "target_operations": target_operations,
+        }
+        if stack_filters is not None:
+            self._values["stack_filters"] = stack_filters
+        if target_filters is not None:
+            self._values["target_filters"] = target_filters
+
+    @builtins.property
+    def alias(self) -> builtins.str:
+        '''The type name alias for the Hook. This alias must be unique per account and Region.
+
+        The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Lambda::MyTestHook`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-alias
+        '''
+        result = self._values.get("alias")
+        assert result is not None, "Required property 'alias' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role(self) -> builtins.str:
+        '''The IAM role that the Hook assumes to invoke your Lambda function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-executionrole
+        '''
+        result = self._values.get("execution_role")
+        assert result is not None, "Required property 'execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def failure_mode(self) -> builtins.str:
+        '''Specifies how the Hook responds when the Lambda function invoked by the Hook returns a ``FAILED`` response.
+
+        - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies.
+        - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-failuremode
+        '''
+        result = self._values.get("failure_mode")
+        assert result is not None, "Required property 'failure_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def hook_status(self) -> builtins.str:
+        '''Specifies if the Hook is ``ENABLED`` or ``DISABLED`` .
+
+        :default: - "ENABLED"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-hookstatus
+        '''
+        result = self._values.get("hook_status")
+        assert result is not None, "Required property 'hook_status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lambda_function(self) -> builtins.str:
+        '''Specifies the Lambda function for the Hook. You can use:.
+
+        - The full Amazon Resource Name (ARN) without a suffix.
+        - A qualified ARN with a version or alias suffix.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-lambdafunction
+        '''
+        result = self._values.get("lambda_function")
+        assert result is not None, "Required property 'lambda_function' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_operations(self) -> typing.List[builtins.str]:
+        '''Specifies the list of operations the Hook is run against.
+
+        For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* .
+
+        Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-targetoperations
+        '''
+        result = self._values.get("target_operations")
+        assert result is not None, "Required property 'target_operations' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def stack_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLambdaHook.StackFiltersProperty"]]:
+        '''Specifies the stack level filters for the Hook.
+
+        Example stack level filter in JSON:
+
+        ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}``
+
+        Example stack level filter in YAML:
+
+        ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-stackfilters
+        '''
+        result = self._values.get("stack_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLambdaHook.StackFiltersProperty"]], result)
+
+    @builtins.property
+    def target_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLambdaHook.TargetFiltersProperty"]]:
+        '''Specifies the target filters for the Hook.
+
+        Example target filter in JSON:
+
+        ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}``
+
+        Example target filter in YAML:
+
+        ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-targetfilters
+        '''
+        result = self._values.get("target_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLambdaHook.TargetFiltersProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLambdaHookProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnMacroProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "function_name": "functionName",
+        "name": "name",
+        "description": "description",
+        "log_group_name": "logGroupName",
+        "log_role_arn": "logRoleArn",
+    },
+)
+class CfnMacroProps:
+    def __init__(
+        self,
+        *,
+        function_name: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        log_group_name: typing.Optional[builtins.str] = None,
+        log_role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMacro``.
+
+        :param function_name: The Amazon Resource Name (ARN) of the underlying Lambda function that you want CloudFormation to invoke when the macro is run.
+        :param name: The name of the macro. The name of the macro must be unique across all macros in the account.
+        :param description: A description of the macro.
+        :param log_group_name: The CloudWatch Logs group to which CloudFormation sends error logging information when invoking the macro's underlying Lambda function. This will be an existing CloudWatch Logs LogGroup. Neither CloudFormation or Lambda will create the group.
+        :param log_role_arn: The ARN of the role CloudFormation should assume when sending log entries to CloudWatch Logs .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_macro_props = cloudformation.CfnMacroProps(
+                function_name="functionName",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                log_group_name="logGroupName",
+                log_role_arn="logRoleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42b23a370c2b5c33d49b7f892f41cb61bdad8c6efe4c078d5d357c872fd866b6)
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+            check_type(argname="argument log_role_arn", value=log_role_arn, expected_type=type_hints["log_role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "function_name": function_name,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if log_group_name is not None:
+            self._values["log_group_name"] = log_group_name
+        if log_role_arn is not None:
+            self._values["log_role_arn"] = log_role_arn
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the underlying Lambda function that you want CloudFormation to invoke when the macro is run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-functionname
+        '''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the macro.
+
+        The name of the macro must be unique across all macros in the account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the macro.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_group_name(self) -> typing.Optional[builtins.str]:
+        '''The CloudWatch Logs group to which CloudFormation sends error logging information when invoking the macro's underlying Lambda function.
+
+        This will be an existing CloudWatch Logs LogGroup. Neither CloudFormation or Lambda will create the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-loggroupname
+        '''
+        result = self._values.get("log_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the role CloudFormation should assume when sending log entries to CloudWatch Logs .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-logrolearn
+        '''
+        result = self._values.get("log_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMacroProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnModuleDefaultVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arn": "arn",
+        "module_name": "moduleName",
+        "version_id": "versionId",
+    },
+)
+class CfnModuleDefaultVersionProps:
+    def __init__(
+        self,
+        *,
+        arn: typing.Optional[builtins.str] = None,
+        module_name: typing.Optional[builtins.str] = None,
+        version_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnModuleDefaultVersion``.
+
+        :param arn: The Amazon Resource Name (ARN) of the module version to set as the default version. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+        :param module_name: The name of the module. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+        :param version_id: The ID for the specific version of the module. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_module_default_version_props = cloudformation.CfnModuleDefaultVersionProps(
+                arn="arn",
+                module_name="moduleName",
+                version_id="versionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f3ea65dfbd0cb512b468da1b9fb9627d1355ed7f5434478a08a635f804f77fc)
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
+            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arn is not None:
+            self._values["arn"] = arn
+        if module_name is not None:
+            self._values["module_name"] = module_name
+        if version_id is not None:
+            self._values["version_id"] = version_id
+
+    @builtins.property
+    def arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the module version to set as the default version.
+
+        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-arn
+        '''
+        result = self._values.get("arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def module_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the module.
+
+        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-modulename
+        '''
+        result = self._values.get("module_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_id(self) -> typing.Optional[builtins.str]:
+        '''The ID for the specific version of the module.
+
+        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-versionid
+        '''
+        result = self._values.get("version_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnModuleDefaultVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnModuleVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"module_name": "moduleName", "module_package": "modulePackage"},
+)
+class CfnModuleVersionProps:
+    def __init__(
+        self,
+        *,
+        module_name: builtins.str,
+        module_package: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnModuleVersion``.
+
+        :param module_name: The name of the module being registered.
+        :param module_package: A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_module_version_props = cloudformation.CfnModuleVersionProps(
+                module_name="moduleName",
+                module_package="modulePackage"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08386807944526883f9a2a3af6d7b270292ea388802a7d26e4ebe78b66b8aa38)
+            check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
+            check_type(argname="argument module_package", value=module_package, expected_type=type_hints["module_package"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "module_name": module_name,
+            "module_package": module_package,
+        }
+
+    @builtins.property
+    def module_name(self) -> builtins.str:
+        '''The name of the module being registered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html#cfn-cloudformation-moduleversion-modulename
+        '''
+        result = self._values.get("module_name")
+        assert result is not None, "Required property 'module_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def module_package(self) -> builtins.str:
+        '''A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register.
+
+        For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
+        .. epigraph::
+
+           To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html#cfn-cloudformation-moduleversion-modulepackage
+        '''
+        result = self._values.get("module_package")
+        assert result is not None, "Required property 'module_package' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnModuleVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnPublicTypeVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arn": "arn",
+        "log_delivery_bucket": "logDeliveryBucket",
+        "public_version_number": "publicVersionNumber",
+        "type": "type",
+        "type_name": "typeName",
+    },
+)
+class CfnPublicTypeVersionProps:
+    def __init__(
+        self,
+        *,
+        arn: typing.Optional[builtins.str] = None,
+        log_delivery_bucket: typing.Optional[builtins.str] = None,
+        public_version_number: typing.Optional[builtins.str] = None,
+        type: typing.Optional[builtins.str] = None,
+        type_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPublicTypeVersion``.
+
+        :param arn: The Amazon Resource Number (ARN) of the extension. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+        :param log_delivery_bucket: The S3 bucket to which CloudFormation delivers the contract test execution logs. CloudFormation delivers the logs by the time contract testing has completed and the extension has been assigned a test type status of ``PASSED`` or ``FAILED`` . The user initiating the stack operation must be able to access items in the specified S3 bucket. Specifically, the user needs the following permissions: - s3:GetObject - s3:PutObject
+        :param public_version_number: The version number to assign to this version of the extension. Use the following format, and adhere to semantic versioning when assigning a version number to your extension: ``MAJOR.MINOR.PATCH`` For more information, see `Semantic Versioning 2.0.0 <https://docs.aws.amazon.com/https://semver.org/>`_ . If you don't specify a version number, CloudFormation increments the version number by one minor version release. You cannot specify a version number the first time you publish a type. CloudFormation automatically sets the first version number to be ``1.0.0`` .
+        :param type: The type of the extension to test. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+        :param type_name: The name of the extension to test. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_public_type_version_props = cloudformation.CfnPublicTypeVersionProps(
+                arn="arn",
+                log_delivery_bucket="logDeliveryBucket",
+                public_version_number="publicVersionNumber",
+                type="type",
+                type_name="typeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18efb861dce8210d36272fd882e9481ecf1f7ad199bf2bf34fdd66aa24a64bc7)
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument log_delivery_bucket", value=log_delivery_bucket, expected_type=type_hints["log_delivery_bucket"])
+            check_type(argname="argument public_version_number", value=public_version_number, expected_type=type_hints["public_version_number"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arn is not None:
+            self._values["arn"] = arn
+        if log_delivery_bucket is not None:
+            self._values["log_delivery_bucket"] = log_delivery_bucket
+        if public_version_number is not None:
+            self._values["public_version_number"] = public_version_number
+        if type is not None:
+            self._values["type"] = type
+        if type_name is not None:
+            self._values["type_name"] = type_name
+
+    @builtins.property
+    def arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Number (ARN) of the extension.
+
+        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-arn
+        '''
+        result = self._values.get("arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_delivery_bucket(self) -> typing.Optional[builtins.str]:
+        '''The S3 bucket to which CloudFormation delivers the contract test execution logs.
+
+        CloudFormation delivers the logs by the time contract testing has completed and the extension has been assigned a test type status of ``PASSED`` or ``FAILED`` .
+
+        The user initiating the stack operation must be able to access items in the specified S3 bucket. Specifically, the user needs the following permissions:
+
+        - s3:GetObject
+        - s3:PutObject
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-logdeliverybucket
+        '''
+        result = self._values.get("log_delivery_bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def public_version_number(self) -> typing.Optional[builtins.str]:
+        '''The version number to assign to this version of the extension.
+
+        Use the following format, and adhere to semantic versioning when assigning a version number to your extension:
+
+        ``MAJOR.MINOR.PATCH``
+
+        For more information, see `Semantic Versioning 2.0.0 <https://docs.aws.amazon.com/https://semver.org/>`_ .
+
+        If you don't specify a version number, CloudFormation increments the version number by one minor version release.
+
+        You cannot specify a version number the first time you publish a type. CloudFormation automatically sets the first version number to be ``1.0.0`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-publicversionnumber
+        '''
+        result = self._values.get("public_version_number")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of the extension to test.
+
+        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the extension to test.
+
+        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-typename
+        '''
+        result = self._values.get("type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPublicTypeVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnPublisherProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "accept_terms_and_conditions": "acceptTermsAndConditions",
+        "connection_arn": "connectionArn",
+    },
+)
+class CfnPublisherProps:
+    def __init__(
+        self,
+        *,
+        accept_terms_and_conditions: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        connection_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPublisher``.
+
+        :param accept_terms_and_conditions: Whether you accept the `Terms and Conditions <https://docs.aws.amazon.com/https://cloudformation-registry-documents.s3.amazonaws.com/Terms_and_Conditions_for_AWS_CloudFormation_Registry_Publishers.pdf>`_ for publishing extensions in the CloudFormation registry. You must accept the terms and conditions in order to register to publish public extensions to the CloudFormation registry. The default is ``false`` .
+        :param connection_arn: If you are using a Bitbucket or GitHub account for identity verification, the Amazon Resource Name (ARN) for your connection to that account. For more information, see `Prerequisite: Registering your account to publish CloudFormation extensions <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/publish-extension.html#publish-extension-prereqs>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_publisher_props = cloudformation.CfnPublisherProps(
+                accept_terms_and_conditions=False,
+            
+                # the properties below are optional
+                connection_arn="connectionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b41681bff4816c257b59b8947cb33afcd9050c71509e0ec07b569e949d0a9ce)
+            check_type(argname="argument accept_terms_and_conditions", value=accept_terms_and_conditions, expected_type=type_hints["accept_terms_and_conditions"])
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "accept_terms_and_conditions": accept_terms_and_conditions,
+        }
+        if connection_arn is not None:
+            self._values["connection_arn"] = connection_arn
+
+    @builtins.property
+    def accept_terms_and_conditions(
+        self,
+    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Whether you accept the `Terms and Conditions <https://docs.aws.amazon.com/https://cloudformation-registry-documents.s3.amazonaws.com/Terms_and_Conditions_for_AWS_CloudFormation_Registry_Publishers.pdf>`_ for publishing extensions in the CloudFormation registry. You must accept the terms and conditions in order to register to publish public extensions to the CloudFormation registry.
+
+        The default is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html#cfn-cloudformation-publisher-accepttermsandconditions
+        '''
+        result = self._values.get("accept_terms_and_conditions")
+        assert result is not None, "Required property 'accept_terms_and_conditions' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def connection_arn(self) -> typing.Optional[builtins.str]:
+        '''If you are using a Bitbucket or GitHub account for identity verification, the Amazon Resource Name (ARN) for your connection to that account.
+
+        For more information, see `Prerequisite: Registering your account to publish CloudFormation extensions <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/publish-extension.html#publish-extension-prereqs>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html#cfn-cloudformation-publisher-connectionarn
+        '''
+        result = self._values.get("connection_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPublisherProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnResourceDefaultVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type_name": "typeName",
+        "type_version_arn": "typeVersionArn",
+        "version_id": "versionId",
+    },
+)
+class CfnResourceDefaultVersionProps:
+    def __init__(
+        self,
+        *,
+        type_name: typing.Optional[builtins.str] = None,
+        type_version_arn: typing.Optional[builtins.str] = None,
+        version_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceDefaultVersion``.
+
+        :param type_name: The name of the resource. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+        :param type_version_arn: The Amazon Resource Name (ARN) of the resource version. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+        :param version_id: The ID of a specific version of the resource. The version ID is the value at the end of the Amazon Resource Name (ARN) assigned to the resource version when it's registered. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_resource_default_version_props = cloudformation.CfnResourceDefaultVersionProps(
+                type_name="typeName",
+                type_version_arn="typeVersionArn",
+                version_id="versionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__846c1092e850e7f3b08a0c0fcc29b8cda8aa8f909b3c1479b1ddc873dd053222)
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+            check_type(argname="argument type_version_arn", value=type_version_arn, expected_type=type_hints["type_version_arn"])
+            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if type_name is not None:
+            self._values["type_name"] = type_name
+        if type_version_arn is not None:
+            self._values["type_version_arn"] = type_version_arn
+        if version_id is not None:
+            self._values["version_id"] = version_id
+
+    @builtins.property
+    def type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the resource.
+
+        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-typename
+        '''
+        result = self._values.get("type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_version_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the resource version.
+
+        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-typeversionarn
+        '''
+        result = self._values.get("type_version_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of a specific version of the resource.
+
+        The version ID is the value at the end of the Amazon Resource Name (ARN) assigned to the resource version when it's registered.
+
+        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-versionid
+        '''
+        result = self._values.get("version_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceDefaultVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnResourceVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "schema_handler_package": "schemaHandlerPackage",
+        "type_name": "typeName",
+        "execution_role_arn": "executionRoleArn",
+        "logging_config": "loggingConfig",
+    },
+)
+class CfnResourceVersionProps:
+    def __init__(
+        self,
+        *,
+        schema_handler_package: builtins.str,
+        type_name: builtins.str,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceVersion.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceVersion``.
+
+        :param schema_handler_package: A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+        :param type_name: The name of the resource being registered. We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* . .. epigraph:: The following organization namespaces are reserved and can't be used in your resource names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``AWS`` - ``Custom`` - ``Dev``
+        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource. If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
+        :param logging_config: Logging configuration information for a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_resource_version_props = cloudformation.CfnResourceVersionProps(
+                schema_handler_package="schemaHandlerPackage",
+                type_name="typeName",
+            
+                # the properties below are optional
+                execution_role_arn="executionRoleArn",
+                logging_config=cloudformation.CfnResourceVersion.LoggingConfigProperty(
+                    log_group_name="logGroupName",
+                    log_role_arn="logRoleArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76ca3cbb367679516480c68e4d53a4abc20cb7d02f8a591754eb2f715e9c58e7)
+            check_type(argname="argument schema_handler_package", value=schema_handler_package, expected_type=type_hints["schema_handler_package"])
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schema_handler_package": schema_handler_package,
+            "type_name": type_name,
+        }
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
+
+    @builtins.property
+    def schema_handler_package(self) -> builtins.str:
+        '''A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register.
+
+        For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
+        .. epigraph::
+
+           To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-schemahandlerpackage
+        '''
+        result = self._values.get("schema_handler_package")
+        assert result is not None, "Required property 'schema_handler_package' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type_name(self) -> builtins.str:
+        '''The name of the resource being registered.
+
+        We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* .
+        .. epigraph::
+
+           The following organization namespaces are reserved and can't be used in your resource names:
+
+           - ``Alexa``
+           - ``AMZN``
+           - ``Amazon``
+           - ``AWS``
+           - ``Custom``
+           - ``Dev``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-typename
+        '''
+        result = self._values.get("type_name")
+        assert result is not None, "Required property 'type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource.
+
+        If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceVersion.LoggingConfigProperty"]]:
+        '''Logging configuration information for a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-loggingconfig
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceVersion.LoggingConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnStackProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "notification_arns": "notificationArns",
+        "parameters": "parameters",
+        "tags": "tags",
+        "template_url": "templateUrl",
+        "timeout_in_minutes": "timeoutInMinutes",
+    },
+)
+class CfnStackProps:
+    def __init__(
+        self,
+        *,
+        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_url: typing.Optional[builtins.str] = None,
+        timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStack``.
+
+        :param notification_arns: The Amazon SNS topic ARNs to publish stack related events. You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
+        :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. .. epigraph:: If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks. Required if the nested stack requires input parameters. Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+        :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+        :param timeout_in_minutes: The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state. The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_stack_props = cloudformation.CfnStackProps(
+                notification_arns=["notificationArns"],
+                parameters={
+                    "parameters_key": "parameters"
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                template_url="templateUrl",
+                timeout_in_minutes=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4da59ffe076e92fe1011ac29ca869d93a69d1442f3b7a0d1c765cca951d09b20)
+            check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_url", value=template_url, expected_type=type_hints["template_url"])
+            check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if notification_arns is not None:
+            self._values["notification_arns"] = notification_arns
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_url is not None:
+            self._values["template_url"] = template_url
+        if timeout_in_minutes is not None:
+            self._values["timeout_in_minutes"] = timeout_in_minutes
+
+    @builtins.property
+    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon SNS topic ARNs to publish stack related events.
+
+        You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-notificationarns
+        '''
+        result = self._values.get("notification_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.
+
+        Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter.
+        .. epigraph::
+
+           If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks.
+
+        Required if the nested stack requires input parameters.
+
+        Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs to associate with this stack.
+
+        CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def template_url(self) -> typing.Optional[builtins.str]:
+        '''The URL of a file that contains the template body.
+
+        The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` .
+
+        Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-templateurl
+        '''
+        result = self._values.get("template_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state.
+
+        The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack.
+
+        Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-timeoutinminutes
+        '''
+        result = self._values.get("timeout_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnStackSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "permission_model": "permissionModel",
+        "stack_set_name": "stackSetName",
+        "administration_role_arn": "administrationRoleArn",
+        "auto_deployment": "autoDeployment",
+        "call_as": "callAs",
+        "capabilities": "capabilities",
+        "description": "description",
+        "execution_role_name": "executionRoleName",
+        "managed_execution": "managedExecution",
+        "operation_preferences": "operationPreferences",
+        "parameters": "parameters",
+        "stack_instances_group": "stackInstancesGroup",
+        "tags": "tags",
+        "template_body": "templateBody",
+        "template_url": "templateUrl",
+    },
+)
+class CfnStackSetProps:
+    def __init__(
+        self,
+        *,
+        permission_model: builtins.str,
+        stack_set_name: builtins.str,
+        administration_role_arn: typing.Optional[builtins.str] = None,
+        auto_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStackSet.AutoDeploymentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        call_as: typing.Optional[builtins.str] = None,
+        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        execution_role_name: typing.Optional[builtins.str] = None,
+        managed_execution: typing.Any = None,
+        operation_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStackSet.OperationPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStackSet.ParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        stack_instances_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStackSet.StackInstancesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_body: typing.Optional[builtins.str] = None,
+        template_url: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStackSet``.
+
+        :param permission_model: Describes how the IAM roles required for StackSet operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
+        :param stack_set_name: The name to associate with the StackSet. The name must be unique in the Region where you create your StackSet.
+        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
+        :param auto_deployment: Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU). For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* . Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
+        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions. - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
+        :param capabilities: The capabilities that are allowed in the StackSet. Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
+        :param description: A description of the StackSet.
+        :param execution_role_name: The name of the IAM execution role to use to create the StackSet. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
+        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When inactive (default), StackSets performs one operation at a time in request order.
+        :param operation_preferences: The user-specified preferences for how CloudFormation performs a StackSet operation.
+        :param parameters: The input parameters for the StackSet template.
+        :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
+        :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
+        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
+        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            # managed_execution: Any
+            
+            cfn_stack_set_props = cloudformation.CfnStackSetProps(
+                permission_model="permissionModel",
+                stack_set_name="stackSetName",
+            
+                # the properties below are optional
+                administration_role_arn="administrationRoleArn",
+                auto_deployment=cloudformation.CfnStackSet.AutoDeploymentProperty(
+                    enabled=False,
+                    retain_stacks_on_account_removal=False
+                ),
+                call_as="callAs",
+                capabilities=["capabilities"],
+                description="description",
+                execution_role_name="executionRoleName",
+                managed_execution=managed_execution,
+                operation_preferences=cloudformation.CfnStackSet.OperationPreferencesProperty(
+                    concurrency_mode="concurrencyMode",
+                    failure_tolerance_count=123,
+                    failure_tolerance_percentage=123,
+                    max_concurrent_count=123,
+                    max_concurrent_percentage=123,
+                    region_concurrency_type="regionConcurrencyType",
+                    region_order=["regionOrder"]
+                ),
+                parameters=[cloudformation.CfnStackSet.ParameterProperty(
+                    parameter_key="parameterKey",
+                    parameter_value="parameterValue"
+                )],
+                stack_instances_group=[cloudformation.CfnStackSet.StackInstancesProperty(
+                    deployment_targets=cloudformation.CfnStackSet.DeploymentTargetsProperty(
+                        account_filter_type="accountFilterType",
+                        accounts=["accounts"],
+                        accounts_url="accountsUrl",
+                        organizational_unit_ids=["organizationalUnitIds"]
+                    ),
+                    regions=["regions"],
+            
+                    # the properties below are optional
+                    parameter_overrides=[cloudformation.CfnStackSet.ParameterProperty(
+                        parameter_key="parameterKey",
+                        parameter_value="parameterValue"
+                    )]
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                template_body="templateBody",
+                template_url="templateUrl"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd7c69ee686d407257fcf95f6bae23045d509b43b119884d9c3094d637a82501)
+            check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
+            check_type(argname="argument stack_set_name", value=stack_set_name, expected_type=type_hints["stack_set_name"])
+            check_type(argname="argument administration_role_arn", value=administration_role_arn, expected_type=type_hints["administration_role_arn"])
+            check_type(argname="argument auto_deployment", value=auto_deployment, expected_type=type_hints["auto_deployment"])
+            check_type(argname="argument call_as", value=call_as, expected_type=type_hints["call_as"])
+            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument execution_role_name", value=execution_role_name, expected_type=type_hints["execution_role_name"])
+            check_type(argname="argument managed_execution", value=managed_execution, expected_type=type_hints["managed_execution"])
+            check_type(argname="argument operation_preferences", value=operation_preferences, expected_type=type_hints["operation_preferences"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument stack_instances_group", value=stack_instances_group, expected_type=type_hints["stack_instances_group"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
+            check_type(argname="argument template_url", value=template_url, expected_type=type_hints["template_url"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "permission_model": permission_model,
+            "stack_set_name": stack_set_name,
+        }
+        if administration_role_arn is not None:
+            self._values["administration_role_arn"] = administration_role_arn
+        if auto_deployment is not None:
+            self._values["auto_deployment"] = auto_deployment
+        if call_as is not None:
+            self._values["call_as"] = call_as
+        if capabilities is not None:
+            self._values["capabilities"] = capabilities
+        if description is not None:
+            self._values["description"] = description
+        if execution_role_name is not None:
+            self._values["execution_role_name"] = execution_role_name
+        if managed_execution is not None:
+            self._values["managed_execution"] = managed_execution
+        if operation_preferences is not None:
+            self._values["operation_preferences"] = operation_preferences
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if stack_instances_group is not None:
+            self._values["stack_instances_group"] = stack_instances_group
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_body is not None:
+            self._values["template_body"] = template_body
+        if template_url is not None:
+            self._values["template_url"] = template_url
+
+    @builtins.property
+    def permission_model(self) -> builtins.str:
+        '''Describes how the IAM roles required for StackSet operations are created.
+
+        - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
+        - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-permissionmodel
+        '''
+        result = self._values.get("permission_model")
+        assert result is not None, "Required property 'permission_model' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_set_name(self) -> builtins.str:
+        '''The name to associate with the StackSet.
+
+        The name must be unique in the Region where you create your StackSet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-stacksetname
+        '''
+        result = self._values.get("stack_set_name")
+        assert result is not None, "Required property 'stack_set_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def administration_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet.
+
+        Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account.
+
+        Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
+
+        Valid only if the permissions model is ``SELF_MANAGED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-administrationrolearn
+        '''
+        result = self._values.get("administration_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_deployment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStackSet.AutoDeploymentProperty"]]:
+        '''Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU).
+
+        For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* .
+
+        Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-autodeployment
+        '''
+        result = self._values.get("auto_deployment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStackSet.AutoDeploymentProperty"]], result)
+
+    @builtins.property
+    def call_as(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account.
+
+        By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions.
+
+        - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` .
+        - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` .
+
+        Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* .
+
+        StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators.
+
+        Valid only if the permissions model is ``SERVICE_MANAGED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-callas
+        '''
+        result = self._values.get("call_as")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The capabilities that are allowed in the StackSet.
+
+        Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-capabilities
+        '''
+        result = self._values.get("capabilities")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the StackSet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_role_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the IAM execution role to use to create the StackSet.
+
+        If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation.
+
+        Valid only if the permissions model is ``SELF_MANAGED`` .
+
+        *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-executionrolename
+        '''
+        result = self._values.get("execution_role_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def managed_execution(self) -> typing.Any:
+        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.
+
+        When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order.
+        .. epigraph::
+
+           If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
+
+           You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
+
+        When inactive (default), StackSets performs one operation at a time in request order.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-managedexecution
+        '''
+        result = self._values.get("managed_execution")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def operation_preferences(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStackSet.OperationPreferencesProperty"]]:
+        '''The user-specified preferences for how CloudFormation performs a StackSet operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-operationpreferences
+        '''
+        result = self._values.get("operation_preferences")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStackSet.OperationPreferencesProperty"]], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStackSet.ParameterProperty"]]]]:
+        '''The input parameters for the StackSet template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStackSet.ParameterProperty"]]]], result)
+
+    @builtins.property
+    def stack_instances_group(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStackSet.StackInstancesProperty"]]]]:
+        '''A group of stack instances with parameters in some specific accounts and Regions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-stackinstancesgroup
+        '''
+        result = self._values.get("stack_instances_group")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStackSet.StackInstancesProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs to associate with this stack.
+
+        CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags.
+
+        If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def template_body(self) -> typing.Optional[builtins.str]:
+        '''The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes.
+
+        You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-templatebody
+        '''
+        result = self._values.get("template_body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def template_url(self) -> typing.Optional[builtins.str]:
+        '''The URL of a file that contains the template body.
+
+        The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` .
+
+        Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-templateurl
+        '''
+        result = self._values.get("template_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnTypeActivationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auto_update": "autoUpdate",
+        "execution_role_arn": "executionRoleArn",
+        "logging_config": "loggingConfig",
+        "major_version": "majorVersion",
+        "public_type_arn": "publicTypeArn",
+        "publisher_id": "publisherId",
+        "type": "type",
+        "type_name": "typeName",
+        "type_name_alias": "typeNameAlias",
+        "version_bump": "versionBump",
+    },
+)
+class CfnTypeActivationProps:
+    def __init__(
+        self,
+        *,
+        auto_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTypeActivation.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        major_version: typing.Optional[builtins.str] = None,
+        public_type_arn: typing.Optional[builtins.str] = None,
+        publisher_id: typing.Optional[builtins.str] = None,
+        type: typing.Optional[builtins.str] = None,
+        type_name: typing.Optional[builtins.str] = None,
+        type_name_alias: typing.Optional[builtins.str] = None,
+        version_bump: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTypeActivation``.
+
+        :param auto_update: Whether to automatically update the extension in this account and Region when a new *minor* version is published by the extension publisher. Major versions released by the publisher must be manually updated. The default is ``true`` .
+        :param execution_role_arn: The name of the IAM execution role to use to activate the extension.
+        :param logging_config: Specifies logging configuration information for an extension.
+        :param major_version: The major version of this extension you want to activate, if multiple major versions are available. The default is the latest major version. CloudFormation uses the latest available *minor* version of the major version selected. You can specify ``MajorVersion`` or ``VersionBump`` , but not both.
+        :param public_type_arn: The Amazon Resource Number (ARN) of the public extension. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+        :param publisher_id: The ID of the extension publisher. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+        :param type: The extension type. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+        :param type_name: The name of the extension. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+        :param type_name_alias: An alias to assign to the public extension, in this account and Region. If you specify an alias for the extension, CloudFormation treats the alias as the extension type name within this account and Region. You must use the alias to refer to the extension in your templates, API calls, and CloudFormation console. An extension alias must be unique within a given account and Region. You can activate the same public resource multiple times in the same account and Region, using different type name aliases.
+        :param version_bump: Manually updates a previously-activated type to a new major or minor version, if available. You can also use this parameter to update the value of ``AutoUpdate`` . - ``MAJOR`` : CloudFormation updates the extension to the newest major version, if one is available. - ``MINOR`` : CloudFormation updates the extension to the newest minor version, if one is available.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_type_activation_props = cloudformation.CfnTypeActivationProps(
+                auto_update=False,
+                execution_role_arn="executionRoleArn",
+                logging_config=cloudformation.CfnTypeActivation.LoggingConfigProperty(
+                    log_group_name="logGroupName",
+                    log_role_arn="logRoleArn"
+                ),
+                major_version="majorVersion",
+                public_type_arn="publicTypeArn",
+                publisher_id="publisherId",
+                type="type",
+                type_name="typeName",
+                type_name_alias="typeNameAlias",
+                version_bump="versionBump"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02e5c1de4d531856b94f268082510ca5202a92506b87b8752473c8ee205e52df)
+            check_type(argname="argument auto_update", value=auto_update, expected_type=type_hints["auto_update"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
+            check_type(argname="argument public_type_arn", value=public_type_arn, expected_type=type_hints["public_type_arn"])
+            check_type(argname="argument publisher_id", value=publisher_id, expected_type=type_hints["publisher_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
+            check_type(argname="argument type_name_alias", value=type_name_alias, expected_type=type_hints["type_name_alias"])
+            check_type(argname="argument version_bump", value=version_bump, expected_type=type_hints["version_bump"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auto_update is not None:
+            self._values["auto_update"] = auto_update
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
+        if major_version is not None:
+            self._values["major_version"] = major_version
+        if public_type_arn is not None:
+            self._values["public_type_arn"] = public_type_arn
+        if publisher_id is not None:
+            self._values["publisher_id"] = publisher_id
+        if type is not None:
+            self._values["type"] = type
+        if type_name is not None:
+            self._values["type_name"] = type_name
+        if type_name_alias is not None:
+            self._values["type_name_alias"] = type_name_alias
+        if version_bump is not None:
+            self._values["version_bump"] = version_bump
+
+    @builtins.property
+    def auto_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to automatically update the extension in this account and Region when a new *minor* version is published by the extension publisher.
+
+        Major versions released by the publisher must be manually updated.
+
+        The default is ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-autoupdate
+        '''
+        result = self._values.get("auto_update")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The name of the IAM execution role to use to activate the extension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTypeActivation.LoggingConfigProperty"]]:
+        '''Specifies logging configuration information for an extension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-loggingconfig
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTypeActivation.LoggingConfigProperty"]], result)
+
+    @builtins.property
+    def major_version(self) -> typing.Optional[builtins.str]:
+        '''The major version of this extension you want to activate, if multiple major versions are available.
+
+        The default is the latest major version. CloudFormation uses the latest available *minor* version of the major version selected.
+
+        You can specify ``MajorVersion`` or ``VersionBump`` , but not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-majorversion
+        '''
+        result = self._values.get("major_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def public_type_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Number (ARN) of the public extension.
+
+        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-publictypearn
+        '''
+        result = self._values.get("public_type_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def publisher_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the extension publisher.
+
+        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-publisherid
+        '''
+        result = self._values.get("publisher_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The extension type.
+
+        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the extension.
+
+        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-typename
+        '''
+        result = self._values.get("type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def type_name_alias(self) -> typing.Optional[builtins.str]:
+        '''An alias to assign to the public extension, in this account and Region.
+
+        If you specify an alias for the extension, CloudFormation treats the alias as the extension type name within this account and Region. You must use the alias to refer to the extension in your templates, API calls, and CloudFormation console.
+
+        An extension alias must be unique within a given account and Region. You can activate the same public resource multiple times in the same account and Region, using different type name aliases.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-typenamealias
+        '''
+        result = self._values.get("type_name_alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_bump(self) -> typing.Optional[builtins.str]:
+        '''Manually updates a previously-activated type to a new major or minor version, if available.
+
+        You can also use this parameter to update the value of ``AutoUpdate`` .
+
+        - ``MAJOR`` : CloudFormation updates the extension to the newest major version, if one is available.
+        - ``MINOR`` : CloudFormation updates the extension to the newest minor version, if one is available.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-versionbump
+        '''
+        result = self._values.get("version_bump")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTypeActivationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnWaitConditionHandleProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnWaitConditionHandleProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnWaitConditionHandle``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitconditionhandle.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_wait_condition_handle_props = cloudformation.CfnWaitConditionHandleProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWaitConditionHandleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CfnWaitConditionProps",
+    jsii_struct_bases=[],
+    name_mapping={"count": "count", "handle": "handle", "timeout": "timeout"},
+)
+class CfnWaitConditionProps:
+    def __init__(
+        self,
+        *,
+        count: typing.Optional[jsii.Number] = None,
+        handle: typing.Optional[builtins.str] = None,
+        timeout: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWaitCondition``.
+
+        :param count: The number of success signals that CloudFormation must receive before it continues the stack creation process. When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back. Updates aren't supported.
+        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
+        :param timeout: The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies. ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds). Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            cfn_wait_condition_props = cloudformation.CfnWaitConditionProps(
+                count=123,
+                handle="handle",
+                timeout="timeout"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae4f065be2a042359e82699c38e1fd0e59e979184753fcfc6c0e7ddff00fd2dd)
+            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+            check_type(argname="argument handle", value=handle, expected_type=type_hints["handle"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if count is not None:
+            self._values["count"] = count
+        if handle is not None:
+            self._values["handle"] = handle
+        if timeout is not None:
+            self._values["timeout"] = timeout
+
+    @builtins.property
+    def count(self) -> typing.Optional[jsii.Number]:
+        '''The number of success signals that CloudFormation must receive before it continues the stack creation process.
+
+        When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back.
+
+        Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-count
+        '''
+        result = self._values.get("count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def handle(self) -> typing.Optional[builtins.str]:
+        '''A reference to the wait condition handle used to signal this wait condition.
+
+        Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource.
+
+        Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command.
+
+        Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-handle
+        '''
+        result = self._values.get("handle")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional[builtins.str]:
+        '''The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies.
+
+        ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds).
+
+        Updates aren't supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-timeout
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWaitConditionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.CustomResourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"custom_resource_id": "customResourceId"},
+)
+class CustomResourceReference:
+    def __init__(self, *, custom_resource_id: builtins.str) -> None:
+        '''A reference to a CustomResource resource.
+
+        :param custom_resource_id: The Id of the CustomResource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            custom_resource_reference = cloudformation.CustomResourceReference(
+                custom_resource_id="customResourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bccfb3e90a1bc41e1c7c9cc11434420038c58447e243a28ebd17f3fd55d54db)
+            check_type(argname="argument custom_resource_id", value=custom_resource_id, expected_type=type_hints["custom_resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "custom_resource_id": custom_resource_id,
+        }
+
+    @builtins.property
+    def custom_resource_id(self) -> builtins.str:
+        '''The Id of the CustomResource resource.'''
+        result = self._values.get("custom_resource_id")
+        assert result is not None, "Required property 'custom_resource_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomResourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.GuardHookReference",
+    jsii_struct_bases=[],
+    name_mapping={"hook_arn": "hookArn"},
+)
+class GuardHookReference:
+    def __init__(self, *, hook_arn: builtins.str) -> None:
+        '''A reference to a GuardHook resource.
+
+        :param hook_arn: The HookArn of the GuardHook resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            guard_hook_reference = cloudformation.GuardHookReference(
+                hook_arn="hookArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f092515651dc173fa35aa638d7348ac03e941a61ffb042d564d7f5f3af55e6e9)
+            check_type(argname="argument hook_arn", value=hook_arn, expected_type=type_hints["hook_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hook_arn": hook_arn,
+        }
+
+    @builtins.property
+    def hook_arn(self) -> builtins.str:
+        '''The HookArn of the GuardHook resource.'''
+        result = self._values.get("hook_arn")
+        assert result is not None, "Required property 'hook_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardHookReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.HookDefaultVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"hook_default_version_arn": "hookDefaultVersionArn"},
+)
+class HookDefaultVersionReference:
+    def __init__(self, *, hook_default_version_arn: builtins.str) -> None:
+        '''A reference to a HookDefaultVersion resource.
+
+        :param hook_default_version_arn: The Arn of the HookDefaultVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            hook_default_version_reference = cloudformation.HookDefaultVersionReference(
+                hook_default_version_arn="hookDefaultVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e126059bd08a2ff91a89c3e107a0f1589286d9bf5faac4ef053a36f1bddb3c1)
+            check_type(argname="argument hook_default_version_arn", value=hook_default_version_arn, expected_type=type_hints["hook_default_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hook_default_version_arn": hook_default_version_arn,
+        }
+
+    @builtins.property
+    def hook_default_version_arn(self) -> builtins.str:
+        '''The Arn of the HookDefaultVersion resource.'''
+        result = self._values.get("hook_default_version_arn")
+        assert result is not None, "Required property 'hook_default_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HookDefaultVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.HookTypeConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"configuration_arn": "configurationArn"},
+)
+class HookTypeConfigReference:
+    def __init__(self, *, configuration_arn: builtins.str) -> None:
+        '''A reference to a HookTypeConfig resource.
+
+        :param configuration_arn: The ConfigurationArn of the HookTypeConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            hook_type_config_reference = cloudformation.HookTypeConfigReference(
+                configuration_arn="configurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__413b2dce04ebc3dae829bc48f1492cc4f0bb5c1c3fa9c8aca3a14a2111730b72)
+            check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_arn": configuration_arn,
+        }
+
+    @builtins.property
+    def configuration_arn(self) -> builtins.str:
+        '''The ConfigurationArn of the HookTypeConfig resource.'''
+        result = self._values.get("configuration_arn")
+        assert result is not None, "Required property 'configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HookTypeConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.HookVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"hook_version_arn": "hookVersionArn"},
+)
+class HookVersionReference:
+    def __init__(self, *, hook_version_arn: builtins.str) -> None:
+        '''A reference to a HookVersion resource.
+
+        :param hook_version_arn: The Arn of the HookVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            hook_version_reference = cloudformation.HookVersionReference(
+                hook_version_arn="hookVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9066f2eb090eea6eae4d393eaedc65184ede53c4bb7a29dac6d5ae19576cd748)
+            check_type(argname="argument hook_version_arn", value=hook_version_arn, expected_type=type_hints["hook_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hook_version_arn": hook_version_arn,
+        }
+
+    @builtins.property
+    def hook_version_arn(self) -> builtins.str:
+        '''The Arn of the HookVersion resource.'''
+        result = self._values.get("hook_version_arn")
+        assert result is not None, "Required property 'hook_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HookVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.ICustomResourceRef")
+class ICustomResourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CustomResource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="customResourceRef")
+    def custom_resource_ref(self) -> CustomResourceReference:
+        '''(experimental) A reference to a CustomResource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICustomResourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomResource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.ICustomResourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="customResourceRef")
+    def custom_resource_ref(self) -> CustomResourceReference:
+        '''(experimental) A reference to a CustomResource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CustomResourceReference, jsii.get(self, "customResourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICustomResourceRef).__jsii_proxy_class__ = lambda : _ICustomResourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IGuardHookRef")
+class IGuardHookRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a GuardHook.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="guardHookRef")
+    def guard_hook_ref(self) -> GuardHookReference:
+        '''(experimental) A reference to a GuardHook resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGuardHookRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a GuardHook.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IGuardHookRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="guardHookRef")
+    def guard_hook_ref(self) -> GuardHookReference:
+        '''(experimental) A reference to a GuardHook resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GuardHookReference, jsii.get(self, "guardHookRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGuardHookRef).__jsii_proxy_class__ = lambda : _IGuardHookRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IHookDefaultVersionRef")
+class IHookDefaultVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HookDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hookDefaultVersionRef")
+    def hook_default_version_ref(self) -> HookDefaultVersionReference:
+        '''(experimental) A reference to a HookDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHookDefaultVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HookDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IHookDefaultVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hookDefaultVersionRef")
+    def hook_default_version_ref(self) -> HookDefaultVersionReference:
+        '''(experimental) A reference to a HookDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HookDefaultVersionReference, jsii.get(self, "hookDefaultVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHookDefaultVersionRef).__jsii_proxy_class__ = lambda : _IHookDefaultVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IHookTypeConfigRef")
+class IHookTypeConfigRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a HookTypeConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hookTypeConfigRef")
+    def hook_type_config_ref(self) -> HookTypeConfigReference:
+        '''(experimental) A reference to a HookTypeConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHookTypeConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HookTypeConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IHookTypeConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hookTypeConfigRef")
+    def hook_type_config_ref(self) -> HookTypeConfigReference:
+        '''(experimental) A reference to a HookTypeConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HookTypeConfigReference, jsii.get(self, "hookTypeConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHookTypeConfigRef).__jsii_proxy_class__ = lambda : _IHookTypeConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IHookVersionRef")
+class IHookVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a HookVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hookVersionRef")
+    def hook_version_ref(self) -> HookVersionReference:
+        '''(experimental) A reference to a HookVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHookVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HookVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IHookVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hookVersionRef")
+    def hook_version_ref(self) -> HookVersionReference:
+        '''(experimental) A reference to a HookVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HookVersionReference, jsii.get(self, "hookVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHookVersionRef).__jsii_proxy_class__ = lambda : _IHookVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.ILambdaHookRef")
+class ILambdaHookRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LambdaHook.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaHookRef")
+    def lambda_hook_ref(self) -> "LambdaHookReference":
+        '''(experimental) A reference to a LambdaHook resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILambdaHookRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LambdaHook.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.ILambdaHookRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaHookRef")
+    def lambda_hook_ref(self) -> "LambdaHookReference":
+        '''(experimental) A reference to a LambdaHook resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LambdaHookReference", jsii.get(self, "lambdaHookRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILambdaHookRef).__jsii_proxy_class__ = lambda : _ILambdaHookRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IMacroRef")
+class IMacroRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Macro.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="macroRef")
+    def macro_ref(self) -> "MacroReference":
+        '''(experimental) A reference to a Macro resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMacroRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Macro.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IMacroRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="macroRef")
+    def macro_ref(self) -> "MacroReference":
+        '''(experimental) A reference to a Macro resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MacroReference", jsii.get(self, "macroRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMacroRef).__jsii_proxy_class__ = lambda : _IMacroRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IModuleDefaultVersionRef")
+class IModuleDefaultVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ModuleDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="moduleDefaultVersionRef")
+    def module_default_version_ref(self) -> "ModuleDefaultVersionReference":
+        '''(experimental) A reference to a ModuleDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IModuleDefaultVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ModuleDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IModuleDefaultVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="moduleDefaultVersionRef")
+    def module_default_version_ref(self) -> "ModuleDefaultVersionReference":
+        '''(experimental) A reference to a ModuleDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ModuleDefaultVersionReference", jsii.get(self, "moduleDefaultVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IModuleDefaultVersionRef).__jsii_proxy_class__ = lambda : _IModuleDefaultVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IModuleVersionRef")
+class IModuleVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ModuleVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="moduleVersionRef")
+    def module_version_ref(self) -> "ModuleVersionReference":
+        '''(experimental) A reference to a ModuleVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IModuleVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ModuleVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IModuleVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="moduleVersionRef")
+    def module_version_ref(self) -> "ModuleVersionReference":
+        '''(experimental) A reference to a ModuleVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ModuleVersionReference", jsii.get(self, "moduleVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IModuleVersionRef).__jsii_proxy_class__ = lambda : _IModuleVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IPublicTypeVersionRef")
+class IPublicTypeVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PublicTypeVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="publicTypeVersionRef")
+    def public_type_version_ref(self) -> "PublicTypeVersionReference":
+        '''(experimental) A reference to a PublicTypeVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPublicTypeVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PublicTypeVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IPublicTypeVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="publicTypeVersionRef")
+    def public_type_version_ref(self) -> "PublicTypeVersionReference":
+        '''(experimental) A reference to a PublicTypeVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PublicTypeVersionReference", jsii.get(self, "publicTypeVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPublicTypeVersionRef).__jsii_proxy_class__ = lambda : _IPublicTypeVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IPublisherRef")
+class IPublisherRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Publisher.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="publisherRef")
+    def publisher_ref(self) -> "PublisherReference":
+        '''(experimental) A reference to a Publisher resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPublisherRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Publisher.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IPublisherRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="publisherRef")
+    def publisher_ref(self) -> "PublisherReference":
+        '''(experimental) A reference to a Publisher resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PublisherReference", jsii.get(self, "publisherRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPublisherRef).__jsii_proxy_class__ = lambda : _IPublisherRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IResourceDefaultVersionRef")
+class IResourceDefaultVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefaultVersionRef")
+    def resource_default_version_ref(self) -> "ResourceDefaultVersionReference":
+        '''(experimental) A reference to a ResourceDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceDefaultVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceDefaultVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IResourceDefaultVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceDefaultVersionRef")
+    def resource_default_version_ref(self) -> "ResourceDefaultVersionReference":
+        '''(experimental) A reference to a ResourceDefaultVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceDefaultVersionReference", jsii.get(self, "resourceDefaultVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceDefaultVersionRef).__jsii_proxy_class__ = lambda : _IResourceDefaultVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IResourceVersionRef")
+class IResourceVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceVersionRef")
+    def resource_version_ref(self) -> "ResourceVersionReference":
+        '''(experimental) A reference to a ResourceVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IResourceVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceVersionRef")
+    def resource_version_ref(self) -> "ResourceVersionReference":
+        '''(experimental) A reference to a ResourceVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceVersionReference", jsii.get(self, "resourceVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceVersionRef).__jsii_proxy_class__ = lambda : _IResourceVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IStackRef")
+class IStackRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IStackRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackReference", jsii.get(self, "stackRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IStackSetRef")
+class IStackSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StackSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetRef")
+    def stack_set_ref(self) -> "StackSetReference":
+        '''(experimental) A reference to a StackSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IStackSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetRef")
+    def stack_set_ref(self) -> "StackSetReference":
+        '''(experimental) A reference to a StackSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackSetReference", jsii.get(self, "stackSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackSetRef).__jsii_proxy_class__ = lambda : _IStackSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.ITypeActivationRef")
+class ITypeActivationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TypeActivation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="typeActivationRef")
+    def type_activation_ref(self) -> "TypeActivationReference":
+        '''(experimental) A reference to a TypeActivation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITypeActivationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TypeActivation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.ITypeActivationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="typeActivationRef")
+    def type_activation_ref(self) -> "TypeActivationReference":
+        '''(experimental) A reference to a TypeActivation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TypeActivationReference", jsii.get(self, "typeActivationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITypeActivationRef).__jsii_proxy_class__ = lambda : _ITypeActivationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IWaitConditionHandleRef")
+class IWaitConditionHandleRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WaitConditionHandle.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="waitConditionHandleRef")
+    def wait_condition_handle_ref(self) -> "WaitConditionHandleReference":
+        '''(experimental) A reference to a WaitConditionHandle resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWaitConditionHandleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WaitConditionHandle.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IWaitConditionHandleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="waitConditionHandleRef")
+    def wait_condition_handle_ref(self) -> "WaitConditionHandleReference":
+        '''(experimental) A reference to a WaitConditionHandle resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WaitConditionHandleReference", jsii.get(self, "waitConditionHandleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWaitConditionHandleRef).__jsii_proxy_class__ = lambda : _IWaitConditionHandleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloudformation.IWaitConditionRef")
+class IWaitConditionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a WaitCondition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="waitConditionRef")
+    def wait_condition_ref(self) -> "WaitConditionReference":
+        '''(experimental) A reference to a WaitCondition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWaitConditionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WaitCondition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloudformation.IWaitConditionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="waitConditionRef")
+    def wait_condition_ref(self) -> "WaitConditionReference":
+        '''(experimental) A reference to a WaitCondition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WaitConditionReference", jsii.get(self, "waitConditionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWaitConditionRef).__jsii_proxy_class__ = lambda : _IWaitConditionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.LambdaHookReference",
+    jsii_struct_bases=[],
+    name_mapping={"hook_arn": "hookArn"},
+)
+class LambdaHookReference:
+    def __init__(self, *, hook_arn: builtins.str) -> None:
+        '''A reference to a LambdaHook resource.
+
+        :param hook_arn: The HookArn of the LambdaHook resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            lambda_hook_reference = cloudformation.LambdaHookReference(
+                hook_arn="hookArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__beb86d1839f401dc360983ff6b9b0aae614edd8fe82f6fd4295435f45ce8e15d)
+            check_type(argname="argument hook_arn", value=hook_arn, expected_type=type_hints["hook_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hook_arn": hook_arn,
+        }
+
+    @builtins.property
+    def hook_arn(self) -> builtins.str:
+        '''The HookArn of the LambdaHook resource.'''
+        result = self._values.get("hook_arn")
+        assert result is not None, "Required property 'hook_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaHookReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.MacroReference",
+    jsii_struct_bases=[],
+    name_mapping={"macro_id": "macroId"},
+)
+class MacroReference:
+    def __init__(self, *, macro_id: builtins.str) -> None:
+        '''A reference to a Macro resource.
+
+        :param macro_id: The Id of the Macro resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            macro_reference = cloudformation.MacroReference(
+                macro_id="macroId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04d15e4696eec2e7f603acdb655182bd09e86947b6c2db69b4d6c90a49891a7d)
+            check_type(argname="argument macro_id", value=macro_id, expected_type=type_hints["macro_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "macro_id": macro_id,
+        }
+
+    @builtins.property
+    def macro_id(self) -> builtins.str:
+        '''The Id of the Macro resource.'''
+        result = self._values.get("macro_id")
+        assert result is not None, "Required property 'macro_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MacroReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.ModuleDefaultVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"module_default_version_arn": "moduleDefaultVersionArn"},
+)
+class ModuleDefaultVersionReference:
+    def __init__(self, *, module_default_version_arn: builtins.str) -> None:
+        '''A reference to a ModuleDefaultVersion resource.
+
+        :param module_default_version_arn: The Arn of the ModuleDefaultVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            module_default_version_reference = cloudformation.ModuleDefaultVersionReference(
+                module_default_version_arn="moduleDefaultVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b581762ddebdd18e8420bf3fe81554d99fb4370c111920cafc48878d038cbd8)
+            check_type(argname="argument module_default_version_arn", value=module_default_version_arn, expected_type=type_hints["module_default_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "module_default_version_arn": module_default_version_arn,
+        }
+
+    @builtins.property
+    def module_default_version_arn(self) -> builtins.str:
+        '''The Arn of the ModuleDefaultVersion resource.'''
+        result = self._values.get("module_default_version_arn")
+        assert result is not None, "Required property 'module_default_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ModuleDefaultVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.ModuleVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"module_version_arn": "moduleVersionArn"},
+)
+class ModuleVersionReference:
+    def __init__(self, *, module_version_arn: builtins.str) -> None:
+        '''A reference to a ModuleVersion resource.
+
+        :param module_version_arn: The Arn of the ModuleVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            module_version_reference = cloudformation.ModuleVersionReference(
+                module_version_arn="moduleVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58bd836bfdf1cc1b3acb4b9f3e8d5e755e699ab406f357c53f55cd4c2ff2d3bb)
+            check_type(argname="argument module_version_arn", value=module_version_arn, expected_type=type_hints["module_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "module_version_arn": module_version_arn,
+        }
+
+    @builtins.property
+    def module_version_arn(self) -> builtins.str:
+        '''The Arn of the ModuleVersion resource.'''
+        result = self._values.get("module_version_arn")
+        assert result is not None, "Required property 'module_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ModuleVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.PublicTypeVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"public_type_arn": "publicTypeArn"},
+)
+class PublicTypeVersionReference:
+    def __init__(self, *, public_type_arn: builtins.str) -> None:
+        '''A reference to a PublicTypeVersion resource.
+
+        :param public_type_arn: The PublicTypeArn of the PublicTypeVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            public_type_version_reference = cloudformation.PublicTypeVersionReference(
+                public_type_arn="publicTypeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__024793a4b29c70810ea9ff6dd21dd6af75abc84709363fa33172f3aa6f36b8ec)
+            check_type(argname="argument public_type_arn", value=public_type_arn, expected_type=type_hints["public_type_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "public_type_arn": public_type_arn,
+        }
+
+    @builtins.property
+    def public_type_arn(self) -> builtins.str:
+        '''The PublicTypeArn of the PublicTypeVersion resource.'''
+        result = self._values.get("public_type_arn")
+        assert result is not None, "Required property 'public_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PublicTypeVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.PublisherReference",
+    jsii_struct_bases=[],
+    name_mapping={"publisher_id": "publisherId"},
+)
+class PublisherReference:
+    def __init__(self, *, publisher_id: builtins.str) -> None:
+        '''A reference to a Publisher resource.
+
+        :param publisher_id: The PublisherId of the Publisher resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            publisher_reference = cloudformation.PublisherReference(
+                publisher_id="publisherId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd05d1af745c4e6e241f607d1ff3c83d9a4c585acfccb2dc59e634a3417734f6)
+            check_type(argname="argument publisher_id", value=publisher_id, expected_type=type_hints["publisher_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "publisher_id": publisher_id,
+        }
+
+    @builtins.property
+    def publisher_id(self) -> builtins.str:
+        '''The PublisherId of the Publisher resource.'''
+        result = self._values.get("publisher_id")
+        assert result is not None, "Required property 'publisher_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PublisherReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.ResourceDefaultVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_default_version_arn": "resourceDefaultVersionArn"},
+)
+class ResourceDefaultVersionReference:
+    def __init__(self, *, resource_default_version_arn: builtins.str) -> None:
+        '''A reference to a ResourceDefaultVersion resource.
+
+        :param resource_default_version_arn: The Arn of the ResourceDefaultVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            resource_default_version_reference = cloudformation.ResourceDefaultVersionReference(
+                resource_default_version_arn="resourceDefaultVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee35a07900b546c986913cafdd54773557fd77d8a425c08800ac376d052d1592)
+            check_type(argname="argument resource_default_version_arn", value=resource_default_version_arn, expected_type=type_hints["resource_default_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_default_version_arn": resource_default_version_arn,
+        }
+
+    @builtins.property
+    def resource_default_version_arn(self) -> builtins.str:
+        '''The Arn of the ResourceDefaultVersion resource.'''
+        result = self._values.get("resource_default_version_arn")
+        assert result is not None, "Required property 'resource_default_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceDefaultVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.ResourceVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_version_arn": "resourceVersionArn"},
+)
+class ResourceVersionReference:
+    def __init__(self, *, resource_version_arn: builtins.str) -> None:
+        '''A reference to a ResourceVersion resource.
+
+        :param resource_version_arn: The Arn of the ResourceVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            resource_version_reference = cloudformation.ResourceVersionReference(
+                resource_version_arn="resourceVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__320966bad741aa31adfdec4a099e4e7d685987eb37ad24cf1c7b15368d95d01b)
+            check_type(argname="argument resource_version_arn", value=resource_version_arn, expected_type=type_hints["resource_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_version_arn": resource_version_arn,
+        }
+
+    @builtins.property
+    def resource_version_arn(self) -> builtins.str:
+        '''The Arn of the ResourceVersion resource.'''
+        result = self._values.get("resource_version_arn")
+        assert result is not None, "Required property 'resource_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.StackReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_id": "stackId"},
+)
+class StackReference:
+    def __init__(self, *, stack_id: builtins.str) -> None:
+        '''A reference to a Stack resource.
+
+        :param stack_id: The StackId of the Stack resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            stack_reference = cloudformation.StackReference(
+                stack_id="stackId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8499c7d7c2673f90c530b444f850c6a3d59783218687ec33f15b21d77ae59602)
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_id": stack_id,
+        }
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The StackId of the Stack resource.'''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.StackSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_set_id": "stackSetId"},
+)
+class StackSetReference:
+    def __init__(self, *, stack_set_id: builtins.str) -> None:
+        '''A reference to a StackSet resource.
+
+        :param stack_set_id: The StackSetId of the StackSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            stack_set_reference = cloudformation.StackSetReference(
+                stack_set_id="stackSetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e2f2a0c4d11ec0c48b6f2aea722f0ab7e263109ca3e2a6edcf2d28f5d0f6fcf)
+            check_type(argname="argument stack_set_id", value=stack_set_id, expected_type=type_hints["stack_set_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_set_id": stack_set_id,
+        }
+
+    @builtins.property
+    def stack_set_id(self) -> builtins.str:
+        '''The StackSetId of the StackSet resource.'''
+        result = self._values.get("stack_set_id")
+        assert result is not None, "Required property 'stack_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.TypeActivationReference",
+    jsii_struct_bases=[],
+    name_mapping={"type_activation_arn": "typeActivationArn"},
+)
+class TypeActivationReference:
+    def __init__(self, *, type_activation_arn: builtins.str) -> None:
+        '''A reference to a TypeActivation resource.
+
+        :param type_activation_arn: The Arn of the TypeActivation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            type_activation_reference = cloudformation.TypeActivationReference(
+                type_activation_arn="typeActivationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a974b87e465d6be25cecadee799c54f4c5d89283e9d9b956d81755c3bebfe7f7)
+            check_type(argname="argument type_activation_arn", value=type_activation_arn, expected_type=type_hints["type_activation_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type_activation_arn": type_activation_arn,
+        }
+
+    @builtins.property
+    def type_activation_arn(self) -> builtins.str:
+        '''The Arn of the TypeActivation resource.'''
+        result = self._values.get("type_activation_arn")
+        assert result is not None, "Required property 'type_activation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TypeActivationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.WaitConditionHandleReference",
+    jsii_struct_bases=[],
+    name_mapping={"wait_condition_handle_id": "waitConditionHandleId"},
+)
+class WaitConditionHandleReference:
+    def __init__(self, *, wait_condition_handle_id: builtins.str) -> None:
+        '''A reference to a WaitConditionHandle resource.
+
+        :param wait_condition_handle_id: The Id of the WaitConditionHandle resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            wait_condition_handle_reference = cloudformation.WaitConditionHandleReference(
+                wait_condition_handle_id="waitConditionHandleId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a57b5fb15ef9850a0dbf722c20bab13a9e0f81df44ed621e3a83833fac0cb28)
+            check_type(argname="argument wait_condition_handle_id", value=wait_condition_handle_id, expected_type=type_hints["wait_condition_handle_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "wait_condition_handle_id": wait_condition_handle_id,
+        }
+
+    @builtins.property
+    def wait_condition_handle_id(self) -> builtins.str:
+        '''The Id of the WaitConditionHandle resource.'''
+        result = self._values.get("wait_condition_handle_id")
+        assert result is not None, "Required property 'wait_condition_handle_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WaitConditionHandleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudformation.WaitConditionReference",
+    jsii_struct_bases=[],
+    name_mapping={"wait_condition_id": "waitConditionId"},
+)
+class WaitConditionReference:
+    def __init__(self, *, wait_condition_id: builtins.str) -> None:
+        '''A reference to a WaitCondition resource.
+
+        :param wait_condition_id: The Id of the WaitCondition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudformation as cloudformation
+            
+            wait_condition_reference = cloudformation.WaitConditionReference(
+                wait_condition_id="waitConditionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cec743e70d11368bb09ab88cbc948d7bceb386edfa785481a10b40ceee6aa2ed)
+            check_type(argname="argument wait_condition_id", value=wait_condition_id, expected_type=type_hints["wait_condition_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "wait_condition_id": wait_condition_id,
+        }
+
+    @builtins.property
+    def wait_condition_id(self) -> builtins.str:
+        '''The Id of the WaitCondition resource.'''
+        result = self._values.get("wait_condition_id")
+        assert result is not None, "Required property 'wait_condition_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WaitConditionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ICustomResourceRef)
 class CfnCustomResource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -148,6 +4364,12 @@ class CfnCustomResource(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="customResourceRef")
+    def custom_resource_ref(self) -> CustomResourceReference:
+        '''A reference to a CustomResource resource.'''
+        return typing.cast(CustomResourceReference, jsii.get(self, "customResourceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="serviceToken")
     def service_token(self) -> builtins.str:
         '''The service token, such as an Amazon SNS topic ARN or Lambda function ARN.'''
@@ -174,90 +4396,7 @@ class CfnCustomResource(
         jsii.set(self, "serviceTimeout", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnCustomResourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "service_token": "serviceToken",
-        "service_timeout": "serviceTimeout",
-    },
-)
-class CfnCustomResourceProps:
-    def __init__(
-        self,
-        *,
-        service_token: builtins.str,
-        service_timeout: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCustomResource``.
-
-        :param service_token: The service token, such as an Amazon SNS topic ARN or Lambda function ARN. The service token must be from the same Region as the stack. Updates aren't supported.
-        :param service_timeout: The maximum time, in seconds, that can elapse before a custom resource operation times out. The value must be an integer from 1 to 3600. The default value is 3600 seconds (1 hour).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_custom_resource_props = cloudformation.CfnCustomResourceProps(
-                service_token="serviceToken",
-            
-                # the properties below are optional
-                service_timeout=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f766b9f5ea2582bff4d2cb33b19a38fbdabfbe380c61d04a056e8e0d2a00b54a)
-            check_type(argname="argument service_token", value=service_token, expected_type=type_hints["service_token"])
-            check_type(argname="argument service_timeout", value=service_timeout, expected_type=type_hints["service_timeout"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "service_token": service_token,
-        }
-        if service_timeout is not None:
-            self._values["service_timeout"] = service_timeout
-
-    @builtins.property
-    def service_token(self) -> builtins.str:
-        '''The service token, such as an Amazon SNS topic ARN or Lambda function ARN.
-
-        The service token must be from the same Region as the stack.
-
-        Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html#cfn-cloudformation-customresource-servicetoken
-        '''
-        result = self._values.get("service_token")
-        assert result is not None, "Required property 'service_token' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_timeout(self) -> typing.Optional[jsii.Number]:
-        '''The maximum time, in seconds, that can elapse before a custom resource operation times out.
-
-        The value must be an integer from 1 to 3600. The default value is 3600 seconds (1 hour).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-customresource.html#cfn-cloudformation-customresource-servicetimeout
-        '''
-        result = self._values.get("service_timeout")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCustomResourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IGuardHookRef)
 class CfnGuardHook(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -422,6 +4561,12 @@ class CfnGuardHook(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardHookRef")
+    def guard_hook_ref(self) -> GuardHookReference:
+        '''A reference to a GuardHook resource.'''
+        return typing.cast(GuardHookReference, jsii.get(self, "guardHookRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alias")
@@ -1189,286 +5334,7 @@ class CfnGuardHook(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnGuardHookProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "alias": "alias",
-        "execution_role": "executionRole",
-        "failure_mode": "failureMode",
-        "hook_status": "hookStatus",
-        "rule_location": "ruleLocation",
-        "target_operations": "targetOperations",
-        "log_bucket": "logBucket",
-        "options": "options",
-        "stack_filters": "stackFilters",
-        "target_filters": "targetFilters",
-    },
-)
-class CfnGuardHookProps:
-    def __init__(
-        self,
-        *,
-        alias: builtins.str,
-        execution_role: builtins.str,
-        failure_mode: builtins.str,
-        hook_status: builtins.str,
-        rule_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-        target_operations: typing.Sequence[builtins.str],
-        log_bucket: typing.Optional[builtins.str] = None,
-        options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.OptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGuardHook``.
-
-        :param alias: The type name alias for the Hook. This alias must be unique per account and Region. The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Guard::MyTestHook`` .
-        :param execution_role: The IAM role that the Hook assumes to retrieve your Guard rules from S3 and optionally write a detailed Guard output report back.
-        :param failure_mode: Specifies how the Hook responds when rules fail their evaluation. - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies. - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks. Default: - "WARN"
-        :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "DISABLED"
-        :param rule_location: Specifies the S3 location of your Guard rules.
-        :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
-        :param log_bucket: Specifies the name of an S3 bucket to store the Guard output report. This report contains the results of your Guard rule validations.
-        :param options: Specifies the S3 location of your input parameters.
-        :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_guard_hook_props = cloudformation.CfnGuardHookProps(
-                alias="alias",
-                execution_role="executionRole",
-                failure_mode="failureMode",
-                hook_status="hookStatus",
-                rule_location=cloudformation.CfnGuardHook.S3LocationProperty(
-                    uri="uri",
-            
-                    # the properties below are optional
-                    version_id="versionId"
-                ),
-                target_operations=["targetOperations"],
-            
-                # the properties below are optional
-                log_bucket="logBucket",
-                options=cloudformation.CfnGuardHook.OptionsProperty(
-                    input_params=cloudformation.CfnGuardHook.S3LocationProperty(
-                        uri="uri",
-            
-                        # the properties below are optional
-                        version_id="versionId"
-                    )
-                ),
-                stack_filters=cloudformation.CfnGuardHook.StackFiltersProperty(
-                    filtering_criteria="filteringCriteria",
-            
-                    # the properties below are optional
-                    stack_names=cloudformation.CfnGuardHook.StackNamesProperty(
-                        exclude=["exclude"],
-                        include=["include"]
-                    ),
-                    stack_roles=cloudformation.CfnGuardHook.StackRolesProperty(
-                        exclude=["exclude"],
-                        include=["include"]
-                    )
-                ),
-                target_filters=cloudformation.CfnGuardHook.TargetFiltersProperty(
-                    targets=[cloudformation.CfnGuardHook.HookTargetProperty(
-                        action="action",
-                        invocation_point="invocationPoint",
-                        target_name="targetName"
-                    )],
-            
-                    # the properties below are optional
-                    actions=["actions"],
-                    invocation_points=["invocationPoints"],
-                    target_names=["targetNames"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__102e29368f2c52ece5c053d50bb54873288bc91ca7d6f01a1ad3bb84ffdc3b76)
-            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument failure_mode", value=failure_mode, expected_type=type_hints["failure_mode"])
-            check_type(argname="argument hook_status", value=hook_status, expected_type=type_hints["hook_status"])
-            check_type(argname="argument rule_location", value=rule_location, expected_type=type_hints["rule_location"])
-            check_type(argname="argument target_operations", value=target_operations, expected_type=type_hints["target_operations"])
-            check_type(argname="argument log_bucket", value=log_bucket, expected_type=type_hints["log_bucket"])
-            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
-            check_type(argname="argument stack_filters", value=stack_filters, expected_type=type_hints["stack_filters"])
-            check_type(argname="argument target_filters", value=target_filters, expected_type=type_hints["target_filters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alias": alias,
-            "execution_role": execution_role,
-            "failure_mode": failure_mode,
-            "hook_status": hook_status,
-            "rule_location": rule_location,
-            "target_operations": target_operations,
-        }
-        if log_bucket is not None:
-            self._values["log_bucket"] = log_bucket
-        if options is not None:
-            self._values["options"] = options
-        if stack_filters is not None:
-            self._values["stack_filters"] = stack_filters
-        if target_filters is not None:
-            self._values["target_filters"] = target_filters
-
-    @builtins.property
-    def alias(self) -> builtins.str:
-        '''The type name alias for the Hook. This alias must be unique per account and Region.
-
-        The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Guard::MyTestHook`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-alias
-        '''
-        result = self._values.get("alias")
-        assert result is not None, "Required property 'alias' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def execution_role(self) -> builtins.str:
-        '''The IAM role that the Hook assumes to retrieve your Guard rules from S3 and optionally write a detailed Guard output report back.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-executionrole
-        '''
-        result = self._values.get("execution_role")
-        assert result is not None, "Required property 'execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def failure_mode(self) -> builtins.str:
-        '''Specifies how the Hook responds when rules fail their evaluation.
-
-        - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies.
-        - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
-
-        :default: - "WARN"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-failuremode
-        '''
-        result = self._values.get("failure_mode")
-        assert result is not None, "Required property 'failure_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def hook_status(self) -> builtins.str:
-        '''Specifies if the Hook is ``ENABLED`` or ``DISABLED`` .
-
-        :default: - "DISABLED"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-hookstatus
-        '''
-        result = self._values.get("hook_status")
-        assert result is not None, "Required property 'hook_status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_location(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnGuardHook.S3LocationProperty]:
-        '''Specifies the S3 location of your Guard rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-rulelocation
-        '''
-        result = self._values.get("rule_location")
-        assert result is not None, "Required property 'rule_location' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnGuardHook.S3LocationProperty], result)
-
-    @builtins.property
-    def target_operations(self) -> typing.List[builtins.str]:
-        '''Specifies the list of operations the Hook is run against.
-
-        For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* .
-
-        Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-targetoperations
-        '''
-        result = self._values.get("target_operations")
-        assert result is not None, "Required property 'target_operations' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def log_bucket(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of an S3 bucket to store the Guard output report.
-
-        This report contains the results of your Guard rule validations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-logbucket
-        '''
-        result = self._values.get("log_bucket")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.OptionsProperty]]:
-        '''Specifies the S3 location of your input parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-options
-        '''
-        result = self._values.get("options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.OptionsProperty]], result)
-
-    @builtins.property
-    def stack_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.StackFiltersProperty]]:
-        '''Specifies the stack level filters for the Hook.
-
-        Example stack level filter in JSON:
-
-        ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}``
-
-        Example stack level filter in YAML:
-
-        ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-stackfilters
-        '''
-        result = self._values.get("stack_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.StackFiltersProperty]], result)
-
-    @builtins.property
-    def target_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.TargetFiltersProperty]]:
-        '''Specifies the target filters for the Hook.
-
-        Example target filter in JSON:
-
-        ``"TargetFilters": {"Actions": [ "Create", "Update", "Delete" ]}``
-
-        Example target filter in YAML:
-
-        ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-guardhook.html#cfn-cloudformation-guardhook-targetfilters
-        '''
-        result = self._values.get("target_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGuardHook.TargetFiltersProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGuardHookProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IHookDefaultVersionRef)
 class CfnHookDefaultVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1572,6 +5438,12 @@ class CfnHookDefaultVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="hookDefaultVersionRef")
+    def hook_default_version_ref(self) -> HookDefaultVersionReference:
+        '''A reference to a HookDefaultVersion resource.'''
+        return typing.cast(HookDefaultVersionReference, jsii.get(self, "hookDefaultVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="typeName")
     def type_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Hook.'''
@@ -1611,103 +5483,7 @@ class CfnHookDefaultVersion(
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookDefaultVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "type_name": "typeName",
-        "type_version_arn": "typeVersionArn",
-        "version_id": "versionId",
-    },
-)
-class CfnHookDefaultVersionProps:
-    def __init__(
-        self,
-        *,
-        type_name: typing.Optional[builtins.str] = None,
-        type_version_arn: typing.Optional[builtins.str] = None,
-        version_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHookDefaultVersion``.
-
-        :param type_name: The name of the Hook. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-        :param type_version_arn: The version ID of the type configuration. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-        :param version_id: The version ID of the type specified. You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_hook_default_version_props = cloudformation.CfnHookDefaultVersionProps(
-                type_name="typeName",
-                type_version_arn="typeVersionArn",
-                version_id="versionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86e582779d0fb8b475195467d988078f1c65515c6a403bf9dc6b5ef8aced149f)
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-            check_type(argname="argument type_version_arn", value=type_version_arn, expected_type=type_hints["type_version_arn"])
-            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if type_name is not None:
-            self._values["type_name"] = type_name
-        if type_version_arn is not None:
-            self._values["type_version_arn"] = type_version_arn
-        if version_id is not None:
-            self._values["version_id"] = version_id
-
-    @builtins.property
-    def type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Hook.
-
-        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-typename
-        '''
-        result = self._values.get("type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The version ID of the type configuration.
-
-        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-typeversionarn
-        '''
-        result = self._values.get("type_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_id(self) -> typing.Optional[builtins.str]:
-        '''The version ID of the type specified.
-
-        You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookdefaultversion.html#cfn-cloudformation-hookdefaultversion-versionid
-        '''
-        result = self._values.get("version_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHookDefaultVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IHookTypeConfigRef)
 class CfnHookTypeConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1813,6 +5589,12 @@ class CfnHookTypeConfig(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="hookTypeConfigRef")
+    def hook_type_config_ref(self) -> HookTypeConfigReference:
+        '''A reference to a HookTypeConfig resource.'''
+        return typing.cast(HookTypeConfigReference, jsii.get(self, "hookTypeConfigRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(self) -> builtins.str:
         '''Specifies the activated Hook type configuration, in this AWS account and AWS Region .'''
@@ -1865,128 +5647,7 @@ class CfnHookTypeConfig(
         jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookTypeConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration": "configuration",
-        "configuration_alias": "configurationAlias",
-        "type_arn": "typeArn",
-        "type_name": "typeName",
-    },
-)
-class CfnHookTypeConfigProps:
-    def __init__(
-        self,
-        *,
-        configuration: builtins.str,
-        configuration_alias: typing.Optional[builtins.str] = None,
-        type_arn: typing.Optional[builtins.str] = None,
-        type_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHookTypeConfig``.
-
-        :param configuration: Specifies the activated Hook type configuration, in this AWS account and AWS Region . You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-        :param configuration_alias: An alias by which to refer to this configuration data. Defaults to ``default`` alias. Hook types currently support default configuration alias. Default: - "default"
-        :param type_arn: The Amazon Resource Number (ARN) for the Hook to set ``Configuration`` for. You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-        :param type_name: The unique name for your Hook. Specifies a three-part namespace for your Hook, with a recommended pattern of ``Organization::Service::Hook`` . You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_hook_type_config_props = cloudformation.CfnHookTypeConfigProps(
-                configuration="configuration",
-            
-                # the properties below are optional
-                configuration_alias="configurationAlias",
-                type_arn="typeArn",
-                type_name="typeName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef5f9608def2c7b14e7449a6bceadbd90b6e5242e86707d305d4923d050f8f9a)
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument configuration_alias", value=configuration_alias, expected_type=type_hints["configuration_alias"])
-            check_type(argname="argument type_arn", value=type_arn, expected_type=type_hints["type_arn"])
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration": configuration,
-        }
-        if configuration_alias is not None:
-            self._values["configuration_alias"] = configuration_alias
-        if type_arn is not None:
-            self._values["type_arn"] = type_arn
-        if type_name is not None:
-            self._values["type_name"] = type_name
-
-    @builtins.property
-    def configuration(self) -> builtins.str:
-        '''Specifies the activated Hook type configuration, in this AWS account and AWS Region .
-
-        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration_alias(self) -> typing.Optional[builtins.str]:
-        '''An alias by which to refer to this configuration data.
-
-        Defaults to ``default`` alias. Hook types currently support default configuration alias.
-
-        :default: - "default"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-configurationalias
-        '''
-        result = self._values.get("configuration_alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) for the Hook to set ``Configuration`` for.
-
-        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-typearn
-        '''
-        result = self._values.get("type_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_name(self) -> typing.Optional[builtins.str]:
-        '''The unique name for your Hook.
-
-        Specifies a three-part namespace for your Hook, with a recommended pattern of ``Organization::Service::Hook`` .
-
-        You must specify either ``TypeName`` and ``Configuration`` or ``TypeArn`` and ``Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hooktypeconfig.html#cfn-cloudformation-hooktypeconfig-typename
-        '''
-        result = self._values.get("type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHookTypeConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IHookVersionRef)
 class CfnHookVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2136,6 +5797,12 @@ class CfnHookVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="hookVersionRef")
+    def hook_version_ref(self) -> HookVersionReference:
+        '''A reference to a HookVersion resource.'''
+        return typing.cast(HookVersionReference, jsii.get(self, "hookVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackage")
     def schema_handler_package(self) -> builtins.str:
         '''A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register.'''
@@ -2263,139 +5930,7 @@ class CfnHookVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnHookVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "schema_handler_package": "schemaHandlerPackage",
-        "type_name": "typeName",
-        "execution_role_arn": "executionRoleArn",
-        "logging_config": "loggingConfig",
-    },
-)
-class CfnHookVersionProps:
-    def __init__(
-        self,
-        *,
-        schema_handler_package: builtins.str,
-        type_name: builtins.str,
-        execution_role_arn: typing.Optional[builtins.str] = None,
-        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHookVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHookVersion``.
-
-        :param schema_handler_package: A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register. For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* . .. epigraph:: To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
-        :param type_name: The unique name for your hook. Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` . .. epigraph:: The following organization namespaces are reserved and can't be used in your hook type names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``ASK`` - ``AWS`` - ``Custom`` - ``Dev``
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
-        :param logging_config: Contains logging configuration information for an extension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_hook_version_props = cloudformation.CfnHookVersionProps(
-                schema_handler_package="schemaHandlerPackage",
-                type_name="typeName",
-            
-                # the properties below are optional
-                execution_role_arn="executionRoleArn",
-                logging_config=cloudformation.CfnHookVersion.LoggingConfigProperty(
-                    log_group_name="logGroupName",
-                    log_role_arn="logRoleArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a9bb2ef202f6ed27272b4d9787339d2a26c63beb648e39f3c4977200bcc65b1)
-            check_type(argname="argument schema_handler_package", value=schema_handler_package, expected_type=type_hints["schema_handler_package"])
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "schema_handler_package": schema_handler_package,
-            "type_name": type_name,
-        }
-        if execution_role_arn is not None:
-            self._values["execution_role_arn"] = execution_role_arn
-        if logging_config is not None:
-            self._values["logging_config"] = logging_config
-
-    @builtins.property
-    def schema_handler_package(self) -> builtins.str:
-        '''A URL to the Amazon S3 bucket for the Hook project package that contains the necessary files for the Hook you want to register.
-
-        For information on generating a schema handler package, see `Modeling custom CloudFormation Hooks <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-model.html>`_ in the *AWS CloudFormation Hooks User Guide* .
-        .. epigraph::
-
-           To register the Hook, you must have ``s3:GetObject`` permissions to access the S3 objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-schemahandlerpackage
-        '''
-        result = self._values.get("schema_handler_package")
-        assert result is not None, "Required property 'schema_handler_package' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type_name(self) -> builtins.str:
-        '''The unique name for your hook.
-
-        Specifies a three-part namespace for your hook, with a recommended pattern of ``Organization::Service::Hook`` .
-        .. epigraph::
-
-           The following organization namespaces are reserved and can't be used in your hook type names:
-
-           - ``Alexa``
-           - ``AMZN``
-           - ``Amazon``
-           - ``ASK``
-           - ``AWS``
-           - ``Custom``
-           - ``Dev``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-typename
-        '''
-        result = self._values.get("type_name")
-        assert result is not None, "Required property 'type_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the task execution role that grants the Hook permission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHookVersion.LoggingConfigProperty]]:
-        '''Contains logging configuration information for an extension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-hookversion.html#cfn-cloudformation-hookversion-loggingconfig
-        '''
-        result = self._values.get("logging_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHookVersion.LoggingConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHookVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ILambdaHookRef)
 class CfnLambdaHook(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2540,6 +6075,12 @@ class CfnLambdaHook(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaHookRef")
+    def lambda_hook_ref(self) -> LambdaHookReference:
+        '''A reference to a LambdaHook resource.'''
+        return typing.cast(LambdaHookReference, jsii.get(self, "lambdaHookRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alias")
@@ -3133,237 +6674,7 @@ class CfnLambdaHook(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnLambdaHookProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "alias": "alias",
-        "execution_role": "executionRole",
-        "failure_mode": "failureMode",
-        "hook_status": "hookStatus",
-        "lambda_function": "lambdaFunction",
-        "target_operations": "targetOperations",
-        "stack_filters": "stackFilters",
-        "target_filters": "targetFilters",
-    },
-)
-class CfnLambdaHookProps:
-    def __init__(
-        self,
-        *,
-        alias: builtins.str,
-        execution_role: builtins.str,
-        failure_mode: builtins.str,
-        hook_status: builtins.str,
-        lambda_function: builtins.str,
-        target_operations: typing.Sequence[builtins.str],
-        stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLambdaHook``.
-
-        :param alias: The type name alias for the Hook. This alias must be unique per account and Region. The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Lambda::MyTestHook`` .
-        :param execution_role: The IAM role that the Hook assumes to invoke your Lambda function.
-        :param failure_mode: Specifies how the Hook responds when the Lambda function invoked by the Hook returns a ``FAILED`` response. - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies. - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
-        :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "ENABLED"
-        :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
-        :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
-        :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-        :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_lambda_hook_props = cloudformation.CfnLambdaHookProps(
-                alias="alias",
-                execution_role="executionRole",
-                failure_mode="failureMode",
-                hook_status="hookStatus",
-                lambda_function="lambdaFunction",
-                target_operations=["targetOperations"],
-            
-                # the properties below are optional
-                stack_filters=cloudformation.CfnLambdaHook.StackFiltersProperty(
-                    filtering_criteria="filteringCriteria",
-            
-                    # the properties below are optional
-                    stack_names=cloudformation.CfnLambdaHook.StackNamesProperty(
-                        exclude=["exclude"],
-                        include=["include"]
-                    ),
-                    stack_roles=cloudformation.CfnLambdaHook.StackRolesProperty(
-                        exclude=["exclude"],
-                        include=["include"]
-                    )
-                ),
-                target_filters=cloudformation.CfnLambdaHook.TargetFiltersProperty(
-                    targets=[cloudformation.CfnLambdaHook.HookTargetProperty(
-                        action="action",
-                        invocation_point="invocationPoint",
-                        target_name="targetName"
-                    )],
-            
-                    # the properties below are optional
-                    actions=["actions"],
-                    invocation_points=["invocationPoints"],
-                    target_names=["targetNames"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08ef8befa45effdca3c0a1b699ffb2fae0aaed2060b19e128bdcc021cfcb0b95)
-            check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
-            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
-            check_type(argname="argument failure_mode", value=failure_mode, expected_type=type_hints["failure_mode"])
-            check_type(argname="argument hook_status", value=hook_status, expected_type=type_hints["hook_status"])
-            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
-            check_type(argname="argument target_operations", value=target_operations, expected_type=type_hints["target_operations"])
-            check_type(argname="argument stack_filters", value=stack_filters, expected_type=type_hints["stack_filters"])
-            check_type(argname="argument target_filters", value=target_filters, expected_type=type_hints["target_filters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alias": alias,
-            "execution_role": execution_role,
-            "failure_mode": failure_mode,
-            "hook_status": hook_status,
-            "lambda_function": lambda_function,
-            "target_operations": target_operations,
-        }
-        if stack_filters is not None:
-            self._values["stack_filters"] = stack_filters
-        if target_filters is not None:
-            self._values["target_filters"] = target_filters
-
-    @builtins.property
-    def alias(self) -> builtins.str:
-        '''The type name alias for the Hook. This alias must be unique per account and Region.
-
-        The alias must be in the form ``Name1::Name2::Name3`` and must not begin with ``AWS`` . For example, ``Private::Lambda::MyTestHook`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-alias
-        '''
-        result = self._values.get("alias")
-        assert result is not None, "Required property 'alias' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def execution_role(self) -> builtins.str:
-        '''The IAM role that the Hook assumes to invoke your Lambda function.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-executionrole
-        '''
-        result = self._values.get("execution_role")
-        assert result is not None, "Required property 'execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def failure_mode(self) -> builtins.str:
-        '''Specifies how the Hook responds when the Lambda function invoked by the Hook returns a ``FAILED`` response.
-
-        - ``FAIL`` : Prevents the action from proceeding. This is helpful for enforcing strict compliance or security policies.
-        - ``WARN`` : Issues warnings to users but allows actions to continue. This is useful for non-critical validations or informational checks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-failuremode
-        '''
-        result = self._values.get("failure_mode")
-        assert result is not None, "Required property 'failure_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def hook_status(self) -> builtins.str:
-        '''Specifies if the Hook is ``ENABLED`` or ``DISABLED`` .
-
-        :default: - "ENABLED"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-hookstatus
-        '''
-        result = self._values.get("hook_status")
-        assert result is not None, "Required property 'hook_status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def lambda_function(self) -> builtins.str:
-        '''Specifies the Lambda function for the Hook. You can use:.
-
-        - The full Amazon Resource Name (ARN) without a suffix.
-        - A qualified ARN with a version or alias suffix.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-lambdafunction
-        '''
-        result = self._values.get("lambda_function")
-        assert result is not None, "Required property 'lambda_function' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_operations(self) -> typing.List[builtins.str]:
-        '''Specifies the list of operations the Hook is run against.
-
-        For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *AWS CloudFormation Hooks User Guide* .
-
-        Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-targetoperations
-        '''
-        result = self._values.get("target_operations")
-        assert result is not None, "Required property 'target_operations' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def stack_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLambdaHook.StackFiltersProperty]]:
-        '''Specifies the stack level filters for the Hook.
-
-        Example stack level filter in JSON:
-
-        ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}``
-
-        Example stack level filter in YAML:
-
-        ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-stackfilters
-        '''
-        result = self._values.get("stack_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLambdaHook.StackFiltersProperty]], result)
-
-    @builtins.property
-    def target_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLambdaHook.TargetFiltersProperty]]:
-        '''Specifies the target filters for the Hook.
-
-        Example target filter in JSON:
-
-        ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}``
-
-        Example target filter in YAML:
-
-        ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-targetfilters
-        '''
-        result = self._values.get("target_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLambdaHook.TargetFiltersProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLambdaHookProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IMacroRef)
 class CfnMacro(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3473,6 +6784,12 @@ class CfnMacro(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="macroRef")
+    def macro_ref(self) -> MacroReference:
+        '''A reference to a Macro resource.'''
+        return typing.cast(MacroReference, jsii.get(self, "macroRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="functionName")
     def function_name(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the underlying Lambda function that you want CloudFormation to invoke when the macro is run.'''
@@ -3538,136 +6855,7 @@ class CfnMacro(
         jsii.set(self, "logRoleArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnMacroProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "function_name": "functionName",
-        "name": "name",
-        "description": "description",
-        "log_group_name": "logGroupName",
-        "log_role_arn": "logRoleArn",
-    },
-)
-class CfnMacroProps:
-    def __init__(
-        self,
-        *,
-        function_name: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        log_group_name: typing.Optional[builtins.str] = None,
-        log_role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMacro``.
-
-        :param function_name: The Amazon Resource Name (ARN) of the underlying Lambda function that you want CloudFormation to invoke when the macro is run.
-        :param name: The name of the macro. The name of the macro must be unique across all macros in the account.
-        :param description: A description of the macro.
-        :param log_group_name: The CloudWatch Logs group to which CloudFormation sends error logging information when invoking the macro's underlying Lambda function. This will be an existing CloudWatch Logs LogGroup. Neither CloudFormation or Lambda will create the group.
-        :param log_role_arn: The ARN of the role CloudFormation should assume when sending log entries to CloudWatch Logs .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_macro_props = cloudformation.CfnMacroProps(
-                function_name="functionName",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                log_group_name="logGroupName",
-                log_role_arn="logRoleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42b23a370c2b5c33d49b7f892f41cb61bdad8c6efe4c078d5d357c872fd866b6)
-            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
-            check_type(argname="argument log_role_arn", value=log_role_arn, expected_type=type_hints["log_role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "function_name": function_name,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if log_group_name is not None:
-            self._values["log_group_name"] = log_group_name
-        if log_role_arn is not None:
-            self._values["log_role_arn"] = log_role_arn
-
-    @builtins.property
-    def function_name(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the underlying Lambda function that you want CloudFormation to invoke when the macro is run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-functionname
-        '''
-        result = self._values.get("function_name")
-        assert result is not None, "Required property 'function_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the macro.
-
-        The name of the macro must be unique across all macros in the account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the macro.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_group_name(self) -> typing.Optional[builtins.str]:
-        '''The CloudWatch Logs group to which CloudFormation sends error logging information when invoking the macro's underlying Lambda function.
-
-        This will be an existing CloudWatch Logs LogGroup. Neither CloudFormation or Lambda will create the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-loggroupname
-        '''
-        result = self._values.get("log_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the role CloudFormation should assume when sending log entries to CloudWatch Logs .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-macro.html#cfn-cloudformation-macro-logrolearn
-        '''
-        result = self._values.get("log_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMacroProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IModuleDefaultVersionRef)
 class CfnModuleDefaultVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3760,6 +6948,12 @@ class CfnModuleDefaultVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="moduleDefaultVersionRef")
+    def module_default_version_ref(self) -> ModuleDefaultVersionReference:
+        '''A reference to a ModuleDefaultVersion resource.'''
+        return typing.cast(ModuleDefaultVersionReference, jsii.get(self, "moduleDefaultVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="arn")
     def arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Name (ARN) of the module version to set as the default version.'''
@@ -3799,103 +6993,7 @@ class CfnModuleDefaultVersion(
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnModuleDefaultVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arn": "arn",
-        "module_name": "moduleName",
-        "version_id": "versionId",
-    },
-)
-class CfnModuleDefaultVersionProps:
-    def __init__(
-        self,
-        *,
-        arn: typing.Optional[builtins.str] = None,
-        module_name: typing.Optional[builtins.str] = None,
-        version_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnModuleDefaultVersion``.
-
-        :param arn: The Amazon Resource Name (ARN) of the module version to set as the default version. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-        :param module_name: The name of the module. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-        :param version_id: The ID for the specific version of the module. Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_module_default_version_props = cloudformation.CfnModuleDefaultVersionProps(
-                arn="arn",
-                module_name="moduleName",
-                version_id="versionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f3ea65dfbd0cb512b468da1b9fb9627d1355ed7f5434478a08a635f804f77fc)
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-            check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
-            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if arn is not None:
-            self._values["arn"] = arn
-        if module_name is not None:
-            self._values["module_name"] = module_name
-        if version_id is not None:
-            self._values["version_id"] = version_id
-
-    @builtins.property
-    def arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the module version to set as the default version.
-
-        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-arn
-        '''
-        result = self._values.get("arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def module_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the module.
-
-        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-modulename
-        '''
-        result = self._values.get("module_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_id(self) -> typing.Optional[builtins.str]:
-        '''The ID for the specific version of the module.
-
-        Conditional: You must specify either ``Arn`` , or ``ModuleName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduledefaultversion.html#cfn-cloudformation-moduledefaultversion-versionid
-        '''
-        result = self._values.get("version_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnModuleDefaultVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IModuleVersionRef)
 class CfnModuleVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4062,6 +7160,12 @@ class CfnModuleVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="moduleVersionRef")
+    def module_version_ref(self) -> ModuleVersionReference:
+        '''A reference to a ModuleVersion resource.'''
+        return typing.cast(ModuleVersionReference, jsii.get(self, "moduleVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="moduleName")
     def module_name(self) -> builtins.str:
         '''The name of the module being registered.'''
@@ -4088,84 +7192,7 @@ class CfnModuleVersion(
         jsii.set(self, "modulePackage", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnModuleVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={"module_name": "moduleName", "module_package": "modulePackage"},
-)
-class CfnModuleVersionProps:
-    def __init__(
-        self,
-        *,
-        module_name: builtins.str,
-        module_package: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnModuleVersion``.
-
-        :param module_name: The name of the module being registered.
-        :param module_package: A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register. For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_module_version_props = cloudformation.CfnModuleVersionProps(
-                module_name="moduleName",
-                module_package="modulePackage"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08386807944526883f9a2a3af6d7b270292ea388802a7d26e4ebe78b66b8aa38)
-            check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
-            check_type(argname="argument module_package", value=module_package, expected_type=type_hints["module_package"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "module_name": module_name,
-            "module_package": module_package,
-        }
-
-    @builtins.property
-    def module_name(self) -> builtins.str:
-        '''The name of the module being registered.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html#cfn-cloudformation-moduleversion-modulename
-        '''
-        result = self._values.get("module_name")
-        assert result is not None, "Required property 'module_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def module_package(self) -> builtins.str:
-        '''A URL to the S3 bucket for the package that contains the template fragment and schema files for the module version to register.
-
-        For more information, see `Module structure and requirements <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/modules-structure.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
-        .. epigraph::
-
-           To register the module version, you must have ``s3:GetObject`` permissions to access the S3 objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-moduleversion.html#cfn-cloudformation-moduleversion-modulepackage
-        '''
-        result = self._values.get("module_package")
-        assert result is not None, "Required property 'module_package' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnModuleVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPublicTypeVersionRef)
 class CfnPublicTypeVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4304,6 +7331,12 @@ class CfnPublicTypeVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="publicTypeVersionRef")
+    def public_type_version_ref(self) -> PublicTypeVersionReference:
+        '''A reference to a PublicTypeVersion resource.'''
+        return typing.cast(PublicTypeVersionReference, jsii.get(self, "publicTypeVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="arn")
     def arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Number (ARN) of the extension.'''
@@ -4369,152 +7402,7 @@ class CfnPublicTypeVersion(
         jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnPublicTypeVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arn": "arn",
-        "log_delivery_bucket": "logDeliveryBucket",
-        "public_version_number": "publicVersionNumber",
-        "type": "type",
-        "type_name": "typeName",
-    },
-)
-class CfnPublicTypeVersionProps:
-    def __init__(
-        self,
-        *,
-        arn: typing.Optional[builtins.str] = None,
-        log_delivery_bucket: typing.Optional[builtins.str] = None,
-        public_version_number: typing.Optional[builtins.str] = None,
-        type: typing.Optional[builtins.str] = None,
-        type_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPublicTypeVersion``.
-
-        :param arn: The Amazon Resource Number (ARN) of the extension. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-        :param log_delivery_bucket: The S3 bucket to which CloudFormation delivers the contract test execution logs. CloudFormation delivers the logs by the time contract testing has completed and the extension has been assigned a test type status of ``PASSED`` or ``FAILED`` . The user initiating the stack operation must be able to access items in the specified S3 bucket. Specifically, the user needs the following permissions: - s3:GetObject - s3:PutObject
-        :param public_version_number: The version number to assign to this version of the extension. Use the following format, and adhere to semantic versioning when assigning a version number to your extension: ``MAJOR.MINOR.PATCH`` For more information, see `Semantic Versioning 2.0.0 <https://docs.aws.amazon.com/https://semver.org/>`_ . If you don't specify a version number, CloudFormation increments the version number by one minor version release. You cannot specify a version number the first time you publish a type. CloudFormation automatically sets the first version number to be ``1.0.0`` .
-        :param type: The type of the extension to test. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-        :param type_name: The name of the extension to test. Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_public_type_version_props = cloudformation.CfnPublicTypeVersionProps(
-                arn="arn",
-                log_delivery_bucket="logDeliveryBucket",
-                public_version_number="publicVersionNumber",
-                type="type",
-                type_name="typeName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18efb861dce8210d36272fd882e9481ecf1f7ad199bf2bf34fdd66aa24a64bc7)
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-            check_type(argname="argument log_delivery_bucket", value=log_delivery_bucket, expected_type=type_hints["log_delivery_bucket"])
-            check_type(argname="argument public_version_number", value=public_version_number, expected_type=type_hints["public_version_number"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if arn is not None:
-            self._values["arn"] = arn
-        if log_delivery_bucket is not None:
-            self._values["log_delivery_bucket"] = log_delivery_bucket
-        if public_version_number is not None:
-            self._values["public_version_number"] = public_version_number
-        if type is not None:
-            self._values["type"] = type
-        if type_name is not None:
-            self._values["type_name"] = type_name
-
-    @builtins.property
-    def arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the extension.
-
-        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-arn
-        '''
-        result = self._values.get("arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_delivery_bucket(self) -> typing.Optional[builtins.str]:
-        '''The S3 bucket to which CloudFormation delivers the contract test execution logs.
-
-        CloudFormation delivers the logs by the time contract testing has completed and the extension has been assigned a test type status of ``PASSED`` or ``FAILED`` .
-
-        The user initiating the stack operation must be able to access items in the specified S3 bucket. Specifically, the user needs the following permissions:
-
-        - s3:GetObject
-        - s3:PutObject
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-logdeliverybucket
-        '''
-        result = self._values.get("log_delivery_bucket")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def public_version_number(self) -> typing.Optional[builtins.str]:
-        '''The version number to assign to this version of the extension.
-
-        Use the following format, and adhere to semantic versioning when assigning a version number to your extension:
-
-        ``MAJOR.MINOR.PATCH``
-
-        For more information, see `Semantic Versioning 2.0.0 <https://docs.aws.amazon.com/https://semver.org/>`_ .
-
-        If you don't specify a version number, CloudFormation increments the version number by one minor version release.
-
-        You cannot specify a version number the first time you publish a type. CloudFormation automatically sets the first version number to be ``1.0.0`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-publicversionnumber
-        '''
-        result = self._values.get("public_version_number")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of the extension to test.
-
-        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the extension to test.
-
-        Conditional: You must specify ``Arn`` , or ``TypeName`` and ``Type`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publictypeversion.html#cfn-cloudformation-publictypeversion-typename
-        '''
-        result = self._values.get("type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPublicTypeVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPublisherRef)
 class CfnPublisher(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4643,6 +7531,12 @@ class CfnPublisher(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="publisherRef")
+    def publisher_ref(self) -> PublisherReference:
+        '''A reference to a Publisher resource.'''
+        return typing.cast(PublisherReference, jsii.get(self, "publisherRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="acceptTermsAndConditions")
     def accept_terms_and_conditions(
         self,
@@ -4674,90 +7568,7 @@ class CfnPublisher(
         jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnPublisherProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "accept_terms_and_conditions": "acceptTermsAndConditions",
-        "connection_arn": "connectionArn",
-    },
-)
-class CfnPublisherProps:
-    def __init__(
-        self,
-        *,
-        accept_terms_and_conditions: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        connection_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPublisher``.
-
-        :param accept_terms_and_conditions: Whether you accept the `Terms and Conditions <https://docs.aws.amazon.com/https://cloudformation-registry-documents.s3.amazonaws.com/Terms_and_Conditions_for_AWS_CloudFormation_Registry_Publishers.pdf>`_ for publishing extensions in the CloudFormation registry. You must accept the terms and conditions in order to register to publish public extensions to the CloudFormation registry. The default is ``false`` .
-        :param connection_arn: If you are using a Bitbucket or GitHub account for identity verification, the Amazon Resource Name (ARN) for your connection to that account. For more information, see `Prerequisite: Registering your account to publish CloudFormation extensions <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/publish-extension.html#publish-extension-prereqs>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_publisher_props = cloudformation.CfnPublisherProps(
-                accept_terms_and_conditions=False,
-            
-                # the properties below are optional
-                connection_arn="connectionArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b41681bff4816c257b59b8947cb33afcd9050c71509e0ec07b569e949d0a9ce)
-            check_type(argname="argument accept_terms_and_conditions", value=accept_terms_and_conditions, expected_type=type_hints["accept_terms_and_conditions"])
-            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "accept_terms_and_conditions": accept_terms_and_conditions,
-        }
-        if connection_arn is not None:
-            self._values["connection_arn"] = connection_arn
-
-    @builtins.property
-    def accept_terms_and_conditions(
-        self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Whether you accept the `Terms and Conditions <https://docs.aws.amazon.com/https://cloudformation-registry-documents.s3.amazonaws.com/Terms_and_Conditions_for_AWS_CloudFormation_Registry_Publishers.pdf>`_ for publishing extensions in the CloudFormation registry. You must accept the terms and conditions in order to register to publish public extensions to the CloudFormation registry.
-
-        The default is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html#cfn-cloudformation-publisher-accepttermsandconditions
-        '''
-        result = self._values.get("accept_terms_and_conditions")
-        assert result is not None, "Required property 'accept_terms_and_conditions' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def connection_arn(self) -> typing.Optional[builtins.str]:
-        '''If you are using a Bitbucket or GitHub account for identity verification, the Amazon Resource Name (ARN) for your connection to that account.
-
-        For more information, see `Prerequisite: Registering your account to publish CloudFormation extensions <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/publish-extension.html#publish-extension-prereqs>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-publisher.html#cfn-cloudformation-publisher-connectionarn
-        '''
-        result = self._values.get("connection_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPublisherProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourceDefaultVersionRef)
 class CfnResourceDefaultVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4859,6 +7670,12 @@ class CfnResourceDefaultVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourceDefaultVersionRef")
+    def resource_default_version_ref(self) -> ResourceDefaultVersionReference:
+        '''A reference to a ResourceDefaultVersion resource.'''
+        return typing.cast(ResourceDefaultVersionReference, jsii.get(self, "resourceDefaultVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="typeName")
     def type_name(self) -> typing.Optional[builtins.str]:
         '''The name of the resource.'''
@@ -4898,105 +7715,7 @@ class CfnResourceDefaultVersion(
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnResourceDefaultVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "type_name": "typeName",
-        "type_version_arn": "typeVersionArn",
-        "version_id": "versionId",
-    },
-)
-class CfnResourceDefaultVersionProps:
-    def __init__(
-        self,
-        *,
-        type_name: typing.Optional[builtins.str] = None,
-        type_version_arn: typing.Optional[builtins.str] = None,
-        version_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceDefaultVersion``.
-
-        :param type_name: The name of the resource. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-        :param type_version_arn: The Amazon Resource Name (ARN) of the resource version. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-        :param version_id: The ID of a specific version of the resource. The version ID is the value at the end of the Amazon Resource Name (ARN) assigned to the resource version when it's registered. Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_resource_default_version_props = cloudformation.CfnResourceDefaultVersionProps(
-                type_name="typeName",
-                type_version_arn="typeVersionArn",
-                version_id="versionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__846c1092e850e7f3b08a0c0fcc29b8cda8aa8f909b3c1479b1ddc873dd053222)
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-            check_type(argname="argument type_version_arn", value=type_version_arn, expected_type=type_hints["type_version_arn"])
-            check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if type_name is not None:
-            self._values["type_name"] = type_name
-        if type_version_arn is not None:
-            self._values["type_version_arn"] = type_version_arn
-        if version_id is not None:
-            self._values["version_id"] = version_id
-
-    @builtins.property
-    def type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the resource.
-
-        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-typename
-        '''
-        result = self._values.get("type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_version_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the resource version.
-
-        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-typeversionarn
-        '''
-        result = self._values.get("type_version_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of a specific version of the resource.
-
-        The version ID is the value at the end of the Amazon Resource Name (ARN) assigned to the resource version when it's registered.
-
-        Conditional: You must specify either ``TypeVersionArn`` , or ``TypeName`` and ``VersionId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcedefaultversion.html#cfn-cloudformation-resourcedefaultversion-versionid
-        '''
-        result = self._values.get("version_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceDefaultVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourceVersionRef)
 class CfnResourceVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5176,6 +7895,12 @@ class CfnResourceVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourceVersionRef")
+    def resource_version_ref(self) -> ResourceVersionReference:
+        '''A reference to a ResourceVersion resource.'''
+        return typing.cast(ResourceVersionReference, jsii.get(self, "resourceVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="schemaHandlerPackage")
     def schema_handler_package(self) -> builtins.str:
         '''A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register.'''
@@ -5303,140 +8028,7 @@ class CfnResourceVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnResourceVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "schema_handler_package": "schemaHandlerPackage",
-        "type_name": "typeName",
-        "execution_role_arn": "executionRoleArn",
-        "logging_config": "loggingConfig",
-    },
-)
-class CfnResourceVersionProps:
-    def __init__(
-        self,
-        *,
-        schema_handler_package: builtins.str,
-        type_name: builtins.str,
-        execution_role_arn: typing.Optional[builtins.str] = None,
-        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceVersion``.
-
-        :param schema_handler_package: A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register. For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* . .. epigraph:: To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
-        :param type_name: The name of the resource being registered. We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* . .. epigraph:: The following organization namespaces are reserved and can't be used in your resource names: - ``Alexa`` - ``AMZN`` - ``Amazon`` - ``AWS`` - ``Custom`` - ``Dev``
-        :param execution_role_arn: The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource. If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
-        :param logging_config: Logging configuration information for a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_resource_version_props = cloudformation.CfnResourceVersionProps(
-                schema_handler_package="schemaHandlerPackage",
-                type_name="typeName",
-            
-                # the properties below are optional
-                execution_role_arn="executionRoleArn",
-                logging_config=cloudformation.CfnResourceVersion.LoggingConfigProperty(
-                    log_group_name="logGroupName",
-                    log_role_arn="logRoleArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76ca3cbb367679516480c68e4d53a4abc20cb7d02f8a591754eb2f715e9c58e7)
-            check_type(argname="argument schema_handler_package", value=schema_handler_package, expected_type=type_hints["schema_handler_package"])
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "schema_handler_package": schema_handler_package,
-            "type_name": type_name,
-        }
-        if execution_role_arn is not None:
-            self._values["execution_role_arn"] = execution_role_arn
-        if logging_config is not None:
-            self._values["logging_config"] = logging_config
-
-    @builtins.property
-    def schema_handler_package(self) -> builtins.str:
-        '''A URL to the S3 bucket for the resource project package that contains the necessary files for the resource you want to register.
-
-        For information on generating a schema handler package, see `Modeling resource types to use with AWS CloudFormation <https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-model.html>`_ in the *AWS CloudFormation Command Line Interface (CLI) User Guide* .
-        .. epigraph::
-
-           To register the resource version, you must have ``s3:GetObject`` permissions to access the S3 objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-schemahandlerpackage
-        '''
-        result = self._values.get("schema_handler_package")
-        assert result is not None, "Required property 'schema_handler_package' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type_name(self) -> builtins.str:
-        '''The name of the resource being registered.
-
-        We recommend that resource names adhere to the following pattern: *company_or_organization* :: *service* :: *type* .
-        .. epigraph::
-
-           The following organization namespaces are reserved and can't be used in your resource names:
-
-           - ``Alexa``
-           - ``AMZN``
-           - ``Amazon``
-           - ``AWS``
-           - ``Custom``
-           - ``Dev``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-typename
-        '''
-        result = self._values.get("type_name")
-        assert result is not None, "Required property 'type_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role for CloudFormation to assume when invoking the resource.
-
-        If your resource calls AWS APIs in any of its handlers, you must create an IAM execution role that includes the necessary permissions to call those AWS APIs, and provision that execution role in your account. When CloudFormation needs to invoke the resource type handler, CloudFormation assumes this execution role to create a temporary session token, which it then passes to the resource type handler, thereby supplying your resource type with the appropriate credentials.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceVersion.LoggingConfigProperty]]:
-        '''Logging configuration information for a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourceversion.html#cfn-cloudformation-resourceversion-loggingconfig
-        '''
-        result = self._values.get("logging_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceVersion.LoggingConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStackRef, _ITaggable_36806126)
 class CfnStack(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5659,6 +8251,12 @@ class CfnStack(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> StackReference:
+        '''A reference to a Stack resource.'''
+        return typing.cast(StackReference, jsii.get(self, "stackRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -5843,157 +8441,7 @@ class CfnStack(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnStackProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "notification_arns": "notificationArns",
-        "parameters": "parameters",
-        "tags": "tags",
-        "template_url": "templateUrl",
-        "timeout_in_minutes": "timeoutInMinutes",
-    },
-)
-class CfnStackProps:
-    def __init__(
-        self,
-        *,
-        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_url: typing.Optional[builtins.str] = None,
-        timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStack``.
-
-        :param notification_arns: The Amazon SNS topic ARNs to publish stack related events. You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
-        :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. .. epigraph:: If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks. Required if the nested stack requires input parameters. Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
-        :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
-        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` . Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
-        :param timeout_in_minutes: The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state. The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_stack_props = cloudformation.CfnStackProps(
-                notification_arns=["notificationArns"],
-                parameters={
-                    "parameters_key": "parameters"
-                },
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                template_url="templateUrl",
-                timeout_in_minutes=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4da59ffe076e92fe1011ac29ca869d93a69d1442f3b7a0d1c765cca951d09b20)
-            check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_url", value=template_url, expected_type=type_hints["template_url"])
-            check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if notification_arns is not None:
-            self._values["notification_arns"] = notification_arns
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_url is not None:
-            self._values["template_url"] = template_url
-        if timeout_in_minutes is not None:
-            self._values["timeout_in_minutes"] = timeout_in_minutes
-
-    @builtins.property
-    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon SNS topic ARNs to publish stack related events.
-
-        You can find your Amazon SNS topic ARNs using the Amazon SNS console or your Command Line Interface (CLI).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-notificationarns
-        '''
-        result = self._values.get("notification_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created.
-
-        Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter.
-        .. epigraph::
-
-           If you use the ``Ref`` function to pass a parameter value to a nested stack, comma-delimited list parameters must be of type ``String`` . In other words, you can't pass values that are of type ``CommaDelimitedList`` to nested stacks.
-
-        Required if the nested stack requires input parameters.
-
-        Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs to associate with this stack.
-
-        CloudFormation also propagates these tags to the resources created in the stack. A maximum number of 50 tags can be specified.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file that contains the template body.
-
-        The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket. The location for an Amazon S3 bucket must start with ``https://`` .
-
-        Whether an update causes interruptions depends on the resources that are being updated. An update never causes a nested stack to be replaced.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-templateurl
-        '''
-        result = self._values.get("template_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The length of time, in minutes, that CloudFormation waits for the nested stack to reach the ``CREATE_COMPLETE`` state.
-
-        The default is no timeout. When CloudFormation detects that the nested stack has reached the ``CREATE_COMPLETE`` state, it marks the nested stack resource as ``CREATE_COMPLETE`` in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches ``CREATE_COMPLETE`` , CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack.
-
-        Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stack.html#cfn-cloudformation-stack-timeoutinminutes
-        '''
-        result = self._values.get("timeout_in_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStackSetRef, _ITaggable_36806126)
 class CfnStackSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6177,6 +8625,12 @@ class CfnStackSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetRef")
+    def stack_set_ref(self) -> StackSetReference:
+        '''A reference to a StackSet resource.'''
+        return typing.cast(StackSetReference, jsii.get(self, "stackSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7042,386 +9496,7 @@ class CfnStackSet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnStackSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "permission_model": "permissionModel",
-        "stack_set_name": "stackSetName",
-        "administration_role_arn": "administrationRoleArn",
-        "auto_deployment": "autoDeployment",
-        "call_as": "callAs",
-        "capabilities": "capabilities",
-        "description": "description",
-        "execution_role_name": "executionRoleName",
-        "managed_execution": "managedExecution",
-        "operation_preferences": "operationPreferences",
-        "parameters": "parameters",
-        "stack_instances_group": "stackInstancesGroup",
-        "tags": "tags",
-        "template_body": "templateBody",
-        "template_url": "templateUrl",
-    },
-)
-class CfnStackSetProps:
-    def __init__(
-        self,
-        *,
-        permission_model: builtins.str,
-        stack_set_name: builtins.str,
-        administration_role_arn: typing.Optional[builtins.str] = None,
-        auto_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.AutoDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        call_as: typing.Optional[builtins.str] = None,
-        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        execution_role_name: typing.Optional[builtins.str] = None,
-        managed_execution: typing.Any = None,
-        operation_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.OperationPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        stack_instances_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.StackInstancesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_body: typing.Optional[builtins.str] = None,
-        template_url: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStackSet``.
-
-        :param permission_model: Describes how the IAM roles required for StackSet operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
-        :param stack_set_name: The name to associate with the StackSet. The name must be unique in the Region where you create your StackSet.
-        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
-        :param auto_deployment: Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU). For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* . Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
-        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions. - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
-        :param capabilities: The capabilities that are allowed in the StackSet. Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
-        :param description: A description of the StackSet.
-        :param execution_role_name: The name of the IAM execution role to use to create the StackSet. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
-        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When inactive (default), StackSets performs one operation at a time in request order.
-        :param operation_preferences: The user-specified preferences for how CloudFormation performs a StackSet operation.
-        :param parameters: The input parameters for the StackSet template.
-        :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
-        :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
-        :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
-        :param template_url: The URL of a file that contains the template body. The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` . Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            # managed_execution: Any
-            
-            cfn_stack_set_props = cloudformation.CfnStackSetProps(
-                permission_model="permissionModel",
-                stack_set_name="stackSetName",
-            
-                # the properties below are optional
-                administration_role_arn="administrationRoleArn",
-                auto_deployment=cloudformation.CfnStackSet.AutoDeploymentProperty(
-                    enabled=False,
-                    retain_stacks_on_account_removal=False
-                ),
-                call_as="callAs",
-                capabilities=["capabilities"],
-                description="description",
-                execution_role_name="executionRoleName",
-                managed_execution=managed_execution,
-                operation_preferences=cloudformation.CfnStackSet.OperationPreferencesProperty(
-                    concurrency_mode="concurrencyMode",
-                    failure_tolerance_count=123,
-                    failure_tolerance_percentage=123,
-                    max_concurrent_count=123,
-                    max_concurrent_percentage=123,
-                    region_concurrency_type="regionConcurrencyType",
-                    region_order=["regionOrder"]
-                ),
-                parameters=[cloudformation.CfnStackSet.ParameterProperty(
-                    parameter_key="parameterKey",
-                    parameter_value="parameterValue"
-                )],
-                stack_instances_group=[cloudformation.CfnStackSet.StackInstancesProperty(
-                    deployment_targets=cloudformation.CfnStackSet.DeploymentTargetsProperty(
-                        account_filter_type="accountFilterType",
-                        accounts=["accounts"],
-                        accounts_url="accountsUrl",
-                        organizational_unit_ids=["organizationalUnitIds"]
-                    ),
-                    regions=["regions"],
-            
-                    # the properties below are optional
-                    parameter_overrides=[cloudformation.CfnStackSet.ParameterProperty(
-                        parameter_key="parameterKey",
-                        parameter_value="parameterValue"
-                    )]
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                template_body="templateBody",
-                template_url="templateUrl"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd7c69ee686d407257fcf95f6bae23045d509b43b119884d9c3094d637a82501)
-            check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
-            check_type(argname="argument stack_set_name", value=stack_set_name, expected_type=type_hints["stack_set_name"])
-            check_type(argname="argument administration_role_arn", value=administration_role_arn, expected_type=type_hints["administration_role_arn"])
-            check_type(argname="argument auto_deployment", value=auto_deployment, expected_type=type_hints["auto_deployment"])
-            check_type(argname="argument call_as", value=call_as, expected_type=type_hints["call_as"])
-            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument execution_role_name", value=execution_role_name, expected_type=type_hints["execution_role_name"])
-            check_type(argname="argument managed_execution", value=managed_execution, expected_type=type_hints["managed_execution"])
-            check_type(argname="argument operation_preferences", value=operation_preferences, expected_type=type_hints["operation_preferences"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument stack_instances_group", value=stack_instances_group, expected_type=type_hints["stack_instances_group"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
-            check_type(argname="argument template_url", value=template_url, expected_type=type_hints["template_url"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "permission_model": permission_model,
-            "stack_set_name": stack_set_name,
-        }
-        if administration_role_arn is not None:
-            self._values["administration_role_arn"] = administration_role_arn
-        if auto_deployment is not None:
-            self._values["auto_deployment"] = auto_deployment
-        if call_as is not None:
-            self._values["call_as"] = call_as
-        if capabilities is not None:
-            self._values["capabilities"] = capabilities
-        if description is not None:
-            self._values["description"] = description
-        if execution_role_name is not None:
-            self._values["execution_role_name"] = execution_role_name
-        if managed_execution is not None:
-            self._values["managed_execution"] = managed_execution
-        if operation_preferences is not None:
-            self._values["operation_preferences"] = operation_preferences
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if stack_instances_group is not None:
-            self._values["stack_instances_group"] = stack_instances_group
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_body is not None:
-            self._values["template_body"] = template_body
-        if template_url is not None:
-            self._values["template_url"] = template_url
-
-    @builtins.property
-    def permission_model(self) -> builtins.str:
-        '''Describes how the IAM roles required for StackSet operations are created.
-
-        - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
-        - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-permissionmodel
-        '''
-        result = self._values.get("permission_model")
-        assert result is not None, "Required property 'permission_model' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_set_name(self) -> builtins.str:
-        '''The name to associate with the StackSet.
-
-        The name must be unique in the Region where you create your StackSet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-stacksetname
-        '''
-        result = self._values.get("stack_set_name")
-        assert result is not None, "Required property 'stack_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def administration_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet.
-
-        Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account.
-
-        Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
-
-        Valid only if the permissions model is ``SELF_MANAGED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-administrationrolearn
-        '''
-        result = self._values.get("administration_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_deployment(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStackSet.AutoDeploymentProperty]]:
-        '''Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU).
-
-        For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* .
-
-        Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-autodeployment
-        '''
-        result = self._values.get("auto_deployment")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStackSet.AutoDeploymentProperty]], result)
-
-    @builtins.property
-    def call_as(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account.
-
-        By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions.
-
-        - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` .
-        - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` .
-
-        Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* .
-
-        StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators.
-
-        Valid only if the permissions model is ``SERVICE_MANAGED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-callas
-        '''
-        result = self._values.get("call_as")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The capabilities that are allowed in the StackSet.
-
-        Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-capabilities
-        '''
-        result = self._values.get("capabilities")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the StackSet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def execution_role_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the IAM execution role to use to create the StackSet.
-
-        If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation.
-
-        Valid only if the permissions model is ``SELF_MANAGED`` .
-
-        *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-executionrolename
-        '''
-        result = self._values.get("execution_role_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def managed_execution(self) -> typing.Any:
-        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.
-
-        When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order.
-        .. epigraph::
-
-           If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
-
-           You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
-
-        When inactive (default), StackSets performs one operation at a time in request order.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-managedexecution
-        '''
-        result = self._values.get("managed_execution")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def operation_preferences(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStackSet.OperationPreferencesProperty]]:
-        '''The user-specified preferences for how CloudFormation performs a StackSet operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-operationpreferences
-        '''
-        result = self._values.get("operation_preferences")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStackSet.OperationPreferencesProperty]], result)
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStackSet.ParameterProperty]]]]:
-        '''The input parameters for the StackSet template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStackSet.ParameterProperty]]]], result)
-
-    @builtins.property
-    def stack_instances_group(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStackSet.StackInstancesProperty]]]]:
-        '''A group of stack instances with parameters in some specific accounts and Regions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-stackinstancesgroup
-        '''
-        result = self._values.get("stack_instances_group")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStackSet.StackInstancesProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs to associate with this stack.
-
-        CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags.
-
-        If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def template_body(self) -> typing.Optional[builtins.str]:
-        '''The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes.
-
-        You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-templatebody
-        '''
-        result = self._values.get("template_body")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def template_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of a file that contains the template body.
-
-        The URL must point to a template (max size: 1 MB) that's located in an Amazon S3 bucket or a Systems Manager document. The location for an Amazon S3 bucket must start with ``https://`` .
-
-        Conditional: You must specify only one of the following parameters: ``TemplateBody`` , ``TemplateURL`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-templateurl
-        '''
-        result = self._values.get("template_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITypeActivationRef)
 class CfnTypeActivation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7550,6 +9625,12 @@ class CfnTypeActivation(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeActivationRef")
+    def type_activation_ref(self) -> TypeActivationReference:
+        '''A reference to a TypeActivation resource.'''
+        return typing.cast(TypeActivationReference, jsii.get(self, "typeActivationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="autoUpdate")
@@ -7762,241 +9843,7 @@ class CfnTypeActivation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnTypeActivationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auto_update": "autoUpdate",
-        "execution_role_arn": "executionRoleArn",
-        "logging_config": "loggingConfig",
-        "major_version": "majorVersion",
-        "public_type_arn": "publicTypeArn",
-        "publisher_id": "publisherId",
-        "type": "type",
-        "type_name": "typeName",
-        "type_name_alias": "typeNameAlias",
-        "version_bump": "versionBump",
-    },
-)
-class CfnTypeActivationProps:
-    def __init__(
-        self,
-        *,
-        auto_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        execution_role_arn: typing.Optional[builtins.str] = None,
-        logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTypeActivation.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        major_version: typing.Optional[builtins.str] = None,
-        public_type_arn: typing.Optional[builtins.str] = None,
-        publisher_id: typing.Optional[builtins.str] = None,
-        type: typing.Optional[builtins.str] = None,
-        type_name: typing.Optional[builtins.str] = None,
-        type_name_alias: typing.Optional[builtins.str] = None,
-        version_bump: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTypeActivation``.
-
-        :param auto_update: Whether to automatically update the extension in this account and Region when a new *minor* version is published by the extension publisher. Major versions released by the publisher must be manually updated. The default is ``true`` .
-        :param execution_role_arn: The name of the IAM execution role to use to activate the extension.
-        :param logging_config: Specifies logging configuration information for an extension.
-        :param major_version: The major version of this extension you want to activate, if multiple major versions are available. The default is the latest major version. CloudFormation uses the latest available *minor* version of the major version selected. You can specify ``MajorVersion`` or ``VersionBump`` , but not both.
-        :param public_type_arn: The Amazon Resource Number (ARN) of the public extension. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-        :param publisher_id: The ID of the extension publisher. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-        :param type: The extension type. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-        :param type_name: The name of the extension. Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-        :param type_name_alias: An alias to assign to the public extension, in this account and Region. If you specify an alias for the extension, CloudFormation treats the alias as the extension type name within this account and Region. You must use the alias to refer to the extension in your templates, API calls, and CloudFormation console. An extension alias must be unique within a given account and Region. You can activate the same public resource multiple times in the same account and Region, using different type name aliases.
-        :param version_bump: Manually updates a previously-activated type to a new major or minor version, if available. You can also use this parameter to update the value of ``AutoUpdate`` . - ``MAJOR`` : CloudFormation updates the extension to the newest major version, if one is available. - ``MINOR`` : CloudFormation updates the extension to the newest minor version, if one is available.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_type_activation_props = cloudformation.CfnTypeActivationProps(
-                auto_update=False,
-                execution_role_arn="executionRoleArn",
-                logging_config=cloudformation.CfnTypeActivation.LoggingConfigProperty(
-                    log_group_name="logGroupName",
-                    log_role_arn="logRoleArn"
-                ),
-                major_version="majorVersion",
-                public_type_arn="publicTypeArn",
-                publisher_id="publisherId",
-                type="type",
-                type_name="typeName",
-                type_name_alias="typeNameAlias",
-                version_bump="versionBump"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02e5c1de4d531856b94f268082510ca5202a92506b87b8752473c8ee205e52df)
-            check_type(argname="argument auto_update", value=auto_update, expected_type=type_hints["auto_update"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
-            check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
-            check_type(argname="argument public_type_arn", value=public_type_arn, expected_type=type_hints["public_type_arn"])
-            check_type(argname="argument publisher_id", value=publisher_id, expected_type=type_hints["publisher_id"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
-            check_type(argname="argument type_name_alias", value=type_name_alias, expected_type=type_hints["type_name_alias"])
-            check_type(argname="argument version_bump", value=version_bump, expected_type=type_hints["version_bump"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if auto_update is not None:
-            self._values["auto_update"] = auto_update
-        if execution_role_arn is not None:
-            self._values["execution_role_arn"] = execution_role_arn
-        if logging_config is not None:
-            self._values["logging_config"] = logging_config
-        if major_version is not None:
-            self._values["major_version"] = major_version
-        if public_type_arn is not None:
-            self._values["public_type_arn"] = public_type_arn
-        if publisher_id is not None:
-            self._values["publisher_id"] = publisher_id
-        if type is not None:
-            self._values["type"] = type
-        if type_name is not None:
-            self._values["type_name"] = type_name
-        if type_name_alias is not None:
-            self._values["type_name_alias"] = type_name_alias
-        if version_bump is not None:
-            self._values["version_bump"] = version_bump
-
-    @builtins.property
-    def auto_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to automatically update the extension in this account and Region when a new *minor* version is published by the extension publisher.
-
-        Major versions released by the publisher must be manually updated.
-
-        The default is ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-autoupdate
-        '''
-        result = self._values.get("auto_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def execution_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The name of the IAM execution role to use to activate the extension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTypeActivation.LoggingConfigProperty]]:
-        '''Specifies logging configuration information for an extension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-loggingconfig
-        '''
-        result = self._values.get("logging_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTypeActivation.LoggingConfigProperty]], result)
-
-    @builtins.property
-    def major_version(self) -> typing.Optional[builtins.str]:
-        '''The major version of this extension you want to activate, if multiple major versions are available.
-
-        The default is the latest major version. CloudFormation uses the latest available *minor* version of the major version selected.
-
-        You can specify ``MajorVersion`` or ``VersionBump`` , but not both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-majorversion
-        '''
-        result = self._values.get("major_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def public_type_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the public extension.
-
-        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-publictypearn
-        '''
-        result = self._values.get("public_type_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def publisher_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the extension publisher.
-
-        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-publisherid
-        '''
-        result = self._values.get("publisher_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The extension type.
-
-        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the extension.
-
-        Conditional: You must specify ``PublicTypeArn`` , or ``TypeName`` , ``Type`` , and ``PublisherId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-typename
-        '''
-        result = self._values.get("type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def type_name_alias(self) -> typing.Optional[builtins.str]:
-        '''An alias to assign to the public extension, in this account and Region.
-
-        If you specify an alias for the extension, CloudFormation treats the alias as the extension type name within this account and Region. You must use the alias to refer to the extension in your templates, API calls, and CloudFormation console.
-
-        An extension alias must be unique within a given account and Region. You can activate the same public resource multiple times in the same account and Region, using different type name aliases.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-typenamealias
-        '''
-        result = self._values.get("type_name_alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_bump(self) -> typing.Optional[builtins.str]:
-        '''Manually updates a previously-activated type to a new major or minor version, if available.
-
-        You can also use this parameter to update the value of ``AutoUpdate`` .
-
-        - ``MAJOR`` : CloudFormation updates the extension to the newest major version, if one is available.
-        - ``MINOR`` : CloudFormation updates the extension to the newest minor version, if one is available.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-typeactivation.html#cfn-cloudformation-typeactivation-versionbump
-        '''
-        result = self._values.get("version_bump")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTypeActivationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IWaitConditionRef)
 class CfnWaitCondition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8103,6 +9950,12 @@ class CfnWaitCondition(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="waitConditionRef")
+    def wait_condition_ref(self) -> WaitConditionReference:
+        '''A reference to a WaitCondition resource.'''
+        return typing.cast(WaitConditionReference, jsii.get(self, "waitConditionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="count")
     def count(self) -> typing.Optional[jsii.Number]:
         '''The number of success signals that CloudFormation must receive before it continues the stack creation process.'''
@@ -8142,7 +9995,7 @@ class CfnWaitCondition(
         jsii.set(self, "timeout", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IWaitConditionHandleRef)
 class CfnWaitConditionHandle(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8228,139 +10081,11 @@ class CfnWaitConditionHandle(
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnWaitConditionHandleProps",
-    jsii_struct_bases=[],
-    name_mapping={},
-)
-class CfnWaitConditionHandleProps:
-    def __init__(self) -> None:
-        '''Properties for defining a ``CfnWaitConditionHandle``.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitconditionhandle.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_wait_condition_handle_props = cloudformation.CfnWaitConditionHandleProps()
-        '''
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWaitConditionHandleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloudformation.CfnWaitConditionProps",
-    jsii_struct_bases=[],
-    name_mapping={"count": "count", "handle": "handle", "timeout": "timeout"},
-)
-class CfnWaitConditionProps:
-    def __init__(
-        self,
-        *,
-        count: typing.Optional[jsii.Number] = None,
-        handle: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWaitCondition``.
-
-        :param count: The number of success signals that CloudFormation must receive before it continues the stack creation process. When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back. Updates aren't supported.
-        :param handle: A reference to the wait condition handle used to signal this wait condition. Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource. Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command. Updates aren't supported.
-        :param timeout: The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies. ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds). Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloudformation as cloudformation
-            
-            cfn_wait_condition_props = cloudformation.CfnWaitConditionProps(
-                count=123,
-                handle="handle",
-                timeout="timeout"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae4f065be2a042359e82699c38e1fd0e59e979184753fcfc6c0e7ddff00fd2dd)
-            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
-            check_type(argname="argument handle", value=handle, expected_type=type_hints["handle"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if count is not None:
-            self._values["count"] = count
-        if handle is not None:
-            self._values["handle"] = handle
-        if timeout is not None:
-            self._values["timeout"] = timeout
-
     @builtins.property
-    def count(self) -> typing.Optional[jsii.Number]:
-        '''The number of success signals that CloudFormation must receive before it continues the stack creation process.
-
-        When the wait condition receives the requisite number of success signals, CloudFormation resumes the creation of the stack. If the wait condition doesn't receive the specified number of success signals before the Timeout period expires, CloudFormation assumes that the wait condition has failed and rolls the stack back.
-
-        Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-count
-        '''
-        result = self._values.get("count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def handle(self) -> typing.Optional[builtins.str]:
-        '''A reference to the wait condition handle used to signal this wait condition.
-
-        Use the ``Ref`` intrinsic function to specify an `AWS::CloudFormation::WaitConditionHandle <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-waitconditionhandle.html>`_ resource.
-
-        Anytime you add a ``WaitCondition`` resource during a stack update, you must associate the wait condition with a new WaitConditionHandle resource. Don't reuse an old wait condition handle that has already been defined in the template. If you reuse a wait condition handle, the wait condition might evaluate old signals from a previous create or update stack command.
-
-        Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-handle
-        '''
-        result = self._values.get("handle")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional[builtins.str]:
-        '''The length of time (in seconds) to wait for the number of signals that the ``Count`` property specifies.
-
-        ``Timeout`` is a minimum-bound property, meaning the timeout occurs no sooner than the time you specify, but can occur shortly thereafter. The maximum time that can be specified for this property is 12 hours (43200 seconds).
-
-        Updates aren't supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-waitcondition.html#cfn-cloudformation-waitcondition-timeout
-        '''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWaitConditionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @jsii.member(jsii_name="waitConditionHandleRef")
+    def wait_condition_handle_ref(self) -> WaitConditionHandleReference:
+        '''A reference to a WaitConditionHandle resource.'''
+        return typing.cast(WaitConditionHandleReference, jsii.get(self, "waitConditionHandleRef"))
 
 
 __all__ = [
@@ -8400,9 +10125,361 @@ __all__ = [
     "CfnWaitConditionHandle",
     "CfnWaitConditionHandleProps",
     "CfnWaitConditionProps",
+    "CustomResourceReference",
+    "GuardHookReference",
+    "HookDefaultVersionReference",
+    "HookTypeConfigReference",
+    "HookVersionReference",
+    "ICustomResourceRef",
+    "IGuardHookRef",
+    "IHookDefaultVersionRef",
+    "IHookTypeConfigRef",
+    "IHookVersionRef",
+    "ILambdaHookRef",
+    "IMacroRef",
+    "IModuleDefaultVersionRef",
+    "IModuleVersionRef",
+    "IPublicTypeVersionRef",
+    "IPublisherRef",
+    "IResourceDefaultVersionRef",
+    "IResourceVersionRef",
+    "IStackRef",
+    "IStackSetRef",
+    "ITypeActivationRef",
+    "IWaitConditionHandleRef",
+    "IWaitConditionRef",
+    "LambdaHookReference",
+    "MacroReference",
+    "ModuleDefaultVersionReference",
+    "ModuleVersionReference",
+    "PublicTypeVersionReference",
+    "PublisherReference",
+    "ResourceDefaultVersionReference",
+    "ResourceVersionReference",
+    "StackReference",
+    "StackSetReference",
+    "TypeActivationReference",
+    "WaitConditionHandleReference",
+    "WaitConditionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__f766b9f5ea2582bff4d2cb33b19a38fbdabfbe380c61d04a056e8e0d2a00b54a(
+    *,
+    service_token: builtins.str,
+    service_timeout: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__102e29368f2c52ece5c053d50bb54873288bc91ca7d6f01a1ad3bb84ffdc3b76(
+    *,
+    alias: builtins.str,
+    execution_role: builtins.str,
+    failure_mode: builtins.str,
+    hook_status: builtins.str,
+    rule_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    target_operations: typing.Sequence[builtins.str],
+    log_bucket: typing.Optional[builtins.str] = None,
+    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.OptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86e582779d0fb8b475195467d988078f1c65515c6a403bf9dc6b5ef8aced149f(
+    *,
+    type_name: typing.Optional[builtins.str] = None,
+    type_version_arn: typing.Optional[builtins.str] = None,
+    version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef5f9608def2c7b14e7449a6bceadbd90b6e5242e86707d305d4923d050f8f9a(
+    *,
+    configuration: builtins.str,
+    configuration_alias: typing.Optional[builtins.str] = None,
+    type_arn: typing.Optional[builtins.str] = None,
+    type_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a9bb2ef202f6ed27272b4d9787339d2a26c63beb648e39f3c4977200bcc65b1(
+    *,
+    schema_handler_package: builtins.str,
+    type_name: builtins.str,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHookVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08ef8befa45effdca3c0a1b699ffb2fae0aaed2060b19e128bdcc021cfcb0b95(
+    *,
+    alias: builtins.str,
+    execution_role: builtins.str,
+    failure_mode: builtins.str,
+    hook_status: builtins.str,
+    lambda_function: builtins.str,
+    target_operations: typing.Sequence[builtins.str],
+    stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42b23a370c2b5c33d49b7f892f41cb61bdad8c6efe4c078d5d357c872fd866b6(
+    *,
+    function_name: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    log_group_name: typing.Optional[builtins.str] = None,
+    log_role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f3ea65dfbd0cb512b468da1b9fb9627d1355ed7f5434478a08a635f804f77fc(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+    module_name: typing.Optional[builtins.str] = None,
+    version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08386807944526883f9a2a3af6d7b270292ea388802a7d26e4ebe78b66b8aa38(
+    *,
+    module_name: builtins.str,
+    module_package: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18efb861dce8210d36272fd882e9481ecf1f7ad199bf2bf34fdd66aa24a64bc7(
+    *,
+    arn: typing.Optional[builtins.str] = None,
+    log_delivery_bucket: typing.Optional[builtins.str] = None,
+    public_version_number: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+    type_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b41681bff4816c257b59b8947cb33afcd9050c71509e0ec07b569e949d0a9ce(
+    *,
+    accept_terms_and_conditions: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    connection_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__846c1092e850e7f3b08a0c0fcc29b8cda8aa8f909b3c1479b1ddc873dd053222(
+    *,
+    type_name: typing.Optional[builtins.str] = None,
+    type_version_arn: typing.Optional[builtins.str] = None,
+    version_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76ca3cbb367679516480c68e4d53a4abc20cb7d02f8a591754eb2f715e9c58e7(
+    *,
+    schema_handler_package: builtins.str,
+    type_name: builtins.str,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4da59ffe076e92fe1011ac29ca869d93a69d1442f3b7a0d1c765cca951d09b20(
+    *,
+    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_url: typing.Optional[builtins.str] = None,
+    timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd7c69ee686d407257fcf95f6bae23045d509b43b119884d9c3094d637a82501(
+    *,
+    permission_model: builtins.str,
+    stack_set_name: builtins.str,
+    administration_role_arn: typing.Optional[builtins.str] = None,
+    auto_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.AutoDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    call_as: typing.Optional[builtins.str] = None,
+    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    execution_role_name: typing.Optional[builtins.str] = None,
+    managed_execution: typing.Any = None,
+    operation_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.OperationPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stack_instances_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.StackInstancesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_body: typing.Optional[builtins.str] = None,
+    template_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02e5c1de4d531856b94f268082510ca5202a92506b87b8752473c8ee205e52df(
+    *,
+    auto_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTypeActivation.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    major_version: typing.Optional[builtins.str] = None,
+    public_type_arn: typing.Optional[builtins.str] = None,
+    publisher_id: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+    type_name: typing.Optional[builtins.str] = None,
+    type_name_alias: typing.Optional[builtins.str] = None,
+    version_bump: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae4f065be2a042359e82699c38e1fd0e59e979184753fcfc6c0e7ddff00fd2dd(
+    *,
+    count: typing.Optional[jsii.Number] = None,
+    handle: typing.Optional[builtins.str] = None,
+    timeout: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bccfb3e90a1bc41e1c7c9cc11434420038c58447e243a28ebd17f3fd55d54db(
+    *,
+    custom_resource_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f092515651dc173fa35aa638d7348ac03e941a61ffb042d564d7f5f3af55e6e9(
+    *,
+    hook_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e126059bd08a2ff91a89c3e107a0f1589286d9bf5faac4ef053a36f1bddb3c1(
+    *,
+    hook_default_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__413b2dce04ebc3dae829bc48f1492cc4f0bb5c1c3fa9c8aca3a14a2111730b72(
+    *,
+    configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9066f2eb090eea6eae4d393eaedc65184ede53c4bb7a29dac6d5ae19576cd748(
+    *,
+    hook_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beb86d1839f401dc360983ff6b9b0aae614edd8fe82f6fd4295435f45ce8e15d(
+    *,
+    hook_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04d15e4696eec2e7f603acdb655182bd09e86947b6c2db69b4d6c90a49891a7d(
+    *,
+    macro_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b581762ddebdd18e8420bf3fe81554d99fb4370c111920cafc48878d038cbd8(
+    *,
+    module_default_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58bd836bfdf1cc1b3acb4b9f3e8d5e755e699ab406f357c53f55cd4c2ff2d3bb(
+    *,
+    module_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__024793a4b29c70810ea9ff6dd21dd6af75abc84709363fa33172f3aa6f36b8ec(
+    *,
+    public_type_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd05d1af745c4e6e241f607d1ff3c83d9a4c585acfccb2dc59e634a3417734f6(
+    *,
+    publisher_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee35a07900b546c986913cafdd54773557fd77d8a425c08800ac376d052d1592(
+    *,
+    resource_default_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__320966bad741aa31adfdec4a099e4e7d685987eb37ad24cf1c7b15368d95d01b(
+    *,
+    resource_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8499c7d7c2673f90c530b444f850c6a3d59783218687ec33f15b21d77ae59602(
+    *,
+    stack_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e2f2a0c4d11ec0c48b6f2aea722f0ab7e263109ca3e2a6edcf2d28f5d0f6fcf(
+    *,
+    stack_set_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a974b87e465d6be25cecadee799c54f4c5d89283e9d9b956d81755c3bebfe7f7(
+    *,
+    type_activation_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a57b5fb15ef9850a0dbf722c20bab13a9e0f81df44ed621e3a83833fac0cb28(
+    *,
+    wait_condition_handle_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cec743e70d11368bb09ab88cbc948d7bceb386edfa785481a10b40ceee6aa2ed(
+    *,
+    wait_condition_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c0a3b106ffbe7fa1289a8e834aa35f1789994087e265fc54556841046e49661f(
     scope: _constructs_77d1e7e8.Construct,
@@ -8434,14 +10511,6 @@ def _typecheckingstub__77951bc16957122471cd48666095011465879476219c4b12cf6a7c268
 
 def _typecheckingstub__8aeb9202526d3c023edb03694e6fd97bdab3490571f472a31d826759168ed9d6(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f766b9f5ea2582bff4d2cb33b19a38fbdabfbe380c61d04a056e8e0d2a00b54a(
-    *,
-    service_token: builtins.str,
-    service_timeout: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8595,22 +10664,6 @@ def _typecheckingstub__378b3973374e7523256c5da2187494f5d2cfb4d85e28b4cc20e0b03ed
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__102e29368f2c52ece5c053d50bb54873288bc91ca7d6f01a1ad3bb84ffdc3b76(
-    *,
-    alias: builtins.str,
-    execution_role: builtins.str,
-    failure_mode: builtins.str,
-    hook_status: builtins.str,
-    rule_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    target_operations: typing.Sequence[builtins.str],
-    log_bucket: typing.Optional[builtins.str] = None,
-    options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.OptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0b8bde9f1f98ed0500179dfc97dcadf56e8ff1be4dde185bebd99abe71d79167(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8648,15 +10701,6 @@ def _typecheckingstub__b8fff96e0ddbd71a4aa46a88a0873bb65a9aad21cdec8f8be8016c745
 
 def _typecheckingstub__b9f9bb2d06c69bb7ef45feaaed611f94d81b89f367a377c829ab1e52ed8d53a0(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86e582779d0fb8b475195467d988078f1c65515c6a403bf9dc6b5ef8aced149f(
-    *,
-    type_name: typing.Optional[builtins.str] = None,
-    type_version_arn: typing.Optional[builtins.str] = None,
-    version_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8705,16 +10749,6 @@ def _typecheckingstub__b787dd89e7baba7e0a6ac2766dafcb836d4d6e45724a95c5ca1fdbd30
 
 def _typecheckingstub__84b67709252725d1f5ed0113558f6ddd94c0f17e7aadee85cf241f59a8eb5585(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ef5f9608def2c7b14e7449a6bceadbd90b6e5242e86707d305d4923d050f8f9a(
-    *,
-    configuration: builtins.str,
-    configuration_alias: typing.Optional[builtins.str] = None,
-    type_arn: typing.Optional[builtins.str] = None,
-    type_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8771,16 +10805,6 @@ def _typecheckingstub__c3186540a164984c66b6fb1ac418c16e60743db883585e9275304381f
     *,
     log_group_name: typing.Optional[builtins.str] = None,
     log_role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7a9bb2ef202f6ed27272b4d9787339d2a26c63beb648e39f3c4977200bcc65b1(
-    *,
-    schema_handler_package: builtins.str,
-    type_name: builtins.str,
-    execution_role_arn: typing.Optional[builtins.str] = None,
-    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHookVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8905,20 +10929,6 @@ def _typecheckingstub__6b7d133718b35659d76ef50f7b0d36492c3da19aa89cd0ec0d90af415
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__08ef8befa45effdca3c0a1b699ffb2fae0aaed2060b19e128bdcc021cfcb0b95(
-    *,
-    alias: builtins.str,
-    execution_role: builtins.str,
-    failure_mode: builtins.str,
-    hook_status: builtins.str,
-    lambda_function: builtins.str,
-    target_operations: typing.Sequence[builtins.str],
-    stack_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLambdaHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__459b4551acd819b198938843c729caa68cfe3bcc1ac16be0f4fd2dcd90f33831(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8974,17 +10984,6 @@ def _typecheckingstub__0f243639cffd7e9711e024007e213cfd4f0a728fdffd3d87d4544108f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__42b23a370c2b5c33d49b7f892f41cb61bdad8c6efe4c078d5d357c872fd866b6(
-    *,
-    function_name: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    log_group_name: typing.Optional[builtins.str] = None,
-    log_role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1c99a91d0140bd9a8f50bc3d072ae8da722981d1a5fcb2663b4fac493489b2cb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9026,15 +11025,6 @@ def _typecheckingstub__c2565d831587a784d43e20ccbd403e1a5b0a41c68a6ea34925b2361ae
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6f3ea65dfbd0cb512b468da1b9fb9627d1355ed7f5434478a08a635f804f77fc(
-    *,
-    arn: typing.Optional[builtins.str] = None,
-    module_name: typing.Optional[builtins.str] = None,
-    version_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__50da97e251a6b1bacc1202d70f10c857ca74139ea4e8bcc35b2ff47e8b8b2729(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9065,14 +11055,6 @@ def _typecheckingstub__e5ddab8adf20df5c0b192a1c24dff5f7d64b2e7e20fefec44ae32c6ca
 
 def _typecheckingstub__d720948c279cd9b12fc9a1cce3d68bd4e92be8876552138cf8bc30bce71b233f(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08386807944526883f9a2a3af6d7b270292ea388802a7d26e4ebe78b66b8aa38(
-    *,
-    module_name: builtins.str,
-    module_package: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9132,17 +11114,6 @@ def _typecheckingstub__0ff64f615236770a749da8c076614d45c7535c8fced5b15461275638c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__18efb861dce8210d36272fd882e9481ecf1f7ad199bf2bf34fdd66aa24a64bc7(
-    *,
-    arn: typing.Optional[builtins.str] = None,
-    log_delivery_bucket: typing.Optional[builtins.str] = None,
-    public_version_number: typing.Optional[builtins.str] = None,
-    type: typing.Optional[builtins.str] = None,
-    type_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__98c7559405984ded6c9804bd442f72ad08edd6b60ad34619af070342a90bb1f0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9173,14 +11144,6 @@ def _typecheckingstub__32926bab93b08cf2b9ba45201d6c17771f4ee56bd0d6ae22c80302acb
 
 def _typecheckingstub__6543e2603954d96b676b1b073989fa0cd07d298228cd8b4ced57c2fbea3bb0c6(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b41681bff4816c257b59b8947cb33afcd9050c71509e0ec07b569e949d0a9ce(
-    *,
-    accept_terms_and_conditions: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    connection_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9222,15 +11185,6 @@ def _typecheckingstub__ab644f676b15f7bed54dcb226d419de1039e4a54d60778895c53f964c
 
 def _typecheckingstub__61966d72d6d53857a7d4531e87d5aa75dd4e47794020bd350a8ad18c4a375b39(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__846c1092e850e7f3b08a0c0fcc29b8cda8aa8f909b3c1479b1ddc873dd053222(
-    *,
-    type_name: typing.Optional[builtins.str] = None,
-    type_version_arn: typing.Optional[builtins.str] = None,
-    version_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9287,16 +11241,6 @@ def _typecheckingstub__c68df5722a00d70d4751ceb1afcfb299c59a8b40faaeb3723d5c83418
     *,
     log_group_name: typing.Optional[builtins.str] = None,
     log_role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__76ca3cbb367679516480c68e4d53a4abc20cb7d02f8a591754eb2f715e9c58e7(
-    *,
-    schema_handler_package: builtins.str,
-    type_name: builtins.str,
-    execution_role_arn: typing.Optional[builtins.str] = None,
-    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceVersion.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9362,17 +11306,6 @@ def _typecheckingstub__a4b95d92bea1984ce15e37fa304b047ed771a4f764d414ffac3281574
     export_name: typing.Optional[builtins.str] = None,
     output_key: typing.Optional[builtins.str] = None,
     output_value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4da59ffe076e92fe1011ac29ca869d93a69d1442f3b7a0d1c765cca951d09b20(
-    *,
-    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_url: typing.Optional[builtins.str] = None,
-    timeout_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9557,27 +11490,6 @@ def _typecheckingstub__ecf8c5916c31e05ceede29df4b44ba37bf9563fb737793cde100e1a32
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dd7c69ee686d407257fcf95f6bae23045d509b43b119884d9c3094d637a82501(
-    *,
-    permission_model: builtins.str,
-    stack_set_name: builtins.str,
-    administration_role_arn: typing.Optional[builtins.str] = None,
-    auto_deployment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.AutoDeploymentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    call_as: typing.Optional[builtins.str] = None,
-    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    execution_role_name: typing.Optional[builtins.str] = None,
-    managed_execution: typing.Any = None,
-    operation_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.OperationPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    stack_instances_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStackSet.StackInstancesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_body: typing.Optional[builtins.str] = None,
-    template_url: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9c6ab9cbd4089f894248d56e57228ffda7ba7040649f1b2a30619e7d6d8fa2da(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9676,22 +11588,6 @@ def _typecheckingstub__f2a386677ea85f60b0913a70653efb6a455d9cd0cf61f935a088386c7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__02e5c1de4d531856b94f268082510ca5202a92506b87b8752473c8ee205e52df(
-    *,
-    auto_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    execution_role_arn: typing.Optional[builtins.str] = None,
-    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTypeActivation.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    major_version: typing.Optional[builtins.str] = None,
-    public_type_arn: typing.Optional[builtins.str] = None,
-    publisher_id: typing.Optional[builtins.str] = None,
-    type: typing.Optional[builtins.str] = None,
-    type_name: typing.Optional[builtins.str] = None,
-    type_name_alias: typing.Optional[builtins.str] = None,
-    version_bump: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ce6d60b6ac749d18fca5dd7948ac2a2143d40eef9dfa145f8afe1fb96a266cc0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9748,15 +11644,6 @@ def _typecheckingstub__9e5a0c006ed96f200b7e8d3a22789239eafb7b6a44d96630bcb2f8390
 
 def _typecheckingstub__fac51adf50f1e69f50b22b703890060df479a7e66c5118fead502297e26019f3(
     props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae4f065be2a042359e82699c38e1fd0e59e979184753fcfc6c0e7ddff00fd2dd(
-    *,
-    count: typing.Optional[jsii.Number] = None,
-    handle: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

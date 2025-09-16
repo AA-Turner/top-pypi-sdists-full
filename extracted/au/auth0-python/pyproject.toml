@@ -4,7 +4,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.poetry]
 name = "auth0-python"
-version = "4.11.0"                                    # This is replaced by dynamic versioning
+version = "4.12.0"                                    # This is replaced by dynamic versioning
 description = ""
 authors = ["Auth0 <support@auth0.com>"]
 license = "MIT"

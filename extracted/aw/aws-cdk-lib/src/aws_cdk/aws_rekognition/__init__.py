@@ -69,7 +69,779 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.CfnCollectionProps",
+    jsii_struct_bases=[],
+    name_mapping={"collection_id": "collectionId", "tags": "tags"},
+)
+class CfnCollectionProps:
+    def __init__(
+        self,
+        *,
+        collection_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCollection``.
+
+        :param collection_id: ID for the collection that you are creating.
+        :param tags: A set of tags (key-value pairs) that you want to attach to the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            cfn_collection_props = rekognition.CfnCollectionProps(
+                collection_id="collectionId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064)
+            check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_id": collection_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def collection_id(self) -> builtins.str:
+        '''ID for the collection that you are creating.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html#cfn-rekognition-collection-collectionid
+        '''
+        result = self._values.get("collection_id")
+        assert result is not None, "Required property 'collection_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A set of tags (key-value pairs) that you want to attach to the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html#cfn-rekognition-collection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCollectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.CfnProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={"project_name": "projectName"},
+)
+class CfnProjectProps:
+    def __init__(self, *, project_name: builtins.str) -> None:
+        '''Properties for defining a ``CfnProject``.
+
+        :param project_name: The name of the project to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-project.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            cfn_project_props = rekognition.CfnProjectProps(
+                project_name="projectName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3)
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_name": project_name,
+        }
+
+    @builtins.property
+    def project_name(self) -> builtins.str:
+        '''The name of the project to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-project.html#cfn-rekognition-project-projectname
+        '''
+        result = self._values.get("project_name")
+        assert result is not None, "Required property 'project_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.CfnStreamProcessorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "kinesis_video_stream": "kinesisVideoStream",
+        "role_arn": "roleArn",
+        "bounding_box_regions_of_interest": "boundingBoxRegionsOfInterest",
+        "connected_home_settings": "connectedHomeSettings",
+        "data_sharing_preference": "dataSharingPreference",
+        "face_search_settings": "faceSearchSettings",
+        "kinesis_data_stream": "kinesisDataStream",
+        "kms_key_id": "kmsKeyId",
+        "name": "name",
+        "notification_channel": "notificationChannel",
+        "polygon_regions_of_interest": "polygonRegionsOfInterest",
+        "s3_destination": "s3Destination",
+        "tags": "tags",
+    },
+)
+class CfnStreamProcessorProps:
+    def __init__(
+        self,
+        *,
+        kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.KinesisVideoStreamProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.BoundingBoxProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.ConnectedHomeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.DataSharingPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.FaceSearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.KinesisDataStreamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.NotificationChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        polygon_regions_of_interest: typing.Any = None,
+        s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamProcessor.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStreamProcessor``.
+
+        :param kinesis_video_stream: The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor. For more information, see `KinesisVideoStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisVideoStream>`_ .
+        :param role_arn: The ARN of the IAM role that allows access to the stream processor. The IAM role provides Rekognition read permissions to the Kinesis stream. It also provides write permissions to an Amazon S3 bucket and Amazon Simple Notification Service topic for a connected home stream processor. This is required for both face search and connected home stream processors. For information about constraints, see the RoleArn section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+        :param bounding_box_regions_of_interest: List of BoundingBox objects, each of which denotes a region of interest on screen. For more information, see the BoundingBox field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
+        :param connected_home_settings: Connected home settings to use on a streaming video. You can use a stream processor for connected home features and select what you want the stream processor to detect, such as people or pets. When the stream processor has started, one notification is sent for each object class specified. For more information, see the ConnectedHome section of `StreamProcessorSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorSettings>`_ .
+        :param data_sharing_preference: Allows you to opt in or opt out to share data with Rekognition to improve model performance. You can choose this option at the account level or on a per-stream basis. Note that if you opt out at the account level this setting is ignored on individual streams. For more information, see `StreamProcessorDataSharingPreference <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorDataSharingPreference>`_ .
+        :param face_search_settings: The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor. For more information regarding the contents of the parameters, see `FaceSearchSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_FaceSearchSettings>`_ .
+        :param kinesis_data_stream: Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input. This is the Amazon Kinesis Data Streams instance to which the Amazon Rekognition stream processor streams the analysis results. This must be created within the constraints specified at `KinesisDataStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisDataStream>`_ .
+        :param kms_key_id: The identifier for your Amazon Key Management Service key (Amazon KMS key). Optional parameter for connected home stream processors used to encrypt results and data published to your Amazon S3 bucket. For more information, see the KMSKeyId section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+        :param name: The Name attribute specifies the name of the stream processor and it must be within the constraints described in the Name section of `StreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessor>`_ . If you don't specify a name, Amazon CloudFormation generates a unique ID and uses that ID for the stream processor name.
+        :param notification_channel: The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation. Amazon Rekognition publishes a notification the first time an object of interest or a person is detected in the video stream. Amazon Rekognition also publishes an end-of-session notification with a summary when the stream processing session is complete. For more information, see `StreamProcessorNotificationChannel <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorNotificationChannel>`_ .
+        :param polygon_regions_of_interest: A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
+        :param s3_destination: The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation. For more information, see the S3Destination section of `StreamProcessorOutput <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorOutput>`_ .
+        :param tags: A set of tags (key-value pairs) that you want to attach to the stream processor. For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            # polygon_regions_of_interest: Any
+            
+            cfn_stream_processor_props = rekognition.CfnStreamProcessorProps(
+                kinesis_video_stream=rekognition.CfnStreamProcessor.KinesisVideoStreamProperty(
+                    arn="arn"
+                ),
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                bounding_box_regions_of_interest=[rekognition.CfnStreamProcessor.BoundingBoxProperty(
+                    height=123,
+                    left=123,
+                    top=123,
+                    width=123
+                )],
+                connected_home_settings=rekognition.CfnStreamProcessor.ConnectedHomeSettingsProperty(
+                    labels=["labels"],
+            
+                    # the properties below are optional
+                    min_confidence=123
+                ),
+                data_sharing_preference=rekognition.CfnStreamProcessor.DataSharingPreferenceProperty(
+                    opt_in=False
+                ),
+                face_search_settings=rekognition.CfnStreamProcessor.FaceSearchSettingsProperty(
+                    collection_id="collectionId",
+            
+                    # the properties below are optional
+                    face_match_threshold=123
+                ),
+                kinesis_data_stream=rekognition.CfnStreamProcessor.KinesisDataStreamProperty(
+                    arn="arn"
+                ),
+                kms_key_id="kmsKeyId",
+                name="name",
+                notification_channel=rekognition.CfnStreamProcessor.NotificationChannelProperty(
+                    arn="arn"
+                ),
+                polygon_regions_of_interest=polygon_regions_of_interest,
+                s3_destination=rekognition.CfnStreamProcessor.S3DestinationProperty(
+                    bucket_name="bucketName",
+            
+                    # the properties below are optional
+                    object_key_prefix="objectKeyPrefix"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834)
+            check_type(argname="argument kinesis_video_stream", value=kinesis_video_stream, expected_type=type_hints["kinesis_video_stream"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument bounding_box_regions_of_interest", value=bounding_box_regions_of_interest, expected_type=type_hints["bounding_box_regions_of_interest"])
+            check_type(argname="argument connected_home_settings", value=connected_home_settings, expected_type=type_hints["connected_home_settings"])
+            check_type(argname="argument data_sharing_preference", value=data_sharing_preference, expected_type=type_hints["data_sharing_preference"])
+            check_type(argname="argument face_search_settings", value=face_search_settings, expected_type=type_hints["face_search_settings"])
+            check_type(argname="argument kinesis_data_stream", value=kinesis_data_stream, expected_type=type_hints["kinesis_data_stream"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument notification_channel", value=notification_channel, expected_type=type_hints["notification_channel"])
+            check_type(argname="argument polygon_regions_of_interest", value=polygon_regions_of_interest, expected_type=type_hints["polygon_regions_of_interest"])
+            check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "kinesis_video_stream": kinesis_video_stream,
+            "role_arn": role_arn,
+        }
+        if bounding_box_regions_of_interest is not None:
+            self._values["bounding_box_regions_of_interest"] = bounding_box_regions_of_interest
+        if connected_home_settings is not None:
+            self._values["connected_home_settings"] = connected_home_settings
+        if data_sharing_preference is not None:
+            self._values["data_sharing_preference"] = data_sharing_preference
+        if face_search_settings is not None:
+            self._values["face_search_settings"] = face_search_settings
+        if kinesis_data_stream is not None:
+            self._values["kinesis_data_stream"] = kinesis_data_stream
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if name is not None:
+            self._values["name"] = name
+        if notification_channel is not None:
+            self._values["notification_channel"] = notification_channel
+        if polygon_regions_of_interest is not None:
+            self._values["polygon_regions_of_interest"] = polygon_regions_of_interest
+        if s3_destination is not None:
+            self._values["s3_destination"] = s3_destination
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def kinesis_video_stream(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.KinesisVideoStreamProperty"]:
+        '''The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor.
+
+        For more information, see `KinesisVideoStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisVideoStream>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kinesisvideostream
+        '''
+        result = self._values.get("kinesis_video_stream")
+        assert result is not None, "Required property 'kinesis_video_stream' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.KinesisVideoStreamProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role that allows access to the stream processor.
+
+        The IAM role provides Rekognition read permissions to the Kinesis stream. It also provides write permissions to an Amazon S3 bucket and Amazon Simple Notification Service topic for a connected home stream processor. This is required for both face search and connected home stream processors. For information about constraints, see the RoleArn section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bounding_box_regions_of_interest(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.BoundingBoxProperty"]]]]:
+        '''List of BoundingBox objects, each of which denotes a region of interest on screen.
+
+        For more information, see the BoundingBox field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-boundingboxregionsofinterest
+        '''
+        result = self._values.get("bounding_box_regions_of_interest")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.BoundingBoxProperty"]]]], result)
+
+    @builtins.property
+    def connected_home_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.ConnectedHomeSettingsProperty"]]:
+        '''Connected home settings to use on a streaming video.
+
+        You can use a stream processor for connected home features and select what you want the stream processor to detect, such as people or pets. When the stream processor has started, one notification is sent for each object class specified. For more information, see the ConnectedHome section of `StreamProcessorSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorSettings>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-connectedhomesettings
+        '''
+        result = self._values.get("connected_home_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.ConnectedHomeSettingsProperty"]], result)
+
+    @builtins.property
+    def data_sharing_preference(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.DataSharingPreferenceProperty"]]:
+        '''Allows you to opt in or opt out to share data with Rekognition to improve model performance.
+
+        You can choose this option at the account level or on a per-stream basis. Note that if you opt out at the account level this setting is ignored on individual streams. For more information, see `StreamProcessorDataSharingPreference <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorDataSharingPreference>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-datasharingpreference
+        '''
+        result = self._values.get("data_sharing_preference")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.DataSharingPreferenceProperty"]], result)
+
+    @builtins.property
+    def face_search_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.FaceSearchSettingsProperty"]]:
+        '''The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor.
+
+        For more information regarding the contents of the parameters, see `FaceSearchSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_FaceSearchSettings>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-facesearchsettings
+        '''
+        result = self._values.get("face_search_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.FaceSearchSettingsProperty"]], result)
+
+    @builtins.property
+    def kinesis_data_stream(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.KinesisDataStreamProperty"]]:
+        '''Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input.
+
+        This is the Amazon Kinesis Data Streams instance to which the Amazon Rekognition stream processor streams the analysis results. This must be created within the constraints specified at `KinesisDataStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisDataStream>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kinesisdatastream
+        '''
+        result = self._values.get("kinesis_data_stream")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.KinesisDataStreamProperty"]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for your Amazon Key Management Service key (Amazon KMS key).
+
+        Optional parameter for connected home stream processors used to encrypt results and data published to your Amazon S3 bucket. For more information, see the KMSKeyId section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The Name attribute specifies the name of the stream processor and it must be within the constraints described in the Name section of `StreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessor>`_ . If you don't specify a name, Amazon CloudFormation generates a unique ID and uses that ID for the stream processor name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def notification_channel(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.NotificationChannelProperty"]]:
+        '''The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation.
+
+        Amazon Rekognition publishes a notification the first time an object of interest or a person is detected in the video stream. Amazon Rekognition also publishes an end-of-session notification with a summary when the stream processing session is complete. For more information, see `StreamProcessorNotificationChannel <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorNotificationChannel>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-notificationchannel
+        '''
+        result = self._values.get("notification_channel")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.NotificationChannelProperty"]], result)
+
+    @builtins.property
+    def polygon_regions_of_interest(self) -> typing.Any:
+        '''A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-polygonregionsofinterest
+        '''
+        result = self._values.get("polygon_regions_of_interest")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def s3_destination(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.S3DestinationProperty"]]:
+        '''The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation.
+
+        For more information, see the S3Destination section of `StreamProcessorOutput <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorOutput>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-s3destination
+        '''
+        result = self._values.get("s3_destination")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamProcessor.S3DestinationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A set of tags (key-value pairs) that you want to attach to the stream processor.
+
+        For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamProcessorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.CollectionReference",
+    jsii_struct_bases=[],
+    name_mapping={"collection_arn": "collectionArn", "collection_id": "collectionId"},
+)
+class CollectionReference:
+    def __init__(
+        self,
+        *,
+        collection_arn: builtins.str,
+        collection_id: builtins.str,
+    ) -> None:
+        '''A reference to a Collection resource.
+
+        :param collection_arn: The ARN of the Collection resource.
+        :param collection_id: The CollectionId of the Collection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            collection_reference = rekognition.CollectionReference(
+                collection_arn="collectionArn",
+                collection_id="collectionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__289a67661535a7c2394ce9d7bc0370327e1f7864a5e44881bf078a39af1de37f)
+            check_type(argname="argument collection_arn", value=collection_arn, expected_type=type_hints["collection_arn"])
+            check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_arn": collection_arn,
+            "collection_id": collection_id,
+        }
+
+    @builtins.property
+    def collection_arn(self) -> builtins.str:
+        '''The ARN of the Collection resource.'''
+        result = self._values.get("collection_arn")
+        assert result is not None, "Required property 'collection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def collection_id(self) -> builtins.str:
+        '''The CollectionId of the Collection resource.'''
+        result = self._values.get("collection_id")
+        assert result is not None, "Required property 'collection_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CollectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_rekognition.ICollectionRef")
+class ICollectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Collection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''(experimental) A reference to a Collection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICollectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Collection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_rekognition.ICollectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''(experimental) A reference to a Collection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CollectionReference, jsii.get(self, "collectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICollectionRef).__jsii_proxy_class__ = lambda : _ICollectionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_rekognition.IProjectRef")
+class IProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProjectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_rekognition.IProjectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProjectReference", jsii.get(self, "projectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_rekognition.IStreamProcessorRef")
+class IStreamProcessorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StreamProcessor.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamProcessorRef")
+    def stream_processor_ref(self) -> "StreamProcessorReference":
+        '''(experimental) A reference to a StreamProcessor resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamProcessorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StreamProcessor.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_rekognition.IStreamProcessorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamProcessorRef")
+    def stream_processor_ref(self) -> "StreamProcessorReference":
+        '''(experimental) A reference to a StreamProcessor resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamProcessorReference", jsii.get(self, "streamProcessorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamProcessorRef).__jsii_proxy_class__ = lambda : _IStreamProcessorRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.ProjectReference",
+    jsii_struct_bases=[],
+    name_mapping={"project_arn": "projectArn", "project_name": "projectName"},
+)
+class ProjectReference:
+    def __init__(
+        self,
+        *,
+        project_arn: builtins.str,
+        project_name: builtins.str,
+    ) -> None:
+        '''A reference to a Project resource.
+
+        :param project_arn: The ARN of the Project resource.
+        :param project_name: The ProjectName of the Project resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            project_reference = rekognition.ProjectReference(
+                project_arn="projectArn",
+                project_name="projectName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14397621770bb2e660ec15a0ec2d24d67d0ce79dd3dd003bdc53412ab7902505)
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_arn": project_arn,
+            "project_name": project_name,
+        }
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The ARN of the Project resource.'''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_name(self) -> builtins.str:
+        '''The ProjectName of the Project resource.'''
+        result = self._values.get("project_name")
+        assert result is not None, "Required property 'project_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rekognition.StreamProcessorReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "stream_processor_arn": "streamProcessorArn",
+        "stream_processor_name": "streamProcessorName",
+    },
+)
+class StreamProcessorReference:
+    def __init__(
+        self,
+        *,
+        stream_processor_arn: builtins.str,
+        stream_processor_name: builtins.str,
+    ) -> None:
+        '''A reference to a StreamProcessor resource.
+
+        :param stream_processor_arn: The ARN of the StreamProcessor resource.
+        :param stream_processor_name: The Name of the StreamProcessor resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rekognition as rekognition
+            
+            stream_processor_reference = rekognition.StreamProcessorReference(
+                stream_processor_arn="streamProcessorArn",
+                stream_processor_name="streamProcessorName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__604e92c4803509d5d0f6139e6ea78abcd863fee6113bb87326d9ad4c35ea69be)
+            check_type(argname="argument stream_processor_arn", value=stream_processor_arn, expected_type=type_hints["stream_processor_arn"])
+            check_type(argname="argument stream_processor_name", value=stream_processor_name, expected_type=type_hints["stream_processor_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stream_processor_arn": stream_processor_arn,
+            "stream_processor_name": stream_processor_name,
+        }
+
+    @builtins.property
+    def stream_processor_arn(self) -> builtins.str:
+        '''The ARN of the StreamProcessor resource.'''
+        result = self._values.get("stream_processor_arn")
+        assert result is not None, "Required property 'stream_processor_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_processor_name(self) -> builtins.str:
+        '''The Name of the StreamProcessor resource.'''
+        result = self._values.get("stream_processor_name")
+        assert result is not None, "Required property 'stream_processor_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamProcessorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ICollectionRef, _ITaggable_36806126)
 class CfnCollection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -167,6 +939,12 @@ class CfnCollection(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''A reference to a Collection resource.'''
+        return typing.cast(CollectionReference, jsii.get(self, "collectionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -199,84 +977,7 @@ class CfnCollection(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rekognition.CfnCollectionProps",
-    jsii_struct_bases=[],
-    name_mapping={"collection_id": "collectionId", "tags": "tags"},
-)
-class CfnCollectionProps:
-    def __init__(
-        self,
-        *,
-        collection_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCollection``.
-
-        :param collection_id: ID for the collection that you are creating.
-        :param tags: A set of tags (key-value pairs) that you want to attach to the collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rekognition as rekognition
-            
-            cfn_collection_props = rekognition.CfnCollectionProps(
-                collection_id="collectionId",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064)
-            check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "collection_id": collection_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def collection_id(self) -> builtins.str:
-        '''ID for the collection that you are creating.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html#cfn-rekognition-collection-collectionid
-        '''
-        result = self._values.get("collection_id")
-        assert result is not None, "Required property 'collection_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags (key-value pairs) that you want to attach to the collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-collection.html#cfn-rekognition-collection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCollectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IProjectRef)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -366,6 +1067,12 @@ class CfnProject(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> ProjectReference:
+        '''A reference to a Project resource.'''
+        return typing.cast(ProjectReference, jsii.get(self, "projectRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="projectName")
     def project_name(self) -> builtins.str:
         '''The name of the project to create.'''
@@ -379,60 +1086,7 @@ class CfnProject(
         jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rekognition.CfnProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={"project_name": "projectName"},
-)
-class CfnProjectProps:
-    def __init__(self, *, project_name: builtins.str) -> None:
-        '''Properties for defining a ``CfnProject``.
-
-        :param project_name: The name of the project to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-project.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rekognition as rekognition
-            
-            cfn_project_props = rekognition.CfnProjectProps(
-                project_name="projectName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3)
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "project_name": project_name,
-        }
-
-    @builtins.property
-    def project_name(self) -> builtins.str:
-        '''The name of the project to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-project.html#cfn-rekognition-project-projectname
-        '''
-        result = self._values.get("project_name")
-        assert result is not None, "Required property 'project_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStreamProcessorRef, _ITaggable_36806126)
 class CfnStreamProcessor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -631,6 +1285,12 @@ class CfnStreamProcessor(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamProcessorRef")
+    def stream_processor_ref(self) -> StreamProcessorReference:
+        '''A reference to a StreamProcessor resource.'''
+        return typing.cast(StreamProcessorReference, jsii.get(self, "streamProcessorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1490,330 +2150,6 @@ class CfnStreamProcessor(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rekognition.CfnStreamProcessorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "kinesis_video_stream": "kinesisVideoStream",
-        "role_arn": "roleArn",
-        "bounding_box_regions_of_interest": "boundingBoxRegionsOfInterest",
-        "connected_home_settings": "connectedHomeSettings",
-        "data_sharing_preference": "dataSharingPreference",
-        "face_search_settings": "faceSearchSettings",
-        "kinesis_data_stream": "kinesisDataStream",
-        "kms_key_id": "kmsKeyId",
-        "name": "name",
-        "notification_channel": "notificationChannel",
-        "polygon_regions_of_interest": "polygonRegionsOfInterest",
-        "s3_destination": "s3Destination",
-        "tags": "tags",
-    },
-)
-class CfnStreamProcessorProps:
-    def __init__(
-        self,
-        *,
-        kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        polygon_regions_of_interest: typing.Any = None,
-        s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStreamProcessor``.
-
-        :param kinesis_video_stream: The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor. For more information, see `KinesisVideoStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisVideoStream>`_ .
-        :param role_arn: The ARN of the IAM role that allows access to the stream processor. The IAM role provides Rekognition read permissions to the Kinesis stream. It also provides write permissions to an Amazon S3 bucket and Amazon Simple Notification Service topic for a connected home stream processor. This is required for both face search and connected home stream processors. For information about constraints, see the RoleArn section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-        :param bounding_box_regions_of_interest: List of BoundingBox objects, each of which denotes a region of interest on screen. For more information, see the BoundingBox field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
-        :param connected_home_settings: Connected home settings to use on a streaming video. You can use a stream processor for connected home features and select what you want the stream processor to detect, such as people or pets. When the stream processor has started, one notification is sent for each object class specified. For more information, see the ConnectedHome section of `StreamProcessorSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorSettings>`_ .
-        :param data_sharing_preference: Allows you to opt in or opt out to share data with Rekognition to improve model performance. You can choose this option at the account level or on a per-stream basis. Note that if you opt out at the account level this setting is ignored on individual streams. For more information, see `StreamProcessorDataSharingPreference <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorDataSharingPreference>`_ .
-        :param face_search_settings: The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor. For more information regarding the contents of the parameters, see `FaceSearchSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_FaceSearchSettings>`_ .
-        :param kinesis_data_stream: Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input. This is the Amazon Kinesis Data Streams instance to which the Amazon Rekognition stream processor streams the analysis results. This must be created within the constraints specified at `KinesisDataStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisDataStream>`_ .
-        :param kms_key_id: The identifier for your Amazon Key Management Service key (Amazon KMS key). Optional parameter for connected home stream processors used to encrypt results and data published to your Amazon S3 bucket. For more information, see the KMSKeyId section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-        :param name: The Name attribute specifies the name of the stream processor and it must be within the constraints described in the Name section of `StreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessor>`_ . If you don't specify a name, Amazon CloudFormation generates a unique ID and uses that ID for the stream processor name.
-        :param notification_channel: The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation. Amazon Rekognition publishes a notification the first time an object of interest or a person is detected in the video stream. Amazon Rekognition also publishes an end-of-session notification with a summary when the stream processing session is complete. For more information, see `StreamProcessorNotificationChannel <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorNotificationChannel>`_ .
-        :param polygon_regions_of_interest: A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
-        :param s3_destination: The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation. For more information, see the S3Destination section of `StreamProcessorOutput <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorOutput>`_ .
-        :param tags: A set of tags (key-value pairs) that you want to attach to the stream processor. For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rekognition as rekognition
-            
-            # polygon_regions_of_interest: Any
-            
-            cfn_stream_processor_props = rekognition.CfnStreamProcessorProps(
-                kinesis_video_stream=rekognition.CfnStreamProcessor.KinesisVideoStreamProperty(
-                    arn="arn"
-                ),
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                bounding_box_regions_of_interest=[rekognition.CfnStreamProcessor.BoundingBoxProperty(
-                    height=123,
-                    left=123,
-                    top=123,
-                    width=123
-                )],
-                connected_home_settings=rekognition.CfnStreamProcessor.ConnectedHomeSettingsProperty(
-                    labels=["labels"],
-            
-                    # the properties below are optional
-                    min_confidence=123
-                ),
-                data_sharing_preference=rekognition.CfnStreamProcessor.DataSharingPreferenceProperty(
-                    opt_in=False
-                ),
-                face_search_settings=rekognition.CfnStreamProcessor.FaceSearchSettingsProperty(
-                    collection_id="collectionId",
-            
-                    # the properties below are optional
-                    face_match_threshold=123
-                ),
-                kinesis_data_stream=rekognition.CfnStreamProcessor.KinesisDataStreamProperty(
-                    arn="arn"
-                ),
-                kms_key_id="kmsKeyId",
-                name="name",
-                notification_channel=rekognition.CfnStreamProcessor.NotificationChannelProperty(
-                    arn="arn"
-                ),
-                polygon_regions_of_interest=polygon_regions_of_interest,
-                s3_destination=rekognition.CfnStreamProcessor.S3DestinationProperty(
-                    bucket_name="bucketName",
-            
-                    # the properties below are optional
-                    object_key_prefix="objectKeyPrefix"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834)
-            check_type(argname="argument kinesis_video_stream", value=kinesis_video_stream, expected_type=type_hints["kinesis_video_stream"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument bounding_box_regions_of_interest", value=bounding_box_regions_of_interest, expected_type=type_hints["bounding_box_regions_of_interest"])
-            check_type(argname="argument connected_home_settings", value=connected_home_settings, expected_type=type_hints["connected_home_settings"])
-            check_type(argname="argument data_sharing_preference", value=data_sharing_preference, expected_type=type_hints["data_sharing_preference"])
-            check_type(argname="argument face_search_settings", value=face_search_settings, expected_type=type_hints["face_search_settings"])
-            check_type(argname="argument kinesis_data_stream", value=kinesis_data_stream, expected_type=type_hints["kinesis_data_stream"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument notification_channel", value=notification_channel, expected_type=type_hints["notification_channel"])
-            check_type(argname="argument polygon_regions_of_interest", value=polygon_regions_of_interest, expected_type=type_hints["polygon_regions_of_interest"])
-            check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "kinesis_video_stream": kinesis_video_stream,
-            "role_arn": role_arn,
-        }
-        if bounding_box_regions_of_interest is not None:
-            self._values["bounding_box_regions_of_interest"] = bounding_box_regions_of_interest
-        if connected_home_settings is not None:
-            self._values["connected_home_settings"] = connected_home_settings
-        if data_sharing_preference is not None:
-            self._values["data_sharing_preference"] = data_sharing_preference
-        if face_search_settings is not None:
-            self._values["face_search_settings"] = face_search_settings
-        if kinesis_data_stream is not None:
-            self._values["kinesis_data_stream"] = kinesis_data_stream
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if name is not None:
-            self._values["name"] = name
-        if notification_channel is not None:
-            self._values["notification_channel"] = notification_channel
-        if polygon_regions_of_interest is not None:
-            self._values["polygon_regions_of_interest"] = polygon_regions_of_interest
-        if s3_destination is not None:
-            self._values["s3_destination"] = s3_destination
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def kinesis_video_stream(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisVideoStreamProperty]:
-        '''The Kinesis video stream that provides the source of the streaming video for an Amazon Rekognition Video stream processor.
-
-        For more information, see `KinesisVideoStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisVideoStream>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kinesisvideostream
-        '''
-        result = self._values.get("kinesis_video_stream")
-        assert result is not None, "Required property 'kinesis_video_stream' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisVideoStreamProperty], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role that allows access to the stream processor.
-
-        The IAM role provides Rekognition read permissions to the Kinesis stream. It also provides write permissions to an Amazon S3 bucket and Amazon Simple Notification Service topic for a connected home stream processor. This is required for both face search and connected home stream processors. For information about constraints, see the RoleArn section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bounding_box_regions_of_interest(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.BoundingBoxProperty]]]]:
-        '''List of BoundingBox objects, each of which denotes a region of interest on screen.
-
-        For more information, see the BoundingBox field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-boundingboxregionsofinterest
-        '''
-        result = self._values.get("bounding_box_regions_of_interest")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.BoundingBoxProperty]]]], result)
-
-    @builtins.property
-    def connected_home_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.ConnectedHomeSettingsProperty]]:
-        '''Connected home settings to use on a streaming video.
-
-        You can use a stream processor for connected home features and select what you want the stream processor to detect, such as people or pets. When the stream processor has started, one notification is sent for each object class specified. For more information, see the ConnectedHome section of `StreamProcessorSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorSettings>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-connectedhomesettings
-        '''
-        result = self._values.get("connected_home_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.ConnectedHomeSettingsProperty]], result)
-
-    @builtins.property
-    def data_sharing_preference(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.DataSharingPreferenceProperty]]:
-        '''Allows you to opt in or opt out to share data with Rekognition to improve model performance.
-
-        You can choose this option at the account level or on a per-stream basis. Note that if you opt out at the account level this setting is ignored on individual streams. For more information, see `StreamProcessorDataSharingPreference <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorDataSharingPreference>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-datasharingpreference
-        '''
-        result = self._values.get("data_sharing_preference")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.DataSharingPreferenceProperty]], result)
-
-    @builtins.property
-    def face_search_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.FaceSearchSettingsProperty]]:
-        '''The input parameters used to recognize faces in a streaming video analyzed by an Amazon Rekognition stream processor.
-
-        For more information regarding the contents of the parameters, see `FaceSearchSettings <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_FaceSearchSettings>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-facesearchsettings
-        '''
-        result = self._values.get("face_search_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.FaceSearchSettingsProperty]], result)
-
-    @builtins.property
-    def kinesis_data_stream(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisDataStreamProperty]]:
-        '''Amazon Rekognition's Video Stream Processor takes a Kinesis video stream as input.
-
-        This is the Amazon Kinesis Data Streams instance to which the Amazon Rekognition stream processor streams the analysis results. This must be created within the constraints specified at `KinesisDataStream <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_KinesisDataStream>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kinesisdatastream
-        '''
-        result = self._values.get("kinesis_data_stream")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.KinesisDataStreamProperty]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier for your Amazon Key Management Service key (Amazon KMS key).
-
-        Optional parameter for connected home stream processors used to encrypt results and data published to your Amazon S3 bucket. For more information, see the KMSKeyId section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The Name attribute specifies the name of the stream processor and it must be within the constraints described in the Name section of `StreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessor>`_ . If you don't specify a name, Amazon CloudFormation generates a unique ID and uses that ID for the stream processor name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def notification_channel(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.NotificationChannelProperty]]:
-        '''The Amazon Simple Notification Service topic to which Amazon Rekognition publishes the object detection results and completion status of a video analysis operation.
-
-        Amazon Rekognition publishes a notification the first time an object of interest or a person is detected in the video stream. Amazon Rekognition also publishes an end-of-session notification with a summary when the stream processing session is complete. For more information, see `StreamProcessorNotificationChannel <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorNotificationChannel>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-notificationchannel
-        '''
-        result = self._values.get("notification_channel")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.NotificationChannelProperty]], result)
-
-    @builtins.property
-    def polygon_regions_of_interest(self) -> typing.Any:
-        '''A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-polygonregionsofinterest
-        '''
-        result = self._values.get("polygon_regions_of_interest")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def s3_destination(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.S3DestinationProperty]]:
-        '''The Amazon S3 bucket location to which Amazon Rekognition publishes the detailed inference results of a video analysis operation.
-
-        For more information, see the S3Destination section of `StreamProcessorOutput <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_StreamProcessorOutput>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-s3destination
-        '''
-        result = self._values.get("s3_destination")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.S3DestinationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of tags (key-value pairs) that you want to attach to the stream processor.
-
-        For more information, see the Tags section of `CreateStreamProcessor <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_CreateStreamProcessor>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rekognition-streamprocessor.html#cfn-rekognition-streamprocessor-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamProcessorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnCollection",
     "CfnCollectionProps",
@@ -1821,9 +2157,73 @@ __all__ = [
     "CfnProjectProps",
     "CfnStreamProcessor",
     "CfnStreamProcessorProps",
+    "CollectionReference",
+    "ICollectionRef",
+    "IProjectRef",
+    "IStreamProcessorRef",
+    "ProjectReference",
+    "StreamProcessorReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064(
+    *,
+    collection_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3(
+    *,
+    project_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834(
+    *,
+    kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    polygon_regions_of_interest: typing.Any = None,
+    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__289a67661535a7c2394ce9d7bc0370327e1f7864a5e44881bf078a39af1de37f(
+    *,
+    collection_arn: builtins.str,
+    collection_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14397621770bb2e660ec15a0ec2d24d67d0ce79dd3dd003bdc53412ab7902505(
+    *,
+    project_arn: builtins.str,
+    project_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__604e92c4803509d5d0f6139e6ea78abcd863fee6113bb87326d9ad4c35ea69be(
+    *,
+    stream_processor_arn: builtins.str,
+    stream_processor_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__001405b167561982ca01f91c85c5f23fd1bfd335896f67495614aef9fdc1ebbf(
     scope: _constructs_77d1e7e8.Construct,
@@ -1859,14 +2259,6 @@ def _typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dfc582deefac2ef5bf0ca7c04ad06966543ece2be4f36ffdaa97fbaf33bfb064(
-    *,
-    collection_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__14434bd621070d38889fc701fc289b3379981bee9c73fd7502773f1ee6007596(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1890,13 +2282,6 @@ def _typecheckingstub__ecd6c0ddb539c1c7c5df4ac80934172fad202067215980c77299274cd
 
 def _typecheckingstub__9a1962fa2cac2e24ef346e8a95c9cce8b1cf9023aaeae155bf61e10c5dbddf83(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c6ffefd83213c744dc48a7e730e4f4ba6abf92dfd04904ffa9f7361b3df6c6d3(
-    *,
-    project_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2078,25 +2463,6 @@ def _typecheckingstub__e523487c02bfde11953c715444eddb9f2ed729eec0aa81767c2868bf9
     *,
     bucket_name: builtins.str,
     object_key_prefix: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8c127c0832431498dadda03367902d22729b1e3b0a97f31a10822f1232161834(
-    *,
-    kinesis_video_stream: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisVideoStreamProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    bounding_box_regions_of_interest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.BoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    connected_home_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.ConnectedHomeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_sharing_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.DataSharingPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    face_search_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.FaceSearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_data_stream: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.KinesisDataStreamProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    notification_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.NotificationChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    polygon_regions_of_interest: typing.Any = None,
-    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamProcessor.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

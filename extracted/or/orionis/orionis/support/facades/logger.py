@@ -1,24 +1,24 @@
 from orionis.container.facades.facade import Facade
-from orionis.services.log.contracts.log_service import ILogger
 
 class Log(Facade):
 
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Get the registered name of the component.
+        Retrieves the service container binding key for the logger service.
 
-        This method returns the service container binding key that identifies
-        the logger service implementation. It serves as the bridge between the
-        facade and the actual service instance registered in the container.
+        This method returns the unique string identifier used by the service container
+        to resolve and provide the logger service implementation. The returned key acts
+        as a bridge between the facade and the actual logger service instance registered
+        in the dependency injection container.
 
         Returns
         -------
         str
-            The service container binding key "x-orionis.services.log.contracts.log_service.ILogger"
-            used to resolve the logger service instance from the dependency
-            injection container.
+            The string identifier
+            "x-orionis.services.log.contracts.log_service.ILogger"
+            which is used to resolve the logger service instance from the service container.
         """
 
-        # Return the service container binding key for the logger service
-        return f"x-{ILogger.__module__}.{ILogger.__name__}"
+        # Return the unique binding key for the logger service in the container
+        return f"x-orionis.services.log.contracts.log_service.ILogger"

@@ -70,7 +70,2606 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instances": "instances",
+        "job_flow_role": "jobFlowRole",
+        "name": "name",
+        "service_role": "serviceRole",
+        "additional_info": "additionalInfo",
+        "applications": "applications",
+        "auto_scaling_role": "autoScalingRole",
+        "auto_termination_policy": "autoTerminationPolicy",
+        "bootstrap_actions": "bootstrapActions",
+        "configurations": "configurations",
+        "custom_ami_id": "customAmiId",
+        "ebs_root_volume_iops": "ebsRootVolumeIops",
+        "ebs_root_volume_size": "ebsRootVolumeSize",
+        "ebs_root_volume_throughput": "ebsRootVolumeThroughput",
+        "kerberos_attributes": "kerberosAttributes",
+        "log_encryption_kms_key_id": "logEncryptionKmsKeyId",
+        "log_uri": "logUri",
+        "managed_scaling_policy": "managedScalingPolicy",
+        "os_release_label": "osReleaseLabel",
+        "placement_group_configs": "placementGroupConfigs",
+        "release_label": "releaseLabel",
+        "scale_down_behavior": "scaleDownBehavior",
+        "security_configuration": "securityConfiguration",
+        "step_concurrency_level": "stepConcurrencyLevel",
+        "steps": "steps",
+        "tags": "tags",
+        "visible_to_all_users": "visibleToAllUsers",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        instances: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.JobFlowInstancesConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        job_flow_role: builtins.str,
+        name: builtins.str,
+        service_role: builtins.str,
+        additional_info: typing.Any = None,
+        applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        auto_scaling_role: typing.Optional[builtins.str] = None,
+        auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.AutoTerminationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.BootstrapActionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_ami_id: typing.Optional[builtins.str] = None,
+        ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
+        ebs_root_volume_size: typing.Optional[jsii.Number] = None,
+        ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
+        kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.KerberosAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
+        log_uri: typing.Optional[builtins.str] = None,
+        managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ManagedScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        os_release_label: typing.Optional[builtins.str] = None,
+        placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.PlacementGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        release_label: typing.Optional[builtins.str] = None,
+        scale_down_behavior: typing.Optional[builtins.str] = None,
+        security_configuration: typing.Optional[builtins.str] = None,
+        step_concurrency_level: typing.Optional[jsii.Number] = None,
+        steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param instances: A specification of the number and type of Amazon EC2 instances.
+        :param job_flow_role: Also called instance profile and Amazon EC2 role. An IAM role for an Amazon EMR cluster. The Amazon EC2 instances of the cluster assume this role. The default role is ``EMR_EC2_DefaultRole`` . In order to use the default role, you must have already created it using the AWS CLI or console.
+        :param name: The name of the cluster. This parameter can't contain the characters <, >, $, |, or ` (backtick).
+        :param service_role: The IAM role that Amazon EMR assumes in order to access AWS resources on your behalf.
+        :param additional_info: A JSON string for selecting additional features.
+        :param applications: The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.
+        :param auto_scaling_role: An IAM role for automatic scaling policies. The default role is ``EMR_AutoScaling_DefaultRole`` . The IAM role provides permissions that the automatic scaling feature requires to launch and terminate Amazon EC2 instances in an instance group.
+        :param auto_termination_policy: An auto-termination policy for an Amazon EMR cluster. An auto-termination policy defines the amount of idle time in seconds after which a cluster automatically terminates. For alternative cluster termination options, see `Control cluster termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ .
+        :param bootstrap_actions: A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
+        :param configurations: Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.
+        :param custom_ami_id: Available only in Amazon EMR releases 5.7.0 and later. The ID of a custom Amazon EBS-backed Linux AMI if the cluster uses a custom AMI.
+        :param ebs_root_volume_iops: The IOPS, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 6.15.0 and later.
+        :param ebs_root_volume_size: The size, in GiB, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 4.x and later.
+        :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 6.15.0 and later.
+        :param kerberos_attributes: Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration. For more information see `Use Kerberos Authentication <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-kerberos.html>`_ in the *Amazon EMR Management Guide* .
+        :param log_encryption_kms_key_id: The AWS KMS key used for encrypting log files. This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
+        :param log_uri: The path to the Amazon S3 location where logs for this cluster are stored.
+        :param managed_scaling_policy: Creates or updates a managed scaling policy for an Amazon EMR cluster. The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
+        :param os_release_label: The Amazon Linux release specified in a cluster launch RunJobFlow request. If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
+        :param placement_group_configs: 
+        :param release_label: The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster. Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
+        :param scale_down_behavior: The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized. ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
+        :param security_configuration: The name of the security configuration applied to the cluster.
+        :param step_concurrency_level: Specifies the number of steps that can be executed concurrently. The default value is ``1`` . The maximum value is ``256`` .
+        :param steps: A list of steps to run.
+        :param tags: A list of tags associated with a cluster.
+        :param visible_to_all_users: Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f)
+            check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
+            check_type(argname="argument job_flow_role", value=job_flow_role, expected_type=type_hints["job_flow_role"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument additional_info", value=additional_info, expected_type=type_hints["additional_info"])
+            check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
+            check_type(argname="argument auto_scaling_role", value=auto_scaling_role, expected_type=type_hints["auto_scaling_role"])
+            check_type(argname="argument auto_termination_policy", value=auto_termination_policy, expected_type=type_hints["auto_termination_policy"])
+            check_type(argname="argument bootstrap_actions", value=bootstrap_actions, expected_type=type_hints["bootstrap_actions"])
+            check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
+            check_type(argname="argument custom_ami_id", value=custom_ami_id, expected_type=type_hints["custom_ami_id"])
+            check_type(argname="argument ebs_root_volume_iops", value=ebs_root_volume_iops, expected_type=type_hints["ebs_root_volume_iops"])
+            check_type(argname="argument ebs_root_volume_size", value=ebs_root_volume_size, expected_type=type_hints["ebs_root_volume_size"])
+            check_type(argname="argument ebs_root_volume_throughput", value=ebs_root_volume_throughput, expected_type=type_hints["ebs_root_volume_throughput"])
+            check_type(argname="argument kerberos_attributes", value=kerberos_attributes, expected_type=type_hints["kerberos_attributes"])
+            check_type(argname="argument log_encryption_kms_key_id", value=log_encryption_kms_key_id, expected_type=type_hints["log_encryption_kms_key_id"])
+            check_type(argname="argument log_uri", value=log_uri, expected_type=type_hints["log_uri"])
+            check_type(argname="argument managed_scaling_policy", value=managed_scaling_policy, expected_type=type_hints["managed_scaling_policy"])
+            check_type(argname="argument os_release_label", value=os_release_label, expected_type=type_hints["os_release_label"])
+            check_type(argname="argument placement_group_configs", value=placement_group_configs, expected_type=type_hints["placement_group_configs"])
+            check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
+            check_type(argname="argument scale_down_behavior", value=scale_down_behavior, expected_type=type_hints["scale_down_behavior"])
+            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
+            check_type(argname="argument step_concurrency_level", value=step_concurrency_level, expected_type=type_hints["step_concurrency_level"])
+            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument visible_to_all_users", value=visible_to_all_users, expected_type=type_hints["visible_to_all_users"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instances": instances,
+            "job_flow_role": job_flow_role,
+            "name": name,
+            "service_role": service_role,
+        }
+        if additional_info is not None:
+            self._values["additional_info"] = additional_info
+        if applications is not None:
+            self._values["applications"] = applications
+        if auto_scaling_role is not None:
+            self._values["auto_scaling_role"] = auto_scaling_role
+        if auto_termination_policy is not None:
+            self._values["auto_termination_policy"] = auto_termination_policy
+        if bootstrap_actions is not None:
+            self._values["bootstrap_actions"] = bootstrap_actions
+        if configurations is not None:
+            self._values["configurations"] = configurations
+        if custom_ami_id is not None:
+            self._values["custom_ami_id"] = custom_ami_id
+        if ebs_root_volume_iops is not None:
+            self._values["ebs_root_volume_iops"] = ebs_root_volume_iops
+        if ebs_root_volume_size is not None:
+            self._values["ebs_root_volume_size"] = ebs_root_volume_size
+        if ebs_root_volume_throughput is not None:
+            self._values["ebs_root_volume_throughput"] = ebs_root_volume_throughput
+        if kerberos_attributes is not None:
+            self._values["kerberos_attributes"] = kerberos_attributes
+        if log_encryption_kms_key_id is not None:
+            self._values["log_encryption_kms_key_id"] = log_encryption_kms_key_id
+        if log_uri is not None:
+            self._values["log_uri"] = log_uri
+        if managed_scaling_policy is not None:
+            self._values["managed_scaling_policy"] = managed_scaling_policy
+        if os_release_label is not None:
+            self._values["os_release_label"] = os_release_label
+        if placement_group_configs is not None:
+            self._values["placement_group_configs"] = placement_group_configs
+        if release_label is not None:
+            self._values["release_label"] = release_label
+        if scale_down_behavior is not None:
+            self._values["scale_down_behavior"] = scale_down_behavior
+        if security_configuration is not None:
+            self._values["security_configuration"] = security_configuration
+        if step_concurrency_level is not None:
+            self._values["step_concurrency_level"] = step_concurrency_level
+        if steps is not None:
+            self._values["steps"] = steps
+        if tags is not None:
+            self._values["tags"] = tags
+        if visible_to_all_users is not None:
+            self._values["visible_to_all_users"] = visible_to_all_users
+
+    @builtins.property
+    def instances(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.JobFlowInstancesConfigProperty"]:
+        '''A specification of the number and type of Amazon EC2 instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-instances
+        '''
+        result = self._values.get("instances")
+        assert result is not None, "Required property 'instances' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.JobFlowInstancesConfigProperty"], result)
+
+    @builtins.property
+    def job_flow_role(self) -> builtins.str:
+        '''Also called instance profile and Amazon EC2 role.
+
+        An IAM role for an Amazon EMR cluster. The Amazon EC2 instances of the cluster assume this role. The default role is ``EMR_EC2_DefaultRole`` . In order to use the default role, you must have already created it using the AWS CLI or console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-jobflowrole
+        '''
+        result = self._values.get("job_flow_role")
+        assert result is not None, "Required property 'job_flow_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the cluster.
+
+        This parameter can't contain the characters <, >, $, |, or ` (backtick).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_role(self) -> builtins.str:
+        '''The IAM role that Amazon EMR assumes in order to access AWS resources on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-servicerole
+        '''
+        result = self._values.get("service_role")
+        assert result is not None, "Required property 'service_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_info(self) -> typing.Any:
+        '''A JSON string for selecting additional features.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-additionalinfo
+        '''
+        result = self._values.get("additional_info")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def applications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ApplicationProperty"]]]]:
+        '''The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-applications
+        '''
+        result = self._values.get("applications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ApplicationProperty"]]]], result)
+
+    @builtins.property
+    def auto_scaling_role(self) -> typing.Optional[builtins.str]:
+        '''An IAM role for automatic scaling policies.
+
+        The default role is ``EMR_AutoScaling_DefaultRole`` . The IAM role provides permissions that the automatic scaling feature requires to launch and terminate Amazon EC2 instances in an instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-autoscalingrole
+        '''
+        result = self._values.get("auto_scaling_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_termination_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.AutoTerminationPolicyProperty"]]:
+        '''An auto-termination policy for an Amazon EMR cluster.
+
+        An auto-termination policy defines the amount of idle time in seconds after which a cluster automatically terminates. For alternative cluster termination options, see `Control cluster termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-autoterminationpolicy
+        '''
+        result = self._values.get("auto_termination_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.AutoTerminationPolicyProperty"]], result)
+
+    @builtins.property
+    def bootstrap_actions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.BootstrapActionConfigProperty"]]]]:
+        '''A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-bootstrapactions
+        '''
+        result = self._values.get("bootstrap_actions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.BootstrapActionConfigProperty"]]]], result)
+
+    @builtins.property
+    def configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ConfigurationProperty"]]]]:
+        '''Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-configurations
+        '''
+        result = self._values.get("configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def custom_ami_id(self) -> typing.Optional[builtins.str]:
+        '''Available only in Amazon EMR releases 5.7.0 and later. The ID of a custom Amazon EBS-backed Linux AMI if the cluster uses a custom AMI.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-customamiid
+        '''
+        result = self._values.get("custom_ami_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ebs_root_volume_iops(self) -> typing.Optional[jsii.Number]:
+        '''The IOPS, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
+
+        Available in Amazon EMR releases 6.15.0 and later.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumeiops
+        '''
+        result = self._values.get("ebs_root_volume_iops")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ebs_root_volume_size(self) -> typing.Optional[jsii.Number]:
+        '''The size, in GiB, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
+
+        Available in Amazon EMR releases 4.x and later.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumesize
+        '''
+        result = self._values.get("ebs_root_volume_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def ebs_root_volume_throughput(self) -> typing.Optional[jsii.Number]:
+        '''The throughput, in MiB/s, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
+
+        Available in Amazon EMR releases 6.15.0 and later.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumethroughput
+        '''
+        result = self._values.get("ebs_root_volume_throughput")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def kerberos_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.KerberosAttributesProperty"]]:
+        '''Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration.
+
+        For more information see `Use Kerberos Authentication <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-kerberos.html>`_ in the *Amazon EMR Management Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-kerberosattributes
+        '''
+        result = self._values.get("kerberos_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.KerberosAttributesProperty"]], result)
+
+    @builtins.property
+    def log_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS KMS key used for encrypting log files.
+
+        This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-logencryptionkmskeyid
+        '''
+        result = self._values.get("log_encryption_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_uri(self) -> typing.Optional[builtins.str]:
+        '''The path to the Amazon S3 location where logs for this cluster are stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-loguri
+        '''
+        result = self._values.get("log_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def managed_scaling_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ManagedScalingPolicyProperty"]]:
+        '''Creates or updates a managed scaling policy for an Amazon EMR cluster.
+
+        The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-managedscalingpolicy
+        '''
+        result = self._values.get("managed_scaling_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ManagedScalingPolicyProperty"]], result)
+
+    @builtins.property
+    def os_release_label(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Linux release specified in a cluster launch RunJobFlow request.
+
+        If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-osreleaselabel
+        '''
+        result = self._values.get("os_release_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def placement_group_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.PlacementGroupConfigProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-placementgroupconfigs
+        '''
+        result = self._values.get("placement_group_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.PlacementGroupConfigProperty"]]]], result)
+
+    @builtins.property
+    def release_label(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster.
+
+        Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-releaselabel
+        '''
+        result = self._values.get("release_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scale_down_behavior(self) -> typing.Optional[builtins.str]:
+        '''The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized.
+
+        ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-scaledownbehavior
+        '''
+        result = self._values.get("scale_down_behavior")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_configuration(self) -> typing.Optional[builtins.str]:
+        '''The name of the security configuration applied to the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-securityconfiguration
+        '''
+        result = self._values.get("security_configuration")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def step_concurrency_level(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the number of steps that can be executed concurrently.
+
+        The default value is ``1`` . The maximum value is ``256`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-stepconcurrencylevel
+        '''
+        result = self._values.get("step_concurrency_level")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def steps(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.StepConfigProperty"]]]]:
+        '''A list of steps to run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-steps
+        '''
+        result = self._values.get("steps")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.StepConfigProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags associated with a cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def visible_to_all_users(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
+
+        If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action.
+        .. epigraph::
+
+           When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-visibletoallusers
+        '''
+        result = self._values.get("visible_to_all_users")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnInstanceFleetConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_id": "clusterId",
+        "instance_fleet_type": "instanceFleetType",
+        "instance_type_configs": "instanceTypeConfigs",
+        "launch_specifications": "launchSpecifications",
+        "name": "name",
+        "resize_specifications": "resizeSpecifications",
+        "target_on_demand_capacity": "targetOnDemandCapacity",
+        "target_spot_capacity": "targetSpotCapacity",
+    },
+)
+class CfnInstanceFleetConfigProps:
+    def __init__(
+        self,
+        *,
+        cluster_id: builtins.str,
+        instance_fleet_type: builtins.str,
+        instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceFleetConfig.InstanceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_on_demand_capacity: typing.Optional[jsii.Number] = None,
+        target_spot_capacity: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceFleetConfig``.
+
+        :param cluster_id: The unique identifier of the EMR cluster.
+        :param instance_fleet_type: The node type that the instance fleet hosts. *Allowed Values* : TASK
+        :param instance_type_configs: ``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities. .. epigraph:: The instance fleet configuration is available only in Amazon EMR versions 4.8.0 and later, excluding 5.0.x versions.
+        :param launch_specifications: The launch specification for the instance fleet.
+        :param name: The friendly name of the instance fleet.
+        :param resize_specifications: The resize specification for the instance fleet.
+        :param target_on_demand_capacity: The target capacity of On-Demand units for the instance fleet, which determines how many On-Demand instances to provision. When the instance fleet launches, Amazon EMR tries to provision On-Demand instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When an On-Demand instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units. .. epigraph:: If not specified or set to 0, only Spot instances are provisioned for the instance fleet using ``TargetSpotCapacity`` . At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
+        :param target_spot_capacity: The target capacity of Spot units for the instance fleet, which determines how many Spot instances to provision. When the instance fleet launches, Amazon EMR tries to provision Spot instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When a Spot instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units. .. epigraph:: If not specified or set to 0, only On-Demand instances are provisioned for the instance fleet. At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            # configuration_property_: emr.CfnInstanceFleetConfig.ConfigurationProperty
+            
+            cfn_instance_fleet_config_props = emr.CfnInstanceFleetConfigProps(
+                cluster_id="clusterId",
+                instance_fleet_type="instanceFleetType",
+            
+                # the properties below are optional
+                instance_type_configs=[emr.CfnInstanceFleetConfig.InstanceTypeConfigProperty(
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    bid_price="bidPrice",
+                    bid_price_as_percentage_of_on_demand_price=123,
+                    configurations=[emr.CfnInstanceFleetConfig.ConfigurationProperty(
+                        classification="classification",
+                        configuration_properties={
+                            "configuration_properties_key": "configurationProperties"
+                        },
+                        configurations=[configuration_property_]
+                    )],
+                    custom_ami_id="customAmiId",
+                    ebs_configuration=emr.CfnInstanceFleetConfig.EbsConfigurationProperty(
+                        ebs_block_device_configs=[emr.CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty(
+                            volume_specification=emr.CfnInstanceFleetConfig.VolumeSpecificationProperty(
+                                size_in_gb=123,
+                                volume_type="volumeType",
+            
+                                # the properties below are optional
+                                iops=123,
+                                throughput=123
+                            ),
+            
+                            # the properties below are optional
+                            volumes_per_instance=123
+                        )],
+                        ebs_optimized=False
+                    ),
+                    priority=123,
+                    weighted_capacity=123
+                )],
+                launch_specifications=emr.CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty(
+                    on_demand_specification=emr.CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty(
+                        allocation_strategy="allocationStrategy",
+            
+                        # the properties below are optional
+                        capacity_reservation_options=emr.CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty(
+                            capacity_reservation_preference="capacityReservationPreference",
+                            capacity_reservation_resource_group_arn="capacityReservationResourceGroupArn",
+                            usage_strategy="usageStrategy"
+                        )
+                    ),
+                    spot_specification=emr.CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty(
+                        timeout_action="timeoutAction",
+                        timeout_duration_minutes=123,
+            
+                        # the properties below are optional
+                        allocation_strategy="allocationStrategy",
+                        block_duration_minutes=123
+                    )
+                ),
+                name="name",
+                resize_specifications=emr.CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty(
+                    on_demand_resize_specification=emr.CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty(
+                        allocation_strategy="allocationStrategy",
+                        capacity_reservation_options=emr.CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty(
+                            capacity_reservation_preference="capacityReservationPreference",
+                            capacity_reservation_resource_group_arn="capacityReservationResourceGroupArn",
+                            usage_strategy="usageStrategy"
+                        ),
+                        timeout_duration_minutes=123
+                    ),
+                    spot_resize_specification=emr.CfnInstanceFleetConfig.SpotResizingSpecificationProperty(
+                        allocation_strategy="allocationStrategy",
+                        timeout_duration_minutes=123
+                    )
+                ),
+                target_on_demand_capacity=123,
+                target_spot_capacity=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6)
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument instance_fleet_type", value=instance_fleet_type, expected_type=type_hints["instance_fleet_type"])
+            check_type(argname="argument instance_type_configs", value=instance_type_configs, expected_type=type_hints["instance_type_configs"])
+            check_type(argname="argument launch_specifications", value=launch_specifications, expected_type=type_hints["launch_specifications"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resize_specifications", value=resize_specifications, expected_type=type_hints["resize_specifications"])
+            check_type(argname="argument target_on_demand_capacity", value=target_on_demand_capacity, expected_type=type_hints["target_on_demand_capacity"])
+            check_type(argname="argument target_spot_capacity", value=target_spot_capacity, expected_type=type_hints["target_spot_capacity"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_id": cluster_id,
+            "instance_fleet_type": instance_fleet_type,
+        }
+        if instance_type_configs is not None:
+            self._values["instance_type_configs"] = instance_type_configs
+        if launch_specifications is not None:
+            self._values["launch_specifications"] = launch_specifications
+        if name is not None:
+            self._values["name"] = name
+        if resize_specifications is not None:
+            self._values["resize_specifications"] = resize_specifications
+        if target_on_demand_capacity is not None:
+            self._values["target_on_demand_capacity"] = target_on_demand_capacity
+        if target_spot_capacity is not None:
+            self._values["target_spot_capacity"] = target_spot_capacity
+
+    @builtins.property
+    def cluster_id(self) -> builtins.str:
+        '''The unique identifier of the EMR cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-clusterid
+        '''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_fleet_type(self) -> builtins.str:
+        '''The node type that the instance fleet hosts.
+
+        *Allowed Values* : TASK
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-instancefleettype
+        '''
+        result = self._values.get("instance_fleet_type")
+        assert result is not None, "Required property 'instance_fleet_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_type_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]]:
+        '''``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities.
+
+        .. epigraph::
+
+           The instance fleet configuration is available only in Amazon EMR versions 4.8.0 and later, excluding 5.0.x versions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-instancetypeconfigs
+        '''
+        result = self._values.get("instance_type_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceTypeConfigProperty"]]]], result)
+
+    @builtins.property
+    def launch_specifications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]]:
+        '''The launch specification for the instance fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-launchspecifications
+        '''
+        result = self._values.get("launch_specifications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The friendly name of the instance fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resize_specifications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]]:
+        '''The resize specification for the instance fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-resizespecifications
+        '''
+        result = self._values.get("resize_specifications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty"]], result)
+
+    @builtins.property
+    def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
+        '''The target capacity of On-Demand units for the instance fleet, which determines how many On-Demand instances to provision.
+
+        When the instance fleet launches, Amazon EMR tries to provision On-Demand instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When an On-Demand instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units.
+        .. epigraph::
+
+           If not specified or set to 0, only Spot instances are provisioned for the instance fleet using ``TargetSpotCapacity`` . At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-targetondemandcapacity
+        '''
+        result = self._values.get("target_on_demand_capacity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_spot_capacity(self) -> typing.Optional[jsii.Number]:
+        '''The target capacity of Spot units for the instance fleet, which determines how many Spot instances to provision.
+
+        When the instance fleet launches, Amazon EMR tries to provision Spot instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When a Spot instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units.
+        .. epigraph::
+
+           If not specified or set to 0, only On-Demand instances are provisioned for the instance fleet. At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-targetspotcapacity
+        '''
+        result = self._values.get("target_spot_capacity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceFleetConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnInstanceGroupConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_count": "instanceCount",
+        "instance_role": "instanceRole",
+        "instance_type": "instanceType",
+        "job_flow_id": "jobFlowId",
+        "auto_scaling_policy": "autoScalingPolicy",
+        "bid_price": "bidPrice",
+        "configurations": "configurations",
+        "custom_ami_id": "customAmiId",
+        "ebs_configuration": "ebsConfiguration",
+        "market": "market",
+        "name": "name",
+    },
+)
+class CfnInstanceGroupConfigProps:
+    def __init__(
+        self,
+        *,
+        instance_count: jsii.Number,
+        instance_role: builtins.str,
+        instance_type: builtins.str,
+        job_flow_id: builtins.str,
+        auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceGroupConfig.AutoScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bid_price: typing.Optional[builtins.str] = None,
+        configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceGroupConfig.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_ami_id: typing.Optional[builtins.str] = None,
+        ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceGroupConfig.EbsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        market: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceGroupConfig``.
+
+        :param instance_count: Target number of instances for the instance group.
+        :param instance_role: The role of the instance group in the cluster. *Allowed Values* : TASK
+        :param instance_type: The Amazon EC2 instance type for all instances in the instance group.
+        :param job_flow_id: The ID of an Amazon EMR cluster that you want to associate this instance group with.
+        :param auto_scaling_policy: ``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` . ``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ in the *Amazon EMR Management Guide* .
+        :param bid_price: If specified, indicates that the instance group uses Spot Instances. This is the maximum price you are willing to pay for Spot Instances. Specify ``OnDemandPrice`` to set the amount equal to the On-Demand price, or specify an amount in USD.
+        :param configurations: .. epigraph:: Amazon EMR releases 4.x or later. The list of configurations supplied for an Amazon EMR cluster instance group. You can specify a separate configuration for each instance group (master, core, and task).
+        :param custom_ami_id: The custom AMI ID to use for the provisioned instance group.
+        :param ebs_configuration: ``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
+        :param market: Market type of the Amazon EC2 instances used to create a cluster node.
+        :param name: Friendly name given to the instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            # configuration_property_: emr.CfnInstanceGroupConfig.ConfigurationProperty
+            
+            cfn_instance_group_config_props = emr.CfnInstanceGroupConfigProps(
+                instance_count=123,
+                instance_role="instanceRole",
+                instance_type="instanceType",
+                job_flow_id="jobFlowId",
+            
+                # the properties below are optional
+                auto_scaling_policy=emr.CfnInstanceGroupConfig.AutoScalingPolicyProperty(
+                    constraints=emr.CfnInstanceGroupConfig.ScalingConstraintsProperty(
+                        max_capacity=123,
+                        min_capacity=123
+                    ),
+                    rules=[emr.CfnInstanceGroupConfig.ScalingRuleProperty(
+                        action=emr.CfnInstanceGroupConfig.ScalingActionProperty(
+                            simple_scaling_policy_configuration=emr.CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty(
+                                scaling_adjustment=123,
+            
+                                # the properties below are optional
+                                adjustment_type="adjustmentType",
+                                cool_down=123
+                            ),
+            
+                            # the properties below are optional
+                            market="market"
+                        ),
+                        name="name",
+                        trigger=emr.CfnInstanceGroupConfig.ScalingTriggerProperty(
+                            cloud_watch_alarm_definition=emr.CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty(
+                                comparison_operator="comparisonOperator",
+                                metric_name="metricName",
+                                period=123,
+                                threshold=123,
+            
+                                # the properties below are optional
+                                dimensions=[emr.CfnInstanceGroupConfig.MetricDimensionProperty(
+                                    key="key",
+                                    value="value"
+                                )],
+                                evaluation_periods=123,
+                                namespace="namespace",
+                                statistic="statistic",
+                                unit="unit"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        description="description"
+                    )]
+                ),
+                bid_price="bidPrice",
+                configurations=[emr.CfnInstanceGroupConfig.ConfigurationProperty(
+                    classification="classification",
+                    configuration_properties={
+                        "configuration_properties_key": "configurationProperties"
+                    },
+                    configurations=[configuration_property_]
+                )],
+                custom_ami_id="customAmiId",
+                ebs_configuration=emr.CfnInstanceGroupConfig.EbsConfigurationProperty(
+                    ebs_block_device_configs=[emr.CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty(
+                        volume_specification=emr.CfnInstanceGroupConfig.VolumeSpecificationProperty(
+                            size_in_gb=123,
+                            volume_type="volumeType",
+            
+                            # the properties below are optional
+                            iops=123,
+                            throughput=123
+                        ),
+            
+                        # the properties below are optional
+                        volumes_per_instance=123
+                    )],
+                    ebs_optimized=False
+                ),
+                market="market",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f)
+            check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+            check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
+            check_type(argname="argument auto_scaling_policy", value=auto_scaling_policy, expected_type=type_hints["auto_scaling_policy"])
+            check_type(argname="argument bid_price", value=bid_price, expected_type=type_hints["bid_price"])
+            check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
+            check_type(argname="argument custom_ami_id", value=custom_ami_id, expected_type=type_hints["custom_ami_id"])
+            check_type(argname="argument ebs_configuration", value=ebs_configuration, expected_type=type_hints["ebs_configuration"])
+            check_type(argname="argument market", value=market, expected_type=type_hints["market"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_count": instance_count,
+            "instance_role": instance_role,
+            "instance_type": instance_type,
+            "job_flow_id": job_flow_id,
+        }
+        if auto_scaling_policy is not None:
+            self._values["auto_scaling_policy"] = auto_scaling_policy
+        if bid_price is not None:
+            self._values["bid_price"] = bid_price
+        if configurations is not None:
+            self._values["configurations"] = configurations
+        if custom_ami_id is not None:
+            self._values["custom_ami_id"] = custom_ami_id
+        if ebs_configuration is not None:
+            self._values["ebs_configuration"] = ebs_configuration
+        if market is not None:
+            self._values["market"] = market
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def instance_count(self) -> jsii.Number:
+        '''Target number of instances for the instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancecount
+        '''
+        result = self._values.get("instance_count")
+        assert result is not None, "Required property 'instance_count' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def instance_role(self) -> builtins.str:
+        '''The role of the instance group in the cluster.
+
+        *Allowed Values* : TASK
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancerole
+        '''
+        result = self._values.get("instance_role")
+        assert result is not None, "Required property 'instance_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The Amazon EC2 instance type for all instances in the instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_flow_id(self) -> builtins.str:
+        '''The ID of an Amazon EMR cluster that you want to associate this instance group with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-jobflowid
+        '''
+        result = self._values.get("job_flow_id")
+        assert result is not None, "Required property 'job_flow_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_scaling_policy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]]:
+        '''``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` .
+
+        ``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ in the *Amazon EMR Management Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-autoscalingpolicy
+        '''
+        result = self._values.get("auto_scaling_policy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.AutoScalingPolicyProperty"]], result)
+
+    @builtins.property
+    def bid_price(self) -> typing.Optional[builtins.str]:
+        '''If specified, indicates that the instance group uses Spot Instances.
+
+        This is the maximum price you are willing to pay for Spot Instances. Specify ``OnDemandPrice`` to set the amount equal to the On-Demand price, or specify an amount in USD.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-bidprice
+        '''
+        result = self._values.get("bid_price")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.ConfigurationProperty"]]]]:
+        '''.. epigraph::
+
+   Amazon EMR releases 4.x or later.
+
+        The list of configurations supplied for an Amazon EMR cluster instance group. You can specify a separate configuration for each instance group (master, core, and task).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-configurations
+        '''
+        result = self._values.get("configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.ConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def custom_ami_id(self) -> typing.Optional[builtins.str]:
+        '''The custom AMI ID to use for the provisioned instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-customamiid
+        '''
+        result = self._values.get("custom_ami_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ebs_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.EbsConfigurationProperty"]]:
+        '''``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-ebsconfiguration
+        '''
+        result = self._values.get("ebs_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceGroupConfig.EbsConfigurationProperty"]], result)
+
+    @builtins.property
+    def market(self) -> typing.Optional[builtins.str]:
+        '''Market type of the Amazon EC2 instances used to create a cluster node.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-market
+        '''
+        result = self._values.get("market")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Friendly name given to the instance group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceGroupConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnSecurityConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={"security_configuration": "securityConfiguration", "name": "name"},
+)
+class CfnSecurityConfigurationProps:
+    def __init__(
+        self,
+        *,
+        security_configuration: typing.Any,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityConfiguration``.
+
+        :param security_configuration: The security configuration details in JSON format. For JSON parameters and examples, see `Use Security Configurations to Set Up Cluster Security <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-security-configurations.html>`_ in the *Amazon EMR Management Guide* .
+        :param name: The name of the security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_emr as emr
+            
+            
+            cfn_security_configuration = emr.CfnSecurityConfiguration(self, "EmrSecurityConfiguration",
+                name="AddStepRuntimeRoleSecConfig",
+                security_configuration=JSON.parse("""
+                        {
+                          "AuthorizationConfiguration": {
+                              "IAMConfiguration": {
+                                  "EnableApplicationScopedIAMRole": true,
+                                  "ApplicationScopedIAMRoleConfiguration":
+                                      {
+                                          "PropagateSourceIdentity": true
+                                      }
+                              },
+                              "LakeFormationConfiguration": {
+                                  "AuthorizedSessionTagValue": "Amazon EMR"
+                              }
+                          }
+                        }""")
+            )
+            
+            task = tasks.EmrCreateCluster(self, "Create Cluster",
+                instances=tasks.EmrCreateCluster.InstancesConfigProperty(),
+                name=sfn.TaskInput.from_json_path_at("$.ClusterName").value,
+                security_configuration=cfn_security_configuration.name
+            )
+            
+            execution_role = iam.Role(self, "Role",
+                assumed_by=iam.ArnPrincipal(task.cluster_role.role_arn)
+            )
+            
+            execution_role.assume_role_policy.add_statements(
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    principals=[task.cluster_role
+                    ],
+                    actions=["sts:SetSourceIdentity"
+                    ]
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    principals=[task.cluster_role
+                    ],
+                    actions=["sts:TagSession"
+                    ],
+                    conditions={
+                        "StringEquals": {
+                            "aws:RequestTag/LakeFormationAuthorizedCaller": "Amazon EMR"
+                        }
+                    }
+                ))
+            
+            tasks.EmrAddStep(self, "Task",
+                cluster_id="ClusterId",
+                execution_role_arn=execution_role.role_arn,
+                name="StepName",
+                jar="Jar",
+                action_on_failure=tasks.ActionOnFailure.CONTINUE
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d)
+            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_configuration": security_configuration,
+        }
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def security_configuration(self) -> typing.Any:
+        '''The security configuration details in JSON format.
+
+        For JSON parameters and examples, see `Use Security Configurations to Set Up Cluster Security <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-security-configurations.html>`_ in the *Amazon EMR Management Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html#cfn-emr-securityconfiguration-securityconfiguration
+        '''
+        result = self._values.get("security_configuration")
+        assert result is not None, "Required property 'security_configuration' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html#cfn-emr-securityconfiguration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnStepProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_on_failure": "actionOnFailure",
+        "hadoop_jar_step": "hadoopJarStep",
+        "job_flow_id": "jobFlowId",
+        "name": "name",
+    },
+)
+class CfnStepProps:
+    def __init__(
+        self,
+        *,
+        action_on_failure: builtins.str,
+        hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union["CfnStep.HadoopJarStepConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        job_flow_id: builtins.str,
+        name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnStep``.
+
+        :param action_on_failure: This specifies what action to take when the cluster step fails. Possible values are ``CANCEL_AND_WAIT`` and ``CONTINUE`` .
+        :param hadoop_jar_step: The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed. The main function submits a job for the cluster to execute as a step on the master node, and then waits for the job to finish or fail before executing subsequent steps.
+        :param job_flow_id: A string that uniquely identifies the cluster (job flow).
+        :param name: The name of the cluster step.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            cfn_step_props = emr.CfnStepProps(
+                action_on_failure="actionOnFailure",
+                hadoop_jar_step=emr.CfnStep.HadoopJarStepConfigProperty(
+                    jar="jar",
+            
+                    # the properties below are optional
+                    args=["args"],
+                    main_class="mainClass",
+                    step_properties=[emr.CfnStep.KeyValueProperty(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                job_flow_id="jobFlowId",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d)
+            check_type(argname="argument action_on_failure", value=action_on_failure, expected_type=type_hints["action_on_failure"])
+            check_type(argname="argument hadoop_jar_step", value=hadoop_jar_step, expected_type=type_hints["hadoop_jar_step"])
+            check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_on_failure": action_on_failure,
+            "hadoop_jar_step": hadoop_jar_step,
+            "job_flow_id": job_flow_id,
+            "name": name,
+        }
+
+    @builtins.property
+    def action_on_failure(self) -> builtins.str:
+        '''This specifies what action to take when the cluster step fails.
+
+        Possible values are ``CANCEL_AND_WAIT`` and ``CONTINUE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-actiononfailure
+        '''
+        result = self._values.get("action_on_failure")
+        assert result is not None, "Required property 'action_on_failure' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def hadoop_jar_step(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnStep.HadoopJarStepConfigProperty"]:
+        '''The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed.
+
+        The main function submits a job for the cluster to execute as a step on the master node, and then waits for the job to finish or fail before executing subsequent steps.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-hadoopjarstep
+        '''
+        result = self._values.get("hadoop_jar_step")
+        assert result is not None, "Required property 'hadoop_jar_step' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnStep.HadoopJarStepConfigProperty"], result)
+
+    @builtins.property
+    def job_flow_id(self) -> builtins.str:
+        '''A string that uniquely identifies the cluster (job flow).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-jobflowid
+        '''
+        result = self._values.get("job_flow_id")
+        assert result is not None, "Required property 'job_flow_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the cluster step.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStepProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnStudioProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_mode": "authMode",
+        "default_s3_location": "defaultS3Location",
+        "engine_security_group_id": "engineSecurityGroupId",
+        "name": "name",
+        "service_role": "serviceRole",
+        "subnet_ids": "subnetIds",
+        "vpc_id": "vpcId",
+        "workspace_security_group_id": "workspaceSecurityGroupId",
+        "description": "description",
+        "encryption_key_arn": "encryptionKeyArn",
+        "idc_instance_arn": "idcInstanceArn",
+        "idc_user_assignment": "idcUserAssignment",
+        "idp_auth_url": "idpAuthUrl",
+        "idp_relay_state_parameter_name": "idpRelayStateParameterName",
+        "tags": "tags",
+        "trusted_identity_propagation_enabled": "trustedIdentityPropagationEnabled",
+        "user_role": "userRole",
+    },
+)
+class CfnStudioProps:
+    def __init__(
+        self,
+        *,
+        auth_mode: builtins.str,
+        default_s3_location: builtins.str,
+        engine_security_group_id: builtins.str,
+        name: builtins.str,
+        service_role: builtins.str,
+        subnet_ids: typing.Sequence[builtins.str],
+        vpc_id: builtins.str,
+        workspace_security_group_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        idc_instance_arn: typing.Optional[builtins.str] = None,
+        idc_user_assignment: typing.Optional[builtins.str] = None,
+        idp_auth_url: typing.Optional[builtins.str] = None,
+        idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        user_role: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStudio``.
+
+        :param auth_mode: Specifies whether the Studio authenticates users using IAM Identity Center or IAM.
+        :param default_s3_location: The Amazon S3 location to back up EMR Studio Workspaces and notebook files.
+        :param engine_security_group_id: The ID of the Amazon EMR Studio Engine security group. The Engine security group allows inbound network traffic from the Workspace security group, and it must be in the same VPC specified by ``VpcId`` .
+        :param name: A descriptive name for the Amazon EMR Studio.
+        :param service_role: The Amazon Resource Name (ARN) of the IAM role that will be assumed by the Amazon EMR Studio. The service role provides a way for Amazon EMR Studio to interoperate with other AWS services.
+        :param subnet_ids: A list of subnet IDs to associate with the Amazon EMR Studio. A Studio can have a maximum of 5 subnets. The subnets must belong to the VPC specified by ``VpcId`` . Studio users can create a Workspace in any of the specified subnets.
+        :param vpc_id: The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
+        :param workspace_security_group_id: The ID of the Workspace security group associated with the Amazon EMR Studio. The Workspace security group allows outbound network traffic to resources in the Engine security group and to the internet.
+        :param description: A detailed description of the Amazon EMR Studio.
+        :param encryption_key_arn: The AWS KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
+        :param idc_instance_arn: The ARN of the IAM Identity Center instance the Studio application belongs to.
+        :param idc_user_assignment: Indicates whether the Studio has ``REQUIRED`` or ``OPTIONAL`` IAM Identity Center user assignment. If the value is set to ``REQUIRED`` , users must be explicitly assigned to the Studio application to access the Studio.
+        :param idp_auth_url: Your identity provider's authentication endpoint. Amazon EMR Studio redirects federated users to this endpoint for authentication when logging in to a Studio with the Studio URL.
+        :param idp_relay_state_parameter_name: The name of your identity provider's ``RelayState`` parameter.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param trusted_identity_propagation_enabled: Indicates whether the Studio has Trusted identity propagation enabled. The default value is ``false`` .
+        :param user_role: The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio. The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            cfn_studio_props = emr.CfnStudioProps(
+                auth_mode="authMode",
+                default_s3_location="defaultS3Location",
+                engine_security_group_id="engineSecurityGroupId",
+                name="name",
+                service_role="serviceRole",
+                subnet_ids=["subnetIds"],
+                vpc_id="vpcId",
+                workspace_security_group_id="workspaceSecurityGroupId",
+            
+                # the properties below are optional
+                description="description",
+                encryption_key_arn="encryptionKeyArn",
+                idc_instance_arn="idcInstanceArn",
+                idc_user_assignment="idcUserAssignment",
+                idp_auth_url="idpAuthUrl",
+                idp_relay_state_parameter_name="idpRelayStateParameterName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                trusted_identity_propagation_enabled=False,
+                user_role="userRole"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4)
+            check_type(argname="argument auth_mode", value=auth_mode, expected_type=type_hints["auth_mode"])
+            check_type(argname="argument default_s3_location", value=default_s3_location, expected_type=type_hints["default_s3_location"])
+            check_type(argname="argument engine_security_group_id", value=engine_security_group_id, expected_type=type_hints["engine_security_group_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument workspace_security_group_id", value=workspace_security_group_id, expected_type=type_hints["workspace_security_group_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
+            check_type(argname="argument idc_user_assignment", value=idc_user_assignment, expected_type=type_hints["idc_user_assignment"])
+            check_type(argname="argument idp_auth_url", value=idp_auth_url, expected_type=type_hints["idp_auth_url"])
+            check_type(argname="argument idp_relay_state_parameter_name", value=idp_relay_state_parameter_name, expected_type=type_hints["idp_relay_state_parameter_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument trusted_identity_propagation_enabled", value=trusted_identity_propagation_enabled, expected_type=type_hints["trusted_identity_propagation_enabled"])
+            check_type(argname="argument user_role", value=user_role, expected_type=type_hints["user_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_mode": auth_mode,
+            "default_s3_location": default_s3_location,
+            "engine_security_group_id": engine_security_group_id,
+            "name": name,
+            "service_role": service_role,
+            "subnet_ids": subnet_ids,
+            "vpc_id": vpc_id,
+            "workspace_security_group_id": workspace_security_group_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if encryption_key_arn is not None:
+            self._values["encryption_key_arn"] = encryption_key_arn
+        if idc_instance_arn is not None:
+            self._values["idc_instance_arn"] = idc_instance_arn
+        if idc_user_assignment is not None:
+            self._values["idc_user_assignment"] = idc_user_assignment
+        if idp_auth_url is not None:
+            self._values["idp_auth_url"] = idp_auth_url
+        if idp_relay_state_parameter_name is not None:
+            self._values["idp_relay_state_parameter_name"] = idp_relay_state_parameter_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if trusted_identity_propagation_enabled is not None:
+            self._values["trusted_identity_propagation_enabled"] = trusted_identity_propagation_enabled
+        if user_role is not None:
+            self._values["user_role"] = user_role
+
+    @builtins.property
+    def auth_mode(self) -> builtins.str:
+        '''Specifies whether the Studio authenticates users using IAM Identity Center or IAM.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-authmode
+        '''
+        result = self._values.get("auth_mode")
+        assert result is not None, "Required property 'auth_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_s3_location(self) -> builtins.str:
+        '''The Amazon S3 location to back up EMR Studio Workspaces and notebook files.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-defaults3location
+        '''
+        result = self._values.get("default_s3_location")
+        assert result is not None, "Required property 'default_s3_location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def engine_security_group_id(self) -> builtins.str:
+        '''The ID of the Amazon EMR Studio Engine security group.
+
+        The Engine security group allows inbound network traffic from the Workspace security group, and it must be in the same VPC specified by ``VpcId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-enginesecuritygroupid
+        '''
+        result = self._values.get("engine_security_group_id")
+        assert result is not None, "Required property 'engine_security_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A descriptive name for the Amazon EMR Studio.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_role(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that will be assumed by the Amazon EMR Studio.
+
+        The service role provides a way for Amazon EMR Studio to interoperate with other AWS services.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-servicerole
+        '''
+        result = self._values.get("service_role")
+        assert result is not None, "Required property 'service_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''A list of subnet IDs to associate with the Amazon EMR Studio.
+
+        A Studio can have a maximum of 5 subnets. The subnets must belong to the VPC specified by ``VpcId`` . Studio users can create a Workspace in any of the specified subnets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_security_group_id(self) -> builtins.str:
+        '''The ID of the Workspace security group associated with the Amazon EMR Studio.
+
+        The Workspace security group allows outbound network traffic to resources in the Engine security group and to the internet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-workspacesecuritygroupid
+        '''
+        result = self._values.get("workspace_security_group_id")
+        assert result is not None, "Required property 'workspace_security_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A detailed description of the Amazon EMR Studio.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The AWS KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-encryptionkeyarn
+        '''
+        result = self._values.get("encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idc_instance_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM Identity Center instance the Studio application belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idcinstancearn
+        '''
+        result = self._values.get("idc_instance_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idc_user_assignment(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the Studio has ``REQUIRED`` or ``OPTIONAL`` IAM Identity Center user assignment.
+
+        If the value is set to ``REQUIRED`` , users must be explicitly assigned to the Studio application to access the Studio.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idcuserassignment
+        '''
+        result = self._values.get("idc_user_assignment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idp_auth_url(self) -> typing.Optional[builtins.str]:
+        '''Your identity provider's authentication endpoint.
+
+        Amazon EMR Studio redirects federated users to this endpoint for authentication when logging in to a Studio with the Studio URL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idpauthurl
+        '''
+        result = self._values.get("idp_auth_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idp_relay_state_parameter_name(self) -> typing.Optional[builtins.str]:
+        '''The name of your identity provider's ``RelayState`` parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idprelaystateparametername
+        '''
+        result = self._values.get("idp_relay_state_parameter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def trusted_identity_propagation_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the Studio has Trusted identity propagation enabled.
+
+        The default value is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-trustedidentitypropagationenabled
+        '''
+        result = self._values.get("trusted_identity_propagation_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def user_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio.
+
+        The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-userrole
+        '''
+        result = self._values.get("user_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStudioProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnStudioSessionMappingProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_name": "identityName",
+        "identity_type": "identityType",
+        "session_policy_arn": "sessionPolicyArn",
+        "studio_id": "studioId",
+    },
+)
+class CfnStudioSessionMappingProps:
+    def __init__(
+        self,
+        *,
+        identity_name: builtins.str,
+        identity_type: builtins.str,
+        session_policy_arn: builtins.str,
+        studio_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnStudioSessionMapping``.
+
+        :param identity_name: The name of the user or group. For more information, see `UserName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_User.html#singlesignon-Type-User-UserName>`_ and `DisplayName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_Group.html#singlesignon-Type-Group-DisplayName>`_ in the *IAM Identity Center Identity Store API Reference* .
+        :param identity_type: Specifies whether the identity to map to the Amazon EMR Studio is a user or a group.
+        :param session_policy_arn: The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group. Session policies refine Studio user permissions without the need to use multiple IAM user roles. For more information, see `Create an EMR Studio user role with session policies <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-user-role.html>`_ in the *Amazon EMR Management Guide* .
+        :param studio_id: The ID of the Amazon EMR Studio to which the user or group will be mapped.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            cfn_studio_session_mapping_props = emr.CfnStudioSessionMappingProps(
+                identity_name="identityName",
+                identity_type="identityType",
+                session_policy_arn="sessionPolicyArn",
+                studio_id="studioId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8)
+            check_type(argname="argument identity_name", value=identity_name, expected_type=type_hints["identity_name"])
+            check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
+            check_type(argname="argument session_policy_arn", value=session_policy_arn, expected_type=type_hints["session_policy_arn"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_name": identity_name,
+            "identity_type": identity_type,
+            "session_policy_arn": session_policy_arn,
+            "studio_id": studio_id,
+        }
+
+    @builtins.property
+    def identity_name(self) -> builtins.str:
+        '''The name of the user or group.
+
+        For more information, see `UserName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_User.html#singlesignon-Type-User-UserName>`_ and `DisplayName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_Group.html#singlesignon-Type-Group-DisplayName>`_ in the *IAM Identity Center Identity Store API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-identityname
+        '''
+        result = self._values.get("identity_name")
+        assert result is not None, "Required property 'identity_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_type(self) -> builtins.str:
+        '''Specifies whether the identity to map to the Amazon EMR Studio is a user or a group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-identitytype
+        '''
+        result = self._values.get("identity_type")
+        assert result is not None, "Required property 'identity_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def session_policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group.
+
+        Session policies refine Studio user permissions without the need to use multiple IAM user roles. For more information, see `Create an EMR Studio user role with session policies <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-user-role.html>`_ in the *Amazon EMR Management Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-sessionpolicyarn
+        '''
+        result = self._values.get("session_policy_arn")
+        assert result is not None, "Required property 'session_policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''The ID of the Amazon EMR Studio to which the user or group will be mapped.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-studioid
+        '''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStudioSessionMappingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.CfnWALWorkspaceProps",
+    jsii_struct_bases=[],
+    name_mapping={"tags": "tags", "wal_workspace_name": "walWorkspaceName"},
+)
+class CfnWALWorkspaceProps:
+    def __init__(
+        self,
+        *,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        wal_workspace_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWALWorkspace``.
+
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param wal_workspace_name: The name of the emrwal container.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            cfn_wALWorkspace_props = emr.CfnWALWorkspaceProps(
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                wal_workspace_name="walWorkspaceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument wal_workspace_name", value=wal_workspace_name, expected_type=type_hints["wal_workspace_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
+        if wal_workspace_name is not None:
+            self._values["wal_workspace_name"] = wal_workspace_name
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html#cfn-emr-walworkspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def wal_workspace_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the emrwal container.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html#cfn-emr-walworkspace-walworkspacename
+        '''
+        result = self._values.get("wal_workspace_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWALWorkspaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.ClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_id": "clusterId"},
+)
+class ClusterReference:
+    def __init__(self, *, cluster_id: builtins.str) -> None:
+        '''A reference to a Cluster resource.
+
+        :param cluster_id: The Id of the Cluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            cluster_reference = emr.ClusterReference(
+                cluster_id="clusterId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d55d36048beff17f9cc9d86c77caf0c86f6798a14b894a3593ff26658bef134)
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_id": cluster_id,
+        }
+
+    @builtins.property
+    def cluster_id(self) -> builtins.str:
+        '''The Id of the Cluster resource.'''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IClusterRef")
+class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IInstanceFleetConfigRef")
+class IInstanceFleetConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceFleetConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceFleetConfigRef")
+    def instance_fleet_config_ref(self) -> "InstanceFleetConfigReference":
+        '''(experimental) A reference to a InstanceFleetConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceFleetConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceFleetConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IInstanceFleetConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceFleetConfigRef")
+    def instance_fleet_config_ref(self) -> "InstanceFleetConfigReference":
+        '''(experimental) A reference to a InstanceFleetConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceFleetConfigReference", jsii.get(self, "instanceFleetConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceFleetConfigRef).__jsii_proxy_class__ = lambda : _IInstanceFleetConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IInstanceGroupConfigRef")
+class IInstanceGroupConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceGroupConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceGroupConfigRef")
+    def instance_group_config_ref(self) -> "InstanceGroupConfigReference":
+        '''(experimental) A reference to a InstanceGroupConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceGroupConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceGroupConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IInstanceGroupConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceGroupConfigRef")
+    def instance_group_config_ref(self) -> "InstanceGroupConfigReference":
+        '''(experimental) A reference to a InstanceGroupConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceGroupConfigReference", jsii.get(self, "instanceGroupConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceGroupConfigRef).__jsii_proxy_class__ = lambda : _IInstanceGroupConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.ISecurityConfigurationRef")
+class ISecurityConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityConfigurationRef")
+    def security_configuration_ref(self) -> "SecurityConfigurationReference":
+        '''(experimental) A reference to a SecurityConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.ISecurityConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityConfigurationRef")
+    def security_configuration_ref(self) -> "SecurityConfigurationReference":
+        '''(experimental) A reference to a SecurityConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityConfigurationReference", jsii.get(self, "securityConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityConfigurationRef).__jsii_proxy_class__ = lambda : _ISecurityConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IStepRef")
+class IStepRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Step.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stepRef")
+    def step_ref(self) -> "StepReference":
+        '''(experimental) A reference to a Step resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStepRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Step.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IStepRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stepRef")
+    def step_ref(self) -> "StepReference":
+        '''(experimental) A reference to a Step resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StepReference", jsii.get(self, "stepRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStepRef).__jsii_proxy_class__ = lambda : _IStepRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IStudioRef")
+class IStudioRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Studio.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> "StudioReference":
+        '''(experimental) A reference to a Studio resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStudioRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Studio.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IStudioRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> "StudioReference":
+        '''(experimental) A reference to a Studio resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StudioReference", jsii.get(self, "studioRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStudioRef).__jsii_proxy_class__ = lambda : _IStudioRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IStudioSessionMappingRef")
+class IStudioSessionMappingRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StudioSessionMapping.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="studioSessionMappingRef")
+    def studio_session_mapping_ref(self) -> "StudioSessionMappingReference":
+        '''(experimental) A reference to a StudioSessionMapping resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStudioSessionMappingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StudioSessionMapping.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IStudioSessionMappingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="studioSessionMappingRef")
+    def studio_session_mapping_ref(self) -> "StudioSessionMappingReference":
+        '''(experimental) A reference to a StudioSessionMapping resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StudioSessionMappingReference", jsii.get(self, "studioSessionMappingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStudioSessionMappingRef).__jsii_proxy_class__ = lambda : _IStudioSessionMappingRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_emr.IWALWorkspaceRef")
+class IWALWorkspaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a WALWorkspace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="walWorkspaceRef")
+    def wal_workspace_ref(self) -> "WALWorkspaceReference":
+        '''(experimental) A reference to a WALWorkspace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWALWorkspaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WALWorkspace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emr.IWALWorkspaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="walWorkspaceRef")
+    def wal_workspace_ref(self) -> "WALWorkspaceReference":
+        '''(experimental) A reference to a WALWorkspace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WALWorkspaceReference", jsii.get(self, "walWorkspaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWALWorkspaceRef).__jsii_proxy_class__ = lambda : _IWALWorkspaceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.InstanceFleetConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_fleet_config_id": "instanceFleetConfigId"},
+)
+class InstanceFleetConfigReference:
+    def __init__(self, *, instance_fleet_config_id: builtins.str) -> None:
+        '''A reference to a InstanceFleetConfig resource.
+
+        :param instance_fleet_config_id: The Id of the InstanceFleetConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            instance_fleet_config_reference = emr.InstanceFleetConfigReference(
+                instance_fleet_config_id="instanceFleetConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7609206fee88e44a4f997751b58480fd61f2ef62142a5d735d77c91d1e17d71b)
+            check_type(argname="argument instance_fleet_config_id", value=instance_fleet_config_id, expected_type=type_hints["instance_fleet_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_fleet_config_id": instance_fleet_config_id,
+        }
+
+    @builtins.property
+    def instance_fleet_config_id(self) -> builtins.str:
+        '''The Id of the InstanceFleetConfig resource.'''
+        result = self._values.get("instance_fleet_config_id")
+        assert result is not None, "Required property 'instance_fleet_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceFleetConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.InstanceGroupConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_group_config_id": "instanceGroupConfigId"},
+)
+class InstanceGroupConfigReference:
+    def __init__(self, *, instance_group_config_id: builtins.str) -> None:
+        '''A reference to a InstanceGroupConfig resource.
+
+        :param instance_group_config_id: The Id of the InstanceGroupConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            instance_group_config_reference = emr.InstanceGroupConfigReference(
+                instance_group_config_id="instanceGroupConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e277326b21f890e46e0bc96da3b4197d4e4aaf54c055b86073bef4fc41aee3c)
+            check_type(argname="argument instance_group_config_id", value=instance_group_config_id, expected_type=type_hints["instance_group_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_group_config_id": instance_group_config_id,
+        }
+
+    @builtins.property
+    def instance_group_config_id(self) -> builtins.str:
+        '''The Id of the InstanceGroupConfig resource.'''
+        result = self._values.get("instance_group_config_id")
+        assert result is not None, "Required property 'instance_group_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceGroupConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.SecurityConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"security_configuration_name": "securityConfigurationName"},
+)
+class SecurityConfigurationReference:
+    def __init__(self, *, security_configuration_name: builtins.str) -> None:
+        '''A reference to a SecurityConfiguration resource.
+
+        :param security_configuration_name: The Name of the SecurityConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            security_configuration_reference = emr.SecurityConfigurationReference(
+                security_configuration_name="securityConfigurationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__864ff80650c578b386c6f4886d255466ba0272e0e596951e61211d299bc822e8)
+            check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_configuration_name": security_configuration_name,
+        }
+
+    @builtins.property
+    def security_configuration_name(self) -> builtins.str:
+        '''The Name of the SecurityConfiguration resource.'''
+        result = self._values.get("security_configuration_name")
+        assert result is not None, "Required property 'security_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.StepReference",
+    jsii_struct_bases=[],
+    name_mapping={"step_id": "stepId"},
+)
+class StepReference:
+    def __init__(self, *, step_id: builtins.str) -> None:
+        '''A reference to a Step resource.
+
+        :param step_id: The Id of the Step resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            step_reference = emr.StepReference(
+                step_id="stepId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ad79f495bb3d5035b14e5f6c6a868add29510962b4f88ac1285bfa7cd37d57d)
+            check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_id": step_id,
+        }
+
+    @builtins.property
+    def step_id(self) -> builtins.str:
+        '''The Id of the Step resource.'''
+        result = self._values.get("step_id")
+        assert result is not None, "Required property 'step_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StepReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.StudioReference",
+    jsii_struct_bases=[],
+    name_mapping={"studio_arn": "studioArn", "studio_id": "studioId"},
+)
+class StudioReference:
+    def __init__(self, *, studio_arn: builtins.str, studio_id: builtins.str) -> None:
+        '''A reference to a Studio resource.
+
+        :param studio_arn: The ARN of the Studio resource.
+        :param studio_id: The StudioId of the Studio resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            studio_reference = emr.StudioReference(
+                studio_arn="studioArn",
+                studio_id="studioId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d45eff2d895e2097b054c13eacd9b5676aaed17808614072c8be20a16ea6e74)
+            check_type(argname="argument studio_arn", value=studio_arn, expected_type=type_hints["studio_arn"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "studio_arn": studio_arn,
+            "studio_id": studio_id,
+        }
+
+    @builtins.property
+    def studio_arn(self) -> builtins.str:
+        '''The ARN of the Studio resource.'''
+        result = self._values.get("studio_arn")
+        assert result is not None, "Required property 'studio_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''The StudioId of the Studio resource.'''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StudioReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.StudioSessionMappingReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_name": "identityName",
+        "identity_type": "identityType",
+        "studio_id": "studioId",
+    },
+)
+class StudioSessionMappingReference:
+    def __init__(
+        self,
+        *,
+        identity_name: builtins.str,
+        identity_type: builtins.str,
+        studio_id: builtins.str,
+    ) -> None:
+        '''A reference to a StudioSessionMapping resource.
+
+        :param identity_name: The IdentityName of the StudioSessionMapping resource.
+        :param identity_type: The IdentityType of the StudioSessionMapping resource.
+        :param studio_id: The StudioId of the StudioSessionMapping resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            studio_session_mapping_reference = emr.StudioSessionMappingReference(
+                identity_name="identityName",
+                identity_type="identityType",
+                studio_id="studioId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cb7aadb090c7a71b8603dbb33546914f59c18da32dcfd3721aae92b18be83d0)
+            check_type(argname="argument identity_name", value=identity_name, expected_type=type_hints["identity_name"])
+            check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_name": identity_name,
+            "identity_type": identity_type,
+            "studio_id": studio_id,
+        }
+
+    @builtins.property
+    def identity_name(self) -> builtins.str:
+        '''The IdentityName of the StudioSessionMapping resource.'''
+        result = self._values.get("identity_name")
+        assert result is not None, "Required property 'identity_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_type(self) -> builtins.str:
+        '''The IdentityType of the StudioSessionMapping resource.'''
+        result = self._values.get("identity_type")
+        assert result is not None, "Required property 'identity_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''The StudioId of the StudioSessionMapping resource.'''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StudioSessionMappingReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emr.WALWorkspaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"wal_workspace_name": "walWorkspaceName"},
+)
+class WALWorkspaceReference:
+    def __init__(self, *, wal_workspace_name: builtins.str) -> None:
+        '''A reference to a WALWorkspace resource.
+
+        :param wal_workspace_name: The WALWorkspaceName of the WALWorkspace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emr as emr
+            
+            w_aLWorkspace_reference = emr.WALWorkspaceReference(
+                wal_workspace_name="walWorkspaceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fc9a3489f6eb07f5c9c873f40d8e930819706ae453f6fe04482a40b19880c82)
+            check_type(argname="argument wal_workspace_name", value=wal_workspace_name, expected_type=type_hints["wal_workspace_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "wal_workspace_name": wal_workspace_name,
+        }
+
+    @builtins.property
+    def wal_workspace_name(self) -> builtins.str:
+        '''The WALWorkspaceName of the WALWorkspace resource.'''
+        result = self._values.get("wal_workspace_name")
+        assert result is not None, "Required property 'wal_workspace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WALWorkspaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggable_36806126)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -243,6 +2842,12 @@ class CfnCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''A reference to a Cluster resource.'''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5290,502 +7895,7 @@ class CfnCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instances": "instances",
-        "job_flow_role": "jobFlowRole",
-        "name": "name",
-        "service_role": "serviceRole",
-        "additional_info": "additionalInfo",
-        "applications": "applications",
-        "auto_scaling_role": "autoScalingRole",
-        "auto_termination_policy": "autoTerminationPolicy",
-        "bootstrap_actions": "bootstrapActions",
-        "configurations": "configurations",
-        "custom_ami_id": "customAmiId",
-        "ebs_root_volume_iops": "ebsRootVolumeIops",
-        "ebs_root_volume_size": "ebsRootVolumeSize",
-        "ebs_root_volume_throughput": "ebsRootVolumeThroughput",
-        "kerberos_attributes": "kerberosAttributes",
-        "log_encryption_kms_key_id": "logEncryptionKmsKeyId",
-        "log_uri": "logUri",
-        "managed_scaling_policy": "managedScalingPolicy",
-        "os_release_label": "osReleaseLabel",
-        "placement_group_configs": "placementGroupConfigs",
-        "release_label": "releaseLabel",
-        "scale_down_behavior": "scaleDownBehavior",
-        "security_configuration": "securityConfiguration",
-        "step_concurrency_level": "stepConcurrencyLevel",
-        "steps": "steps",
-        "tags": "tags",
-        "visible_to_all_users": "visibleToAllUsers",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        instances: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        job_flow_role: builtins.str,
-        name: builtins.str,
-        service_role: builtins.str,
-        additional_info: typing.Any = None,
-        applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        auto_scaling_role: typing.Optional[builtins.str] = None,
-        auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_ami_id: typing.Optional[builtins.str] = None,
-        ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
-        ebs_root_volume_size: typing.Optional[jsii.Number] = None,
-        ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-        kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
-        log_uri: typing.Optional[builtins.str] = None,
-        managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        os_release_label: typing.Optional[builtins.str] = None,
-        placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        release_label: typing.Optional[builtins.str] = None,
-        scale_down_behavior: typing.Optional[builtins.str] = None,
-        security_configuration: typing.Optional[builtins.str] = None,
-        step_concurrency_level: typing.Optional[jsii.Number] = None,
-        steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param instances: A specification of the number and type of Amazon EC2 instances.
-        :param job_flow_role: Also called instance profile and Amazon EC2 role. An IAM role for an Amazon EMR cluster. The Amazon EC2 instances of the cluster assume this role. The default role is ``EMR_EC2_DefaultRole`` . In order to use the default role, you must have already created it using the AWS CLI or console.
-        :param name: The name of the cluster. This parameter can't contain the characters <, >, $, |, or ` (backtick).
-        :param service_role: The IAM role that Amazon EMR assumes in order to access AWS resources on your behalf.
-        :param additional_info: A JSON string for selecting additional features.
-        :param applications: The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.
-        :param auto_scaling_role: An IAM role for automatic scaling policies. The default role is ``EMR_AutoScaling_DefaultRole`` . The IAM role provides permissions that the automatic scaling feature requires to launch and terminate Amazon EC2 instances in an instance group.
-        :param auto_termination_policy: An auto-termination policy for an Amazon EMR cluster. An auto-termination policy defines the amount of idle time in seconds after which a cluster automatically terminates. For alternative cluster termination options, see `Control cluster termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ .
-        :param bootstrap_actions: A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
-        :param configurations: Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.
-        :param custom_ami_id: Available only in Amazon EMR releases 5.7.0 and later. The ID of a custom Amazon EBS-backed Linux AMI if the cluster uses a custom AMI.
-        :param ebs_root_volume_iops: The IOPS, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 6.15.0 and later.
-        :param ebs_root_volume_size: The size, in GiB, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 4.x and later.
-        :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance. Available in Amazon EMR releases 6.15.0 and later.
-        :param kerberos_attributes: Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration. For more information see `Use Kerberos Authentication <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-kerberos.html>`_ in the *Amazon EMR Management Guide* .
-        :param log_encryption_kms_key_id: The AWS KMS key used for encrypting log files. This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
-        :param log_uri: The path to the Amazon S3 location where logs for this cluster are stored.
-        :param managed_scaling_policy: Creates or updates a managed scaling policy for an Amazon EMR cluster. The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
-        :param os_release_label: The Amazon Linux release specified in a cluster launch RunJobFlow request. If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
-        :param placement_group_configs: 
-        :param release_label: The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster. Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
-        :param scale_down_behavior: The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized. ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
-        :param security_configuration: The name of the security configuration applied to the cluster.
-        :param step_concurrency_level: Specifies the number of steps that can be executed concurrently. The default value is ``1`` . The maximum value is ``256`` .
-        :param steps: A list of steps to run.
-        :param tags: A list of tags associated with a cluster.
-        :param visible_to_all_users: Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f)
-            check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
-            check_type(argname="argument job_flow_role", value=job_flow_role, expected_type=type_hints["job_flow_role"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
-            check_type(argname="argument additional_info", value=additional_info, expected_type=type_hints["additional_info"])
-            check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
-            check_type(argname="argument auto_scaling_role", value=auto_scaling_role, expected_type=type_hints["auto_scaling_role"])
-            check_type(argname="argument auto_termination_policy", value=auto_termination_policy, expected_type=type_hints["auto_termination_policy"])
-            check_type(argname="argument bootstrap_actions", value=bootstrap_actions, expected_type=type_hints["bootstrap_actions"])
-            check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
-            check_type(argname="argument custom_ami_id", value=custom_ami_id, expected_type=type_hints["custom_ami_id"])
-            check_type(argname="argument ebs_root_volume_iops", value=ebs_root_volume_iops, expected_type=type_hints["ebs_root_volume_iops"])
-            check_type(argname="argument ebs_root_volume_size", value=ebs_root_volume_size, expected_type=type_hints["ebs_root_volume_size"])
-            check_type(argname="argument ebs_root_volume_throughput", value=ebs_root_volume_throughput, expected_type=type_hints["ebs_root_volume_throughput"])
-            check_type(argname="argument kerberos_attributes", value=kerberos_attributes, expected_type=type_hints["kerberos_attributes"])
-            check_type(argname="argument log_encryption_kms_key_id", value=log_encryption_kms_key_id, expected_type=type_hints["log_encryption_kms_key_id"])
-            check_type(argname="argument log_uri", value=log_uri, expected_type=type_hints["log_uri"])
-            check_type(argname="argument managed_scaling_policy", value=managed_scaling_policy, expected_type=type_hints["managed_scaling_policy"])
-            check_type(argname="argument os_release_label", value=os_release_label, expected_type=type_hints["os_release_label"])
-            check_type(argname="argument placement_group_configs", value=placement_group_configs, expected_type=type_hints["placement_group_configs"])
-            check_type(argname="argument release_label", value=release_label, expected_type=type_hints["release_label"])
-            check_type(argname="argument scale_down_behavior", value=scale_down_behavior, expected_type=type_hints["scale_down_behavior"])
-            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
-            check_type(argname="argument step_concurrency_level", value=step_concurrency_level, expected_type=type_hints["step_concurrency_level"])
-            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument visible_to_all_users", value=visible_to_all_users, expected_type=type_hints["visible_to_all_users"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instances": instances,
-            "job_flow_role": job_flow_role,
-            "name": name,
-            "service_role": service_role,
-        }
-        if additional_info is not None:
-            self._values["additional_info"] = additional_info
-        if applications is not None:
-            self._values["applications"] = applications
-        if auto_scaling_role is not None:
-            self._values["auto_scaling_role"] = auto_scaling_role
-        if auto_termination_policy is not None:
-            self._values["auto_termination_policy"] = auto_termination_policy
-        if bootstrap_actions is not None:
-            self._values["bootstrap_actions"] = bootstrap_actions
-        if configurations is not None:
-            self._values["configurations"] = configurations
-        if custom_ami_id is not None:
-            self._values["custom_ami_id"] = custom_ami_id
-        if ebs_root_volume_iops is not None:
-            self._values["ebs_root_volume_iops"] = ebs_root_volume_iops
-        if ebs_root_volume_size is not None:
-            self._values["ebs_root_volume_size"] = ebs_root_volume_size
-        if ebs_root_volume_throughput is not None:
-            self._values["ebs_root_volume_throughput"] = ebs_root_volume_throughput
-        if kerberos_attributes is not None:
-            self._values["kerberos_attributes"] = kerberos_attributes
-        if log_encryption_kms_key_id is not None:
-            self._values["log_encryption_kms_key_id"] = log_encryption_kms_key_id
-        if log_uri is not None:
-            self._values["log_uri"] = log_uri
-        if managed_scaling_policy is not None:
-            self._values["managed_scaling_policy"] = managed_scaling_policy
-        if os_release_label is not None:
-            self._values["os_release_label"] = os_release_label
-        if placement_group_configs is not None:
-            self._values["placement_group_configs"] = placement_group_configs
-        if release_label is not None:
-            self._values["release_label"] = release_label
-        if scale_down_behavior is not None:
-            self._values["scale_down_behavior"] = scale_down_behavior
-        if security_configuration is not None:
-            self._values["security_configuration"] = security_configuration
-        if step_concurrency_level is not None:
-            self._values["step_concurrency_level"] = step_concurrency_level
-        if steps is not None:
-            self._values["steps"] = steps
-        if tags is not None:
-            self._values["tags"] = tags
-        if visible_to_all_users is not None:
-            self._values["visible_to_all_users"] = visible_to_all_users
-
-    @builtins.property
-    def instances(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCluster.JobFlowInstancesConfigProperty]:
-        '''A specification of the number and type of Amazon EC2 instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-instances
-        '''
-        result = self._values.get("instances")
-        assert result is not None, "Required property 'instances' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCluster.JobFlowInstancesConfigProperty], result)
-
-    @builtins.property
-    def job_flow_role(self) -> builtins.str:
-        '''Also called instance profile and Amazon EC2 role.
-
-        An IAM role for an Amazon EMR cluster. The Amazon EC2 instances of the cluster assume this role. The default role is ``EMR_EC2_DefaultRole`` . In order to use the default role, you must have already created it using the AWS CLI or console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-jobflowrole
-        '''
-        result = self._values.get("job_flow_role")
-        assert result is not None, "Required property 'job_flow_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the cluster.
-
-        This parameter can't contain the characters <, >, $, |, or ` (backtick).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_role(self) -> builtins.str:
-        '''The IAM role that Amazon EMR assumes in order to access AWS resources on your behalf.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-servicerole
-        '''
-        result = self._values.get("service_role")
-        assert result is not None, "Required property 'service_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def additional_info(self) -> typing.Any:
-        '''A JSON string for selecting additional features.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-additionalinfo
-        '''
-        result = self._values.get("additional_info")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def applications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ApplicationProperty]]]]:
-        '''The applications to install on this cluster, for example, Spark, Flink, Oozie, Zeppelin, and so on.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-applications
-        '''
-        result = self._values.get("applications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ApplicationProperty]]]], result)
-
-    @builtins.property
-    def auto_scaling_role(self) -> typing.Optional[builtins.str]:
-        '''An IAM role for automatic scaling policies.
-
-        The default role is ``EMR_AutoScaling_DefaultRole`` . The IAM role provides permissions that the automatic scaling feature requires to launch and terminate Amazon EC2 instances in an instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-autoscalingrole
-        '''
-        result = self._values.get("auto_scaling_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_termination_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.AutoTerminationPolicyProperty]]:
-        '''An auto-termination policy for an Amazon EMR cluster.
-
-        An auto-termination policy defines the amount of idle time in seconds after which a cluster automatically terminates. For alternative cluster termination options, see `Control cluster termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-autoterminationpolicy
-        '''
-        result = self._values.get("auto_termination_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.AutoTerminationPolicyProperty]], result)
-
-    @builtins.property
-    def bootstrap_actions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.BootstrapActionConfigProperty]]]]:
-        '''A list of bootstrap actions to run before Hadoop starts on the cluster nodes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-bootstrapactions
-        '''
-        result = self._values.get("bootstrap_actions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.BootstrapActionConfigProperty]]]], result)
-
-    @builtins.property
-    def configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ConfigurationProperty]]]]:
-        '''Applies only to Amazon EMR releases 4.x and later. The list of configurations that are supplied to the Amazon EMR cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-configurations
-        '''
-        result = self._values.get("configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ConfigurationProperty]]]], result)
-
-    @builtins.property
-    def custom_ami_id(self) -> typing.Optional[builtins.str]:
-        '''Available only in Amazon EMR releases 5.7.0 and later. The ID of a custom Amazon EBS-backed Linux AMI if the cluster uses a custom AMI.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-customamiid
-        '''
-        result = self._values.get("custom_ami_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ebs_root_volume_iops(self) -> typing.Optional[jsii.Number]:
-        '''The IOPS, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
-
-        Available in Amazon EMR releases 6.15.0 and later.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumeiops
-        '''
-        result = self._values.get("ebs_root_volume_iops")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def ebs_root_volume_size(self) -> typing.Optional[jsii.Number]:
-        '''The size, in GiB, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
-
-        Available in Amazon EMR releases 4.x and later.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumesize
-        '''
-        result = self._values.get("ebs_root_volume_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def ebs_root_volume_throughput(self) -> typing.Optional[jsii.Number]:
-        '''The throughput, in MiB/s, of the Amazon EBS root device volume of the Linux AMI that is used for each Amazon EC2 instance.
-
-        Available in Amazon EMR releases 6.15.0 and later.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-ebsrootvolumethroughput
-        '''
-        result = self._values.get("ebs_root_volume_throughput")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def kerberos_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.KerberosAttributesProperty]]:
-        '''Attributes for Kerberos configuration when Kerberos authentication is enabled using a security configuration.
-
-        For more information see `Use Kerberos Authentication <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-kerberos.html>`_ in the *Amazon EMR Management Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-kerberosattributes
-        '''
-        result = self._values.get("kerberos_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.KerberosAttributesProperty]], result)
-
-    @builtins.property
-    def log_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS KMS key used for encrypting log files.
-
-        This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-logencryptionkmskeyid
-        '''
-        result = self._values.get("log_encryption_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_uri(self) -> typing.Optional[builtins.str]:
-        '''The path to the Amazon S3 location where logs for this cluster are stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-loguri
-        '''
-        result = self._values.get("log_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def managed_scaling_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ManagedScalingPolicyProperty]]:
-        '''Creates or updates a managed scaling policy for an Amazon EMR cluster.
-
-        The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-managedscalingpolicy
-        '''
-        result = self._values.get("managed_scaling_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ManagedScalingPolicyProperty]], result)
-
-    @builtins.property
-    def os_release_label(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Linux release specified in a cluster launch RunJobFlow request.
-
-        If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-osreleaselabel
-        '''
-        result = self._values.get("os_release_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def placement_group_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.PlacementGroupConfigProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-placementgroupconfigs
-        '''
-        result = self._values.get("placement_group_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.PlacementGroupConfigProperty]]]], result)
-
-    @builtins.property
-    def release_label(self) -> typing.Optional[builtins.str]:
-        '''The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster.
-
-        Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-releaselabel
-        '''
-        result = self._values.get("release_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scale_down_behavior(self) -> typing.Optional[builtins.str]:
-        '''The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized.
-
-        ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-scaledownbehavior
-        '''
-        result = self._values.get("scale_down_behavior")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_configuration(self) -> typing.Optional[builtins.str]:
-        '''The name of the security configuration applied to the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-securityconfiguration
-        '''
-        result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def step_concurrency_level(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the number of steps that can be executed concurrently.
-
-        The default value is ``1`` . The maximum value is ``256`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-stepconcurrencylevel
-        '''
-        result = self._values.get("step_concurrency_level")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def steps(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.StepConfigProperty]]]]:
-        '''A list of steps to run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-steps
-        '''
-        result = self._values.get("steps")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.StepConfigProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags associated with a cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def visible_to_all_users(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
-
-        If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action.
-        .. epigraph::
-
-           When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-visibletoallusers
-        '''
-        result = self._values.get("visible_to_all_users")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInstanceFleetConfigRef)
 class CfnInstanceFleetConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5974,6 +8084,12 @@ class CfnInstanceFleetConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceFleetConfigRef")
+    def instance_fleet_config_ref(self) -> InstanceFleetConfigReference:
+        '''A reference to a InstanceFleetConfig resource.'''
+        return typing.cast(InstanceFleetConfigReference, jsii.get(self, "instanceFleetConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -7387,269 +9503,7 @@ class CfnInstanceFleetConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnInstanceFleetConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_id": "clusterId",
-        "instance_fleet_type": "instanceFleetType",
-        "instance_type_configs": "instanceTypeConfigs",
-        "launch_specifications": "launchSpecifications",
-        "name": "name",
-        "resize_specifications": "resizeSpecifications",
-        "target_on_demand_capacity": "targetOnDemandCapacity",
-        "target_spot_capacity": "targetSpotCapacity",
-    },
-)
-class CfnInstanceFleetConfigProps:
-    def __init__(
-        self,
-        *,
-        cluster_id: builtins.str,
-        instance_fleet_type: builtins.str,
-        instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_on_demand_capacity: typing.Optional[jsii.Number] = None,
-        target_spot_capacity: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceFleetConfig``.
-
-        :param cluster_id: The unique identifier of the EMR cluster.
-        :param instance_fleet_type: The node type that the instance fleet hosts. *Allowed Values* : TASK
-        :param instance_type_configs: ``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities. .. epigraph:: The instance fleet configuration is available only in Amazon EMR versions 4.8.0 and later, excluding 5.0.x versions.
-        :param launch_specifications: The launch specification for the instance fleet.
-        :param name: The friendly name of the instance fleet.
-        :param resize_specifications: The resize specification for the instance fleet.
-        :param target_on_demand_capacity: The target capacity of On-Demand units for the instance fleet, which determines how many On-Demand instances to provision. When the instance fleet launches, Amazon EMR tries to provision On-Demand instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When an On-Demand instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units. .. epigraph:: If not specified or set to 0, only Spot instances are provisioned for the instance fleet using ``TargetSpotCapacity`` . At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
-        :param target_spot_capacity: The target capacity of Spot units for the instance fleet, which determines how many Spot instances to provision. When the instance fleet launches, Amazon EMR tries to provision Spot instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When a Spot instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units. .. epigraph:: If not specified or set to 0, only On-Demand instances are provisioned for the instance fleet. At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            # configuration_property_: emr.CfnInstanceFleetConfig.ConfigurationProperty
-            
-            cfn_instance_fleet_config_props = emr.CfnInstanceFleetConfigProps(
-                cluster_id="clusterId",
-                instance_fleet_type="instanceFleetType",
-            
-                # the properties below are optional
-                instance_type_configs=[emr.CfnInstanceFleetConfig.InstanceTypeConfigProperty(
-                    instance_type="instanceType",
-            
-                    # the properties below are optional
-                    bid_price="bidPrice",
-                    bid_price_as_percentage_of_on_demand_price=123,
-                    configurations=[emr.CfnInstanceFleetConfig.ConfigurationProperty(
-                        classification="classification",
-                        configuration_properties={
-                            "configuration_properties_key": "configurationProperties"
-                        },
-                        configurations=[configuration_property_]
-                    )],
-                    custom_ami_id="customAmiId",
-                    ebs_configuration=emr.CfnInstanceFleetConfig.EbsConfigurationProperty(
-                        ebs_block_device_configs=[emr.CfnInstanceFleetConfig.EbsBlockDeviceConfigProperty(
-                            volume_specification=emr.CfnInstanceFleetConfig.VolumeSpecificationProperty(
-                                size_in_gb=123,
-                                volume_type="volumeType",
-            
-                                # the properties below are optional
-                                iops=123,
-                                throughput=123
-                            ),
-            
-                            # the properties below are optional
-                            volumes_per_instance=123
-                        )],
-                        ebs_optimized=False
-                    ),
-                    priority=123,
-                    weighted_capacity=123
-                )],
-                launch_specifications=emr.CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty(
-                    on_demand_specification=emr.CfnInstanceFleetConfig.OnDemandProvisioningSpecificationProperty(
-                        allocation_strategy="allocationStrategy",
-            
-                        # the properties below are optional
-                        capacity_reservation_options=emr.CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty(
-                            capacity_reservation_preference="capacityReservationPreference",
-                            capacity_reservation_resource_group_arn="capacityReservationResourceGroupArn",
-                            usage_strategy="usageStrategy"
-                        )
-                    ),
-                    spot_specification=emr.CfnInstanceFleetConfig.SpotProvisioningSpecificationProperty(
-                        timeout_action="timeoutAction",
-                        timeout_duration_minutes=123,
-            
-                        # the properties below are optional
-                        allocation_strategy="allocationStrategy",
-                        block_duration_minutes=123
-                    )
-                ),
-                name="name",
-                resize_specifications=emr.CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty(
-                    on_demand_resize_specification=emr.CfnInstanceFleetConfig.OnDemandResizingSpecificationProperty(
-                        allocation_strategy="allocationStrategy",
-                        capacity_reservation_options=emr.CfnInstanceFleetConfig.OnDemandCapacityReservationOptionsProperty(
-                            capacity_reservation_preference="capacityReservationPreference",
-                            capacity_reservation_resource_group_arn="capacityReservationResourceGroupArn",
-                            usage_strategy="usageStrategy"
-                        ),
-                        timeout_duration_minutes=123
-                    ),
-                    spot_resize_specification=emr.CfnInstanceFleetConfig.SpotResizingSpecificationProperty(
-                        allocation_strategy="allocationStrategy",
-                        timeout_duration_minutes=123
-                    )
-                ),
-                target_on_demand_capacity=123,
-                target_spot_capacity=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6)
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-            check_type(argname="argument instance_fleet_type", value=instance_fleet_type, expected_type=type_hints["instance_fleet_type"])
-            check_type(argname="argument instance_type_configs", value=instance_type_configs, expected_type=type_hints["instance_type_configs"])
-            check_type(argname="argument launch_specifications", value=launch_specifications, expected_type=type_hints["launch_specifications"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resize_specifications", value=resize_specifications, expected_type=type_hints["resize_specifications"])
-            check_type(argname="argument target_on_demand_capacity", value=target_on_demand_capacity, expected_type=type_hints["target_on_demand_capacity"])
-            check_type(argname="argument target_spot_capacity", value=target_spot_capacity, expected_type=type_hints["target_spot_capacity"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_id": cluster_id,
-            "instance_fleet_type": instance_fleet_type,
-        }
-        if instance_type_configs is not None:
-            self._values["instance_type_configs"] = instance_type_configs
-        if launch_specifications is not None:
-            self._values["launch_specifications"] = launch_specifications
-        if name is not None:
-            self._values["name"] = name
-        if resize_specifications is not None:
-            self._values["resize_specifications"] = resize_specifications
-        if target_on_demand_capacity is not None:
-            self._values["target_on_demand_capacity"] = target_on_demand_capacity
-        if target_spot_capacity is not None:
-            self._values["target_spot_capacity"] = target_spot_capacity
-
-    @builtins.property
-    def cluster_id(self) -> builtins.str:
-        '''The unique identifier of the EMR cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-clusterid
-        '''
-        result = self._values.get("cluster_id")
-        assert result is not None, "Required property 'cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_fleet_type(self) -> builtins.str:
-        '''The node type that the instance fleet hosts.
-
-        *Allowed Values* : TASK
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-instancefleettype
-        '''
-        result = self._values.get("instance_fleet_type")
-        assert result is not None, "Required property 'instance_fleet_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_type_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceTypeConfigProperty]]]]:
-        '''``InstanceTypeConfigs`` determine the EC2 instances that Amazon EMR attempts to provision to fulfill On-Demand and Spot target capacities.
-
-        .. epigraph::
-
-           The instance fleet configuration is available only in Amazon EMR versions 4.8.0 and later, excluding 5.0.x versions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-instancetypeconfigs
-        '''
-        result = self._values.get("instance_type_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceTypeConfigProperty]]]], result)
-
-    @builtins.property
-    def launch_specifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty]]:
-        '''The launch specification for the instance fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-launchspecifications
-        '''
-        result = self._values.get("launch_specifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The friendly name of the instance fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resize_specifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty]]:
-        '''The resize specification for the instance fleet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-resizespecifications
-        '''
-        result = self._values.get("resize_specifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty]], result)
-
-    @builtins.property
-    def target_on_demand_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The target capacity of On-Demand units for the instance fleet, which determines how many On-Demand instances to provision.
-
-        When the instance fleet launches, Amazon EMR tries to provision On-Demand instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When an On-Demand instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units.
-        .. epigraph::
-
-           If not specified or set to 0, only Spot instances are provisioned for the instance fleet using ``TargetSpotCapacity`` . At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-targetondemandcapacity
-        '''
-        result = self._values.get("target_on_demand_capacity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def target_spot_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The target capacity of Spot units for the instance fleet, which determines how many Spot instances to provision.
-
-        When the instance fleet launches, Amazon EMR tries to provision Spot instances as specified by ``InstanceTypeConfig`` . Each instance configuration has a specified ``WeightedCapacity`` . When a Spot instance is provisioned, the ``WeightedCapacity`` units count toward the target capacity. Amazon EMR provisions instances until the target capacity is totally fulfilled, even if this results in an overage. For example, if there are 2 units remaining to fulfill capacity, and Amazon EMR can only provision an instance with a ``WeightedCapacity`` of 5 units, the instance is provisioned, and the target capacity is exceeded by 3 units.
-        .. epigraph::
-
-           If not specified or set to 0, only On-Demand instances are provisioned for the instance fleet. At least one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` should be greater than 0. For a master instance fleet, only one of ``TargetSpotCapacity`` and ``TargetOnDemandCapacity`` can be specified, and its value must be 1.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html#cfn-emr-instancefleetconfig-targetspotcapacity
-        '''
-        result = self._values.get("target_spot_capacity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceFleetConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInstanceGroupConfigRef)
 class CfnInstanceGroupConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7847,6 +9701,12 @@ class CfnInstanceGroupConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceGroupConfigRef")
+    def instance_group_config_ref(self) -> InstanceGroupConfigReference:
+        '''A reference to a InstanceGroupConfig resource.'''
+        return typing.cast(InstanceGroupConfigReference, jsii.get(self, "instanceGroupConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceCount")
@@ -9281,308 +11141,7 @@ class CfnInstanceGroupConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnInstanceGroupConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_count": "instanceCount",
-        "instance_role": "instanceRole",
-        "instance_type": "instanceType",
-        "job_flow_id": "jobFlowId",
-        "auto_scaling_policy": "autoScalingPolicy",
-        "bid_price": "bidPrice",
-        "configurations": "configurations",
-        "custom_ami_id": "customAmiId",
-        "ebs_configuration": "ebsConfiguration",
-        "market": "market",
-        "name": "name",
-    },
-)
-class CfnInstanceGroupConfigProps:
-    def __init__(
-        self,
-        *,
-        instance_count: jsii.Number,
-        instance_role: builtins.str,
-        instance_type: builtins.str,
-        job_flow_id: builtins.str,
-        auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bid_price: typing.Optional[builtins.str] = None,
-        configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_ami_id: typing.Optional[builtins.str] = None,
-        ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        market: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceGroupConfig``.
-
-        :param instance_count: Target number of instances for the instance group.
-        :param instance_role: The role of the instance group in the cluster. *Allowed Values* : TASK
-        :param instance_type: The Amazon EC2 instance type for all instances in the instance group.
-        :param job_flow_id: The ID of an Amazon EMR cluster that you want to associate this instance group with.
-        :param auto_scaling_policy: ``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` . ``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ in the *Amazon EMR Management Guide* .
-        :param bid_price: If specified, indicates that the instance group uses Spot Instances. This is the maximum price you are willing to pay for Spot Instances. Specify ``OnDemandPrice`` to set the amount equal to the On-Demand price, or specify an amount in USD.
-        :param configurations: .. epigraph:: Amazon EMR releases 4.x or later. The list of configurations supplied for an Amazon EMR cluster instance group. You can specify a separate configuration for each instance group (master, core, and task).
-        :param custom_ami_id: The custom AMI ID to use for the provisioned instance group.
-        :param ebs_configuration: ``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
-        :param market: Market type of the Amazon EC2 instances used to create a cluster node.
-        :param name: Friendly name given to the instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            # configuration_property_: emr.CfnInstanceGroupConfig.ConfigurationProperty
-            
-            cfn_instance_group_config_props = emr.CfnInstanceGroupConfigProps(
-                instance_count=123,
-                instance_role="instanceRole",
-                instance_type="instanceType",
-                job_flow_id="jobFlowId",
-            
-                # the properties below are optional
-                auto_scaling_policy=emr.CfnInstanceGroupConfig.AutoScalingPolicyProperty(
-                    constraints=emr.CfnInstanceGroupConfig.ScalingConstraintsProperty(
-                        max_capacity=123,
-                        min_capacity=123
-                    ),
-                    rules=[emr.CfnInstanceGroupConfig.ScalingRuleProperty(
-                        action=emr.CfnInstanceGroupConfig.ScalingActionProperty(
-                            simple_scaling_policy_configuration=emr.CfnInstanceGroupConfig.SimpleScalingPolicyConfigurationProperty(
-                                scaling_adjustment=123,
-            
-                                # the properties below are optional
-                                adjustment_type="adjustmentType",
-                                cool_down=123
-                            ),
-            
-                            # the properties below are optional
-                            market="market"
-                        ),
-                        name="name",
-                        trigger=emr.CfnInstanceGroupConfig.ScalingTriggerProperty(
-                            cloud_watch_alarm_definition=emr.CfnInstanceGroupConfig.CloudWatchAlarmDefinitionProperty(
-                                comparison_operator="comparisonOperator",
-                                metric_name="metricName",
-                                period=123,
-                                threshold=123,
-            
-                                # the properties below are optional
-                                dimensions=[emr.CfnInstanceGroupConfig.MetricDimensionProperty(
-                                    key="key",
-                                    value="value"
-                                )],
-                                evaluation_periods=123,
-                                namespace="namespace",
-                                statistic="statistic",
-                                unit="unit"
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        description="description"
-                    )]
-                ),
-                bid_price="bidPrice",
-                configurations=[emr.CfnInstanceGroupConfig.ConfigurationProperty(
-                    classification="classification",
-                    configuration_properties={
-                        "configuration_properties_key": "configurationProperties"
-                    },
-                    configurations=[configuration_property_]
-                )],
-                custom_ami_id="customAmiId",
-                ebs_configuration=emr.CfnInstanceGroupConfig.EbsConfigurationProperty(
-                    ebs_block_device_configs=[emr.CfnInstanceGroupConfig.EbsBlockDeviceConfigProperty(
-                        volume_specification=emr.CfnInstanceGroupConfig.VolumeSpecificationProperty(
-                            size_in_gb=123,
-                            volume_type="volumeType",
-            
-                            # the properties below are optional
-                            iops=123,
-                            throughput=123
-                        ),
-            
-                        # the properties below are optional
-                        volumes_per_instance=123
-                    )],
-                    ebs_optimized=False
-                ),
-                market="market",
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f)
-            check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
-            check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
-            check_type(argname="argument auto_scaling_policy", value=auto_scaling_policy, expected_type=type_hints["auto_scaling_policy"])
-            check_type(argname="argument bid_price", value=bid_price, expected_type=type_hints["bid_price"])
-            check_type(argname="argument configurations", value=configurations, expected_type=type_hints["configurations"])
-            check_type(argname="argument custom_ami_id", value=custom_ami_id, expected_type=type_hints["custom_ami_id"])
-            check_type(argname="argument ebs_configuration", value=ebs_configuration, expected_type=type_hints["ebs_configuration"])
-            check_type(argname="argument market", value=market, expected_type=type_hints["market"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_count": instance_count,
-            "instance_role": instance_role,
-            "instance_type": instance_type,
-            "job_flow_id": job_flow_id,
-        }
-        if auto_scaling_policy is not None:
-            self._values["auto_scaling_policy"] = auto_scaling_policy
-        if bid_price is not None:
-            self._values["bid_price"] = bid_price
-        if configurations is not None:
-            self._values["configurations"] = configurations
-        if custom_ami_id is not None:
-            self._values["custom_ami_id"] = custom_ami_id
-        if ebs_configuration is not None:
-            self._values["ebs_configuration"] = ebs_configuration
-        if market is not None:
-            self._values["market"] = market
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def instance_count(self) -> jsii.Number:
-        '''Target number of instances for the instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancecount
-        '''
-        result = self._values.get("instance_count")
-        assert result is not None, "Required property 'instance_count' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def instance_role(self) -> builtins.str:
-        '''The role of the instance group in the cluster.
-
-        *Allowed Values* : TASK
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancerole
-        '''
-        result = self._values.get("instance_role")
-        assert result is not None, "Required property 'instance_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The Amazon EC2 instance type for all instances in the instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def job_flow_id(self) -> builtins.str:
-        '''The ID of an Amazon EMR cluster that you want to associate this instance group with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-jobflowid
-        '''
-        result = self._values.get("job_flow_id")
-        assert result is not None, "Required property 'job_flow_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_scaling_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.AutoScalingPolicyProperty]]:
-        '''``AutoScalingPolicy`` is a subproperty of ``InstanceGroupConfig`` .
-
-        ``AutoScalingPolicy`` defines how an instance group dynamically adds and terminates EC2 instances in response to the value of a CloudWatch metric. For more information, see `Using Automatic Scaling in Amazon EMR <https://docs.aws.amazon.com//emr/latest/ManagementGuide/emr-automatic-scaling.html>`_ in the *Amazon EMR Management Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-autoscalingpolicy
-        '''
-        result = self._values.get("auto_scaling_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.AutoScalingPolicyProperty]], result)
-
-    @builtins.property
-    def bid_price(self) -> typing.Optional[builtins.str]:
-        '''If specified, indicates that the instance group uses Spot Instances.
-
-        This is the maximum price you are willing to pay for Spot Instances. Specify ``OnDemandPrice`` to set the amount equal to the On-Demand price, or specify an amount in USD.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-bidprice
-        '''
-        result = self._values.get("bid_price")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.ConfigurationProperty]]]]:
-        '''.. epigraph::
-
-   Amazon EMR releases 4.x or later.
-
-        The list of configurations supplied for an Amazon EMR cluster instance group. You can specify a separate configuration for each instance group (master, core, and task).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-configurations
-        '''
-        result = self._values.get("configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.ConfigurationProperty]]]], result)
-
-    @builtins.property
-    def custom_ami_id(self) -> typing.Optional[builtins.str]:
-        '''The custom AMI ID to use for the provisioned instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-customamiid
-        '''
-        result = self._values.get("custom_ami_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ebs_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.EbsConfigurationProperty]]:
-        '''``EbsConfiguration`` determines the EBS volumes to attach to EMR cluster instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-ebsconfiguration
-        '''
-        result = self._values.get("ebs_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceGroupConfig.EbsConfigurationProperty]], result)
-
-    @builtins.property
-    def market(self) -> typing.Optional[builtins.str]:
-        '''Market type of the Amazon EC2 instances used to create a cluster node.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-market
-        '''
-        result = self._values.get("market")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Friendly name given to the instance group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html#cfn-emr-instancegroupconfig-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceGroupConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISecurityConfigurationRef)
 class CfnSecurityConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9718,6 +11277,12 @@ class CfnSecurityConfiguration(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="securityConfigurationRef")
+    def security_configuration_ref(self) -> SecurityConfigurationReference:
+        '''A reference to a SecurityConfiguration resource.'''
+        return typing.cast(SecurityConfigurationReference, jsii.get(self, "securityConfigurationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="securityConfiguration")
     def security_configuration(self) -> typing.Any:
         '''The security configuration details in JSON format.'''
@@ -9744,133 +11309,7 @@ class CfnSecurityConfiguration(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnSecurityConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={"security_configuration": "securityConfiguration", "name": "name"},
-)
-class CfnSecurityConfigurationProps:
-    def __init__(
-        self,
-        *,
-        security_configuration: typing.Any,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityConfiguration``.
-
-        :param security_configuration: The security configuration details in JSON format. For JSON parameters and examples, see `Use Security Configurations to Set Up Cluster Security <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-security-configurations.html>`_ in the *Amazon EMR Management Guide* .
-        :param name: The name of the security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_emr as emr
-            
-            
-            cfn_security_configuration = emr.CfnSecurityConfiguration(self, "EmrSecurityConfiguration",
-                name="AddStepRuntimeRoleSecConfig",
-                security_configuration=JSON.parse("""
-                        {
-                          "AuthorizationConfiguration": {
-                              "IAMConfiguration": {
-                                  "EnableApplicationScopedIAMRole": true,
-                                  "ApplicationScopedIAMRoleConfiguration":
-                                      {
-                                          "PropagateSourceIdentity": true
-                                      }
-                              },
-                              "LakeFormationConfiguration": {
-                                  "AuthorizedSessionTagValue": "Amazon EMR"
-                              }
-                          }
-                        }""")
-            )
-            
-            task = tasks.EmrCreateCluster(self, "Create Cluster",
-                instances=tasks.EmrCreateCluster.InstancesConfigProperty(),
-                name=sfn.TaskInput.from_json_path_at("$.ClusterName").value,
-                security_configuration=cfn_security_configuration.name
-            )
-            
-            execution_role = iam.Role(self, "Role",
-                assumed_by=iam.ArnPrincipal(task.cluster_role.role_arn)
-            )
-            
-            execution_role.assume_role_policy.add_statements(
-                iam.PolicyStatement(
-                    effect=iam.Effect.ALLOW,
-                    principals=[task.cluster_role
-                    ],
-                    actions=["sts:SetSourceIdentity"
-                    ]
-                ),
-                iam.PolicyStatement(
-                    effect=iam.Effect.ALLOW,
-                    principals=[task.cluster_role
-                    ],
-                    actions=["sts:TagSession"
-                    ],
-                    conditions={
-                        "StringEquals": {
-                            "aws:RequestTag/LakeFormationAuthorizedCaller": "Amazon EMR"
-                        }
-                    }
-                ))
-            
-            tasks.EmrAddStep(self, "Task",
-                cluster_id="ClusterId",
-                execution_role_arn=execution_role.role_arn,
-                name="StepName",
-                jar="Jar",
-                action_on_failure=tasks.ActionOnFailure.CONTINUE
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d)
-            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_configuration": security_configuration,
-        }
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def security_configuration(self) -> typing.Any:
-        '''The security configuration details in JSON format.
-
-        For JSON parameters and examples, see `Use Security Configurations to Set Up Cluster Security <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-security-configurations.html>`_ in the *Amazon EMR Management Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html#cfn-emr-securityconfiguration-securityconfiguration
-        '''
-        result = self._values.get("security_configuration")
-        assert result is not None, "Required property 'security_configuration' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-securityconfiguration.html#cfn-emr-securityconfiguration-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IStepRef)
 class CfnStep(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9982,6 +11421,12 @@ class CfnStep(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stepRef")
+    def step_ref(self) -> StepReference:
+        '''A reference to a Step resource.'''
+        return typing.cast(StepReference, jsii.get(self, "stepRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actionOnFailure")
@@ -10232,130 +11677,7 @@ class CfnStep(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnStepProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action_on_failure": "actionOnFailure",
-        "hadoop_jar_step": "hadoopJarStep",
-        "job_flow_id": "jobFlowId",
-        "name": "name",
-    },
-)
-class CfnStepProps:
-    def __init__(
-        self,
-        *,
-        action_on_failure: builtins.str,
-        hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        job_flow_id: builtins.str,
-        name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnStep``.
-
-        :param action_on_failure: This specifies what action to take when the cluster step fails. Possible values are ``CANCEL_AND_WAIT`` and ``CONTINUE`` .
-        :param hadoop_jar_step: The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed. The main function submits a job for the cluster to execute as a step on the master node, and then waits for the job to finish or fail before executing subsequent steps.
-        :param job_flow_id: A string that uniquely identifies the cluster (job flow).
-        :param name: The name of the cluster step.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            cfn_step_props = emr.CfnStepProps(
-                action_on_failure="actionOnFailure",
-                hadoop_jar_step=emr.CfnStep.HadoopJarStepConfigProperty(
-                    jar="jar",
-            
-                    # the properties below are optional
-                    args=["args"],
-                    main_class="mainClass",
-                    step_properties=[emr.CfnStep.KeyValueProperty(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                job_flow_id="jobFlowId",
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d)
-            check_type(argname="argument action_on_failure", value=action_on_failure, expected_type=type_hints["action_on_failure"])
-            check_type(argname="argument hadoop_jar_step", value=hadoop_jar_step, expected_type=type_hints["hadoop_jar_step"])
-            check_type(argname="argument job_flow_id", value=job_flow_id, expected_type=type_hints["job_flow_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action_on_failure": action_on_failure,
-            "hadoop_jar_step": hadoop_jar_step,
-            "job_flow_id": job_flow_id,
-            "name": name,
-        }
-
-    @builtins.property
-    def action_on_failure(self) -> builtins.str:
-        '''This specifies what action to take when the cluster step fails.
-
-        Possible values are ``CANCEL_AND_WAIT`` and ``CONTINUE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-actiononfailure
-        '''
-        result = self._values.get("action_on_failure")
-        assert result is not None, "Required property 'action_on_failure' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def hadoop_jar_step(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnStep.HadoopJarStepConfigProperty]:
-        '''The ``HadoopJarStepConfig`` property type specifies a job flow step consisting of a JAR file whose main function will be executed.
-
-        The main function submits a job for the cluster to execute as a step on the master node, and then waits for the job to finish or fail before executing subsequent steps.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-hadoopjarstep
-        '''
-        result = self._values.get("hadoop_jar_step")
-        assert result is not None, "Required property 'hadoop_jar_step' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnStep.HadoopJarStepConfigProperty], result)
-
-    @builtins.property
-    def job_flow_id(self) -> builtins.str:
-        '''A string that uniquely identifies the cluster (job flow).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-jobflowid
-        '''
-        result = self._values.get("job_flow_id")
-        assert result is not None, "Required property 'job_flow_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the cluster step.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-step.html#cfn-emr-step-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStepProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStudioRef, _ITaggable_36806126)
 class CfnStudio(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10538,6 +11860,12 @@ class CfnStudio(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> StudioReference:
+        '''A reference to a Studio resource.'''
+        return typing.cast(StudioReference, jsii.get(self, "studioRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10775,347 +12103,7 @@ class CfnStudio(
         jsii.set(self, "userRole", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnStudioProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auth_mode": "authMode",
-        "default_s3_location": "defaultS3Location",
-        "engine_security_group_id": "engineSecurityGroupId",
-        "name": "name",
-        "service_role": "serviceRole",
-        "subnet_ids": "subnetIds",
-        "vpc_id": "vpcId",
-        "workspace_security_group_id": "workspaceSecurityGroupId",
-        "description": "description",
-        "encryption_key_arn": "encryptionKeyArn",
-        "idc_instance_arn": "idcInstanceArn",
-        "idc_user_assignment": "idcUserAssignment",
-        "idp_auth_url": "idpAuthUrl",
-        "idp_relay_state_parameter_name": "idpRelayStateParameterName",
-        "tags": "tags",
-        "trusted_identity_propagation_enabled": "trustedIdentityPropagationEnabled",
-        "user_role": "userRole",
-    },
-)
-class CfnStudioProps:
-    def __init__(
-        self,
-        *,
-        auth_mode: builtins.str,
-        default_s3_location: builtins.str,
-        engine_security_group_id: builtins.str,
-        name: builtins.str,
-        service_role: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        vpc_id: builtins.str,
-        workspace_security_group_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        encryption_key_arn: typing.Optional[builtins.str] = None,
-        idc_instance_arn: typing.Optional[builtins.str] = None,
-        idc_user_assignment: typing.Optional[builtins.str] = None,
-        idp_auth_url: typing.Optional[builtins.str] = None,
-        idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        user_role: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStudio``.
-
-        :param auth_mode: Specifies whether the Studio authenticates users using IAM Identity Center or IAM.
-        :param default_s3_location: The Amazon S3 location to back up EMR Studio Workspaces and notebook files.
-        :param engine_security_group_id: The ID of the Amazon EMR Studio Engine security group. The Engine security group allows inbound network traffic from the Workspace security group, and it must be in the same VPC specified by ``VpcId`` .
-        :param name: A descriptive name for the Amazon EMR Studio.
-        :param service_role: The Amazon Resource Name (ARN) of the IAM role that will be assumed by the Amazon EMR Studio. The service role provides a way for Amazon EMR Studio to interoperate with other AWS services.
-        :param subnet_ids: A list of subnet IDs to associate with the Amazon EMR Studio. A Studio can have a maximum of 5 subnets. The subnets must belong to the VPC specified by ``VpcId`` . Studio users can create a Workspace in any of the specified subnets.
-        :param vpc_id: The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
-        :param workspace_security_group_id: The ID of the Workspace security group associated with the Amazon EMR Studio. The Workspace security group allows outbound network traffic to resources in the Engine security group and to the internet.
-        :param description: A detailed description of the Amazon EMR Studio.
-        :param encryption_key_arn: The AWS KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
-        :param idc_instance_arn: The ARN of the IAM Identity Center instance the Studio application belongs to.
-        :param idc_user_assignment: Indicates whether the Studio has ``REQUIRED`` or ``OPTIONAL`` IAM Identity Center user assignment. If the value is set to ``REQUIRED`` , users must be explicitly assigned to the Studio application to access the Studio.
-        :param idp_auth_url: Your identity provider's authentication endpoint. Amazon EMR Studio redirects federated users to this endpoint for authentication when logging in to a Studio with the Studio URL.
-        :param idp_relay_state_parameter_name: The name of your identity provider's ``RelayState`` parameter.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param trusted_identity_propagation_enabled: Indicates whether the Studio has Trusted identity propagation enabled. The default value is ``false`` .
-        :param user_role: The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio. The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            cfn_studio_props = emr.CfnStudioProps(
-                auth_mode="authMode",
-                default_s3_location="defaultS3Location",
-                engine_security_group_id="engineSecurityGroupId",
-                name="name",
-                service_role="serviceRole",
-                subnet_ids=["subnetIds"],
-                vpc_id="vpcId",
-                workspace_security_group_id="workspaceSecurityGroupId",
-            
-                # the properties below are optional
-                description="description",
-                encryption_key_arn="encryptionKeyArn",
-                idc_instance_arn="idcInstanceArn",
-                idc_user_assignment="idcUserAssignment",
-                idp_auth_url="idpAuthUrl",
-                idp_relay_state_parameter_name="idpRelayStateParameterName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                trusted_identity_propagation_enabled=False,
-                user_role="userRole"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4)
-            check_type(argname="argument auth_mode", value=auth_mode, expected_type=type_hints["auth_mode"])
-            check_type(argname="argument default_s3_location", value=default_s3_location, expected_type=type_hints["default_s3_location"])
-            check_type(argname="argument engine_security_group_id", value=engine_security_group_id, expected_type=type_hints["engine_security_group_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument workspace_security_group_id", value=workspace_security_group_id, expected_type=type_hints["workspace_security_group_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
-            check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
-            check_type(argname="argument idc_user_assignment", value=idc_user_assignment, expected_type=type_hints["idc_user_assignment"])
-            check_type(argname="argument idp_auth_url", value=idp_auth_url, expected_type=type_hints["idp_auth_url"])
-            check_type(argname="argument idp_relay_state_parameter_name", value=idp_relay_state_parameter_name, expected_type=type_hints["idp_relay_state_parameter_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument trusted_identity_propagation_enabled", value=trusted_identity_propagation_enabled, expected_type=type_hints["trusted_identity_propagation_enabled"])
-            check_type(argname="argument user_role", value=user_role, expected_type=type_hints["user_role"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auth_mode": auth_mode,
-            "default_s3_location": default_s3_location,
-            "engine_security_group_id": engine_security_group_id,
-            "name": name,
-            "service_role": service_role,
-            "subnet_ids": subnet_ids,
-            "vpc_id": vpc_id,
-            "workspace_security_group_id": workspace_security_group_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if encryption_key_arn is not None:
-            self._values["encryption_key_arn"] = encryption_key_arn
-        if idc_instance_arn is not None:
-            self._values["idc_instance_arn"] = idc_instance_arn
-        if idc_user_assignment is not None:
-            self._values["idc_user_assignment"] = idc_user_assignment
-        if idp_auth_url is not None:
-            self._values["idp_auth_url"] = idp_auth_url
-        if idp_relay_state_parameter_name is not None:
-            self._values["idp_relay_state_parameter_name"] = idp_relay_state_parameter_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if trusted_identity_propagation_enabled is not None:
-            self._values["trusted_identity_propagation_enabled"] = trusted_identity_propagation_enabled
-        if user_role is not None:
-            self._values["user_role"] = user_role
-
-    @builtins.property
-    def auth_mode(self) -> builtins.str:
-        '''Specifies whether the Studio authenticates users using IAM Identity Center or IAM.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-authmode
-        '''
-        result = self._values.get("auth_mode")
-        assert result is not None, "Required property 'auth_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_s3_location(self) -> builtins.str:
-        '''The Amazon S3 location to back up EMR Studio Workspaces and notebook files.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-defaults3location
-        '''
-        result = self._values.get("default_s3_location")
-        assert result is not None, "Required property 'default_s3_location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def engine_security_group_id(self) -> builtins.str:
-        '''The ID of the Amazon EMR Studio Engine security group.
-
-        The Engine security group allows inbound network traffic from the Workspace security group, and it must be in the same VPC specified by ``VpcId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-enginesecuritygroupid
-        '''
-        result = self._values.get("engine_security_group_id")
-        assert result is not None, "Required property 'engine_security_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A descriptive name for the Amazon EMR Studio.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_role(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role that will be assumed by the Amazon EMR Studio.
-
-        The service role provides a way for Amazon EMR Studio to interoperate with other AWS services.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-servicerole
-        '''
-        result = self._values.get("service_role")
-        assert result is not None, "Required property 'service_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''A list of subnet IDs to associate with the Amazon EMR Studio.
-
-        A Studio can have a maximum of 5 subnets. The subnets must belong to the VPC specified by ``VpcId`` . Studio users can create a Workspace in any of the specified subnets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The ID of the Amazon Virtual Private Cloud (Amazon VPC) to associate with the Studio.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_security_group_id(self) -> builtins.str:
-        '''The ID of the Workspace security group associated with the Amazon EMR Studio.
-
-        The Workspace security group allows outbound network traffic to resources in the Engine security group and to the internet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-workspacesecuritygroupid
-        '''
-        result = self._values.get("workspace_security_group_id")
-        assert result is not None, "Required property 'workspace_security_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A detailed description of the Amazon EMR Studio.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The AWS KMS key identifier (ARN) used to encrypt Amazon EMR Studio workspace and notebook files when backed up to Amazon S3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-encryptionkeyarn
-        '''
-        result = self._values.get("encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def idc_instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the IAM Identity Center instance the Studio application belongs to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idcinstancearn
-        '''
-        result = self._values.get("idc_instance_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def idc_user_assignment(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether the Studio has ``REQUIRED`` or ``OPTIONAL`` IAM Identity Center user assignment.
-
-        If the value is set to ``REQUIRED`` , users must be explicitly assigned to the Studio application to access the Studio.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idcuserassignment
-        '''
-        result = self._values.get("idc_user_assignment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def idp_auth_url(self) -> typing.Optional[builtins.str]:
-        '''Your identity provider's authentication endpoint.
-
-        Amazon EMR Studio redirects federated users to this endpoint for authentication when logging in to a Studio with the Studio URL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idpauthurl
-        '''
-        result = self._values.get("idp_auth_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def idp_relay_state_parameter_name(self) -> typing.Optional[builtins.str]:
-        '''The name of your identity provider's ``RelayState`` parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-idprelaystateparametername
-        '''
-        result = self._values.get("idp_relay_state_parameter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def trusted_identity_propagation_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the Studio has Trusted identity propagation enabled.
-
-        The default value is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-trustedidentitypropagationenabled
-        '''
-        result = self._values.get("trusted_identity_propagation_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def user_role(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM user role that will be assumed by users and groups logged in to a Studio.
-
-        The permissions attached to this IAM role can be scoped down for each user or group using session policies. You only need to specify ``UserRole`` when you set ``AuthMode`` to ``SSO`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studio.html#cfn-emr-studio-userrole
-        '''
-        result = self._values.get("user_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStudioProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IStudioSessionMappingRef)
 class CfnStudioSessionMapping(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11208,6 +12196,12 @@ class CfnStudioSessionMapping(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="studioSessionMappingRef")
+    def studio_session_mapping_ref(self) -> StudioSessionMappingReference:
+        '''A reference to a StudioSessionMapping resource.'''
+        return typing.cast(StudioSessionMappingReference, jsii.get(self, "studioSessionMappingRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="identityName")
     def identity_name(self) -> builtins.str:
         '''The name of the user or group.'''
@@ -11260,118 +12254,7 @@ class CfnStudioSessionMapping(
         jsii.set(self, "studioId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnStudioSessionMappingProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity_name": "identityName",
-        "identity_type": "identityType",
-        "session_policy_arn": "sessionPolicyArn",
-        "studio_id": "studioId",
-    },
-)
-class CfnStudioSessionMappingProps:
-    def __init__(
-        self,
-        *,
-        identity_name: builtins.str,
-        identity_type: builtins.str,
-        session_policy_arn: builtins.str,
-        studio_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnStudioSessionMapping``.
-
-        :param identity_name: The name of the user or group. For more information, see `UserName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_User.html#singlesignon-Type-User-UserName>`_ and `DisplayName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_Group.html#singlesignon-Type-Group-DisplayName>`_ in the *IAM Identity Center Identity Store API Reference* .
-        :param identity_type: Specifies whether the identity to map to the Amazon EMR Studio is a user or a group.
-        :param session_policy_arn: The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group. Session policies refine Studio user permissions without the need to use multiple IAM user roles. For more information, see `Create an EMR Studio user role with session policies <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-user-role.html>`_ in the *Amazon EMR Management Guide* .
-        :param studio_id: The ID of the Amazon EMR Studio to which the user or group will be mapped.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            cfn_studio_session_mapping_props = emr.CfnStudioSessionMappingProps(
-                identity_name="identityName",
-                identity_type="identityType",
-                session_policy_arn="sessionPolicyArn",
-                studio_id="studioId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8)
-            check_type(argname="argument identity_name", value=identity_name, expected_type=type_hints["identity_name"])
-            check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
-            check_type(argname="argument session_policy_arn", value=session_policy_arn, expected_type=type_hints["session_policy_arn"])
-            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity_name": identity_name,
-            "identity_type": identity_type,
-            "session_policy_arn": session_policy_arn,
-            "studio_id": studio_id,
-        }
-
-    @builtins.property
-    def identity_name(self) -> builtins.str:
-        '''The name of the user or group.
-
-        For more information, see `UserName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_User.html#singlesignon-Type-User-UserName>`_ and `DisplayName <https://docs.aws.amazon.com/singlesignon/latest/IdentityStoreAPIReference/API_Group.html#singlesignon-Type-Group-DisplayName>`_ in the *IAM Identity Center Identity Store API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-identityname
-        '''
-        result = self._values.get("identity_name")
-        assert result is not None, "Required property 'identity_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identity_type(self) -> builtins.str:
-        '''Specifies whether the identity to map to the Amazon EMR Studio is a user or a group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-identitytype
-        '''
-        result = self._values.get("identity_type")
-        assert result is not None, "Required property 'identity_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def session_policy_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for the session policy that will be applied to the user or group.
-
-        Session policies refine Studio user permissions without the need to use multiple IAM user roles. For more information, see `Create an EMR Studio user role with session policies <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-studio-user-role.html>`_ in the *Amazon EMR Management Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-sessionpolicyarn
-        '''
-        result = self._values.get("session_policy_arn")
-        assert result is not None, "Required property 'session_policy_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def studio_id(self) -> builtins.str:
-        '''The ID of the Amazon EMR Studio to which the user or group will be mapped.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-studiosessionmapping.html#cfn-emr-studiosessionmapping-studioid
-        '''
-        result = self._values.get("studio_id")
-        assert result is not None, "Required property 'studio_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStudioSessionMappingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IWALWorkspaceRef, _ITaggableV2_4e6798f8)
 class CfnWALWorkspace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11462,6 +12345,12 @@ class CfnWALWorkspace(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="walWorkspaceRef")
+    def wal_workspace_ref(self) -> WALWorkspaceReference:
+        '''A reference to a WALWorkspace resource.'''
+        return typing.cast(WALWorkspaceReference, jsii.get(self, "walWorkspaceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -11488,80 +12377,6 @@ class CfnWALWorkspace(
         jsii.set(self, "walWorkspaceName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emr.CfnWALWorkspaceProps",
-    jsii_struct_bases=[],
-    name_mapping={"tags": "tags", "wal_workspace_name": "walWorkspaceName"},
-)
-class CfnWALWorkspaceProps:
-    def __init__(
-        self,
-        *,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        wal_workspace_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWALWorkspace``.
-
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param wal_workspace_name: The name of the emrwal container.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emr as emr
-            
-            cfn_wALWorkspace_props = emr.CfnWALWorkspaceProps(
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                wal_workspace_name="walWorkspaceName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63)
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument wal_workspace_name", value=wal_workspace_name, expected_type=type_hints["wal_workspace_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if tags is not None:
-            self._values["tags"] = tags
-        if wal_workspace_name is not None:
-            self._values["wal_workspace_name"] = wal_workspace_name
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html#cfn-emr-walworkspace-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def wal_workspace_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the emrwal container.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-walworkspace.html#cfn-emr-walworkspace-walworkspacename
-        '''
-        result = self._values.get("wal_workspace_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWALWorkspaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnCluster",
     "CfnClusterProps",
@@ -11579,9 +12394,207 @@ __all__ = [
     "CfnStudioSessionMappingProps",
     "CfnWALWorkspace",
     "CfnWALWorkspaceProps",
+    "ClusterReference",
+    "IClusterRef",
+    "IInstanceFleetConfigRef",
+    "IInstanceGroupConfigRef",
+    "ISecurityConfigurationRef",
+    "IStepRef",
+    "IStudioRef",
+    "IStudioSessionMappingRef",
+    "IWALWorkspaceRef",
+    "InstanceFleetConfigReference",
+    "InstanceGroupConfigReference",
+    "SecurityConfigurationReference",
+    "StepReference",
+    "StudioReference",
+    "StudioSessionMappingReference",
+    "WALWorkspaceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f(
+    *,
+    instances: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    job_flow_role: builtins.str,
+    name: builtins.str,
+    service_role: builtins.str,
+    additional_info: typing.Any = None,
+    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    auto_scaling_role: typing.Optional[builtins.str] = None,
+    auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_ami_id: typing.Optional[builtins.str] = None,
+    ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
+    ebs_root_volume_size: typing.Optional[jsii.Number] = None,
+    ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
+    kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
+    log_uri: typing.Optional[builtins.str] = None,
+    managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    os_release_label: typing.Optional[builtins.str] = None,
+    placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    release_label: typing.Optional[builtins.str] = None,
+    scale_down_behavior: typing.Optional[builtins.str] = None,
+    security_configuration: typing.Optional[builtins.str] = None,
+    step_concurrency_level: typing.Optional[jsii.Number] = None,
+    steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6(
+    *,
+    cluster_id: builtins.str,
+    instance_fleet_type: builtins.str,
+    instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_on_demand_capacity: typing.Optional[jsii.Number] = None,
+    target_spot_capacity: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f(
+    *,
+    instance_count: jsii.Number,
+    instance_role: builtins.str,
+    instance_type: builtins.str,
+    job_flow_id: builtins.str,
+    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bid_price: typing.Optional[builtins.str] = None,
+    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_ami_id: typing.Optional[builtins.str] = None,
+    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    market: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d(
+    *,
+    security_configuration: typing.Any,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d(
+    *,
+    action_on_failure: builtins.str,
+    hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    job_flow_id: builtins.str,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4(
+    *,
+    auth_mode: builtins.str,
+    default_s3_location: builtins.str,
+    engine_security_group_id: builtins.str,
+    name: builtins.str,
+    service_role: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_id: builtins.str,
+    workspace_security_group_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    idc_instance_arn: typing.Optional[builtins.str] = None,
+    idc_user_assignment: typing.Optional[builtins.str] = None,
+    idp_auth_url: typing.Optional[builtins.str] = None,
+    idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    user_role: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8(
+    *,
+    identity_name: builtins.str,
+    identity_type: builtins.str,
+    session_policy_arn: builtins.str,
+    studio_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63(
+    *,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wal_workspace_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d55d36048beff17f9cc9d86c77caf0c86f6798a14b894a3593ff26658bef134(
+    *,
+    cluster_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7609206fee88e44a4f997751b58480fd61f2ef62142a5d735d77c91d1e17d71b(
+    *,
+    instance_fleet_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e277326b21f890e46e0bc96da3b4197d4e4aaf54c055b86073bef4fc41aee3c(
+    *,
+    instance_group_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__864ff80650c578b386c6f4886d255466ba0272e0e596951e61211d299bc822e8(
+    *,
+    security_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ad79f495bb3d5035b14e5f6c6a868add29510962b4f88ac1285bfa7cd37d57d(
+    *,
+    step_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d45eff2d895e2097b054c13eacd9b5676aaed17808614072c8be20a16ea6e74(
+    *,
+    studio_arn: builtins.str,
+    studio_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cb7aadb090c7a71b8603dbb33546914f59c18da32dcfd3721aae92b18be83d0(
+    *,
+    identity_name: builtins.str,
+    identity_type: builtins.str,
+    studio_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fc9a3489f6eb07f5c9c873f40d8e930819706ae453f6fe04482a40b19880c82(
+    *,
+    wal_workspace_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__078ec582504b982aedaecb6e8181c3cf53ae51c1b43cd59a31f8379e104620a3(
     scope: _constructs_77d1e7e8.Construct,
@@ -12132,39 +13145,6 @@ def _typecheckingstub__c1d9df61da11f931c34aa6af7c0e9bf71cf070f0a0d48100f43043b2a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__25985ea8bea73f3b566e4cc44a54f891c8c64b46cf5c4fb0ac288983cd463f2f(
-    *,
-    instances: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JobFlowInstancesConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    job_flow_role: builtins.str,
-    name: builtins.str,
-    service_role: builtins.str,
-    additional_info: typing.Any = None,
-    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    auto_scaling_role: typing.Optional[builtins.str] = None,
-    auto_termination_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AutoTerminationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bootstrap_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BootstrapActionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_root_volume_iops: typing.Optional[jsii.Number] = None,
-    ebs_root_volume_size: typing.Optional[jsii.Number] = None,
-    ebs_root_volume_throughput: typing.Optional[jsii.Number] = None,
-    kerberos_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KerberosAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_encryption_kms_key_id: typing.Optional[builtins.str] = None,
-    log_uri: typing.Optional[builtins.str] = None,
-    managed_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ManagedScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    os_release_label: typing.Optional[builtins.str] = None,
-    placement_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.PlacementGroupConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    release_label: typing.Optional[builtins.str] = None,
-    scale_down_behavior: typing.Optional[builtins.str] = None,
-    security_configuration: typing.Optional[builtins.str] = None,
-    step_concurrency_level: typing.Optional[jsii.Number] = None,
-    steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visible_to_all_users: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__25473c0968868f7cb7ae13c5d07084fdff34429497e0ea823b7527eea6ce494f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12346,20 +13326,6 @@ def _typecheckingstub__cbcefec98bf4df26aee8c4c32035c6379883a9a1f189bbc763cba54f8
     volume_type: builtins.str,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c3f5c77adfe4a2c26c531874c0df7d744af995801149e28623e666dfb6bf26b6(
-    *,
-    cluster_id: builtins.str,
-    instance_fleet_type: builtins.str,
-    instance_type_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceTypeConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    launch_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetProvisioningSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    resize_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceFleetConfig.InstanceFleetResizingSpecificationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_on_demand_capacity: typing.Optional[jsii.Number] = None,
-    target_spot_capacity: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12569,23 +13535,6 @@ def _typecheckingstub__243316d3b741ddf8c20750398e178fdc490d62e22eb2efacb27623b9f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b9a4a8b0692b3ed59bf418552ec7f58ae67ef7b9ad41b00ecca1de4f841b4f5f(
-    *,
-    instance_count: jsii.Number,
-    instance_role: builtins.str,
-    instance_type: builtins.str,
-    job_flow_id: builtins.str,
-    auto_scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.AutoScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bid_price: typing.Optional[builtins.str] = None,
-    configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_ami_id: typing.Optional[builtins.str] = None,
-    ebs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceGroupConfig.EbsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    market: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d1cd635a9a933efd41bee8e26ecb06319993c2aa7e459d0f829c5f4dfc58cfd3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12616,14 +13565,6 @@ def _typecheckingstub__b7354895da5b819c64c60ddab0fd091d5bb8338e636d169481d060718
 
 def _typecheckingstub__63794c5d363b5670a95b0dc55f674f81972d2ee1de87f02f8020599aecac3fef(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__570e3d1d3bfab50b7c899148aae497fe36ce7f411f3a6bce1adbda62b5b3610d(
-    *,
-    security_configuration: typing.Any,
-    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12690,16 +13631,6 @@ def _typecheckingstub__c45d46cddf4cc72fa52f0b95e0f250b3363c3d0ca8542a73ce888bcef
     *,
     key: typing.Optional[builtins.str] = None,
     value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a2487faa6f9278ced3b5fd2fab8e549b354a836990eb23096f7fd91d5e28230d(
-    *,
-    action_on_failure: builtins.str,
-    hadoop_jar_step: typing.Union[_IResolvable_da3f097b, typing.Union[CfnStep.HadoopJarStepConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    job_flow_id: builtins.str,
-    name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12843,29 +13774,6 @@ def _typecheckingstub__4497b6d90d344f7cce9a12d862f813109f2ee695a175caef4ea9fba74
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e54f46221565a48807a50ddbb87f328aa43352455931a5089f5484c2263b30f4(
-    *,
-    auth_mode: builtins.str,
-    default_s3_location: builtins.str,
-    engine_security_group_id: builtins.str,
-    name: builtins.str,
-    service_role: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    vpc_id: builtins.str,
-    workspace_security_group_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    encryption_key_arn: typing.Optional[builtins.str] = None,
-    idc_instance_arn: typing.Optional[builtins.str] = None,
-    idc_user_assignment: typing.Optional[builtins.str] = None,
-    idp_auth_url: typing.Optional[builtins.str] = None,
-    idp_relay_state_parameter_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trusted_identity_propagation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    user_role: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3e47b505b0a4a624d7bbc7e6f0b97d1cb4bc72a6ca97f9fba72f1fd63a5544d6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12914,16 +13822,6 @@ def _typecheckingstub__ce585291954018d8d1dc1c7c090b303e853cefe2e95a5e5948014cb2d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a27468aac05a78cc17d6ec5e8f062d7c22a5b3bf56f44d8c6c90edc8a69a63e8(
-    *,
-    identity_name: builtins.str,
-    identity_type: builtins.str,
-    session_policy_arn: builtins.str,
-    studio_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1985a11480d9771f4adca96d86b169aa02281678db75bca99cae188da64db2af(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12954,14 +13852,6 @@ def _typecheckingstub__851c8fb8c44fa83f73dc5f006c4f65169726f6269fd062e84490d5cf2
 
 def _typecheckingstub__0b841633928ec99eb6a369ad7d4f47c19b8160c69cd85540afdfe71238c44294(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8593d9ac6a9a21fa49785102c4fc75235b74c034abaedb20ce93a44ec6d66c63(
-    *,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    wal_workspace_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

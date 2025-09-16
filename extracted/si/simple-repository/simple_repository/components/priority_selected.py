@@ -41,7 +41,7 @@ class PrioritySelectedProjectsRepository(core.SimpleRepository):
         self,
         project_name: str,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.ProjectDetail:
         """Retrieves a project page for the specified normalized project name
         by searching through the grouped list of sources in a first seen policy.
@@ -64,7 +64,7 @@ class PrioritySelectedProjectsRepository(core.SimpleRepository):
     async def get_project_list(
         self,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.ProjectList:
         """Retrieves a combined list of projects from all the sources."""
         results: typing.List[typing.Union[model.ProjectList, BaseException]] = await asyncio.gather(
@@ -110,17 +110,28 @@ class PrioritySelectedProjectsRepository(core.SimpleRepository):
         project_name: str,
         resource_name: str,
         *,
-        request_context: model.RequestContext = model.RequestContext.DEFAULT,
+        request_context: typing.Optional[model.RequestContext] = None,
     ) -> model.Resource:
+        """Retrieves a resource from the first source that has the project.
+
+        This follows the same first-seen policy as get_project_page. Repositories
+        are expected to raise PackageNotFoundError when they don't have the project,
+        and ResourceUnavailable when they have the project but not the resource.
+        """
         for source in self.sources:
             try:
-                resource = await source.get_resource(
+                return await source.get_resource(
                     project_name,
                     resource_name,
                     request_context=request_context,
                 )
+            except errors.PackageNotFoundError:
+                # This source doesn't have the project, try next source
+                continue
             except errors.ResourceUnavailable:
-                pass
-            else:
-                return resource
-        raise errors.ResourceUnavailable(resource_name)
+                # This source has the project but not the specific resource
+                # Following first-seen policy, we don't check other sources
+                raise
+
+        # No source has the project
+        raise errors.PackageNotFoundError(project_name)

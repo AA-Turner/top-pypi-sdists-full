@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.10.1
+Version: 0.11.0
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk
@@ -46,7 +46,7 @@ It is generated with [Stainless](https://www.stainless.com/).
 
 ## Documentation
 
-The REST API documentation can be found on [docs.reductoai.com](https://docs.reductoai.com). The full API of this library can be found in [api.md](https://github.com/reductoai/reducto-python-sdk/tree/main/api.md).
+The REST API documentation can be found on [docs.reducto.ai](https://docs.reducto.ai/). The full API of this library can be found in [api.md](https://github.com/reductoai/reducto-python-sdk/tree/main/api.md).
 
 ## Installation
 

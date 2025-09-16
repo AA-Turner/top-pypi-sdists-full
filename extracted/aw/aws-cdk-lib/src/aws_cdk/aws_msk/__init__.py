@@ -75,7 +75,1734 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.BatchScramSecretReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn"},
+)
+class BatchScramSecretReference:
+    def __init__(self, *, cluster_arn: builtins.str) -> None:
+        '''A reference to a BatchScramSecret resource.
+
+        :param cluster_arn: The ClusterArn of the BatchScramSecret resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            batch_scram_secret_reference = msk.BatchScramSecretReference(
+                cluster_arn="clusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__494eb0fc3b36222d720c3f0031ac32b79bc23fcebad390d8bfd7313a08c3127f)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The ClusterArn of the BatchScramSecret resource.'''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BatchScramSecretReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnBatchScramSecretProps",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn", "secret_arn_list": "secretArnList"},
+)
+class CfnBatchScramSecretProps:
+    def __init__(
+        self,
+        *,
+        cluster_arn: builtins.str,
+        secret_arn_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBatchScramSecret``.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param secret_arn_list: List of Amazon Resource Name (ARN)s of Secrets Manager secrets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_batch_scram_secret_props = msk.CfnBatchScramSecretProps(
+                cluster_arn="clusterArn",
+            
+                # the properties below are optional
+                secret_arn_list=["secretArnList"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f9f8128f7dc818d3ee4d75c78613bf29636c365b9489e1c33d4a21448b3e2ea)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument secret_arn_list", value=secret_arn_list, expected_type=type_hints["secret_arn_list"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+        }
+        if secret_arn_list is not None:
+            self._values["secret_arn_list"] = secret_arn_list
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html#cfn-msk-batchscramsecret-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def secret_arn_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of Amazon Resource Name (ARN)s of Secrets Manager secrets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html#cfn-msk-batchscramsecret-secretarnlist
+        '''
+        result = self._values.get("secret_arn_list")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBatchScramSecretProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnClusterPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn", "policy": "policy"},
+)
+class CfnClusterPolicyProps:
+    def __init__(self, *, cluster_arn: builtins.str, policy: typing.Any) -> None:
+        '''Properties for defining a ``CfnClusterPolicy``.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param policy: Resource policy for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            # policy: Any
+            
+            cfn_cluster_policy_props = msk.CfnClusterPolicyProps(
+                cluster_arn="clusterArn",
+                policy=policy
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b38038309c072b4b939104fe0c0f44c2fecc6424084abe3716435939cb1b8c00)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "policy": policy,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html#cfn-msk-clusterpolicy-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''Resource policy for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html#cfn-msk-clusterpolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "broker_node_group_info": "brokerNodeGroupInfo",
+        "cluster_name": "clusterName",
+        "kafka_version": "kafkaVersion",
+        "number_of_broker_nodes": "numberOfBrokerNodes",
+        "client_authentication": "clientAuthentication",
+        "configuration_info": "configurationInfo",
+        "current_version": "currentVersion",
+        "encryption_info": "encryptionInfo",
+        "enhanced_monitoring": "enhancedMonitoring",
+        "logging_info": "loggingInfo",
+        "open_monitoring": "openMonitoring",
+        "storage_mode": "storageMode",
+        "tags": "tags",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        broker_node_group_info: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.BrokerNodeGroupInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+        cluster_name: builtins.str,
+        kafka_version: builtins.str,
+        number_of_broker_nodes: jsii.Number,
+        client_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ConfigurationInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        current_version: typing.Optional[builtins.str] = None,
+        encryption_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EncryptionInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enhanced_monitoring: typing.Optional[builtins.str] = None,
+        logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.LoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.OpenMonitoringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param broker_node_group_info: Information about the broker nodes in the cluster.
+        :param cluster_name: The name of the cluster.
+        :param kafka_version: The version of Apache Kafka. You can use Amazon MSK to create clusters that use `supported Apache Kafka versions <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ .
+        :param number_of_broker_nodes: The number of broker nodes in the cluster.
+        :param client_authentication: Includes all client authentication related information.
+        :param configuration_info: Represents the configuration that you want MSK to use for the cluster.
+        :param current_version: The version of the cluster that you want to update.
+        :param encryption_info: Includes all encryption-related information.
+        :param enhanced_monitoring: Specifies the level of monitoring for the MSK cluster.
+        :param logging_info: Logging info details for the cluster.
+        :param open_monitoring: The settings for open monitoring.
+        :param storage_mode: This controls storage mode for supported storage tiers.
+        :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_cluster_props = msk.CfnClusterProps(
+                broker_node_group_info=msk.CfnCluster.BrokerNodeGroupInfoProperty(
+                    client_subnets=["clientSubnets"],
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    broker_az_distribution="brokerAzDistribution",
+                    connectivity_info=msk.CfnCluster.ConnectivityInfoProperty(
+                        public_access=msk.CfnCluster.PublicAccessProperty(
+                            type="type"
+                        ),
+                        vpc_connectivity=msk.CfnCluster.VpcConnectivityProperty(
+                            client_authentication=msk.CfnCluster.VpcConnectivityClientAuthenticationProperty(
+                                sasl=msk.CfnCluster.VpcConnectivitySaslProperty(
+                                    iam=msk.CfnCluster.VpcConnectivityIamProperty(
+                                        enabled=False
+                                    ),
+                                    scram=msk.CfnCluster.VpcConnectivityScramProperty(
+                                        enabled=False
+                                    )
+                                ),
+                                tls=msk.CfnCluster.VpcConnectivityTlsProperty(
+                                    enabled=False
+                                )
+                            )
+                        )
+                    ),
+                    security_groups=["securityGroups"],
+                    storage_info=msk.CfnCluster.StorageInfoProperty(
+                        ebs_storage_info=msk.CfnCluster.EBSStorageInfoProperty(
+                            provisioned_throughput=msk.CfnCluster.ProvisionedThroughputProperty(
+                                enabled=False,
+                                volume_throughput=123
+                            ),
+                            volume_size=123
+                        )
+                    )
+                ),
+                cluster_name="clusterName",
+                kafka_version="kafkaVersion",
+                number_of_broker_nodes=123,
+            
+                # the properties below are optional
+                client_authentication=msk.CfnCluster.ClientAuthenticationProperty(
+                    sasl=msk.CfnCluster.SaslProperty(
+                        iam=msk.CfnCluster.IamProperty(
+                            enabled=False
+                        ),
+                        scram=msk.CfnCluster.ScramProperty(
+                            enabled=False
+                        )
+                    ),
+                    tls=msk.CfnCluster.TlsProperty(
+                        certificate_authority_arn_list=["certificateAuthorityArnList"],
+                        enabled=False
+                    ),
+                    unauthenticated=msk.CfnCluster.UnauthenticatedProperty(
+                        enabled=False
+                    )
+                ),
+                configuration_info=msk.CfnCluster.ConfigurationInfoProperty(
+                    arn="arn",
+                    revision=123
+                ),
+                current_version="currentVersion",
+                encryption_info=msk.CfnCluster.EncryptionInfoProperty(
+                    encryption_at_rest=msk.CfnCluster.EncryptionAtRestProperty(
+                        data_volume_kms_key_id="dataVolumeKmsKeyId"
+                    ),
+                    encryption_in_transit=msk.CfnCluster.EncryptionInTransitProperty(
+                        client_broker="clientBroker",
+                        in_cluster=False
+                    )
+                ),
+                enhanced_monitoring="enhancedMonitoring",
+                logging_info=msk.CfnCluster.LoggingInfoProperty(
+                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
+                        cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            log_group="logGroup"
+                        ),
+                        firehose=msk.CfnCluster.FirehoseProperty(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            delivery_stream="deliveryStream"
+                        ),
+                        s3=msk.CfnCluster.S3Property(
+                            enabled=False,
+            
+                            # the properties below are optional
+                            bucket="bucket",
+                            prefix="prefix"
+                        )
+                    )
+                ),
+                open_monitoring=msk.CfnCluster.OpenMonitoringProperty(
+                    prometheus=msk.CfnCluster.PrometheusProperty(
+                        jmx_exporter=msk.CfnCluster.JmxExporterProperty(
+                            enabled_in_broker=False
+                        ),
+                        node_exporter=msk.CfnCluster.NodeExporterProperty(
+                            enabled_in_broker=False
+                        )
+                    )
+                ),
+                storage_mode="storageMode",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da9c2c389b7fb44efe639e45c2911a96139b86d7a936606322d8605aedb52b8b)
+            check_type(argname="argument broker_node_group_info", value=broker_node_group_info, expected_type=type_hints["broker_node_group_info"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument kafka_version", value=kafka_version, expected_type=type_hints["kafka_version"])
+            check_type(argname="argument number_of_broker_nodes", value=number_of_broker_nodes, expected_type=type_hints["number_of_broker_nodes"])
+            check_type(argname="argument client_authentication", value=client_authentication, expected_type=type_hints["client_authentication"])
+            check_type(argname="argument configuration_info", value=configuration_info, expected_type=type_hints["configuration_info"])
+            check_type(argname="argument current_version", value=current_version, expected_type=type_hints["current_version"])
+            check_type(argname="argument encryption_info", value=encryption_info, expected_type=type_hints["encryption_info"])
+            check_type(argname="argument enhanced_monitoring", value=enhanced_monitoring, expected_type=type_hints["enhanced_monitoring"])
+            check_type(argname="argument logging_info", value=logging_info, expected_type=type_hints["logging_info"])
+            check_type(argname="argument open_monitoring", value=open_monitoring, expected_type=type_hints["open_monitoring"])
+            check_type(argname="argument storage_mode", value=storage_mode, expected_type=type_hints["storage_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "broker_node_group_info": broker_node_group_info,
+            "cluster_name": cluster_name,
+            "kafka_version": kafka_version,
+            "number_of_broker_nodes": number_of_broker_nodes,
+        }
+        if client_authentication is not None:
+            self._values["client_authentication"] = client_authentication
+        if configuration_info is not None:
+            self._values["configuration_info"] = configuration_info
+        if current_version is not None:
+            self._values["current_version"] = current_version
+        if encryption_info is not None:
+            self._values["encryption_info"] = encryption_info
+        if enhanced_monitoring is not None:
+            self._values["enhanced_monitoring"] = enhanced_monitoring
+        if logging_info is not None:
+            self._values["logging_info"] = logging_info
+        if open_monitoring is not None:
+            self._values["open_monitoring"] = open_monitoring
+        if storage_mode is not None:
+            self._values["storage_mode"] = storage_mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def broker_node_group_info(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.BrokerNodeGroupInfoProperty"]:
+        '''Information about the broker nodes in the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-brokernodegroupinfo
+        '''
+        result = self._values.get("broker_node_group_info")
+        assert result is not None, "Required property 'broker_node_group_info' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.BrokerNodeGroupInfoProperty"], result)
+
+    @builtins.property
+    def cluster_name(self) -> builtins.str:
+        '''The name of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-clustername
+        '''
+        result = self._values.get("cluster_name")
+        assert result is not None, "Required property 'cluster_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kafka_version(self) -> builtins.str:
+        '''The version of Apache Kafka.
+
+        You can use Amazon MSK to create clusters that use `supported Apache Kafka versions <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-kafkaversion
+        '''
+        result = self._values.get("kafka_version")
+        assert result is not None, "Required property 'kafka_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def number_of_broker_nodes(self) -> jsii.Number:
+        '''The number of broker nodes in the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-numberofbrokernodes
+        '''
+        result = self._values.get("number_of_broker_nodes")
+        assert result is not None, "Required property 'number_of_broker_nodes' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def client_authentication(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClientAuthenticationProperty"]]:
+        '''Includes all client authentication related information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-clientauthentication
+        '''
+        result = self._values.get("client_authentication")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClientAuthenticationProperty"]], result)
+
+    @builtins.property
+    def configuration_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ConfigurationInfoProperty"]]:
+        '''Represents the configuration that you want MSK to use for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-configurationinfo
+        '''
+        result = self._values.get("configuration_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ConfigurationInfoProperty"]], result)
+
+    @builtins.property
+    def current_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the cluster that you want to update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-currentversion
+        '''
+        result = self._values.get("current_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EncryptionInfoProperty"]]:
+        '''Includes all encryption-related information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-encryptioninfo
+        '''
+        result = self._values.get("encryption_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EncryptionInfoProperty"]], result)
+
+    @builtins.property
+    def enhanced_monitoring(self) -> typing.Optional[builtins.str]:
+        '''Specifies the level of monitoring for the MSK cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-enhancedmonitoring
+        '''
+        result = self._values.get("enhanced_monitoring")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingInfoProperty"]]:
+        '''Logging info details for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-logginginfo
+        '''
+        result = self._values.get("logging_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.LoggingInfoProperty"]], result)
+
+    @builtins.property
+    def open_monitoring(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.OpenMonitoringProperty"]]:
+        '''The settings for open monitoring.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-openmonitoring
+        '''
+        result = self._values.get("open_monitoring")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.OpenMonitoringProperty"]], result)
+
+    @builtins.property
+    def storage_mode(self) -> typing.Optional[builtins.str]:
+        '''This controls storage mode for supported storage tiers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-storagemode
+        '''
+        result = self._values.get("storage_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An arbitrary set of tags (key-value pairs) for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "server_properties": "serverProperties",
+        "description": "description",
+        "kafka_versions_list": "kafkaVersionsList",
+        "latest_revision": "latestRevision",
+    },
+)
+class CfnConfigurationProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        server_properties: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        kafka_versions_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        latest_revision: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfiguration.LatestRevisionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfiguration``.
+
+        :param name: The name of the configuration. Configuration names are strings that match the regex "^[0-9A-Za-z][0-9A-Za-z-]{0,}$".
+        :param server_properties: Contents of the ``server.properties`` file. When using the console, the SDK, or the AWS CLI , the contents of ``server.properties`` can be in plaintext.
+        :param description: The description of the configuration.
+        :param kafka_versions_list: The `versions of Apache Kafka <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ with which you can use this MSK configuration. When you update the ``KafkaVersionsList`` property, AWS CloudFormation recreates a new configuration with the updated property before deleting the old configuration. Such an update requires a `resource replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . To successfully update ``KafkaVersionsList`` , you must also update the ``Name`` property in the same operation. If your configuration is attached with any clusters created using the AWS Management Console or AWS CLI , you'll need to manually delete the old configuration from the console after the update completes. For more information, see `Can’t update KafkaVersionsList in MSK configuration <https://docs.aws.amazon.com/msk/latest/developerguide/troubleshooting.html#troubleshoot-kafkaversionslist-cfn-update-failure>`_ in the *Amazon MSK Developer Guide* .
+        :param latest_revision: Latest revision of the MSK configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_configuration_props = msk.CfnConfigurationProps(
+                name="name",
+                server_properties="serverProperties",
+            
+                # the properties below are optional
+                description="description",
+                kafka_versions_list=["kafkaVersionsList"],
+                latest_revision=msk.CfnConfiguration.LatestRevisionProperty(
+                    creation_time="creationTime",
+                    description="description",
+                    revision=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b67dfeeec9a4e27fb21b4b14fa3d51255f49590431c2ab861b81fad91473dd5)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument server_properties", value=server_properties, expected_type=type_hints["server_properties"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kafka_versions_list", value=kafka_versions_list, expected_type=type_hints["kafka_versions_list"])
+            check_type(argname="argument latest_revision", value=latest_revision, expected_type=type_hints["latest_revision"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "server_properties": server_properties,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if kafka_versions_list is not None:
+            self._values["kafka_versions_list"] = kafka_versions_list
+        if latest_revision is not None:
+            self._values["latest_revision"] = latest_revision
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the configuration.
+
+        Configuration names are strings that match the regex "^[0-9A-Za-z][0-9A-Za-z-]{0,}$".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_properties(self) -> builtins.str:
+        '''Contents of the ``server.properties`` file. When using the console, the SDK, or the AWS CLI , the contents of ``server.properties`` can be in plaintext.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-serverproperties
+        '''
+        result = self._values.get("server_properties")
+        assert result is not None, "Required property 'server_properties' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kafka_versions_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The `versions of Apache Kafka <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ with which you can use this MSK configuration.
+
+        When you update the ``KafkaVersionsList`` property, AWS CloudFormation recreates a new configuration with the updated property before deleting the old configuration. Such an update requires a `resource replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . To successfully update ``KafkaVersionsList`` , you must also update the ``Name`` property in the same operation.
+
+        If your configuration is attached with any clusters created using the AWS Management Console or AWS CLI , you'll need to manually delete the old configuration from the console after the update completes.
+
+        For more information, see `Can’t update KafkaVersionsList in MSK configuration <https://docs.aws.amazon.com/msk/latest/developerguide/troubleshooting.html#troubleshoot-kafkaversionslist-cfn-update-failure>`_ in the *Amazon MSK Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-kafkaversionslist
+        '''
+        result = self._values.get("kafka_versions_list")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def latest_revision(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfiguration.LatestRevisionProperty"]]:
+        '''Latest revision of the MSK configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-latestrevision
+        '''
+        result = self._values.get("latest_revision")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfiguration.LatestRevisionProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnReplicatorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "kafka_clusters": "kafkaClusters",
+        "replication_info_list": "replicationInfoList",
+        "replicator_name": "replicatorName",
+        "service_execution_role_arn": "serviceExecutionRoleArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnReplicatorProps:
+    def __init__(
+        self,
+        *,
+        kafka_clusters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnReplicator.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        replication_info_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnReplicator.ReplicationInfoProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        replicator_name: builtins.str,
+        service_execution_role_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicator``.
+
+        :param kafka_clusters: Kafka Clusters to use in setting up sources / targets for replication.
+        :param replication_info_list: A list of replication configurations, where each configuration targets a given source cluster to target cluster replication flow.
+        :param replicator_name: The name of the replicator. Alpha-numeric characters with '-' are allowed.
+        :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
+        :param description: A summary description of the replicator.
+        :param tags: List of tags to attach to created Replicator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_replicator_props = msk.CfnReplicatorProps(
+                kafka_clusters=[msk.CfnReplicator.KafkaClusterProperty(
+                    amazon_msk_cluster=msk.CfnReplicator.AmazonMskClusterProperty(
+                        msk_cluster_arn="mskClusterArn"
+                    ),
+                    vpc_config=msk.CfnReplicator.KafkaClusterClientVpcConfigProperty(
+                        subnet_ids=["subnetIds"],
+            
+                        # the properties below are optional
+                        security_group_ids=["securityGroupIds"]
+                    )
+                )],
+                replication_info_list=[msk.CfnReplicator.ReplicationInfoProperty(
+                    consumer_group_replication=msk.CfnReplicator.ConsumerGroupReplicationProperty(
+                        consumer_groups_to_replicate=["consumerGroupsToReplicate"],
+            
+                        # the properties below are optional
+                        consumer_groups_to_exclude=["consumerGroupsToExclude"],
+                        detect_and_copy_new_consumer_groups=False,
+                        synchronise_consumer_group_offsets=False
+                    ),
+                    source_kafka_cluster_arn="sourceKafkaClusterArn",
+                    target_compression_type="targetCompressionType",
+                    target_kafka_cluster_arn="targetKafkaClusterArn",
+                    topic_replication=msk.CfnReplicator.TopicReplicationProperty(
+                        topics_to_replicate=["topicsToReplicate"],
+            
+                        # the properties below are optional
+                        copy_access_control_lists_for_topics=False,
+                        copy_topic_configurations=False,
+                        detect_and_copy_new_topics=False,
+                        starting_position=msk.CfnReplicator.ReplicationStartingPositionProperty(
+                            type="type"
+                        ),
+                        topic_name_configuration=msk.CfnReplicator.ReplicationTopicNameConfigurationProperty(
+                            type="type"
+                        ),
+                        topics_to_exclude=["topicsToExclude"]
+                    )
+                )],
+                replicator_name="replicatorName",
+                service_execution_role_arn="serviceExecutionRoleArn",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8386726baf4842aa1a4af40915bf45a4cc4edffd70ea82fa6a181cca61bb2054)
+            check_type(argname="argument kafka_clusters", value=kafka_clusters, expected_type=type_hints["kafka_clusters"])
+            check_type(argname="argument replication_info_list", value=replication_info_list, expected_type=type_hints["replication_info_list"])
+            check_type(argname="argument replicator_name", value=replicator_name, expected_type=type_hints["replicator_name"])
+            check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "kafka_clusters": kafka_clusters,
+            "replication_info_list": replication_info_list,
+            "replicator_name": replicator_name,
+            "service_execution_role_arn": service_execution_role_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def kafka_clusters(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicator.KafkaClusterProperty"]]]:
+        '''Kafka Clusters to use in setting up sources / targets for replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-kafkaclusters
+        '''
+        result = self._values.get("kafka_clusters")
+        assert result is not None, "Required property 'kafka_clusters' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicator.KafkaClusterProperty"]]], result)
+
+    @builtins.property
+    def replication_info_list(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicator.ReplicationInfoProperty"]]]:
+        '''A list of replication configurations, where each configuration targets a given source cluster to target cluster replication flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-replicationinfolist
+        '''
+        result = self._values.get("replication_info_list")
+        assert result is not None, "Required property 'replication_info_list' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicator.ReplicationInfoProperty"]]], result)
+
+    @builtins.property
+    def replicator_name(self) -> builtins.str:
+        '''The name of the replicator.
+
+        Alpha-numeric characters with '-' are allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-replicatorname
+        '''
+        result = self._values.get("replicator_name")
+        assert result is not None, "Required property 'replicator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-serviceexecutionrolearn
+        '''
+        result = self._values.get("service_execution_role_arn")
+        assert result is not None, "Required property 'service_execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A summary description of the replicator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''List of tags to attach to created Replicator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicatorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnServerlessClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "client_authentication": "clientAuthentication",
+        "cluster_name": "clusterName",
+        "vpc_configs": "vpcConfigs",
+        "tags": "tags",
+    },
+)
+class CfnServerlessClusterProps:
+    def __init__(
+        self,
+        *,
+        client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union["CfnServerlessCluster.ClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        cluster_name: builtins.str,
+        vpc_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServerlessCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServerlessCluster``.
+
+        :param client_authentication: Includes all client authentication related information.
+        :param cluster_name: The name of the cluster.
+        :param vpc_configs: VPC configuration information for the serverless cluster.
+        :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_serverless_cluster_props = msk.CfnServerlessClusterProps(
+                client_authentication=msk.CfnServerlessCluster.ClientAuthenticationProperty(
+                    sasl=msk.CfnServerlessCluster.SaslProperty(
+                        iam=msk.CfnServerlessCluster.IamProperty(
+                            enabled=False
+                        )
+                    )
+                ),
+                cluster_name="clusterName",
+                vpc_configs=[msk.CfnServerlessCluster.VpcConfigProperty(
+                    subnet_ids=["subnetIds"],
+            
+                    # the properties below are optional
+                    security_groups=["securityGroups"]
+                )],
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c714eb0299c64ab481c3d39d1e14117755189081833a87372e9f1a245f1ecadc)
+            check_type(argname="argument client_authentication", value=client_authentication, expected_type=type_hints["client_authentication"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument vpc_configs", value=vpc_configs, expected_type=type_hints["vpc_configs"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "client_authentication": client_authentication,
+            "cluster_name": cluster_name,
+            "vpc_configs": vpc_configs,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def client_authentication(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnServerlessCluster.ClientAuthenticationProperty"]:
+        '''Includes all client authentication related information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-clientauthentication
+        '''
+        result = self._values.get("client_authentication")
+        assert result is not None, "Required property 'client_authentication' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnServerlessCluster.ClientAuthenticationProperty"], result)
+
+    @builtins.property
+    def cluster_name(self) -> builtins.str:
+        '''The name of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-clustername
+        '''
+        result = self._values.get("cluster_name")
+        assert result is not None, "Required property 'cluster_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_configs(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServerlessCluster.VpcConfigProperty"]]]:
+        '''VPC configuration information for the serverless cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-vpcconfigs
+        '''
+        result = self._values.get("vpc_configs")
+        assert result is not None, "Required property 'vpc_configs' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServerlessCluster.VpcConfigProperty"]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An arbitrary set of tags (key-value pairs) for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServerlessClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnVpcConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authentication": "authentication",
+        "client_subnets": "clientSubnets",
+        "security_groups": "securityGroups",
+        "target_cluster_arn": "targetClusterArn",
+        "vpc_id": "vpcId",
+        "tags": "tags",
+    },
+)
+class CfnVpcConnectionProps:
+    def __init__(
+        self,
+        *,
+        authentication: builtins.str,
+        client_subnets: typing.Sequence[builtins.str],
+        security_groups: typing.Sequence[builtins.str],
+        target_cluster_arn: builtins.str,
+        vpc_id: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVpcConnection``.
+
+        :param authentication: The type of private link authentication.
+        :param client_subnets: The list of subnets in the client VPC to connect to.
+        :param security_groups: The security groups to attach to the ENIs for the broker nodes.
+        :param target_cluster_arn: The Amazon Resource Name (ARN) of the cluster.
+        :param vpc_id: The VPC ID of the remote client.
+        :param tags: An arbitrary set of tags (key-value pairs) you specify while creating the VPC connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_vpc_connection_props = msk.CfnVpcConnectionProps(
+                authentication="authentication",
+                client_subnets=["clientSubnets"],
+                security_groups=["securityGroups"],
+                target_cluster_arn="targetClusterArn",
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9e41b66e732883ec8194c58e0cffc38f5c68ed0844d8a4d98e59893d73fcc20)
+            check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
+            check_type(argname="argument client_subnets", value=client_subnets, expected_type=type_hints["client_subnets"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument target_cluster_arn", value=target_cluster_arn, expected_type=type_hints["target_cluster_arn"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authentication": authentication,
+            "client_subnets": client_subnets,
+            "security_groups": security_groups,
+            "target_cluster_arn": target_cluster_arn,
+            "vpc_id": vpc_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def authentication(self) -> builtins.str:
+        '''The type of private link authentication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-authentication
+        '''
+        result = self._values.get("authentication")
+        assert result is not None, "Required property 'authentication' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_subnets(self) -> typing.List[builtins.str]:
+        '''The list of subnets in the client VPC to connect to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-clientsubnets
+        '''
+        result = self._values.get("client_subnets")
+        assert result is not None, "Required property 'client_subnets' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def security_groups(self) -> typing.List[builtins.str]:
+        '''The security groups to attach to the ENIs for the broker nodes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-securitygroups
+        '''
+        result = self._values.get("security_groups")
+        assert result is not None, "Required property 'security_groups' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def target_cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-targetclusterarn
+        '''
+        result = self._values.get("target_cluster_arn")
+        assert result is not None, "Required property 'target_cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The VPC ID of the remote client.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An arbitrary set of tags (key-value pairs) you specify while creating the VPC connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVpcConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.ClusterPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn"},
+)
+class ClusterPolicyReference:
+    def __init__(self, *, cluster_arn: builtins.str) -> None:
+        '''A reference to a ClusterPolicy resource.
+
+        :param cluster_arn: The ClusterArn of the ClusterPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cluster_policy_reference = msk.ClusterPolicyReference(
+                cluster_arn="clusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c5385b78e6d8222df784640277b7bd7940ef5f1097ed72568cc1b179d75ee6)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The ClusterArn of the ClusterPolicy resource.'''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.ClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn"},
+)
+class ClusterReference:
+    def __init__(self, *, cluster_arn: builtins.str) -> None:
+        '''A reference to a Cluster resource.
+
+        :param cluster_arn: The Arn of the Cluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cluster_reference = msk.ClusterReference(
+                cluster_arn="clusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba64592dfefafd79fe6c37ad0115429b81e554b0972c399afe5449d1e79aaab2)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Arn of the Cluster resource.'''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.ConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"configuration_arn": "configurationArn"},
+)
+class ConfigurationReference:
+    def __init__(self, *, configuration_arn: builtins.str) -> None:
+        '''A reference to a Configuration resource.
+
+        :param configuration_arn: The Arn of the Configuration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            configuration_reference = msk.ConfigurationReference(
+                configuration_arn="configurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6094a7aa63af37e289ab3203eae61e0f78e44931692b389031ad3d6f3e0d8449)
+            check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_arn": configuration_arn,
+        }
+
+    @builtins.property
+    def configuration_arn(self) -> builtins.str:
+        '''The Arn of the Configuration resource.'''
+        result = self._values.get("configuration_arn")
+        assert result is not None, "Required property 'configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IBatchScramSecretRef")
+class IBatchScramSecretRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BatchScramSecret.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="batchScramSecretRef")
+    def batch_scram_secret_ref(self) -> BatchScramSecretReference:
+        '''(experimental) A reference to a BatchScramSecret resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBatchScramSecretRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BatchScramSecret.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IBatchScramSecretRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="batchScramSecretRef")
+    def batch_scram_secret_ref(self) -> BatchScramSecretReference:
+        '''(experimental) A reference to a BatchScramSecret resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BatchScramSecretReference, jsii.get(self, "batchScramSecretRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBatchScramSecretRef).__jsii_proxy_class__ = lambda : _IBatchScramSecretRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IClusterPolicyRef")
+class IClusterPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterPolicyRef")
+    def cluster_policy_ref(self) -> ClusterPolicyReference:
+        '''(experimental) A reference to a ClusterPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ClusterPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IClusterPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterPolicyRef")
+    def cluster_policy_ref(self) -> ClusterPolicyReference:
+        '''(experimental) A reference to a ClusterPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ClusterPolicyReference, jsii.get(self, "clusterPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterPolicyRef).__jsii_proxy_class__ = lambda : _IClusterPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IClusterRef")
+class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IConfigurationRef")
+class IConfigurationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationReference, jsii.get(self, "configurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationRef).__jsii_proxy_class__ = lambda : _IConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IReplicatorRef")
+class IReplicatorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Replicator.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="replicatorRef")
+    def replicator_ref(self) -> "ReplicatorReference":
+        '''(experimental) A reference to a Replicator resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReplicatorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Replicator.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IReplicatorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="replicatorRef")
+    def replicator_ref(self) -> "ReplicatorReference":
+        '''(experimental) A reference to a Replicator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReplicatorReference", jsii.get(self, "replicatorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReplicatorRef).__jsii_proxy_class__ = lambda : _IReplicatorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IServerlessClusterRef")
+class IServerlessClusterRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServerlessCluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessClusterRef")
+    def serverless_cluster_ref(self) -> "ServerlessClusterReference":
+        '''(experimental) A reference to a ServerlessCluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServerlessClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServerlessCluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IServerlessClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessClusterRef")
+    def serverless_cluster_ref(self) -> "ServerlessClusterReference":
+        '''(experimental) A reference to a ServerlessCluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServerlessClusterReference", jsii.get(self, "serverlessClusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServerlessClusterRef).__jsii_proxy_class__ = lambda : _IServerlessClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_msk.IVpcConnectionRef")
+class IVpcConnectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a VpcConnection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcConnectionRef")
+    def vpc_connection_ref(self) -> "VpcConnectionReference":
+        '''(experimental) A reference to a VpcConnection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVpcConnectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VpcConnection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_msk.IVpcConnectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcConnectionRef")
+    def vpc_connection_ref(self) -> "VpcConnectionReference":
+        '''(experimental) A reference to a VpcConnection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VpcConnectionReference", jsii.get(self, "vpcConnectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVpcConnectionRef).__jsii_proxy_class__ = lambda : _IVpcConnectionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.ReplicatorReference",
+    jsii_struct_bases=[],
+    name_mapping={"replicator_arn": "replicatorArn"},
+)
+class ReplicatorReference:
+    def __init__(self, *, replicator_arn: builtins.str) -> None:
+        '''A reference to a Replicator resource.
+
+        :param replicator_arn: The ReplicatorArn of the Replicator resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            replicator_reference = msk.ReplicatorReference(
+                replicator_arn="replicatorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a87a5b9d3c03a227753f568e1a1ea2c5bd66793b8b4f10230a4a45dcfb325656)
+            check_type(argname="argument replicator_arn", value=replicator_arn, expected_type=type_hints["replicator_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replicator_arn": replicator_arn,
+        }
+
+    @builtins.property
+    def replicator_arn(self) -> builtins.str:
+        '''The ReplicatorArn of the Replicator resource.'''
+        result = self._values.get("replicator_arn")
+        assert result is not None, "Required property 'replicator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReplicatorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.ServerlessClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"serverless_cluster_arn": "serverlessClusterArn"},
+)
+class ServerlessClusterReference:
+    def __init__(self, *, serverless_cluster_arn: builtins.str) -> None:
+        '''A reference to a ServerlessCluster resource.
+
+        :param serverless_cluster_arn: The Arn of the ServerlessCluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            serverless_cluster_reference = msk.ServerlessClusterReference(
+                serverless_cluster_arn="serverlessClusterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e862a03d7d580b5deacaeadd8a4db3b86214f3746122a3d429cc2a208ec3b03)
+            check_type(argname="argument serverless_cluster_arn", value=serverless_cluster_arn, expected_type=type_hints["serverless_cluster_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "serverless_cluster_arn": serverless_cluster_arn,
+        }
+
+    @builtins.property
+    def serverless_cluster_arn(self) -> builtins.str:
+        '''The Arn of the ServerlessCluster resource.'''
+        result = self._values.get("serverless_cluster_arn")
+        assert result is not None, "Required property 'serverless_cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServerlessClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.VpcConnectionReference",
+    jsii_struct_bases=[],
+    name_mapping={"vpc_connection_arn": "vpcConnectionArn"},
+)
+class VpcConnectionReference:
+    def __init__(self, *, vpc_connection_arn: builtins.str) -> None:
+        '''A reference to a VpcConnection resource.
+
+        :param vpc_connection_arn: The Arn of the VpcConnection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            vpc_connection_reference = msk.VpcConnectionReference(
+                vpc_connection_arn="vpcConnectionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5c49b6574eb72ee8579a26d0cb9401564634c720ab4c14a0de10ebe17f1e007)
+            check_type(argname="argument vpc_connection_arn", value=vpc_connection_arn, expected_type=type_hints["vpc_connection_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "vpc_connection_arn": vpc_connection_arn,
+        }
+
+    @builtins.property
+    def vpc_connection_arn(self) -> builtins.str:
+        '''The Arn of the VpcConnection resource.'''
+        result = self._values.get("vpc_connection_arn")
+        assert result is not None, "Required property 'vpc_connection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VpcConnectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IBatchScramSecretRef)
 class CfnBatchScramSecret(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -156,6 +1883,12 @@ class CfnBatchScramSecret(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="batchScramSecretRef")
+    def batch_scram_secret_ref(self) -> BatchScramSecretReference:
+        '''A reference to a BatchScramSecret resource.'''
+        return typing.cast(BatchScramSecretReference, jsii.get(self, "batchScramSecretRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -190,81 +1923,7 @@ class CfnBatchScramSecret(
         jsii.set(self, "secretArnList", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnBatchScramSecretProps",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_arn": "clusterArn", "secret_arn_list": "secretArnList"},
-)
-class CfnBatchScramSecretProps:
-    def __init__(
-        self,
-        *,
-        cluster_arn: builtins.str,
-        secret_arn_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBatchScramSecret``.
-
-        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
-        :param secret_arn_list: List of Amazon Resource Name (ARN)s of Secrets Manager secrets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_batch_scram_secret_props = msk.CfnBatchScramSecretProps(
-                cluster_arn="clusterArn",
-            
-                # the properties below are optional
-                secret_arn_list=["secretArnList"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f9f8128f7dc818d3ee4d75c78613bf29636c365b9489e1c33d4a21448b3e2ea)
-            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
-            check_type(argname="argument secret_arn_list", value=secret_arn_list, expected_type=type_hints["secret_arn_list"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_arn": cluster_arn,
-        }
-        if secret_arn_list is not None:
-            self._values["secret_arn_list"] = secret_arn_list
-
-    @builtins.property
-    def cluster_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) that uniquely identifies the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html#cfn-msk-batchscramsecret-clusterarn
-        '''
-        result = self._values.get("cluster_arn")
-        assert result is not None, "Required property 'cluster_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def secret_arn_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of Amazon Resource Name (ARN)s of Secrets Manager secrets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-batchscramsecret.html#cfn-msk-batchscramsecret-secretarnlist
-        '''
-        result = self._values.get("secret_arn_list")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBatchScramSecretProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggable_36806126)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -498,6 +2157,12 @@ class CfnCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''A reference to a Cluster resource.'''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3073,7 +4738,7 @@ class CfnCluster(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IClusterPolicyRef)
 class CfnClusterPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3166,6 +4831,12 @@ class CfnClusterPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="clusterPolicyRef")
+    def cluster_policy_ref(self) -> ClusterPolicyReference:
+        '''A reference to a ClusterPolicy resource.'''
+        return typing.cast(ClusterPolicyReference, jsii.get(self, "clusterPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="clusterArn")
     def cluster_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) that uniquely identifies the cluster.'''
@@ -3192,439 +4863,7 @@ class CfnClusterPolicy(
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnClusterPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_arn": "clusterArn", "policy": "policy"},
-)
-class CfnClusterPolicyProps:
-    def __init__(self, *, cluster_arn: builtins.str, policy: typing.Any) -> None:
-        '''Properties for defining a ``CfnClusterPolicy``.
-
-        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
-        :param policy: Resource policy for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            # policy: Any
-            
-            cfn_cluster_policy_props = msk.CfnClusterPolicyProps(
-                cluster_arn="clusterArn",
-                policy=policy
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b38038309c072b4b939104fe0c0f44c2fecc6424084abe3716435939cb1b8c00)
-            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_arn": cluster_arn,
-            "policy": policy,
-        }
-
-    @builtins.property
-    def cluster_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) that uniquely identifies the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html#cfn-msk-clusterpolicy-clusterarn
-        '''
-        result = self._values.get("cluster_arn")
-        assert result is not None, "Required property 'cluster_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''Resource policy for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-clusterpolicy.html#cfn-msk-clusterpolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "broker_node_group_info": "brokerNodeGroupInfo",
-        "cluster_name": "clusterName",
-        "kafka_version": "kafkaVersion",
-        "number_of_broker_nodes": "numberOfBrokerNodes",
-        "client_authentication": "clientAuthentication",
-        "configuration_info": "configurationInfo",
-        "current_version": "currentVersion",
-        "encryption_info": "encryptionInfo",
-        "enhanced_monitoring": "enhancedMonitoring",
-        "logging_info": "loggingInfo",
-        "open_monitoring": "openMonitoring",
-        "storage_mode": "storageMode",
-        "tags": "tags",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        broker_node_group_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BrokerNodeGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-        cluster_name: builtins.str,
-        kafka_version: builtins.str,
-        number_of_broker_nodes: jsii.Number,
-        client_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        configuration_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        current_version: typing.Optional[builtins.str] = None,
-        encryption_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        enhanced_monitoring: typing.Optional[builtins.str] = None,
-        logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OpenMonitoringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param broker_node_group_info: Information about the broker nodes in the cluster.
-        :param cluster_name: The name of the cluster.
-        :param kafka_version: The version of Apache Kafka. You can use Amazon MSK to create clusters that use `supported Apache Kafka versions <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ .
-        :param number_of_broker_nodes: The number of broker nodes in the cluster.
-        :param client_authentication: Includes all client authentication related information.
-        :param configuration_info: Represents the configuration that you want MSK to use for the cluster.
-        :param current_version: The version of the cluster that you want to update.
-        :param encryption_info: Includes all encryption-related information.
-        :param enhanced_monitoring: Specifies the level of monitoring for the MSK cluster.
-        :param logging_info: Logging info details for the cluster.
-        :param open_monitoring: The settings for open monitoring.
-        :param storage_mode: This controls storage mode for supported storage tiers.
-        :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_cluster_props = msk.CfnClusterProps(
-                broker_node_group_info=msk.CfnCluster.BrokerNodeGroupInfoProperty(
-                    client_subnets=["clientSubnets"],
-                    instance_type="instanceType",
-            
-                    # the properties below are optional
-                    broker_az_distribution="brokerAzDistribution",
-                    connectivity_info=msk.CfnCluster.ConnectivityInfoProperty(
-                        public_access=msk.CfnCluster.PublicAccessProperty(
-                            type="type"
-                        ),
-                        vpc_connectivity=msk.CfnCluster.VpcConnectivityProperty(
-                            client_authentication=msk.CfnCluster.VpcConnectivityClientAuthenticationProperty(
-                                sasl=msk.CfnCluster.VpcConnectivitySaslProperty(
-                                    iam=msk.CfnCluster.VpcConnectivityIamProperty(
-                                        enabled=False
-                                    ),
-                                    scram=msk.CfnCluster.VpcConnectivityScramProperty(
-                                        enabled=False
-                                    )
-                                ),
-                                tls=msk.CfnCluster.VpcConnectivityTlsProperty(
-                                    enabled=False
-                                )
-                            )
-                        )
-                    ),
-                    security_groups=["securityGroups"],
-                    storage_info=msk.CfnCluster.StorageInfoProperty(
-                        ebs_storage_info=msk.CfnCluster.EBSStorageInfoProperty(
-                            provisioned_throughput=msk.CfnCluster.ProvisionedThroughputProperty(
-                                enabled=False,
-                                volume_throughput=123
-                            ),
-                            volume_size=123
-                        )
-                    )
-                ),
-                cluster_name="clusterName",
-                kafka_version="kafkaVersion",
-                number_of_broker_nodes=123,
-            
-                # the properties below are optional
-                client_authentication=msk.CfnCluster.ClientAuthenticationProperty(
-                    sasl=msk.CfnCluster.SaslProperty(
-                        iam=msk.CfnCluster.IamProperty(
-                            enabled=False
-                        ),
-                        scram=msk.CfnCluster.ScramProperty(
-                            enabled=False
-                        )
-                    ),
-                    tls=msk.CfnCluster.TlsProperty(
-                        certificate_authority_arn_list=["certificateAuthorityArnList"],
-                        enabled=False
-                    ),
-                    unauthenticated=msk.CfnCluster.UnauthenticatedProperty(
-                        enabled=False
-                    )
-                ),
-                configuration_info=msk.CfnCluster.ConfigurationInfoProperty(
-                    arn="arn",
-                    revision=123
-                ),
-                current_version="currentVersion",
-                encryption_info=msk.CfnCluster.EncryptionInfoProperty(
-                    encryption_at_rest=msk.CfnCluster.EncryptionAtRestProperty(
-                        data_volume_kms_key_id="dataVolumeKmsKeyId"
-                    ),
-                    encryption_in_transit=msk.CfnCluster.EncryptionInTransitProperty(
-                        client_broker="clientBroker",
-                        in_cluster=False
-                    )
-                ),
-                enhanced_monitoring="enhancedMonitoring",
-                logging_info=msk.CfnCluster.LoggingInfoProperty(
-                    broker_logs=msk.CfnCluster.BrokerLogsProperty(
-                        cloud_watch_logs=msk.CfnCluster.CloudWatchLogsProperty(
-                            enabled=False,
-            
-                            # the properties below are optional
-                            log_group="logGroup"
-                        ),
-                        firehose=msk.CfnCluster.FirehoseProperty(
-                            enabled=False,
-            
-                            # the properties below are optional
-                            delivery_stream="deliveryStream"
-                        ),
-                        s3=msk.CfnCluster.S3Property(
-                            enabled=False,
-            
-                            # the properties below are optional
-                            bucket="bucket",
-                            prefix="prefix"
-                        )
-                    )
-                ),
-                open_monitoring=msk.CfnCluster.OpenMonitoringProperty(
-                    prometheus=msk.CfnCluster.PrometheusProperty(
-                        jmx_exporter=msk.CfnCluster.JmxExporterProperty(
-                            enabled_in_broker=False
-                        ),
-                        node_exporter=msk.CfnCluster.NodeExporterProperty(
-                            enabled_in_broker=False
-                        )
-                    )
-                ),
-                storage_mode="storageMode",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da9c2c389b7fb44efe639e45c2911a96139b86d7a936606322d8605aedb52b8b)
-            check_type(argname="argument broker_node_group_info", value=broker_node_group_info, expected_type=type_hints["broker_node_group_info"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-            check_type(argname="argument kafka_version", value=kafka_version, expected_type=type_hints["kafka_version"])
-            check_type(argname="argument number_of_broker_nodes", value=number_of_broker_nodes, expected_type=type_hints["number_of_broker_nodes"])
-            check_type(argname="argument client_authentication", value=client_authentication, expected_type=type_hints["client_authentication"])
-            check_type(argname="argument configuration_info", value=configuration_info, expected_type=type_hints["configuration_info"])
-            check_type(argname="argument current_version", value=current_version, expected_type=type_hints["current_version"])
-            check_type(argname="argument encryption_info", value=encryption_info, expected_type=type_hints["encryption_info"])
-            check_type(argname="argument enhanced_monitoring", value=enhanced_monitoring, expected_type=type_hints["enhanced_monitoring"])
-            check_type(argname="argument logging_info", value=logging_info, expected_type=type_hints["logging_info"])
-            check_type(argname="argument open_monitoring", value=open_monitoring, expected_type=type_hints["open_monitoring"])
-            check_type(argname="argument storage_mode", value=storage_mode, expected_type=type_hints["storage_mode"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "broker_node_group_info": broker_node_group_info,
-            "cluster_name": cluster_name,
-            "kafka_version": kafka_version,
-            "number_of_broker_nodes": number_of_broker_nodes,
-        }
-        if client_authentication is not None:
-            self._values["client_authentication"] = client_authentication
-        if configuration_info is not None:
-            self._values["configuration_info"] = configuration_info
-        if current_version is not None:
-            self._values["current_version"] = current_version
-        if encryption_info is not None:
-            self._values["encryption_info"] = encryption_info
-        if enhanced_monitoring is not None:
-            self._values["enhanced_monitoring"] = enhanced_monitoring
-        if logging_info is not None:
-            self._values["logging_info"] = logging_info
-        if open_monitoring is not None:
-            self._values["open_monitoring"] = open_monitoring
-        if storage_mode is not None:
-            self._values["storage_mode"] = storage_mode
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def broker_node_group_info(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCluster.BrokerNodeGroupInfoProperty]:
-        '''Information about the broker nodes in the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-brokernodegroupinfo
-        '''
-        result = self._values.get("broker_node_group_info")
-        assert result is not None, "Required property 'broker_node_group_info' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCluster.BrokerNodeGroupInfoProperty], result)
-
-    @builtins.property
-    def cluster_name(self) -> builtins.str:
-        '''The name of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-clustername
-        '''
-        result = self._values.get("cluster_name")
-        assert result is not None, "Required property 'cluster_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kafka_version(self) -> builtins.str:
-        '''The version of Apache Kafka.
-
-        You can use Amazon MSK to create clusters that use `supported Apache Kafka versions <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-kafkaversion
-        '''
-        result = self._values.get("kafka_version")
-        assert result is not None, "Required property 'kafka_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def number_of_broker_nodes(self) -> jsii.Number:
-        '''The number of broker nodes in the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-numberofbrokernodes
-        '''
-        result = self._values.get("number_of_broker_nodes")
-        assert result is not None, "Required property 'number_of_broker_nodes' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def client_authentication(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ClientAuthenticationProperty]]:
-        '''Includes all client authentication related information.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-clientauthentication
-        '''
-        result = self._values.get("client_authentication")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ClientAuthenticationProperty]], result)
-
-    @builtins.property
-    def configuration_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ConfigurationInfoProperty]]:
-        '''Represents the configuration that you want MSK to use for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-configurationinfo
-        '''
-        result = self._values.get("configuration_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ConfigurationInfoProperty]], result)
-
-    @builtins.property
-    def current_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the cluster that you want to update.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-currentversion
-        '''
-        result = self._values.get("current_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.EncryptionInfoProperty]]:
-        '''Includes all encryption-related information.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-encryptioninfo
-        '''
-        result = self._values.get("encryption_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.EncryptionInfoProperty]], result)
-
-    @builtins.property
-    def enhanced_monitoring(self) -> typing.Optional[builtins.str]:
-        '''Specifies the level of monitoring for the MSK cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-enhancedmonitoring
-        '''
-        result = self._values.get("enhanced_monitoring")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.LoggingInfoProperty]]:
-        '''Logging info details for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-logginginfo
-        '''
-        result = self._values.get("logging_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.LoggingInfoProperty]], result)
-
-    @builtins.property
-    def open_monitoring(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.OpenMonitoringProperty]]:
-        '''The settings for open monitoring.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-openmonitoring
-        '''
-        result = self._values.get("open_monitoring")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.OpenMonitoringProperty]], result)
-
-    @builtins.property
-    def storage_mode(self) -> typing.Optional[builtins.str]:
-        '''This controls storage mode for supported storage tiers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-storagemode
-        '''
-        result = self._values.get("storage_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An arbitrary set of tags (key-value pairs) for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html#cfn-msk-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IConfigurationRef)
 class CfnConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3770,6 +5009,12 @@ class CfnConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> ConfigurationReference:
+        '''A reference to a Configuration resource.'''
+        return typing.cast(ConfigurationReference, jsii.get(self, "configurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3934,146 +5179,7 @@ class CfnConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "server_properties": "serverProperties",
-        "description": "description",
-        "kafka_versions_list": "kafkaVersionsList",
-        "latest_revision": "latestRevision",
-    },
-)
-class CfnConfigurationProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        server_properties: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        kafka_versions_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        latest_revision: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.LatestRevisionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfiguration``.
-
-        :param name: The name of the configuration. Configuration names are strings that match the regex "^[0-9A-Za-z][0-9A-Za-z-]{0,}$".
-        :param server_properties: Contents of the ``server.properties`` file. When using the console, the SDK, or the AWS CLI , the contents of ``server.properties`` can be in plaintext.
-        :param description: The description of the configuration.
-        :param kafka_versions_list: The `versions of Apache Kafka <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ with which you can use this MSK configuration. When you update the ``KafkaVersionsList`` property, AWS CloudFormation recreates a new configuration with the updated property before deleting the old configuration. Such an update requires a `resource replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . To successfully update ``KafkaVersionsList`` , you must also update the ``Name`` property in the same operation. If your configuration is attached with any clusters created using the AWS Management Console or AWS CLI , you'll need to manually delete the old configuration from the console after the update completes. For more information, see `Can’t update KafkaVersionsList in MSK configuration <https://docs.aws.amazon.com/msk/latest/developerguide/troubleshooting.html#troubleshoot-kafkaversionslist-cfn-update-failure>`_ in the *Amazon MSK Developer Guide* .
-        :param latest_revision: Latest revision of the MSK configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_configuration_props = msk.CfnConfigurationProps(
-                name="name",
-                server_properties="serverProperties",
-            
-                # the properties below are optional
-                description="description",
-                kafka_versions_list=["kafkaVersionsList"],
-                latest_revision=msk.CfnConfiguration.LatestRevisionProperty(
-                    creation_time="creationTime",
-                    description="description",
-                    revision=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b67dfeeec9a4e27fb21b4b14fa3d51255f49590431c2ab861b81fad91473dd5)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument server_properties", value=server_properties, expected_type=type_hints["server_properties"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kafka_versions_list", value=kafka_versions_list, expected_type=type_hints["kafka_versions_list"])
-            check_type(argname="argument latest_revision", value=latest_revision, expected_type=type_hints["latest_revision"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "server_properties": server_properties,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if kafka_versions_list is not None:
-            self._values["kafka_versions_list"] = kafka_versions_list
-        if latest_revision is not None:
-            self._values["latest_revision"] = latest_revision
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the configuration.
-
-        Configuration names are strings that match the regex "^[0-9A-Za-z][0-9A-Za-z-]{0,}$".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_properties(self) -> builtins.str:
-        '''Contents of the ``server.properties`` file. When using the console, the SDK, or the AWS CLI , the contents of ``server.properties`` can be in plaintext.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-serverproperties
-        '''
-        result = self._values.get("server_properties")
-        assert result is not None, "Required property 'server_properties' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kafka_versions_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The `versions of Apache Kafka <https://docs.aws.amazon.com/msk/latest/developerguide/supported-kafka-versions.html>`_ with which you can use this MSK configuration.
-
-        When you update the ``KafkaVersionsList`` property, AWS CloudFormation recreates a new configuration with the updated property before deleting the old configuration. Such an update requires a `resource replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . To successfully update ``KafkaVersionsList`` , you must also update the ``Name`` property in the same operation.
-
-        If your configuration is attached with any clusters created using the AWS Management Console or AWS CLI , you'll need to manually delete the old configuration from the console after the update completes.
-
-        For more information, see `Can’t update KafkaVersionsList in MSK configuration <https://docs.aws.amazon.com/msk/latest/developerguide/troubleshooting.html#troubleshoot-kafkaversionslist-cfn-update-failure>`_ in the *Amazon MSK Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-kafkaversionslist
-        '''
-        result = self._values.get("kafka_versions_list")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def latest_revision(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfiguration.LatestRevisionProperty]]:
-        '''Latest revision of the MSK configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-configuration.html#cfn-msk-configuration-latestrevision
-        '''
-        result = self._values.get("latest_revision")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfiguration.LatestRevisionProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IReplicatorRef, _ITaggableV2_4e6798f8)
 class CfnReplicator(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4238,6 +5344,12 @@ class CfnReplicator(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replicatorRef")
+    def replicator_ref(self) -> ReplicatorReference:
+        '''A reference to a Replicator resource.'''
+        return typing.cast(ReplicatorReference, jsii.get(self, "replicatorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="kafkaClusters")
@@ -5076,194 +6188,7 @@ class CfnReplicator(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnReplicatorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "kafka_clusters": "kafkaClusters",
-        "replication_info_list": "replicationInfoList",
-        "replicator_name": "replicatorName",
-        "service_execution_role_arn": "serviceExecutionRoleArn",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnReplicatorProps:
-    def __init__(
-        self,
-        *,
-        kafka_clusters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        replication_info_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ReplicationInfoProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        replicator_name: builtins.str,
-        service_execution_role_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicator``.
-
-        :param kafka_clusters: Kafka Clusters to use in setting up sources / targets for replication.
-        :param replication_info_list: A list of replication configurations, where each configuration targets a given source cluster to target cluster replication flow.
-        :param replicator_name: The name of the replicator. Alpha-numeric characters with '-' are allowed.
-        :param service_execution_role_arn: The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
-        :param description: A summary description of the replicator.
-        :param tags: List of tags to attach to created Replicator.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_replicator_props = msk.CfnReplicatorProps(
-                kafka_clusters=[msk.CfnReplicator.KafkaClusterProperty(
-                    amazon_msk_cluster=msk.CfnReplicator.AmazonMskClusterProperty(
-                        msk_cluster_arn="mskClusterArn"
-                    ),
-                    vpc_config=msk.CfnReplicator.KafkaClusterClientVpcConfigProperty(
-                        subnet_ids=["subnetIds"],
-            
-                        # the properties below are optional
-                        security_group_ids=["securityGroupIds"]
-                    )
-                )],
-                replication_info_list=[msk.CfnReplicator.ReplicationInfoProperty(
-                    consumer_group_replication=msk.CfnReplicator.ConsumerGroupReplicationProperty(
-                        consumer_groups_to_replicate=["consumerGroupsToReplicate"],
-            
-                        # the properties below are optional
-                        consumer_groups_to_exclude=["consumerGroupsToExclude"],
-                        detect_and_copy_new_consumer_groups=False,
-                        synchronise_consumer_group_offsets=False
-                    ),
-                    source_kafka_cluster_arn="sourceKafkaClusterArn",
-                    target_compression_type="targetCompressionType",
-                    target_kafka_cluster_arn="targetKafkaClusterArn",
-                    topic_replication=msk.CfnReplicator.TopicReplicationProperty(
-                        topics_to_replicate=["topicsToReplicate"],
-            
-                        # the properties below are optional
-                        copy_access_control_lists_for_topics=False,
-                        copy_topic_configurations=False,
-                        detect_and_copy_new_topics=False,
-                        starting_position=msk.CfnReplicator.ReplicationStartingPositionProperty(
-                            type="type"
-                        ),
-                        topic_name_configuration=msk.CfnReplicator.ReplicationTopicNameConfigurationProperty(
-                            type="type"
-                        ),
-                        topics_to_exclude=["topicsToExclude"]
-                    )
-                )],
-                replicator_name="replicatorName",
-                service_execution_role_arn="serviceExecutionRoleArn",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8386726baf4842aa1a4af40915bf45a4cc4edffd70ea82fa6a181cca61bb2054)
-            check_type(argname="argument kafka_clusters", value=kafka_clusters, expected_type=type_hints["kafka_clusters"])
-            check_type(argname="argument replication_info_list", value=replication_info_list, expected_type=type_hints["replication_info_list"])
-            check_type(argname="argument replicator_name", value=replicator_name, expected_type=type_hints["replicator_name"])
-            check_type(argname="argument service_execution_role_arn", value=service_execution_role_arn, expected_type=type_hints["service_execution_role_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "kafka_clusters": kafka_clusters,
-            "replication_info_list": replication_info_list,
-            "replicator_name": replicator_name,
-            "service_execution_role_arn": service_execution_role_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def kafka_clusters(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicator.KafkaClusterProperty]]]:
-        '''Kafka Clusters to use in setting up sources / targets for replication.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-kafkaclusters
-        '''
-        result = self._values.get("kafka_clusters")
-        assert result is not None, "Required property 'kafka_clusters' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicator.KafkaClusterProperty]]], result)
-
-    @builtins.property
-    def replication_info_list(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicator.ReplicationInfoProperty]]]:
-        '''A list of replication configurations, where each configuration targets a given source cluster to target cluster replication flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-replicationinfolist
-        '''
-        result = self._values.get("replication_info_list")
-        assert result is not None, "Required property 'replication_info_list' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicator.ReplicationInfoProperty]]], result)
-
-    @builtins.property
-    def replicator_name(self) -> builtins.str:
-        '''The name of the replicator.
-
-        Alpha-numeric characters with '-' are allowed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-replicatorname
-        '''
-        result = self._values.get("replicator_name")
-        assert result is not None, "Required property 'replicator_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_execution_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role used by the replicator to access resources in the customer's account (e.g source and target clusters).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-serviceexecutionrolearn
-        '''
-        result = self._values.get("service_execution_role_arn")
-        assert result is not None, "Required property 'service_execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A summary description of the replicator.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''List of tags to attach to created Replicator.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-replicator.html#cfn-msk-replicator-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicatorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServerlessClusterRef, _ITaggable_36806126)
 class CfnServerlessCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5378,6 +6303,12 @@ class CfnServerlessCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessClusterRef")
+    def serverless_cluster_ref(self) -> ServerlessClusterReference:
+        '''A reference to a ServerlessCluster resource.'''
+        return typing.cast(ServerlessClusterReference, jsii.get(self, "serverlessClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5703,133 +6634,7 @@ class CfnServerlessCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnServerlessClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "client_authentication": "clientAuthentication",
-        "cluster_name": "clusterName",
-        "vpc_configs": "vpcConfigs",
-        "tags": "tags",
-    },
-)
-class CfnServerlessClusterProps:
-    def __init__(
-        self,
-        *,
-        client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-        cluster_name: builtins.str,
-        vpc_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServerlessCluster``.
-
-        :param client_authentication: Includes all client authentication related information.
-        :param cluster_name: The name of the cluster.
-        :param vpc_configs: VPC configuration information for the serverless cluster.
-        :param tags: An arbitrary set of tags (key-value pairs) for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_serverless_cluster_props = msk.CfnServerlessClusterProps(
-                client_authentication=msk.CfnServerlessCluster.ClientAuthenticationProperty(
-                    sasl=msk.CfnServerlessCluster.SaslProperty(
-                        iam=msk.CfnServerlessCluster.IamProperty(
-                            enabled=False
-                        )
-                    )
-                ),
-                cluster_name="clusterName",
-                vpc_configs=[msk.CfnServerlessCluster.VpcConfigProperty(
-                    subnet_ids=["subnetIds"],
-            
-                    # the properties below are optional
-                    security_groups=["securityGroups"]
-                )],
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c714eb0299c64ab481c3d39d1e14117755189081833a87372e9f1a245f1ecadc)
-            check_type(argname="argument client_authentication", value=client_authentication, expected_type=type_hints["client_authentication"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-            check_type(argname="argument vpc_configs", value=vpc_configs, expected_type=type_hints["vpc_configs"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "client_authentication": client_authentication,
-            "cluster_name": cluster_name,
-            "vpc_configs": vpc_configs,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def client_authentication(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnServerlessCluster.ClientAuthenticationProperty]:
-        '''Includes all client authentication related information.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-clientauthentication
-        '''
-        result = self._values.get("client_authentication")
-        assert result is not None, "Required property 'client_authentication' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnServerlessCluster.ClientAuthenticationProperty], result)
-
-    @builtins.property
-    def cluster_name(self) -> builtins.str:
-        '''The name of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-clustername
-        '''
-        result = self._values.get("cluster_name")
-        assert result is not None, "Required property 'cluster_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_configs(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServerlessCluster.VpcConfigProperty]]]:
-        '''VPC configuration information for the serverless cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-vpcconfigs
-        '''
-        result = self._values.get("vpc_configs")
-        assert result is not None, "Required property 'vpc_configs' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServerlessCluster.VpcConfigProperty]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An arbitrary set of tags (key-value pairs) for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-serverlesscluster.html#cfn-msk-serverlesscluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServerlessClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IVpcConnectionRef, _ITaggable_36806126)
 class CfnVpcConnection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5949,6 +6754,12 @@ class CfnVpcConnection(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="vpcConnectionRef")
+    def vpc_connection_ref(self) -> VpcConnectionReference:
+        '''A reference to a VpcConnection resource.'''
+        return typing.cast(VpcConnectionReference, jsii.get(self, "vpcConnectionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="authentication")
     def authentication(self) -> builtins.str:
         '''The type of private link authentication.'''
@@ -6030,150 +6841,8 @@ class CfnVpcConnection(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_msk.CfnVpcConnectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authentication": "authentication",
-        "client_subnets": "clientSubnets",
-        "security_groups": "securityGroups",
-        "target_cluster_arn": "targetClusterArn",
-        "vpc_id": "vpcId",
-        "tags": "tags",
-    },
-)
-class CfnVpcConnectionProps:
-    def __init__(
-        self,
-        *,
-        authentication: builtins.str,
-        client_subnets: typing.Sequence[builtins.str],
-        security_groups: typing.Sequence[builtins.str],
-        target_cluster_arn: builtins.str,
-        vpc_id: builtins.str,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVpcConnection``.
-
-        :param authentication: The type of private link authentication.
-        :param client_subnets: The list of subnets in the client VPC to connect to.
-        :param security_groups: The security groups to attach to the ENIs for the broker nodes.
-        :param target_cluster_arn: The Amazon Resource Name (ARN) of the cluster.
-        :param vpc_id: The VPC ID of the remote client.
-        :param tags: An arbitrary set of tags (key-value pairs) you specify while creating the VPC connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_msk as msk
-            
-            cfn_vpc_connection_props = msk.CfnVpcConnectionProps(
-                authentication="authentication",
-                client_subnets=["clientSubnets"],
-                security_groups=["securityGroups"],
-                target_cluster_arn="targetClusterArn",
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9e41b66e732883ec8194c58e0cffc38f5c68ed0844d8a4d98e59893d73fcc20)
-            check_type(argname="argument authentication", value=authentication, expected_type=type_hints["authentication"])
-            check_type(argname="argument client_subnets", value=client_subnets, expected_type=type_hints["client_subnets"])
-            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument target_cluster_arn", value=target_cluster_arn, expected_type=type_hints["target_cluster_arn"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authentication": authentication,
-            "client_subnets": client_subnets,
-            "security_groups": security_groups,
-            "target_cluster_arn": target_cluster_arn,
-            "vpc_id": vpc_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def authentication(self) -> builtins.str:
-        '''The type of private link authentication.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-authentication
-        '''
-        result = self._values.get("authentication")
-        assert result is not None, "Required property 'authentication' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_subnets(self) -> typing.List[builtins.str]:
-        '''The list of subnets in the client VPC to connect to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-clientsubnets
-        '''
-        result = self._values.get("client_subnets")
-        assert result is not None, "Required property 'client_subnets' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def security_groups(self) -> typing.List[builtins.str]:
-        '''The security groups to attach to the ENIs for the broker nodes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-securitygroups
-        '''
-        result = self._values.get("security_groups")
-        assert result is not None, "Required property 'security_groups' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def target_cluster_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-targetclusterarn
-        '''
-        result = self._values.get("target_cluster_arn")
-        assert result is not None, "Required property 'target_cluster_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The VPC ID of the remote client.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An arbitrary set of tags (key-value pairs) you specify while creating the VPC connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-vpcconnection.html#cfn-msk-vpcconnection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVpcConnectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BatchScramSecretReference",
     "CfnBatchScramSecret",
     "CfnBatchScramSecretProps",
     "CfnCluster",
@@ -6188,9 +6857,151 @@ __all__ = [
     "CfnServerlessClusterProps",
     "CfnVpcConnection",
     "CfnVpcConnectionProps",
+    "ClusterPolicyReference",
+    "ClusterReference",
+    "ConfigurationReference",
+    "IBatchScramSecretRef",
+    "IClusterPolicyRef",
+    "IClusterRef",
+    "IConfigurationRef",
+    "IReplicatorRef",
+    "IServerlessClusterRef",
+    "IVpcConnectionRef",
+    "ReplicatorReference",
+    "ServerlessClusterReference",
+    "VpcConnectionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__494eb0fc3b36222d720c3f0031ac32b79bc23fcebad390d8bfd7313a08c3127f(
+    *,
+    cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f9f8128f7dc818d3ee4d75c78613bf29636c365b9489e1c33d4a21448b3e2ea(
+    *,
+    cluster_arn: builtins.str,
+    secret_arn_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b38038309c072b4b939104fe0c0f44c2fecc6424084abe3716435939cb1b8c00(
+    *,
+    cluster_arn: builtins.str,
+    policy: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da9c2c389b7fb44efe639e45c2911a96139b86d7a936606322d8605aedb52b8b(
+    *,
+    broker_node_group_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BrokerNodeGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    cluster_name: builtins.str,
+    kafka_version: builtins.str,
+    number_of_broker_nodes: jsii.Number,
+    client_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    current_version: typing.Optional[builtins.str] = None,
+    encryption_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enhanced_monitoring: typing.Optional[builtins.str] = None,
+    logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OpenMonitoringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b67dfeeec9a4e27fb21b4b14fa3d51255f49590431c2ab861b81fad91473dd5(
+    *,
+    name: builtins.str,
+    server_properties: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    kafka_versions_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    latest_revision: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.LatestRevisionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8386726baf4842aa1a4af40915bf45a4cc4edffd70ea82fa6a181cca61bb2054(
+    *,
+    kafka_clusters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    replication_info_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ReplicationInfoProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    replicator_name: builtins.str,
+    service_execution_role_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c714eb0299c64ab481c3d39d1e14117755189081833a87372e9f1a245f1ecadc(
+    *,
+    client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    cluster_name: builtins.str,
+    vpc_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9e41b66e732883ec8194c58e0cffc38f5c68ed0844d8a4d98e59893d73fcc20(
+    *,
+    authentication: builtins.str,
+    client_subnets: typing.Sequence[builtins.str],
+    security_groups: typing.Sequence[builtins.str],
+    target_cluster_arn: builtins.str,
+    vpc_id: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96c5385b78e6d8222df784640277b7bd7940ef5f1097ed72568cc1b179d75ee6(
+    *,
+    cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba64592dfefafd79fe6c37ad0115429b81e554b0972c399afe5449d1e79aaab2(
+    *,
+    cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6094a7aa63af37e289ab3203eae61e0f78e44931692b389031ad3d6f3e0d8449(
+    *,
+    configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a87a5b9d3c03a227753f568e1a1ea2c5bd66793b8b4f10230a4a45dcfb325656(
+    *,
+    replicator_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e862a03d7d580b5deacaeadd8a4db3b86214f3746122a3d429cc2a208ec3b03(
+    *,
+    serverless_cluster_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5c49b6574eb72ee8579a26d0cb9401564634c720ab4c14a0de10ebe17f1e007(
+    *,
+    vpc_connection_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__7520d411e2ff468c392c477234cb67e342bdaac914895933d982e659ed9e98a4(
     scope: _constructs_77d1e7e8.Construct,
@@ -6222,14 +7033,6 @@ def _typecheckingstub__1cb6bef82c23e1fc360009001db2ac936df9869c3c9c3008b243c52c5
 
 def _typecheckingstub__ef33f5d92a61738839f87ca9e67498a1c64fa095dbc67d26fe3e3ae929735e2d(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f9f8128f7dc818d3ee4d75c78613bf29636c365b9489e1c33d4a21448b3e2ea(
-    *,
-    cluster_arn: builtins.str,
-    secret_arn_list: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6620,33 +7423,6 @@ def _typecheckingstub__9aef09b3a5d4bfa3988541299905c0c1343ea985547573352e5a08b0a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b38038309c072b4b939104fe0c0f44c2fecc6424084abe3716435939cb1b8c00(
-    *,
-    cluster_arn: builtins.str,
-    policy: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__da9c2c389b7fb44efe639e45c2911a96139b86d7a936606322d8605aedb52b8b(
-    *,
-    broker_node_group_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.BrokerNodeGroupInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    cluster_name: builtins.str,
-    kafka_version: builtins.str,
-    number_of_broker_nodes: jsii.Number,
-    client_authentication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configuration_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ConfigurationInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    current_version: typing.Optional[builtins.str] = None,
-    encryption_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    enhanced_monitoring: typing.Optional[builtins.str] = None,
-    logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.LoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_monitoring: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OpenMonitoringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    storage_mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4496d16ab1313e2d6e75f55fc7cdb170962f756c6dc1149245dde1aba3113278(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6707,17 +7483,6 @@ def _typecheckingstub__99a57e790d6d54b141c1d672388f27802c648ab7ef35f7f447e1ea76d
     creation_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     revision: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b67dfeeec9a4e27fb21b4b14fa3d51255f49590431c2ab861b81fad91473dd5(
-    *,
-    name: builtins.str,
-    server_properties: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    kafka_versions_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    latest_revision: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.LatestRevisionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6855,18 +7620,6 @@ def _typecheckingstub__0c30cafe96a0d51060e8bc61471dbbee1baf46133c8ecfbc997c53051
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8386726baf4842aa1a4af40915bf45a4cc4edffd70ea82fa6a181cca61bb2054(
-    *,
-    kafka_clusters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    replication_info_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicator.ReplicationInfoProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    replicator_name: builtins.str,
-    service_execution_role_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aef99cf7cce653b94ea5543af8d6966cab3ba1c8ff81b50f8736048fff8227ff(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6944,16 +7697,6 @@ def _typecheckingstub__e04f40675549e758de2257c70e72d28f4b93b50c2c684c533c793f571
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c714eb0299c64ab481c3d39d1e14117755189081833a87372e9f1a245f1ecadc(
-    *,
-    client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.ClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-    cluster_name: builtins.str,
-    vpc_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__910be42f1d726644d84801975cd038e26103e9dbcfb02007fe4ebdbeb62c3af8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7012,18 +7755,6 @@ def _typecheckingstub__7312d322f4e2b55e3a62ef768de9469e6ea2f6745665206380cde67b5
 
 def _typecheckingstub__41badc74ff47dd490e87b936855f3c939b6636c7093dafa31681ef018b5a53f5(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b9e41b66e732883ec8194c58e0cffc38f5c68ed0844d8a4d98e59893d73fcc20(
-    *,
-    authentication: builtins.str,
-    client_subnets: typing.Sequence[builtins.str],
-    security_groups: typing.Sequence[builtins.str],
-    target_cluster_arn: builtins.str,
-    vpc_id: builtins.str,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

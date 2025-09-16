@@ -10,6 +10,8 @@ class Tensor:
     def __init__(self, data, requires_grad: bool = False,
                  grad_fn: Optional[Callable] = None, name: Optional[str] = None,
                  dtype: Optional[str] = None):
+        if isinstance(data, Tensor):
+            return data  # Avoid wrapping a Tensor in another Tensor
         if not isinstance(data, xp.ndarray):
             self.data = xp.array(data, dtype=dtype) if dtype else xp.array(data)
         elif dtype is not None:

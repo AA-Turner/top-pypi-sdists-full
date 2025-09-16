@@ -33,133 +33,134 @@ class WorkspaceTemplate(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'id': 'str',
-        'title': 'str',
+        'name': 'str',
         'description': 'str',
-        'emoji': 'str',
-        'labels': 'list[str]',
-        'url': 'str',
-        'maximum_uptime_minutes': 'int',
-        'logo_ids': 'list[str]',
-        'oa_group_name': 'str',
-        'icon_type': 'str',
-        'icon_bg_color': 'str',
         'mins_to_complete': 'int',
-        'complexity': 'ComplexityLevel'
+        'icon_type': 'WorkspaceTemplateIconType',
+        'icon_bg_color': 'WorkspaceTemplateIconBackgroundColor',
+        'complexity': 'WorkspaceTemplateComplexity',
+        'category': 'WorkspaceTemplateCategory',
+        'labels': 'list[str]',
+        'published_version_id': 'str',
+        'cloud_id': 'str',
+        'is_global': 'bool',
+        'id': 'str',
+        'creator_id': 'str',
+        'created_at': 'datetime',
+        'updated_at': 'datetime',
+        'organization_id': 'str',
+        'creator_email': 'str',
+        'published_version': 'WorkspaceTemplateVersionDataObject'
     }
 
     attribute_map = {
-        'id': 'id',
-        'title': 'title',
+        'name': 'name',
         'description': 'description',
-        'emoji': 'emoji',
-        'labels': 'labels',
-        'url': 'url',
-        'maximum_uptime_minutes': 'maximum_uptime_minutes',
-        'logo_ids': 'logo_ids',
-        'oa_group_name': 'oa_group_name',
+        'mins_to_complete': 'mins_to_complete',
         'icon_type': 'icon_type',
         'icon_bg_color': 'icon_bg_color',
-        'mins_to_complete': 'mins_to_complete',
-        'complexity': 'complexity'
+        'complexity': 'complexity',
+        'category': 'category',
+        'labels': 'labels',
+        'published_version_id': 'published_version_id',
+        'cloud_id': 'cloud_id',
+        'is_global': 'is_global',
+        'id': 'id',
+        'creator_id': 'creator_id',
+        'created_at': 'created_at',
+        'updated_at': 'updated_at',
+        'organization_id': 'organization_id',
+        'creator_email': 'creator_email',
+        'published_version': 'published_version'
     }
 
-    def __init__(self, id=None, title=None, description=None, emoji=None, labels=None, url=None, maximum_uptime_minutes=None, logo_ids=None, oa_group_name=None, icon_type=None, icon_bg_color=None, mins_to_complete=None, complexity=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, mins_to_complete=None, icon_type=None, icon_bg_color=None, complexity=None, category=None, labels=None, published_version_id=None, cloud_id=None, is_global=False, id=None, creator_id=None, created_at=None, updated_at=None, organization_id=None, creator_email=None, published_version=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._id = None
-        self._title = None
+        self._name = None
         self._description = None
-        self._emoji = None
-        self._labels = None
-        self._url = None
-        self._maximum_uptime_minutes = None
-        self._logo_ids = None
-        self._oa_group_name = None
+        self._mins_to_complete = None
         self._icon_type = None
         self._icon_bg_color = None
-        self._mins_to_complete = None
         self._complexity = None
+        self._category = None
+        self._labels = None
+        self._published_version_id = None
+        self._cloud_id = None
+        self._is_global = None
+        self._id = None
+        self._creator_id = None
+        self._created_at = None
+        self._updated_at = None
+        self._organization_id = None
+        self._creator_email = None
+        self._published_version = None
         self.discriminator = None
 
-        self.id = id
-        self.title = title
-        self.description = description
-        self.emoji = emoji
-        self.labels = labels
-        self.url = url
-        if maximum_uptime_minutes is not None:
-            self.maximum_uptime_minutes = maximum_uptime_minutes
-        self.logo_ids = logo_ids
-        if oa_group_name is not None:
-            self.oa_group_name = oa_group_name
+        self.name = name
+        if description is not None:
+            self.description = description
+        if mins_to_complete is not None:
+            self.mins_to_complete = mins_to_complete
         if icon_type is not None:
             self.icon_type = icon_type
         if icon_bg_color is not None:
             self.icon_bg_color = icon_bg_color
-        if mins_to_complete is not None:
-            self.mins_to_complete = mins_to_complete
         if complexity is not None:
             self.complexity = complexity
+        if category is not None:
+            self.category = category
+        if labels is not None:
+            self.labels = labels
+        if published_version_id is not None:
+            self.published_version_id = published_version_id
+        self.cloud_id = cloud_id
+        if is_global is not None:
+            self.is_global = is_global
+        self.id = id
+        self.creator_id = creator_id
+        self.created_at = created_at
+        if updated_at is not None:
+            self.updated_at = updated_at
+        self.organization_id = organization_id
+        if creator_email is not None:
+            self.creator_email = creator_email
+        if published_version is not None:
+            self.published_version = published_version
 
     @property
-    def id(self):
-        """Gets the id of this WorkspaceTemplate.  # noqa: E501
+    def name(self):
+        """Gets the name of this WorkspaceTemplate.  # noqa: E501
 
-        The id of the workspace template.  # noqa: E501
+        Name of the template  # noqa: E501
 
-        :return: The id of this WorkspaceTemplate.  # noqa: E501
+        :return: The name of this WorkspaceTemplate.  # noqa: E501
         :rtype: str
         """
-        return self._id
+        return self._name
 
-    @id.setter
-    def id(self, id):
-        """Sets the id of this WorkspaceTemplate.
+    @name.setter
+    def name(self, name):
+        """Sets the name of this WorkspaceTemplate.
 
-        The id of the workspace template.  # noqa: E501
+        Name of the template  # noqa: E501
 
-        :param id: The id of this WorkspaceTemplate.  # noqa: E501
+        :param name: The name of this WorkspaceTemplate.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and id is None:  # noqa: E501
-            raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
+            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
-        self._id = id
-
-    @property
-    def title(self):
-        """Gets the title of this WorkspaceTemplate.  # noqa: E501
-
-        The title of the workspace template  # noqa: E501
-
-        :return: The title of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._title
-
-    @title.setter
-    def title(self, title):
-        """Sets the title of this WorkspaceTemplate.
-
-        The title of the workspace template  # noqa: E501
-
-        :param title: The title of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and title is None:  # noqa: E501
-            raise ValueError("Invalid value for `title`, must not be `None`")  # noqa: E501
-
-        self._title = title
+        self._name = name
 
     @property
     def description(self):
         """Gets the description of this WorkspaceTemplate.  # noqa: E501
 
-        The description of the workspace template  # noqa: E501
+        Description of the template  # noqa: E501
 
         :return: The description of this WorkspaceTemplate.  # noqa: E501
         :rtype: str
@@ -170,213 +171,19 @@ class WorkspaceTemplate(object):
     def description(self, description):
         """Sets the description of this WorkspaceTemplate.
 
-        The description of the workspace template  # noqa: E501
+        Description of the template  # noqa: E501
 
         :param description: The description of this WorkspaceTemplate.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and description is None:  # noqa: E501
-            raise ValueError("Invalid value for `description`, must not be `None`")  # noqa: E501
 
         self._description = description
-
-    @property
-    def emoji(self):
-        """Gets the emoji of this WorkspaceTemplate.  # noqa: E501
-
-        The emoji of the workspace template  # noqa: E501
-
-        :return: The emoji of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._emoji
-
-    @emoji.setter
-    def emoji(self, emoji):
-        """Sets the emoji of this WorkspaceTemplate.
-
-        The emoji of the workspace template  # noqa: E501
-
-        :param emoji: The emoji of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and emoji is None:  # noqa: E501
-            raise ValueError("Invalid value for `emoji`, must not be `None`")  # noqa: E501
-
-        self._emoji = emoji
-
-    @property
-    def labels(self):
-        """Gets the labels of this WorkspaceTemplate.  # noqa: E501
-
-        The labels of the workspace template  # noqa: E501
-
-        :return: The labels of this WorkspaceTemplate.  # noqa: E501
-        :rtype: list[str]
-        """
-        return self._labels
-
-    @labels.setter
-    def labels(self, labels):
-        """Sets the labels of this WorkspaceTemplate.
-
-        The labels of the workspace template  # noqa: E501
-
-        :param labels: The labels of this WorkspaceTemplate.  # noqa: E501
-        :type: list[str]
-        """
-        if self.local_vars_configuration.client_side_validation and labels is None:  # noqa: E501
-            raise ValueError("Invalid value for `labels`, must not be `None`")  # noqa: E501
-
-        self._labels = labels
-
-    @property
-    def url(self):
-        """Gets the url of this WorkspaceTemplate.  # noqa: E501
-
-        The url of the workspace template  # noqa: E501
-
-        :return: The url of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._url
-
-    @url.setter
-    def url(self, url):
-        """Sets the url of this WorkspaceTemplate.
-
-        The url of the workspace template  # noqa: E501
-
-        :param url: The url of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and url is None:  # noqa: E501
-            raise ValueError("Invalid value for `url`, must not be `None`")  # noqa: E501
-
-        self._url = url
-
-    @property
-    def maximum_uptime_minutes(self):
-        """Gets the maximum_uptime_minutes of this WorkspaceTemplate.  # noqa: E501
-
-        The maximum uptime of the workspace in minutes. The workspace will force terminate after this time.  # noqa: E501
-
-        :return: The maximum_uptime_minutes of this WorkspaceTemplate.  # noqa: E501
-        :rtype: int
-        """
-        return self._maximum_uptime_minutes
-
-    @maximum_uptime_minutes.setter
-    def maximum_uptime_minutes(self, maximum_uptime_minutes):
-        """Sets the maximum_uptime_minutes of this WorkspaceTemplate.
-
-        The maximum uptime of the workspace in minutes. The workspace will force terminate after this time.  # noqa: E501
-
-        :param maximum_uptime_minutes: The maximum_uptime_minutes of this WorkspaceTemplate.  # noqa: E501
-        :type: int
-        """
-
-        self._maximum_uptime_minutes = maximum_uptime_minutes
-
-    @property
-    def logo_ids(self):
-        """Gets the logo_ids of this WorkspaceTemplate.  # noqa: E501
-
-        The ids for the workspace template logos that we show on the FE  # noqa: E501
-
-        :return: The logo_ids of this WorkspaceTemplate.  # noqa: E501
-        :rtype: list[str]
-        """
-        return self._logo_ids
-
-    @logo_ids.setter
-    def logo_ids(self, logo_ids):
-        """Sets the logo_ids of this WorkspaceTemplate.
-
-        The ids for the workspace template logos that we show on the FE  # noqa: E501
-
-        :param logo_ids: The logo_ids of this WorkspaceTemplate.  # noqa: E501
-        :type: list[str]
-        """
-        if self.local_vars_configuration.client_side_validation and logo_ids is None:  # noqa: E501
-            raise ValueError("Invalid value for `logo_ids`, must not be `None`")  # noqa: E501
-
-        self._logo_ids = logo_ids
-
-    @property
-    def oa_group_name(self):
-        """Gets the oa_group_name of this WorkspaceTemplate.  # noqa: E501
-
-        The name of the OA group for the workspace template  # noqa: E501
-
-        :return: The oa_group_name of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._oa_group_name
-
-    @oa_group_name.setter
-    def oa_group_name(self, oa_group_name):
-        """Sets the oa_group_name of this WorkspaceTemplate.
-
-        The name of the OA group for the workspace template  # noqa: E501
-
-        :param oa_group_name: The oa_group_name of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-
-        self._oa_group_name = oa_group_name
-
-    @property
-    def icon_type(self):
-        """Gets the icon_type of this WorkspaceTemplate.  # noqa: E501
-
-        The type of the icon for the workspace template  # noqa: E501
-
-        :return: The icon_type of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._icon_type
-
-    @icon_type.setter
-    def icon_type(self, icon_type):
-        """Sets the icon_type of this WorkspaceTemplate.
-
-        The type of the icon for the workspace template  # noqa: E501
-
-        :param icon_type: The icon_type of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-
-        self._icon_type = icon_type
-
-    @property
-    def icon_bg_color(self):
-        """Gets the icon_bg_color of this WorkspaceTemplate.  # noqa: E501
-
-        The background color of the icon for the workspace template  # noqa: E501
-
-        :return: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
-        :rtype: str
-        """
-        return self._icon_bg_color
-
-    @icon_bg_color.setter
-    def icon_bg_color(self, icon_bg_color):
-        """Sets the icon_bg_color of this WorkspaceTemplate.
-
-        The background color of the icon for the workspace template  # noqa: E501
-
-        :param icon_bg_color: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
-        :type: str
-        """
-
-        self._icon_bg_color = icon_bg_color
 
     @property
     def mins_to_complete(self):
         """Gets the mins_to_complete of this WorkspaceTemplate.  # noqa: E501
 
-        The number of minutes expected to complete the template  # noqa: E501
+        Estimated minutes to complete this template  # noqa: E501
 
         :return: The mins_to_complete of this WorkspaceTemplate.  # noqa: E501
         :rtype: int
@@ -387,7 +194,7 @@ class WorkspaceTemplate(object):
     def mins_to_complete(self, mins_to_complete):
         """Sets the mins_to_complete of this WorkspaceTemplate.
 
-        The number of minutes expected to complete the template  # noqa: E501
+        Estimated minutes to complete this template  # noqa: E501
 
         :param mins_to_complete: The mins_to_complete of this WorkspaceTemplate.  # noqa: E501
         :type: int
@@ -396,13 +203,59 @@ class WorkspaceTemplate(object):
         self._mins_to_complete = mins_to_complete
 
     @property
+    def icon_type(self):
+        """Gets the icon_type of this WorkspaceTemplate.  # noqa: E501
+
+        Icon type for the template  # noqa: E501
+
+        :return: The icon_type of this WorkspaceTemplate.  # noqa: E501
+        :rtype: WorkspaceTemplateIconType
+        """
+        return self._icon_type
+
+    @icon_type.setter
+    def icon_type(self, icon_type):
+        """Sets the icon_type of this WorkspaceTemplate.
+
+        Icon type for the template  # noqa: E501
+
+        :param icon_type: The icon_type of this WorkspaceTemplate.  # noqa: E501
+        :type: WorkspaceTemplateIconType
+        """
+
+        self._icon_type = icon_type
+
+    @property
+    def icon_bg_color(self):
+        """Gets the icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+
+        Background color for the icon  # noqa: E501
+
+        :return: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+        :rtype: WorkspaceTemplateIconBackgroundColor
+        """
+        return self._icon_bg_color
+
+    @icon_bg_color.setter
+    def icon_bg_color(self, icon_bg_color):
+        """Sets the icon_bg_color of this WorkspaceTemplate.
+
+        Background color for the icon  # noqa: E501
+
+        :param icon_bg_color: The icon_bg_color of this WorkspaceTemplate.  # noqa: E501
+        :type: WorkspaceTemplateIconBackgroundColor
+        """
+
+        self._icon_bg_color = icon_bg_color
+
+    @property
     def complexity(self):
         """Gets the complexity of this WorkspaceTemplate.  # noqa: E501
 
-        The complexity of the workspace template  # noqa: E501
+        Complexity level of the template  # noqa: E501
 
         :return: The complexity of this WorkspaceTemplate.  # noqa: E501
-        :rtype: ComplexityLevel
+        :rtype: WorkspaceTemplateComplexity
         """
         return self._complexity
 
@@ -410,13 +263,299 @@ class WorkspaceTemplate(object):
     def complexity(self, complexity):
         """Sets the complexity of this WorkspaceTemplate.
 
-        The complexity of the workspace template  # noqa: E501
+        Complexity level of the template  # noqa: E501
 
         :param complexity: The complexity of this WorkspaceTemplate.  # noqa: E501
-        :type: ComplexityLevel
+        :type: WorkspaceTemplateComplexity
         """
 
         self._complexity = complexity
+
+    @property
+    def category(self):
+        """Gets the category of this WorkspaceTemplate.  # noqa: E501
+
+        Category of the template  # noqa: E501
+
+        :return: The category of this WorkspaceTemplate.  # noqa: E501
+        :rtype: WorkspaceTemplateCategory
+        """
+        return self._category
+
+    @category.setter
+    def category(self, category):
+        """Sets the category of this WorkspaceTemplate.
+
+        Category of the template  # noqa: E501
+
+        :param category: The category of this WorkspaceTemplate.  # noqa: E501
+        :type: WorkspaceTemplateCategory
+        """
+
+        self._category = category
+
+    @property
+    def labels(self):
+        """Gets the labels of this WorkspaceTemplate.  # noqa: E501
+
+        Searchable labels for the template  # noqa: E501
+
+        :return: The labels of this WorkspaceTemplate.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        """Sets the labels of this WorkspaceTemplate.
+
+        Searchable labels for the template  # noqa: E501
+
+        :param labels: The labels of this WorkspaceTemplate.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._labels = labels
+
+    @property
+    def published_version_id(self):
+        """Gets the published_version_id of this WorkspaceTemplate.  # noqa: E501
+
+        ID of the published version  # noqa: E501
+
+        :return: The published_version_id of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._published_version_id
+
+    @published_version_id.setter
+    def published_version_id(self, published_version_id):
+        """Sets the published_version_id of this WorkspaceTemplate.
+
+        ID of the published version  # noqa: E501
+
+        :param published_version_id: The published_version_id of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._published_version_id = published_version_id
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this WorkspaceTemplate.  # noqa: E501
+
+        Cloud ID this template is associated with  # noqa: E501
+
+        :return: The cloud_id of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this WorkspaceTemplate.
+
+        Cloud ID this template is associated with  # noqa: E501
+
+        :param cloud_id: The cloud_id of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and cloud_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `cloud_id`, must not be `None`")  # noqa: E501
+
+        self._cloud_id = cloud_id
+
+    @property
+    def is_global(self):
+        """Gets the is_global of this WorkspaceTemplate.  # noqa: E501
+
+        Whether this is a global template  # noqa: E501
+
+        :return: The is_global of this WorkspaceTemplate.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_global
+
+    @is_global.setter
+    def is_global(self, is_global):
+        """Sets the is_global of this WorkspaceTemplate.
+
+        Whether this is a global template  # noqa: E501
+
+        :param is_global: The is_global of this WorkspaceTemplate.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_global = is_global
+
+    @property
+    def id(self):
+        """Gets the id of this WorkspaceTemplate.  # noqa: E501
+
+        ID of the template  # noqa: E501
+
+        :return: The id of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        """Sets the id of this WorkspaceTemplate.
+
+        ID of the template  # noqa: E501
+
+        :param id: The id of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and id is None:  # noqa: E501
+            raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
+
+        self._id = id
+
+    @property
+    def creator_id(self):
+        """Gets the creator_id of this WorkspaceTemplate.  # noqa: E501
+
+        ID of the user who created this template  # noqa: E501
+
+        :return: The creator_id of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_id
+
+    @creator_id.setter
+    def creator_id(self, creator_id):
+        """Sets the creator_id of this WorkspaceTemplate.
+
+        ID of the user who created this template  # noqa: E501
+
+        :param creator_id: The creator_id of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and creator_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `creator_id`, must not be `None`")  # noqa: E501
+
+        self._creator_id = creator_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this WorkspaceTemplate.  # noqa: E501
+
+        When this template was created  # noqa: E501
+
+        :return: The created_at of this WorkspaceTemplate.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this WorkspaceTemplate.
+
+        When this template was created  # noqa: E501
+
+        :param created_at: The created_at of this WorkspaceTemplate.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
+
+    @property
+    def updated_at(self):
+        """Gets the updated_at of this WorkspaceTemplate.  # noqa: E501
+
+        When this template was last updated  # noqa: E501
+
+        :return: The updated_at of this WorkspaceTemplate.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at):
+        """Sets the updated_at of this WorkspaceTemplate.
+
+        When this template was last updated  # noqa: E501
+
+        :param updated_at: The updated_at of this WorkspaceTemplate.  # noqa: E501
+        :type: datetime
+        """
+
+        self._updated_at = updated_at
+
+    @property
+    def organization_id(self):
+        """Gets the organization_id of this WorkspaceTemplate.  # noqa: E501
+
+        ID of the organization this template is associated with  # noqa: E501
+
+        :return: The organization_id of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._organization_id
+
+    @organization_id.setter
+    def organization_id(self, organization_id):
+        """Sets the organization_id of this WorkspaceTemplate.
+
+        ID of the organization this template is associated with  # noqa: E501
+
+        :param organization_id: The organization_id of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and organization_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `organization_id`, must not be `None`")  # noqa: E501
+
+        self._organization_id = organization_id
+
+    @property
+    def creator_email(self):
+        """Gets the creator_email of this WorkspaceTemplate.  # noqa: E501
+
+        Email of the creator  # noqa: E501
+
+        :return: The creator_email of this WorkspaceTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_email
+
+    @creator_email.setter
+    def creator_email(self, creator_email):
+        """Sets the creator_email of this WorkspaceTemplate.
+
+        Email of the creator  # noqa: E501
+
+        :param creator_email: The creator_email of this WorkspaceTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._creator_email = creator_email
+
+    @property
+    def published_version(self):
+        """Gets the published_version of this WorkspaceTemplate.  # noqa: E501
+
+        Published version of the template  # noqa: E501
+
+        :return: The published_version of this WorkspaceTemplate.  # noqa: E501
+        :rtype: WorkspaceTemplateVersionDataObject
+        """
+        return self._published_version
+
+    @published_version.setter
+    def published_version(self, published_version):
+        """Sets the published_version of this WorkspaceTemplate.
+
+        Published version of the template  # noqa: E501
+
+        :param published_version: The published_version of this WorkspaceTemplate.  # noqa: E501
+        :type: WorkspaceTemplateVersionDataObject
+        """
+
+        self._published_version = published_version
 
     def to_dict(self):
         """Returns the model properties as a dict"""

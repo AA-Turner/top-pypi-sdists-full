@@ -70,260 +70,113 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnAgentStatus(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnAgentStatus",
-):
-    '''Contains information about an agent status.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.AgentStatusReference",
+    jsii_struct_bases=[],
+    name_mapping={"agent_status_arn": "agentStatusArn"},
+)
+class AgentStatusReference:
+    def __init__(self, *, agent_status_arn: builtins.str) -> None:
+        '''A reference to a AgentStatus resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-agentstatus.html
-    :cloudformationResource: AWS::Connect::AgentStatus
-    :exampleMetadata: fixture=_generated
+        :param agent_status_arn: The AgentStatusArn of the AgentStatus resource.
 
-    Example::
+        :exampleMetadata: fixture=_generated
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_agent_status = connect.CfnAgentStatus(self, "MyCfnAgentStatus",
-            instance_arn="instanceArn",
-            name="name",
-            state="state",
-        
-            # the properties below are optional
-            description="description",
-            display_order=123,
-            reset_order_number=False,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            type="type"
-        )
-    '''
+        Example::
 
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        state: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        display_order: typing.Optional[jsii.Number] = None,
-        reset_order_number: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name of the agent status.
-        :param state: The state of the agent status.
-        :param description: The description of the agent status.
-        :param display_order: The display order of the agent status.
-        :param reset_order_number: A number indicating the reset order of the agent status.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-        :param type: The type of agent status.
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            agent_status_reference = connect.AgentStatusReference(
+                agent_status_arn="agentStatusArn"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__188703c629c18d36bedd60b2ef308608c79b0a7639ceafb679e00ecdf1434bcb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAgentStatusProps(
-            instance_arn=instance_arn,
-            name=name,
-            state=state,
-            description=description,
-            display_order=display_order,
-            reset_order_number=reset_order_number,
-            tags=tags,
-            type=type,
+            type_hints = typing.get_type_hints(_typecheckingstub__768479fa7e7e7f86ca3c14b2f0c14bc0917972da4bee850af1a0e89fff6abda7)
+            check_type(argname="argument agent_status_arn", value=agent_status_arn, expected_type=type_hints["agent_status_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_status_arn": agent_status_arn,
+        }
+
+    @builtins.property
+    def agent_status_arn(self) -> builtins.str:
+        '''The AgentStatusArn of the AgentStatus resource.'''
+        result = self._values.get("agent_status_arn")
+        assert result is not None, "Required property 'agent_status_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentStatusReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
 
-        jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ApprovedOriginReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_id": "instanceId", "origin": "origin"},
+)
+class ApprovedOriginReference:
+    def __init__(self, *, instance_id: builtins.str, origin: builtins.str) -> None:
+        '''A reference to a ApprovedOrigin resource.
 
-        :param inspector: tree inspector to collect and process attributes.
+        :param instance_id: The InstanceId of the ApprovedOrigin resource.
+        :param origin: The Origin of the ApprovedOrigin resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            approved_origin_reference = connect.ApprovedOriginReference(
+                instance_id="instanceId",
+                origin="origin"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d83454aed4d3419db0f2c17c70b50ce23d4acfe85654c14b3955ccec567507d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1c5df080fdb044579c972766c7367eb342670174bc6082d6589575910dd5a33)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+            type_hints = typing.get_type_hints(_typecheckingstub__9b37c28e269432ca55eed5f3ae06081fcfbbb8da044d27a29f19e0fbb4af7fcc)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument origin", value=origin, expected_type=type_hints["origin"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "origin": origin,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="attrAgentStatusArn")
-    def attr_agent_status_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the agent status.
-
-        :cloudformationAttribute: AgentStatusArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAgentStatusArn"))
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the ApprovedOrigin resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    @jsii.member(jsii_name="attrLastModifiedRegion")
-    def attr_last_modified_region(self) -> builtins.str:
-        '''The AWS Region where this resource was last modified.
+    def origin(self) -> builtins.str:
+        '''The Origin of the ApprovedOrigin resource.'''
+        result = self._values.get("origin")
+        assert result is not None, "Required property 'origin' is missing"
+        return typing.cast(builtins.str, result)
 
-        :cloudformationAttribute: LastModifiedRegion
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedRegion"))
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-    @builtins.property
-    @jsii.member(jsii_name="attrLastModifiedTime")
-    def attr_last_modified_time(self) -> _IResolvable_da3f097b:
-        '''The timestamp when this resource was last modified.
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-        :cloudformationAttribute: LastModifiedTime
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLastModifiedTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed4d83a484ce207a953725dcb30f7724c73600b781c7372b0461fd7ad61d0ace)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the agent status.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__061ec6e9e391f38b63492def9966c786b74f237e0b42482e6a94a558541dff9c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="state")
-    def state(self) -> builtins.str:
-        '''The state of the agent status.'''
-        return typing.cast(builtins.str, jsii.get(self, "state"))
-
-    @state.setter
-    def state(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c11e7969fab74b6f001a9aea8ba880ba4e4fe1aea7421007717072a8c292b4b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the agent status.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9144ba2976476302e60ab5f2ac4a2f610fd8e073acae78e05684de97d10172f5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="displayOrder")
-    def display_order(self) -> typing.Optional[jsii.Number]:
-        '''The display order of the agent status.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "displayOrder"))
-
-    @display_order.setter
-    def display_order(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__638f21787e6ad0e1e5edbabc219bb6c1bef5220c08895c9bf42932addcfd0544)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayOrder", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resetOrderNumber")
-    def reset_order_number(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A number indicating the reset order of the agent status.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "resetOrderNumber"))
-
-    @reset_order_number.setter
-    def reset_order_number(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eb07c6ec669286d2212cb0912d5a8f834b8640121216334d872426d4e11f350)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resetOrderNumber", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ae59e45659b6cf9bd60c4c492979307ad6d24a8eb501dcc3b2ac9a116c44988)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of agent status.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64b83fcef3b8683e26746763b9a4121f9ed52687deb75b8c04eaf159e6ddf352)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+    def __repr__(self) -> str:
+        return "ApprovedOriginReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -506,114 +359,6 @@ class CfnAgentStatusProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnApprovedOrigin(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnApprovedOrigin",
-):
-    '''The approved origin for the instance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-approvedorigin.html
-    :cloudformationResource: AWS::Connect::ApprovedOrigin
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_approved_origin = connect.CfnApprovedOrigin(self, "MyCfnApprovedOrigin",
-            instance_id="instanceId",
-            origin="origin"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        instance_id: builtins.str,
-        origin: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
-        :param origin: Domain name to be added to the allow-list of the instance. *Maximum* : ``267``
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44955422cb4c00b338f45e52a0d4136fdcdb94c8e433595b636f468d589e514a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApprovedOriginProps(instance_id=instance_id, origin=origin)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b611bd9c5a92c253c2e2b0cba97b9f73bad0cfc8494953acb694fda143bba2)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc2ef7b8d5a06b007fe66bb9f5b0208e869ed47a6e5af0d6bf354f4df2d4d6c8)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceId")
-    def instance_id(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceId"))
-
-    @instance_id.setter
-    def instance_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fd219e5b157d40fbc4254297a9308245796269c824a72c0b9db3bad7013261c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="origin")
-    def origin(self) -> builtins.str:
-        '''Domain name to be added to the allow-list of the instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "origin"))
-
-    @origin.setter
-    def origin(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49fb9b02cf4a1b22d6433eac9cb35377d1877512b477dbf9c030fec47fb54f75)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_connect.CfnApprovedOriginProps",
     jsii_struct_bases=[],
@@ -685,430 +430,6 @@ class CfnApprovedOriginProps:
         return "CfnApprovedOriginProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnContactFlow(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlow",
-):
-    '''Specifies a flow for an Amazon Connect instance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflow.html
-    :cloudformationResource: AWS::Connect::ContactFlow
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_contact_flow = connect.CfnContactFlow(self, "MyCfnContactFlow",
-            content="content",
-            instance_arn="instanceArn",
-            name="name",
-            type="type",
-        
-            # the properties below are optional
-            description="description",
-            state="state",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        content: builtins.str,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param content: The content of the flow. For more information, see `Amazon Connect Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Amazon Connect Administrator Guide* .
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
-        :param name: The name of the flow.
-        :param type: The type of the flow. For descriptions of the available types, see `Choose a flow type <https://docs.aws.amazon.com/connect/latest/adminguide/create-contact-flow.html#contact-flow-types>`_ in the *Amazon Connect Administrator Guide* .
-        :param description: The description of the flow.
-        :param state: The state of the flow.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bacec198fd7006a7e922c6b62694383eb7200d23c3f8da491f520191bdc8353f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnContactFlowProps(
-            content=content,
-            instance_arn=instance_arn,
-            name=name,
-            type=type,
-            description=description,
-            state=state,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aca14ea5542ff9acc3dc06746c7580c88c1e0b75d66bf0ac0a8cd785404cc173)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4b3abb60d405603981215ec7d659c3d8939dbf9b5de879c8d56dfd0631f9d5b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrContactFlowArn")
-    def attr_contact_flow_arn(self) -> builtins.str:
-        '''``Ref`` returns the Amazon Resource Name (ARN) of the flow.
-
-        :cloudformationAttribute: ContactFlowArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="content")
-    def content(self) -> builtins.str:
-        '''The content of the flow.'''
-        return typing.cast(builtins.str, jsii.get(self, "content"))
-
-    @content.setter
-    def content(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a517102f202efaced50f937df38d5374d2d8ae33c5659296852d677cbe73e2a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20f6a7aacca6b49f3791bf907484b7af427677a1079ea79db9a45489b963b9d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the flow.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76f576a62faffae972ec30039ac3019bddb9b613e8dd2dce2b52723ba8a64dbc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> builtins.str:
-        '''The type of the flow.'''
-        return typing.cast(builtins.str, jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__213719edbc55495f331c0d1f51b7ab8a359f2c5cc563f3fa97077760121c6aa9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the flow.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e4573df3b75ab7b2ea3d0cba32ff3c515f11f6cbec43c0885d9ee30d25616a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="state")
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The state of the flow.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
-
-    @state.setter
-    def state(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7b6f72cf71dca93b2b2baae1d002d73d66de8e16bec7709efdb45c4bb811336)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22bc442433d76b98a1dae3304e1215f20c67d932bbfc6f02619483fbdb5d808d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnContactFlowModule(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModule",
-):
-    '''Specifies a flow module for an Amazon Connect instance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodule.html
-    :cloudformationResource: AWS::Connect::ContactFlowModule
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_contact_flow_module = connect.CfnContactFlowModule(self, "MyCfnContactFlowModule",
-            content="content",
-            instance_arn="instanceArn",
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            state="state",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        content: builtins.str,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param content: The content of the flow module.
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
-        :param name: The name of the flow module.
-        :param description: The description of the flow module.
-        :param state: The state of the flow module.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__008a6ee0ce6447d7f5f7c62774a959e253bc4a69cef26848e6d3f74cf2381193)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnContactFlowModuleProps(
-            content=content,
-            instance_arn=instance_arn,
-            name=name,
-            description=description,
-            state=state,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82176173dbe238b7a4715d8a94792d3696ada52a4372f823ab10f4c590c6193f)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f3e317a83e30b22f766c5d65c8451e4d9e5ffcd6510573aa22d0063860e7b99)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrContactFlowModuleArn")
-    def attr_contact_flow_module_arn(self) -> builtins.str:
-        '''``Ref`` returns the Amazon Resource Name (ARN) of the flow module.
-
-        :cloudformationAttribute: ContactFlowModuleArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowModuleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The status of the contact flow module.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="content")
-    def content(self) -> builtins.str:
-        '''The content of the flow module.'''
-        return typing.cast(builtins.str, jsii.get(self, "content"))
-
-    @content.setter
-    def content(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1701812aa93a58317265edab1cd66b5a843fc9845a1aed0b81f83c4f738b5b0e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68b9231af4bcfc40233b3b8fbbd6acd02fe21a59b2f962738d2ce93d6ffa7fa7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the flow module.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e18e7239d9aefba3afcb9b93bf7f3ec9f6e4f173d51f91e93f5543efe25658a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the flow module.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c1841af03e44ad4a3c471a24f30aa57c457ec766515db087b0745fb9a6a68d9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="state")
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The state of the flow module.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
-
-    @state.setter
-    def state(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25db523d57560a8813a16f507ae8c09c28625a53b6a24b5744ca978282ff51a3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47de1c508f0616d427a0546578e35f062250082b28649c8985770019609a4881)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1423,145 +744,6 @@ class CfnContactFlowProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnContactFlowVersion(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowVersion",
-):
-    '''Creates a version for the specified customer-managed flow within the specified instance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowversion.html
-    :cloudformationResource: AWS::Connect::ContactFlowVersion
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_contact_flow_version = connect.CfnContactFlowVersion(self, "MyCfnContactFlowVersion",
-            contact_flow_id="contactFlowId",
-        
-            # the properties below are optional
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        contact_flow_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param contact_flow_id: The identifier of the flow.
-        :param description: The description of the flow version.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a31de8fadfe8b204a6f20d104c9bd7e6d511bb0a98ca39db212f6ea6f6e7427b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnContactFlowVersionProps(
-            contact_flow_id=contact_flow_id, description=description
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13f86454b3bf4a5aaf2f2292d0d2d066b4877ddadcbc6f3f09833d142f628fc0)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__039e856ccb29689e4ae1a2b96e0d4d66d182b5df351b2638b7229f84798ea120)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrContactFlowVersionArn")
-    def attr_contact_flow_version_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the flow version.
-
-        :cloudformationAttribute: ContactFlowVersionARN
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowVersionArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrFlowContentSha256")
-    def attr_flow_content_sha256(self) -> builtins.str:
-        '''Indicates the checksum value of the flow content.
-
-        :cloudformationAttribute: FlowContentSha256
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrFlowContentSha256"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrVersion")
-    def attr_version(self) -> jsii.Number:
-        '''The identifier of the flow version.
-
-        :cloudformationAttribute: Version
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrVersion"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="contactFlowId")
-    def contact_flow_id(self) -> builtins.str:
-        '''The identifier of the flow.'''
-        return typing.cast(builtins.str, jsii.get(self, "contactFlowId"))
-
-    @contact_flow_id.setter
-    def contact_flow_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c67191011cdc1e35e2efe8a0fc1ca8eb70d92048915331d2c2304e2001167b1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactFlowId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the flow version.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__874c4dc9a5e63e7eb152e6db7e2794c6a1ded5d623873f917a2a60c5a6fbf154)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowVersionProps",
     jsii_struct_bases=[],
@@ -1634,190 +816,6 @@ class CfnContactFlowVersionProps:
         return "CfnContactFlowVersionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnEmailAddress(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_connect.CfnEmailAddress",
-):
-    '''Create new email address in the specified Amazon Connect instance.
-
-    For more information about email addresses, see `Create email addresses <https://docs.aws.amazon.com/connect/latest/adminguide/create-email-address1.html>`_ in the Amazon Connect Administrator Guide.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-emailaddress.html
-    :cloudformationResource: AWS::Connect::EmailAddress
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_connect as connect
-        
-        cfn_email_address = connect.CfnEmailAddress(self, "MyCfnEmailAddress",
-            email_address="emailAddress",
-            instance_arn="instanceArn",
-        
-            # the properties below are optional
-            description="description",
-            display_name="displayName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        email_address: builtins.str,
-        instance_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param email_address: The email address, including the domain.
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param description: The description of the email address.
-        :param display_name: The display name of email address.
-        :param tags: An array of key-value pairs to apply to this resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82663491f0adb2dbe44ce9a95c4b21bf5d7529ba2b8adcceab5da9bedc3d1370)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnEmailAddressProps(
-            email_address=email_address,
-            instance_arn=instance_arn,
-            description=description,
-            display_name=display_name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4fe51dacac1b484c4e303934d80f7bb4cfcbe3351b63a935760ef841d11b0b7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33b6216cbb956627e9dc575454fc3e8d5aea1a3207ec56ce9cb765691a426336)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrEmailAddressArn")
-    def attr_email_address_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the email address.
-
-        :cloudformationAttribute: EmailAddressArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEmailAddressArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="emailAddress")
-    def email_address(self) -> builtins.str:
-        '''The email address, including the domain.'''
-        return typing.cast(builtins.str, jsii.get(self, "emailAddress"))
-
-    @email_address.setter
-    def email_address(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e26e2300df70e94e938287749de7109892ad93f49e461b69b020622739163c1c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailAddress", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4897e979b60cf9112f8c5f689498588562efda825c4b629f911babccfbbd14f3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the email address.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ecb3e2768e9a204b64d2a27ff4d4239810f03f60c999f10faf989234a4aa95f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="displayName")
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of email address.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
-
-    @display_name.setter
-    def display_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea8987f3e91ef810959c56c99b1cff317c190bc87329ffea9f144b19adab4460)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0842a9bd625bd6676921b5b4d09d963f3c01dd351f002f2878919bed280da0c1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1948,7 +946,7101 @@ class CfnEmailAddressProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationFormProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "items": "items",
+        "status": "status",
+        "title": "title",
+        "auto_evaluation_configuration": "autoEvaluationConfiguration",
+        "description": "description",
+        "scoring_strategy": "scoringStrategy",
+        "tags": "tags",
+    },
+)
+class CfnEvaluationFormProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.EvaluationFormBaseItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        status: builtins.str,
+        title: builtins.str,
+        auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.AutoEvaluationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEvaluationForm.ScoringStrategyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEvaluationForm``.
+
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
+        :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
+        :param title: A title of the evaluation form.
+        :param auto_evaluation_configuration: 
+        :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
+        :param scoring_strategy: A scoring strategy of the evaluation form.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            # evaluation_form_section_property_: connect.CfnEvaluationForm.EvaluationFormSectionProperty
+            
+            cfn_evaluation_form_props = connect.CfnEvaluationFormProps(
+                instance_arn="instanceArn",
+                items=[connect.CfnEvaluationForm.EvaluationFormBaseItemProperty(
+                    section=connect.CfnEvaluationForm.EvaluationFormSectionProperty(
+                        ref_id="refId",
+                        title="title",
+            
+                        # the properties below are optional
+                        instructions="instructions",
+                        items=[connect.CfnEvaluationForm.EvaluationFormItemProperty(
+                            question=connect.CfnEvaluationForm.EvaluationFormQuestionProperty(
+                                question_type="questionType",
+                                ref_id="refId",
+                                title="title",
+            
+                                # the properties below are optional
+                                instructions="instructions",
+                                not_applicable_enabled=False,
+                                question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
+                                    numeric=connect.CfnEvaluationForm.EvaluationFormNumericQuestionPropertiesProperty(
+                                        max_value=123,
+                                        min_value=123,
+            
+                                        # the properties below are optional
+                                        automation=connect.CfnEvaluationForm.EvaluationFormNumericQuestionAutomationProperty(
+                                            property_value=connect.CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty(
+                                                label="label"
+                                            )
+                                        ),
+                                        options=[connect.CfnEvaluationForm.EvaluationFormNumericQuestionOptionProperty(
+                                            max_value=123,
+                                            min_value=123,
+            
+                                            # the properties below are optional
+                                            automatic_fail=False,
+                                            score=123
+                                        )]
+                                    ),
+                                    single_select=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionPropertiesProperty(
+                                        options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionOptionProperty(
+                                            ref_id="refId",
+                                            text="text",
+            
+                                            # the properties below are optional
+                                            automatic_fail=False,
+                                            score=123
+                                        )],
+            
+                                        # the properties below are optional
+                                        automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
+                                            options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
+                                                rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
+                                                    category="category",
+                                                    condition="condition",
+                                                    option_ref_id="optionRefId"
+                                                )
+                                            )],
+            
+                                            # the properties below are optional
+                                            default_option_ref_id="defaultOptionRefId"
+                                        ),
+                                        display_as="displayAs"
+                                    )
+                                ),
+                                weight=123
+                            ),
+                            section=evaluation_form_section_property_
+                        )],
+                        weight=123
+                    )
+                )],
+                status="status",
+                title="title",
+            
+                # the properties below are optional
+                auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
+                    enabled=False
+                ),
+                description="description",
+                scoring_strategy=connect.CfnEvaluationForm.ScoringStrategyProperty(
+                    mode="mode",
+                    status="status"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8aedc75ad)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument items", value=items, expected_type=type_hints["items"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument auto_evaluation_configuration", value=auto_evaluation_configuration, expected_type=type_hints["auto_evaluation_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument scoring_strategy", value=scoring_strategy, expected_type=type_hints["scoring_strategy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "items": items,
+            "status": status,
+            "title": title,
+        }
+        if auto_evaluation_configuration is not None:
+            self._values["auto_evaluation_configuration"] = auto_evaluation_configuration
+        if description is not None:
+            self._values["description"] = description
+        if scoring_strategy is not None:
+            self._values["scoring_strategy"] = scoring_strategy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def items(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.EvaluationFormBaseItemProperty"]]]:
+        '''Items that are part of the evaluation form.
+
+        The total number of sections and questions must not exceed 100 each. Questions must be contained in a section.
+
+        *Minimum size* : 1
+
+        *Maximum size* : 100
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-items
+        '''
+        result = self._values.get("items")
+        assert result is not None, "Required property 'items' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.EvaluationFormBaseItemProperty"]]], result)
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''The status of the evaluation form.
+
+        *Allowed values* : ``DRAFT`` | ``ACTIVE``
+
+        :default: - "DRAFT"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''A title of the evaluation form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_evaluation_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.AutoEvaluationConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-autoevaluationconfiguration
+        '''
+        result = self._values.get("auto_evaluation_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.AutoEvaluationConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the evaluation form.
+
+        *Length Constraints* : Minimum length of 0. Maximum length of 1024.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scoring_strategy(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.ScoringStrategyProperty"]]:
+        '''A scoring strategy of the evaluation form.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-scoringstrategy
+        '''
+        result = self._values.get("scoring_strategy")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEvaluationForm.ScoringStrategyProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEvaluationFormProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnHoursOfOperationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "config": "config",
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "time_zone": "timeZone",
+        "description": "description",
+        "hours_of_operation_overrides": "hoursOfOperationOverrides",
+        "tags": "tags",
+    },
+)
+class CfnHoursOfOperationProps:
+    def __init__(
+        self,
+        *,
+        config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHoursOfOperation.HoursOfOperationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        instance_arn: builtins.str,
+        name: builtins.str,
+        time_zone: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        hours_of_operation_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHoursOfOperation.HoursOfOperationOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHoursOfOperation``.
+
+        :param config: Configuration information for the hours of operation.
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name for the hours of operation.
+        :param time_zone: The time zone for the hours of operation.
+        :param description: The description for the hours of operation.
+        :param hours_of_operation_overrides: One or more hours of operation overrides assigned to an hour of operation.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_hours_of_operation_props = connect.CfnHoursOfOperationProps(
+                config=[connect.CfnHoursOfOperation.HoursOfOperationConfigProperty(
+                    day="day",
+                    end_time=connect.CfnHoursOfOperation.HoursOfOperationTimeSliceProperty(
+                        hours=123,
+                        minutes=123
+                    ),
+                    start_time=connect.CfnHoursOfOperation.HoursOfOperationTimeSliceProperty(
+                        hours=123,
+                        minutes=123
+                    )
+                )],
+                instance_arn="instanceArn",
+                name="name",
+                time_zone="timeZone",
+            
+                # the properties below are optional
+                description="description",
+                hours_of_operation_overrides=[connect.CfnHoursOfOperation.HoursOfOperationOverrideProperty(
+                    effective_from="effectiveFrom",
+                    effective_till="effectiveTill",
+                    override_config=[connect.CfnHoursOfOperation.HoursOfOperationOverrideConfigProperty(
+                        day="day",
+                        end_time=connect.CfnHoursOfOperation.OverrideTimeSliceProperty(
+                            hours=123,
+                            minutes=123
+                        ),
+                        start_time=connect.CfnHoursOfOperation.OverrideTimeSliceProperty(
+                            hours=123,
+                            minutes=123
+                        )
+                    )],
+                    override_name="overrideName",
+            
+                    # the properties below are optional
+                    hours_of_operation_override_id="hoursOfOperationOverrideId",
+                    override_description="overrideDescription"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66cef12b59765322de54d22fe6de568f262a635899fc46cbe6a5f5a97b848467)
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument hours_of_operation_overrides", value=hours_of_operation_overrides, expected_type=type_hints["hours_of_operation_overrides"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "config": config,
+            "instance_arn": instance_arn,
+            "name": name,
+            "time_zone": time_zone,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if hours_of_operation_overrides is not None:
+            self._values["hours_of_operation_overrides"] = hours_of_operation_overrides
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHoursOfOperation.HoursOfOperationConfigProperty"]]]:
+        '''Configuration information for the hours of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-config
+        '''
+        result = self._values.get("config")
+        assert result is not None, "Required property 'config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHoursOfOperation.HoursOfOperationConfigProperty"]]], result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the hours of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def time_zone(self) -> builtins.str:
+        '''The time zone for the hours of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-timezone
+        '''
+        result = self._values.get("time_zone")
+        assert result is not None, "Required property 'time_zone' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for the hours of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hours_of_operation_overrides(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHoursOfOperation.HoursOfOperationOverrideProperty"]]]]:
+        '''One or more hours of operation overrides assigned to an hour of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-hoursofoperationoverrides
+        '''
+        result = self._values.get("hours_of_operation_overrides")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnHoursOfOperation.HoursOfOperationOverrideProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHoursOfOperationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "attributes": "attributes",
+        "identity_management_type": "identityManagementType",
+        "directory_id": "directoryId",
+        "instance_alias": "instanceAlias",
+        "tags": "tags",
+    },
+)
+class CfnInstanceProps:
+    def __init__(
+        self,
+        *,
+        attributes: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstance.AttributesProperty", typing.Dict[builtins.str, typing.Any]]],
+        identity_management_type: builtins.str,
+        directory_id: typing.Optional[builtins.str] = None,
+        instance_alias: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstance``.
+
+        :param attributes: A toggle for an individual feature at the instance level.
+        :param identity_management_type: The identity management type.
+        :param directory_id: The identifier for the directory.
+        :param instance_alias: The alias of instance. ``InstanceAlias`` is only required when ``IdentityManagementType`` is ``CONNECT_MANAGED`` or ``SAML`` . ``InstanceAlias`` is not required when ``IdentityManagementType`` is ``EXISTING_DIRECTORY`` .
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_instance_props = connect.CfnInstanceProps(
+                attributes=connect.CfnInstance.AttributesProperty(
+                    inbound_calls=False,
+                    outbound_calls=False,
+            
+                    # the properties below are optional
+                    auto_resolve_best_voices=False,
+                    contactflow_logs=False,
+                    contact_lens=False,
+                    early_media=False,
+                    enhanced_chat_monitoring=False,
+                    enhanced_contact_monitoring=False,
+                    high_volume_out_bound=False,
+                    multi_party_chat_conference=False,
+                    multi_party_conference=False,
+                    use_custom_tts_voices=False
+                ),
+                identity_management_type="identityManagementType",
+            
+                # the properties below are optional
+                directory_id="directoryId",
+                instance_alias="instanceAlias",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67fdacfbc8ac4206df45637f43843e90e644b42387d3af9173f714ef095953b4)
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument identity_management_type", value=identity_management_type, expected_type=type_hints["identity_management_type"])
+            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
+            check_type(argname="argument instance_alias", value=instance_alias, expected_type=type_hints["instance_alias"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "attributes": attributes,
+            "identity_management_type": identity_management_type,
+        }
+        if directory_id is not None:
+            self._values["directory_id"] = directory_id
+        if instance_alias is not None:
+            self._values["instance_alias"] = instance_alias
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnInstance.AttributesProperty"]:
+        '''A toggle for an individual feature at the instance level.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-attributes
+        '''
+        result = self._values.get("attributes")
+        assert result is not None, "Required property 'attributes' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInstance.AttributesProperty"], result)
+
+    @builtins.property
+    def identity_management_type(self) -> builtins.str:
+        '''The identity management type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-identitymanagementtype
+        '''
+        result = self._values.get("identity_management_type")
+        assert result is not None, "Required property 'identity_management_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def directory_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-directoryid
+        '''
+        result = self._values.get("directory_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_alias(self) -> typing.Optional[builtins.str]:
+        '''The alias of instance.
+
+        ``InstanceAlias`` is only required when ``IdentityManagementType`` is ``CONNECT_MANAGED`` or ``SAML`` . ``InstanceAlias`` is not required when ``IdentityManagementType`` is ``EXISTING_DIRECTORY`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-instancealias
+        '''
+        result = self._values.get("instance_alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnInstanceStorageConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "resource_type": "resourceType",
+        "storage_type": "storageType",
+        "kinesis_firehose_config": "kinesisFirehoseConfig",
+        "kinesis_stream_config": "kinesisStreamConfig",
+        "kinesis_video_stream_config": "kinesisVideoStreamConfig",
+        "s3_config": "s3Config",
+    },
+)
+class CfnInstanceStorageConfigProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        resource_type: builtins.str,
+        storage_type: builtins.str,
+        kinesis_firehose_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceStorageConfig.KinesisFirehoseConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceStorageConfig.KinesisStreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_video_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceStorageConfig.S3ConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceStorageConfig``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param resource_type: A valid resource type. Following are the valid resource types: ``CHAT_TRANSCRIPTS`` | ``CALL_RECORDINGS`` | ``SCHEDULED_REPORTS`` | ``MEDIA_STREAMS`` | ``CONTACT_TRACE_RECORDS`` | ``AGENT_EVENTS``
+        :param storage_type: A valid storage type.
+        :param kinesis_firehose_config: The configuration of the Kinesis Firehose delivery stream.
+        :param kinesis_stream_config: The configuration of the Kinesis data stream.
+        :param kinesis_video_stream_config: The configuration of the Kinesis video stream.
+        :param s3_config: The S3 bucket configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_instance_storage_config_props = connect.CfnInstanceStorageConfigProps(
+                instance_arn="instanceArn",
+                resource_type="resourceType",
+                storage_type="storageType",
+            
+                # the properties below are optional
+                kinesis_firehose_config=connect.CfnInstanceStorageConfig.KinesisFirehoseConfigProperty(
+                    firehose_arn="firehoseArn"
+                ),
+                kinesis_stream_config=connect.CfnInstanceStorageConfig.KinesisStreamConfigProperty(
+                    stream_arn="streamArn"
+                ),
+                kinesis_video_stream_config=connect.CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty(
+                    encryption_config=connect.CfnInstanceStorageConfig.EncryptionConfigProperty(
+                        encryption_type="encryptionType",
+                        key_id="keyId"
+                    ),
+                    prefix="prefix",
+                    retention_period_hours=123
+                ),
+                s3_config=connect.CfnInstanceStorageConfig.S3ConfigProperty(
+                    bucket_name="bucketName",
+                    bucket_prefix="bucketPrefix",
+            
+                    # the properties below are optional
+                    encryption_config=connect.CfnInstanceStorageConfig.EncryptionConfigProperty(
+                        encryption_type="encryptionType",
+                        key_id="keyId"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__220fe9c269db6e3bcb651e492fae1b71e17d6b254dfd6b60c71dc0cda259419b)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
+            check_type(argname="argument kinesis_firehose_config", value=kinesis_firehose_config, expected_type=type_hints["kinesis_firehose_config"])
+            check_type(argname="argument kinesis_stream_config", value=kinesis_stream_config, expected_type=type_hints["kinesis_stream_config"])
+            check_type(argname="argument kinesis_video_stream_config", value=kinesis_video_stream_config, expected_type=type_hints["kinesis_video_stream_config"])
+            check_type(argname="argument s3_config", value=s3_config, expected_type=type_hints["s3_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "resource_type": resource_type,
+            "storage_type": storage_type,
+        }
+        if kinesis_firehose_config is not None:
+            self._values["kinesis_firehose_config"] = kinesis_firehose_config
+        if kinesis_stream_config is not None:
+            self._values["kinesis_stream_config"] = kinesis_stream_config
+        if kinesis_video_stream_config is not None:
+            self._values["kinesis_video_stream_config"] = kinesis_video_stream_config
+        if s3_config is not None:
+            self._values["s3_config"] = s3_config
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_type(self) -> builtins.str:
+        '''A valid resource type.
+
+        Following are the valid resource types: ``CHAT_TRANSCRIPTS`` | ``CALL_RECORDINGS`` | ``SCHEDULED_REPORTS`` | ``MEDIA_STREAMS`` | ``CONTACT_TRACE_RECORDS`` | ``AGENT_EVENTS``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-resourcetype
+        '''
+        result = self._values.get("resource_type")
+        assert result is not None, "Required property 'resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def storage_type(self) -> builtins.str:
+        '''A valid storage type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-storagetype
+        '''
+        result = self._values.get("storage_type")
+        assert result is not None, "Required property 'storage_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kinesis_firehose_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisFirehoseConfigProperty"]]:
+        '''The configuration of the Kinesis Firehose delivery stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisfirehoseconfig
+        '''
+        result = self._values.get("kinesis_firehose_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisFirehoseConfigProperty"]], result)
+
+    @builtins.property
+    def kinesis_stream_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisStreamConfigProperty"]]:
+        '''The configuration of the Kinesis data stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisstreamconfig
+        '''
+        result = self._values.get("kinesis_stream_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisStreamConfigProperty"]], result)
+
+    @builtins.property
+    def kinesis_video_stream_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty"]]:
+        '''The configuration of the Kinesis video stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisvideostreamconfig
+        '''
+        result = self._values.get("kinesis_video_stream_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty"]], result)
+
+    @builtins.property
+    def s3_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.S3ConfigProperty"]]:
+        '''The S3 bucket configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-s3config
+        '''
+        result = self._values.get("s3_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceStorageConfig.S3ConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceStorageConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnIntegrationAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_id": "instanceId",
+        "integration_arn": "integrationArn",
+        "integration_type": "integrationType",
+    },
+)
+class CfnIntegrationAssociationProps:
+    def __init__(
+        self,
+        *,
+        instance_id: builtins.str,
+        integration_arn: builtins.str,
+        integration_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnIntegrationAssociation``.
+
+        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
+        :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
+        :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_integration_association_props = connect.CfnIntegrationAssociationProps(
+                instance_id="instanceId",
+                integration_arn="integrationArn",
+                integration_type="integrationType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3d412d21)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
+            check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "integration_arn": integration_arn,
+            "integration_type": integration_type,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        *Minimum* : ``1``
+
+        *Maximum* : ``100``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-instanceid
+        '''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_arn(self) -> builtins.str:
+        '''ARN of the integration being associated with the instance.
+
+        *Minimum* : ``1``
+
+        *Maximum* : ``140``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-integrationarn
+        '''
+        result = self._values.get("integration_arn")
+        assert result is not None, "Required property 'integration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_type(self) -> builtins.str:
+        '''Specifies the integration type to be associated with the instance.
+
+        *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-integrationtype
+        '''
+        result = self._values.get("integration_type")
+        assert result is not None, "Required property 'integration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntegrationAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnPhoneNumberProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "target_arn": "targetArn",
+        "country_code": "countryCode",
+        "description": "description",
+        "prefix": "prefix",
+        "source_phone_number_arn": "sourcePhoneNumberArn",
+        "tags": "tags",
+        "type": "type",
+    },
+)
+class CfnPhoneNumberProps:
+    def __init__(
+        self,
+        *,
+        target_arn: builtins.str,
+        country_code: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        prefix: typing.Optional[builtins.str] = None,
+        source_phone_number_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPhoneNumber``.
+
+        :param target_arn: The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
+        :param country_code: The ISO country code.
+        :param description: The description of the phone number.
+        :param prefix: The prefix of the phone number. If provided, it must contain ``+`` as part of the country code. *Pattern* : ``^\\\\+[0-9]{1,15}``
+        :param source_phone_number_arn: The claimed phone number ARN that was previously imported from the external service, such as AWS End User Messaging. If it is from AWS End User Messaging, it looks like the ARN of the phone number that was imported from AWS End User Messaging.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+        :param type: The type of phone number.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_phone_number_props = connect.CfnPhoneNumberProps(
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                country_code="countryCode",
+                description="description",
+                prefix="prefix",
+                source_phone_number_arn="sourcePhoneNumberArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9b6cbf832a5409fafc1645b1b1a1567ef5e6d173dfed6d56cae08b977fd4b95)
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
+            check_type(argname="argument source_phone_number_arn", value=source_phone_number_arn, expected_type=type_hints["source_phone_number_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "target_arn": target_arn,
+        }
+        if country_code is not None:
+            self._values["country_code"] = country_code
+        if description is not None:
+            self._values["description"] = description
+        if prefix is not None:
+            self._values["prefix"] = prefix
+        if source_phone_number_arn is not None:
+            self._values["source_phone_number_arn"] = source_phone_number_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-targetarn
+        '''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def country_code(self) -> typing.Optional[builtins.str]:
+        '''The ISO country code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-countrycode
+        '''
+        result = self._values.get("country_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the phone number.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''The prefix of the phone number. If provided, it must contain ``+`` as part of the country code.
+
+        *Pattern* : ``^\\\\+[0-9]{1,15}``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-prefix
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_phone_number_arn(self) -> typing.Optional[builtins.str]:
+        '''The claimed phone number ARN that was previously imported from the external service, such as AWS End User Messaging.
+
+        If it is from AWS End User Messaging, it looks like the ARN of the phone number that was imported from AWS End User Messaging.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-sourcephonenumberarn
+        '''
+        result = self._values.get("source_phone_number_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of phone number.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPhoneNumberProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnPredefinedAttributeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "attribute_configuration": "attributeConfiguration",
+        "purposes": "purposes",
+        "values": "values",
+    },
+)
+class CfnPredefinedAttributeProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.AttributeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.ValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPredefinedAttribute``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name of the predefined attribute.
+        :param attribute_configuration: Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+        :param purposes: The assigned purposes of the predefined attribute.
+        :param values: The values of a predefined attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_predefined_attribute_props = connect.CfnPredefinedAttributeProps(
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                attribute_configuration=connect.CfnPredefinedAttribute.AttributeConfigurationProperty(
+                    enable_value_validation_on_association=False,
+                    is_read_only=False
+                ),
+                purposes=["purposes"],
+                values=connect.CfnPredefinedAttribute.ValuesProperty(
+                    string_list=["stringList"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ecadacc4d)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument attribute_configuration", value=attribute_configuration, expected_type=type_hints["attribute_configuration"])
+            check_type(argname="argument purposes", value=purposes, expected_type=type_hints["purposes"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if attribute_configuration is not None:
+            self._values["attribute_configuration"] = attribute_configuration
+        if purposes is not None:
+            self._values["purposes"] = purposes
+        if values is not None:
+            self._values["values"] = values
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the predefined attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attribute_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.AttributeConfigurationProperty"]]:
+        '''Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-attributeconfiguration
+        '''
+        result = self._values.get("attribute_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.AttributeConfigurationProperty"]], result)
+
+    @builtins.property
+    def purposes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The assigned purposes of the predefined attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-purposes
+        '''
+        result = self._values.get("purposes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def values(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]]:
+        '''The values of a predefined attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-values
+        '''
+        result = self._values.get("values")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPredefinedAttributeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnPromptProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "description": "description",
+        "s3_uri": "s3Uri",
+        "tags": "tags",
+    },
+)
+class CfnPromptProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        s3_uri: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrompt``.
+
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param name: The name of the prompt.
+        :param description: The description of the prompt.
+        :param s3_uri: The URI for the S3 bucket where the prompt is stored. This property is required when you create a prompt.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_prompt_props = connect.CfnPromptProps(
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                s3_uri="s3Uri",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de9fba0f83321ee92a8e37f03749f2012ea66a3d9d17e7a5b3d12208f718130d)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if s3_uri is not None:
+            self._values["s3_uri"] = s3_uri
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_uri(self) -> typing.Optional[builtins.str]:
+        '''The URI for the S3 bucket where the prompt is stored.
+
+        This property is required when you create a prompt.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-s3uri
+        '''
+        result = self._values.get("s3_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPromptProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnQueueProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "hours_of_operation_arn": "hoursOfOperationArn",
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "description": "description",
+        "max_contacts": "maxContacts",
+        "outbound_caller_config": "outboundCallerConfig",
+        "outbound_email_config": "outboundEmailConfig",
+        "quick_connect_arns": "quickConnectArns",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnQueueProps:
+    def __init__(
+        self,
+        *,
+        hours_of_operation_arn: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        max_contacts: typing.Optional[jsii.Number] = None,
+        outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnQueue.OutboundCallerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outbound_email_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnQueue.OutboundEmailConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        quick_connect_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQueue``.
+
+        :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param name: The name of the queue.
+        :param description: The description of the queue.
+        :param max_contacts: The maximum number of contacts that can be in the queue before it is considered full.
+        :param outbound_caller_config: The outbound caller ID name, number, and outbound whisper flow.
+        :param outbound_email_config: The outbound email address ID for a specified queue.
+        :param quick_connect_arns: The Amazon Resource Names (ARN) of the of the quick connects available to agents who are working the queue.
+        :param status: The status of the queue.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_queue_props = connect.CfnQueueProps(
+                hours_of_operation_arn="hoursOfOperationArn",
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                max_contacts=123,
+                outbound_caller_config=connect.CfnQueue.OutboundCallerConfigProperty(
+                    outbound_caller_id_name="outboundCallerIdName",
+                    outbound_caller_id_number_arn="outboundCallerIdNumberArn",
+                    outbound_flow_arn="outboundFlowArn"
+                ),
+                outbound_email_config=connect.CfnQueue.OutboundEmailConfigProperty(
+                    outbound_email_address_id="outboundEmailAddressId"
+                ),
+                quick_connect_arns=["quickConnectArns"],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baa26a31f9cdaa2c1ff32bcd44e00a08477582db0c01e27c9e1a60c3e96a8bce)
+            check_type(argname="argument hours_of_operation_arn", value=hours_of_operation_arn, expected_type=type_hints["hours_of_operation_arn"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument max_contacts", value=max_contacts, expected_type=type_hints["max_contacts"])
+            check_type(argname="argument outbound_caller_config", value=outbound_caller_config, expected_type=type_hints["outbound_caller_config"])
+            check_type(argname="argument outbound_email_config", value=outbound_email_config, expected_type=type_hints["outbound_email_config"])
+            check_type(argname="argument quick_connect_arns", value=quick_connect_arns, expected_type=type_hints["quick_connect_arns"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hours_of_operation_arn": hours_of_operation_arn,
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if max_contacts is not None:
+            self._values["max_contacts"] = max_contacts
+        if outbound_caller_config is not None:
+            self._values["outbound_caller_config"] = outbound_caller_config
+        if outbound_email_config is not None:
+            self._values["outbound_email_config"] = outbound_email_config
+        if quick_connect_arns is not None:
+            self._values["quick_connect_arns"] = quick_connect_arns
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def hours_of_operation_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the hours of operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-hoursofoperationarn
+        '''
+        result = self._values.get("hours_of_operation_arn")
+        assert result is not None, "Required property 'hours_of_operation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_contacts(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of contacts that can be in the queue before it is considered full.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-maxcontacts
+        '''
+        result = self._values.get("max_contacts")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def outbound_caller_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQueue.OutboundCallerConfigProperty"]]:
+        '''The outbound caller ID name, number, and outbound whisper flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-outboundcallerconfig
+        '''
+        result = self._values.get("outbound_caller_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQueue.OutboundCallerConfigProperty"]], result)
+
+    @builtins.property
+    def outbound_email_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQueue.OutboundEmailConfigProperty"]]:
+        '''The outbound email address ID for a specified queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-outboundemailconfig
+        '''
+        result = self._values.get("outbound_email_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnQueue.OutboundEmailConfigProperty"]], result)
+
+    @builtins.property
+    def quick_connect_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Names (ARN) of the of the quick connects available to agents who are working the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-quickconnectarns
+        '''
+        result = self._values.get("quick_connect_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQueueProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnQuickConnectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "quick_connect_config": "quickConnectConfig",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnQuickConnectProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        quick_connect_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnQuickConnect.QuickConnectConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQuickConnect``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name of the quick connect.
+        :param quick_connect_config: Contains information about the quick connect.
+        :param description: The description of the quick connect.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_quick_connect_props = connect.CfnQuickConnectProps(
+                instance_arn="instanceArn",
+                name="name",
+                quick_connect_config=connect.CfnQuickConnect.QuickConnectConfigProperty(
+                    quick_connect_type="quickConnectType",
+            
+                    # the properties below are optional
+                    phone_config=connect.CfnQuickConnect.PhoneNumberQuickConnectConfigProperty(
+                        phone_number="phoneNumber"
+                    ),
+                    queue_config=connect.CfnQuickConnect.QueueQuickConnectConfigProperty(
+                        contact_flow_arn="contactFlowArn",
+                        queue_arn="queueArn"
+                    ),
+                    user_config=connect.CfnQuickConnect.UserQuickConnectConfigProperty(
+                        contact_flow_arn="contactFlowArn",
+                        user_arn="userArn"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d4ffda8775de853a0509cc15bc43b59e37fc8f6d1d2c110c1202c4192841fbd)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument quick_connect_config", value=quick_connect_config, expected_type=type_hints["quick_connect_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+            "quick_connect_config": quick_connect_config,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the quick connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def quick_connect_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnQuickConnect.QuickConnectConfigProperty"]:
+        '''Contains information about the quick connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-quickconnectconfig
+        '''
+        result = self._values.get("quick_connect_config")
+        assert result is not None, "Required property 'quick_connect_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnQuickConnect.QuickConnectConfigProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the quick connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQuickConnectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnRoutingProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_outbound_queue_arn": "defaultOutboundQueueArn",
+        "description": "description",
+        "instance_arn": "instanceArn",
+        "media_concurrencies": "mediaConcurrencies",
+        "name": "name",
+        "agent_availability_timer": "agentAvailabilityTimer",
+        "queue_configs": "queueConfigs",
+        "tags": "tags",
+    },
+)
+class CfnRoutingProfileProps:
+    def __init__(
+        self,
+        *,
+        default_outbound_queue_arn: builtins.str,
+        description: builtins.str,
+        instance_arn: builtins.str,
+        media_concurrencies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRoutingProfile.MediaConcurrencyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        agent_availability_timer: typing.Optional[builtins.str] = None,
+        queue_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRoutingProfile.RoutingProfileQueueConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRoutingProfile``.
+
+        :param default_outbound_queue_arn: The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
+        :param description: The description of the routing profile.
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param media_concurrencies: The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
+        :param name: The name of the routing profile.
+        :param agent_availability_timer: Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
+        :param queue_configs: The inbound queues associated with the routing profile. If no queue is added, the agent can make only outbound calls.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_routing_profile_props = connect.CfnRoutingProfileProps(
+                default_outbound_queue_arn="defaultOutboundQueueArn",
+                description="description",
+                instance_arn="instanceArn",
+                media_concurrencies=[connect.CfnRoutingProfile.MediaConcurrencyProperty(
+                    channel="channel",
+                    concurrency=123,
+            
+                    # the properties below are optional
+                    cross_channel_behavior=connect.CfnRoutingProfile.CrossChannelBehaviorProperty(
+                        behavior_type="behaviorType"
+                    )
+                )],
+                name="name",
+            
+                # the properties below are optional
+                agent_availability_timer="agentAvailabilityTimer",
+                queue_configs=[connect.CfnRoutingProfile.RoutingProfileQueueConfigProperty(
+                    delay=123,
+                    priority=123,
+                    queue_reference=connect.CfnRoutingProfile.RoutingProfileQueueReferenceProperty(
+                        channel="channel",
+                        queue_arn="queueArn"
+                    )
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c352ac5c14b7a76c3094c7e1595be9aaa093440801508c4780610a6d26b66aa7)
+            check_type(argname="argument default_outbound_queue_arn", value=default_outbound_queue_arn, expected_type=type_hints["default_outbound_queue_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument media_concurrencies", value=media_concurrencies, expected_type=type_hints["media_concurrencies"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument agent_availability_timer", value=agent_availability_timer, expected_type=type_hints["agent_availability_timer"])
+            check_type(argname="argument queue_configs", value=queue_configs, expected_type=type_hints["queue_configs"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_outbound_queue_arn": default_outbound_queue_arn,
+            "description": description,
+            "instance_arn": instance_arn,
+            "media_concurrencies": media_concurrencies,
+            "name": name,
+        }
+        if agent_availability_timer is not None:
+            self._values["agent_availability_timer"] = agent_availability_timer
+        if queue_configs is not None:
+            self._values["queue_configs"] = queue_configs
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def default_outbound_queue_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-defaultoutboundqueuearn
+        '''
+        result = self._values.get("default_outbound_queue_arn")
+        assert result is not None, "Required property 'default_outbound_queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the routing profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def media_concurrencies(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRoutingProfile.MediaConcurrencyProperty"]]]:
+        '''The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-mediaconcurrencies
+        '''
+        result = self._values.get("media_concurrencies")
+        assert result is not None, "Required property 'media_concurrencies' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRoutingProfile.MediaConcurrencyProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the routing profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_availability_timer(self) -> typing.Optional[builtins.str]:
+        '''Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-agentavailabilitytimer
+        '''
+        result = self._values.get("agent_availability_timer")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def queue_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRoutingProfile.RoutingProfileQueueConfigProperty"]]]]:
+        '''The inbound queues associated with the routing profile.
+
+        If no queue is added, the agent can make only outbound calls.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-queueconfigs
+        '''
+        result = self._values.get("queue_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRoutingProfile.RoutingProfileQueueConfigProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRoutingProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "function": "function",
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "publish_status": "publishStatus",
+        "trigger_event_source": "triggerEventSource",
+        "tags": "tags",
+    },
+)
+class CfnRuleProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ActionsProperty", typing.Dict[builtins.str, typing.Any]]],
+        function: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        publish_status: builtins.str,
+        trigger_event_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.RuleTriggerEventSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRule``.
+
+        :param actions: A list of actions to be run when the rule is triggered.
+        :param function: The conditions of the rule.
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name of the rule.
+        :param publish_status: The publish status of the rule. *Allowed values* : ``DRAFT`` | ``PUBLISHED``
+        :param trigger_event_source: The event source to trigger the rule.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            # assign_contact_category_actions: Any
+            # empty_value: Any
+            # end_associated_tasks_actions: Any
+            
+            cfn_rule_props = connect.CfnRuleProps(
+                actions=connect.CfnRule.ActionsProperty(
+                    assign_contact_category_actions=[assign_contact_category_actions],
+                    create_case_actions=[connect.CfnRule.CreateCaseActionProperty(
+                        fields=[connect.CfnRule.FieldProperty(
+                            id="id",
+                            value=connect.CfnRule.FieldValueProperty(
+                                boolean_value=False,
+                                double_value=123,
+                                empty_value=empty_value,
+                                string_value="stringValue"
+                            )
+                        )],
+                        template_id="templateId"
+                    )],
+                    end_associated_tasks_actions=[end_associated_tasks_actions],
+                    event_bridge_actions=[connect.CfnRule.EventBridgeActionProperty(
+                        name="name"
+                    )],
+                    send_notification_actions=[connect.CfnRule.SendNotificationActionProperty(
+                        content="content",
+                        content_type="contentType",
+                        delivery_method="deliveryMethod",
+                        recipient=connect.CfnRule.NotificationRecipientTypeProperty(
+                            user_arns=["userArns"],
+                            user_tags={
+                                "user_tags_key": "userTags"
+                            }
+                        ),
+            
+                        # the properties below are optional
+                        subject="subject"
+                    )],
+                    submit_auto_evaluation_actions=[connect.CfnRule.SubmitAutoEvaluationActionProperty(
+                        evaluation_form_arn="evaluationFormArn"
+                    )],
+                    task_actions=[connect.CfnRule.TaskActionProperty(
+                        contact_flow_arn="contactFlowArn",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description",
+                        references={
+                            "references_key": connect.CfnRule.ReferenceProperty(
+                                type="type",
+                                value="value"
+                            )
+                        }
+                    )],
+                    update_case_actions=[connect.CfnRule.UpdateCaseActionProperty(
+                        fields=[connect.CfnRule.FieldProperty(
+                            id="id",
+                            value=connect.CfnRule.FieldValueProperty(
+                                boolean_value=False,
+                                double_value=123,
+                                empty_value=empty_value,
+                                string_value="stringValue"
+                            )
+                        )]
+                    )]
+                ),
+                function="function",
+                instance_arn="instanceArn",
+                name="name",
+                publish_status="publishStatus",
+                trigger_event_source=connect.CfnRule.RuleTriggerEventSourceProperty(
+                    event_source_name="eventSourceName",
+            
+                    # the properties below are optional
+                    integration_association_arn="integrationAssociationArn"
+                ),
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86228e744389fdc43748e3523fb391089cfd59a98fc3cac55a6aff07ca243441)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument function", value=function, expected_type=type_hints["function"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument publish_status", value=publish_status, expected_type=type_hints["publish_status"])
+            check_type(argname="argument trigger_event_source", value=trigger_event_source, expected_type=type_hints["trigger_event_source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "function": function,
+            "instance_arn": instance_arn,
+            "name": name,
+            "publish_status": publish_status,
+            "trigger_event_source": trigger_event_source,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(self) -> typing.Union[_IResolvable_da3f097b, "CfnRule.ActionsProperty"]:
+        '''A list of actions to be run when the rule is triggered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.ActionsProperty"], result)
+
+    @builtins.property
+    def function(self) -> builtins.str:
+        '''The conditions of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-function
+        '''
+        result = self._values.get("function")
+        assert result is not None, "Required property 'function' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def publish_status(self) -> builtins.str:
+        '''The publish status of the rule.
+
+        *Allowed values* : ``DRAFT`` | ``PUBLISHED``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-publishstatus
+        '''
+        result = self._values.get("publish_status")
+        assert result is not None, "Required property 'publish_status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def trigger_event_source(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnRule.RuleTriggerEventSourceProperty"]:
+        '''The event source to trigger the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-triggereventsource
+        '''
+        result = self._values.get("trigger_event_source")
+        assert result is not None, "Required property 'trigger_event_source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.RuleTriggerEventSourceProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnSecurityKeyProps",
+    jsii_struct_bases=[],
+    name_mapping={"instance_id": "instanceId", "key": "key"},
+)
+class CfnSecurityKeyProps:
+    def __init__(self, *, instance_id: builtins.str, key: builtins.str) -> None:
+        '''Properties for defining a ``CfnSecurityKey``.
+
+        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
+        :param key: A valid security key in PEM format. For example:. ``"-----BEGIN PUBLIC KEY-----\\ [a lot of characters] ----END PUBLIC KEY-----"`` *Minimum* : ``1`` *Maximum* : ``1024``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_security_key_props = connect.CfnSecurityKeyProps(
+                instance_id="instanceId",
+                key="key"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__328945501d2d11db9e341c31e7f88f7eaea8695d95d7c557b2d470e619744f5e)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "key": key,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        *Minimum* : ``1``
+
+        *Maximum* : ``100``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html#cfn-connect-securitykey-instanceid
+        '''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def key(self) -> builtins.str:
+        '''A valid security key in PEM format. For example:.
+
+        ``"-----BEGIN PUBLIC KEY-----\\ [a lot of characters] ----END PUBLIC KEY-----"``
+
+        *Minimum* : ``1``
+
+        *Maximum* : ``1024``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html#cfn-connect-securitykey-key
+        '''
+        result = self._values.get("key")
+        assert result is not None, "Required property 'key' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityKeyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnSecurityProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "security_profile_name": "securityProfileName",
+        "allowed_access_control_hierarchy_group_id": "allowedAccessControlHierarchyGroupId",
+        "allowed_access_control_tags": "allowedAccessControlTags",
+        "applications": "applications",
+        "description": "description",
+        "hierarchy_restricted_resources": "hierarchyRestrictedResources",
+        "permissions": "permissions",
+        "tag_restricted_resources": "tagRestrictedResources",
+        "tags": "tags",
+    },
+)
+class CfnSecurityProfileProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        security_profile_name: builtins.str,
+        allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
+        allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityProfile.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        hierarchy_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tag_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityProfile``.
+
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param security_profile_name: The name for the security profile.
+        :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
+        :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
+        :param applications: A list of third-party applications that the security profile will give access to.
+        :param description: The description of the security profile.
+        :param hierarchy_restricted_resources: The list of resources that a security profile applies hierarchy restrictions to in Amazon Connect. Following are acceptable ResourceNames: ``User`` .
+        :param permissions: Permissions assigned to the security profile. For a list of valid permissions, see `List of security profile permissions <https://docs.aws.amazon.com/connect/latest/adminguide/security-profile-list.html>`_ .
+        :param tag_restricted_resources: The list of resources that a security profile applies tag restrictions to in Amazon Connect.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_security_profile_props = connect.CfnSecurityProfileProps(
+                instance_arn="instanceArn",
+                security_profile_name="securityProfileName",
+            
+                # the properties below are optional
+                allowed_access_control_hierarchy_group_id="allowedAccessControlHierarchyGroupId",
+                allowed_access_control_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                applications=[connect.CfnSecurityProfile.ApplicationProperty(
+                    application_permissions=["applicationPermissions"],
+                    namespace="namespace"
+                )],
+                description="description",
+                hierarchy_restricted_resources=["hierarchyRestrictedResources"],
+                permissions=["permissions"],
+                tag_restricted_resources=["tagRestrictedResources"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a8ad9faa5e934c4966c739f0b5e3756a03460ba17b7caf0aca4e26118e04c95)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
+            check_type(argname="argument allowed_access_control_hierarchy_group_id", value=allowed_access_control_hierarchy_group_id, expected_type=type_hints["allowed_access_control_hierarchy_group_id"])
+            check_type(argname="argument allowed_access_control_tags", value=allowed_access_control_tags, expected_type=type_hints["allowed_access_control_tags"])
+            check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument hierarchy_restricted_resources", value=hierarchy_restricted_resources, expected_type=type_hints["hierarchy_restricted_resources"])
+            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
+            check_type(argname="argument tag_restricted_resources", value=tag_restricted_resources, expected_type=type_hints["tag_restricted_resources"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "security_profile_name": security_profile_name,
+        }
+        if allowed_access_control_hierarchy_group_id is not None:
+            self._values["allowed_access_control_hierarchy_group_id"] = allowed_access_control_hierarchy_group_id
+        if allowed_access_control_tags is not None:
+            self._values["allowed_access_control_tags"] = allowed_access_control_tags
+        if applications is not None:
+            self._values["applications"] = applications
+        if description is not None:
+            self._values["description"] = description
+        if hierarchy_restricted_resources is not None:
+            self._values["hierarchy_restricted_resources"] = hierarchy_restricted_resources
+        if permissions is not None:
+            self._values["permissions"] = permissions
+        if tag_restricted_resources is not None:
+            self._values["tag_restricted_resources"] = tag_restricted_resources
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_profile_name(self) -> builtins.str:
+        '''The name for the security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-securityprofilename
+        '''
+        result = self._values.get("security_profile_name")
+        assert result is not None, "Required property 'security_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allowed_access_control_hierarchy_group_id(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-allowedaccesscontrolhierarchygroupid
+        '''
+        result = self._values.get("allowed_access_control_hierarchy_group_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def allowed_access_control_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+        '''The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-allowedaccesscontroltags
+        '''
+        result = self._values.get("allowed_access_control_tags")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
+
+    @builtins.property
+    def applications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.ApplicationProperty"]]]]:
+        '''A list of third-party applications that the security profile will give access to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-applications
+        '''
+        result = self._values.get("applications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.ApplicationProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hierarchy_restricted_resources(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of resources that a security profile applies hierarchy restrictions to in Amazon Connect.
+
+        Following are acceptable ResourceNames: ``User`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-hierarchyrestrictedresources
+        '''
+        result = self._values.get("hierarchy_restricted_resources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Permissions assigned to the security profile.
+
+        For a list of valid permissions, see `List of security profile permissions <https://docs.aws.amazon.com/connect/latest/adminguide/security-profile-list.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-permissions
+        '''
+        result = self._values.get("permissions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tag_restricted_resources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of resources that a security profile applies tag restrictions to in Amazon Connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-tagrestrictedresources
+        '''
+        result = self._values.get("tag_restricted_resources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnTaskTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "client_token": "clientToken",
+        "constraints": "constraints",
+        "contact_flow_arn": "contactFlowArn",
+        "defaults": "defaults",
+        "description": "description",
+        "fields": "fields",
+        "name": "name",
+        "self_assign_contact_flow_arn": "selfAssignContactFlowArn",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnTaskTemplateProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        client_token: typing.Optional[builtins.str] = None,
+        constraints: typing.Any = None,
+        contact_flow_arn: typing.Optional[builtins.str] = None,
+        defaults: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTaskTemplate.DefaultFieldValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTaskTemplate.FieldProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        self_assign_contact_flow_arn: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTaskTemplate``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+        :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
+        :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
+        :param defaults: The default values for fields when a task is created by referencing this template.
+        :param description: The description of the task template.
+        :param fields: Fields that are part of the template. A template requires at least one field that has type ``Name`` .
+        :param name: The name of the task template.
+        :param self_assign_contact_flow_arn: The Amazon Resource Name (ARN) of the flow.
+        :param status: The status of the task template.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            # constraints: Any
+            
+            cfn_task_template_props = connect.CfnTaskTemplateProps(
+                instance_arn="instanceArn",
+            
+                # the properties below are optional
+                client_token="clientToken",
+                constraints=constraints,
+                contact_flow_arn="contactFlowArn",
+                defaults=[connect.CfnTaskTemplate.DefaultFieldValueProperty(
+                    default_value="defaultValue",
+                    id=connect.CfnTaskTemplate.FieldIdentifierProperty(
+                        name="name"
+                    )
+                )],
+                description="description",
+                fields=[connect.CfnTaskTemplate.FieldProperty(
+                    id=connect.CfnTaskTemplate.FieldIdentifierProperty(
+                        name="name"
+                    ),
+                    type="type",
+            
+                    # the properties below are optional
+                    description="description",
+                    single_select_options=["singleSelectOptions"]
+                )],
+                name="name",
+                self_assign_contact_flow_arn="selfAssignContactFlowArn",
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ffa2d0f88c266e5f2522dfd1af262def0d3061b82ebb529283e7afc28ef8b7bb)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
+            check_type(argname="argument constraints", value=constraints, expected_type=type_hints["constraints"])
+            check_type(argname="argument contact_flow_arn", value=contact_flow_arn, expected_type=type_hints["contact_flow_arn"])
+            check_type(argname="argument defaults", value=defaults, expected_type=type_hints["defaults"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument self_assign_contact_flow_arn", value=self_assign_contact_flow_arn, expected_type=type_hints["self_assign_contact_flow_arn"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+        if client_token is not None:
+            self._values["client_token"] = client_token
+        if constraints is not None:
+            self._values["constraints"] = constraints
+        if contact_flow_arn is not None:
+            self._values["contact_flow_arn"] = contact_flow_arn
+        if defaults is not None:
+            self._values["defaults"] = defaults
+        if description is not None:
+            self._values["description"] = description
+        if fields is not None:
+            self._values["fields"] = fields
+        if name is not None:
+            self._values["name"] = name
+        if self_assign_contact_flow_arn is not None:
+            self._values["self_assign_contact_flow_arn"] = self_assign_contact_flow_arn
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_token(self) -> typing.Optional[builtins.str]:
+        '''A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-clienttoken
+        '''
+        result = self._values.get("client_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def constraints(self) -> typing.Any:
+        '''Constraints that are applicable to the fields listed.
+
+        The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-constraints
+        '''
+        result = self._values.get("constraints")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def contact_flow_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template.
+
+        ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-contactflowarn
+        '''
+        result = self._values.get("contact_flow_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def defaults(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTaskTemplate.DefaultFieldValueProperty"]]]]:
+        '''The default values for fields when a task is created by referencing this template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-defaults
+        '''
+        result = self._values.get("defaults")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTaskTemplate.DefaultFieldValueProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the task template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fields(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTaskTemplate.FieldProperty"]]]]:
+        '''Fields that are part of the template.
+
+        A template requires at least one field that has type ``Name`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-fields
+        '''
+        result = self._values.get("fields")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTaskTemplate.FieldProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the task template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def self_assign_contact_flow_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-selfassigncontactflowarn
+        '''
+        result = self._values.get("self_assign_contact_flow_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the task template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTaskTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnTrafficDistributionGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnTrafficDistributionGroupProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrafficDistributionGroup``.
+
+        :param instance_arn: The Amazon Resource Name (ARN).
+        :param name: The name of the traffic distribution group.
+        :param description: The description of the traffic distribution group.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, {"tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_traffic_distribution_group_props = connect.CfnTrafficDistributionGroupProps(
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__399ed170d743f73906db5f85382e2ff094eded44d1c9ecad71243420bd137725)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the traffic distribution group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the traffic distribution group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        For example, {"tags": {"key1":"value1", "key2":"value2"} }.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrafficDistributionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnUserHierarchyGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "parent_group_arn": "parentGroupArn",
+        "tags": "tags",
+    },
+)
+class CfnUserHierarchyGroupProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        parent_group_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserHierarchyGroup``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the user hierarchy group.
+        :param name: The name of the user hierarchy group.
+        :param parent_group_arn: The Amazon Resource Name (ARN) of the parent group.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_user_hierarchy_group_props = connect.CfnUserHierarchyGroupProps(
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                parent_group_arn="parentGroupArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51f9a797f445ffc1deaff140a69a030bdb25f3fa135ef233a56621cf7d99867c)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_group_arn", value=parent_group_arn, expected_type=type_hints["parent_group_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if parent_group_arn is not None:
+            self._values["parent_group_arn"] = parent_group_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the user hierarchy group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the user hierarchy group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parent_group_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the parent group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-parentgrouparn
+        '''
+        result = self._values.get("parent_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserHierarchyGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnUserHierarchyStructureProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "user_hierarchy_structure": "userHierarchyStructure",
+    },
+)
+class CfnUserHierarchyStructureProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        user_hierarchy_structure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserHierarchyStructure.UserHierarchyStructureProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserHierarchyStructure``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param user_hierarchy_structure: Contains information about a hierarchy structure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_user_hierarchy_structure_props = connect.CfnUserHierarchyStructureProps(
+                instance_arn="instanceArn",
+            
+                # the properties below are optional
+                user_hierarchy_structure=connect.CfnUserHierarchyStructure.UserHierarchyStructureProperty(
+                    level_five=connect.CfnUserHierarchyStructure.LevelFiveProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hierarchy_level_arn="hierarchyLevelArn",
+                        hierarchy_level_id="hierarchyLevelId"
+                    ),
+                    level_four=connect.CfnUserHierarchyStructure.LevelFourProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hierarchy_level_arn="hierarchyLevelArn",
+                        hierarchy_level_id="hierarchyLevelId"
+                    ),
+                    level_one=connect.CfnUserHierarchyStructure.LevelOneProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hierarchy_level_arn="hierarchyLevelArn",
+                        hierarchy_level_id="hierarchyLevelId"
+                    ),
+                    level_three=connect.CfnUserHierarchyStructure.LevelThreeProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hierarchy_level_arn="hierarchyLevelArn",
+                        hierarchy_level_id="hierarchyLevelId"
+                    ),
+                    level_two=connect.CfnUserHierarchyStructure.LevelTwoProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        hierarchy_level_arn="hierarchyLevelArn",
+                        hierarchy_level_id="hierarchyLevelId"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ef8ab1a9f85518aac6fecbf1c6c15b8b8e1c433138b08b759d4bc60035a64a4)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument user_hierarchy_structure", value=user_hierarchy_structure, expected_type=type_hints["user_hierarchy_structure"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+        if user_hierarchy_structure is not None:
+            self._values["user_hierarchy_structure"] = user_hierarchy_structure
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html#cfn-connect-userhierarchystructure-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_hierarchy_structure(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserHierarchyStructure.UserHierarchyStructureProperty"]]:
+        '''Contains information about a hierarchy structure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html#cfn-connect-userhierarchystructure-userhierarchystructure
+        '''
+        result = self._values.get("user_hierarchy_structure")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserHierarchyStructure.UserHierarchyStructureProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserHierarchyStructureProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnUserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "phone_config": "phoneConfig",
+        "routing_profile_arn": "routingProfileArn",
+        "security_profile_arns": "securityProfileArns",
+        "username": "username",
+        "directory_user_id": "directoryUserId",
+        "hierarchy_group_arn": "hierarchyGroupArn",
+        "identity_info": "identityInfo",
+        "password": "password",
+        "tags": "tags",
+        "user_proficiencies": "userProficiencies",
+    },
+)
+class CfnUserProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        phone_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.UserPhoneConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        routing_profile_arn: builtins.str,
+        security_profile_arns: typing.Sequence[builtins.str],
+        username: builtins.str,
+        directory_user_id: typing.Optional[builtins.str] = None,
+        hierarchy_group_arn: typing.Optional[builtins.str] = None,
+        identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.UserIdentityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        password: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.UserProficiencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUser``.
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param phone_config: Information about the phone configuration for the user.
+        :param routing_profile_arn: The Amazon Resource Name (ARN) of the user's routing profile.
+        :param security_profile_arns: The Amazon Resource Name (ARN) of the user's security profile.
+        :param username: The user name assigned to the user account.
+        :param directory_user_id: The identifier of the user account in the directory used for identity management.
+        :param hierarchy_group_arn: The Amazon Resource Name (ARN) of the user's hierarchy group.
+        :param identity_info: Information about the user identity.
+        :param password: The user's password.
+        :param tags: The tags.
+        :param user_proficiencies: One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_user_props = connect.CfnUserProps(
+                instance_arn="instanceArn",
+                phone_config=connect.CfnUser.UserPhoneConfigProperty(
+                    phone_type="phoneType",
+            
+                    # the properties below are optional
+                    after_contact_work_time_limit=123,
+                    auto_accept=False,
+                    desk_phone_number="deskPhoneNumber",
+                    persistent_connection=False
+                ),
+                routing_profile_arn="routingProfileArn",
+                security_profile_arns=["securityProfileArns"],
+                username="username",
+            
+                # the properties below are optional
+                directory_user_id="directoryUserId",
+                hierarchy_group_arn="hierarchyGroupArn",
+                identity_info=connect.CfnUser.UserIdentityInfoProperty(
+                    email="email",
+                    first_name="firstName",
+                    last_name="lastName",
+                    mobile="mobile",
+                    secondary_email="secondaryEmail"
+                ),
+                password="password",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                user_proficiencies=[connect.CfnUser.UserProficiencyProperty(
+                    attribute_name="attributeName",
+                    attribute_value="attributeValue",
+                    level=123
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument phone_config", value=phone_config, expected_type=type_hints["phone_config"])
+            check_type(argname="argument routing_profile_arn", value=routing_profile_arn, expected_type=type_hints["routing_profile_arn"])
+            check_type(argname="argument security_profile_arns", value=security_profile_arns, expected_type=type_hints["security_profile_arns"])
+            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            check_type(argname="argument directory_user_id", value=directory_user_id, expected_type=type_hints["directory_user_id"])
+            check_type(argname="argument hierarchy_group_arn", value=hierarchy_group_arn, expected_type=type_hints["hierarchy_group_arn"])
+            check_type(argname="argument identity_info", value=identity_info, expected_type=type_hints["identity_info"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument user_proficiencies", value=user_proficiencies, expected_type=type_hints["user_proficiencies"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "phone_config": phone_config,
+            "routing_profile_arn": routing_profile_arn,
+            "security_profile_arns": security_profile_arns,
+            "username": username,
+        }
+        if directory_user_id is not None:
+            self._values["directory_user_id"] = directory_user_id
+        if hierarchy_group_arn is not None:
+            self._values["hierarchy_group_arn"] = hierarchy_group_arn
+        if identity_info is not None:
+            self._values["identity_info"] = identity_info
+        if password is not None:
+            self._values["password"] = password
+        if tags is not None:
+            self._values["tags"] = tags
+        if user_proficiencies is not None:
+            self._values["user_proficiencies"] = user_proficiencies
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def phone_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnUser.UserPhoneConfigProperty"]:
+        '''Information about the phone configuration for the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-phoneconfig
+        '''
+        result = self._values.get("phone_config")
+        assert result is not None, "Required property 'phone_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnUser.UserPhoneConfigProperty"], result)
+
+    @builtins.property
+    def routing_profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the user's routing profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-routingprofilearn
+        '''
+        result = self._values.get("routing_profile_arn")
+        assert result is not None, "Required property 'routing_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_profile_arns(self) -> typing.List[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the user's security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-securityprofilearns
+        '''
+        result = self._values.get("security_profile_arns")
+        assert result is not None, "Required property 'security_profile_arns' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def username(self) -> builtins.str:
+        '''The user name assigned to the user account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-username
+        '''
+        result = self._values.get("username")
+        assert result is not None, "Required property 'username' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def directory_user_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the user account in the directory used for identity management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-directoryuserid
+        '''
+        result = self._values.get("directory_user_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hierarchy_group_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the user's hierarchy group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-hierarchygrouparn
+        '''
+        result = self._values.get("hierarchy_group_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_info(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.UserIdentityInfoProperty"]]:
+        '''Information about the user identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-identityinfo
+        '''
+        result = self._values.get("identity_info")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.UserIdentityInfoProperty"]], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The user's password.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def user_proficiencies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.UserProficiencyProperty"]]]]:
+        '''One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-userproficiencies
+        '''
+        result = self._values.get("user_proficiencies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.UserProficiencyProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnViewProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "template": "template",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnViewProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Sequence[builtins.str],
+        instance_arn: builtins.str,
+        name: builtins.str,
+        template: typing.Any,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnView``.
+
+        :param actions: A list of actions possible from the view.
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name of the view.
+        :param template: The view template representing the structure of the view.
+        :param description: The description of the view.
+        :param tags: The tags associated with the view resource (not specific to view version).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            # template: Any
+            
+            cfn_view_props = connect.CfnViewProps(
+                actions=["actions"],
+                instance_arn="instanceArn",
+                name="name",
+                template=template,
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f907c1817accd77cdb1d6d91c707e676a4ecb33911eb5e958e9ef56a1cda0cbd)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument template", value=template, expected_type=type_hints["template"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "instance_arn": instance_arn,
+            "name": name,
+            "template": template,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(self) -> typing.List[builtins.str]:
+        '''A list of actions possible from the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template(self) -> typing.Any:
+        '''The view template representing the structure of the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-template
+        '''
+        result = self._values.get("template")
+        assert result is not None, "Required property 'template' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags associated with the view resource (not specific to view version).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnViewProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnViewVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "view_arn": "viewArn",
+        "version_description": "versionDescription",
+        "view_content_sha256": "viewContentSha256",
+    },
+)
+class CfnViewVersionProps:
+    def __init__(
+        self,
+        *,
+        view_arn: builtins.str,
+        version_description: typing.Optional[builtins.str] = None,
+        view_content_sha256: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnViewVersion``.
+
+        :param view_arn: The unqualified Amazon Resource Name (ARN) of the view. For example: ``arn:<partition>:connect:<region>:<accountId>:instance/00000000-0000-0000-0000-000000000000/view/00000000-0000-0000-0000-000000000000``
+        :param version_description: The description of the view version.
+        :param view_content_sha256: Indicates the checksum value of the latest published view content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_view_version_props = connect.CfnViewVersionProps(
+                view_arn="viewArn",
+            
+                # the properties below are optional
+                version_description="versionDescription",
+                view_content_sha256="viewContentSha256"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__625c576cd29cfea7eb8a7d7197edcd80462fd0eac7870bac9066ac9fee2ad619)
+            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
+            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
+            check_type(argname="argument view_content_sha256", value=view_content_sha256, expected_type=type_hints["view_content_sha256"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_arn": view_arn,
+        }
+        if version_description is not None:
+            self._values["version_description"] = version_description
+        if view_content_sha256 is not None:
+            self._values["view_content_sha256"] = view_content_sha256
+
+    @builtins.property
+    def view_arn(self) -> builtins.str:
+        '''The unqualified Amazon Resource Name (ARN) of the view.
+
+        For example:
+
+        ``arn:<partition>:connect:<region>:<accountId>:instance/00000000-0000-0000-0000-000000000000/view/00000000-0000-0000-0000-000000000000``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-viewarn
+        '''
+        result = self._values.get("view_arn")
+        assert result is not None, "Required property 'view_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the view version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-versiondescription
+        '''
+        result = self._values.get("version_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def view_content_sha256(self) -> typing.Optional[builtins.str]:
+        '''Indicates the checksum value of the latest published view content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-viewcontentsha256
+        '''
+        result = self._values.get("view_content_sha256")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnViewVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ContactFlowModuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_flow_module_arn": "contactFlowModuleArn"},
+)
+class ContactFlowModuleReference:
+    def __init__(self, *, contact_flow_module_arn: builtins.str) -> None:
+        '''A reference to a ContactFlowModule resource.
+
+        :param contact_flow_module_arn: The ContactFlowModuleArn of the ContactFlowModule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            contact_flow_module_reference = connect.ContactFlowModuleReference(
+                contact_flow_module_arn="contactFlowModuleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa4afb8ea2f0b8aada23db43f1fbe3b13e22d11056c4a27391c3b3ec8db995f4)
+            check_type(argname="argument contact_flow_module_arn", value=contact_flow_module_arn, expected_type=type_hints["contact_flow_module_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_module_arn": contact_flow_module_arn,
+        }
+
+    @builtins.property
+    def contact_flow_module_arn(self) -> builtins.str:
+        '''The ContactFlowModuleArn of the ContactFlowModule resource.'''
+        result = self._values.get("contact_flow_module_arn")
+        assert result is not None, "Required property 'contact_flow_module_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactFlowModuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ContactFlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_flow_arn": "contactFlowArn"},
+)
+class ContactFlowReference:
+    def __init__(self, *, contact_flow_arn: builtins.str) -> None:
+        '''A reference to a ContactFlow resource.
+
+        :param contact_flow_arn: The ContactFlowArn of the ContactFlow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            contact_flow_reference = connect.ContactFlowReference(
+                contact_flow_arn="contactFlowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2374f3a5b5a6747afcce5987dc3f7b334da022d795377e30e0f2e2722931f0b6)
+            check_type(argname="argument contact_flow_arn", value=contact_flow_arn, expected_type=type_hints["contact_flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_arn": contact_flow_arn,
+        }
+
+    @builtins.property
+    def contact_flow_arn(self) -> builtins.str:
+        '''The ContactFlowArn of the ContactFlow resource.'''
+        result = self._values.get("contact_flow_arn")
+        assert result is not None, "Required property 'contact_flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactFlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ContactFlowVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_flow_version_arn": "contactFlowVersionArn"},
+)
+class ContactFlowVersionReference:
+    def __init__(self, *, contact_flow_version_arn: builtins.str) -> None:
+        '''A reference to a ContactFlowVersion resource.
+
+        :param contact_flow_version_arn: The ContactFlowVersionARN of the ContactFlowVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            contact_flow_version_reference = connect.ContactFlowVersionReference(
+                contact_flow_version_arn="contactFlowVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84f85b3d111e99204c744af7017f3e280df208a7e08acfcb7c6bd9176ccedef0)
+            check_type(argname="argument contact_flow_version_arn", value=contact_flow_version_arn, expected_type=type_hints["contact_flow_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_version_arn": contact_flow_version_arn,
+        }
+
+    @builtins.property
+    def contact_flow_version_arn(self) -> builtins.str:
+        '''The ContactFlowVersionARN of the ContactFlowVersion resource.'''
+        result = self._values.get("contact_flow_version_arn")
+        assert result is not None, "Required property 'contact_flow_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactFlowVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.EmailAddressReference",
+    jsii_struct_bases=[],
+    name_mapping={"email_address_arn": "emailAddressArn"},
+)
+class EmailAddressReference:
+    def __init__(self, *, email_address_arn: builtins.str) -> None:
+        '''A reference to a EmailAddress resource.
+
+        :param email_address_arn: The EmailAddressArn of the EmailAddress resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            email_address_reference = connect.EmailAddressReference(
+                email_address_arn="emailAddressArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03eae94269c325b81396a600eecbc10d55147bcb99d194908bbc76310aeaa621)
+            check_type(argname="argument email_address_arn", value=email_address_arn, expected_type=type_hints["email_address_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_address_arn": email_address_arn,
+        }
+
+    @builtins.property
+    def email_address_arn(self) -> builtins.str:
+        '''The EmailAddressArn of the EmailAddress resource.'''
+        result = self._values.get("email_address_arn")
+        assert result is not None, "Required property 'email_address_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EmailAddressReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.EvaluationFormReference",
+    jsii_struct_bases=[],
+    name_mapping={"evaluation_form_arn": "evaluationFormArn"},
+)
+class EvaluationFormReference:
+    def __init__(self, *, evaluation_form_arn: builtins.str) -> None:
+        '''A reference to a EvaluationForm resource.
+
+        :param evaluation_form_arn: The EvaluationFormArn of the EvaluationForm resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            evaluation_form_reference = connect.EvaluationFormReference(
+                evaluation_form_arn="evaluationFormArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57239f3e4a93bdd1b629309e0487a9a357daa516425efd9ed6b8c42f85fa4e87)
+            check_type(argname="argument evaluation_form_arn", value=evaluation_form_arn, expected_type=type_hints["evaluation_form_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluation_form_arn": evaluation_form_arn,
+        }
+
+    @builtins.property
+    def evaluation_form_arn(self) -> builtins.str:
+        '''The EvaluationFormArn of the EvaluationForm resource.'''
+        result = self._values.get("evaluation_form_arn")
+        assert result is not None, "Required property 'evaluation_form_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluationFormReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.HoursOfOperationReference",
+    jsii_struct_bases=[],
+    name_mapping={"hours_of_operation_arn": "hoursOfOperationArn"},
+)
+class HoursOfOperationReference:
+    def __init__(self, *, hours_of_operation_arn: builtins.str) -> None:
+        '''A reference to a HoursOfOperation resource.
+
+        :param hours_of_operation_arn: The HoursOfOperationArn of the HoursOfOperation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            hours_of_operation_reference = connect.HoursOfOperationReference(
+                hours_of_operation_arn="hoursOfOperationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a99bf9b444acd3021bec75f693028fc4c55c934848cefbbaea3bcf6d721c52ab)
+            check_type(argname="argument hours_of_operation_arn", value=hours_of_operation_arn, expected_type=type_hints["hours_of_operation_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hours_of_operation_arn": hours_of_operation_arn,
+        }
+
+    @builtins.property
+    def hours_of_operation_arn(self) -> builtins.str:
+        '''The HoursOfOperationArn of the HoursOfOperation resource.'''
+        result = self._values.get("hours_of_operation_arn")
+        assert result is not None, "Required property 'hours_of_operation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HoursOfOperationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IAgentStatusRef")
+class IAgentStatusRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AgentStatus.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentStatusRef")
+    def agent_status_ref(self) -> AgentStatusReference:
+        '''(experimental) A reference to a AgentStatus resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentStatusRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AgentStatus.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IAgentStatusRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentStatusRef")
+    def agent_status_ref(self) -> AgentStatusReference:
+        '''(experimental) A reference to a AgentStatus resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AgentStatusReference, jsii.get(self, "agentStatusRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentStatusRef).__jsii_proxy_class__ = lambda : _IAgentStatusRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IApprovedOriginRef")
+class IApprovedOriginRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovedOrigin.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="approvedOriginRef")
+    def approved_origin_ref(self) -> ApprovedOriginReference:
+        '''(experimental) A reference to a ApprovedOrigin resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApprovedOriginRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovedOrigin.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IApprovedOriginRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="approvedOriginRef")
+    def approved_origin_ref(self) -> ApprovedOriginReference:
+        '''(experimental) A reference to a ApprovedOrigin resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApprovedOriginReference, jsii.get(self, "approvedOriginRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApprovedOriginRef).__jsii_proxy_class__ = lambda : _IApprovedOriginRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IContactFlowModuleRef")
+class IContactFlowModuleRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleRef")
+    def contact_flow_module_ref(self) -> ContactFlowModuleReference:
+        '''(experimental) A reference to a ContactFlowModule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactFlowModuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IContactFlowModuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleRef")
+    def contact_flow_module_ref(self) -> ContactFlowModuleReference:
+        '''(experimental) A reference to a ContactFlowModule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContactFlowModuleReference, jsii.get(self, "contactFlowModuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactFlowModuleRef).__jsii_proxy_class__ = lambda : _IContactFlowModuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IContactFlowRef")
+class IContactFlowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowRef")
+    def contact_flow_ref(self) -> ContactFlowReference:
+        '''(experimental) A reference to a ContactFlow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IContactFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowRef")
+    def contact_flow_ref(self) -> ContactFlowReference:
+        '''(experimental) A reference to a ContactFlow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContactFlowReference, jsii.get(self, "contactFlowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactFlowRef).__jsii_proxy_class__ = lambda : _IContactFlowRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IContactFlowVersionRef")
+class IContactFlowVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowVersionRef")
+    def contact_flow_version_ref(self) -> ContactFlowVersionReference:
+        '''(experimental) A reference to a ContactFlowVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactFlowVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IContactFlowVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowVersionRef")
+    def contact_flow_version_ref(self) -> ContactFlowVersionReference:
+        '''(experimental) A reference to a ContactFlowVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ContactFlowVersionReference, jsii.get(self, "contactFlowVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactFlowVersionRef).__jsii_proxy_class__ = lambda : _IContactFlowVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IEmailAddressRef")
+class IEmailAddressRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EmailAddress.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="emailAddressRef")
+    def email_address_ref(self) -> EmailAddressReference:
+        '''(experimental) A reference to a EmailAddress resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEmailAddressRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EmailAddress.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IEmailAddressRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="emailAddressRef")
+    def email_address_ref(self) -> EmailAddressReference:
+        '''(experimental) A reference to a EmailAddress resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EmailAddressReference, jsii.get(self, "emailAddressRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEmailAddressRef).__jsii_proxy_class__ = lambda : _IEmailAddressRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IEvaluationFormRef")
+class IEvaluationFormRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EvaluationForm.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationFormRef")
+    def evaluation_form_ref(self) -> EvaluationFormReference:
+        '''(experimental) A reference to a EvaluationForm resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEvaluationFormRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EvaluationForm.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IEvaluationFormRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationFormRef")
+    def evaluation_form_ref(self) -> EvaluationFormReference:
+        '''(experimental) A reference to a EvaluationForm resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EvaluationFormReference, jsii.get(self, "evaluationFormRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEvaluationFormRef).__jsii_proxy_class__ = lambda : _IEvaluationFormRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IHoursOfOperationRef")
+class IHoursOfOperationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a HoursOfOperation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hoursOfOperationRef")
+    def hours_of_operation_ref(self) -> HoursOfOperationReference:
+        '''(experimental) A reference to a HoursOfOperation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHoursOfOperationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HoursOfOperation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IHoursOfOperationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hoursOfOperationRef")
+    def hours_of_operation_ref(self) -> HoursOfOperationReference:
+        '''(experimental) A reference to a HoursOfOperation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HoursOfOperationReference, jsii.get(self, "hoursOfOperationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHoursOfOperationRef).__jsii_proxy_class__ = lambda : _IHoursOfOperationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IInstanceRef")
+class IInstanceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceReference", jsii.get(self, "instanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IInstanceStorageConfigRef")
+class IInstanceStorageConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceStorageConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceStorageConfigRef")
+    def instance_storage_config_ref(self) -> "InstanceStorageConfigReference":
+        '''(experimental) A reference to a InstanceStorageConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceStorageConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceStorageConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IInstanceStorageConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceStorageConfigRef")
+    def instance_storage_config_ref(self) -> "InstanceStorageConfigReference":
+        '''(experimental) A reference to a InstanceStorageConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceStorageConfigReference", jsii.get(self, "instanceStorageConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceStorageConfigRef).__jsii_proxy_class__ = lambda : _IInstanceStorageConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IIntegrationAssociationRef")
+class IIntegrationAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntegrationAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationAssociationRef")
+    def integration_association_ref(self) -> "IntegrationAssociationReference":
+        '''(experimental) A reference to a IntegrationAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIntegrationAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntegrationAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IIntegrationAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationAssociationRef")
+    def integration_association_ref(self) -> "IntegrationAssociationReference":
+        '''(experimental) A reference to a IntegrationAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IntegrationAssociationReference", jsii.get(self, "integrationAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIntegrationAssociationRef).__jsii_proxy_class__ = lambda : _IIntegrationAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IPhoneNumberRef")
+class IPhoneNumberRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PhoneNumber.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="phoneNumberRef")
+    def phone_number_ref(self) -> "PhoneNumberReference":
+        '''(experimental) A reference to a PhoneNumber resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPhoneNumberRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PhoneNumber.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IPhoneNumberRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="phoneNumberRef")
+    def phone_number_ref(self) -> "PhoneNumberReference":
+        '''(experimental) A reference to a PhoneNumber resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PhoneNumberReference", jsii.get(self, "phoneNumberRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPhoneNumberRef).__jsii_proxy_class__ = lambda : _IPhoneNumberRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IPredefinedAttributeRef")
+class IPredefinedAttributeRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PredefinedAttribute.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="predefinedAttributeRef")
+    def predefined_attribute_ref(self) -> "PredefinedAttributeReference":
+        '''(experimental) A reference to a PredefinedAttribute resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPredefinedAttributeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PredefinedAttribute.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IPredefinedAttributeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="predefinedAttributeRef")
+    def predefined_attribute_ref(self) -> "PredefinedAttributeReference":
+        '''(experimental) A reference to a PredefinedAttribute resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PredefinedAttributeReference", jsii.get(self, "predefinedAttributeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPredefinedAttributeRef).__jsii_proxy_class__ = lambda : _IPredefinedAttributeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IPromptRef")
+class IPromptRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Prompt.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> "PromptReference":
+        '''(experimental) A reference to a Prompt resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Prompt.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IPromptRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> "PromptReference":
+        '''(experimental) A reference to a Prompt resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PromptReference", jsii.get(self, "promptRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPromptRef).__jsii_proxy_class__ = lambda : _IPromptRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IQueueRef")
+class IQueueRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueueRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IQueueRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueueReference", jsii.get(self, "queueRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueueRef).__jsii_proxy_class__ = lambda : _IQueueRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IQuickConnectRef")
+class IQuickConnectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a QuickConnect.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="quickConnectRef")
+    def quick_connect_ref(self) -> "QuickConnectReference":
+        '''(experimental) A reference to a QuickConnect resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQuickConnectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QuickConnect.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IQuickConnectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="quickConnectRef")
+    def quick_connect_ref(self) -> "QuickConnectReference":
+        '''(experimental) A reference to a QuickConnect resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QuickConnectReference", jsii.get(self, "quickConnectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQuickConnectRef).__jsii_proxy_class__ = lambda : _IQuickConnectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IRoutingProfileRef")
+class IRoutingProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a RoutingProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="routingProfileRef")
+    def routing_profile_ref(self) -> "RoutingProfileReference":
+        '''(experimental) A reference to a RoutingProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRoutingProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RoutingProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IRoutingProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="routingProfileRef")
+    def routing_profile_ref(self) -> "RoutingProfileReference":
+        '''(experimental) A reference to a RoutingProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RoutingProfileReference", jsii.get(self, "routingProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRoutingProfileRef).__jsii_proxy_class__ = lambda : _IRoutingProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IRuleRef")
+class IRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuleReference", jsii.get(self, "ruleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.ISecurityKeyRef")
+class ISecurityKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityKey.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityKeyRef")
+    def security_key_ref(self) -> "SecurityKeyReference":
+        '''(experimental) A reference to a SecurityKey resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityKeyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityKey.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.ISecurityKeyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityKeyRef")
+    def security_key_ref(self) -> "SecurityKeyReference":
+        '''(experimental) A reference to a SecurityKey resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityKeyReference", jsii.get(self, "securityKeyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityKeyRef).__jsii_proxy_class__ = lambda : _ISecurityKeyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.ISecurityProfileRef")
+class ISecurityProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> "SecurityProfileReference":
+        '''(experimental) A reference to a SecurityProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.ISecurityProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> "SecurityProfileReference":
+        '''(experimental) A reference to a SecurityProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityProfileReference", jsii.get(self, "securityProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityProfileRef).__jsii_proxy_class__ = lambda : _ISecurityProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.ITaskTemplateRef")
+class ITaskTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TaskTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="taskTemplateRef")
+    def task_template_ref(self) -> "TaskTemplateReference":
+        '''(experimental) A reference to a TaskTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITaskTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TaskTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.ITaskTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="taskTemplateRef")
+    def task_template_ref(self) -> "TaskTemplateReference":
+        '''(experimental) A reference to a TaskTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TaskTemplateReference", jsii.get(self, "taskTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITaskTemplateRef).__jsii_proxy_class__ = lambda : _ITaskTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.ITrafficDistributionGroupRef")
+class ITrafficDistributionGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrafficDistributionGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficDistributionGroupRef")
+    def traffic_distribution_group_ref(self) -> "TrafficDistributionGroupReference":
+        '''(experimental) A reference to a TrafficDistributionGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrafficDistributionGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrafficDistributionGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.ITrafficDistributionGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trafficDistributionGroupRef")
+    def traffic_distribution_group_ref(self) -> "TrafficDistributionGroupReference":
+        '''(experimental) A reference to a TrafficDistributionGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrafficDistributionGroupReference", jsii.get(self, "trafficDistributionGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrafficDistributionGroupRef).__jsii_proxy_class__ = lambda : _ITrafficDistributionGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IUserHierarchyGroupRef")
+class IUserHierarchyGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserHierarchyGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userHierarchyGroupRef")
+    def user_hierarchy_group_ref(self) -> "UserHierarchyGroupReference":
+        '''(experimental) A reference to a UserHierarchyGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserHierarchyGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserHierarchyGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IUserHierarchyGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userHierarchyGroupRef")
+    def user_hierarchy_group_ref(self) -> "UserHierarchyGroupReference":
+        '''(experimental) A reference to a UserHierarchyGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserHierarchyGroupReference", jsii.get(self, "userHierarchyGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserHierarchyGroupRef).__jsii_proxy_class__ = lambda : _IUserHierarchyGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IUserHierarchyStructureRef")
+class IUserHierarchyStructureRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserHierarchyStructure.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userHierarchyStructureRef")
+    def user_hierarchy_structure_ref(self) -> "UserHierarchyStructureReference":
+        '''(experimental) A reference to a UserHierarchyStructure resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserHierarchyStructureRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserHierarchyStructure.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IUserHierarchyStructureRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userHierarchyStructureRef")
+    def user_hierarchy_structure_ref(self) -> "UserHierarchyStructureReference":
+        '''(experimental) A reference to a UserHierarchyStructure resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserHierarchyStructureReference", jsii.get(self, "userHierarchyStructureRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserHierarchyStructureRef).__jsii_proxy_class__ = lambda : _IUserHierarchyStructureRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IUserRef")
+class IUserRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IUserRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserReference", jsii.get(self, "userRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IViewRef")
+class IViewRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IViewRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IViewRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ViewReference", jsii.get(self, "viewRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IViewRef).__jsii_proxy_class__ = lambda : _IViewRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_connect.IViewVersionRef")
+class IViewVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ViewVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="viewVersionRef")
+    def view_version_ref(self) -> "ViewVersionReference":
+        '''(experimental) A reference to a ViewVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IViewVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ViewVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_connect.IViewVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="viewVersionRef")
+    def view_version_ref(self) -> "ViewVersionReference":
+        '''(experimental) A reference to a ViewVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ViewVersionReference", jsii.get(self, "viewVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IViewVersionRef).__jsii_proxy_class__ = lambda : _IViewVersionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.InstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_arn": "instanceArn"},
+)
+class InstanceReference:
+    def __init__(self, *, instance_arn: builtins.str) -> None:
+        '''A reference to a Instance resource.
+
+        :param instance_arn: The Arn of the Instance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            instance_reference = connect.InstanceReference(
+                instance_arn="instanceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06c1ed9f904f8b2fcb870712f74313e41f5bb2be30b203a79d8da4f70215c6c6)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Arn of the Instance resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.InstanceStorageConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "association_id": "associationId",
+        "instance_arn": "instanceArn",
+        "resource_type": "resourceType",
+    },
+)
+class InstanceStorageConfigReference:
+    def __init__(
+        self,
+        *,
+        association_id: builtins.str,
+        instance_arn: builtins.str,
+        resource_type: builtins.str,
+    ) -> None:
+        '''A reference to a InstanceStorageConfig resource.
+
+        :param association_id: The AssociationId of the InstanceStorageConfig resource.
+        :param instance_arn: The InstanceArn of the InstanceStorageConfig resource.
+        :param resource_type: The ResourceType of the InstanceStorageConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            instance_storage_config_reference = connect.InstanceStorageConfigReference(
+                association_id="associationId",
+                instance_arn="instanceArn",
+                resource_type="resourceType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ee5b85d053601b0bc5ed5f40030a7e483ec8192eff7ceea9d37c94b0aa1ac26)
+            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "association_id": association_id,
+            "instance_arn": instance_arn,
+            "resource_type": resource_type,
+        }
+
+    @builtins.property
+    def association_id(self) -> builtins.str:
+        '''The AssociationId of the InstanceStorageConfig resource.'''
+        result = self._values.get("association_id")
+        assert result is not None, "Required property 'association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the InstanceStorageConfig resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_type(self) -> builtins.str:
+        '''The ResourceType of the InstanceStorageConfig resource.'''
+        result = self._values.get("resource_type")
+        assert result is not None, "Required property 'resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceStorageConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.IntegrationAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_id": "instanceId",
+        "integration_arn": "integrationArn",
+        "integration_type": "integrationType",
+    },
+)
+class IntegrationAssociationReference:
+    def __init__(
+        self,
+        *,
+        instance_id: builtins.str,
+        integration_arn: builtins.str,
+        integration_type: builtins.str,
+    ) -> None:
+        '''A reference to a IntegrationAssociation resource.
+
+        :param instance_id: The InstanceId of the IntegrationAssociation resource.
+        :param integration_arn: The IntegrationArn of the IntegrationAssociation resource.
+        :param integration_type: The IntegrationType of the IntegrationAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            integration_association_reference = connect.IntegrationAssociationReference(
+                instance_id="instanceId",
+                integration_arn="integrationArn",
+                integration_type="integrationType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52c83a8b82aefd24731881b6469a6d5db10ae339c68957f3e8a3e4336c3a1ee3)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
+            check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+            "integration_arn": integration_arn,
+            "integration_type": integration_type,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the IntegrationAssociation resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_arn(self) -> builtins.str:
+        '''The IntegrationArn of the IntegrationAssociation resource.'''
+        result = self._values.get("integration_arn")
+        assert result is not None, "Required property 'integration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def integration_type(self) -> builtins.str:
+        '''The IntegrationType of the IntegrationAssociation resource.'''
+        result = self._values.get("integration_type")
+        assert result is not None, "Required property 'integration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntegrationAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.PhoneNumberReference",
+    jsii_struct_bases=[],
+    name_mapping={"phone_number_arn": "phoneNumberArn"},
+)
+class PhoneNumberReference:
+    def __init__(self, *, phone_number_arn: builtins.str) -> None:
+        '''A reference to a PhoneNumber resource.
+
+        :param phone_number_arn: The PhoneNumberArn of the PhoneNumber resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            phone_number_reference = connect.PhoneNumberReference(
+                phone_number_arn="phoneNumberArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e76ecb044d239e7b8bf715e69c904f00271259292687f82c26587023d7c4ba91)
+            check_type(argname="argument phone_number_arn", value=phone_number_arn, expected_type=type_hints["phone_number_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "phone_number_arn": phone_number_arn,
+        }
+
+    @builtins.property
+    def phone_number_arn(self) -> builtins.str:
+        '''The PhoneNumberArn of the PhoneNumber resource.'''
+        result = self._values.get("phone_number_arn")
+        assert result is not None, "Required property 'phone_number_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PhoneNumberReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.PredefinedAttributeReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "predefined_attribute_name": "predefinedAttributeName",
+    },
+)
+class PredefinedAttributeReference:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        predefined_attribute_name: builtins.str,
+    ) -> None:
+        '''A reference to a PredefinedAttribute resource.
+
+        :param instance_arn: The InstanceArn of the PredefinedAttribute resource.
+        :param predefined_attribute_name: The Name of the PredefinedAttribute resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            predefined_attribute_reference = connect.PredefinedAttributeReference(
+                instance_arn="instanceArn",
+                predefined_attribute_name="predefinedAttributeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba6763bf82ecfe2225805b2ba95e74e9337b49bd8faa89a47164638e4a505469)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument predefined_attribute_name", value=predefined_attribute_name, expected_type=type_hints["predefined_attribute_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "predefined_attribute_name": predefined_attribute_name,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the PredefinedAttribute resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def predefined_attribute_name(self) -> builtins.str:
+        '''The Name of the PredefinedAttribute resource.'''
+        result = self._values.get("predefined_attribute_name")
+        assert result is not None, "Required property 'predefined_attribute_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PredefinedAttributeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.PromptReference",
+    jsii_struct_bases=[],
+    name_mapping={"prompt_arn": "promptArn"},
+)
+class PromptReference:
+    def __init__(self, *, prompt_arn: builtins.str) -> None:
+        '''A reference to a Prompt resource.
+
+        :param prompt_arn: The PromptArn of the Prompt resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            prompt_reference = connect.PromptReference(
+                prompt_arn="promptArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__543380c6293ee79ee66e29f564d5d2cfba01a12bf85e33a4235cb911957f0d7e)
+            check_type(argname="argument prompt_arn", value=prompt_arn, expected_type=type_hints["prompt_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_arn": prompt_arn,
+        }
+
+    @builtins.property
+    def prompt_arn(self) -> builtins.str:
+        '''The PromptArn of the Prompt resource.'''
+        result = self._values.get("prompt_arn")
+        assert result is not None, "Required property 'prompt_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.QueueReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue_arn": "queueArn"},
+)
+class QueueReference:
+    def __init__(self, *, queue_arn: builtins.str) -> None:
+        '''A reference to a Queue resource.
+
+        :param queue_arn: The QueueArn of the Queue resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            queue_reference = connect.QueueReference(
+                queue_arn="queueArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29290a39f822868d896dea99668a03e2858a75bede3e13f031f98140bd84efbe)
+            check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue_arn": queue_arn,
+        }
+
+    @builtins.property
+    def queue_arn(self) -> builtins.str:
+        '''The QueueArn of the Queue resource.'''
+        result = self._values.get("queue_arn")
+        assert result is not None, "Required property 'queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueueReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.QuickConnectReference",
+    jsii_struct_bases=[],
+    name_mapping={"quick_connect_arn": "quickConnectArn"},
+)
+class QuickConnectReference:
+    def __init__(self, *, quick_connect_arn: builtins.str) -> None:
+        '''A reference to a QuickConnect resource.
+
+        :param quick_connect_arn: The QuickConnectArn of the QuickConnect resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            quick_connect_reference = connect.QuickConnectReference(
+                quick_connect_arn="quickConnectArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc40e50f7a7938c2a0d897e9c7735b1d40004b4ab6d00954e744d667ded76a47)
+            check_type(argname="argument quick_connect_arn", value=quick_connect_arn, expected_type=type_hints["quick_connect_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "quick_connect_arn": quick_connect_arn,
+        }
+
+    @builtins.property
+    def quick_connect_arn(self) -> builtins.str:
+        '''The QuickConnectArn of the QuickConnect resource.'''
+        result = self._values.get("quick_connect_arn")
+        assert result is not None, "Required property 'quick_connect_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QuickConnectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.RoutingProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"routing_profile_arn": "routingProfileArn"},
+)
+class RoutingProfileReference:
+    def __init__(self, *, routing_profile_arn: builtins.str) -> None:
+        '''A reference to a RoutingProfile resource.
+
+        :param routing_profile_arn: The RoutingProfileArn of the RoutingProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            routing_profile_reference = connect.RoutingProfileReference(
+                routing_profile_arn="routingProfileArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__819263aa6dc13644ec9e3fc8d62b5133376f1ecfc6298b0fab3a1b47526ffcc7)
+            check_type(argname="argument routing_profile_arn", value=routing_profile_arn, expected_type=type_hints["routing_profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "routing_profile_arn": routing_profile_arn,
+        }
+
+    @builtins.property
+    def routing_profile_arn(self) -> builtins.str:
+        '''The RoutingProfileArn of the RoutingProfile resource.'''
+        result = self._values.get("routing_profile_arn")
+        assert result is not None, "Required property 'routing_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RoutingProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.RuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class RuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a Rule resource.
+
+        :param rule_arn: The RuleArn of the Rule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            rule_reference = connect.RuleReference(
+                rule_arn="ruleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96149e4154f5225a004d2a908307c4a8974ab5a50d31ed08f270bc85d3243875)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
+
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The RuleArn of the Rule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.SecurityKeyReference",
+    jsii_struct_bases=[],
+    name_mapping={"association_id": "associationId", "instance_id": "instanceId"},
+)
+class SecurityKeyReference:
+    def __init__(
+        self,
+        *,
+        association_id: builtins.str,
+        instance_id: builtins.str,
+    ) -> None:
+        '''A reference to a SecurityKey resource.
+
+        :param association_id: The AssociationId of the SecurityKey resource.
+        :param instance_id: The InstanceId of the SecurityKey resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            security_key_reference = connect.SecurityKeyReference(
+                association_id="associationId",
+                instance_id="instanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bb0e4df1a0272bc6a35392bbe15d7f8e64c669e3df2c852b520ea3cbe331756)
+            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "association_id": association_id,
+            "instance_id": instance_id,
+        }
+
+    @builtins.property
+    def association_id(self) -> builtins.str:
+        '''The AssociationId of the SecurityKey resource.'''
+        result = self._values.get("association_id")
+        assert result is not None, "Required property 'association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the SecurityKey resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityKeyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.SecurityProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"security_profile_arn": "securityProfileArn"},
+)
+class SecurityProfileReference:
+    def __init__(self, *, security_profile_arn: builtins.str) -> None:
+        '''A reference to a SecurityProfile resource.
+
+        :param security_profile_arn: The SecurityProfileArn of the SecurityProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            security_profile_reference = connect.SecurityProfileReference(
+                security_profile_arn="securityProfileArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ddedf0e61d518d240e697a79f3554052741aae32f5fedb3238b20db9c7e48cd)
+            check_type(argname="argument security_profile_arn", value=security_profile_arn, expected_type=type_hints["security_profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_profile_arn": security_profile_arn,
+        }
+
+    @builtins.property
+    def security_profile_arn(self) -> builtins.str:
+        '''The SecurityProfileArn of the SecurityProfile resource.'''
+        result = self._values.get("security_profile_arn")
+        assert result is not None, "Required property 'security_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.TaskTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"task_template_arn": "taskTemplateArn"},
+)
+class TaskTemplateReference:
+    def __init__(self, *, task_template_arn: builtins.str) -> None:
+        '''A reference to a TaskTemplate resource.
+
+        :param task_template_arn: The Arn of the TaskTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            task_template_reference = connect.TaskTemplateReference(
+                task_template_arn="taskTemplateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d73c7b7623aa33501b6e96554b73784823de0b6616308d497f63a04b3e16919d)
+            check_type(argname="argument task_template_arn", value=task_template_arn, expected_type=type_hints["task_template_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "task_template_arn": task_template_arn,
+        }
+
+    @builtins.property
+    def task_template_arn(self) -> builtins.str:
+        '''The Arn of the TaskTemplate resource.'''
+        result = self._values.get("task_template_arn")
+        assert result is not None, "Required property 'task_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TaskTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.TrafficDistributionGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"traffic_distribution_group_arn": "trafficDistributionGroupArn"},
+)
+class TrafficDistributionGroupReference:
+    def __init__(self, *, traffic_distribution_group_arn: builtins.str) -> None:
+        '''A reference to a TrafficDistributionGroup resource.
+
+        :param traffic_distribution_group_arn: The TrafficDistributionGroupArn of the TrafficDistributionGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            traffic_distribution_group_reference = connect.TrafficDistributionGroupReference(
+                traffic_distribution_group_arn="trafficDistributionGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__339d7b3e4b953fe3ea7be6da76f17a0be98571559e69ed860fb420316079b7a8)
+            check_type(argname="argument traffic_distribution_group_arn", value=traffic_distribution_group_arn, expected_type=type_hints["traffic_distribution_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "traffic_distribution_group_arn": traffic_distribution_group_arn,
+        }
+
+    @builtins.property
+    def traffic_distribution_group_arn(self) -> builtins.str:
+        '''The TrafficDistributionGroupArn of the TrafficDistributionGroup resource.'''
+        result = self._values.get("traffic_distribution_group_arn")
+        assert result is not None, "Required property 'traffic_distribution_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrafficDistributionGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.UserHierarchyGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_hierarchy_group_arn": "userHierarchyGroupArn"},
+)
+class UserHierarchyGroupReference:
+    def __init__(self, *, user_hierarchy_group_arn: builtins.str) -> None:
+        '''A reference to a UserHierarchyGroup resource.
+
+        :param user_hierarchy_group_arn: The UserHierarchyGroupArn of the UserHierarchyGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            user_hierarchy_group_reference = connect.UserHierarchyGroupReference(
+                user_hierarchy_group_arn="userHierarchyGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcd5cc0990e81c1d2839c8fde8248ca00920d6dbb1064d2a551b59f631bcd8f6)
+            check_type(argname="argument user_hierarchy_group_arn", value=user_hierarchy_group_arn, expected_type=type_hints["user_hierarchy_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_hierarchy_group_arn": user_hierarchy_group_arn,
+        }
+
+    @builtins.property
+    def user_hierarchy_group_arn(self) -> builtins.str:
+        '''The UserHierarchyGroupArn of the UserHierarchyGroup resource.'''
+        result = self._values.get("user_hierarchy_group_arn")
+        assert result is not None, "Required property 'user_hierarchy_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserHierarchyGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.UserHierarchyStructureReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_hierarchy_structure_arn": "userHierarchyStructureArn"},
+)
+class UserHierarchyStructureReference:
+    def __init__(self, *, user_hierarchy_structure_arn: builtins.str) -> None:
+        '''A reference to a UserHierarchyStructure resource.
+
+        :param user_hierarchy_structure_arn: The UserHierarchyStructureArn of the UserHierarchyStructure resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            user_hierarchy_structure_reference = connect.UserHierarchyStructureReference(
+                user_hierarchy_structure_arn="userHierarchyStructureArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc9773e37c677429a0cc4e37249f92f6d104e663d5465f6450023fa4852c9374)
+            check_type(argname="argument user_hierarchy_structure_arn", value=user_hierarchy_structure_arn, expected_type=type_hints["user_hierarchy_structure_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_hierarchy_structure_arn": user_hierarchy_structure_arn,
+        }
+
+    @builtins.property
+    def user_hierarchy_structure_arn(self) -> builtins.str:
+        '''The UserHierarchyStructureArn of the UserHierarchyStructure resource.'''
+        result = self._values.get("user_hierarchy_structure_arn")
+        assert result is not None, "Required property 'user_hierarchy_structure_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserHierarchyStructureReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.UserReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_arn": "userArn"},
+)
+class UserReference:
+    def __init__(self, *, user_arn: builtins.str) -> None:
+        '''A reference to a User resource.
+
+        :param user_arn: The UserArn of the User resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            user_reference = connect.UserReference(
+                user_arn="userArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42fbb8727a41ac73484980865097f6f1fd54ed7b114a61a95cb907117f4ccadd)
+            check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_arn": user_arn,
+        }
+
+    @builtins.property
+    def user_arn(self) -> builtins.str:
+        '''The UserArn of the User resource.'''
+        result = self._values.get("user_arn")
+        assert result is not None, "Required property 'user_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ViewReference",
+    jsii_struct_bases=[],
+    name_mapping={"view_arn": "viewArn"},
+)
+class ViewReference:
+    def __init__(self, *, view_arn: builtins.str) -> None:
+        '''A reference to a View resource.
+
+        :param view_arn: The ViewArn of the View resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            view_reference = connect.ViewReference(
+                view_arn="viewArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10edf0eb1bcb972d8b9b4672c2444edecfc71e1291313fdaee96f67b23e9e55a)
+            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_arn": view_arn,
+        }
+
+    @builtins.property
+    def view_arn(self) -> builtins.str:
+        '''The ViewArn of the View resource.'''
+        result = self._values.get("view_arn")
+        assert result is not None, "Required property 'view_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViewReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.ViewVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"view_version_arn": "viewVersionArn"},
+)
+class ViewVersionReference:
+    def __init__(self, *, view_version_arn: builtins.str) -> None:
+        '''A reference to a ViewVersion resource.
+
+        :param view_version_arn: The ViewVersionArn of the ViewVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            view_version_reference = connect.ViewVersionReference(
+                view_version_arn="viewVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d08d009810575626562d2a15c9d7016e1b5cedc5d860b511cb0fa239a6d53d7)
+            check_type(argname="argument view_version_arn", value=view_version_arn, expected_type=type_hints["view_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_version_arn": view_version_arn,
+        }
+
+    @builtins.property
+    def view_version_arn(self) -> builtins.str:
+        '''The ViewVersionArn of the ViewVersion resource.'''
+        result = self._values.get("view_version_arn")
+        assert result is not None, "Required property 'view_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViewVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAgentStatusRef, _ITaggableV2_4e6798f8)
+class CfnAgentStatus(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnAgentStatus",
+):
+    '''Contains information about an agent status.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-agentstatus.html
+    :cloudformationResource: AWS::Connect::AgentStatus
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_agent_status = connect.CfnAgentStatus(self, "MyCfnAgentStatus",
+            instance_arn="instanceArn",
+            name="name",
+            state="state",
+        
+            # the properties below are optional
+            description="description",
+            display_order=123,
+            reset_order_number=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            type="type"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        state: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        display_order: typing.Optional[jsii.Number] = None,
+        reset_order_number: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param name: The name of the agent status.
+        :param state: The state of the agent status.
+        :param description: The description of the agent status.
+        :param display_order: The display order of the agent status.
+        :param reset_order_number: A number indicating the reset order of the agent status.
+        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
+        :param type: The type of agent status.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__188703c629c18d36bedd60b2ef308608c79b0a7639ceafb679e00ecdf1434bcb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAgentStatusProps(
+            instance_arn=instance_arn,
+            name=name,
+            state=state,
+            description=description,
+            display_order=display_order,
+            reset_order_number=reset_order_number,
+            tags=tags,
+            type=type,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d83454aed4d3419db0f2c17c70b50ce23d4acfe85654c14b3955ccec567507d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1c5df080fdb044579c972766c7367eb342670174bc6082d6589575910dd5a33)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentStatusRef")
+    def agent_status_ref(self) -> AgentStatusReference:
+        '''A reference to a AgentStatus resource.'''
+        return typing.cast(AgentStatusReference, jsii.get(self, "agentStatusRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAgentStatusArn")
+    def attr_agent_status_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the agent status.
+
+        :cloudformationAttribute: AgentStatusArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAgentStatusArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedRegion")
+    def attr_last_modified_region(self) -> builtins.str:
+        '''The AWS Region where this resource was last modified.
+
+        :cloudformationAttribute: LastModifiedRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> _IResolvable_da3f097b:
+        '''The timestamp when this resource was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed4d83a484ce207a953725dcb30f7724c73600b781c7372b0461fd7ad61d0ace)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the agent status.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__061ec6e9e391f38b63492def9966c786b74f237e0b42482e6a94a558541dff9c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="state")
+    def state(self) -> builtins.str:
+        '''The state of the agent status.'''
+        return typing.cast(builtins.str, jsii.get(self, "state"))
+
+    @state.setter
+    def state(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c11e7969fab74b6f001a9aea8ba880ba4e4fe1aea7421007717072a8c292b4b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the agent status.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9144ba2976476302e60ab5f2ac4a2f610fd8e073acae78e05684de97d10172f5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayOrder")
+    def display_order(self) -> typing.Optional[jsii.Number]:
+        '''The display order of the agent status.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "displayOrder"))
+
+    @display_order.setter
+    def display_order(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__638f21787e6ad0e1e5edbabc219bb6c1bef5220c08895c9bf42932addcfd0544)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayOrder", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resetOrderNumber")
+    def reset_order_number(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A number indicating the reset order of the agent status.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "resetOrderNumber"))
+
+    @reset_order_number.setter
+    def reset_order_number(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8eb07c6ec669286d2212cb0912d5a8f834b8640121216334d872426d4e11f350)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resetOrderNumber", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ae59e45659b6cf9bd60c4c492979307ad6d24a8eb501dcc3b2ac9a116c44988)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of agent status.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64b83fcef3b8683e26746763b9a4121f9ed52687deb75b8c04eaf159e6ddf352)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IApprovedOriginRef)
+class CfnApprovedOrigin(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnApprovedOrigin",
+):
+    '''The approved origin for the instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-approvedorigin.html
+    :cloudformationResource: AWS::Connect::ApprovedOrigin
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_approved_origin = connect.CfnApprovedOrigin(self, "MyCfnApprovedOrigin",
+            instance_id="instanceId",
+            origin="origin"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        instance_id: builtins.str,
+        origin: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
+        :param origin: Domain name to be added to the allow-list of the instance. *Maximum* : ``267``
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44955422cb4c00b338f45e52a0d4136fdcdb94c8e433595b636f468d589e514a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApprovedOriginProps(instance_id=instance_id, origin=origin)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15b611bd9c5a92c253c2e2b0cba97b9f73bad0cfc8494953acb694fda143bba2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc2ef7b8d5a06b007fe66bb9f5b0208e869ed47a6e5af0d6bf354f4df2d4d6c8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="approvedOriginRef")
+    def approved_origin_ref(self) -> ApprovedOriginReference:
+        '''A reference to a ApprovedOrigin resource.'''
+        return typing.cast(ApprovedOriginReference, jsii.get(self, "approvedOriginRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceId")
+    def instance_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceId"))
+
+    @instance_id.setter
+    def instance_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fd219e5b157d40fbc4254297a9308245796269c824a72c0b9db3bad7013261c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="origin")
+    def origin(self) -> builtins.str:
+        '''Domain name to be added to the allow-list of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "origin"))
+
+    @origin.setter
+    def origin(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49fb9b02cf4a1b22d6433eac9cb35377d1877512b477dbf9c030fec47fb54f75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IContactFlowRef, _ITaggable_36806126)
+class CfnContactFlow(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlow",
+):
+    '''Specifies a flow for an Amazon Connect instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflow.html
+    :cloudformationResource: AWS::Connect::ContactFlow
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_contact_flow = connect.CfnContactFlow(self, "MyCfnContactFlow",
+            content="content",
+            instance_arn="instanceArn",
+            name="name",
+            type="type",
+        
+            # the properties below are optional
+            description="description",
+            state="state",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        content: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content: The content of the flow. For more information, see `Amazon Connect Flow language <https://docs.aws.amazon.com/connect/latest/adminguide/flow-language.html>`_ in the *Amazon Connect Administrator Guide* .
+        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param name: The name of the flow.
+        :param type: The type of the flow. For descriptions of the available types, see `Choose a flow type <https://docs.aws.amazon.com/connect/latest/adminguide/create-contact-flow.html#contact-flow-types>`_ in the *Amazon Connect Administrator Guide* .
+        :param description: The description of the flow.
+        :param state: The state of the flow.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bacec198fd7006a7e922c6b62694383eb7200d23c3f8da491f520191bdc8353f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactFlowProps(
+            content=content,
+            instance_arn=instance_arn,
+            name=name,
+            type=type,
+            description=description,
+            state=state,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aca14ea5542ff9acc3dc06746c7580c88c1e0b75d66bf0ac0a8cd785404cc173)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4b3abb60d405603981215ec7d659c3d8939dbf9b5de879c8d56dfd0631f9d5b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContactFlowArn")
+    def attr_contact_flow_arn(self) -> builtins.str:
+        '''``Ref`` returns the Amazon Resource Name (ARN) of the flow.
+
+        :cloudformationAttribute: ContactFlowArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowRef")
+    def contact_flow_ref(self) -> ContactFlowReference:
+        '''A reference to a ContactFlow resource.'''
+        return typing.cast(ContactFlowReference, jsii.get(self, "contactFlowRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(self) -> builtins.str:
+        '''The content of the flow.'''
+        return typing.cast(builtins.str, jsii.get(self, "content"))
+
+    @content.setter
+    def content(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a517102f202efaced50f937df38d5374d2d8ae33c5659296852d677cbe73e2a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20f6a7aacca6b49f3791bf907484b7af427677a1079ea79db9a45489b963b9d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the flow.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76f576a62faffae972ec30039ac3019bddb9b613e8dd2dce2b52723ba8a64dbc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of the flow.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__213719edbc55495f331c0d1f51b7ab8a359f2c5cc563f3fa97077760121c6aa9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the flow.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e4573df3b75ab7b2ea3d0cba32ff3c515f11f6cbec43c0885d9ee30d25616a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="state")
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the flow.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
+
+    @state.setter
+    def state(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7b6f72cf71dca93b2b2baae1d002d73d66de8e16bec7709efdb45c4bb811336)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__22bc442433d76b98a1dae3304e1215f20c67d932bbfc6f02619483fbdb5d808d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IContactFlowModuleRef, _ITaggable_36806126)
+class CfnContactFlowModule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModule",
+):
+    '''Specifies a flow module for an Amazon Connect instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodule.html
+    :cloudformationResource: AWS::Connect::ContactFlowModule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_contact_flow_module = connect.CfnContactFlowModule(self, "MyCfnContactFlowModule",
+            content="content",
+            instance_arn="instanceArn",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            state="state",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        content: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content: The content of the flow module.
+        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
+        :param name: The name of the flow module.
+        :param description: The description of the flow module.
+        :param state: The state of the flow module.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__008a6ee0ce6447d7f5f7c62774a959e253bc4a69cef26848e6d3f74cf2381193)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactFlowModuleProps(
+            content=content,
+            instance_arn=instance_arn,
+            name=name,
+            description=description,
+            state=state,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82176173dbe238b7a4715d8a94792d3696ada52a4372f823ab10f4c590c6193f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f3e317a83e30b22f766c5d65c8451e4d9e5ffcd6510573aa22d0063860e7b99)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContactFlowModuleArn")
+    def attr_contact_flow_module_arn(self) -> builtins.str:
+        '''``Ref`` returns the Amazon Resource Name (ARN) of the flow module.
+
+        :cloudformationAttribute: ContactFlowModuleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowModuleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the contact flow module.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleRef")
+    def contact_flow_module_ref(self) -> ContactFlowModuleReference:
+        '''A reference to a ContactFlowModule resource.'''
+        return typing.cast(ContactFlowModuleReference, jsii.get(self, "contactFlowModuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(self) -> builtins.str:
+        '''The content of the flow module.'''
+        return typing.cast(builtins.str, jsii.get(self, "content"))
+
+    @content.setter
+    def content(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1701812aa93a58317265edab1cd66b5a843fc9845a1aed0b81f83c4f738b5b0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68b9231af4bcfc40233b3b8fbbd6acd02fe21a59b2f962738d2ce93d6ffa7fa7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the flow module.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e18e7239d9aefba3afcb9b93bf7f3ec9f6e4f173d51f91e93f5543efe25658a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the flow module.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c1841af03e44ad4a3c471a24f30aa57c457ec766515db087b0745fb9a6a68d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="state")
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the flow module.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
+
+    @state.setter
+    def state(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25db523d57560a8813a16f507ae8c09c28625a53b6a24b5744ca978282ff51a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47de1c508f0616d427a0546578e35f062250082b28649c8985770019609a4881)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IContactFlowVersionRef)
+class CfnContactFlowVersion(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowVersion",
+):
+    '''Creates a version for the specified customer-managed flow within the specified instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowversion.html
+    :cloudformationResource: AWS::Connect::ContactFlowVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_contact_flow_version = connect.CfnContactFlowVersion(self, "MyCfnContactFlowVersion",
+            contact_flow_id="contactFlowId",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        contact_flow_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param contact_flow_id: The identifier of the flow.
+        :param description: The description of the flow version.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a31de8fadfe8b204a6f20d104c9bd7e6d511bb0a98ca39db212f6ea6f6e7427b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactFlowVersionProps(
+            contact_flow_id=contact_flow_id, description=description
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13f86454b3bf4a5aaf2f2292d0d2d066b4877ddadcbc6f3f09833d142f628fc0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__039e856ccb29689e4ae1a2b96e0d4d66d182b5df351b2638b7229f84798ea120)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContactFlowVersionArn")
+    def attr_contact_flow_version_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow version.
+
+        :cloudformationAttribute: ContactFlowVersionARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowVersionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFlowContentSha256")
+    def attr_flow_content_sha256(self) -> builtins.str:
+        '''Indicates the checksum value of the flow content.
+
+        :cloudformationAttribute: FlowContentSha256
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFlowContentSha256"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> jsii.Number:
+        '''The identifier of the flow version.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowVersionRef")
+    def contact_flow_version_ref(self) -> ContactFlowVersionReference:
+        '''A reference to a ContactFlowVersion resource.'''
+        return typing.cast(ContactFlowVersionReference, jsii.get(self, "contactFlowVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowId")
+    def contact_flow_id(self) -> builtins.str:
+        '''The identifier of the flow.'''
+        return typing.cast(builtins.str, jsii.get(self, "contactFlowId"))
+
+    @contact_flow_id.setter
+    def contact_flow_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c67191011cdc1e35e2efe8a0fc1ca8eb70d92048915331d2c2304e2001167b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactFlowId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the flow version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__874c4dc9a5e63e7eb152e6db7e2794c6a1ded5d623873f917a2a60c5a6fbf154)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IEmailAddressRef, _ITaggableV2_4e6798f8)
+class CfnEmailAddress(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnEmailAddress",
+):
+    '''Create new email address in the specified Amazon Connect instance.
+
+    For more information about email addresses, see `Create email addresses <https://docs.aws.amazon.com/connect/latest/adminguide/create-email-address1.html>`_ in the Amazon Connect Administrator Guide.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-emailaddress.html
+    :cloudformationResource: AWS::Connect::EmailAddress
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_email_address = connect.CfnEmailAddress(self, "MyCfnEmailAddress",
+            email_address="emailAddress",
+            instance_arn="instanceArn",
+        
+            # the properties below are optional
+            description="description",
+            display_name="displayName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        email_address: builtins.str,
+        instance_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param email_address: The email address, including the domain.
+        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
+        :param description: The description of the email address.
+        :param display_name: The display name of email address.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82663491f0adb2dbe44ce9a95c4b21bf5d7529ba2b8adcceab5da9bedc3d1370)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEmailAddressProps(
+            email_address=email_address,
+            instance_arn=instance_arn,
+            description=description,
+            display_name=display_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4fe51dacac1b484c4e303934d80f7bb4cfcbe3351b63a935760ef841d11b0b7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33b6216cbb956627e9dc575454fc3e8d5aea1a3207ec56ce9cb765691a426336)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEmailAddressArn")
+    def attr_email_address_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the email address.
+
+        :cloudformationAttribute: EmailAddressArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEmailAddressArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="emailAddressRef")
+    def email_address_ref(self) -> EmailAddressReference:
+        '''A reference to a EmailAddress resource.'''
+        return typing.cast(EmailAddressReference, jsii.get(self, "emailAddressRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="emailAddress")
+    def email_address(self) -> builtins.str:
+        '''The email address, including the domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "emailAddress"))
+
+    @email_address.setter
+    def email_address(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e26e2300df70e94e938287749de7109892ad93f49e461b69b020622739163c1c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "emailAddress", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4897e979b60cf9112f8c5f689498588562efda825c4b629f911babccfbbd14f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the email address.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ecb3e2768e9a204b64d2a27ff4d4239810f03f60c999f10faf989234a4aa95f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of email address.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea8987f3e91ef810959c56c99b1cff317c190bc87329ffea9f144b19adab4460)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0842a9bd625bd6676921b5b4d09d963f3c01dd351f002f2878919bed280da0c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IEvaluationFormRef, _ITaggable_36806126)
 class CfnEvaluationForm(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2144,6 +8236,12 @@ class CfnEvaluationForm(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationFormRef")
+    def evaluation_form_ref(self) -> EvaluationFormReference:
+        '''A reference to a EvaluationForm resource.'''
+        return typing.cast(EvaluationFormReference, jsii.get(self, "evaluationFormRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4047,277 +10145,7 @@ class CfnEvaluationForm(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnEvaluationFormProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "items": "items",
-        "status": "status",
-        "title": "title",
-        "auto_evaluation_configuration": "autoEvaluationConfiguration",
-        "description": "description",
-        "scoring_strategy": "scoringStrategy",
-        "tags": "tags",
-    },
-)
-class CfnEvaluationFormProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        status: builtins.str,
-        title: builtins.str,
-        auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEvaluationForm``.
-
-        :param instance_arn: The identifier of the Amazon Connect instance.
-        :param items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section. *Minimum size* : 1 *Maximum size* : 100
-        :param status: The status of the evaluation form. *Allowed values* : ``DRAFT`` | ``ACTIVE`` Default: - "DRAFT"
-        :param title: A title of the evaluation form.
-        :param auto_evaluation_configuration: 
-        :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
-        :param scoring_strategy: A scoring strategy of the evaluation form.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            # evaluation_form_section_property_: connect.CfnEvaluationForm.EvaluationFormSectionProperty
-            
-            cfn_evaluation_form_props = connect.CfnEvaluationFormProps(
-                instance_arn="instanceArn",
-                items=[connect.CfnEvaluationForm.EvaluationFormBaseItemProperty(
-                    section=connect.CfnEvaluationForm.EvaluationFormSectionProperty(
-                        ref_id="refId",
-                        title="title",
-            
-                        # the properties below are optional
-                        instructions="instructions",
-                        items=[connect.CfnEvaluationForm.EvaluationFormItemProperty(
-                            question=connect.CfnEvaluationForm.EvaluationFormQuestionProperty(
-                                question_type="questionType",
-                                ref_id="refId",
-                                title="title",
-            
-                                # the properties below are optional
-                                instructions="instructions",
-                                not_applicable_enabled=False,
-                                question_type_properties=connect.CfnEvaluationForm.EvaluationFormQuestionTypePropertiesProperty(
-                                    numeric=connect.CfnEvaluationForm.EvaluationFormNumericQuestionPropertiesProperty(
-                                        max_value=123,
-                                        min_value=123,
-            
-                                        # the properties below are optional
-                                        automation=connect.CfnEvaluationForm.EvaluationFormNumericQuestionAutomationProperty(
-                                            property_value=connect.CfnEvaluationForm.NumericQuestionPropertyValueAutomationProperty(
-                                                label="label"
-                                            )
-                                        ),
-                                        options=[connect.CfnEvaluationForm.EvaluationFormNumericQuestionOptionProperty(
-                                            max_value=123,
-                                            min_value=123,
-            
-                                            # the properties below are optional
-                                            automatic_fail=False,
-                                            score=123
-                                        )]
-                                    ),
-                                    single_select=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionPropertiesProperty(
-                                        options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionOptionProperty(
-                                            ref_id="refId",
-                                            text="text",
-            
-                                            # the properties below are optional
-                                            automatic_fail=False,
-                                            score=123
-                                        )],
-            
-                                        # the properties below are optional
-                                        automation=connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationProperty(
-                                            options=[connect.CfnEvaluationForm.EvaluationFormSingleSelectQuestionAutomationOptionProperty(
-                                                rule_category=connect.CfnEvaluationForm.SingleSelectQuestionRuleCategoryAutomationProperty(
-                                                    category="category",
-                                                    condition="condition",
-                                                    option_ref_id="optionRefId"
-                                                )
-                                            )],
-            
-                                            # the properties below are optional
-                                            default_option_ref_id="defaultOptionRefId"
-                                        ),
-                                        display_as="displayAs"
-                                    )
-                                ),
-                                weight=123
-                            ),
-                            section=evaluation_form_section_property_
-                        )],
-                        weight=123
-                    )
-                )],
-                status="status",
-                title="title",
-            
-                # the properties below are optional
-                auto_evaluation_configuration=connect.CfnEvaluationForm.AutoEvaluationConfigurationProperty(
-                    enabled=False
-                ),
-                description="description",
-                scoring_strategy=connect.CfnEvaluationForm.ScoringStrategyProperty(
-                    mode="mode",
-                    status="status"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8aedc75ad)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument items", value=items, expected_type=type_hints["items"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
-            check_type(argname="argument auto_evaluation_configuration", value=auto_evaluation_configuration, expected_type=type_hints["auto_evaluation_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument scoring_strategy", value=scoring_strategy, expected_type=type_hints["scoring_strategy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "items": items,
-            "status": status,
-            "title": title,
-        }
-        if auto_evaluation_configuration is not None:
-            self._values["auto_evaluation_configuration"] = auto_evaluation_configuration
-        if description is not None:
-            self._values["description"] = description
-        if scoring_strategy is not None:
-            self._values["scoring_strategy"] = scoring_strategy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def items(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.EvaluationFormBaseItemProperty]]]:
-        '''Items that are part of the evaluation form.
-
-        The total number of sections and questions must not exceed 100 each. Questions must be contained in a section.
-
-        *Minimum size* : 1
-
-        *Maximum size* : 100
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-items
-        '''
-        result = self._values.get("items")
-        assert result is not None, "Required property 'items' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.EvaluationFormBaseItemProperty]]], result)
-
-    @builtins.property
-    def status(self) -> builtins.str:
-        '''The status of the evaluation form.
-
-        *Allowed values* : ``DRAFT`` | ``ACTIVE``
-
-        :default: - "DRAFT"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-status
-        '''
-        result = self._values.get("status")
-        assert result is not None, "Required property 'status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def title(self) -> builtins.str:
-        '''A title of the evaluation form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-title
-        '''
-        result = self._values.get("title")
-        assert result is not None, "Required property 'title' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_evaluation_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.AutoEvaluationConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-autoevaluationconfiguration
-        '''
-        result = self._values.get("auto_evaluation_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.AutoEvaluationConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the evaluation form.
-
-        *Length Constraints* : Minimum length of 0. Maximum length of 1024.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scoring_strategy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.ScoringStrategyProperty]]:
-        '''A scoring strategy of the evaluation form.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-scoringstrategy
-        '''
-        result = self._values.get("scoring_strategy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEvaluationForm.ScoringStrategyProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEvaluationFormProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IHoursOfOperationRef, _ITaggable_36806126)
 class CfnHoursOfOperation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4463,6 +10291,12 @@ class CfnHoursOfOperation(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hoursOfOperationRef")
+    def hours_of_operation_ref(self) -> HoursOfOperationReference:
+        '''A reference to a HoursOfOperation resource.'''
+        return typing.cast(HoursOfOperationReference, jsii.get(self, "hoursOfOperationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5048,202 +10882,7 @@ class CfnHoursOfOperation(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnHoursOfOperationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "config": "config",
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "time_zone": "timeZone",
-        "description": "description",
-        "hours_of_operation_overrides": "hoursOfOperationOverrides",
-        "tags": "tags",
-    },
-)
-class CfnHoursOfOperationProps:
-    def __init__(
-        self,
-        *,
-        config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        instance_arn: builtins.str,
-        name: builtins.str,
-        time_zone: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        hours_of_operation_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHoursOfOperation``.
-
-        :param config: Configuration information for the hours of operation.
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name for the hours of operation.
-        :param time_zone: The time zone for the hours of operation.
-        :param description: The description for the hours of operation.
-        :param hours_of_operation_overrides: One or more hours of operation overrides assigned to an hour of operation.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_hours_of_operation_props = connect.CfnHoursOfOperationProps(
-                config=[connect.CfnHoursOfOperation.HoursOfOperationConfigProperty(
-                    day="day",
-                    end_time=connect.CfnHoursOfOperation.HoursOfOperationTimeSliceProperty(
-                        hours=123,
-                        minutes=123
-                    ),
-                    start_time=connect.CfnHoursOfOperation.HoursOfOperationTimeSliceProperty(
-                        hours=123,
-                        minutes=123
-                    )
-                )],
-                instance_arn="instanceArn",
-                name="name",
-                time_zone="timeZone",
-            
-                # the properties below are optional
-                description="description",
-                hours_of_operation_overrides=[connect.CfnHoursOfOperation.HoursOfOperationOverrideProperty(
-                    effective_from="effectiveFrom",
-                    effective_till="effectiveTill",
-                    override_config=[connect.CfnHoursOfOperation.HoursOfOperationOverrideConfigProperty(
-                        day="day",
-                        end_time=connect.CfnHoursOfOperation.OverrideTimeSliceProperty(
-                            hours=123,
-                            minutes=123
-                        ),
-                        start_time=connect.CfnHoursOfOperation.OverrideTimeSliceProperty(
-                            hours=123,
-                            minutes=123
-                        )
-                    )],
-                    override_name="overrideName",
-            
-                    # the properties below are optional
-                    hours_of_operation_override_id="hoursOfOperationOverrideId",
-                    override_description="overrideDescription"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66cef12b59765322de54d22fe6de568f262a635899fc46cbe6a5f5a97b848467)
-            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument hours_of_operation_overrides", value=hours_of_operation_overrides, expected_type=type_hints["hours_of_operation_overrides"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "config": config,
-            "instance_arn": instance_arn,
-            "name": name,
-            "time_zone": time_zone,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if hours_of_operation_overrides is not None:
-            self._values["hours_of_operation_overrides"] = hours_of_operation_overrides
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHoursOfOperation.HoursOfOperationConfigProperty]]]:
-        '''Configuration information for the hours of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-config
-        '''
-        result = self._values.get("config")
-        assert result is not None, "Required property 'config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHoursOfOperation.HoursOfOperationConfigProperty]]], result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the hours of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def time_zone(self) -> builtins.str:
-        '''The time zone for the hours of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-timezone
-        '''
-        result = self._values.get("time_zone")
-        assert result is not None, "Required property 'time_zone' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description for the hours of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hours_of_operation_overrides(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHoursOfOperation.HoursOfOperationOverrideProperty]]]]:
-        '''One or more hours of operation overrides assigned to an hour of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-hoursofoperationoverrides
-        '''
-        result = self._values.get("hours_of_operation_overrides")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnHoursOfOperation.HoursOfOperationOverrideProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-hoursofoperation.html#cfn-connect-hoursofoperation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHoursOfOperationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IInstanceRef, _ITaggableV2_4e6798f8)
 class CfnInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5415,6 +11054,12 @@ class CfnInstance(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> InstanceReference:
+        '''A reference to a Instance resource.'''
+        return typing.cast(InstanceReference, jsii.get(self, "instanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attributes")
@@ -5745,154 +11390,7 @@ class CfnInstance(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "attributes": "attributes",
-        "identity_management_type": "identityManagementType",
-        "directory_id": "directoryId",
-        "instance_alias": "instanceAlias",
-        "tags": "tags",
-    },
-)
-class CfnInstanceProps:
-    def __init__(
-        self,
-        *,
-        attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.AttributesProperty, typing.Dict[builtins.str, typing.Any]]],
-        identity_management_type: builtins.str,
-        directory_id: typing.Optional[builtins.str] = None,
-        instance_alias: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstance``.
-
-        :param attributes: A toggle for an individual feature at the instance level.
-        :param identity_management_type: The identity management type.
-        :param directory_id: The identifier for the directory.
-        :param instance_alias: The alias of instance. ``InstanceAlias`` is only required when ``IdentityManagementType`` is ``CONNECT_MANAGED`` or ``SAML`` . ``InstanceAlias`` is not required when ``IdentityManagementType`` is ``EXISTING_DIRECTORY`` .
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_instance_props = connect.CfnInstanceProps(
-                attributes=connect.CfnInstance.AttributesProperty(
-                    inbound_calls=False,
-                    outbound_calls=False,
-            
-                    # the properties below are optional
-                    auto_resolve_best_voices=False,
-                    contactflow_logs=False,
-                    contact_lens=False,
-                    early_media=False,
-                    enhanced_chat_monitoring=False,
-                    enhanced_contact_monitoring=False,
-                    high_volume_out_bound=False,
-                    multi_party_chat_conference=False,
-                    multi_party_conference=False,
-                    use_custom_tts_voices=False
-                ),
-                identity_management_type="identityManagementType",
-            
-                # the properties below are optional
-                directory_id="directoryId",
-                instance_alias="instanceAlias",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67fdacfbc8ac4206df45637f43843e90e644b42387d3af9173f714ef095953b4)
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument identity_management_type", value=identity_management_type, expected_type=type_hints["identity_management_type"])
-            check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
-            check_type(argname="argument instance_alias", value=instance_alias, expected_type=type_hints["instance_alias"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "attributes": attributes,
-            "identity_management_type": identity_management_type,
-        }
-        if directory_id is not None:
-            self._values["directory_id"] = directory_id
-        if instance_alias is not None:
-            self._values["instance_alias"] = instance_alias
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnInstance.AttributesProperty]:
-        '''A toggle for an individual feature at the instance level.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-attributes
-        '''
-        result = self._values.get("attributes")
-        assert result is not None, "Required property 'attributes' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnInstance.AttributesProperty], result)
-
-    @builtins.property
-    def identity_management_type(self) -> builtins.str:
-        '''The identity management type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-identitymanagementtype
-        '''
-        result = self._values.get("identity_management_type")
-        assert result is not None, "Required property 'identity_management_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def directory_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier for the directory.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-directoryid
-        '''
-        result = self._values.get("directory_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_alias(self) -> typing.Optional[builtins.str]:
-        '''The alias of instance.
-
-        ``InstanceAlias`` is only required when ``IdentityManagementType`` is ``CONNECT_MANAGED`` or ``SAML`` . ``InstanceAlias`` is not required when ``IdentityManagementType`` is ``EXISTING_DIRECTORY`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-instancealias
-        '''
-        result = self._values.get("instance_alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instance.html#cfn-connect-instance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInstanceStorageConfigRef)
 class CfnInstanceStorageConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6026,6 +11524,12 @@ class CfnInstanceStorageConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceStorageConfigRef")
+    def instance_storage_config_ref(self) -> InstanceStorageConfigReference:
+        '''A reference to a InstanceStorageConfig resource.'''
+        return typing.cast(InstanceStorageConfigReference, jsii.get(self, "instanceStorageConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -6516,194 +12020,7 @@ class CfnInstanceStorageConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnInstanceStorageConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "resource_type": "resourceType",
-        "storage_type": "storageType",
-        "kinesis_firehose_config": "kinesisFirehoseConfig",
-        "kinesis_stream_config": "kinesisStreamConfig",
-        "kinesis_video_stream_config": "kinesisVideoStreamConfig",
-        "s3_config": "s3Config",
-    },
-)
-class CfnInstanceStorageConfigProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        resource_type: builtins.str,
-        storage_type: builtins.str,
-        kinesis_firehose_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisFirehoseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_video_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceStorageConfig``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param resource_type: A valid resource type. Following are the valid resource types: ``CHAT_TRANSCRIPTS`` | ``CALL_RECORDINGS`` | ``SCHEDULED_REPORTS`` | ``MEDIA_STREAMS`` | ``CONTACT_TRACE_RECORDS`` | ``AGENT_EVENTS``
-        :param storage_type: A valid storage type.
-        :param kinesis_firehose_config: The configuration of the Kinesis Firehose delivery stream.
-        :param kinesis_stream_config: The configuration of the Kinesis data stream.
-        :param kinesis_video_stream_config: The configuration of the Kinesis video stream.
-        :param s3_config: The S3 bucket configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_instance_storage_config_props = connect.CfnInstanceStorageConfigProps(
-                instance_arn="instanceArn",
-                resource_type="resourceType",
-                storage_type="storageType",
-            
-                # the properties below are optional
-                kinesis_firehose_config=connect.CfnInstanceStorageConfig.KinesisFirehoseConfigProperty(
-                    firehose_arn="firehoseArn"
-                ),
-                kinesis_stream_config=connect.CfnInstanceStorageConfig.KinesisStreamConfigProperty(
-                    stream_arn="streamArn"
-                ),
-                kinesis_video_stream_config=connect.CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty(
-                    encryption_config=connect.CfnInstanceStorageConfig.EncryptionConfigProperty(
-                        encryption_type="encryptionType",
-                        key_id="keyId"
-                    ),
-                    prefix="prefix",
-                    retention_period_hours=123
-                ),
-                s3_config=connect.CfnInstanceStorageConfig.S3ConfigProperty(
-                    bucket_name="bucketName",
-                    bucket_prefix="bucketPrefix",
-            
-                    # the properties below are optional
-                    encryption_config=connect.CfnInstanceStorageConfig.EncryptionConfigProperty(
-                        encryption_type="encryptionType",
-                        key_id="keyId"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__220fe9c269db6e3bcb651e492fae1b71e17d6b254dfd6b60c71dc0cda259419b)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-            check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
-            check_type(argname="argument kinesis_firehose_config", value=kinesis_firehose_config, expected_type=type_hints["kinesis_firehose_config"])
-            check_type(argname="argument kinesis_stream_config", value=kinesis_stream_config, expected_type=type_hints["kinesis_stream_config"])
-            check_type(argname="argument kinesis_video_stream_config", value=kinesis_video_stream_config, expected_type=type_hints["kinesis_video_stream_config"])
-            check_type(argname="argument s3_config", value=s3_config, expected_type=type_hints["s3_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "resource_type": resource_type,
-            "storage_type": storage_type,
-        }
-        if kinesis_firehose_config is not None:
-            self._values["kinesis_firehose_config"] = kinesis_firehose_config
-        if kinesis_stream_config is not None:
-            self._values["kinesis_stream_config"] = kinesis_stream_config
-        if kinesis_video_stream_config is not None:
-            self._values["kinesis_video_stream_config"] = kinesis_video_stream_config
-        if s3_config is not None:
-            self._values["s3_config"] = s3_config
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_type(self) -> builtins.str:
-        '''A valid resource type.
-
-        Following are the valid resource types: ``CHAT_TRANSCRIPTS`` | ``CALL_RECORDINGS`` | ``SCHEDULED_REPORTS`` | ``MEDIA_STREAMS`` | ``CONTACT_TRACE_RECORDS`` | ``AGENT_EVENTS``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-resourcetype
-        '''
-        result = self._values.get("resource_type")
-        assert result is not None, "Required property 'resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def storage_type(self) -> builtins.str:
-        '''A valid storage type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-storagetype
-        '''
-        result = self._values.get("storage_type")
-        assert result is not None, "Required property 'storage_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kinesis_firehose_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisFirehoseConfigProperty]]:
-        '''The configuration of the Kinesis Firehose delivery stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisfirehoseconfig
-        '''
-        result = self._values.get("kinesis_firehose_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisFirehoseConfigProperty]], result)
-
-    @builtins.property
-    def kinesis_stream_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisStreamConfigProperty]]:
-        '''The configuration of the Kinesis data stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisstreamconfig
-        '''
-        result = self._values.get("kinesis_stream_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisStreamConfigProperty]], result)
-
-    @builtins.property
-    def kinesis_video_stream_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty]]:
-        '''The configuration of the Kinesis video stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-kinesisvideostreamconfig
-        '''
-        result = self._values.get("kinesis_video_stream_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty]], result)
-
-    @builtins.property
-    def s3_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.S3ConfigProperty]]:
-        '''The S3 bucket configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-instancestorageconfig.html#cfn-connect-instancestorageconfig-s3config
-        '''
-        result = self._values.get("s3_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceStorageConfig.S3ConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceStorageConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IIntegrationAssociationRef)
 class CfnIntegrationAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6801,6 +12118,12 @@ class CfnIntegrationAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="integrationAssociationRef")
+    def integration_association_ref(self) -> IntegrationAssociationReference:
+        '''A reference to a IntegrationAssociation resource.'''
+        return typing.cast(IntegrationAssociationReference, jsii.get(self, "integrationAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="instanceId")
     def instance_id(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the instance.'''
@@ -6840,108 +12163,7 @@ class CfnIntegrationAssociation(
         jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnIntegrationAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_id": "instanceId",
-        "integration_arn": "integrationArn",
-        "integration_type": "integrationType",
-    },
-)
-class CfnIntegrationAssociationProps:
-    def __init__(
-        self,
-        *,
-        instance_id: builtins.str,
-        integration_arn: builtins.str,
-        integration_type: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnIntegrationAssociation``.
-
-        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
-        :param integration_arn: ARN of the integration being associated with the instance. *Minimum* : ``1`` *Maximum* : ``140``
-        :param integration_type: Specifies the integration type to be associated with the instance. *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_integration_association_props = connect.CfnIntegrationAssociationProps(
-                instance_id="instanceId",
-                integration_arn="integrationArn",
-                integration_type="integrationType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3d412d21)
-            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
-            check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
-            check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_id": instance_id,
-            "integration_arn": integration_arn,
-            "integration_type": integration_type,
-        }
-
-    @builtins.property
-    def instance_id(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        *Minimum* : ``1``
-
-        *Maximum* : ``100``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-instanceid
-        '''
-        result = self._values.get("instance_id")
-        assert result is not None, "Required property 'instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def integration_arn(self) -> builtins.str:
-        '''ARN of the integration being associated with the instance.
-
-        *Minimum* : ``1``
-
-        *Maximum* : ``140``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-integrationarn
-        '''
-        result = self._values.get("integration_arn")
-        assert result is not None, "Required property 'integration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def integration_type(self) -> builtins.str:
-        '''Specifies the integration type to be associated with the instance.
-
-        *Allowed Values* : ``LEX_BOT`` | ``LAMBDA_FUNCTION``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-integrationassociation.html#cfn-connect-integrationassociation-integrationtype
-        '''
-        result = self._values.get("integration_type")
-        assert result is not None, "Required property 'integration_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIntegrationAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPhoneNumberRef, _ITaggable_36806126)
 class CfnPhoneNumber(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7069,6 +12291,12 @@ class CfnPhoneNumber(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="phoneNumberRef")
+    def phone_number_ref(self) -> PhoneNumberReference:
+        '''A reference to a PhoneNumber resource.'''
+        return typing.cast(PhoneNumberReference, jsii.get(self, "phoneNumberRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -7169,173 +12397,7 @@ class CfnPhoneNumber(
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnPhoneNumberProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "target_arn": "targetArn",
-        "country_code": "countryCode",
-        "description": "description",
-        "prefix": "prefix",
-        "source_phone_number_arn": "sourcePhoneNumberArn",
-        "tags": "tags",
-        "type": "type",
-    },
-)
-class CfnPhoneNumberProps:
-    def __init__(
-        self,
-        *,
-        target_arn: builtins.str,
-        country_code: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        prefix: typing.Optional[builtins.str] = None,
-        source_phone_number_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPhoneNumber``.
-
-        :param target_arn: The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
-        :param country_code: The ISO country code.
-        :param description: The description of the phone number.
-        :param prefix: The prefix of the phone number. If provided, it must contain ``+`` as part of the country code. *Pattern* : ``^\\\\+[0-9]{1,15}``
-        :param source_phone_number_arn: The claimed phone number ARN that was previously imported from the external service, such as AWS End User Messaging. If it is from AWS End User Messaging, it looks like the ARN of the phone number that was imported from AWS End User Messaging.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-        :param type: The type of phone number.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_phone_number_props = connect.CfnPhoneNumberProps(
-                target_arn="targetArn",
-            
-                # the properties below are optional
-                country_code="countryCode",
-                description="description",
-                prefix="prefix",
-                source_phone_number_arn="sourcePhoneNumberArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                type="type"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9b6cbf832a5409fafc1645b1b1a1567ef5e6d173dfed6d56cae08b977fd4b95)
-            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
-            check_type(argname="argument country_code", value=country_code, expected_type=type_hints["country_code"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
-            check_type(argname="argument source_phone_number_arn", value=source_phone_number_arn, expected_type=type_hints["source_phone_number_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "target_arn": target_arn,
-        }
-        if country_code is not None:
-            self._values["country_code"] = country_code
-        if description is not None:
-            self._values["description"] = description
-        if prefix is not None:
-            self._values["prefix"] = prefix
-        if source_phone_number_arn is not None:
-            self._values["source_phone_number_arn"] = source_phone_number_arn
-        if tags is not None:
-            self._values["tags"] = tags
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for Amazon Connect instances or traffic distribution group that phone numbers are claimed to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-targetarn
-        '''
-        result = self._values.get("target_arn")
-        assert result is not None, "Required property 'target_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def country_code(self) -> typing.Optional[builtins.str]:
-        '''The ISO country code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-countrycode
-        '''
-        result = self._values.get("country_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the phone number.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def prefix(self) -> typing.Optional[builtins.str]:
-        '''The prefix of the phone number. If provided, it must contain ``+`` as part of the country code.
-
-        *Pattern* : ``^\\\\+[0-9]{1,15}``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-prefix
-        '''
-        result = self._values.get("prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_phone_number_arn(self) -> typing.Optional[builtins.str]:
-        '''The claimed phone number ARN that was previously imported from the external service, such as AWS End User Messaging.
-
-        If it is from AWS End User Messaging, it looks like the ARN of the phone number that was imported from AWS End User Messaging.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-sourcephonenumberarn
-        '''
-        result = self._values.get("source_phone_number_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of phone number.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html#cfn-connect-phonenumber-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPhoneNumberProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPredefinedAttributeRef)
 class CfnPredefinedAttribute(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7455,6 +12517,12 @@ class CfnPredefinedAttribute(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="predefinedAttributeRef")
+    def predefined_attribute_ref(self) -> PredefinedAttributeReference:
+        '''A reference to a PredefinedAttribute resource.'''
+        return typing.cast(PredefinedAttributeReference, jsii.get(self, "predefinedAttributeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -7664,141 +12732,7 @@ class CfnPredefinedAttribute(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnPredefinedAttributeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "attribute_configuration": "attributeConfiguration",
-        "purposes": "purposes",
-        "values": "values",
-    },
-)
-class CfnPredefinedAttributeProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPredefinedAttribute``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name of the predefined attribute.
-        :param attribute_configuration: Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
-        :param purposes: The assigned purposes of the predefined attribute.
-        :param values: The values of a predefined attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_predefined_attribute_props = connect.CfnPredefinedAttributeProps(
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                attribute_configuration=connect.CfnPredefinedAttribute.AttributeConfigurationProperty(
-                    enable_value_validation_on_association=False,
-                    is_read_only=False
-                ),
-                purposes=["purposes"],
-                values=connect.CfnPredefinedAttribute.ValuesProperty(
-                    string_list=["stringList"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ecadacc4d)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument attribute_configuration", value=attribute_configuration, expected_type=type_hints["attribute_configuration"])
-            check_type(argname="argument purposes", value=purposes, expected_type=type_hints["purposes"])
-            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if attribute_configuration is not None:
-            self._values["attribute_configuration"] = attribute_configuration
-        if purposes is not None:
-            self._values["purposes"] = purposes
-        if values is not None:
-            self._values["values"] = values
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the predefined attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attribute_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.AttributeConfigurationProperty]]:
-        '''Custom metadata associated to a Predefined attribute that controls how the attribute behaves when used by upstream services.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-attributeconfiguration
-        '''
-        result = self._values.get("attribute_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.AttributeConfigurationProperty]], result)
-
-    @builtins.property
-    def purposes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The assigned purposes of the predefined attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-purposes
-        '''
-        result = self._values.get("purposes")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def values(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]]:
-        '''The values of a predefined attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-values
-        '''
-        result = self._values.get("values")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPredefinedAttributeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPromptRef, _ITaggableV2_4e6798f8)
 class CfnPrompt(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7915,6 +12849,12 @@ class CfnPrompt(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="promptRef")
+    def prompt_ref(self) -> PromptReference:
+        '''A reference to a Prompt resource.'''
+        return typing.cast(PromptReference, jsii.get(self, "promptRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The identifier of the Amazon Connect instance.'''
@@ -7980,139 +12920,7 @@ class CfnPrompt(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnPromptProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "description": "description",
-        "s3_uri": "s3Uri",
-        "tags": "tags",
-    },
-)
-class CfnPromptProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        s3_uri: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPrompt``.
-
-        :param instance_arn: The identifier of the Amazon Connect instance.
-        :param name: The name of the prompt.
-        :param description: The description of the prompt.
-        :param s3_uri: The URI for the S3 bucket where the prompt is stored. This property is required when you create a prompt.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_prompt_props = connect.CfnPromptProps(
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                s3_uri="s3Uri",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de9fba0f83321ee92a8e37f03749f2012ea66a3d9d17e7a5b3d12208f718130d)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if s3_uri is not None:
-            self._values["s3_uri"] = s3_uri
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_uri(self) -> typing.Optional[builtins.str]:
-        '''The URI for the S3 bucket where the prompt is stored.
-
-        This property is required when you create a prompt.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-s3uri
-        '''
-        result = self._values.get("s3_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-prompt.html#cfn-connect-prompt-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPromptProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IQueueRef, _ITaggableV2_4e6798f8)
 class CfnQueue(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8262,6 +13070,12 @@ class CfnQueue(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> QueueReference:
+        '''A reference to a Queue resource.'''
+        return typing.cast(QueueReference, jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="hoursOfOperationArn")
@@ -8555,227 +13369,7 @@ class CfnQueue(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnQueueProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "hours_of_operation_arn": "hoursOfOperationArn",
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "description": "description",
-        "max_contacts": "maxContacts",
-        "outbound_caller_config": "outboundCallerConfig",
-        "outbound_email_config": "outboundEmailConfig",
-        "quick_connect_arns": "quickConnectArns",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnQueueProps:
-    def __init__(
-        self,
-        *,
-        hours_of_operation_arn: builtins.str,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        max_contacts: typing.Optional[jsii.Number] = None,
-        outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundCallerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        outbound_email_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundEmailConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        quick_connect_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnQueue``.
-
-        :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
-        :param instance_arn: The identifier of the Amazon Connect instance.
-        :param name: The name of the queue.
-        :param description: The description of the queue.
-        :param max_contacts: The maximum number of contacts that can be in the queue before it is considered full.
-        :param outbound_caller_config: The outbound caller ID name, number, and outbound whisper flow.
-        :param outbound_email_config: The outbound email address ID for a specified queue.
-        :param quick_connect_arns: The Amazon Resource Names (ARN) of the of the quick connects available to agents who are working the queue.
-        :param status: The status of the queue.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_queue_props = connect.CfnQueueProps(
-                hours_of_operation_arn="hoursOfOperationArn",
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                max_contacts=123,
-                outbound_caller_config=connect.CfnQueue.OutboundCallerConfigProperty(
-                    outbound_caller_id_name="outboundCallerIdName",
-                    outbound_caller_id_number_arn="outboundCallerIdNumberArn",
-                    outbound_flow_arn="outboundFlowArn"
-                ),
-                outbound_email_config=connect.CfnQueue.OutboundEmailConfigProperty(
-                    outbound_email_address_id="outboundEmailAddressId"
-                ),
-                quick_connect_arns=["quickConnectArns"],
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__baa26a31f9cdaa2c1ff32bcd44e00a08477582db0c01e27c9e1a60c3e96a8bce)
-            check_type(argname="argument hours_of_operation_arn", value=hours_of_operation_arn, expected_type=type_hints["hours_of_operation_arn"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument max_contacts", value=max_contacts, expected_type=type_hints["max_contacts"])
-            check_type(argname="argument outbound_caller_config", value=outbound_caller_config, expected_type=type_hints["outbound_caller_config"])
-            check_type(argname="argument outbound_email_config", value=outbound_email_config, expected_type=type_hints["outbound_email_config"])
-            check_type(argname="argument quick_connect_arns", value=quick_connect_arns, expected_type=type_hints["quick_connect_arns"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "hours_of_operation_arn": hours_of_operation_arn,
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if max_contacts is not None:
-            self._values["max_contacts"] = max_contacts
-        if outbound_caller_config is not None:
-            self._values["outbound_caller_config"] = outbound_caller_config
-        if outbound_email_config is not None:
-            self._values["outbound_email_config"] = outbound_email_config
-        if quick_connect_arns is not None:
-            self._values["quick_connect_arns"] = quick_connect_arns
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def hours_of_operation_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the hours of operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-hoursofoperationarn
-        '''
-        result = self._values.get("hours_of_operation_arn")
-        assert result is not None, "Required property 'hours_of_operation_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_contacts(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of contacts that can be in the queue before it is considered full.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-maxcontacts
-        '''
-        result = self._values.get("max_contacts")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def outbound_caller_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.OutboundCallerConfigProperty]]:
-        '''The outbound caller ID name, number, and outbound whisper flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-outboundcallerconfig
-        '''
-        result = self._values.get("outbound_caller_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.OutboundCallerConfigProperty]], result)
-
-    @builtins.property
-    def outbound_email_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.OutboundEmailConfigProperty]]:
-        '''The outbound email address ID for a specified queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-outboundemailconfig
-        '''
-        result = self._values.get("outbound_email_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.OutboundEmailConfigProperty]], result)
-
-    @builtins.property
-    def quick_connect_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Resource Names (ARN) of the of the quick connects available to agents who are working the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-quickconnectarns
-        '''
-        result = self._values.get("quick_connect_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnQueueProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IQuickConnectRef, _ITaggable_36806126)
 class CfnQuickConnect(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8910,6 +13504,12 @@ class CfnQuickConnect(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="quickConnectRef")
+    def quick_connect_ref(self) -> QuickConnectReference:
+        '''A reference to a QuickConnect resource.'''
+        return typing.cast(QuickConnectReference, jsii.get(self, "quickConnectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9316,154 +13916,7 @@ class CfnQuickConnect(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnQuickConnectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "quick_connect_config": "quickConnectConfig",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnQuickConnectProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        quick_connect_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickConnect.QuickConnectConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnQuickConnect``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name of the quick connect.
-        :param quick_connect_config: Contains information about the quick connect.
-        :param description: The description of the quick connect.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_quick_connect_props = connect.CfnQuickConnectProps(
-                instance_arn="instanceArn",
-                name="name",
-                quick_connect_config=connect.CfnQuickConnect.QuickConnectConfigProperty(
-                    quick_connect_type="quickConnectType",
-            
-                    # the properties below are optional
-                    phone_config=connect.CfnQuickConnect.PhoneNumberQuickConnectConfigProperty(
-                        phone_number="phoneNumber"
-                    ),
-                    queue_config=connect.CfnQuickConnect.QueueQuickConnectConfigProperty(
-                        contact_flow_arn="contactFlowArn",
-                        queue_arn="queueArn"
-                    ),
-                    user_config=connect.CfnQuickConnect.UserQuickConnectConfigProperty(
-                        contact_flow_arn="contactFlowArn",
-                        user_arn="userArn"
-                    )
-                ),
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d4ffda8775de853a0509cc15bc43b59e37fc8f6d1d2c110c1202c4192841fbd)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument quick_connect_config", value=quick_connect_config, expected_type=type_hints["quick_connect_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-            "quick_connect_config": quick_connect_config,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the quick connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def quick_connect_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnQuickConnect.QuickConnectConfigProperty]:
-        '''Contains information about the quick connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-quickconnectconfig
-        '''
-        result = self._values.get("quick_connect_config")
-        assert result is not None, "Required property 'quick_connect_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnQuickConnect.QuickConnectConfigProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the quick connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-quickconnect.html#cfn-connect-quickconnect-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnQuickConnectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IRoutingProfileRef, _ITaggableV2_4e6798f8)
 class CfnRoutingProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9605,6 +14058,12 @@ class CfnRoutingProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routingProfileRef")
+    def routing_profile_ref(self) -> RoutingProfileReference:
+        '''A reference to a RoutingProfile resource.'''
+        return typing.cast(RoutingProfileReference, jsii.get(self, "routingProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultOutboundQueueArn")
@@ -10042,206 +14501,7 @@ class CfnRoutingProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnRoutingProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_outbound_queue_arn": "defaultOutboundQueueArn",
-        "description": "description",
-        "instance_arn": "instanceArn",
-        "media_concurrencies": "mediaConcurrencies",
-        "name": "name",
-        "agent_availability_timer": "agentAvailabilityTimer",
-        "queue_configs": "queueConfigs",
-        "tags": "tags",
-    },
-)
-class CfnRoutingProfileProps:
-    def __init__(
-        self,
-        *,
-        default_outbound_queue_arn: builtins.str,
-        description: builtins.str,
-        instance_arn: builtins.str,
-        media_concurrencies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.MediaConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        agent_availability_timer: typing.Optional[builtins.str] = None,
-        queue_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.RoutingProfileQueueConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRoutingProfile``.
-
-        :param default_outbound_queue_arn: The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
-        :param description: The description of the routing profile.
-        :param instance_arn: The identifier of the Amazon Connect instance.
-        :param media_concurrencies: The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
-        :param name: The name of the routing profile.
-        :param agent_availability_timer: Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
-        :param queue_configs: The inbound queues associated with the routing profile. If no queue is added, the agent can make only outbound calls.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_routing_profile_props = connect.CfnRoutingProfileProps(
-                default_outbound_queue_arn="defaultOutboundQueueArn",
-                description="description",
-                instance_arn="instanceArn",
-                media_concurrencies=[connect.CfnRoutingProfile.MediaConcurrencyProperty(
-                    channel="channel",
-                    concurrency=123,
-            
-                    # the properties below are optional
-                    cross_channel_behavior=connect.CfnRoutingProfile.CrossChannelBehaviorProperty(
-                        behavior_type="behaviorType"
-                    )
-                )],
-                name="name",
-            
-                # the properties below are optional
-                agent_availability_timer="agentAvailabilityTimer",
-                queue_configs=[connect.CfnRoutingProfile.RoutingProfileQueueConfigProperty(
-                    delay=123,
-                    priority=123,
-                    queue_reference=connect.CfnRoutingProfile.RoutingProfileQueueReferenceProperty(
-                        channel="channel",
-                        queue_arn="queueArn"
-                    )
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c352ac5c14b7a76c3094c7e1595be9aaa093440801508c4780610a6d26b66aa7)
-            check_type(argname="argument default_outbound_queue_arn", value=default_outbound_queue_arn, expected_type=type_hints["default_outbound_queue_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument media_concurrencies", value=media_concurrencies, expected_type=type_hints["media_concurrencies"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument agent_availability_timer", value=agent_availability_timer, expected_type=type_hints["agent_availability_timer"])
-            check_type(argname="argument queue_configs", value=queue_configs, expected_type=type_hints["queue_configs"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_outbound_queue_arn": default_outbound_queue_arn,
-            "description": description,
-            "instance_arn": instance_arn,
-            "media_concurrencies": media_concurrencies,
-            "name": name,
-        }
-        if agent_availability_timer is not None:
-            self._values["agent_availability_timer"] = agent_availability_timer
-        if queue_configs is not None:
-            self._values["queue_configs"] = queue_configs
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def default_outbound_queue_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the default outbound queue for the routing profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-defaultoutboundqueuearn
-        '''
-        result = self._values.get("default_outbound_queue_arn")
-        assert result is not None, "Required property 'default_outbound_queue_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''The description of the routing profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def media_concurrencies(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRoutingProfile.MediaConcurrencyProperty]]]:
-        '''The channels agents can handle in the Contact Control Panel (CCP) for this routing profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-mediaconcurrencies
-        '''
-        result = self._values.get("media_concurrencies")
-        assert result is not None, "Required property 'media_concurrencies' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRoutingProfile.MediaConcurrencyProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the routing profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def agent_availability_timer(self) -> typing.Optional[builtins.str]:
-        '''Whether agents with this routing profile will have their routing order calculated based on *time since their last inbound contact* or *longest idle time* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-agentavailabilitytimer
-        '''
-        result = self._values.get("agent_availability_timer")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def queue_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRoutingProfile.RoutingProfileQueueConfigProperty]]]]:
-        '''The inbound queues associated with the routing profile.
-
-        If no queue is added, the agent can make only outbound calls.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-queueconfigs
-        '''
-        result = self._values.get("queue_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRoutingProfile.RoutingProfileQueueConfigProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-routingprofile.html#cfn-connect-routingprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRoutingProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRuleRef, _ITaggable_36806126)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10426,6 +14686,12 @@ class CfnRule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> RuleReference:
+        '''A reference to a Rule resource.'''
+        return typing.cast(RuleReference, jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -11697,241 +15963,7 @@ class CfnRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "function": "function",
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "publish_status": "publishStatus",
-        "trigger_event_source": "triggerEventSource",
-        "tags": "tags",
-    },
-)
-class CfnRuleProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionsProperty, typing.Dict[builtins.str, typing.Any]]],
-        function: builtins.str,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        publish_status: builtins.str,
-        trigger_event_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RuleTriggerEventSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRule``.
-
-        :param actions: A list of actions to be run when the rule is triggered.
-        :param function: The conditions of the rule.
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name of the rule.
-        :param publish_status: The publish status of the rule. *Allowed values* : ``DRAFT`` | ``PUBLISHED``
-        :param trigger_event_source: The event source to trigger the rule.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            # assign_contact_category_actions: Any
-            # empty_value: Any
-            # end_associated_tasks_actions: Any
-            
-            cfn_rule_props = connect.CfnRuleProps(
-                actions=connect.CfnRule.ActionsProperty(
-                    assign_contact_category_actions=[assign_contact_category_actions],
-                    create_case_actions=[connect.CfnRule.CreateCaseActionProperty(
-                        fields=[connect.CfnRule.FieldProperty(
-                            id="id",
-                            value=connect.CfnRule.FieldValueProperty(
-                                boolean_value=False,
-                                double_value=123,
-                                empty_value=empty_value,
-                                string_value="stringValue"
-                            )
-                        )],
-                        template_id="templateId"
-                    )],
-                    end_associated_tasks_actions=[end_associated_tasks_actions],
-                    event_bridge_actions=[connect.CfnRule.EventBridgeActionProperty(
-                        name="name"
-                    )],
-                    send_notification_actions=[connect.CfnRule.SendNotificationActionProperty(
-                        content="content",
-                        content_type="contentType",
-                        delivery_method="deliveryMethod",
-                        recipient=connect.CfnRule.NotificationRecipientTypeProperty(
-                            user_arns=["userArns"],
-                            user_tags={
-                                "user_tags_key": "userTags"
-                            }
-                        ),
-            
-                        # the properties below are optional
-                        subject="subject"
-                    )],
-                    submit_auto_evaluation_actions=[connect.CfnRule.SubmitAutoEvaluationActionProperty(
-                        evaluation_form_arn="evaluationFormArn"
-                    )],
-                    task_actions=[connect.CfnRule.TaskActionProperty(
-                        contact_flow_arn="contactFlowArn",
-                        name="name",
-            
-                        # the properties below are optional
-                        description="description",
-                        references={
-                            "references_key": connect.CfnRule.ReferenceProperty(
-                                type="type",
-                                value="value"
-                            )
-                        }
-                    )],
-                    update_case_actions=[connect.CfnRule.UpdateCaseActionProperty(
-                        fields=[connect.CfnRule.FieldProperty(
-                            id="id",
-                            value=connect.CfnRule.FieldValueProperty(
-                                boolean_value=False,
-                                double_value=123,
-                                empty_value=empty_value,
-                                string_value="stringValue"
-                            )
-                        )]
-                    )]
-                ),
-                function="function",
-                instance_arn="instanceArn",
-                name="name",
-                publish_status="publishStatus",
-                trigger_event_source=connect.CfnRule.RuleTriggerEventSourceProperty(
-                    event_source_name="eventSourceName",
-            
-                    # the properties below are optional
-                    integration_association_arn="integrationAssociationArn"
-                ),
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86228e744389fdc43748e3523fb391089cfd59a98fc3cac55a6aff07ca243441)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument function", value=function, expected_type=type_hints["function"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument publish_status", value=publish_status, expected_type=type_hints["publish_status"])
-            check_type(argname="argument trigger_event_source", value=trigger_event_source, expected_type=type_hints["trigger_event_source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "function": function,
-            "instance_arn": instance_arn,
-            "name": name,
-            "publish_status": publish_status,
-            "trigger_event_source": trigger_event_source,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def actions(self) -> typing.Union[_IResolvable_da3f097b, CfnRule.ActionsProperty]:
-        '''A list of actions to be run when the rule is triggered.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnRule.ActionsProperty], result)
-
-    @builtins.property
-    def function(self) -> builtins.str:
-        '''The conditions of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-function
-        '''
-        result = self._values.get("function")
-        assert result is not None, "Required property 'function' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def publish_status(self) -> builtins.str:
-        '''The publish status of the rule.
-
-        *Allowed values* : ``DRAFT`` | ``PUBLISHED``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-publishstatus
-        '''
-        result = self._values.get("publish_status")
-        assert result is not None, "Required property 'publish_status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def trigger_event_source(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnRule.RuleTriggerEventSourceProperty]:
-        '''The event source to trigger the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-triggereventsource
-        '''
-        result = self._values.get("trigger_event_source")
-        assert result is not None, "Required property 'trigger_event_source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnRule.RuleTriggerEventSourceProperty], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-rule.html#cfn-connect-rule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISecurityKeyRef)
 class CfnSecurityKey(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12026,6 +16058,12 @@ class CfnSecurityKey(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="securityKeyRef")
+    def security_key_ref(self) -> SecurityKeyReference:
+        '''A reference to a SecurityKey resource.'''
+        return typing.cast(SecurityKeyReference, jsii.get(self, "securityKeyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="instanceId")
     def instance_id(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the instance.'''
@@ -12055,84 +16093,7 @@ class CfnSecurityKey(
         jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnSecurityKeyProps",
-    jsii_struct_bases=[],
-    name_mapping={"instance_id": "instanceId", "key": "key"},
-)
-class CfnSecurityKeyProps:
-    def __init__(self, *, instance_id: builtins.str, key: builtins.str) -> None:
-        '''Properties for defining a ``CfnSecurityKey``.
-
-        :param instance_id: The Amazon Resource Name (ARN) of the instance. *Minimum* : ``1`` *Maximum* : ``100``
-        :param key: A valid security key in PEM format. For example:. ``"-----BEGIN PUBLIC KEY-----\\ [a lot of characters] ----END PUBLIC KEY-----"`` *Minimum* : ``1`` *Maximum* : ``1024``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_security_key_props = connect.CfnSecurityKeyProps(
-                instance_id="instanceId",
-                key="key"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__328945501d2d11db9e341c31e7f88f7eaea8695d95d7c557b2d470e619744f5e)
-            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_id": instance_id,
-            "key": key,
-        }
-
-    @builtins.property
-    def instance_id(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        *Minimum* : ``1``
-
-        *Maximum* : ``100``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html#cfn-connect-securitykey-instanceid
-        '''
-        result = self._values.get("instance_id")
-        assert result is not None, "Required property 'instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def key(self) -> builtins.str:
-        '''A valid security key in PEM format. For example:.
-
-        ``"-----BEGIN PUBLIC KEY-----\\ [a lot of characters] ----END PUBLIC KEY-----"``
-
-        *Minimum* : ``1``
-
-        *Maximum* : ``1024``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securitykey.html#cfn-connect-securitykey-key
-        '''
-        result = self._values.get("key")
-        assert result is not None, "Required property 'key' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityKeyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISecurityProfileRef, _ITaggableV2_4e6798f8)
 class CfnSecurityProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12293,6 +16254,12 @@ class CfnSecurityProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> SecurityProfileReference:
+        '''A reference to a SecurityProfile resource.'''
+        return typing.cast(SecurityProfileReference, jsii.get(self, "securityProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -12526,235 +16493,7 @@ class CfnSecurityProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnSecurityProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "security_profile_name": "securityProfileName",
-        "allowed_access_control_hierarchy_group_id": "allowedAccessControlHierarchyGroupId",
-        "allowed_access_control_tags": "allowedAccessControlTags",
-        "applications": "applications",
-        "description": "description",
-        "hierarchy_restricted_resources": "hierarchyRestrictedResources",
-        "permissions": "permissions",
-        "tag_restricted_resources": "tagRestrictedResources",
-        "tags": "tags",
-    },
-)
-class CfnSecurityProfileProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        security_profile_name: builtins.str,
-        allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
-        allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        hierarchy_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tag_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityProfile``.
-
-        :param instance_arn: The identifier of the Amazon Connect instance.
-        :param security_profile_name: The name for the security profile.
-        :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
-        :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
-        :param applications: A list of third-party applications that the security profile will give access to.
-        :param description: The description of the security profile.
-        :param hierarchy_restricted_resources: The list of resources that a security profile applies hierarchy restrictions to in Amazon Connect. Following are acceptable ResourceNames: ``User`` .
-        :param permissions: Permissions assigned to the security profile. For a list of valid permissions, see `List of security profile permissions <https://docs.aws.amazon.com/connect/latest/adminguide/security-profile-list.html>`_ .
-        :param tag_restricted_resources: The list of resources that a security profile applies tag restrictions to in Amazon Connect.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_security_profile_props = connect.CfnSecurityProfileProps(
-                instance_arn="instanceArn",
-                security_profile_name="securityProfileName",
-            
-                # the properties below are optional
-                allowed_access_control_hierarchy_group_id="allowedAccessControlHierarchyGroupId",
-                allowed_access_control_tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                applications=[connect.CfnSecurityProfile.ApplicationProperty(
-                    application_permissions=["applicationPermissions"],
-                    namespace="namespace"
-                )],
-                description="description",
-                hierarchy_restricted_resources=["hierarchyRestrictedResources"],
-                permissions=["permissions"],
-                tag_restricted_resources=["tagRestrictedResources"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a8ad9faa5e934c4966c739f0b5e3756a03460ba17b7caf0aca4e26118e04c95)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
-            check_type(argname="argument allowed_access_control_hierarchy_group_id", value=allowed_access_control_hierarchy_group_id, expected_type=type_hints["allowed_access_control_hierarchy_group_id"])
-            check_type(argname="argument allowed_access_control_tags", value=allowed_access_control_tags, expected_type=type_hints["allowed_access_control_tags"])
-            check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument hierarchy_restricted_resources", value=hierarchy_restricted_resources, expected_type=type_hints["hierarchy_restricted_resources"])
-            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
-            check_type(argname="argument tag_restricted_resources", value=tag_restricted_resources, expected_type=type_hints["tag_restricted_resources"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "security_profile_name": security_profile_name,
-        }
-        if allowed_access_control_hierarchy_group_id is not None:
-            self._values["allowed_access_control_hierarchy_group_id"] = allowed_access_control_hierarchy_group_id
-        if allowed_access_control_tags is not None:
-            self._values["allowed_access_control_tags"] = allowed_access_control_tags
-        if applications is not None:
-            self._values["applications"] = applications
-        if description is not None:
-            self._values["description"] = description
-        if hierarchy_restricted_resources is not None:
-            self._values["hierarchy_restricted_resources"] = hierarchy_restricted_resources
-        if permissions is not None:
-            self._values["permissions"] = permissions
-        if tag_restricted_resources is not None:
-            self._values["tag_restricted_resources"] = tag_restricted_resources
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The identifier of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_profile_name(self) -> builtins.str:
-        '''The name for the security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-securityprofilename
-        '''
-        result = self._values.get("security_profile_name")
-        assert result is not None, "Required property 'security_profile_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allowed_access_control_hierarchy_group_id(
-        self,
-    ) -> typing.Optional[builtins.str]:
-        '''The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-allowedaccesscontrolhierarchygroupid
-        '''
-        result = self._values.get("allowed_access_control_hierarchy_group_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def allowed_access_control_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-allowedaccesscontroltags
-        '''
-        result = self._values.get("allowed_access_control_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    @builtins.property
-    def applications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.ApplicationProperty]]]]:
-        '''A list of third-party applications that the security profile will give access to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-applications
-        '''
-        result = self._values.get("applications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.ApplicationProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hierarchy_restricted_resources(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of resources that a security profile applies hierarchy restrictions to in Amazon Connect.
-
-        Following are acceptable ResourceNames: ``User`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-hierarchyrestrictedresources
-        '''
-        result = self._values.get("hierarchy_restricted_resources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Permissions assigned to the security profile.
-
-        For a list of valid permissions, see `List of security profile permissions <https://docs.aws.amazon.com/connect/latest/adminguide/security-profile-list.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-permissions
-        '''
-        result = self._values.get("permissions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tag_restricted_resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of resources that a security profile applies tag restrictions to in Amazon Connect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-tagrestrictedresources
-        '''
-        result = self._values.get("tag_restricted_resources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, { "Tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ITaskTemplateRef, _ITaggable_36806126)
 class CfnTaskTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12909,6 +16648,12 @@ class CfnTaskTemplate(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="taskTemplateRef")
+    def task_template_ref(self) -> TaskTemplateReference:
+        '''A reference to a TaskTemplate resource.'''
+        return typing.cast(TaskTemplateReference, jsii.get(self, "taskTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -13595,257 +17340,7 @@ class CfnTaskTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnTaskTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "client_token": "clientToken",
-        "constraints": "constraints",
-        "contact_flow_arn": "contactFlowArn",
-        "defaults": "defaults",
-        "description": "description",
-        "fields": "fields",
-        "name": "name",
-        "self_assign_contact_flow_arn": "selfAssignContactFlowArn",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnTaskTemplateProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        client_token: typing.Optional[builtins.str] = None,
-        constraints: typing.Any = None,
-        contact_flow_arn: typing.Optional[builtins.str] = None,
-        defaults: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.DefaultFieldValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.FieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        self_assign_contact_flow_arn: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTaskTemplate``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the Amazon Connect instance.
-        :param client_token: A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
-        :param constraints: Constraints that are applicable to the fields listed. The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
-        :param contact_flow_arn: The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template. ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
-        :param defaults: The default values for fields when a task is created by referencing this template.
-        :param description: The description of the task template.
-        :param fields: Fields that are part of the template. A template requires at least one field that has type ``Name`` .
-        :param name: The name of the task template.
-        :param self_assign_contact_flow_arn: The Amazon Resource Name (ARN) of the flow.
-        :param status: The status of the task template.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            # constraints: Any
-            
-            cfn_task_template_props = connect.CfnTaskTemplateProps(
-                instance_arn="instanceArn",
-            
-                # the properties below are optional
-                client_token="clientToken",
-                constraints=constraints,
-                contact_flow_arn="contactFlowArn",
-                defaults=[connect.CfnTaskTemplate.DefaultFieldValueProperty(
-                    default_value="defaultValue",
-                    id=connect.CfnTaskTemplate.FieldIdentifierProperty(
-                        name="name"
-                    )
-                )],
-                description="description",
-                fields=[connect.CfnTaskTemplate.FieldProperty(
-                    id=connect.CfnTaskTemplate.FieldIdentifierProperty(
-                        name="name"
-                    ),
-                    type="type",
-            
-                    # the properties below are optional
-                    description="description",
-                    single_select_options=["singleSelectOptions"]
-                )],
-                name="name",
-                self_assign_contact_flow_arn="selfAssignContactFlowArn",
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffa2d0f88c266e5f2522dfd1af262def0d3061b82ebb529283e7afc28ef8b7bb)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
-            check_type(argname="argument constraints", value=constraints, expected_type=type_hints["constraints"])
-            check_type(argname="argument contact_flow_arn", value=contact_flow_arn, expected_type=type_hints["contact_flow_arn"])
-            check_type(argname="argument defaults", value=defaults, expected_type=type_hints["defaults"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument self_assign_contact_flow_arn", value=self_assign_contact_flow_arn, expected_type=type_hints["self_assign_contact_flow_arn"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-        }
-        if client_token is not None:
-            self._values["client_token"] = client_token
-        if constraints is not None:
-            self._values["constraints"] = constraints
-        if contact_flow_arn is not None:
-            self._values["contact_flow_arn"] = contact_flow_arn
-        if defaults is not None:
-            self._values["defaults"] = defaults
-        if description is not None:
-            self._values["description"] = description
-        if fields is not None:
-            self._values["fields"] = fields
-        if name is not None:
-            self._values["name"] = name
-        if self_assign_contact_flow_arn is not None:
-            self._values["self_assign_contact_flow_arn"] = self_assign_contact_flow_arn
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon Connect instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_token(self) -> typing.Optional[builtins.str]:
-        '''A unique, case-sensitive identifier that you provide to ensure the idempotency of the request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-clienttoken
-        '''
-        result = self._values.get("client_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def constraints(self) -> typing.Any:
-        '''Constraints that are applicable to the fields listed.
-
-        The values can be represented in either JSON or YAML format. For an example of the JSON configuration, see *Examples* at the bottom of this page.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-constraints
-        '''
-        result = self._values.get("constraints")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def contact_flow_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the flow that runs by default when a task is created by referencing this template.
-
-        ``ContactFlowArn`` is not required when there is a field with ``fieldType`` = ``QUICK_CONNECT`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-contactflowarn
-        '''
-        result = self._values.get("contact_flow_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def defaults(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTaskTemplate.DefaultFieldValueProperty]]]]:
-        '''The default values for fields when a task is created by referencing this template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-defaults
-        '''
-        result = self._values.get("defaults")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTaskTemplate.DefaultFieldValueProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the task template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def fields(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTaskTemplate.FieldProperty]]]]:
-        '''Fields that are part of the template.
-
-        A template requires at least one field that has type ``Name`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-fields
-        '''
-        result = self._values.get("fields")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTaskTemplate.FieldProperty]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the task template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def self_assign_contact_flow_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-selfassigncontactflowarn
-        '''
-        result = self._values.get("self_assign_contact_flow_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the task template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-tasktemplate.html#cfn-connect-tasktemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTaskTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITrafficDistributionGroupRef, _ITaggableV2_4e6798f8)
 class CfnTrafficDistributionGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13973,6 +17468,12 @@ class CfnTrafficDistributionGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="trafficDistributionGroupRef")
+    def traffic_distribution_group_ref(self) -> TrafficDistributionGroupReference:
+        '''A reference to a TrafficDistributionGroup resource.'''
+        return typing.cast(TrafficDistributionGroupReference, jsii.get(self, "trafficDistributionGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN).'''
@@ -14025,121 +17526,7 @@ class CfnTrafficDistributionGroup(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnTrafficDistributionGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnTrafficDistributionGroupProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTrafficDistributionGroup``.
-
-        :param instance_arn: The Amazon Resource Name (ARN).
-        :param name: The name of the traffic distribution group.
-        :param description: The description of the traffic distribution group.
-        :param tags: The tags used to organize, track, or control access for this resource. For example, {"tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_traffic_distribution_group_props = connect.CfnTrafficDistributionGroupProps(
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__399ed170d743f73906db5f85382e2ff094eded44d1c9ecad71243420bd137725)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the traffic distribution group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the traffic distribution group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        For example, {"tags": {"key1":"value1", "key2":"value2"} }.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-trafficdistributiongroup.html#cfn-connect-trafficdistributiongroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrafficDistributionGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IUserRef, _ITaggable_36806126)
 class CfnUser(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14298,6 +17685,12 @@ class CfnUser(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> UserReference:
+        '''A reference to a User resource.'''
+        return typing.cast(UserReference, jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -14828,7 +18221,7 @@ class CfnUser(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IUserHierarchyGroupRef, _ITaggableV2_4e6798f8)
 class CfnUserHierarchyGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14941,6 +18334,12 @@ class CfnUserHierarchyGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="userHierarchyGroupRef")
+    def user_hierarchy_group_ref(self) -> UserHierarchyGroupReference:
+        '''A reference to a UserHierarchyGroup resource.'''
+        return typing.cast(UserHierarchyGroupReference, jsii.get(self, "userHierarchyGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the user hierarchy group.'''
@@ -14993,119 +18392,7 @@ class CfnUserHierarchyGroup(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnUserHierarchyGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "parent_group_arn": "parentGroupArn",
-        "tags": "tags",
-    },
-)
-class CfnUserHierarchyGroupProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        parent_group_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUserHierarchyGroup``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the user hierarchy group.
-        :param name: The name of the user hierarchy group.
-        :param parent_group_arn: The Amazon Resource Name (ARN) of the parent group.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_user_hierarchy_group_props = connect.CfnUserHierarchyGroupProps(
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                parent_group_arn="parentGroupArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51f9a797f445ffc1deaff140a69a030bdb25f3fa135ef233a56621cf7d99867c)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument parent_group_arn", value=parent_group_arn, expected_type=type_hints["parent_group_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if parent_group_arn is not None:
-            self._values["parent_group_arn"] = parent_group_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the user hierarchy group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the user hierarchy group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parent_group_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the parent group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-parentgrouparn
-        '''
-        result = self._values.get("parent_group_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchygroup.html#cfn-connect-userhierarchygroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserHierarchyGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IUserHierarchyStructureRef)
 class CfnUserHierarchyStructure(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15235,6 +18522,12 @@ class CfnUserHierarchyStructure(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userHierarchyStructureRef")
+    def user_hierarchy_structure_ref(self) -> UserHierarchyStructureReference:
+        '''A reference to a UserHierarchyStructure resource.'''
+        return typing.cast(UserHierarchyStructureReference, jsii.get(self, "userHierarchyStructureRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -15889,370 +19182,7 @@ class CfnUserHierarchyStructure(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnUserHierarchyStructureProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "user_hierarchy_structure": "userHierarchyStructure",
-    },
-)
-class CfnUserHierarchyStructureProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        user_hierarchy_structure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserHierarchyStructure.UserHierarchyStructureProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUserHierarchyStructure``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param user_hierarchy_structure: Contains information about a hierarchy structure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_user_hierarchy_structure_props = connect.CfnUserHierarchyStructureProps(
-                instance_arn="instanceArn",
-            
-                # the properties below are optional
-                user_hierarchy_structure=connect.CfnUserHierarchyStructure.UserHierarchyStructureProperty(
-                    level_five=connect.CfnUserHierarchyStructure.LevelFiveProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hierarchy_level_arn="hierarchyLevelArn",
-                        hierarchy_level_id="hierarchyLevelId"
-                    ),
-                    level_four=connect.CfnUserHierarchyStructure.LevelFourProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hierarchy_level_arn="hierarchyLevelArn",
-                        hierarchy_level_id="hierarchyLevelId"
-                    ),
-                    level_one=connect.CfnUserHierarchyStructure.LevelOneProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hierarchy_level_arn="hierarchyLevelArn",
-                        hierarchy_level_id="hierarchyLevelId"
-                    ),
-                    level_three=connect.CfnUserHierarchyStructure.LevelThreeProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hierarchy_level_arn="hierarchyLevelArn",
-                        hierarchy_level_id="hierarchyLevelId"
-                    ),
-                    level_two=connect.CfnUserHierarchyStructure.LevelTwoProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        hierarchy_level_arn="hierarchyLevelArn",
-                        hierarchy_level_id="hierarchyLevelId"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ef8ab1a9f85518aac6fecbf1c6c15b8b8e1c433138b08b759d4bc60035a64a4)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument user_hierarchy_structure", value=user_hierarchy_structure, expected_type=type_hints["user_hierarchy_structure"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-        }
-        if user_hierarchy_structure is not None:
-            self._values["user_hierarchy_structure"] = user_hierarchy_structure
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html#cfn-connect-userhierarchystructure-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_hierarchy_structure(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserHierarchyStructure.UserHierarchyStructureProperty]]:
-        '''Contains information about a hierarchy structure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-userhierarchystructure.html#cfn-connect-userhierarchystructure-userhierarchystructure
-        '''
-        result = self._values.get("user_hierarchy_structure")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserHierarchyStructure.UserHierarchyStructureProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserHierarchyStructureProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnUserProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "phone_config": "phoneConfig",
-        "routing_profile_arn": "routingProfileArn",
-        "security_profile_arns": "securityProfileArns",
-        "username": "username",
-        "directory_user_id": "directoryUserId",
-        "hierarchy_group_arn": "hierarchyGroupArn",
-        "identity_info": "identityInfo",
-        "password": "password",
-        "tags": "tags",
-        "user_proficiencies": "userProficiencies",
-    },
-)
-class CfnUserProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        phone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        routing_profile_arn: builtins.str,
-        security_profile_arns: typing.Sequence[builtins.str],
-        username: builtins.str,
-        directory_user_id: typing.Optional[builtins.str] = None,
-        hierarchy_group_arn: typing.Optional[builtins.str] = None,
-        identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserIdentityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        password: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserProficiencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUser``.
-
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param phone_config: Information about the phone configuration for the user.
-        :param routing_profile_arn: The Amazon Resource Name (ARN) of the user's routing profile.
-        :param security_profile_arns: The Amazon Resource Name (ARN) of the user's security profile.
-        :param username: The user name assigned to the user account.
-        :param directory_user_id: The identifier of the user account in the directory used for identity management.
-        :param hierarchy_group_arn: The Amazon Resource Name (ARN) of the user's hierarchy group.
-        :param identity_info: Information about the user identity.
-        :param password: The user's password.
-        :param tags: The tags.
-        :param user_proficiencies: One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_user_props = connect.CfnUserProps(
-                instance_arn="instanceArn",
-                phone_config=connect.CfnUser.UserPhoneConfigProperty(
-                    phone_type="phoneType",
-            
-                    # the properties below are optional
-                    after_contact_work_time_limit=123,
-                    auto_accept=False,
-                    desk_phone_number="deskPhoneNumber",
-                    persistent_connection=False
-                ),
-                routing_profile_arn="routingProfileArn",
-                security_profile_arns=["securityProfileArns"],
-                username="username",
-            
-                # the properties below are optional
-                directory_user_id="directoryUserId",
-                hierarchy_group_arn="hierarchyGroupArn",
-                identity_info=connect.CfnUser.UserIdentityInfoProperty(
-                    email="email",
-                    first_name="firstName",
-                    last_name="lastName",
-                    mobile="mobile",
-                    secondary_email="secondaryEmail"
-                ),
-                password="password",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                user_proficiencies=[connect.CfnUser.UserProficiencyProperty(
-                    attribute_name="attributeName",
-                    attribute_value="attributeValue",
-                    level=123
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument phone_config", value=phone_config, expected_type=type_hints["phone_config"])
-            check_type(argname="argument routing_profile_arn", value=routing_profile_arn, expected_type=type_hints["routing_profile_arn"])
-            check_type(argname="argument security_profile_arns", value=security_profile_arns, expected_type=type_hints["security_profile_arns"])
-            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
-            check_type(argname="argument directory_user_id", value=directory_user_id, expected_type=type_hints["directory_user_id"])
-            check_type(argname="argument hierarchy_group_arn", value=hierarchy_group_arn, expected_type=type_hints["hierarchy_group_arn"])
-            check_type(argname="argument identity_info", value=identity_info, expected_type=type_hints["identity_info"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument user_proficiencies", value=user_proficiencies, expected_type=type_hints["user_proficiencies"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "phone_config": phone_config,
-            "routing_profile_arn": routing_profile_arn,
-            "security_profile_arns": security_profile_arns,
-            "username": username,
-        }
-        if directory_user_id is not None:
-            self._values["directory_user_id"] = directory_user_id
-        if hierarchy_group_arn is not None:
-            self._values["hierarchy_group_arn"] = hierarchy_group_arn
-        if identity_info is not None:
-            self._values["identity_info"] = identity_info
-        if password is not None:
-            self._values["password"] = password
-        if tags is not None:
-            self._values["tags"] = tags
-        if user_proficiencies is not None:
-            self._values["user_proficiencies"] = user_proficiencies
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def phone_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnUser.UserPhoneConfigProperty]:
-        '''Information about the phone configuration for the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-phoneconfig
-        '''
-        result = self._values.get("phone_config")
-        assert result is not None, "Required property 'phone_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnUser.UserPhoneConfigProperty], result)
-
-    @builtins.property
-    def routing_profile_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the user's routing profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-routingprofilearn
-        '''
-        result = self._values.get("routing_profile_arn")
-        assert result is not None, "Required property 'routing_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_profile_arns(self) -> typing.List[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the user's security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-securityprofilearns
-        '''
-        result = self._values.get("security_profile_arns")
-        assert result is not None, "Required property 'security_profile_arns' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def username(self) -> builtins.str:
-        '''The user name assigned to the user account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-username
-        '''
-        result = self._values.get("username")
-        assert result is not None, "Required property 'username' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def directory_user_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the user account in the directory used for identity management.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-directoryuserid
-        '''
-        result = self._values.get("directory_user_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hierarchy_group_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the user's hierarchy group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-hierarchygrouparn
-        '''
-        result = self._values.get("hierarchy_group_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def identity_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.UserIdentityInfoProperty]]:
-        '''Information about the user identity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-identityinfo
-        '''
-        result = self._values.get("identity_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.UserIdentityInfoProperty]], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''The user's password.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def user_proficiencies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.UserProficiencyProperty]]]]:
-        '''One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-userproficiencies
-        '''
-        result = self._values.get("user_proficiencies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.UserProficiencyProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IViewRef, _ITaggableV2_4e6798f8)
 class CfnView(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -16397,6 +19327,12 @@ class CfnView(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> ViewReference:
+        '''A reference to a View resource.'''
+        return typing.cast(ViewReference, jsii.get(self, "viewRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="actions")
     def actions(self) -> typing.List[builtins.str]:
         '''A list of actions possible from the view.'''
@@ -16475,153 +19411,7 @@ class CfnView(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnViewProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "template": "template",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnViewProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[builtins.str],
-        instance_arn: builtins.str,
-        name: builtins.str,
-        template: typing.Any,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnView``.
-
-        :param actions: A list of actions possible from the view.
-        :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param name: The name of the view.
-        :param template: The view template representing the structure of the view.
-        :param description: The description of the view.
-        :param tags: The tags associated with the view resource (not specific to view version).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            # template: Any
-            
-            cfn_view_props = connect.CfnViewProps(
-                actions=["actions"],
-                instance_arn="instanceArn",
-                name="name",
-                template=template,
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f907c1817accd77cdb1d6d91c707e676a4ecb33911eb5e958e9ef56a1cda0cbd)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument template", value=template, expected_type=type_hints["template"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "instance_arn": instance_arn,
-            "name": name,
-            "template": template,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def actions(self) -> typing.List[builtins.str]:
-        '''A list of actions possible from the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template(self) -> typing.Any:
-        '''The view template representing the structure of the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-template
-        '''
-        result = self._values.get("template")
-        assert result is not None, "Required property 'template' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with the view resource (not specific to view version).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-view.html#cfn-connect-view-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnViewProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IViewVersionRef)
 class CfnViewVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -16730,6 +19520,12 @@ class CfnViewVersion(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="viewVersionRef")
+    def view_version_ref(self) -> ViewVersionReference:
+        '''A reference to a ViewVersion resource.'''
+        return typing.cast(ViewVersionReference, jsii.get(self, "viewVersionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="viewArn")
     def view_arn(self) -> builtins.str:
         '''The unqualified Amazon Resource Name (ARN) of the view.'''
@@ -16769,104 +19565,9 @@ class CfnViewVersion(
         jsii.set(self, "viewContentSha256", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_connect.CfnViewVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "view_arn": "viewArn",
-        "version_description": "versionDescription",
-        "view_content_sha256": "viewContentSha256",
-    },
-)
-class CfnViewVersionProps:
-    def __init__(
-        self,
-        *,
-        view_arn: builtins.str,
-        version_description: typing.Optional[builtins.str] = None,
-        view_content_sha256: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnViewVersion``.
-
-        :param view_arn: The unqualified Amazon Resource Name (ARN) of the view. For example: ``arn:<partition>:connect:<region>:<accountId>:instance/00000000-0000-0000-0000-000000000000/view/00000000-0000-0000-0000-000000000000``
-        :param version_description: The description of the view version.
-        :param view_content_sha256: Indicates the checksum value of the latest published view content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_connect as connect
-            
-            cfn_view_version_props = connect.CfnViewVersionProps(
-                view_arn="viewArn",
-            
-                # the properties below are optional
-                version_description="versionDescription",
-                view_content_sha256="viewContentSha256"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__625c576cd29cfea7eb8a7d7197edcd80462fd0eac7870bac9066ac9fee2ad619)
-            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
-            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
-            check_type(argname="argument view_content_sha256", value=view_content_sha256, expected_type=type_hints["view_content_sha256"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "view_arn": view_arn,
-        }
-        if version_description is not None:
-            self._values["version_description"] = version_description
-        if view_content_sha256 is not None:
-            self._values["view_content_sha256"] = view_content_sha256
-
-    @builtins.property
-    def view_arn(self) -> builtins.str:
-        '''The unqualified Amazon Resource Name (ARN) of the view.
-
-        For example:
-
-        ``arn:<partition>:connect:<region>:<accountId>:instance/00000000-0000-0000-0000-000000000000/view/00000000-0000-0000-0000-000000000000``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-viewarn
-        '''
-        result = self._values.get("view_arn")
-        assert result is not None, "Required property 'view_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def version_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the view version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-versiondescription
-        '''
-        result = self._values.get("version_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def view_content_sha256(self) -> typing.Optional[builtins.str]:
-        '''Indicates the checksum value of the latest published view content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-viewversion.html#cfn-connect-viewversion-viewcontentsha256
-        '''
-        result = self._values.get("view_content_sha256")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnViewVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AgentStatusReference",
+    "ApprovedOriginReference",
     "CfnAgentStatus",
     "CfnAgentStatusProps",
     "CfnApprovedOrigin",
@@ -16921,9 +19622,579 @@ __all__ = [
     "CfnViewProps",
     "CfnViewVersion",
     "CfnViewVersionProps",
+    "ContactFlowModuleReference",
+    "ContactFlowReference",
+    "ContactFlowVersionReference",
+    "EmailAddressReference",
+    "EvaluationFormReference",
+    "HoursOfOperationReference",
+    "IAgentStatusRef",
+    "IApprovedOriginRef",
+    "IContactFlowModuleRef",
+    "IContactFlowRef",
+    "IContactFlowVersionRef",
+    "IEmailAddressRef",
+    "IEvaluationFormRef",
+    "IHoursOfOperationRef",
+    "IInstanceRef",
+    "IInstanceStorageConfigRef",
+    "IIntegrationAssociationRef",
+    "IPhoneNumberRef",
+    "IPredefinedAttributeRef",
+    "IPromptRef",
+    "IQueueRef",
+    "IQuickConnectRef",
+    "IRoutingProfileRef",
+    "IRuleRef",
+    "ISecurityKeyRef",
+    "ISecurityProfileRef",
+    "ITaskTemplateRef",
+    "ITrafficDistributionGroupRef",
+    "IUserHierarchyGroupRef",
+    "IUserHierarchyStructureRef",
+    "IUserRef",
+    "IViewRef",
+    "IViewVersionRef",
+    "InstanceReference",
+    "InstanceStorageConfigReference",
+    "IntegrationAssociationReference",
+    "PhoneNumberReference",
+    "PredefinedAttributeReference",
+    "PromptReference",
+    "QueueReference",
+    "QuickConnectReference",
+    "RoutingProfileReference",
+    "RuleReference",
+    "SecurityKeyReference",
+    "SecurityProfileReference",
+    "TaskTemplateReference",
+    "TrafficDistributionGroupReference",
+    "UserHierarchyGroupReference",
+    "UserHierarchyStructureReference",
+    "UserReference",
+    "ViewReference",
+    "ViewVersionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__768479fa7e7e7f86ca3c14b2f0c14bc0917972da4bee850af1a0e89fff6abda7(
+    *,
+    agent_status_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b37c28e269432ca55eed5f3ae06081fcfbbb8da044d27a29f19e0fbb4af7fcc(
+    *,
+    instance_id: builtins.str,
+    origin: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ea651682301a3c8be4ae90c231be7d774e8c3bcc6aecdc9ffdd77f14213429c(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    state: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    display_order: typing.Optional[jsii.Number] = None,
+    reset_order_number: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__437fb8bad3e7665288233ec7ee3b4db6669d85ab53efddb888b5d729979a4e2f(
+    *,
+    instance_id: builtins.str,
+    origin: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84f0f2ba3fd7010e7e0bb6aaa71b591e31e6d4c4ad736e9c4e08be6f11de0102(
+    *,
+    content: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0555b19a226cc1a8bd054951921ffd23e0c635fe29a3d69a330d8262710a7d8(
+    *,
+    content: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bd431a320275e8a984a962d58a7aaded6a06452a72a1bb623aefe40161e3d66(
+    *,
+    contact_flow_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__925fc69049d4896dd3262cfb6f2706a7c9f3ca052fe3aac9c63f99ad79e7def4(
+    *,
+    email_address: builtins.str,
+    instance_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8aedc75ad(
+    *,
+    instance_arn: builtins.str,
+    items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    status: builtins.str,
+    title: builtins.str,
+    auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66cef12b59765322de54d22fe6de568f262a635899fc46cbe6a5f5a97b848467(
+    *,
+    config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    instance_arn: builtins.str,
+    name: builtins.str,
+    time_zone: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    hours_of_operation_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67fdacfbc8ac4206df45637f43843e90e644b42387d3af9173f714ef095953b4(
+    *,
+    attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.AttributesProperty, typing.Dict[builtins.str, typing.Any]]],
+    identity_management_type: builtins.str,
+    directory_id: typing.Optional[builtins.str] = None,
+    instance_alias: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__220fe9c269db6e3bcb651e492fae1b71e17d6b254dfd6b60c71dc0cda259419b(
+    *,
+    instance_arn: builtins.str,
+    resource_type: builtins.str,
+    storage_type: builtins.str,
+    kinesis_firehose_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisFirehoseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_video_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3d412d21(
+    *,
+    instance_id: builtins.str,
+    integration_arn: builtins.str,
+    integration_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9b6cbf832a5409fafc1645b1b1a1567ef5e6d173dfed6d56cae08b977fd4b95(
+    *,
+    target_arn: builtins.str,
+    country_code: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    prefix: typing.Optional[builtins.str] = None,
+    source_phone_number_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ecadacc4d(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de9fba0f83321ee92a8e37f03749f2012ea66a3d9d17e7a5b3d12208f718130d(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    s3_uri: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baa26a31f9cdaa2c1ff32bcd44e00a08477582db0c01e27c9e1a60c3e96a8bce(
+    *,
+    hours_of_operation_arn: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    max_contacts: typing.Optional[jsii.Number] = None,
+    outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundCallerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outbound_email_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundEmailConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    quick_connect_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d4ffda8775de853a0509cc15bc43b59e37fc8f6d1d2c110c1202c4192841fbd(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    quick_connect_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickConnect.QuickConnectConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c352ac5c14b7a76c3094c7e1595be9aaa093440801508c4780610a6d26b66aa7(
+    *,
+    default_outbound_queue_arn: builtins.str,
+    description: builtins.str,
+    instance_arn: builtins.str,
+    media_concurrencies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.MediaConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    agent_availability_timer: typing.Optional[builtins.str] = None,
+    queue_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.RoutingProfileQueueConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86228e744389fdc43748e3523fb391089cfd59a98fc3cac55a6aff07ca243441(
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    function: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    publish_status: builtins.str,
+    trigger_event_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RuleTriggerEventSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__328945501d2d11db9e341c31e7f88f7eaea8695d95d7c557b2d470e619744f5e(
+    *,
+    instance_id: builtins.str,
+    key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a8ad9faa5e934c4966c739f0b5e3756a03460ba17b7caf0aca4e26118e04c95(
+    *,
+    instance_arn: builtins.str,
+    security_profile_name: builtins.str,
+    allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
+    allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    hierarchy_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tag_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffa2d0f88c266e5f2522dfd1af262def0d3061b82ebb529283e7afc28ef8b7bb(
+    *,
+    instance_arn: builtins.str,
+    client_token: typing.Optional[builtins.str] = None,
+    constraints: typing.Any = None,
+    contact_flow_arn: typing.Optional[builtins.str] = None,
+    defaults: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.DefaultFieldValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.FieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    self_assign_contact_flow_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__399ed170d743f73906db5f85382e2ff094eded44d1c9ecad71243420bd137725(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51f9a797f445ffc1deaff140a69a030bdb25f3fa135ef233a56621cf7d99867c(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    parent_group_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ef8ab1a9f85518aac6fecbf1c6c15b8b8e1c433138b08b759d4bc60035a64a4(
+    *,
+    instance_arn: builtins.str,
+    user_hierarchy_structure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserHierarchyStructure.UserHierarchyStructureProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1(
+    *,
+    instance_arn: builtins.str,
+    phone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    routing_profile_arn: builtins.str,
+    security_profile_arns: typing.Sequence[builtins.str],
+    username: builtins.str,
+    directory_user_id: typing.Optional[builtins.str] = None,
+    hierarchy_group_arn: typing.Optional[builtins.str] = None,
+    identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserIdentityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    password: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserProficiencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f907c1817accd77cdb1d6d91c707e676a4ecb33911eb5e958e9ef56a1cda0cbd(
+    *,
+    actions: typing.Sequence[builtins.str],
+    instance_arn: builtins.str,
+    name: builtins.str,
+    template: typing.Any,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__625c576cd29cfea7eb8a7d7197edcd80462fd0eac7870bac9066ac9fee2ad619(
+    *,
+    view_arn: builtins.str,
+    version_description: typing.Optional[builtins.str] = None,
+    view_content_sha256: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa4afb8ea2f0b8aada23db43f1fbe3b13e22d11056c4a27391c3b3ec8db995f4(
+    *,
+    contact_flow_module_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2374f3a5b5a6747afcce5987dc3f7b334da022d795377e30e0f2e2722931f0b6(
+    *,
+    contact_flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84f85b3d111e99204c744af7017f3e280df208a7e08acfcb7c6bd9176ccedef0(
+    *,
+    contact_flow_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03eae94269c325b81396a600eecbc10d55147bcb99d194908bbc76310aeaa621(
+    *,
+    email_address_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57239f3e4a93bdd1b629309e0487a9a357daa516425efd9ed6b8c42f85fa4e87(
+    *,
+    evaluation_form_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a99bf9b444acd3021bec75f693028fc4c55c934848cefbbaea3bcf6d721c52ab(
+    *,
+    hours_of_operation_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06c1ed9f904f8b2fcb870712f74313e41f5bb2be30b203a79d8da4f70215c6c6(
+    *,
+    instance_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ee5b85d053601b0bc5ed5f40030a7e483ec8192eff7ceea9d37c94b0aa1ac26(
+    *,
+    association_id: builtins.str,
+    instance_arn: builtins.str,
+    resource_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52c83a8b82aefd24731881b6469a6d5db10ae339c68957f3e8a3e4336c3a1ee3(
+    *,
+    instance_id: builtins.str,
+    integration_arn: builtins.str,
+    integration_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e76ecb044d239e7b8bf715e69c904f00271259292687f82c26587023d7c4ba91(
+    *,
+    phone_number_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba6763bf82ecfe2225805b2ba95e74e9337b49bd8faa89a47164638e4a505469(
+    *,
+    instance_arn: builtins.str,
+    predefined_attribute_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__543380c6293ee79ee66e29f564d5d2cfba01a12bf85e33a4235cb911957f0d7e(
+    *,
+    prompt_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29290a39f822868d896dea99668a03e2858a75bede3e13f031f98140bd84efbe(
+    *,
+    queue_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc40e50f7a7938c2a0d897e9c7735b1d40004b4ab6d00954e744d667ded76a47(
+    *,
+    quick_connect_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__819263aa6dc13644ec9e3fc8d62b5133376f1ecfc6298b0fab3a1b47526ffcc7(
+    *,
+    routing_profile_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96149e4154f5225a004d2a908307c4a8974ab5a50d31ed08f270bc85d3243875(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bb0e4df1a0272bc6a35392bbe15d7f8e64c669e3df2c852b520ea3cbe331756(
+    *,
+    association_id: builtins.str,
+    instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ddedf0e61d518d240e697a79f3554052741aae32f5fedb3238b20db9c7e48cd(
+    *,
+    security_profile_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d73c7b7623aa33501b6e96554b73784823de0b6616308d497f63a04b3e16919d(
+    *,
+    task_template_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__339d7b3e4b953fe3ea7be6da76f17a0be98571559e69ed860fb420316079b7a8(
+    *,
+    traffic_distribution_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcd5cc0990e81c1d2839c8fde8248ca00920d6dbb1064d2a551b59f631bcd8f6(
+    *,
+    user_hierarchy_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc9773e37c677429a0cc4e37249f92f6d104e663d5465f6450023fa4852c9374(
+    *,
+    user_hierarchy_structure_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42fbb8727a41ac73484980865097f6f1fd54ed7b114a61a95cb907117f4ccadd(
+    *,
+    user_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10edf0eb1bcb972d8b9b4672c2444edecfc71e1291313fdaee96f67b23e9e55a(
+    *,
+    view_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d08d009810575626562d2a15c9d7016e1b5cedc5d860b511cb0fa239a6d53d7(
+    *,
+    view_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__188703c629c18d36bedd60b2ef308608c79b0a7639ceafb679e00ecdf1434bcb(
     scope: _constructs_77d1e7e8.Construct,
@@ -17001,20 +20272,6 @@ def _typecheckingstub__64b83fcef3b8683e26746763b9a4121f9ed52687deb75b8c04eaf159e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7ea651682301a3c8be4ae90c231be7d774e8c3bcc6aecdc9ffdd77f14213429c(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    state: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    display_order: typing.Optional[jsii.Number] = None,
-    reset_order_number: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__44955422cb4c00b338f45e52a0d4136fdcdb94c8e433595b636f468d589e514a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17045,14 +20302,6 @@ def _typecheckingstub__7fd219e5b157d40fbc4254297a9308245796269c824a72c0b9db3bad7
 
 def _typecheckingstub__49fb9b02cf4a1b22d6433eac9cb35377d1877512b477dbf9c030fec47fb54f75(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__437fb8bad3e7665288233ec7ee3b4db6669d85ab53efddb888b5d729979a4e2f(
-    *,
-    instance_id: builtins.str,
-    origin: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17188,31 +20437,6 @@ def _typecheckingstub__47de1c508f0616d427a0546578e35f062250082b28649c89857700196
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__84f0f2ba3fd7010e7e0bb6aaa71b591e31e6d4c4ad736e9c4e08be6f11de0102(
-    *,
-    content: builtins.str,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c0555b19a226cc1a8bd054951921ffd23e0c635fe29a3d69a330d8262710a7d8(
-    *,
-    content: builtins.str,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a31de8fadfe8b204a6f20d104c9bd7e6d511bb0a98ca39db212f6ea6f6e7427b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17243,14 +20467,6 @@ def _typecheckingstub__8c67191011cdc1e35e2efe8a0fc1ca8eb70d92048915331d2c2304e20
 
 def _typecheckingstub__874c4dc9a5e63e7eb152e6db7e2794c6a1ded5d623873f917a2a60c5a6fbf154(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1bd431a320275e8a984a962d58a7aaded6a06452a72a1bb623aefe40161e3d66(
-    *,
-    contact_flow_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17306,17 +20522,6 @@ def _typecheckingstub__ea8987f3e91ef810959c56c99b1cff317c190bc87329ffea9f144b19a
 
 def _typecheckingstub__0842a9bd625bd6676921b5b4d09d963f3c01dd351f002f2878919bed280da0c1(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__925fc69049d4896dd3262cfb6f2706a7c9f3ca052fe3aac9c63f99ad79e7def4(
-    *,
-    email_address: builtins.str,
-    instance_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17536,20 +20741,6 @@ def _typecheckingstub__4b2bf16cb3e015cee3921d57ba3346d4fc6c93af2e79cdcf6d8dec3a5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b678e993288629444b4e1bc33b4631f7578a458c70203ec6ae7263a8aedc75ad(
-    *,
-    instance_arn: builtins.str,
-    items: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.EvaluationFormBaseItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    status: builtins.str,
-    title: builtins.str,
-    auto_evaluation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.AutoEvaluationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    scoring_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluationForm.ScoringStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__da9a7b2f06b8b2d053fcfa26018be9202b48193f9ffb7fc1d9518391cd9b5afe(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17665,19 +20856,6 @@ def _typecheckingstub__bf0fe9b40d5f92cd82deaad81370dd578dddfd7a1db227ec3b04d8a18
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__66cef12b59765322de54d22fe6de568f262a635899fc46cbe6a5f5a97b848467(
-    *,
-    config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    instance_arn: builtins.str,
-    name: builtins.str,
-    time_zone: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    hours_of_operation_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHoursOfOperation.HoursOfOperationOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f291b6bb708a40e1a35dc95de4a38d5f9d8117683bed082183bd387f4848fef9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17747,17 +20925,6 @@ def _typecheckingstub__c40aedafdc4ea4fb2b717cc5c6ef0e2db4eb7490be99c35b78dc90f18
     multi_party_chat_conference: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     multi_party_conference: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     use_custom_tts_voices: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__67fdacfbc8ac4206df45637f43843e90e644b42387d3af9173f714ef095953b4(
-    *,
-    attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.AttributesProperty, typing.Dict[builtins.str, typing.Any]]],
-    identity_management_type: builtins.str,
-    directory_id: typing.Optional[builtins.str] = None,
-    instance_alias: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17871,19 +21038,6 @@ def _typecheckingstub__7296a98085d62b3fe09acddef52fca10fedbaae666bc4512bfa543fd1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__220fe9c269db6e3bcb651e492fae1b71e17d6b254dfd6b60c71dc0cda259419b(
-    *,
-    instance_arn: builtins.str,
-    resource_type: builtins.str,
-    storage_type: builtins.str,
-    kinesis_firehose_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisFirehoseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_video_stream_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.KinesisVideoStreamConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceStorageConfig.S3ConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0623057688349069456f9eae4995faa9cd189f98024c1f76262706d5734b311e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17921,15 +21075,6 @@ def _typecheckingstub__9cc0c68d9b0ec88ff8644cffd658aa26a913dcd92e1fc6ea4af9e7159
 
 def _typecheckingstub__beb9a11163321e5e540a87e2baf965475a45e960cf9aa4a424acc86dcad3feef(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3d412d21(
-    *,
-    instance_id: builtins.str,
-    integration_arn: builtins.str,
-    integration_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17999,19 +21144,6 @@ def _typecheckingstub__b0910286729f650a764036086fb0fc5a1d117b7068e7085b28b831445
 
 def _typecheckingstub__d0868299e1426aef01fcea4843c3c28737fa3b7614cce2aa77e978bfa8976f8f(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a9b6cbf832a5409fafc1645b1b1a1567ef5e6d173dfed6d56cae08b977fd4b95(
-    *,
-    target_arn: builtins.str,
-    country_code: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    prefix: typing.Optional[builtins.str] = None,
-    source_phone_number_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18086,17 +21218,6 @@ def _typecheckingstub__209d9d991e492e56e0ff65e3395c0553be43e6389f1d983bccebb7b1e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ecadacc4d(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.AttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    purposes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__683007bdfb211b27a1db29f576ae38fe5ce650e538e8600382be8cd908344f85(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18148,17 +21269,6 @@ def _typecheckingstub__155bb4a41abbed9be485f4a84dd2dff42cbadb5390d2f8e657348892f
 
 def _typecheckingstub__9b88b3999e96c364888f1b8a2f9495a78cd1b725cf709724ac78279658d35ced(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de9fba0f83321ee92a8e37f03749f2012ea66a3d9d17e7a5b3d12208f718130d(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    s3_uri: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18269,22 +21379,6 @@ def _typecheckingstub__6034538ecc5b69375cb012cf0eadba4ed8798c3aa677d36052499166f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__baa26a31f9cdaa2c1ff32bcd44e00a08477582db0c01e27c9e1a60c3e96a8bce(
-    *,
-    hours_of_operation_arn: builtins.str,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    max_contacts: typing.Optional[jsii.Number] = None,
-    outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundCallerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outbound_email_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundEmailConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    quick_connect_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__44121049328c061f99076678805110a34e47bc31097d43b030f388eca53234e9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18369,17 +21463,6 @@ def _typecheckingstub__7730396d4c494428f6ddd636283d9d5c17ba3fbc6013f1c545a8788d6
     *,
     contact_flow_arn: builtins.str,
     user_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3d4ffda8775de853a0509cc15bc43b59e37fc8f6d1d2c110c1202c4192841fbd(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    quick_connect_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnQuickConnect.QuickConnectConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18489,20 +21572,6 @@ def _typecheckingstub__57ccd007831b09a96896ef1c31704165fa1cc179777c86f32ce6de29d
     *,
     channel: builtins.str,
     queue_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c352ac5c14b7a76c3094c7e1595be9aaa093440801508c4780610a6d26b66aa7(
-    *,
-    default_outbound_queue_arn: builtins.str,
-    description: builtins.str,
-    instance_arn: builtins.str,
-    media_concurrencies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.MediaConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    agent_availability_timer: typing.Optional[builtins.str] = None,
-    queue_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoutingProfile.RoutingProfileQueueConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18682,19 +21751,6 @@ def _typecheckingstub__172e88a6af9428a8608ec5ab094e800f6fbe7460bbec91c4a3347cc98
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__86228e744389fdc43748e3523fb391089cfd59a98fc3cac55a6aff07ca243441(
-    *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ActionsProperty, typing.Dict[builtins.str, typing.Any]]],
-    function: builtins.str,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    publish_status: builtins.str,
-    trigger_event_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RuleTriggerEventSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__eec1c8c6bb56659ae557c882f85d373b6d643a7be8fd81d7dcb8e28a45f3d99e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -18725,14 +21781,6 @@ def _typecheckingstub__a94821c1bb0576049b170e315ebfd7632b76a9c0cbe46f78111e96003
 
 def _typecheckingstub__bae1fd3a5ae97acd56284508ad71af29fda88e415500606aed041d91bc4fe256(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__328945501d2d11db9e341c31e7f88f7eaea8695d95d7c557b2d470e619744f5e(
-    *,
-    instance_id: builtins.str,
-    key: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18831,22 +21879,6 @@ def _typecheckingstub__b880e1a466e4d120081a7c103809b59a07385a4cee88474da2f4f00ba
     *,
     application_permissions: typing.Sequence[builtins.str],
     namespace: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8a8ad9faa5e934c4966c739f0b5e3756a03460ba17b7caf0aca4e26118e04c95(
-    *,
-    instance_arn: builtins.str,
-    security_profile_name: builtins.str,
-    allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
-    allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    hierarchy_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tag_restricted_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19003,23 +22035,6 @@ def _typecheckingstub__04c2c12eb06cef0a8d595c1a918e7fea99c1d59c019fe5a92fb573ffc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ffa2d0f88c266e5f2522dfd1af262def0d3061b82ebb529283e7afc28ef8b7bb(
-    *,
-    instance_arn: builtins.str,
-    client_token: typing.Optional[builtins.str] = None,
-    constraints: typing.Any = None,
-    contact_flow_arn: typing.Optional[builtins.str] = None,
-    defaults: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.DefaultFieldValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTaskTemplate.FieldProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    self_assign_contact_flow_arn: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ca487c7b5364a4f5551b0a2850374d278ea9b277effd6a5a44ae511b77c2a5a6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19064,16 +22079,6 @@ def _typecheckingstub__90cd95785072e927554dbc62f58aa26e2908aa348f84906a5179c3769
 
 def _typecheckingstub__d10b0c268d645112c426bfa20ffc2365e5a9d7fb89c5ef9a7288bd68b8772881(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__399ed170d743f73906db5f85382e2ff094eded44d1c9ecad71243420bd137725(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19254,16 +22259,6 @@ def _typecheckingstub__0d964880cee57a50d651477affc39220cab9a8575f6e5da757f56a627
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__51f9a797f445ffc1deaff140a69a030bdb25f3fa135ef233a56621cf7d99867c(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    parent_group_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0dd86f1d677cc33d8aa1cee7bb5d0ab37a797bd1cb536ed79c4373391800e9a4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19354,31 +22349,6 @@ def _typecheckingstub__efc08d5c8ecf814ad20666235f44e6655cd2dd7020e91e5f43db827f3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9ef8ab1a9f85518aac6fecbf1c6c15b8b8e1c433138b08b759d4bc60035a64a4(
-    *,
-    instance_arn: builtins.str,
-    user_hierarchy_structure: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserHierarchyStructure.UserHierarchyStructureProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1(
-    *,
-    instance_arn: builtins.str,
-    phone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    routing_profile_arn: builtins.str,
-    security_profile_arns: typing.Sequence[builtins.str],
-    username: builtins.str,
-    directory_user_id: typing.Optional[builtins.str] = None,
-    hierarchy_group_arn: typing.Optional[builtins.str] = None,
-    identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserIdentityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    password: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserProficiencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__94b4f2f620952c31a829f98f6f735cb6b2bcb05a7aeec0d58a9bf353e42283a3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19441,18 +22411,6 @@ def _typecheckingstub__2c8717b700734d2f2ffa968661ed869e26cd339beb41934a1e4fb19cf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f907c1817accd77cdb1d6d91c707e676a4ecb33911eb5e958e9ef56a1cda0cbd(
-    *,
-    actions: typing.Sequence[builtins.str],
-    instance_arn: builtins.str,
-    name: builtins.str,
-    template: typing.Any,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c352cc20d21de3ffee67568db6d5f70cd6bd44413ffa25ab4bc4e5003607525b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -19490,15 +22448,6 @@ def _typecheckingstub__640f2264538b9f6d41074375157692bd7450e4e39efbea1384afb1f1f
 
 def _typecheckingstub__c5c8aa5e5d6802692a03611724808d85ab729895ff6180601dee7f8b5c3cbc23(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__625c576cd29cfea7eb8a7d7197edcd80462fd0eac7870bac9066ac9fee2ad619(
-    *,
-    view_arn: builtins.str,
-    version_description: typing.Optional[builtins.str] = None,
-    view_content_sha256: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

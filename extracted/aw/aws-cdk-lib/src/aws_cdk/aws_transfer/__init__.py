@@ -70,7 +70,2630 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.AgreementReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agreement_arn": "agreementArn",
+        "agreement_id": "agreementId",
+        "server_id": "serverId",
+    },
+)
+class AgreementReference:
+    def __init__(
+        self,
+        *,
+        agreement_arn: builtins.str,
+        agreement_id: builtins.str,
+        server_id: builtins.str,
+    ) -> None:
+        '''A reference to a Agreement resource.
+
+        :param agreement_arn: The ARN of the Agreement resource.
+        :param agreement_id: The AgreementId of the Agreement resource.
+        :param server_id: The ServerId of the Agreement resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            agreement_reference = transfer.AgreementReference(
+                agreement_arn="agreementArn",
+                agreement_id="agreementId",
+                server_id="serverId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cea5428aa05e820d8b4b0a46bd06309694d0d12f2d7248a982321742d1c77896)
+            check_type(argname="argument agreement_arn", value=agreement_arn, expected_type=type_hints["agreement_arn"])
+            check_type(argname="argument agreement_id", value=agreement_id, expected_type=type_hints["agreement_id"])
+            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agreement_arn": agreement_arn,
+            "agreement_id": agreement_id,
+            "server_id": server_id,
+        }
+
+    @builtins.property
+    def agreement_arn(self) -> builtins.str:
+        '''The ARN of the Agreement resource.'''
+        result = self._values.get("agreement_arn")
+        assert result is not None, "Required property 'agreement_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agreement_id(self) -> builtins.str:
+        '''The AgreementId of the Agreement resource.'''
+        result = self._values.get("agreement_id")
+        assert result is not None, "Required property 'agreement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_id(self) -> builtins.str:
+        '''The ServerId of the Agreement resource.'''
+        result = self._values.get("server_id")
+        assert result is not None, "Required property 'server_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgreementReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CertificateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_arn": "certificateArn",
+        "certificate_id": "certificateId",
+    },
+)
+class CertificateReference:
+    def __init__(
+        self,
+        *,
+        certificate_arn: builtins.str,
+        certificate_id: builtins.str,
+    ) -> None:
+        '''A reference to a Certificate resource.
+
+        :param certificate_arn: The ARN of the Certificate resource.
+        :param certificate_id: The CertificateId of the Certificate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            certificate_reference = transfer.CertificateReference(
+                certificate_arn="certificateArn",
+                certificate_id="certificateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__debd3abaa6e27af094c308d039baed08c938aaaed14c735d0143d44722b57ca0)
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_arn": certificate_arn,
+            "certificate_id": certificate_id,
+        }
+
+    @builtins.property
+    def certificate_arn(self) -> builtins.str:
+        '''The ARN of the Certificate resource.'''
+        result = self._values.get("certificate_arn")
+        assert result is not None, "Required property 'certificate_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_id(self) -> builtins.str:
+        '''The CertificateId of the Certificate resource.'''
+        result = self._values.get("certificate_id")
+        assert result is not None, "Required property 'certificate_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CertificateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnAgreementProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_role": "accessRole",
+        "local_profile_id": "localProfileId",
+        "partner_profile_id": "partnerProfileId",
+        "server_id": "serverId",
+        "base_directory": "baseDirectory",
+        "custom_directories": "customDirectories",
+        "description": "description",
+        "enforce_message_signing": "enforceMessageSigning",
+        "preserve_filename": "preserveFilename",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnAgreementProps:
+    def __init__(
+        self,
+        *,
+        access_role: builtins.str,
+        local_profile_id: builtins.str,
+        partner_profile_id: builtins.str,
+        server_id: builtins.str,
+        base_directory: typing.Optional[builtins.str] = None,
+        custom_directories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAgreement.CustomDirectoriesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        enforce_message_signing: typing.Optional[builtins.str] = None,
+        preserve_filename: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAgreement``.
+
+        :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol. For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use. *For AS2 connectors* With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` . If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key. *For SFTP connectors* Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
+        :param local_profile_id: A unique identifier for the AS2 local profile.
+        :param partner_profile_id: A unique identifier for the partner profile used in the agreement.
+        :param server_id: A system-assigned unique identifier for a server instance. This identifier indicates the specific server that the agreement uses.
+        :param base_directory: The landing directory (folder) for files that are transferred by using the AS2 protocol.
+        :param custom_directories: A ``CustomDirectoriesType`` structure. This structure specifies custom directories for storing various AS2 message files. You can specify directories for the following types of files. - Failed files - MDN files - Payload files - Status files - Temporary files
+        :param description: The name or short description that's used to identify the agreement.
+        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners will be accepted. - ``ENABLED`` : Transfer Family rejects unsigned messages from your trading partner. - ``DISABLED`` (default value): Transfer Family accepts unsigned messages from your trading partner.
+        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it. - ``ENABLED`` : the filename provided by your trading parter is preserved when the file is saved. - ``DISABLED`` (default value): when Transfer Family saves the file, the filename is adjusted, as described in `File names and locations <https://docs.aws.amazon.com/transfer/latest/userguide/send-as2-messages.html#file-names-as2>`_ .
+        :param status: The current status of the agreement, either ``ACTIVE`` or ``INACTIVE`` .
+        :param tags: Key-value pairs that can be used to group and search for agreements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_agreement_props = transfer.CfnAgreementProps(
+                access_role="accessRole",
+                local_profile_id="localProfileId",
+                partner_profile_id="partnerProfileId",
+                server_id="serverId",
+            
+                # the properties below are optional
+                base_directory="baseDirectory",
+                custom_directories=transfer.CfnAgreement.CustomDirectoriesProperty(
+                    failed_files_directory="failedFilesDirectory",
+                    mdn_files_directory="mdnFilesDirectory",
+                    payload_files_directory="payloadFilesDirectory",
+                    status_files_directory="statusFilesDirectory",
+                    temporary_files_directory="temporaryFilesDirectory"
+                ),
+                description="description",
+                enforce_message_signing="enforceMessageSigning",
+                preserve_filename="preserveFilename",
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c92e8cdff7d6f57ae5fd00ef4190544d79a76c01e88d32b21b88588eeb47ba2e)
+            check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
+            check_type(argname="argument local_profile_id", value=local_profile_id, expected_type=type_hints["local_profile_id"])
+            check_type(argname="argument partner_profile_id", value=partner_profile_id, expected_type=type_hints["partner_profile_id"])
+            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
+            check_type(argname="argument base_directory", value=base_directory, expected_type=type_hints["base_directory"])
+            check_type(argname="argument custom_directories", value=custom_directories, expected_type=type_hints["custom_directories"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enforce_message_signing", value=enforce_message_signing, expected_type=type_hints["enforce_message_signing"])
+            check_type(argname="argument preserve_filename", value=preserve_filename, expected_type=type_hints["preserve_filename"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_role": access_role,
+            "local_profile_id": local_profile_id,
+            "partner_profile_id": partner_profile_id,
+            "server_id": server_id,
+        }
+        if base_directory is not None:
+            self._values["base_directory"] = base_directory
+        if custom_directories is not None:
+            self._values["custom_directories"] = custom_directories
+        if description is not None:
+            self._values["description"] = description
+        if enforce_message_signing is not None:
+            self._values["enforce_message_signing"] = enforce_message_signing
+        if preserve_filename is not None:
+            self._values["preserve_filename"] = preserve_filename
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_role(self) -> builtins.str:
+        '''Connectors are used to send files using either the AS2 or SFTP protocol.
+
+        For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use.
+
+        *For AS2 connectors*
+
+        With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` .
+
+        If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key.
+
+        *For SFTP connectors*
+
+        Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-accessrole
+        '''
+        result = self._values.get("access_role")
+        assert result is not None, "Required property 'access_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def local_profile_id(self) -> builtins.str:
+        '''A unique identifier for the AS2 local profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-localprofileid
+        '''
+        result = self._values.get("local_profile_id")
+        assert result is not None, "Required property 'local_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def partner_profile_id(self) -> builtins.str:
+        '''A unique identifier for the partner profile used in the agreement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-partnerprofileid
+        '''
+        result = self._values.get("partner_profile_id")
+        assert result is not None, "Required property 'partner_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_id(self) -> builtins.str:
+        '''A system-assigned unique identifier for a server instance.
+
+        This identifier indicates the specific server that the agreement uses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-serverid
+        '''
+        result = self._values.get("server_id")
+        assert result is not None, "Required property 'server_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def base_directory(self) -> typing.Optional[builtins.str]:
+        '''The landing directory (folder) for files that are transferred by using the AS2 protocol.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-basedirectory
+        '''
+        result = self._values.get("base_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_directories(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgreement.CustomDirectoriesProperty"]]:
+        '''A ``CustomDirectoriesType`` structure.
+
+        This structure specifies custom directories for storing various AS2 message files. You can specify directories for the following types of files.
+
+        - Failed files
+        - MDN files
+        - Payload files
+        - Status files
+        - Temporary files
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-customdirectories
+        '''
+        result = self._values.get("custom_directories")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAgreement.CustomDirectoriesProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The name or short description that's used to identify the agreement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enforce_message_signing(self) -> typing.Optional[builtins.str]:
+        '''Determines whether or not unsigned messages from your trading partners will be accepted.
+
+        - ``ENABLED`` : Transfer Family rejects unsigned messages from your trading partner.
+        - ``DISABLED`` (default value): Transfer Family accepts unsigned messages from your trading partner.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-enforcemessagesigning
+        '''
+        result = self._values.get("enforce_message_signing")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preserve_filename(self) -> typing.Optional[builtins.str]:
+        '''Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it.
+
+        - ``ENABLED`` : the filename provided by your trading parter is preserved when the file is saved.
+        - ``DISABLED`` (default value): when Transfer Family saves the file, the filename is adjusted, as described in `File names and locations <https://docs.aws.amazon.com/transfer/latest/userguide/send-as2-messages.html#file-names-as2>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-preservefilename
+        '''
+        result = self._values.get("preserve_filename")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The current status of the agreement, either ``ACTIVE`` or ``INACTIVE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for agreements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAgreementProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnCertificateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate": "certificate",
+        "usage": "usage",
+        "active_date": "activeDate",
+        "certificate_chain": "certificateChain",
+        "description": "description",
+        "inactive_date": "inactiveDate",
+        "private_key": "privateKey",
+        "tags": "tags",
+    },
+)
+class CfnCertificateProps:
+    def __init__(
+        self,
+        *,
+        certificate: builtins.str,
+        usage: builtins.str,
+        active_date: typing.Optional[builtins.str] = None,
+        certificate_chain: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        inactive_date: typing.Optional[builtins.str] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificate``.
+
+        :param certificate: The file name for the certificate.
+        :param usage: Specifies how this certificate is used. It can be used in the following ways:. - ``SIGNING`` : For signing AS2 messages - ``ENCRYPTION`` : For encrypting AS2 messages - ``TLS`` : For securing AS2 communications sent over HTTPS
+        :param active_date: An optional date that specifies when the certificate becomes active. If you do not specify a value, ``ActiveDate`` takes the same value as ``NotBeforeDate`` , which is specified by the CA.
+        :param certificate_chain: The list of certificates that make up the chain for the certificate.
+        :param description: The name or description that's used to identity the certificate.
+        :param inactive_date: An optional date that specifies when the certificate becomes inactive. If you do not specify a value, ``InactiveDate`` takes the same value as ``NotAfterDate`` , which is specified by the CA.
+        :param private_key: The file that contains the private key for the certificate that's being imported.
+        :param tags: Key-value pairs that can be used to group and search for certificates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_certificate_props = transfer.CfnCertificateProps(
+                certificate="certificate",
+                usage="usage",
+            
+                # the properties below are optional
+                active_date="activeDate",
+                certificate_chain="certificateChain",
+                description="description",
+                inactive_date="inactiveDate",
+                private_key="privateKey",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9b7c390d04a925160e4d0a39429a22ee9641e79a668a3dcae449e157976c325)
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument usage", value=usage, expected_type=type_hints["usage"])
+            check_type(argname="argument active_date", value=active_date, expected_type=type_hints["active_date"])
+            check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument inactive_date", value=inactive_date, expected_type=type_hints["inactive_date"])
+            check_type(argname="argument private_key", value=private_key, expected_type=type_hints["private_key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate": certificate,
+            "usage": usage,
+        }
+        if active_date is not None:
+            self._values["active_date"] = active_date
+        if certificate_chain is not None:
+            self._values["certificate_chain"] = certificate_chain
+        if description is not None:
+            self._values["description"] = description
+        if inactive_date is not None:
+            self._values["inactive_date"] = inactive_date
+        if private_key is not None:
+            self._values["private_key"] = private_key
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def certificate(self) -> builtins.str:
+        '''The file name for the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-certificate
+        '''
+        result = self._values.get("certificate")
+        assert result is not None, "Required property 'certificate' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def usage(self) -> builtins.str:
+        '''Specifies how this certificate is used. It can be used in the following ways:.
+
+        - ``SIGNING`` : For signing AS2 messages
+        - ``ENCRYPTION`` : For encrypting AS2 messages
+        - ``TLS`` : For securing AS2 communications sent over HTTPS
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-usage
+        '''
+        result = self._values.get("usage")
+        assert result is not None, "Required property 'usage' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def active_date(self) -> typing.Optional[builtins.str]:
+        '''An optional date that specifies when the certificate becomes active.
+
+        If you do not specify a value, ``ActiveDate`` takes the same value as ``NotBeforeDate`` , which is specified by the CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-activedate
+        '''
+        result = self._values.get("active_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_chain(self) -> typing.Optional[builtins.str]:
+        '''The list of certificates that make up the chain for the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-certificatechain
+        '''
+        result = self._values.get("certificate_chain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The name or description that's used to identity the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inactive_date(self) -> typing.Optional[builtins.str]:
+        '''An optional date that specifies when the certificate becomes inactive.
+
+        If you do not specify a value, ``InactiveDate`` takes the same value as ``NotAfterDate`` , which is specified by the CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-inactivedate
+        '''
+        result = self._values.get("inactive_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The file that contains the private key for the certificate that's being imported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-privatekey
+        '''
+        result = self._values.get("private_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for certificates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_role": "accessRole",
+        "url": "url",
+        "as2_config": "as2Config",
+        "logging_role": "loggingRole",
+        "security_policy_name": "securityPolicyName",
+        "sftp_config": "sftpConfig",
+        "tags": "tags",
+    },
+)
+class CfnConnectorProps:
+    def __init__(
+        self,
+        *,
+        access_role: builtins.str,
+        url: builtins.str,
+        as2_config: typing.Any = None,
+        logging_role: typing.Optional[builtins.str] = None,
+        security_policy_name: typing.Optional[builtins.str] = None,
+        sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnector.SftpConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnector``.
+
+        :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol. For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use. *For AS2 connectors* With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` . If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key. *For SFTP connectors* Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
+        :param url: The URL of the partner's AS2 or SFTP endpoint.
+        :param as2_config: A structure that contains the parameters for an AS2 connector object.
+        :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events. When set, you can view connector activity in your CloudWatch logs.
+        :param security_policy_name: The text name of the security policy for the specified connector.
+        :param sftp_config: A structure that contains the parameters for an SFTP connector object.
+        :param tags: Key-value pairs that can be used to group and search for connectors.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            # as2_config: Any
+            
+            cfn_connector_props = transfer.CfnConnectorProps(
+                access_role="accessRole",
+                url="url",
+            
+                # the properties below are optional
+                as2_config=as2_config,
+                logging_role="loggingRole",
+                security_policy_name="securityPolicyName",
+                sftp_config=transfer.CfnConnector.SftpConfigProperty(
+                    max_concurrent_connections=123,
+                    trusted_host_keys=["trustedHostKeys"],
+                    user_secret_id="userSecretId"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772cfcc9a2e)
+            check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            check_type(argname="argument as2_config", value=as2_config, expected_type=type_hints["as2_config"])
+            check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
+            check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
+            check_type(argname="argument sftp_config", value=sftp_config, expected_type=type_hints["sftp_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_role": access_role,
+            "url": url,
+        }
+        if as2_config is not None:
+            self._values["as2_config"] = as2_config
+        if logging_role is not None:
+            self._values["logging_role"] = logging_role
+        if security_policy_name is not None:
+            self._values["security_policy_name"] = security_policy_name
+        if sftp_config is not None:
+            self._values["sftp_config"] = sftp_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_role(self) -> builtins.str:
+        '''Connectors are used to send files using either the AS2 or SFTP protocol.
+
+        For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use.
+
+        *For AS2 connectors*
+
+        With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` .
+
+        If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key.
+
+        *For SFTP connectors*
+
+        Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-accessrole
+        '''
+        result = self._values.get("access_role")
+        assert result is not None, "Required property 'access_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def url(self) -> builtins.str:
+        '''The URL of the partner's AS2 or SFTP endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-url
+        '''
+        result = self._values.get("url")
+        assert result is not None, "Required property 'url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def as2_config(self) -> typing.Any:
+        '''A structure that contains the parameters for an AS2 connector object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-as2config
+        '''
+        result = self._values.get("as2_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def logging_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events.
+
+        When set, you can view connector activity in your CloudWatch logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-loggingrole
+        '''
+        result = self._values.get("logging_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_policy_name(self) -> typing.Optional[builtins.str]:
+        '''The text name of the security policy for the specified connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-securitypolicyname
+        '''
+        result = self._values.get("security_policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sftp_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnector.SftpConfigProperty"]]:
+        '''A structure that contains the parameters for an SFTP connector object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-sftpconfig
+        '''
+        result = self._values.get("sftp_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnector.SftpConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for connectors.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "as2_id": "as2Id",
+        "profile_type": "profileType",
+        "certificate_ids": "certificateIds",
+        "tags": "tags",
+    },
+)
+class CfnProfileProps:
+    def __init__(
+        self,
+        *,
+        as2_id: builtins.str,
+        profile_type: builtins.str,
+        certificate_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProfile``.
+
+        :param as2_id: The ``As2Id`` is the *AS2-name* , as defined in the `RFC 4130 <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc4130>`_ . For inbound transfers, this is the ``AS2-From`` header for the AS2 messages sent from the partner. For outbound connectors, this is the ``AS2-To`` header for the AS2 messages sent to the partner using the ``StartFileTransfer`` API operation. This ID cannot include spaces.
+        :param profile_type: Indicates whether to list only ``LOCAL`` type profiles or only ``PARTNER`` type profiles. If not supplied in the request, the command lists all types of profiles.
+        :param certificate_ids: An array of identifiers for the imported certificates. You use this identifier for working with profiles and partner profiles.
+        :param tags: Key-value pairs that can be used to group and search for profiles.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_profile_props = transfer.CfnProfileProps(
+                as2_id="as2Id",
+                profile_type="profileType",
+            
+                # the properties below are optional
+                certificate_ids=["certificateIds"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca248e37e97df6c091c4a5b1f174228ff41c93e4175048b0f4e76df0547f4cd7)
+            check_type(argname="argument as2_id", value=as2_id, expected_type=type_hints["as2_id"])
+            check_type(argname="argument profile_type", value=profile_type, expected_type=type_hints["profile_type"])
+            check_type(argname="argument certificate_ids", value=certificate_ids, expected_type=type_hints["certificate_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "as2_id": as2_id,
+            "profile_type": profile_type,
+        }
+        if certificate_ids is not None:
+            self._values["certificate_ids"] = certificate_ids
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def as2_id(self) -> builtins.str:
+        '''The ``As2Id`` is the *AS2-name* , as defined in the `RFC 4130 <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc4130>`_ . For inbound transfers, this is the ``AS2-From`` header for the AS2 messages sent from the partner. For outbound connectors, this is the ``AS2-To`` header for the AS2 messages sent to the partner using the ``StartFileTransfer`` API operation. This ID cannot include spaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-as2id
+        '''
+        result = self._values.get("as2_id")
+        assert result is not None, "Required property 'as2_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_type(self) -> builtins.str:
+        '''Indicates whether to list only ``LOCAL`` type profiles or only ``PARTNER`` type profiles.
+
+        If not supplied in the request, the command lists all types of profiles.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-profiletype
+        '''
+        result = self._values.get("profile_type")
+        assert result is not None, "Required property 'profile_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of identifiers for the imported certificates.
+
+        You use this identifier for working with profiles and partner profiles.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-certificateids
+        '''
+        result = self._values.get("certificate_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for profiles.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnServerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate": "certificate",
+        "domain": "domain",
+        "endpoint_details": "endpointDetails",
+        "endpoint_type": "endpointType",
+        "identity_provider_details": "identityProviderDetails",
+        "identity_provider_type": "identityProviderType",
+        "ip_address_type": "ipAddressType",
+        "logging_role": "loggingRole",
+        "post_authentication_login_banner": "postAuthenticationLoginBanner",
+        "pre_authentication_login_banner": "preAuthenticationLoginBanner",
+        "protocol_details": "protocolDetails",
+        "protocols": "protocols",
+        "s3_storage_options": "s3StorageOptions",
+        "security_policy_name": "securityPolicyName",
+        "structured_log_destinations": "structuredLogDestinations",
+        "tags": "tags",
+        "workflow_details": "workflowDetails",
+    },
+)
+class CfnServerProps:
+    def __init__(
+        self,
+        *,
+        certificate: typing.Optional[builtins.str] = None,
+        domain: typing.Optional[builtins.str] = None,
+        endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoint_type: typing.Optional[builtins.str] = None,
+        identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.IdentityProviderDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_provider_type: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        logging_role: typing.Optional[builtins.str] = None,
+        post_authentication_login_banner: typing.Optional[builtins.str] = None,
+        pre_authentication_login_banner: typing.Optional[builtins.str] = None,
+        protocol_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.ProtocolDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+        s3_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.S3StorageOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_policy_name: typing.Optional[builtins.str] = None,
+        structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServer.WorkflowDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServer``.
+
+        :param certificate: The Amazon Resource Name (ARN) of the AWS Certificate Manager (ACM) certificate. Required when ``Protocols`` is set to ``FTPS`` . To request a new public certificate, see `Request a public certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html>`_ in the *AWS Certificate Manager User Guide* . To import an existing certificate into ACM, see `Importing certificates into ACM <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* . To request a private certificate to use FTPS through private IP addresses, see `Request a private certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-private.html>`_ in the *AWS Certificate Manager User Guide* . Certificates with the following cryptographic algorithms and key sizes are supported: - 2048-bit RSA (RSA_2048) - 4096-bit RSA (RSA_4096) - Elliptic Prime Curve 256 bit (EC_prime256v1) - Elliptic Prime Curve 384 bit (EC_secp384r1) - Elliptic Prime Curve 521 bit (EC_secp521r1) .. epigraph:: The certificate must be a valid SSL/TLS X.509 version 3 certificate with FQDN or IP address specified and information about the issuer.
+        :param domain: Specifies the domain of the storage system that is used for file transfers. There are two domains available: Amazon Simple Storage Service (Amazon S3) and Amazon Elastic File System (Amazon EFS). The default value is S3.
+        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured for your server. When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
+        :param endpoint_type: The type of endpoint that you want your server to use. You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it. .. epigraph:: After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` . For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ . It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
+        :param identity_provider_details: Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` . Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
+        :param identity_provider_type: The mode of authentication for a server. The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service. Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter. Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter. Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
+        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint. The default value is ``IPV4`` . .. epigraph:: The ``IpAddressType`` parameter has the following limitations: - It cannot be changed while the server is online. You must stop the server before modifying this parameter. - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
+        :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events. When set, you can view user activity in your CloudWatch logs.
+        :param post_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed after the user authenticates. .. epigraph:: The SFTP protocol does not support post-authentication display banners.
+        :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
+        :param protocol_details: The protocol settings that are configured for your server. - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer. - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call. - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter. - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
+        :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint. The available protocols are: - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption - ``FTP`` (File Transfer Protocol): Unencrypted file transfer - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data .. epigraph:: - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS. - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated. - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
+        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. - If using the console, this is enabled by default. - If using the API or CLI, this is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
+        :param security_policy_name: Specifies the name of the security policy for the server.
+        :param structured_log_destinations: Specifies the log groups to which your server logs are sent. To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows: ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*`` For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*`` If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example: ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
+        :param tags: Key-value pairs that can be used to group and search for servers.
+        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow. In addition to a workflow to execute when a file is uploaded completely, ``WorkflowDetails`` can also contain a workflow ID (and execution role) for a workflow to execute on partial upload. A partial upload occurs when a file is open when the session disconnects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_server_props = transfer.CfnServerProps(
+                certificate="certificate",
+                domain="domain",
+                endpoint_details=transfer.CfnServer.EndpointDetailsProperty(
+                    address_allocation_ids=["addressAllocationIds"],
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                    vpc_endpoint_id="vpcEndpointId",
+                    vpc_id="vpcId"
+                ),
+                endpoint_type="endpointType",
+                identity_provider_details=transfer.CfnServer.IdentityProviderDetailsProperty(
+                    directory_id="directoryId",
+                    function="function",
+                    invocation_role="invocationRole",
+                    sftp_authentication_methods="sftpAuthenticationMethods",
+                    url="url"
+                ),
+                identity_provider_type="identityProviderType",
+                ip_address_type="ipAddressType",
+                logging_role="loggingRole",
+                post_authentication_login_banner="postAuthenticationLoginBanner",
+                pre_authentication_login_banner="preAuthenticationLoginBanner",
+                protocol_details=transfer.CfnServer.ProtocolDetailsProperty(
+                    as2_transports=["as2Transports"],
+                    passive_ip="passiveIp",
+                    set_stat_option="setStatOption",
+                    tls_session_resumption_mode="tlsSessionResumptionMode"
+                ),
+                protocols=["protocols"],
+                s3_storage_options=transfer.CfnServer.S3StorageOptionsProperty(
+                    directory_listing_optimization="directoryListingOptimization"
+                ),
+                security_policy_name="securityPolicyName",
+                structured_log_destinations=["structuredLogDestinations"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                workflow_details=transfer.CfnServer.WorkflowDetailsProperty(
+                    on_partial_upload=[transfer.CfnServer.WorkflowDetailProperty(
+                        execution_role="executionRole",
+                        workflow_id="workflowId"
+                    )],
+                    on_upload=[transfer.CfnServer.WorkflowDetailProperty(
+                        execution_role="executionRole",
+                        workflow_id="workflowId"
+                    )]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__755735299782e941527b817551c61582134dc6f25d12aff5d9120aeeb47a9ee6)
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
+            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
+            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
+            check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
+            check_type(argname="argument post_authentication_login_banner", value=post_authentication_login_banner, expected_type=type_hints["post_authentication_login_banner"])
+            check_type(argname="argument pre_authentication_login_banner", value=pre_authentication_login_banner, expected_type=type_hints["pre_authentication_login_banner"])
+            check_type(argname="argument protocol_details", value=protocol_details, expected_type=type_hints["protocol_details"])
+            check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
+            check_type(argname="argument s3_storage_options", value=s3_storage_options, expected_type=type_hints["s3_storage_options"])
+            check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
+            check_type(argname="argument structured_log_destinations", value=structured_log_destinations, expected_type=type_hints["structured_log_destinations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workflow_details", value=workflow_details, expected_type=type_hints["workflow_details"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if certificate is not None:
+            self._values["certificate"] = certificate
+        if domain is not None:
+            self._values["domain"] = domain
+        if endpoint_details is not None:
+            self._values["endpoint_details"] = endpoint_details
+        if endpoint_type is not None:
+            self._values["endpoint_type"] = endpoint_type
+        if identity_provider_details is not None:
+            self._values["identity_provider_details"] = identity_provider_details
+        if identity_provider_type is not None:
+            self._values["identity_provider_type"] = identity_provider_type
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if logging_role is not None:
+            self._values["logging_role"] = logging_role
+        if post_authentication_login_banner is not None:
+            self._values["post_authentication_login_banner"] = post_authentication_login_banner
+        if pre_authentication_login_banner is not None:
+            self._values["pre_authentication_login_banner"] = pre_authentication_login_banner
+        if protocol_details is not None:
+            self._values["protocol_details"] = protocol_details
+        if protocols is not None:
+            self._values["protocols"] = protocols
+        if s3_storage_options is not None:
+            self._values["s3_storage_options"] = s3_storage_options
+        if security_policy_name is not None:
+            self._values["security_policy_name"] = security_policy_name
+        if structured_log_destinations is not None:
+            self._values["structured_log_destinations"] = structured_log_destinations
+        if tags is not None:
+            self._values["tags"] = tags
+        if workflow_details is not None:
+            self._values["workflow_details"] = workflow_details
+
+    @builtins.property
+    def certificate(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Certificate Manager (ACM) certificate.
+
+        Required when ``Protocols`` is set to ``FTPS`` .
+
+        To request a new public certificate, see `Request a public certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html>`_ in the *AWS Certificate Manager User Guide* .
+
+        To import an existing certificate into ACM, see `Importing certificates into ACM <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* .
+
+        To request a private certificate to use FTPS through private IP addresses, see `Request a private certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-private.html>`_ in the *AWS Certificate Manager User Guide* .
+
+        Certificates with the following cryptographic algorithms and key sizes are supported:
+
+        - 2048-bit RSA (RSA_2048)
+        - 4096-bit RSA (RSA_4096)
+        - Elliptic Prime Curve 256 bit (EC_prime256v1)
+        - Elliptic Prime Curve 384 bit (EC_secp384r1)
+        - Elliptic Prime Curve 521 bit (EC_secp521r1)
+
+        .. epigraph::
+
+           The certificate must be a valid SSL/TLS X.509 version 3 certificate with FQDN or IP address specified and information about the issuer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-certificate
+        '''
+        result = self._values.get("certificate")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''Specifies the domain of the storage system that is used for file transfers.
+
+        There are two domains available: Amazon Simple Storage Service (Amazon S3) and Amazon Elastic File System (Amazon EFS). The default value is S3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.EndpointDetailsProperty"]]:
+        '''The virtual private cloud (VPC) endpoint settings that are configured for your server.
+
+        When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-endpointdetails
+        '''
+        result = self._values.get("endpoint_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.EndpointDetailsProperty"]], result)
+
+    @builtins.property
+    def endpoint_type(self) -> typing.Optional[builtins.str]:
+        '''The type of endpoint that you want your server to use.
+
+        You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it.
+        .. epigraph::
+
+           After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` .
+
+           For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ .
+
+           It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-endpointtype
+        '''
+        result = self._values.get("endpoint_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_provider_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.IdentityProviderDetailsProperty"]]:
+        '''Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` .
+
+        Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-identityproviderdetails
+        '''
+        result = self._values.get("identity_provider_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.IdentityProviderDetailsProperty"]], result)
+
+    @builtins.property
+    def identity_provider_type(self) -> typing.Optional[builtins.str]:
+        '''The mode of authentication for a server.
+
+        The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service.
+
+        Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter.
+
+        Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter.
+
+        Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-identityprovidertype
+        '''
+        result = self._values.get("identity_provider_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint.
+
+        The default value is ``IPV4`` .
+        .. epigraph::
+
+           The ``IpAddressType`` parameter has the following limitations:
+
+           - It cannot be changed while the server is online. You must stop the server before modifying this parameter.
+           - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events.
+
+        When set, you can view user activity in your CloudWatch logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-loggingrole
+        '''
+        result = self._values.get("logging_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def post_authentication_login_banner(self) -> typing.Optional[builtins.str]:
+        '''Specifies a string to display when users connect to a server. This string is displayed after the user authenticates.
+
+        .. epigraph::
+
+           The SFTP protocol does not support post-authentication display banners.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-postauthenticationloginbanner
+        '''
+        result = self._values.get("post_authentication_login_banner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pre_authentication_login_banner(self) -> typing.Optional[builtins.str]:
+        '''Specifies a string to display when users connect to a server.
+
+        This string is displayed before the user authenticates. For example, the following banner displays details about using the system:
+
+        ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-preauthenticationloginbanner
+        '''
+        result = self._values.get("pre_authentication_login_banner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def protocol_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.ProtocolDetailsProperty"]]:
+        '''The protocol settings that are configured for your server.
+
+        - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer.
+        - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call.
+        - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter.
+        - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported.
+
+        The ``Protocols`` parameter is an array of strings.
+
+        *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-protocoldetails
+        '''
+        result = self._values.get("protocol_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.ProtocolDetailsProperty"]], result)
+
+    @builtins.property
+    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint.
+
+        The available protocols are:
+
+        - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH
+        - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption
+        - ``FTP`` (File Transfer Protocol): Unencrypted file transfer
+        - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data
+
+        .. epigraph::
+
+           - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS.
+           - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` .
+           - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated.
+           - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` .
+           - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3.
+
+        The ``Protocols`` parameter is an array of strings.
+
+        *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-protocols
+        '''
+        result = self._values.get("protocols")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def s3_storage_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.S3StorageOptionsProperty"]]:
+        '''Specifies whether or not performance for your Amazon S3 directories is optimized.
+
+        - If using the console, this is enabled by default.
+        - If using the API or CLI, this is disabled by default.
+
+        By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-s3storageoptions
+        '''
+        result = self._values.get("s3_storage_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.S3StorageOptionsProperty"]], result)
+
+    @builtins.property
+    def security_policy_name(self) -> typing.Optional[builtins.str]:
+        '''Specifies the name of the security policy for the server.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-securitypolicyname
+        '''
+        result = self._values.get("security_policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def structured_log_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the log groups to which your server logs are sent.
+
+        To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows:
+
+        ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*``
+
+        For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*``
+
+        If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example:
+
+        ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-structuredlogdestinations
+        '''
+        result = self._values.get("structured_log_destinations")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for servers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def workflow_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.WorkflowDetailsProperty"]]:
+        '''Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow.
+
+        In addition to a workflow to execute when a file is uploaded completely, ``WorkflowDetails`` can also contain a workflow ID (and execution role) for a workflow to execute on partial upload. A partial upload occurs when a file is open when the session disconnects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-workflowdetails
+        '''
+        result = self._values.get("workflow_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.WorkflowDetailsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnUserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "role": "role",
+        "server_id": "serverId",
+        "user_name": "userName",
+        "home_directory": "homeDirectory",
+        "home_directory_mappings": "homeDirectoryMappings",
+        "home_directory_type": "homeDirectoryType",
+        "policy": "policy",
+        "posix_profile": "posixProfile",
+        "ssh_public_keys": "sshPublicKeys",
+        "tags": "tags",
+    },
+)
+class CfnUserProps:
+    def __init__(
+        self,
+        *,
+        role: builtins.str,
+        server_id: builtins.str,
+        user_name: builtins.str,
+        home_directory: typing.Optional[builtins.str] = None,
+        home_directory_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.HomeDirectoryMapEntryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        home_directory_type: typing.Optional[builtins.str] = None,
+        policy: typing.Optional[builtins.str] = None,
+        posix_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.PosixProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUser``.
+
+        :param role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system. The policies attached to this role determine the level of access that you want to provide your users when transferring files into and out of your Amazon S3 bucket or Amazon EFS file system. The IAM role should also contain a trust relationship that allows the server to access your resources when servicing your users' transfer requests.
+        :param server_id: A system-assigned unique identifier for a server instance. This is the specific server that you added your user to.
+        :param user_name: A unique string that identifies a user and is associated with a ``ServerId`` . This user name must be a minimum of 3 and a maximum of 100 characters long. The following are valid characters: a-z, A-Z, 0-9, underscore '_', hyphen '-', period '.', and at sign '@'. The user name can't start with a hyphen, period, or at sign.
+        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client. A ``HomeDirectory`` example is ``/bucket_name/home/mydirectory`` . .. epigraph:: You can use the ``HomeDirectory`` parameter for ``HomeDirectoryType`` when it is set to either ``PATH`` or ``LOGICAL`` .
+        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible. You must specify the ``Entry`` and ``Target`` pair, where ``Entry`` shows how the path is made visible and ``Target`` is the actual Amazon S3 or Amazon EFS path. If you only specify a target, it is displayed as is. You also must ensure that your AWS Identity and Access Management (IAM) role provides access to paths in ``Target`` . This value can be set only when ``HomeDirectoryType`` is set to *LOGICAL* . The following is an ``Entry`` and ``Target`` pair example. ``[ { "Entry": "/directory1", "Target": "/bucket_name/home/mydirectory" } ]`` In most cases, you can use this value instead of the session policy to lock your user down to the designated home directory (" ``chroot`` "). To do this, you can set ``Entry`` to ``/`` and set ``Target`` to the value the user should see for their home directory when they log in. The following is an ``Entry`` and ``Target`` pair example for ``chroot`` . ``[ { "Entry": "/", "Target": "/bucket_name/home/mydirectory" } ]``
+        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server. If you set it to ``PATH`` , the user will see the absolute Amazon S3 bucket or Amazon EFS path as is in their file transfer protocol clients. If you set it to ``LOGICAL`` , you need to provide mappings in the ``HomeDirectoryMappings`` for how you want to make Amazon S3 or Amazon EFS paths visible to your users. .. epigraph:: If ``HomeDirectoryType`` is ``LOGICAL`` , you must provide mappings, using the ``HomeDirectoryMappings`` parameter. If, on the other hand, ``HomeDirectoryType`` is ``PATH`` , you provide an absolute path using the ``HomeDirectory`` parameter. You cannot have both ``HomeDirectory`` and ``HomeDirectoryMappings`` in your template.
+        :param policy: A session policy for your user so you can use the same IAM role across multiple users. This policy restricts user access to portions of their Amazon S3 bucket. Variables that you can use inside this policy include ``${Transfer:UserName}`` , ``${Transfer:HomeDirectory}`` , and ``${Transfer:HomeBucket}`` . .. epigraph:: For session policies, AWS Transfer Family stores the policy as a JSON blob, instead of the Amazon Resource Name (ARN) of the policy. You save the policy as a JSON blob and pass it in the ``Policy`` argument. For an example of a session policy, see `Example session policy <https://docs.aws.amazon.com/transfer/latest/userguide/session-policy.html>`_ . For more information, see `AssumeRole <https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html>`_ in the *AWS Security Token Service API Reference* .
+        :param posix_profile: Specifies the full POSIX identity, including user ID ( ``Uid`` ), group ID ( ``Gid`` ), and any secondary groups IDs ( ``SecondaryGids`` ), that controls your users' access to your Amazon Elastic File System (Amazon EFS) file systems. The POSIX permissions that are set on files and directories in your file system determine the level of access your users get when transferring files into and out of your Amazon EFS file systems.
+        :param ssh_public_keys: Specifies the public key portion of the Secure Shell (SSH) keys stored for the described user. .. epigraph:: To delete the public key body, set its value to zero keys, as shown here: ``SshPublicKeys: []``
+        :param tags: Key-value pairs that can be used to group and search for users. Tags are metadata attached to users for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_user_props = transfer.CfnUserProps(
+                role="role",
+                server_id="serverId",
+                user_name="userName",
+            
+                # the properties below are optional
+                home_directory="homeDirectory",
+                home_directory_mappings=[transfer.CfnUser.HomeDirectoryMapEntryProperty(
+                    entry="entry",
+                    target="target",
+            
+                    # the properties below are optional
+                    type="type"
+                )],
+                home_directory_type="homeDirectoryType",
+                policy="policy",
+                posix_profile=transfer.CfnUser.PosixProfileProperty(
+                    gid=123,
+                    uid=123,
+            
+                    # the properties below are optional
+                    secondary_gids=[123]
+                ),
+                ssh_public_keys=["sshPublicKeys"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad0aa64ea17d55d9634df57b389b841e68b583b0c7f4818453a5cb08787dcc31)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+            check_type(argname="argument home_directory", value=home_directory, expected_type=type_hints["home_directory"])
+            check_type(argname="argument home_directory_mappings", value=home_directory_mappings, expected_type=type_hints["home_directory_mappings"])
+            check_type(argname="argument home_directory_type", value=home_directory_type, expected_type=type_hints["home_directory_type"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument posix_profile", value=posix_profile, expected_type=type_hints["posix_profile"])
+            check_type(argname="argument ssh_public_keys", value=ssh_public_keys, expected_type=type_hints["ssh_public_keys"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role": role,
+            "server_id": server_id,
+            "user_name": user_name,
+        }
+        if home_directory is not None:
+            self._values["home_directory"] = home_directory
+        if home_directory_mappings is not None:
+            self._values["home_directory_mappings"] = home_directory_mappings
+        if home_directory_type is not None:
+            self._values["home_directory_type"] = home_directory_type
+        if policy is not None:
+            self._values["policy"] = policy
+        if posix_profile is not None:
+            self._values["posix_profile"] = posix_profile
+        if ssh_public_keys is not None:
+            self._values["ssh_public_keys"] = ssh_public_keys
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def role(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
+
+        The policies attached to this role determine the level of access that you want to provide your users when transferring files into and out of your Amazon S3 bucket or Amazon EFS file system. The IAM role should also contain a trust relationship that allows the server to access your resources when servicing your users' transfer requests.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-role
+        '''
+        result = self._values.get("role")
+        assert result is not None, "Required property 'role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def server_id(self) -> builtins.str:
+        '''A system-assigned unique identifier for a server instance.
+
+        This is the specific server that you added your user to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-serverid
+        '''
+        result = self._values.get("server_id")
+        assert result is not None, "Required property 'server_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''A unique string that identifies a user and is associated with a ``ServerId`` .
+
+        This user name must be a minimum of 3 and a maximum of 100 characters long. The following are valid characters: a-z, A-Z, 0-9, underscore '_', hyphen '-', period '.', and at sign '@'. The user name can't start with a hyphen, period, or at sign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-username
+        '''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def home_directory(self) -> typing.Optional[builtins.str]:
+        '''The landing directory (folder) for a user when they log in to the server using the client.
+
+        A ``HomeDirectory`` example is ``/bucket_name/home/mydirectory`` .
+        .. epigraph::
+
+           You can use the ``HomeDirectory`` parameter for ``HomeDirectoryType`` when it is set to either ``PATH`` or ``LOGICAL`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectory
+        '''
+        result = self._values.get("home_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def home_directory_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.HomeDirectoryMapEntryProperty"]]]]:
+        '''Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
+
+        You must specify the ``Entry`` and ``Target`` pair, where ``Entry`` shows how the path is made visible and ``Target`` is the actual Amazon S3 or Amazon EFS path. If you only specify a target, it is displayed as is. You also must ensure that your AWS Identity and Access Management (IAM) role provides access to paths in ``Target`` . This value can be set only when ``HomeDirectoryType`` is set to *LOGICAL* .
+
+        The following is an ``Entry`` and ``Target`` pair example.
+
+        ``[ { "Entry": "/directory1", "Target": "/bucket_name/home/mydirectory" } ]``
+
+        In most cases, you can use this value instead of the session policy to lock your user down to the designated home directory (" ``chroot`` "). To do this, you can set ``Entry`` to ``/`` and set ``Target`` to the value the user should see for their home directory when they log in.
+
+        The following is an ``Entry`` and ``Target`` pair example for ``chroot`` .
+
+        ``[ { "Entry": "/", "Target": "/bucket_name/home/mydirectory" } ]``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectorymappings
+        '''
+        result = self._values.get("home_directory_mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.HomeDirectoryMapEntryProperty"]]]], result)
+
+    @builtins.property
+    def home_directory_type(self) -> typing.Optional[builtins.str]:
+        '''The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
+
+        If you set it to ``PATH`` , the user will see the absolute Amazon S3 bucket or Amazon EFS path as is in their file transfer protocol clients. If you set it to ``LOGICAL`` , you need to provide mappings in the ``HomeDirectoryMappings`` for how you want to make Amazon S3 or Amazon EFS paths visible to your users.
+        .. epigraph::
+
+           If ``HomeDirectoryType`` is ``LOGICAL`` , you must provide mappings, using the ``HomeDirectoryMappings`` parameter. If, on the other hand, ``HomeDirectoryType`` is ``PATH`` , you provide an absolute path using the ``HomeDirectory`` parameter. You cannot have both ``HomeDirectory`` and ``HomeDirectoryMappings`` in your template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectorytype
+        '''
+        result = self._values.get("home_directory_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''A session policy for your user so you can use the same IAM role across multiple users.
+
+        This policy restricts user access to portions of their Amazon S3 bucket. Variables that you can use inside this policy include ``${Transfer:UserName}`` , ``${Transfer:HomeDirectory}`` , and ``${Transfer:HomeBucket}`` .
+        .. epigraph::
+
+           For session policies, AWS Transfer Family stores the policy as a JSON blob, instead of the Amazon Resource Name (ARN) of the policy. You save the policy as a JSON blob and pass it in the ``Policy`` argument.
+
+           For an example of a session policy, see `Example session policy <https://docs.aws.amazon.com/transfer/latest/userguide/session-policy.html>`_ .
+
+           For more information, see `AssumeRole <https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html>`_ in the *AWS Security Token Service API Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def posix_profile(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.PosixProfileProperty"]]:
+        '''Specifies the full POSIX identity, including user ID ( ``Uid`` ), group ID ( ``Gid`` ), and any secondary groups IDs ( ``SecondaryGids`` ), that controls your users' access to your Amazon Elastic File System (Amazon EFS) file systems.
+
+        The POSIX permissions that are set on files and directories in your file system determine the level of access your users get when transferring files into and out of your Amazon EFS file systems.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-posixprofile
+        '''
+        result = self._values.get("posix_profile")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.PosixProfileProperty"]], result)
+
+    @builtins.property
+    def ssh_public_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the public key portion of the Secure Shell (SSH) keys stored for the described user.
+
+        .. epigraph::
+
+           To delete the public key body, set its value to zero keys, as shown here:
+
+           ``SshPublicKeys: []``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-sshpublickeys
+        '''
+        result = self._values.get("ssh_public_keys")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for users.
+
+        Tags are metadata attached to users for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnWebAppProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_provider_details": "identityProviderDetails",
+        "access_endpoint": "accessEndpoint",
+        "tags": "tags",
+        "web_app_customization": "webAppCustomization",
+        "web_app_endpoint_policy": "webAppEndpointPolicy",
+        "web_app_units": "webAppUnits",
+    },
+)
+class CfnWebAppProps:
+    def __init__(
+        self,
+        *,
+        identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebApp.IdentityProviderDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        access_endpoint: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebApp.WebAppCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_app_endpoint_policy: typing.Optional[builtins.str] = None,
+        web_app_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebApp.WebAppUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebApp``.
+
+        :param identity_provider_details: You can provide a structure that contains the details for the identity provider to use with your web app. For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
+        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app. You can specify a custom URL or use the default value. Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
+        :param tags: Key-value pairs that can be used to group and search for web apps. Tags are metadata attached to web apps for any purpose.
+        :param web_app_customization: A structure that contains the customization fields for the web app. You can provide a title, logo, and icon to customize the appearance of your web app.
+        :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` . If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
+        :param web_app_units: A union that contains the value for number of concurrent connections or the user sessions on your web app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            cfn_web_app_props = transfer.CfnWebAppProps(
+                identity_provider_details=transfer.CfnWebApp.IdentityProviderDetailsProperty(
+                    application_arn="applicationArn",
+                    instance_arn="instanceArn",
+                    role="role"
+                ),
+            
+                # the properties below are optional
+                access_endpoint="accessEndpoint",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                web_app_customization=transfer.CfnWebApp.WebAppCustomizationProperty(
+                    favicon_file="faviconFile",
+                    logo_file="logoFile",
+                    title="title"
+                ),
+                web_app_endpoint_policy="webAppEndpointPolicy",
+                web_app_units=transfer.CfnWebApp.WebAppUnitsProperty(
+                    provisioned=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05da20d4d)
+            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
+            check_type(argname="argument access_endpoint", value=access_endpoint, expected_type=type_hints["access_endpoint"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument web_app_customization", value=web_app_customization, expected_type=type_hints["web_app_customization"])
+            check_type(argname="argument web_app_endpoint_policy", value=web_app_endpoint_policy, expected_type=type_hints["web_app_endpoint_policy"])
+            check_type(argname="argument web_app_units", value=web_app_units, expected_type=type_hints["web_app_units"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_provider_details": identity_provider_details,
+        }
+        if access_endpoint is not None:
+            self._values["access_endpoint"] = access_endpoint
+        if tags is not None:
+            self._values["tags"] = tags
+        if web_app_customization is not None:
+            self._values["web_app_customization"] = web_app_customization
+        if web_app_endpoint_policy is not None:
+            self._values["web_app_endpoint_policy"] = web_app_endpoint_policy
+        if web_app_units is not None:
+            self._values["web_app_units"] = web_app_units
+
+    @builtins.property
+    def identity_provider_details(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebApp.IdentityProviderDetailsProperty"]:
+        '''You can provide a structure that contains the details for the identity provider to use with your web app.
+
+        For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-identityproviderdetails
+        '''
+        result = self._values.get("identity_provider_details")
+        assert result is not None, "Required property 'identity_provider_details' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebApp.IdentityProviderDetailsProperty"], result)
+
+    @builtins.property
+    def access_endpoint(self) -> typing.Optional[builtins.str]:
+        '''The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app.
+
+        You can specify a custom URL or use the default value.
+
+        Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-accessendpoint
+        '''
+        result = self._values.get("access_endpoint")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for web apps.
+
+        Tags are metadata attached to web apps for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def web_app_customization(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebApp.WebAppCustomizationProperty"]]:
+        '''A structure that contains the customization fields for the web app.
+
+        You can provide a title, logo, and icon to customize the appearance of your web app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappcustomization
+        '''
+        result = self._values.get("web_app_customization")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebApp.WebAppCustomizationProperty"]], result)
+
+    @builtins.property
+    def web_app_endpoint_policy(self) -> typing.Optional[builtins.str]:
+        '''Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` .
+
+        If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappendpointpolicy
+        '''
+        result = self._values.get("web_app_endpoint_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def web_app_units(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebApp.WebAppUnitsProperty"]]:
+        '''A union that contains the value for number of concurrent connections or the user sessions on your web app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappunits
+        '''
+        result = self._values.get("web_app_units")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebApp.WebAppUnitsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebAppProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.CfnWorkflowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "steps": "steps",
+        "description": "description",
+        "on_exception_steps": "onExceptionSteps",
+        "tags": "tags",
+    },
+)
+class CfnWorkflowProps:
+    def __init__(
+        self,
+        *,
+        steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        on_exception_steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkflow.WorkflowStepProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkflow``.
+
+        :param steps: Specifies the details for the steps that are in the specified workflow.
+        :param description: Specifies the text description for the workflow.
+        :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
+        :param tags: Key-value pairs that can be used to group and search for workflows. Tags are metadata attached to workflows for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            # copy_step_details: Any
+            # custom_step_details: Any
+            # delete_step_details: Any
+            # tag_step_details: Any
+            
+            cfn_workflow_props = transfer.CfnWorkflowProps(
+                steps=[transfer.CfnWorkflow.WorkflowStepProperty(
+                    copy_step_details=copy_step_details,
+                    custom_step_details=custom_step_details,
+                    decrypt_step_details=transfer.CfnWorkflow.DecryptStepDetailsProperty(
+                        destination_file_location=transfer.CfnWorkflow.InputFileLocationProperty(
+                            efs_file_location=transfer.CfnWorkflow.EfsInputFileLocationProperty(
+                                file_system_id="fileSystemId",
+                                path="path"
+                            ),
+                            s3_file_location=transfer.CfnWorkflow.S3InputFileLocationProperty(
+                                bucket="bucket",
+                                key="key"
+                            )
+                        ),
+                        type="type",
+            
+                        # the properties below are optional
+                        name="name",
+                        overwrite_existing="overwriteExisting",
+                        source_file_location="sourceFileLocation"
+                    ),
+                    delete_step_details=delete_step_details,
+                    tag_step_details=tag_step_details,
+                    type="type"
+                )],
+            
+                # the properties below are optional
+                description="description",
+                on_exception_steps=[transfer.CfnWorkflow.WorkflowStepProperty(
+                    copy_step_details=copy_step_details,
+                    custom_step_details=custom_step_details,
+                    decrypt_step_details=transfer.CfnWorkflow.DecryptStepDetailsProperty(
+                        destination_file_location=transfer.CfnWorkflow.InputFileLocationProperty(
+                            efs_file_location=transfer.CfnWorkflow.EfsInputFileLocationProperty(
+                                file_system_id="fileSystemId",
+                                path="path"
+                            ),
+                            s3_file_location=transfer.CfnWorkflow.S3InputFileLocationProperty(
+                                bucket="bucket",
+                                key="key"
+                            )
+                        ),
+                        type="type",
+            
+                        # the properties below are optional
+                        name="name",
+                        overwrite_existing="overwriteExisting",
+                        source_file_location="sourceFileLocation"
+                    ),
+                    delete_step_details=delete_step_details,
+                    tag_step_details=tag_step_details,
+                    type="type"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3204d3f05faa7a2fceeb6ac7adbf97f5ede342d5c8c3228d5aa0cfb4e29022b4)
+            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument on_exception_steps", value=on_exception_steps, expected_type=type_hints["on_exception_steps"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "steps": steps,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if on_exception_steps is not None:
+            self._values["on_exception_steps"] = on_exception_steps
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def steps(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.WorkflowStepProperty"]]]:
+        '''Specifies the details for the steps that are in the specified workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-steps
+        '''
+        result = self._values.get("steps")
+        assert result is not None, "Required property 'steps' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.WorkflowStepProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Specifies the text description for the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def on_exception_steps(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.WorkflowStepProperty"]]]]:
+        '''Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-onexceptionsteps
+        '''
+        result = self._values.get("on_exception_steps")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWorkflow.WorkflowStepProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Key-value pairs that can be used to group and search for workflows.
+
+        Tags are metadata attached to workflows for any purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkflowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.ConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"connector_arn": "connectorArn", "connector_id": "connectorId"},
+)
+class ConnectorReference:
+    def __init__(
+        self,
+        *,
+        connector_arn: builtins.str,
+        connector_id: builtins.str,
+    ) -> None:
+        '''A reference to a Connector resource.
+
+        :param connector_arn: The ARN of the Connector resource.
+        :param connector_id: The ConnectorId of the Connector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            connector_reference = transfer.ConnectorReference(
+                connector_arn="connectorArn",
+                connector_id="connectorId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07a7b8afcc3ffe3046da0630699cc0431fdf11ff42b6382fbe88cf83fefc080d)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+            check_type(argname="argument connector_id", value=connector_id, expected_type=type_hints["connector_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+            "connector_id": connector_id,
+        }
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The ARN of the Connector resource.'''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_id(self) -> builtins.str:
+        '''The ConnectorId of the Connector resource.'''
+        result = self._values.get("connector_id")
+        assert result is not None, "Required property 'connector_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IAgreementRef")
+class IAgreementRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Agreement.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agreementRef")
+    def agreement_ref(self) -> AgreementReference:
+        '''(experimental) A reference to a Agreement resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgreementRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Agreement.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IAgreementRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agreementRef")
+    def agreement_ref(self) -> AgreementReference:
+        '''(experimental) A reference to a Agreement resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AgreementReference, jsii.get(self, "agreementRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgreementRef).__jsii_proxy_class__ = lambda : _IAgreementRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.ICertificateRef")
+class ICertificateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Certificate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''(experimental) A reference to a Certificate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICertificateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Certificate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.ICertificateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''(experimental) A reference to a Certificate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICertificateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IConnectorRef")
+class IConnectorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnectorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IProfileRef")
+class IProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Profile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> "ProfileReference":
+        '''(experimental) A reference to a Profile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Profile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> "ProfileReference":
+        '''(experimental) A reference to a Profile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProfileReference", jsii.get(self, "profileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProfileRef).__jsii_proxy_class__ = lambda : _IProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IServerRef")
+class IServerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Server.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serverRef")
+    def server_ref(self) -> "ServerReference":
+        '''(experimental) A reference to a Server resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Server.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IServerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serverRef")
+    def server_ref(self) -> "ServerReference":
+        '''(experimental) A reference to a Server resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServerReference", jsii.get(self, "serverRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServerRef).__jsii_proxy_class__ = lambda : _IServerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IUserRef")
+class IUserRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a User.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IUserRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "UserReference":
+        '''(experimental) A reference to a User resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserReference", jsii.get(self, "userRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IWebAppRef")
+class IWebAppRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a WebApp.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webAppRef")
+    def web_app_ref(self) -> "WebAppReference":
+        '''(experimental) A reference to a WebApp resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebAppRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebApp.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IWebAppRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webAppRef")
+    def web_app_ref(self) -> "WebAppReference":
+        '''(experimental) A reference to a WebApp resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebAppReference", jsii.get(self, "webAppRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebAppRef).__jsii_proxy_class__ = lambda : _IWebAppRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_transfer.IWorkflowRef")
+class IWorkflowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Workflow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> "WorkflowReference":
+        '''(experimental) A reference to a Workflow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkflowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workflow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_transfer.IWorkflowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> "WorkflowReference":
+        '''(experimental) A reference to a Workflow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkflowReference", jsii.get(self, "workflowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkflowRef).__jsii_proxy_class__ = lambda : _IWorkflowRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.ProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"profile_arn": "profileArn", "profile_id": "profileId"},
+)
+class ProfileReference:
+    def __init__(self, *, profile_arn: builtins.str, profile_id: builtins.str) -> None:
+        '''A reference to a Profile resource.
+
+        :param profile_arn: The ARN of the Profile resource.
+        :param profile_id: The ProfileId of the Profile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            profile_reference = transfer.ProfileReference(
+                profile_arn="profileArn",
+                profile_id="profileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc88cfd7112049d95eae4c5b1e0f90ca67711cbabed2360f3dc07bcfada26996)
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profile_arn": profile_arn,
+            "profile_id": profile_id,
+        }
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The ARN of the Profile resource.'''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ProfileId of the Profile resource.'''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.ServerReference",
+    jsii_struct_bases=[],
+    name_mapping={"server_arn": "serverArn"},
+)
+class ServerReference:
+    def __init__(self, *, server_arn: builtins.str) -> None:
+        '''A reference to a Server resource.
+
+        :param server_arn: The Arn of the Server resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            server_reference = transfer.ServerReference(
+                server_arn="serverArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0661c215270591a30e13a834ad7bee1f88a56fae17cc9c1de74c5c9dc95bbdcf)
+            check_type(argname="argument server_arn", value=server_arn, expected_type=type_hints["server_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "server_arn": server_arn,
+        }
+
+    @builtins.property
+    def server_arn(self) -> builtins.str:
+        '''The Arn of the Server resource.'''
+        result = self._values.get("server_arn")
+        assert result is not None, "Required property 'server_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.UserReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_arn": "userArn"},
+)
+class UserReference:
+    def __init__(self, *, user_arn: builtins.str) -> None:
+        '''A reference to a User resource.
+
+        :param user_arn: The Arn of the User resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            user_reference = transfer.UserReference(
+                user_arn="userArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef667ca9fc3a1199d0836352bb4b672880b262712e22046a26e17a5f40164d39)
+            check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_arn": user_arn,
+        }
+
+    @builtins.property
+    def user_arn(self) -> builtins.str:
+        '''The Arn of the User resource.'''
+        result = self._values.get("user_arn")
+        assert result is not None, "Required property 'user_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.WebAppReference",
+    jsii_struct_bases=[],
+    name_mapping={"web_app_arn": "webAppArn"},
+)
+class WebAppReference:
+    def __init__(self, *, web_app_arn: builtins.str) -> None:
+        '''A reference to a WebApp resource.
+
+        :param web_app_arn: The Arn of the WebApp resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            web_app_reference = transfer.WebAppReference(
+                web_app_arn="webAppArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f11ba83d837e260a8d00fedd85684078ef9628812a0a9aabed1b63bce5118a54)
+            check_type(argname="argument web_app_arn", value=web_app_arn, expected_type=type_hints["web_app_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "web_app_arn": web_app_arn,
+        }
+
+    @builtins.property
+    def web_app_arn(self) -> builtins.str:
+        '''The Arn of the WebApp resource.'''
+        result = self._values.get("web_app_arn")
+        assert result is not None, "Required property 'web_app_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebAppReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_transfer.WorkflowReference",
+    jsii_struct_bases=[],
+    name_mapping={"workflow_arn": "workflowArn", "workflow_id": "workflowId"},
+)
+class WorkflowReference:
+    def __init__(
+        self,
+        *,
+        workflow_arn: builtins.str,
+        workflow_id: builtins.str,
+    ) -> None:
+        '''A reference to a Workflow resource.
+
+        :param workflow_arn: The ARN of the Workflow resource.
+        :param workflow_id: The WorkflowId of the Workflow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_transfer as transfer
+            
+            workflow_reference = transfer.WorkflowReference(
+                workflow_arn="workflowArn",
+                workflow_id="workflowId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e2550ba32994c00af7cae50e153e086aee90650558723e97f7ce3d7cf17ac85)
+            check_type(argname="argument workflow_arn", value=workflow_arn, expected_type=type_hints["workflow_arn"])
+            check_type(argname="argument workflow_id", value=workflow_id, expected_type=type_hints["workflow_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workflow_arn": workflow_arn,
+            "workflow_id": workflow_id,
+        }
+
+    @builtins.property
+    def workflow_arn(self) -> builtins.str:
+        '''The ARN of the Workflow resource.'''
+        result = self._values.get("workflow_arn")
+        assert result is not None, "Required property 'workflow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workflow_id(self) -> builtins.str:
+        '''The WorkflowId of the Workflow resource.'''
+        result = self._values.get("workflow_id")
+        assert result is not None, "Required property 'workflow_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkflowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAgreementRef, _ITaggable_36806126)
 class CfnAgreement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -202,6 +2825,12 @@ class CfnAgreement(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agreementRef")
+    def agreement_ref(self) -> AgreementReference:
+        '''A reference to a Agreement resource.'''
+        return typing.cast(AgreementReference, jsii.get(self, "agreementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAgreementId")
@@ -503,267 +3132,7 @@ class CfnAgreement(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnAgreementProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_role": "accessRole",
-        "local_profile_id": "localProfileId",
-        "partner_profile_id": "partnerProfileId",
-        "server_id": "serverId",
-        "base_directory": "baseDirectory",
-        "custom_directories": "customDirectories",
-        "description": "description",
-        "enforce_message_signing": "enforceMessageSigning",
-        "preserve_filename": "preserveFilename",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnAgreementProps:
-    def __init__(
-        self,
-        *,
-        access_role: builtins.str,
-        local_profile_id: builtins.str,
-        partner_profile_id: builtins.str,
-        server_id: builtins.str,
-        base_directory: typing.Optional[builtins.str] = None,
-        custom_directories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgreement.CustomDirectoriesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        enforce_message_signing: typing.Optional[builtins.str] = None,
-        preserve_filename: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAgreement``.
-
-        :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol. For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use. *For AS2 connectors* With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` . If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key. *For SFTP connectors* Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
-        :param local_profile_id: A unique identifier for the AS2 local profile.
-        :param partner_profile_id: A unique identifier for the partner profile used in the agreement.
-        :param server_id: A system-assigned unique identifier for a server instance. This identifier indicates the specific server that the agreement uses.
-        :param base_directory: The landing directory (folder) for files that are transferred by using the AS2 protocol.
-        :param custom_directories: A ``CustomDirectoriesType`` structure. This structure specifies custom directories for storing various AS2 message files. You can specify directories for the following types of files. - Failed files - MDN files - Payload files - Status files - Temporary files
-        :param description: The name or short description that's used to identify the agreement.
-        :param enforce_message_signing: Determines whether or not unsigned messages from your trading partners will be accepted. - ``ENABLED`` : Transfer Family rejects unsigned messages from your trading partner. - ``DISABLED`` (default value): Transfer Family accepts unsigned messages from your trading partner.
-        :param preserve_filename: Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it. - ``ENABLED`` : the filename provided by your trading parter is preserved when the file is saved. - ``DISABLED`` (default value): when Transfer Family saves the file, the filename is adjusted, as described in `File names and locations <https://docs.aws.amazon.com/transfer/latest/userguide/send-as2-messages.html#file-names-as2>`_ .
-        :param status: The current status of the agreement, either ``ACTIVE`` or ``INACTIVE`` .
-        :param tags: Key-value pairs that can be used to group and search for agreements.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_agreement_props = transfer.CfnAgreementProps(
-                access_role="accessRole",
-                local_profile_id="localProfileId",
-                partner_profile_id="partnerProfileId",
-                server_id="serverId",
-            
-                # the properties below are optional
-                base_directory="baseDirectory",
-                custom_directories=transfer.CfnAgreement.CustomDirectoriesProperty(
-                    failed_files_directory="failedFilesDirectory",
-                    mdn_files_directory="mdnFilesDirectory",
-                    payload_files_directory="payloadFilesDirectory",
-                    status_files_directory="statusFilesDirectory",
-                    temporary_files_directory="temporaryFilesDirectory"
-                ),
-                description="description",
-                enforce_message_signing="enforceMessageSigning",
-                preserve_filename="preserveFilename",
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c92e8cdff7d6f57ae5fd00ef4190544d79a76c01e88d32b21b88588eeb47ba2e)
-            check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
-            check_type(argname="argument local_profile_id", value=local_profile_id, expected_type=type_hints["local_profile_id"])
-            check_type(argname="argument partner_profile_id", value=partner_profile_id, expected_type=type_hints["partner_profile_id"])
-            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
-            check_type(argname="argument base_directory", value=base_directory, expected_type=type_hints["base_directory"])
-            check_type(argname="argument custom_directories", value=custom_directories, expected_type=type_hints["custom_directories"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enforce_message_signing", value=enforce_message_signing, expected_type=type_hints["enforce_message_signing"])
-            check_type(argname="argument preserve_filename", value=preserve_filename, expected_type=type_hints["preserve_filename"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_role": access_role,
-            "local_profile_id": local_profile_id,
-            "partner_profile_id": partner_profile_id,
-            "server_id": server_id,
-        }
-        if base_directory is not None:
-            self._values["base_directory"] = base_directory
-        if custom_directories is not None:
-            self._values["custom_directories"] = custom_directories
-        if description is not None:
-            self._values["description"] = description
-        if enforce_message_signing is not None:
-            self._values["enforce_message_signing"] = enforce_message_signing
-        if preserve_filename is not None:
-            self._values["preserve_filename"] = preserve_filename
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_role(self) -> builtins.str:
-        '''Connectors are used to send files using either the AS2 or SFTP protocol.
-
-        For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use.
-
-        *For AS2 connectors*
-
-        With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` .
-
-        If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key.
-
-        *For SFTP connectors*
-
-        Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-accessrole
-        '''
-        result = self._values.get("access_role")
-        assert result is not None, "Required property 'access_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def local_profile_id(self) -> builtins.str:
-        '''A unique identifier for the AS2 local profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-localprofileid
-        '''
-        result = self._values.get("local_profile_id")
-        assert result is not None, "Required property 'local_profile_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def partner_profile_id(self) -> builtins.str:
-        '''A unique identifier for the partner profile used in the agreement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-partnerprofileid
-        '''
-        result = self._values.get("partner_profile_id")
-        assert result is not None, "Required property 'partner_profile_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_id(self) -> builtins.str:
-        '''A system-assigned unique identifier for a server instance.
-
-        This identifier indicates the specific server that the agreement uses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-serverid
-        '''
-        result = self._values.get("server_id")
-        assert result is not None, "Required property 'server_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def base_directory(self) -> typing.Optional[builtins.str]:
-        '''The landing directory (folder) for files that are transferred by using the AS2 protocol.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-basedirectory
-        '''
-        result = self._values.get("base_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_directories(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgreement.CustomDirectoriesProperty]]:
-        '''A ``CustomDirectoriesType`` structure.
-
-        This structure specifies custom directories for storing various AS2 message files. You can specify directories for the following types of files.
-
-        - Failed files
-        - MDN files
-        - Payload files
-        - Status files
-        - Temporary files
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-customdirectories
-        '''
-        result = self._values.get("custom_directories")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgreement.CustomDirectoriesProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The name or short description that's used to identify the agreement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enforce_message_signing(self) -> typing.Optional[builtins.str]:
-        '''Determines whether or not unsigned messages from your trading partners will be accepted.
-
-        - ``ENABLED`` : Transfer Family rejects unsigned messages from your trading partner.
-        - ``DISABLED`` (default value): Transfer Family accepts unsigned messages from your trading partner.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-enforcemessagesigning
-        '''
-        result = self._values.get("enforce_message_signing")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def preserve_filename(self) -> typing.Optional[builtins.str]:
-        '''Determines whether or not Transfer Family appends a unique string of characters to the end of the AS2 message payload filename when saving it.
-
-        - ``ENABLED`` : the filename provided by your trading parter is preserved when the file is saved.
-        - ``DISABLED`` (default value): when Transfer Family saves the file, the filename is adjusted, as described in `File names and locations <https://docs.aws.amazon.com/transfer/latest/userguide/send-as2-messages.html#file-names-as2>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-preservefilename
-        '''
-        result = self._values.get("preserve_filename")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The current status of the agreement, either ``ACTIVE`` or ``INACTIVE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for agreements.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-agreement.html#cfn-transfer-agreement-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAgreementProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ICertificateRef, _ITaggable_36806126)
 class CfnCertificate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -957,6 +3326,12 @@ class CfnCertificate(
         return typing.cast(builtins.str, jsii.get(self, "attrType"))
 
     @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''A reference to a Certificate resource.'''
+        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1075,191 +3450,7 @@ class CfnCertificate(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnCertificateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate": "certificate",
-        "usage": "usage",
-        "active_date": "activeDate",
-        "certificate_chain": "certificateChain",
-        "description": "description",
-        "inactive_date": "inactiveDate",
-        "private_key": "privateKey",
-        "tags": "tags",
-    },
-)
-class CfnCertificateProps:
-    def __init__(
-        self,
-        *,
-        certificate: builtins.str,
-        usage: builtins.str,
-        active_date: typing.Optional[builtins.str] = None,
-        certificate_chain: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        inactive_date: typing.Optional[builtins.str] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificate``.
-
-        :param certificate: The file name for the certificate.
-        :param usage: Specifies how this certificate is used. It can be used in the following ways:. - ``SIGNING`` : For signing AS2 messages - ``ENCRYPTION`` : For encrypting AS2 messages - ``TLS`` : For securing AS2 communications sent over HTTPS
-        :param active_date: An optional date that specifies when the certificate becomes active. If you do not specify a value, ``ActiveDate`` takes the same value as ``NotBeforeDate`` , which is specified by the CA.
-        :param certificate_chain: The list of certificates that make up the chain for the certificate.
-        :param description: The name or description that's used to identity the certificate.
-        :param inactive_date: An optional date that specifies when the certificate becomes inactive. If you do not specify a value, ``InactiveDate`` takes the same value as ``NotAfterDate`` , which is specified by the CA.
-        :param private_key: The file that contains the private key for the certificate that's being imported.
-        :param tags: Key-value pairs that can be used to group and search for certificates.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_certificate_props = transfer.CfnCertificateProps(
-                certificate="certificate",
-                usage="usage",
-            
-                # the properties below are optional
-                active_date="activeDate",
-                certificate_chain="certificateChain",
-                description="description",
-                inactive_date="inactiveDate",
-                private_key="privateKey",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9b7c390d04a925160e4d0a39429a22ee9641e79a668a3dcae449e157976c325)
-            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
-            check_type(argname="argument usage", value=usage, expected_type=type_hints["usage"])
-            check_type(argname="argument active_date", value=active_date, expected_type=type_hints["active_date"])
-            check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument inactive_date", value=inactive_date, expected_type=type_hints["inactive_date"])
-            check_type(argname="argument private_key", value=private_key, expected_type=type_hints["private_key"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate": certificate,
-            "usage": usage,
-        }
-        if active_date is not None:
-            self._values["active_date"] = active_date
-        if certificate_chain is not None:
-            self._values["certificate_chain"] = certificate_chain
-        if description is not None:
-            self._values["description"] = description
-        if inactive_date is not None:
-            self._values["inactive_date"] = inactive_date
-        if private_key is not None:
-            self._values["private_key"] = private_key
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def certificate(self) -> builtins.str:
-        '''The file name for the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-certificate
-        '''
-        result = self._values.get("certificate")
-        assert result is not None, "Required property 'certificate' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def usage(self) -> builtins.str:
-        '''Specifies how this certificate is used. It can be used in the following ways:.
-
-        - ``SIGNING`` : For signing AS2 messages
-        - ``ENCRYPTION`` : For encrypting AS2 messages
-        - ``TLS`` : For securing AS2 communications sent over HTTPS
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-usage
-        '''
-        result = self._values.get("usage")
-        assert result is not None, "Required property 'usage' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def active_date(self) -> typing.Optional[builtins.str]:
-        '''An optional date that specifies when the certificate becomes active.
-
-        If you do not specify a value, ``ActiveDate`` takes the same value as ``NotBeforeDate`` , which is specified by the CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-activedate
-        '''
-        result = self._values.get("active_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_chain(self) -> typing.Optional[builtins.str]:
-        '''The list of certificates that make up the chain for the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-certificatechain
-        '''
-        result = self._values.get("certificate_chain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The name or description that's used to identity the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def inactive_date(self) -> typing.Optional[builtins.str]:
-        '''An optional date that specifies when the certificate becomes inactive.
-
-        If you do not specify a value, ``InactiveDate`` takes the same value as ``NotAfterDate`` , which is specified by the CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-inactivedate
-        '''
-        result = self._values.get("inactive_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The file that contains the private key for the certificate that's being imported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-privatekey
-        '''
-        result = self._values.get("private_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for certificates.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-certificate.html#cfn-transfer-certificate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IConnectorRef, _ITaggable_36806126)
 class CfnConnector(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1407,6 +3598,12 @@ class CfnConnector(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> ConnectorReference:
+        '''A reference to a Connector resource.'''
+        return typing.cast(ConnectorReference, jsii.get(self, "connectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1871,189 +4068,7 @@ class CfnConnector(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnConnectorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_role": "accessRole",
-        "url": "url",
-        "as2_config": "as2Config",
-        "logging_role": "loggingRole",
-        "security_policy_name": "securityPolicyName",
-        "sftp_config": "sftpConfig",
-        "tags": "tags",
-    },
-)
-class CfnConnectorProps:
-    def __init__(
-        self,
-        *,
-        access_role: builtins.str,
-        url: builtins.str,
-        as2_config: typing.Any = None,
-        logging_role: typing.Optional[builtins.str] = None,
-        security_policy_name: typing.Optional[builtins.str] = None,
-        sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnector``.
-
-        :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol. For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use. *For AS2 connectors* With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` . If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key. *For SFTP connectors* Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
-        :param url: The URL of the partner's AS2 or SFTP endpoint.
-        :param as2_config: A structure that contains the parameters for an AS2 connector object.
-        :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events. When set, you can view connector activity in your CloudWatch logs.
-        :param security_policy_name: The text name of the security policy for the specified connector.
-        :param sftp_config: A structure that contains the parameters for an SFTP connector object.
-        :param tags: Key-value pairs that can be used to group and search for connectors.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            # as2_config: Any
-            
-            cfn_connector_props = transfer.CfnConnectorProps(
-                access_role="accessRole",
-                url="url",
-            
-                # the properties below are optional
-                as2_config=as2_config,
-                logging_role="loggingRole",
-                security_policy_name="securityPolicyName",
-                sftp_config=transfer.CfnConnector.SftpConfigProperty(
-                    max_concurrent_connections=123,
-                    trusted_host_keys=["trustedHostKeys"],
-                    user_secret_id="userSecretId"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772cfcc9a2e)
-            check_type(argname="argument access_role", value=access_role, expected_type=type_hints["access_role"])
-            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
-            check_type(argname="argument as2_config", value=as2_config, expected_type=type_hints["as2_config"])
-            check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
-            check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
-            check_type(argname="argument sftp_config", value=sftp_config, expected_type=type_hints["sftp_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_role": access_role,
-            "url": url,
-        }
-        if as2_config is not None:
-            self._values["as2_config"] = as2_config
-        if logging_role is not None:
-            self._values["logging_role"] = logging_role
-        if security_policy_name is not None:
-            self._values["security_policy_name"] = security_policy_name
-        if sftp_config is not None:
-            self._values["sftp_config"] = sftp_config
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_role(self) -> builtins.str:
-        '''Connectors are used to send files using either the AS2 or SFTP protocol.
-
-        For the access role, provide the Amazon Resource Name (ARN) of the AWS Identity and Access Management role to use.
-
-        *For AS2 connectors*
-
-        With AS2, you can send files by calling ``StartFileTransfer`` and specifying the file paths in the request parameter, ``SendFilePaths`` . We use the file’s parent directory (for example, for ``--send-file-paths /bucket/dir/file.txt`` , parent directory is ``/bucket/dir/`` ) to temporarily store a processed AS2 message file, store the MDN when we receive them from the partner, and write a final JSON file containing relevant metadata of the transmission. So, the ``AccessRole`` needs to provide read and write access to the parent directory of the file location used in the ``StartFileTransfer`` request. Additionally, you need to provide read and write access to the parent directory of the files that you intend to send with ``StartFileTransfer`` .
-
-        If you are using Basic authentication for your AS2 connector, the access role requires the ``secretsmanager:GetSecretValue`` permission for the secret. If the secret is encrypted using a customer-managed key instead of the AWS managed key in Secrets Manager, then the role also needs the ``kms:Decrypt`` permission for that key.
-
-        *For SFTP connectors*
-
-        Make sure that the access role provides read and write access to the parent directory of the file location that's used in the ``StartFileTransfer`` request. Additionally, make sure that the role provides ``secretsmanager:GetSecretValue`` permission to AWS Secrets Manager .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-accessrole
-        '''
-        result = self._values.get("access_role")
-        assert result is not None, "Required property 'access_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def url(self) -> builtins.str:
-        '''The URL of the partner's AS2 or SFTP endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-url
-        '''
-        result = self._values.get("url")
-        assert result is not None, "Required property 'url' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def as2_config(self) -> typing.Any:
-        '''A structure that contains the parameters for an AS2 connector object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-as2config
-        '''
-        result = self._values.get("as2_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def logging_role(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a connector to turn on CloudWatch logging for Amazon S3 events.
-
-        When set, you can view connector activity in your CloudWatch logs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-loggingrole
-        '''
-        result = self._values.get("logging_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_policy_name(self) -> typing.Optional[builtins.str]:
-        '''The text name of the security policy for the specified connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-securitypolicyname
-        '''
-        result = self._values.get("security_policy_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sftp_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnector.SftpConfigProperty]]:
-        '''A structure that contains the parameters for an SFTP connector object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-sftpconfig
-        '''
-        result = self._values.get("sftp_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnector.SftpConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for connectors.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-connector.html#cfn-transfer-connector-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IProfileRef, _ITaggable_36806126)
 class CfnProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2169,6 +4184,12 @@ class CfnProfile(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="profileRef")
+    def profile_ref(self) -> ProfileReference:
+        '''A reference to a Profile resource.'''
+        return typing.cast(ProfileReference, jsii.get(self, "profileRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -2230,123 +4251,7 @@ class CfnProfile(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "as2_id": "as2Id",
-        "profile_type": "profileType",
-        "certificate_ids": "certificateIds",
-        "tags": "tags",
-    },
-)
-class CfnProfileProps:
-    def __init__(
-        self,
-        *,
-        as2_id: builtins.str,
-        profile_type: builtins.str,
-        certificate_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProfile``.
-
-        :param as2_id: The ``As2Id`` is the *AS2-name* , as defined in the `RFC 4130 <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc4130>`_ . For inbound transfers, this is the ``AS2-From`` header for the AS2 messages sent from the partner. For outbound connectors, this is the ``AS2-To`` header for the AS2 messages sent to the partner using the ``StartFileTransfer`` API operation. This ID cannot include spaces.
-        :param profile_type: Indicates whether to list only ``LOCAL`` type profiles or only ``PARTNER`` type profiles. If not supplied in the request, the command lists all types of profiles.
-        :param certificate_ids: An array of identifiers for the imported certificates. You use this identifier for working with profiles and partner profiles.
-        :param tags: Key-value pairs that can be used to group and search for profiles.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_profile_props = transfer.CfnProfileProps(
-                as2_id="as2Id",
-                profile_type="profileType",
-            
-                # the properties below are optional
-                certificate_ids=["certificateIds"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca248e37e97df6c091c4a5b1f174228ff41c93e4175048b0f4e76df0547f4cd7)
-            check_type(argname="argument as2_id", value=as2_id, expected_type=type_hints["as2_id"])
-            check_type(argname="argument profile_type", value=profile_type, expected_type=type_hints["profile_type"])
-            check_type(argname="argument certificate_ids", value=certificate_ids, expected_type=type_hints["certificate_ids"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "as2_id": as2_id,
-            "profile_type": profile_type,
-        }
-        if certificate_ids is not None:
-            self._values["certificate_ids"] = certificate_ids
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def as2_id(self) -> builtins.str:
-        '''The ``As2Id`` is the *AS2-name* , as defined in the `RFC 4130 <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc4130>`_ . For inbound transfers, this is the ``AS2-From`` header for the AS2 messages sent from the partner. For outbound connectors, this is the ``AS2-To`` header for the AS2 messages sent to the partner using the ``StartFileTransfer`` API operation. This ID cannot include spaces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-as2id
-        '''
-        result = self._values.get("as2_id")
-        assert result is not None, "Required property 'as2_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def profile_type(self) -> builtins.str:
-        '''Indicates whether to list only ``LOCAL`` type profiles or only ``PARTNER`` type profiles.
-
-        If not supplied in the request, the command lists all types of profiles.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-profiletype
-        '''
-        result = self._values.get("profile_type")
-        assert result is not None, "Required property 'profile_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of identifiers for the imported certificates.
-
-        You use this identifier for working with profiles and partner profiles.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-certificateids
-        '''
-        result = self._values.get("certificate_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for profiles.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-profile.html#cfn-transfer-profile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IServerRef, _ITaggable_36806126)
 class CfnServer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2566,6 +4471,12 @@ class CfnServer(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverRef")
+    def server_ref(self) -> ServerReference:
+        '''A reference to a Server resource.'''
+        return typing.cast(ServerReference, jsii.get(self, "serverRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3491,468 +5402,7 @@ class CfnServer(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnServerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate": "certificate",
-        "domain": "domain",
-        "endpoint_details": "endpointDetails",
-        "endpoint_type": "endpointType",
-        "identity_provider_details": "identityProviderDetails",
-        "identity_provider_type": "identityProviderType",
-        "ip_address_type": "ipAddressType",
-        "logging_role": "loggingRole",
-        "post_authentication_login_banner": "postAuthenticationLoginBanner",
-        "pre_authentication_login_banner": "preAuthenticationLoginBanner",
-        "protocol_details": "protocolDetails",
-        "protocols": "protocols",
-        "s3_storage_options": "s3StorageOptions",
-        "security_policy_name": "securityPolicyName",
-        "structured_log_destinations": "structuredLogDestinations",
-        "tags": "tags",
-        "workflow_details": "workflowDetails",
-    },
-)
-class CfnServerProps:
-    def __init__(
-        self,
-        *,
-        certificate: typing.Optional[builtins.str] = None,
-        domain: typing.Optional[builtins.str] = None,
-        endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        endpoint_type: typing.Optional[builtins.str] = None,
-        identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        identity_provider_type: typing.Optional[builtins.str] = None,
-        ip_address_type: typing.Optional[builtins.str] = None,
-        logging_role: typing.Optional[builtins.str] = None,
-        post_authentication_login_banner: typing.Optional[builtins.str] = None,
-        pre_authentication_login_banner: typing.Optional[builtins.str] = None,
-        protocol_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.ProtocolDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
-        s3_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.S3StorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        security_policy_name: typing.Optional[builtins.str] = None,
-        structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.WorkflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnServer``.
-
-        :param certificate: The Amazon Resource Name (ARN) of the AWS Certificate Manager (ACM) certificate. Required when ``Protocols`` is set to ``FTPS`` . To request a new public certificate, see `Request a public certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html>`_ in the *AWS Certificate Manager User Guide* . To import an existing certificate into ACM, see `Importing certificates into ACM <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* . To request a private certificate to use FTPS through private IP addresses, see `Request a private certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-private.html>`_ in the *AWS Certificate Manager User Guide* . Certificates with the following cryptographic algorithms and key sizes are supported: - 2048-bit RSA (RSA_2048) - 4096-bit RSA (RSA_4096) - Elliptic Prime Curve 256 bit (EC_prime256v1) - Elliptic Prime Curve 384 bit (EC_secp384r1) - Elliptic Prime Curve 521 bit (EC_secp521r1) .. epigraph:: The certificate must be a valid SSL/TLS X.509 version 3 certificate with FQDN or IP address specified and information about the issuer.
-        :param domain: Specifies the domain of the storage system that is used for file transfers. There are two domains available: Amazon Simple Storage Service (Amazon S3) and Amazon Elastic File System (Amazon EFS). The default value is S3.
-        :param endpoint_details: The virtual private cloud (VPC) endpoint settings that are configured for your server. When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
-        :param endpoint_type: The type of endpoint that you want your server to use. You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it. .. epigraph:: After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` . For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ . It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
-        :param identity_provider_details: Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` . Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
-        :param identity_provider_type: The mode of authentication for a server. The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service. Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter. Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter. Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
-        :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint. The default value is ``IPV4`` . .. epigraph:: The ``IpAddressType`` parameter has the following limitations: - It cannot be changed while the server is online. You must stop the server before modifying this parameter. - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
-        :param logging_role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events. When set, you can view user activity in your CloudWatch logs.
-        :param post_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed after the user authenticates. .. epigraph:: The SFTP protocol does not support post-authentication display banners.
-        :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
-        :param protocol_details: The protocol settings that are configured for your server. - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer. - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call. - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter. - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-        :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint. The available protocols are: - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption - ``FTP`` (File Transfer Protocol): Unencrypted file transfer - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data .. epigraph:: - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS. - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated. - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. - If using the console, this is enabled by default. - If using the API or CLI, this is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
-        :param security_policy_name: Specifies the name of the security policy for the server.
-        :param structured_log_destinations: Specifies the log groups to which your server logs are sent. To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows: ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*`` For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*`` If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example: ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
-        :param tags: Key-value pairs that can be used to group and search for servers.
-        :param workflow_details: Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow. In addition to a workflow to execute when a file is uploaded completely, ``WorkflowDetails`` can also contain a workflow ID (and execution role) for a workflow to execute on partial upload. A partial upload occurs when a file is open when the session disconnects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_server_props = transfer.CfnServerProps(
-                certificate="certificate",
-                domain="domain",
-                endpoint_details=transfer.CfnServer.EndpointDetailsProperty(
-                    address_allocation_ids=["addressAllocationIds"],
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-                    vpc_endpoint_id="vpcEndpointId",
-                    vpc_id="vpcId"
-                ),
-                endpoint_type="endpointType",
-                identity_provider_details=transfer.CfnServer.IdentityProviderDetailsProperty(
-                    directory_id="directoryId",
-                    function="function",
-                    invocation_role="invocationRole",
-                    sftp_authentication_methods="sftpAuthenticationMethods",
-                    url="url"
-                ),
-                identity_provider_type="identityProviderType",
-                ip_address_type="ipAddressType",
-                logging_role="loggingRole",
-                post_authentication_login_banner="postAuthenticationLoginBanner",
-                pre_authentication_login_banner="preAuthenticationLoginBanner",
-                protocol_details=transfer.CfnServer.ProtocolDetailsProperty(
-                    as2_transports=["as2Transports"],
-                    passive_ip="passiveIp",
-                    set_stat_option="setStatOption",
-                    tls_session_resumption_mode="tlsSessionResumptionMode"
-                ),
-                protocols=["protocols"],
-                s3_storage_options=transfer.CfnServer.S3StorageOptionsProperty(
-                    directory_listing_optimization="directoryListingOptimization"
-                ),
-                security_policy_name="securityPolicyName",
-                structured_log_destinations=["structuredLogDestinations"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                workflow_details=transfer.CfnServer.WorkflowDetailsProperty(
-                    on_partial_upload=[transfer.CfnServer.WorkflowDetailProperty(
-                        execution_role="executionRole",
-                        workflow_id="workflowId"
-                    )],
-                    on_upload=[transfer.CfnServer.WorkflowDetailProperty(
-                        execution_role="executionRole",
-                        workflow_id="workflowId"
-                    )]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__755735299782e941527b817551c61582134dc6f25d12aff5d9120aeeb47a9ee6)
-            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
-            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
-            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
-            check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
-            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
-            check_type(argname="argument logging_role", value=logging_role, expected_type=type_hints["logging_role"])
-            check_type(argname="argument post_authentication_login_banner", value=post_authentication_login_banner, expected_type=type_hints["post_authentication_login_banner"])
-            check_type(argname="argument pre_authentication_login_banner", value=pre_authentication_login_banner, expected_type=type_hints["pre_authentication_login_banner"])
-            check_type(argname="argument protocol_details", value=protocol_details, expected_type=type_hints["protocol_details"])
-            check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
-            check_type(argname="argument s3_storage_options", value=s3_storage_options, expected_type=type_hints["s3_storage_options"])
-            check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
-            check_type(argname="argument structured_log_destinations", value=structured_log_destinations, expected_type=type_hints["structured_log_destinations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument workflow_details", value=workflow_details, expected_type=type_hints["workflow_details"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if certificate is not None:
-            self._values["certificate"] = certificate
-        if domain is not None:
-            self._values["domain"] = domain
-        if endpoint_details is not None:
-            self._values["endpoint_details"] = endpoint_details
-        if endpoint_type is not None:
-            self._values["endpoint_type"] = endpoint_type
-        if identity_provider_details is not None:
-            self._values["identity_provider_details"] = identity_provider_details
-        if identity_provider_type is not None:
-            self._values["identity_provider_type"] = identity_provider_type
-        if ip_address_type is not None:
-            self._values["ip_address_type"] = ip_address_type
-        if logging_role is not None:
-            self._values["logging_role"] = logging_role
-        if post_authentication_login_banner is not None:
-            self._values["post_authentication_login_banner"] = post_authentication_login_banner
-        if pre_authentication_login_banner is not None:
-            self._values["pre_authentication_login_banner"] = pre_authentication_login_banner
-        if protocol_details is not None:
-            self._values["protocol_details"] = protocol_details
-        if protocols is not None:
-            self._values["protocols"] = protocols
-        if s3_storage_options is not None:
-            self._values["s3_storage_options"] = s3_storage_options
-        if security_policy_name is not None:
-            self._values["security_policy_name"] = security_policy_name
-        if structured_log_destinations is not None:
-            self._values["structured_log_destinations"] = structured_log_destinations
-        if tags is not None:
-            self._values["tags"] = tags
-        if workflow_details is not None:
-            self._values["workflow_details"] = workflow_details
-
-    @builtins.property
-    def certificate(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS Certificate Manager (ACM) certificate.
-
-        Required when ``Protocols`` is set to ``FTPS`` .
-
-        To request a new public certificate, see `Request a public certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html>`_ in the *AWS Certificate Manager User Guide* .
-
-        To import an existing certificate into ACM, see `Importing certificates into ACM <https://docs.aws.amazon.com/acm/latest/userguide/import-certificate.html>`_ in the *AWS Certificate Manager User Guide* .
-
-        To request a private certificate to use FTPS through private IP addresses, see `Request a private certificate <https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-private.html>`_ in the *AWS Certificate Manager User Guide* .
-
-        Certificates with the following cryptographic algorithms and key sizes are supported:
-
-        - 2048-bit RSA (RSA_2048)
-        - 4096-bit RSA (RSA_4096)
-        - Elliptic Prime Curve 256 bit (EC_prime256v1)
-        - Elliptic Prime Curve 384 bit (EC_secp384r1)
-        - Elliptic Prime Curve 521 bit (EC_secp521r1)
-
-        .. epigraph::
-
-           The certificate must be a valid SSL/TLS X.509 version 3 certificate with FQDN or IP address specified and information about the issuer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-certificate
-        '''
-        result = self._values.get("certificate")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''Specifies the domain of the storage system that is used for file transfers.
-
-        There are two domains available: Amazon Simple Storage Service (Amazon S3) and Amazon Elastic File System (Amazon EFS). The default value is S3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def endpoint_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.EndpointDetailsProperty]]:
-        '''The virtual private cloud (VPC) endpoint settings that are configured for your server.
-
-        When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-endpointdetails
-        '''
-        result = self._values.get("endpoint_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.EndpointDetailsProperty]], result)
-
-    @builtins.property
-    def endpoint_type(self) -> typing.Optional[builtins.str]:
-        '''The type of endpoint that you want your server to use.
-
-        You can choose to make your server's endpoint publicly accessible (PUBLIC) or host it inside your VPC. With an endpoint that is hosted in a VPC, you can restrict access to your server and resources only within your VPC or choose to make it internet facing by attaching Elastic IP addresses directly to it.
-        .. epigraph::
-
-           After May 19, 2021, you won't be able to create a server using ``EndpointType=VPC_ENDPOINT`` in your AWS account if your account hasn't already done so before May 19, 2021. If you have already created servers with ``EndpointType=VPC_ENDPOINT`` in your AWS account on or before May 19, 2021, you will not be affected. After this date, use ``EndpointType`` = ``VPC`` .
-
-           For more information, see `Discontinuing the use of VPC_ENDPOINT <https://docs.aws.amazon.com//transfer/latest/userguide/create-server-in-vpc.html#deprecate-vpc-endpoint>`_ .
-
-           It is recommended that you use ``VPC`` as the ``EndpointType`` . With this endpoint type, you have the option to directly associate up to three Elastic IPv4 addresses (BYO IP included) with your server's endpoint and use VPC security groups to restrict traffic by the client's public IP address. This is not possible with ``EndpointType`` set to ``VPC_ENDPOINT`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-endpointtype
-        '''
-        result = self._values.get("endpoint_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def identity_provider_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.IdentityProviderDetailsProperty]]:
-        '''Required when ``IdentityProviderType`` is set to ``AWS_DIRECTORY_SERVICE`` , ``AWS _LAMBDA`` or ``API_GATEWAY`` .
-
-        Accepts an array containing all of the information required to use a directory in ``AWS_DIRECTORY_SERVICE`` or invoke a customer-supplied authentication API, including the API Gateway URL. Cannot be specified when ``IdentityProviderType`` is set to ``SERVICE_MANAGED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-identityproviderdetails
-        '''
-        result = self._values.get("identity_provider_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.IdentityProviderDetailsProperty]], result)
-
-    @builtins.property
-    def identity_provider_type(self) -> typing.Optional[builtins.str]:
-        '''The mode of authentication for a server.
-
-        The default value is ``SERVICE_MANAGED`` , which allows you to store and access user credentials within the AWS Transfer Family service.
-
-        Use ``AWS_DIRECTORY_SERVICE`` to provide access to Active Directory groups in AWS Directory Service for Microsoft Active Directory or Microsoft Active Directory in your on-premises environment or in AWS using AD Connector. This option also requires you to provide a Directory ID by using the ``IdentityProviderDetails`` parameter.
-
-        Use the ``API_GATEWAY`` value to integrate with an identity provider of your choosing. The ``API_GATEWAY`` setting requires you to provide an Amazon API Gateway endpoint URL to call for authentication by using the ``IdentityProviderDetails`` parameter.
-
-        Use the ``AWS_LAMBDA`` value to directly use an AWS Lambda function as your identity provider. If you choose this value, you must specify the ARN for the Lambda function in the ``Function`` parameter for the ``IdentityProviderDetails`` data type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-identityprovidertype
-        '''
-        result = self._values.get("identity_provider_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6) for your AWS Transfer Family endpoint.
-
-        The default value is ``IPV4`` .
-        .. epigraph::
-
-           The ``IpAddressType`` parameter has the following limitations:
-
-           - It cannot be changed while the server is online. You must stop the server before modifying this parameter.
-           - It cannot be updated to ``DUALSTACK`` if the server has ``AddressAllocationIds`` specified. > When using ``DUALSTACK`` as the ``IpAddressType`` , you cannot set the ``AddressAllocationIds`` parameter for the `EndpointDetails <https://docs.aws.amazon.com/transfer/latest/APIReference/API_EndpointDetails.html>`_ for the server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-ipaddresstype
-        '''
-        result = self._values.get("ip_address_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_role(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that allows a server to turn on Amazon CloudWatch logging for Amazon S3 or Amazon EFS events.
-
-        When set, you can view user activity in your CloudWatch logs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-loggingrole
-        '''
-        result = self._values.get("logging_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def post_authentication_login_banner(self) -> typing.Optional[builtins.str]:
-        '''Specifies a string to display when users connect to a server. This string is displayed after the user authenticates.
-
-        .. epigraph::
-
-           The SFTP protocol does not support post-authentication display banners.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-postauthenticationloginbanner
-        '''
-        result = self._values.get("post_authentication_login_banner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pre_authentication_login_banner(self) -> typing.Optional[builtins.str]:
-        '''Specifies a string to display when users connect to a server.
-
-        This string is displayed before the user authenticates. For example, the following banner displays details about using the system:
-
-        ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-preauthenticationloginbanner
-        '''
-        result = self._values.get("pre_authentication_login_banner")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def protocol_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.ProtocolDetailsProperty]]:
-        '''The protocol settings that are configured for your server.
-
-        - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer.
-        - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call.
-        - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter.
-        - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported.
-
-        The ``Protocols`` parameter is an array of strings.
-
-        *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-protocoldetails
-        '''
-        result = self._values.get("protocol_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.ProtocolDetailsProperty]], result)
-
-    @builtins.property
-    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint.
-
-        The available protocols are:
-
-        - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH
-        - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption
-        - ``FTP`` (File Transfer Protocol): Unencrypted file transfer
-        - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data
-
-        .. epigraph::
-
-           - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS.
-           - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` .
-           - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated.
-           - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` .
-           - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3.
-
-        The ``Protocols`` parameter is an array of strings.
-
-        *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-protocols
-        '''
-        result = self._values.get("protocols")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def s3_storage_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.S3StorageOptionsProperty]]:
-        '''Specifies whether or not performance for your Amazon S3 directories is optimized.
-
-        - If using the console, this is enabled by default.
-        - If using the API or CLI, this is disabled by default.
-
-        By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-s3storageoptions
-        '''
-        result = self._values.get("s3_storage_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.S3StorageOptionsProperty]], result)
-
-    @builtins.property
-    def security_policy_name(self) -> typing.Optional[builtins.str]:
-        '''Specifies the name of the security policy for the server.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-securitypolicyname
-        '''
-        result = self._values.get("security_policy_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def structured_log_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the log groups to which your server logs are sent.
-
-        To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows:
-
-        ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*``
-
-        For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*``
-
-        If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example:
-
-        ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-structuredlogdestinations
-        '''
-        result = self._values.get("structured_log_destinations")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for servers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def workflow_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.WorkflowDetailsProperty]]:
-        '''Specifies the workflow ID for the workflow to assign and the execution role that's used for executing the workflow.
-
-        In addition to a workflow to execute when a file is uploaded completely, ``WorkflowDetails`` can also contain a workflow ID (and execution role) for a workflow to execute on partial upload. A partial upload occurs when a file is open when the session disconnects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-server.html#cfn-transfer-server-workflowdetails
-        '''
-        result = self._values.get("workflow_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.WorkflowDetailsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnServerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IUserRef, _ITaggable_36806126)
 class CfnUser(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4125,6 +5575,12 @@ class CfnUser(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> UserReference:
+        '''A reference to a User resource.'''
+        return typing.cast(UserReference, jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
@@ -4455,278 +5911,7 @@ class CfnUser(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnUserProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "role": "role",
-        "server_id": "serverId",
-        "user_name": "userName",
-        "home_directory": "homeDirectory",
-        "home_directory_mappings": "homeDirectoryMappings",
-        "home_directory_type": "homeDirectoryType",
-        "policy": "policy",
-        "posix_profile": "posixProfile",
-        "ssh_public_keys": "sshPublicKeys",
-        "tags": "tags",
-    },
-)
-class CfnUserProps:
-    def __init__(
-        self,
-        *,
-        role: builtins.str,
-        server_id: builtins.str,
-        user_name: builtins.str,
-        home_directory: typing.Optional[builtins.str] = None,
-        home_directory_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.HomeDirectoryMapEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        home_directory_type: typing.Optional[builtins.str] = None,
-        policy: typing.Optional[builtins.str] = None,
-        posix_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PosixProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUser``.
-
-        :param role: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system. The policies attached to this role determine the level of access that you want to provide your users when transferring files into and out of your Amazon S3 bucket or Amazon EFS file system. The IAM role should also contain a trust relationship that allows the server to access your resources when servicing your users' transfer requests.
-        :param server_id: A system-assigned unique identifier for a server instance. This is the specific server that you added your user to.
-        :param user_name: A unique string that identifies a user and is associated with a ``ServerId`` . This user name must be a minimum of 3 and a maximum of 100 characters long. The following are valid characters: a-z, A-Z, 0-9, underscore '_', hyphen '-', period '.', and at sign '@'. The user name can't start with a hyphen, period, or at sign.
-        :param home_directory: The landing directory (folder) for a user when they log in to the server using the client. A ``HomeDirectory`` example is ``/bucket_name/home/mydirectory`` . .. epigraph:: You can use the ``HomeDirectory`` parameter for ``HomeDirectoryType`` when it is set to either ``PATH`` or ``LOGICAL`` .
-        :param home_directory_mappings: Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible. You must specify the ``Entry`` and ``Target`` pair, where ``Entry`` shows how the path is made visible and ``Target`` is the actual Amazon S3 or Amazon EFS path. If you only specify a target, it is displayed as is. You also must ensure that your AWS Identity and Access Management (IAM) role provides access to paths in ``Target`` . This value can be set only when ``HomeDirectoryType`` is set to *LOGICAL* . The following is an ``Entry`` and ``Target`` pair example. ``[ { "Entry": "/directory1", "Target": "/bucket_name/home/mydirectory" } ]`` In most cases, you can use this value instead of the session policy to lock your user down to the designated home directory (" ``chroot`` "). To do this, you can set ``Entry`` to ``/`` and set ``Target`` to the value the user should see for their home directory when they log in. The following is an ``Entry`` and ``Target`` pair example for ``chroot`` . ``[ { "Entry": "/", "Target": "/bucket_name/home/mydirectory" } ]``
-        :param home_directory_type: The type of landing directory (folder) that you want your users' home directory to be when they log in to the server. If you set it to ``PATH`` , the user will see the absolute Amazon S3 bucket or Amazon EFS path as is in their file transfer protocol clients. If you set it to ``LOGICAL`` , you need to provide mappings in the ``HomeDirectoryMappings`` for how you want to make Amazon S3 or Amazon EFS paths visible to your users. .. epigraph:: If ``HomeDirectoryType`` is ``LOGICAL`` , you must provide mappings, using the ``HomeDirectoryMappings`` parameter. If, on the other hand, ``HomeDirectoryType`` is ``PATH`` , you provide an absolute path using the ``HomeDirectory`` parameter. You cannot have both ``HomeDirectory`` and ``HomeDirectoryMappings`` in your template.
-        :param policy: A session policy for your user so you can use the same IAM role across multiple users. This policy restricts user access to portions of their Amazon S3 bucket. Variables that you can use inside this policy include ``${Transfer:UserName}`` , ``${Transfer:HomeDirectory}`` , and ``${Transfer:HomeBucket}`` . .. epigraph:: For session policies, AWS Transfer Family stores the policy as a JSON blob, instead of the Amazon Resource Name (ARN) of the policy. You save the policy as a JSON blob and pass it in the ``Policy`` argument. For an example of a session policy, see `Example session policy <https://docs.aws.amazon.com/transfer/latest/userguide/session-policy.html>`_ . For more information, see `AssumeRole <https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html>`_ in the *AWS Security Token Service API Reference* .
-        :param posix_profile: Specifies the full POSIX identity, including user ID ( ``Uid`` ), group ID ( ``Gid`` ), and any secondary groups IDs ( ``SecondaryGids`` ), that controls your users' access to your Amazon Elastic File System (Amazon EFS) file systems. The POSIX permissions that are set on files and directories in your file system determine the level of access your users get when transferring files into and out of your Amazon EFS file systems.
-        :param ssh_public_keys: Specifies the public key portion of the Secure Shell (SSH) keys stored for the described user. .. epigraph:: To delete the public key body, set its value to zero keys, as shown here: ``SshPublicKeys: []``
-        :param tags: Key-value pairs that can be used to group and search for users. Tags are metadata attached to users for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_user_props = transfer.CfnUserProps(
-                role="role",
-                server_id="serverId",
-                user_name="userName",
-            
-                # the properties below are optional
-                home_directory="homeDirectory",
-                home_directory_mappings=[transfer.CfnUser.HomeDirectoryMapEntryProperty(
-                    entry="entry",
-                    target="target",
-            
-                    # the properties below are optional
-                    type="type"
-                )],
-                home_directory_type="homeDirectoryType",
-                policy="policy",
-                posix_profile=transfer.CfnUser.PosixProfileProperty(
-                    gid=123,
-                    uid=123,
-            
-                    # the properties below are optional
-                    secondary_gids=[123]
-                ),
-                ssh_public_keys=["sshPublicKeys"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad0aa64ea17d55d9634df57b389b841e68b583b0c7f4818453a5cb08787dcc31)
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument server_id", value=server_id, expected_type=type_hints["server_id"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-            check_type(argname="argument home_directory", value=home_directory, expected_type=type_hints["home_directory"])
-            check_type(argname="argument home_directory_mappings", value=home_directory_mappings, expected_type=type_hints["home_directory_mappings"])
-            check_type(argname="argument home_directory_type", value=home_directory_type, expected_type=type_hints["home_directory_type"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument posix_profile", value=posix_profile, expected_type=type_hints["posix_profile"])
-            check_type(argname="argument ssh_public_keys", value=ssh_public_keys, expected_type=type_hints["ssh_public_keys"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role": role,
-            "server_id": server_id,
-            "user_name": user_name,
-        }
-        if home_directory is not None:
-            self._values["home_directory"] = home_directory
-        if home_directory_mappings is not None:
-            self._values["home_directory_mappings"] = home_directory_mappings
-        if home_directory_type is not None:
-            self._values["home_directory_type"] = home_directory_type
-        if policy is not None:
-            self._values["policy"] = policy
-        if posix_profile is not None:
-            self._values["posix_profile"] = posix_profile
-        if ssh_public_keys is not None:
-            self._values["ssh_public_keys"] = ssh_public_keys
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def role(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role that controls your users' access to your Amazon S3 bucket or Amazon EFS file system.
-
-        The policies attached to this role determine the level of access that you want to provide your users when transferring files into and out of your Amazon S3 bucket or Amazon EFS file system. The IAM role should also contain a trust relationship that allows the server to access your resources when servicing your users' transfer requests.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-role
-        '''
-        result = self._values.get("role")
-        assert result is not None, "Required property 'role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_id(self) -> builtins.str:
-        '''A system-assigned unique identifier for a server instance.
-
-        This is the specific server that you added your user to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-serverid
-        '''
-        result = self._values.get("server_id")
-        assert result is not None, "Required property 'server_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''A unique string that identifies a user and is associated with a ``ServerId`` .
-
-        This user name must be a minimum of 3 and a maximum of 100 characters long. The following are valid characters: a-z, A-Z, 0-9, underscore '_', hyphen '-', period '.', and at sign '@'. The user name can't start with a hyphen, period, or at sign.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-username
-        '''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def home_directory(self) -> typing.Optional[builtins.str]:
-        '''The landing directory (folder) for a user when they log in to the server using the client.
-
-        A ``HomeDirectory`` example is ``/bucket_name/home/mydirectory`` .
-        .. epigraph::
-
-           You can use the ``HomeDirectory`` parameter for ``HomeDirectoryType`` when it is set to either ``PATH`` or ``LOGICAL`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectory
-        '''
-        result = self._values.get("home_directory")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def home_directory_mappings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.HomeDirectoryMapEntryProperty]]]]:
-        '''Logical directory mappings that specify what Amazon S3 or Amazon EFS paths and keys should be visible to your user and how you want to make them visible.
-
-        You must specify the ``Entry`` and ``Target`` pair, where ``Entry`` shows how the path is made visible and ``Target`` is the actual Amazon S3 or Amazon EFS path. If you only specify a target, it is displayed as is. You also must ensure that your AWS Identity and Access Management (IAM) role provides access to paths in ``Target`` . This value can be set only when ``HomeDirectoryType`` is set to *LOGICAL* .
-
-        The following is an ``Entry`` and ``Target`` pair example.
-
-        ``[ { "Entry": "/directory1", "Target": "/bucket_name/home/mydirectory" } ]``
-
-        In most cases, you can use this value instead of the session policy to lock your user down to the designated home directory (" ``chroot`` "). To do this, you can set ``Entry`` to ``/`` and set ``Target`` to the value the user should see for their home directory when they log in.
-
-        The following is an ``Entry`` and ``Target`` pair example for ``chroot`` .
-
-        ``[ { "Entry": "/", "Target": "/bucket_name/home/mydirectory" } ]``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectorymappings
-        '''
-        result = self._values.get("home_directory_mappings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.HomeDirectoryMapEntryProperty]]]], result)
-
-    @builtins.property
-    def home_directory_type(self) -> typing.Optional[builtins.str]:
-        '''The type of landing directory (folder) that you want your users' home directory to be when they log in to the server.
-
-        If you set it to ``PATH`` , the user will see the absolute Amazon S3 bucket or Amazon EFS path as is in their file transfer protocol clients. If you set it to ``LOGICAL`` , you need to provide mappings in the ``HomeDirectoryMappings`` for how you want to make Amazon S3 or Amazon EFS paths visible to your users.
-        .. epigraph::
-
-           If ``HomeDirectoryType`` is ``LOGICAL`` , you must provide mappings, using the ``HomeDirectoryMappings`` parameter. If, on the other hand, ``HomeDirectoryType`` is ``PATH`` , you provide an absolute path using the ``HomeDirectory`` parameter. You cannot have both ``HomeDirectory`` and ``HomeDirectoryMappings`` in your template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-homedirectorytype
-        '''
-        result = self._values.get("home_directory_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policy(self) -> typing.Optional[builtins.str]:
-        '''A session policy for your user so you can use the same IAM role across multiple users.
-
-        This policy restricts user access to portions of their Amazon S3 bucket. Variables that you can use inside this policy include ``${Transfer:UserName}`` , ``${Transfer:HomeDirectory}`` , and ``${Transfer:HomeBucket}`` .
-        .. epigraph::
-
-           For session policies, AWS Transfer Family stores the policy as a JSON blob, instead of the Amazon Resource Name (ARN) of the policy. You save the policy as a JSON blob and pass it in the ``Policy`` argument.
-
-           For an example of a session policy, see `Example session policy <https://docs.aws.amazon.com/transfer/latest/userguide/session-policy.html>`_ .
-
-           For more information, see `AssumeRole <https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html>`_ in the *AWS Security Token Service API Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def posix_profile(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.PosixProfileProperty]]:
-        '''Specifies the full POSIX identity, including user ID ( ``Uid`` ), group ID ( ``Gid`` ), and any secondary groups IDs ( ``SecondaryGids`` ), that controls your users' access to your Amazon Elastic File System (Amazon EFS) file systems.
-
-        The POSIX permissions that are set on files and directories in your file system determine the level of access your users get when transferring files into and out of your Amazon EFS file systems.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-posixprofile
-        '''
-        result = self._values.get("posix_profile")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.PosixProfileProperty]], result)
-
-    @builtins.property
-    def ssh_public_keys(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the public key portion of the Secure Shell (SSH) keys stored for the described user.
-
-        .. epigraph::
-
-           To delete the public key body, set its value to zero keys, as shown here:
-
-           ``SshPublicKeys: []``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-sshpublickeys
-        '''
-        result = self._values.get("ssh_public_keys")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for users.
-
-        Tags are metadata attached to users for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-user.html#cfn-transfer-user-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IWebAppRef, _ITaggableV2_4e6798f8)
 class CfnWebApp(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4873,6 +6058,12 @@ class CfnWebApp(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webAppRef")
+    def web_app_ref(self) -> WebAppReference:
+        '''A reference to a WebApp resource.'''
+        return typing.cast(WebAppReference, jsii.get(self, "webAppRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderDetails")
@@ -5205,179 +6396,7 @@ class CfnWebApp(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnWebAppProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity_provider_details": "identityProviderDetails",
-        "access_endpoint": "accessEndpoint",
-        "tags": "tags",
-        "web_app_customization": "webAppCustomization",
-        "web_app_endpoint_policy": "webAppEndpointPolicy",
-        "web_app_units": "webAppUnits",
-    },
-)
-class CfnWebAppProps:
-    def __init__(
-        self,
-        *,
-        identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-        access_endpoint: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        web_app_endpoint_policy: typing.Optional[builtins.str] = None,
-        web_app_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWebApp``.
-
-        :param identity_provider_details: You can provide a structure that contains the details for the identity provider to use with your web app. For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
-        :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app. You can specify a custom URL or use the default value. Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
-        :param tags: Key-value pairs that can be used to group and search for web apps. Tags are metadata attached to web apps for any purpose.
-        :param web_app_customization: A structure that contains the customization fields for the web app. You can provide a title, logo, and icon to customize the appearance of your web app.
-        :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` . If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
-        :param web_app_units: A union that contains the value for number of concurrent connections or the user sessions on your web app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            cfn_web_app_props = transfer.CfnWebAppProps(
-                identity_provider_details=transfer.CfnWebApp.IdentityProviderDetailsProperty(
-                    application_arn="applicationArn",
-                    instance_arn="instanceArn",
-                    role="role"
-                ),
-            
-                # the properties below are optional
-                access_endpoint="accessEndpoint",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                web_app_customization=transfer.CfnWebApp.WebAppCustomizationProperty(
-                    favicon_file="faviconFile",
-                    logo_file="logoFile",
-                    title="title"
-                ),
-                web_app_endpoint_policy="webAppEndpointPolicy",
-                web_app_units=transfer.CfnWebApp.WebAppUnitsProperty(
-                    provisioned=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05da20d4d)
-            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
-            check_type(argname="argument access_endpoint", value=access_endpoint, expected_type=type_hints["access_endpoint"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument web_app_customization", value=web_app_customization, expected_type=type_hints["web_app_customization"])
-            check_type(argname="argument web_app_endpoint_policy", value=web_app_endpoint_policy, expected_type=type_hints["web_app_endpoint_policy"])
-            check_type(argname="argument web_app_units", value=web_app_units, expected_type=type_hints["web_app_units"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity_provider_details": identity_provider_details,
-        }
-        if access_endpoint is not None:
-            self._values["access_endpoint"] = access_endpoint
-        if tags is not None:
-            self._values["tags"] = tags
-        if web_app_customization is not None:
-            self._values["web_app_customization"] = web_app_customization
-        if web_app_endpoint_policy is not None:
-            self._values["web_app_endpoint_policy"] = web_app_endpoint_policy
-        if web_app_units is not None:
-            self._values["web_app_units"] = web_app_units
-
-    @builtins.property
-    def identity_provider_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnWebApp.IdentityProviderDetailsProperty]:
-        '''You can provide a structure that contains the details for the identity provider to use with your web app.
-
-        For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-identityproviderdetails
-        '''
-        result = self._values.get("identity_provider_details")
-        assert result is not None, "Required property 'identity_provider_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnWebApp.IdentityProviderDetailsProperty], result)
-
-    @builtins.property
-    def access_endpoint(self) -> typing.Optional[builtins.str]:
-        '''The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app.
-
-        You can specify a custom URL or use the default value.
-
-        Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-accessendpoint
-        '''
-        result = self._values.get("access_endpoint")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for web apps.
-
-        Tags are metadata attached to web apps for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def web_app_customization(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebApp.WebAppCustomizationProperty]]:
-        '''A structure that contains the customization fields for the web app.
-
-        You can provide a title, logo, and icon to customize the appearance of your web app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappcustomization
-        '''
-        result = self._values.get("web_app_customization")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebApp.WebAppCustomizationProperty]], result)
-
-    @builtins.property
-    def web_app_endpoint_policy(self) -> typing.Optional[builtins.str]:
-        '''Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` .
-
-        If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappendpointpolicy
-        '''
-        result = self._values.get("web_app_endpoint_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def web_app_units(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebApp.WebAppUnitsProperty]]:
-        '''A union that contains the value for number of concurrent connections or the user sessions on your web app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-webappunits
-        '''
-        result = self._values.get("web_app_units")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebApp.WebAppUnitsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebAppProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IWorkflowRef, _ITaggable_36806126)
 class CfnWorkflow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5552,6 +6571,12 @@ class CfnWorkflow(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowRef")
+    def workflow_ref(self) -> WorkflowReference:
+        '''A reference to a Workflow resource.'''
+        return typing.cast(WorkflowReference, jsii.get(self, "workflowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="steps")
@@ -6731,178 +7756,9 @@ class CfnWorkflow(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_transfer.CfnWorkflowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "steps": "steps",
-        "description": "description",
-        "on_exception_steps": "onExceptionSteps",
-        "tags": "tags",
-    },
-)
-class CfnWorkflowProps:
-    def __init__(
-        self,
-        *,
-        steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        on_exception_steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkflow``.
-
-        :param steps: Specifies the details for the steps that are in the specified workflow.
-        :param description: Specifies the text description for the workflow.
-        :param on_exception_steps: Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
-        :param tags: Key-value pairs that can be used to group and search for workflows. Tags are metadata attached to workflows for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_transfer as transfer
-            
-            # copy_step_details: Any
-            # custom_step_details: Any
-            # delete_step_details: Any
-            # tag_step_details: Any
-            
-            cfn_workflow_props = transfer.CfnWorkflowProps(
-                steps=[transfer.CfnWorkflow.WorkflowStepProperty(
-                    copy_step_details=copy_step_details,
-                    custom_step_details=custom_step_details,
-                    decrypt_step_details=transfer.CfnWorkflow.DecryptStepDetailsProperty(
-                        destination_file_location=transfer.CfnWorkflow.InputFileLocationProperty(
-                            efs_file_location=transfer.CfnWorkflow.EfsInputFileLocationProperty(
-                                file_system_id="fileSystemId",
-                                path="path"
-                            ),
-                            s3_file_location=transfer.CfnWorkflow.S3InputFileLocationProperty(
-                                bucket="bucket",
-                                key="key"
-                            )
-                        ),
-                        type="type",
-            
-                        # the properties below are optional
-                        name="name",
-                        overwrite_existing="overwriteExisting",
-                        source_file_location="sourceFileLocation"
-                    ),
-                    delete_step_details=delete_step_details,
-                    tag_step_details=tag_step_details,
-                    type="type"
-                )],
-            
-                # the properties below are optional
-                description="description",
-                on_exception_steps=[transfer.CfnWorkflow.WorkflowStepProperty(
-                    copy_step_details=copy_step_details,
-                    custom_step_details=custom_step_details,
-                    decrypt_step_details=transfer.CfnWorkflow.DecryptStepDetailsProperty(
-                        destination_file_location=transfer.CfnWorkflow.InputFileLocationProperty(
-                            efs_file_location=transfer.CfnWorkflow.EfsInputFileLocationProperty(
-                                file_system_id="fileSystemId",
-                                path="path"
-                            ),
-                            s3_file_location=transfer.CfnWorkflow.S3InputFileLocationProperty(
-                                bucket="bucket",
-                                key="key"
-                            )
-                        ),
-                        type="type",
-            
-                        # the properties below are optional
-                        name="name",
-                        overwrite_existing="overwriteExisting",
-                        source_file_location="sourceFileLocation"
-                    ),
-                    delete_step_details=delete_step_details,
-                    tag_step_details=tag_step_details,
-                    type="type"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3204d3f05faa7a2fceeb6ac7adbf97f5ede342d5c8c3228d5aa0cfb4e29022b4)
-            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument on_exception_steps", value=on_exception_steps, expected_type=type_hints["on_exception_steps"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "steps": steps,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if on_exception_steps is not None:
-            self._values["on_exception_steps"] = on_exception_steps
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def steps(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowStepProperty]]]:
-        '''Specifies the details for the steps that are in the specified workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-steps
-        '''
-        result = self._values.get("steps")
-        assert result is not None, "Required property 'steps' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowStepProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Specifies the text description for the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def on_exception_steps(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowStepProperty]]]]:
-        '''Specifies the steps (actions) to take if errors are encountered during execution of the workflow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-onexceptionsteps
-        '''
-        result = self._values.get("on_exception_steps")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnWorkflow.WorkflowStepProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that can be used to group and search for workflows.
-
-        Tags are metadata attached to workflows for any purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-workflow.html#cfn-transfer-workflow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkflowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AgreementReference",
+    "CertificateReference",
     "CfnAgreement",
     "CfnAgreementProps",
     "CfnCertificate",
@@ -6919,9 +7775,200 @@ __all__ = [
     "CfnWebAppProps",
     "CfnWorkflow",
     "CfnWorkflowProps",
+    "ConnectorReference",
+    "IAgreementRef",
+    "ICertificateRef",
+    "IConnectorRef",
+    "IProfileRef",
+    "IServerRef",
+    "IUserRef",
+    "IWebAppRef",
+    "IWorkflowRef",
+    "ProfileReference",
+    "ServerReference",
+    "UserReference",
+    "WebAppReference",
+    "WorkflowReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__cea5428aa05e820d8b4b0a46bd06309694d0d12f2d7248a982321742d1c77896(
+    *,
+    agreement_arn: builtins.str,
+    agreement_id: builtins.str,
+    server_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__debd3abaa6e27af094c308d039baed08c938aaaed14c735d0143d44722b57ca0(
+    *,
+    certificate_arn: builtins.str,
+    certificate_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c92e8cdff7d6f57ae5fd00ef4190544d79a76c01e88d32b21b88588eeb47ba2e(
+    *,
+    access_role: builtins.str,
+    local_profile_id: builtins.str,
+    partner_profile_id: builtins.str,
+    server_id: builtins.str,
+    base_directory: typing.Optional[builtins.str] = None,
+    custom_directories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgreement.CustomDirectoriesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    enforce_message_signing: typing.Optional[builtins.str] = None,
+    preserve_filename: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9b7c390d04a925160e4d0a39429a22ee9641e79a668a3dcae449e157976c325(
+    *,
+    certificate: builtins.str,
+    usage: builtins.str,
+    active_date: typing.Optional[builtins.str] = None,
+    certificate_chain: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    inactive_date: typing.Optional[builtins.str] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772cfcc9a2e(
+    *,
+    access_role: builtins.str,
+    url: builtins.str,
+    as2_config: typing.Any = None,
+    logging_role: typing.Optional[builtins.str] = None,
+    security_policy_name: typing.Optional[builtins.str] = None,
+    sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca248e37e97df6c091c4a5b1f174228ff41c93e4175048b0f4e76df0547f4cd7(
+    *,
+    as2_id: builtins.str,
+    profile_type: builtins.str,
+    certificate_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__755735299782e941527b817551c61582134dc6f25d12aff5d9120aeeb47a9ee6(
+    *,
+    certificate: typing.Optional[builtins.str] = None,
+    domain: typing.Optional[builtins.str] = None,
+    endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint_type: typing.Optional[builtins.str] = None,
+    identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_provider_type: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    logging_role: typing.Optional[builtins.str] = None,
+    post_authentication_login_banner: typing.Optional[builtins.str] = None,
+    pre_authentication_login_banner: typing.Optional[builtins.str] = None,
+    protocol_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.ProtocolDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+    s3_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.S3StorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_policy_name: typing.Optional[builtins.str] = None,
+    structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflow_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.WorkflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad0aa64ea17d55d9634df57b389b841e68b583b0c7f4818453a5cb08787dcc31(
+    *,
+    role: builtins.str,
+    server_id: builtins.str,
+    user_name: builtins.str,
+    home_directory: typing.Optional[builtins.str] = None,
+    home_directory_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.HomeDirectoryMapEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    home_directory_type: typing.Optional[builtins.str] = None,
+    policy: typing.Optional[builtins.str] = None,
+    posix_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PosixProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05da20d4d(
+    *,
+    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    access_endpoint: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_app_endpoint_policy: typing.Optional[builtins.str] = None,
+    web_app_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3204d3f05faa7a2fceeb6ac7adbf97f5ede342d5c8c3228d5aa0cfb4e29022b4(
+    *,
+    steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    on_exception_steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07a7b8afcc3ffe3046da0630699cc0431fdf11ff42b6382fbe88cf83fefc080d(
+    *,
+    connector_arn: builtins.str,
+    connector_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc88cfd7112049d95eae4c5b1e0f90ca67711cbabed2360f3dc07bcfada26996(
+    *,
+    profile_arn: builtins.str,
+    profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0661c215270591a30e13a834ad7bee1f88a56fae17cc9c1de74c5c9dc95bbdcf(
+    *,
+    server_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef667ca9fc3a1199d0836352bb4b672880b262712e22046a26e17a5f40164d39(
+    *,
+    user_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f11ba83d837e260a8d00fedd85684078ef9628812a0a9aabed1b63bce5118a54(
+    *,
+    web_app_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e2550ba32994c00af7cae50e153e086aee90650558723e97f7ce3d7cf17ac85(
+    *,
+    workflow_arn: builtins.str,
+    workflow_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f95ec07e6c4ee624e4f9374f7db0e66b46af64fa8c86e2e41aa290c72214e4ab(
     scope: _constructs_77d1e7e8.Construct,
@@ -7031,23 +8078,6 @@ def _typecheckingstub__98a40a95fd9ad9ea9bb69f5fdf7379c4b40ddd5a529d0807602569103
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c92e8cdff7d6f57ae5fd00ef4190544d79a76c01e88d32b21b88588eeb47ba2e(
-    *,
-    access_role: builtins.str,
-    local_profile_id: builtins.str,
-    partner_profile_id: builtins.str,
-    server_id: builtins.str,
-    base_directory: typing.Optional[builtins.str] = None,
-    custom_directories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgreement.CustomDirectoriesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    enforce_message_signing: typing.Optional[builtins.str] = None,
-    preserve_filename: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0f95ee160137bed43b6b325f0de8dc95bc0d10db792e4492913f9d664df9a567(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7120,20 +8150,6 @@ def _typecheckingstub__2850ba9bd4e8becb665faeed903ba33f4e9e56676cc1fa8d8a849f7bd
 
 def _typecheckingstub__112d41348367dd1df7b4520890e43a0633334e24689066a3866ad51862dc97c9(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e9b7c390d04a925160e4d0a39429a22ee9641e79a668a3dcae449e157976c325(
-    *,
-    certificate: builtins.str,
-    usage: builtins.str,
-    active_date: typing.Optional[builtins.str] = None,
-    certificate_chain: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    inactive_date: typing.Optional[builtins.str] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7232,19 +8248,6 @@ def _typecheckingstub__f4f8d4be2ad63a06a458c41605c9c21318e1d9117d48f21b9ee2ea6bb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7675f9dcded8f51977cf70f499821100319fe5d62996cb917457f772cfcc9a2e(
-    *,
-    access_role: builtins.str,
-    url: builtins.str,
-    as2_config: typing.Any = None,
-    logging_role: typing.Optional[builtins.str] = None,
-    security_policy_name: typing.Optional[builtins.str] = None,
-    sftp_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.SftpConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f5b82428b7fd1ac13f1a57b868694175d216c1f61c671da5b091d46d81a7fa5c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7289,16 +8292,6 @@ def _typecheckingstub__d9becc0cd340df21123a424e73d8ffeb9b49be520391d98ec1ecf3c32
 
 def _typecheckingstub__c41001d8363b6450b3342fb333eb5b5d2a570b2a64b0911308cd8d2824ad0419(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca248e37e97df6c091c4a5b1f174228ff41c93e4175048b0f4e76df0547f4cd7(
-    *,
-    as2_id: builtins.str,
-    profile_type: builtins.str,
-    certificate_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7497,29 +8490,6 @@ def _typecheckingstub__d0511d1dd99e09b5726ca7209160f14134b7339c966fe43485d5e7f3e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__755735299782e941527b817551c61582134dc6f25d12aff5d9120aeeb47a9ee6(
-    *,
-    certificate: typing.Optional[builtins.str] = None,
-    domain: typing.Optional[builtins.str] = None,
-    endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    endpoint_type: typing.Optional[builtins.str] = None,
-    identity_provider_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    identity_provider_type: typing.Optional[builtins.str] = None,
-    ip_address_type: typing.Optional[builtins.str] = None,
-    logging_role: typing.Optional[builtins.str] = None,
-    post_authentication_login_banner: typing.Optional[builtins.str] = None,
-    pre_authentication_login_banner: typing.Optional[builtins.str] = None,
-    protocol_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.ProtocolDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
-    s3_storage_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.S3StorageOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_policy_name: typing.Optional[builtins.str] = None,
-    structured_log_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    workflow_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServer.WorkflowDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aa42271c7d25cb4584b126195a9b597af920cd9c1e4f193efbe2a6d407fe665b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7628,22 +8598,6 @@ def _typecheckingstub__b8c3948f8e11532949a9c338eb57f070ee1d1b3a7da23c8e2dd520905
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ad0aa64ea17d55d9634df57b389b841e68b583b0c7f4818453a5cb08787dcc31(
-    *,
-    role: builtins.str,
-    server_id: builtins.str,
-    user_name: builtins.str,
-    home_directory: typing.Optional[builtins.str] = None,
-    home_directory_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.HomeDirectoryMapEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    home_directory_type: typing.Optional[builtins.str] = None,
-    policy: typing.Optional[builtins.str] = None,
-    posix_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PosixProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ssh_public_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7e725b505349ad94c74b92c89fcff0a41d3c479d533cc008fb193cc8b30c0f70(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7727,18 +8681,6 @@ def _typecheckingstub__e7ad602329ec3c900c7027cebb12a5f6509c389ad77660ed02d37f445
 def _typecheckingstub__f60d6cda63c7834db5b6c31f65165e63d01404bdd2c426d37d6fba8f40916107(
     *,
     provisioned: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05da20d4d(
-    *,
-    identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    access_endpoint: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    web_app_endpoint_policy: typing.Optional[builtins.str] = None,
-    web_app_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7886,16 +8828,6 @@ def _typecheckingstub__b548edb0a5fb9cfebb89a31ba69695395ed26d4793bbaa01e670bb558
     delete_step_details: typing.Any = None,
     tag_step_details: typing.Any = None,
     type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3204d3f05faa7a2fceeb6ac7adbf97f5ede342d5c8c3228d5aa0cfb4e29022b4(
-    *,
-    steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    on_exception_steps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.WorkflowStepProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

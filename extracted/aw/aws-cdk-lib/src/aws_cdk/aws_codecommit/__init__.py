@@ -166,595 +166,8 @@ from ..aws_events import (
     Rule as _Rule_334ed2b5,
 )
 from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_s3_assets import Asset as _Asset_ac2a7e61
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnRepository(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository",
-):
-    '''Creates a new, empty repository.
-
-    .. epigraph::
-
-       AWS CodeCommit is no longer available to new customers. Existing customers of AWS CodeCommit can continue to use the service as normal. `Learn more" <https://docs.aws.amazon.com/devops/how-to-migrate-your-aws-codecommit-repository-to-another-git-provider>`_
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html
-    :cloudformationResource: AWS::CodeCommit::Repository
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codecommit as codecommit
-        
-        cfn_repository = codecommit.CfnRepository(self, "MyCfnRepository",
-            repository_name="repositoryName",
-        
-            # the properties below are optional
-            code=codecommit.CfnRepository.CodeProperty(
-                s3=codecommit.CfnRepository.S3Property(
-                    bucket="bucket",
-                    key="key",
-        
-                    # the properties below are optional
-                    object_version="objectVersion"
-                ),
-        
-                # the properties below are optional
-                branch_name="branchName"
-            ),
-            kms_key_id="kmsKeyId",
-            repository_description="repositoryDescription",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            triggers=[codecommit.CfnRepository.RepositoryTriggerProperty(
-                destination_arn="destinationArn",
-                events=["events"],
-                name="name",
-        
-                # the properties below are optional
-                branches=["branches"],
-                custom_data="customData"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        repository_name: builtins.str,
-        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        repository_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param repository_name: The name of the new repository to be created. .. epigraph:: The repository name must be unique across the calling AWS account . Repository names are limited to 100 alphanumeric, dash, and underscore characters, and cannot include certain characters. For more information about the limits on repository names, see `Quotas <https://docs.aws.amazon.com/codecommit/latest/userguide/limits.html>`_ in the *AWS CodeCommit User Guide* . The suffix .git is prohibited.
-        :param code: Information about code to be committed to a repository after it is created in an AWS CloudFormation stack. Information about code is only used in resource creation. Updates to a stack will not reflect changes made to code properties after initial resource creation. .. epigraph:: You can only use this property to add code when creating a repository with a AWS CloudFormation template at creation time. This property cannot be used for updating code to an existing repository.
-        :param kms_key_id: The ID of the AWS Key Management Service encryption key used to encrypt and decrypt the repository. .. epigraph:: The input can be the full ARN, the key ID, or the key alias. For more information, see `Finding the key ID and key ARN <https://docs.aws.amazon.com/kms/latest/developerguide/find-cmk-id-arn.html>`_ .
-        :param repository_description: A comment or description about the new repository. .. epigraph:: The description field for a repository accepts all HTML characters and all valid Unicode characters. Applications that do not HTML-encode the description and display it in a webpage can expose users to potentially malicious code. Make sure that you HTML-encode the description field in any application that uses this API to display the repository description on a webpage.
-        :param tags: One or more tag key-value pairs to use when tagging this repository.
-        :param triggers: The JSON block of configuration information for each trigger.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRepositoryProps(
-            repository_name=repository_name,
-            code=code,
-            kms_key_id=kms_key_id,
-            repository_description=repository_description,
-            tags=tags,
-            triggers=triggers,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''When you pass the logical ID of this resource, the function returns the Amazon Resource Name (ARN) of the repository.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCloneUrlHttp")
-    def attr_clone_url_http(self) -> builtins.str:
-        '''When you pass the logical ID of this resource, the function returns the URL to use for cloning the repository over HTTPS.
-
-        :cloudformationAttribute: CloneUrlHttp
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCloneUrlHttp"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCloneUrlSsh")
-    def attr_clone_url_ssh(self) -> builtins.str:
-        '''When you pass the logical ID of this resource, the function returns the URL to use for cloning the repository over SSH.
-
-        :cloudformationAttribute: CloneUrlSsh
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCloneUrlSsh"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrName")
-    def attr_name(self) -> builtins.str:
-        '''When you pass the logical ID of this resource, the function returns the repository's name.
-
-        :cloudformationAttribute: Name
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="repositoryName")
-    def repository_name(self) -> builtins.str:
-        '''The name of the new repository to be created.'''
-        return typing.cast(builtins.str, jsii.get(self, "repositoryName"))
-
-    @repository_name.setter
-    def repository_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="code")
-    def code(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]]:
-        '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]], jsii.get(self, "code"))
-
-    @code.setter
-    def code(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyId")
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service encryption key used to encrypt and decrypt the repository.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
-
-    @kms_key_id.setter
-    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="repositoryDescription")
-    def repository_description(self) -> typing.Optional[builtins.str]:
-        '''A comment or description about the new repository.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repositoryDescription"))
-
-    @repository_description.setter
-    def repository_description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tag key-value pairs to use when tagging this repository.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="triggers")
-    def triggers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]]:
-        '''The JSON block of configuration information for each trigger.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]], jsii.get(self, "triggers"))
-
-    @triggers.setter
-    def triggers(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.CodeProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3": "s3", "branch_name": "branchName"},
-    )
-    class CodeProperty:
-        def __init__(
-            self,
-            *,
-            s3: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.S3Property", typing.Dict[builtins.str, typing.Any]]],
-            branch_name: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about code to be committed.
-
-            :param s3: Information about the Amazon S3 bucket that contains a ZIP file of code to be committed to the repository. Changes to this property are ignored after initial resource creation.
-            :param branch_name: Optional. Specifies a branch name to be used as the default branch when importing code into a repository on initial creation. If this property is not set, the name *main* will be used for the default branch for the repository. Changes to this property are ignored after initial resource creation. We recommend using this parameter to set the name to *main* to align with the default behavior of CodeCommit unless another name is needed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codecommit as codecommit
-                
-                code_property = codecommit.CfnRepository.CodeProperty(
-                    s3=codecommit.CfnRepository.S3Property(
-                        bucket="bucket",
-                        key="key",
-                
-                        # the properties below are optional
-                        object_version="objectVersion"
-                    ),
-                
-                    # the properties below are optional
-                    branch_name="branchName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121)
-                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
-                check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "s3": s3,
-            }
-            if branch_name is not None:
-                self._values["branch_name"] = branch_name
-
-        @builtins.property
-        def s3(self) -> typing.Union[_IResolvable_da3f097b, "CfnRepository.S3Property"]:
-            '''Information about the Amazon S3 bucket that contains a ZIP file of code to be committed to the repository.
-
-            Changes to this property are ignored after initial resource creation.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html#cfn-codecommit-repository-code-s3
-            '''
-            result = self._values.get("s3")
-            assert result is not None, "Required property 's3' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRepository.S3Property"], result)
-
-        @builtins.property
-        def branch_name(self) -> typing.Optional[builtins.str]:
-            '''Optional.
-
-            Specifies a branch name to be used as the default branch when importing code into a repository on initial creation. If this property is not set, the name *main* will be used for the default branch for the repository. Changes to this property are ignored after initial resource creation. We recommend using this parameter to set the name to *main* to align with the default behavior of CodeCommit unless another name is needed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html#cfn-codecommit-repository-code-branchname
-            '''
-            result = self._values.get("branch_name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CodeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.RepositoryTriggerProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "destination_arn": "destinationArn",
-            "events": "events",
-            "name": "name",
-            "branches": "branches",
-            "custom_data": "customData",
-        },
-    )
-    class RepositoryTriggerProperty:
-        def __init__(
-            self,
-            *,
-            destination_arn: builtins.str,
-            events: typing.Sequence[builtins.str],
-            name: builtins.str,
-            branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-            custom_data: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a trigger for a repository.
-
-            .. epigraph::
-
-               If you want to receive notifications about repository events, consider using notifications instead of triggers. For more information, see `Configuring notifications for repository events <https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-repository-email.html>`_ .
-
-            :param destination_arn: The ARN of the resource that is the target for a trigger (for example, the ARN of a topic in Amazon SNS).
-            :param events: The repository events that cause the trigger to run actions in another service, such as sending a notification through Amazon SNS. .. epigraph:: The valid value "all" cannot be used with any other values.
-            :param name: The name of the trigger.
-            :param branches: The branches to be included in the trigger configuration. If you specify an empty array, the trigger applies to all branches. .. epigraph:: Although no content is required in the array, you must include the array itself.
-            :param custom_data: Any custom data associated with the trigger to be included in the information sent to the target of the trigger.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codecommit as codecommit
-                
-                repository_trigger_property = codecommit.CfnRepository.RepositoryTriggerProperty(
-                    destination_arn="destinationArn",
-                    events=["events"],
-                    name="name",
-                
-                    # the properties below are optional
-                    branches=["branches"],
-                    custom_data="customData"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd)
-                check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
-                check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
-                check_type(argname="argument custom_data", value=custom_data, expected_type=type_hints["custom_data"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "destination_arn": destination_arn,
-                "events": events,
-                "name": name,
-            }
-            if branches is not None:
-                self._values["branches"] = branches
-            if custom_data is not None:
-                self._values["custom_data"] = custom_data
-
-        @builtins.property
-        def destination_arn(self) -> builtins.str:
-            '''The ARN of the resource that is the target for a trigger (for example, the ARN of a topic in Amazon SNS).
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-destinationarn
-            '''
-            result = self._values.get("destination_arn")
-            assert result is not None, "Required property 'destination_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def events(self) -> typing.List[builtins.str]:
-            '''The repository events that cause the trigger to run actions in another service, such as sending a notification through Amazon SNS.
-
-            .. epigraph::
-
-               The valid value "all" cannot be used with any other values.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-events
-            '''
-            result = self._values.get("events")
-            assert result is not None, "Required property 'events' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def name(self) -> builtins.str:
-            '''The name of the trigger.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-name
-            '''
-            result = self._values.get("name")
-            assert result is not None, "Required property 'name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def branches(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''The branches to be included in the trigger configuration.
-
-            If you specify an empty array, the trigger applies to all branches.
-            .. epigraph::
-
-               Although no content is required in the array, you must include the array itself.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-branches
-            '''
-            result = self._values.get("branches")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def custom_data(self) -> typing.Optional[builtins.str]:
-            '''Any custom data associated with the trigger to be included in the information sent to the target of the trigger.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-customdata
-            '''
-            result = self._values.get("custom_data")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RepositoryTriggerProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.S3Property",
-        jsii_struct_bases=[],
-        name_mapping={
-            "bucket": "bucket",
-            "key": "key",
-            "object_version": "objectVersion",
-        },
-    )
-    class S3Property:
-        def __init__(
-            self,
-            *,
-            bucket: builtins.str,
-            key: builtins.str,
-            object_version: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about the Amazon S3 bucket that contains the code that will be committed to the new repository.
-
-            Changes to this property are ignored after initial resource creation.
-
-            :param bucket: The name of the Amazon S3 bucket that contains the ZIP file with the content that will be committed to the new repository. This can be specified using the name of the bucket in the AWS account . Changes to this property are ignored after initial resource creation.
-            :param key: The key to use for accessing the Amazon S3 bucket. Changes to this property are ignored after initial resource creation. For more information, see `Creating object key names <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html>`_ and `Uploading objects <https://docs.aws.amazon.com/AmazonS3/latest/userguide/upload-objects.html>`_ in the Amazon S3 User Guide.
-            :param object_version: The object version of the ZIP file, if versioning is enabled for the Amazon S3 bucket. Changes to this property are ignored after initial resource creation.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codecommit as codecommit
-                
-                s3_property = codecommit.CfnRepository.S3Property(
-                    bucket="bucket",
-                    key="key",
-                
-                    # the properties below are optional
-                    object_version="objectVersion"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227)
-                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "bucket": bucket,
-                "key": key,
-            }
-            if object_version is not None:
-                self._values["object_version"] = object_version
-
-        @builtins.property
-        def bucket(self) -> builtins.str:
-            '''The name of the Amazon S3 bucket that contains the ZIP file with the content that will be committed to the new repository.
-
-            This can be specified using the name of the bucket in the AWS account . Changes to this property are ignored after initial resource creation.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-bucket
-            '''
-            result = self._values.get("bucket")
-            assert result is not None, "Required property 'bucket' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The key to use for accessing the Amazon S3 bucket.
-
-            Changes to this property are ignored after initial resource creation. For more information, see `Creating object key names <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html>`_ and `Uploading objects <https://docs.aws.amazon.com/AmazonS3/latest/userguide/upload-objects.html>`_ in the Amazon S3 User Guide.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def object_version(self) -> typing.Optional[builtins.str]:
-            '''The object version of the ZIP file, if versioning is enabled for the Amazon S3 bucket.
-
-            Changes to this property are ignored after initial resource creation.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-objectversion
-            '''
-            result = self._values.get("object_version")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3Property(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
 
 
 @jsii.data_type(
@@ -774,11 +187,11 @@ class CfnRepositoryProps:
         self,
         *,
         repository_name: builtins.str,
-        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         repository_description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRepository``.
 
@@ -870,7 +283,7 @@ class CfnRepositoryProps:
     @builtins.property
     def code(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.CodeProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]]:
         '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.
 
         Information about code is only used in resource creation. Updates to a stack will not reflect changes made to code properties after initial resource creation.
@@ -881,7 +294,7 @@ class CfnRepositoryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html#cfn-codecommit-repository-code
         '''
         result = self._values.get("code")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.CodeProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -921,13 +334,13 @@ class CfnRepositoryProps:
     @builtins.property
     def triggers(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.RepositoryTriggerProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]]:
         '''The JSON block of configuration information for each trigger.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html#cfn-codecommit-repository-triggers
         '''
         result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.RepositoryTriggerProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1049,7 +462,7 @@ class CodeConfig:
     def __init__(
         self,
         *,
-        code: typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]],
+        code: typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''Represents the structure to pass into the underlying CfnRepository class.
 
@@ -1088,11 +501,11 @@ class CodeConfig:
         }
 
     @builtins.property
-    def code(self) -> CfnRepository.CodeProperty:
+    def code(self) -> "CfnRepository.CodeProperty":
         '''represents the underlying code structure.'''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(CfnRepository.CodeProperty, result)
+        return typing.cast("CfnRepository.CodeProperty", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2271,6 +1684,46 @@ class _IRepositoryProxy(
 typing.cast(typing.Any, IRepository).__jsii_proxy_class__ = lambda : _IRepositoryProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_codecommit.IRepositoryRef")
+class IRepositoryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Repository.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryRef")
+    def repository_ref(self) -> "RepositoryReference":
+        '''(experimental) A reference to a Repository resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRepositoryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Repository.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codecommit.IRepositoryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryRef")
+    def repository_ref(self) -> "RepositoryReference":
+        '''(experimental) A reference to a Repository resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RepositoryReference", jsii.get(self, "repositoryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRepositoryRef).__jsii_proxy_class__ = lambda : _IRepositoryRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codecommit.OnCommitOptions",
     jsii_struct_bases=[_OnEventOptions_8711b8b3],
@@ -2531,7 +1984,7 @@ class Repository(
         repository_name: builtins.str,
         code: typing.Optional[Code] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3529,7 +2982,7 @@ class RepositoryProps:
         repository_name: builtins.str,
         code: typing.Optional[Code] = None,
         description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
     ) -> None:
         '''
         :param repository_name: Name of the repository. This property is required for all CodeCommit repositories.
@@ -3622,13 +3075,13 @@ class RepositoryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def kms_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''The customer managed key used to encrypt and decrypt the data in repository.
 
         :default: - Use an AWS managed key
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3638,6 +3091,71 @@ class RepositoryProps:
 
     def __repr__(self) -> str:
         return "RepositoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codecommit.RepositoryReference",
+    jsii_struct_bases=[],
+    name_mapping={"repository_arn": "repositoryArn", "repository_id": "repositoryId"},
+)
+class RepositoryReference:
+    def __init__(
+        self,
+        *,
+        repository_arn: builtins.str,
+        repository_id: builtins.str,
+    ) -> None:
+        '''A reference to a Repository resource.
+
+        :param repository_arn: The ARN of the Repository resource.
+        :param repository_id: The Id of the Repository resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codecommit as codecommit
+            
+            repository_reference = codecommit.RepositoryReference(
+                repository_arn="repositoryArn",
+                repository_id="repositoryId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1efc2fb3ef1b4859f842fdd1c2245a1e37fce10896e5549fca31c6447f9195c5)
+            check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
+            check_type(argname="argument repository_id", value=repository_id, expected_type=type_hints["repository_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "repository_arn": repository_arn,
+            "repository_id": repository_id,
+        }
+
+    @builtins.property
+    def repository_arn(self) -> builtins.str:
+        '''The ARN of the Repository resource.'''
+        result = self._values.get("repository_arn")
+        assert result is not None, "Required property 'repository_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def repository_id(self) -> builtins.str:
+        '''The Id of the Repository resource.'''
+        result = self._values.get("repository_id")
+        assert result is not None, "Required property 'repository_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositoryReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3739,12 +3257,606 @@ class RepositoryTriggerOptions:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, IRepositoryRef, _ITaggable_36806126)
+class CfnRepository(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository",
+):
+    '''Creates a new, empty repository.
+
+    .. epigraph::
+
+       AWS CodeCommit is no longer available to new customers. Existing customers of AWS CodeCommit can continue to use the service as normal. `Learn more" <https://docs.aws.amazon.com/devops/how-to-migrate-your-aws-codecommit-repository-to-another-git-provider>`_
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codecommit-repository.html
+    :cloudformationResource: AWS::CodeCommit::Repository
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codecommit as codecommit
+        
+        cfn_repository = codecommit.CfnRepository(self, "MyCfnRepository",
+            repository_name="repositoryName",
+        
+            # the properties below are optional
+            code=codecommit.CfnRepository.CodeProperty(
+                s3=codecommit.CfnRepository.S3Property(
+                    bucket="bucket",
+                    key="key",
+        
+                    # the properties below are optional
+                    object_version="objectVersion"
+                ),
+        
+                # the properties below are optional
+                branch_name="branchName"
+            ),
+            kms_key_id="kmsKeyId",
+            repository_description="repositoryDescription",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            triggers=[codecommit.CfnRepository.RepositoryTriggerProperty(
+                destination_arn="destinationArn",
+                events=["events"],
+                name="name",
+        
+                # the properties below are optional
+                branches=["branches"],
+                custom_data="customData"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        repository_name: builtins.str,
+        code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.CodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        repository_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.RepositoryTriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param repository_name: The name of the new repository to be created. .. epigraph:: The repository name must be unique across the calling AWS account . Repository names are limited to 100 alphanumeric, dash, and underscore characters, and cannot include certain characters. For more information about the limits on repository names, see `Quotas <https://docs.aws.amazon.com/codecommit/latest/userguide/limits.html>`_ in the *AWS CodeCommit User Guide* . The suffix .git is prohibited.
+        :param code: Information about code to be committed to a repository after it is created in an AWS CloudFormation stack. Information about code is only used in resource creation. Updates to a stack will not reflect changes made to code properties after initial resource creation. .. epigraph:: You can only use this property to add code when creating a repository with a AWS CloudFormation template at creation time. This property cannot be used for updating code to an existing repository.
+        :param kms_key_id: The ID of the AWS Key Management Service encryption key used to encrypt and decrypt the repository. .. epigraph:: The input can be the full ARN, the key ID, or the key alias. For more information, see `Finding the key ID and key ARN <https://docs.aws.amazon.com/kms/latest/developerguide/find-cmk-id-arn.html>`_ .
+        :param repository_description: A comment or description about the new repository. .. epigraph:: The description field for a repository accepts all HTML characters and all valid Unicode characters. Applications that do not HTML-encode the description and display it in a webpage can expose users to potentially malicious code. Make sure that you HTML-encode the description field in any application that uses this API to display the repository description on a webpage.
+        :param tags: One or more tag key-value pairs to use when tagging this repository.
+        :param triggers: The JSON block of configuration information for each trigger.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRepositoryProps(
+            repository_name=repository_name,
+            code=code,
+            kms_key_id=kms_key_id,
+            repository_description=repository_description,
+            tags=tags,
+            triggers=triggers,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''When you pass the logical ID of this resource, the function returns the Amazon Resource Name (ARN) of the repository.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCloneUrlHttp")
+    def attr_clone_url_http(self) -> builtins.str:
+        '''When you pass the logical ID of this resource, the function returns the URL to use for cloning the repository over HTTPS.
+
+        :cloudformationAttribute: CloneUrlHttp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCloneUrlHttp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCloneUrlSsh")
+    def attr_clone_url_ssh(self) -> builtins.str:
+        '''When you pass the logical ID of this resource, the function returns the URL to use for cloning the repository over SSH.
+
+        :cloudformationAttribute: CloneUrlSsh
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCloneUrlSsh"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''When you pass the logical ID of this resource, the function returns the repository's name.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryRef")
+    def repository_ref(self) -> RepositoryReference:
+        '''A reference to a Repository resource.'''
+        return typing.cast(RepositoryReference, jsii.get(self, "repositoryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryName")
+    def repository_name(self) -> builtins.str:
+        '''The name of the new repository to be created.'''
+        return typing.cast(builtins.str, jsii.get(self, "repositoryName"))
+
+    @repository_name.setter
+    def repository_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="code")
+    def code(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]]:
+        '''Information about code to be committed to a repository after it is created in an AWS CloudFormation stack.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]], jsii.get(self, "code"))
+
+    @code.setter
+    def code(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRepository.CodeProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the AWS Key Management Service encryption key used to encrypt and decrypt the repository.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryDescription")
+    def repository_description(self) -> typing.Optional[builtins.str]:
+        '''A comment or description about the new repository.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repositoryDescription"))
+
+    @repository_description.setter
+    def repository_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repositoryDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''One or more tag key-value pairs to use when tagging this repository.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="triggers")
+    def triggers(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]]:
+        '''The JSON block of configuration information for each trigger.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]], jsii.get(self, "triggers"))
+
+    @triggers.setter
+    def triggers(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.RepositoryTriggerProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.CodeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3": "s3", "branch_name": "branchName"},
+    )
+    class CodeProperty:
+        def __init__(
+            self,
+            *,
+            s3: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.S3Property", typing.Dict[builtins.str, typing.Any]]],
+            branch_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about code to be committed.
+
+            :param s3: Information about the Amazon S3 bucket that contains a ZIP file of code to be committed to the repository. Changes to this property are ignored after initial resource creation.
+            :param branch_name: Optional. Specifies a branch name to be used as the default branch when importing code into a repository on initial creation. If this property is not set, the name *main* will be used for the default branch for the repository. Changes to this property are ignored after initial resource creation. We recommend using this parameter to set the name to *main* to align with the default behavior of CodeCommit unless another name is needed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codecommit as codecommit
+                
+                code_property = codecommit.CfnRepository.CodeProperty(
+                    s3=codecommit.CfnRepository.S3Property(
+                        bucket="bucket",
+                        key="key",
+                
+                        # the properties below are optional
+                        object_version="objectVersion"
+                    ),
+                
+                    # the properties below are optional
+                    branch_name="branchName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121)
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+                check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3": s3,
+            }
+            if branch_name is not None:
+                self._values["branch_name"] = branch_name
+
+        @builtins.property
+        def s3(self) -> typing.Union[_IResolvable_da3f097b, "CfnRepository.S3Property"]:
+            '''Information about the Amazon S3 bucket that contains a ZIP file of code to be committed to the repository.
+
+            Changes to this property are ignored after initial resource creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html#cfn-codecommit-repository-code-s3
+            '''
+            result = self._values.get("s3")
+            assert result is not None, "Required property 's3' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRepository.S3Property"], result)
+
+        @builtins.property
+        def branch_name(self) -> typing.Optional[builtins.str]:
+            '''Optional.
+
+            Specifies a branch name to be used as the default branch when importing code into a repository on initial creation. If this property is not set, the name *main* will be used for the default branch for the repository. Changes to this property are ignored after initial resource creation. We recommend using this parameter to set the name to *main* to align with the default behavior of CodeCommit unless another name is needed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-code.html#cfn-codecommit-repository-code-branchname
+            '''
+            result = self._values.get("branch_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.RepositoryTriggerProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_arn": "destinationArn",
+            "events": "events",
+            "name": "name",
+            "branches": "branches",
+            "custom_data": "customData",
+        },
+    )
+    class RepositoryTriggerProperty:
+        def __init__(
+            self,
+            *,
+            destination_arn: builtins.str,
+            events: typing.Sequence[builtins.str],
+            name: builtins.str,
+            branches: typing.Optional[typing.Sequence[builtins.str]] = None,
+            custom_data: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a trigger for a repository.
+
+            .. epigraph::
+
+               If you want to receive notifications about repository events, consider using notifications instead of triggers. For more information, see `Configuring notifications for repository events <https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-repository-email.html>`_ .
+
+            :param destination_arn: The ARN of the resource that is the target for a trigger (for example, the ARN of a topic in Amazon SNS).
+            :param events: The repository events that cause the trigger to run actions in another service, such as sending a notification through Amazon SNS. .. epigraph:: The valid value "all" cannot be used with any other values.
+            :param name: The name of the trigger.
+            :param branches: The branches to be included in the trigger configuration. If you specify an empty array, the trigger applies to all branches. .. epigraph:: Although no content is required in the array, you must include the array itself.
+            :param custom_data: Any custom data associated with the trigger to be included in the information sent to the target of the trigger.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codecommit as codecommit
+                
+                repository_trigger_property = codecommit.CfnRepository.RepositoryTriggerProperty(
+                    destination_arn="destinationArn",
+                    events=["events"],
+                    name="name",
+                
+                    # the properties below are optional
+                    branches=["branches"],
+                    custom_data="customData"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd)
+                check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
+                check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
+                check_type(argname="argument custom_data", value=custom_data, expected_type=type_hints["custom_data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_arn": destination_arn,
+                "events": events,
+                "name": name,
+            }
+            if branches is not None:
+                self._values["branches"] = branches
+            if custom_data is not None:
+                self._values["custom_data"] = custom_data
+
+        @builtins.property
+        def destination_arn(self) -> builtins.str:
+            '''The ARN of the resource that is the target for a trigger (for example, the ARN of a topic in Amazon SNS).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-destinationarn
+            '''
+            result = self._values.get("destination_arn")
+            assert result is not None, "Required property 'destination_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def events(self) -> typing.List[builtins.str]:
+            '''The repository events that cause the trigger to run actions in another service, such as sending a notification through Amazon SNS.
+
+            .. epigraph::
+
+               The valid value "all" cannot be used with any other values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-events
+            '''
+            result = self._values.get("events")
+            assert result is not None, "Required property 'events' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the trigger.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def branches(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The branches to be included in the trigger configuration.
+
+            If you specify an empty array, the trigger applies to all branches.
+            .. epigraph::
+
+               Although no content is required in the array, you must include the array itself.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-branches
+            '''
+            result = self._values.get("branches")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def custom_data(self) -> typing.Optional[builtins.str]:
+            '''Any custom data associated with the trigger to be included in the information sent to the target of the trigger.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-repositorytrigger.html#cfn-codecommit-repository-repositorytrigger-customdata
+            '''
+            result = self._values.get("custom_data")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RepositoryTriggerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.S3Property",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket": "bucket",
+            "key": "key",
+            "object_version": "objectVersion",
+        },
+    )
+    class S3Property:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            key: builtins.str,
+            object_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about the Amazon S3 bucket that contains the code that will be committed to the new repository.
+
+            Changes to this property are ignored after initial resource creation.
+
+            :param bucket: The name of the Amazon S3 bucket that contains the ZIP file with the content that will be committed to the new repository. This can be specified using the name of the bucket in the AWS account . Changes to this property are ignored after initial resource creation.
+            :param key: The key to use for accessing the Amazon S3 bucket. Changes to this property are ignored after initial resource creation. For more information, see `Creating object key names <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html>`_ and `Uploading objects <https://docs.aws.amazon.com/AmazonS3/latest/userguide/upload-objects.html>`_ in the Amazon S3 User Guide.
+            :param object_version: The object version of the ZIP file, if versioning is enabled for the Amazon S3 bucket. Changes to this property are ignored after initial resource creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codecommit as codecommit
+                
+                s3_property = codecommit.CfnRepository.S3Property(
+                    bucket="bucket",
+                    key="key",
+                
+                    # the properties below are optional
+                    object_version="objectVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "key": key,
+            }
+            if object_version is not None:
+                self._values["object_version"] = object_version
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''The name of the Amazon S3 bucket that contains the ZIP file with the content that will be committed to the new repository.
+
+            This can be specified using the name of the bucket in the AWS account . Changes to this property are ignored after initial resource creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key to use for accessing the Amazon S3 bucket.
+
+            Changes to this property are ignored after initial resource creation. For more information, see `Creating object key names <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html>`_ and `Uploading objects <https://docs.aws.amazon.com/AmazonS3/latest/userguide/upload-objects.html>`_ in the Amazon S3 User Guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def object_version(self) -> typing.Optional[builtins.str]:
+            '''The object version of the ZIP file, if versioning is enabled for the Amazon S3 bucket.
+
+            Changes to this property are ignored after initial resource creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codecommit-repository-s3.html#cfn-codecommit-repository-s3-objectversion
+            '''
+            result = self._values.get("object_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3Property(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 __all__ = [
     "CfnRepository",
     "CfnRepositoryProps",
     "Code",
     "CodeConfig",
     "IRepository",
+    "IRepositoryRef",
     "OnCommitOptions",
     "ReferenceEvent",
     "Repository",
@@ -3752,100 +3864,11 @@ __all__ = [
     "RepositoryNotificationEvents",
     "RepositoryNotifyOnOptions",
     "RepositoryProps",
+    "RepositoryReference",
     "RepositoryTriggerOptions",
 ]
 
 publication.publish()
-
-def _typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    repository_name: builtins.str,
-    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    repository_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.CodeProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.RepositoryTriggerProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121(
-    *,
-    s3: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.S3Property, typing.Dict[builtins.str, typing.Any]]],
-    branch_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd(
-    *,
-    destination_arn: builtins.str,
-    events: typing.Sequence[builtins.str],
-    name: builtins.str,
-    branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    custom_data: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227(
-    *,
-    bucket: builtins.str,
-    key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__40c04585281a174d6c45f3d0ebb0cbf1dd9d263edfd133ff98f6e08e9e052bb1(
     *,
@@ -4143,7 +4166,7 @@ def _typecheckingstub__fc18226d2621b909e0802baaec299567def39762c6bf07510ef197899
     repository_name: builtins.str,
     code: typing.Optional[Code] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4440,7 +4463,15 @@ def _typecheckingstub__0f5b7aba6edb1a65dfbcce23930da17cf0e6a0d64372346382ade8dd1
     repository_name: builtins.str,
     code: typing.Optional[Code] = None,
     description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1efc2fb3ef1b4859f842fdd1c2245a1e37fce10896e5549fca31c6447f9195c5(
+    *,
+    repository_arn: builtins.str,
+    repository_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4451,6 +4482,96 @@ def _typecheckingstub__0dba412560c45b87b40cb60b3a994966135dd4343e862cd7d83789ad0
     custom_data: typing.Optional[builtins.str] = None,
     events: typing.Optional[typing.Sequence[RepositoryEventTrigger]] = None,
     name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64c8b70ff11de55544c0f9980a825007e7719d10a7e5b40f2acf7a97e1903316(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    repository_name: builtins.str,
+    code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.CodeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    repository_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.RepositoryTriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14e7c387467f372d552f803c722a33900eeead6044c503cdbb6a483f2bffeb20(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f41b60d01c2fa702da78ec1be5d872be8498ed5eda9f32e839d8336fab0bd5b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.CodeProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.RepositoryTriggerProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d1bb9150aed730dac085187c6940e2ac51e7864e609b47673a17723ea173121(
+    *,
+    s3: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.S3Property, typing.Dict[builtins.str, typing.Any]]],
+    branch_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__791b1a38389ed344ae527a7de85d3f177e7ceb35234c227008cb04af7a291ecd(
+    *,
+    destination_arn: builtins.str,
+    events: typing.Sequence[builtins.str],
+    name: builtins.str,
+    branches: typing.Optional[typing.Sequence[builtins.str]] = None,
+    custom_data: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccc0f96fde3de9f745dd3bd29e280e1ca949e70419a8c39fca92cfec1f02e227(
+    *,
+    bucket: builtins.str,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

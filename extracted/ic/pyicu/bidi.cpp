@@ -672,17 +672,12 @@ static PyObject *t_bidi_getLogicalMap(t_bidi *self)
     else
         length = ubidi_getProcessedLength(self->object);
 
-    int *indexMap = (int *) calloc(length, sizeof(int));
+    std::unique_ptr<int[]> indexMap(new int[length]);
 
-    if (indexMap == NULL)
+    if (!indexMap.get())
         return PyErr_NoMemory();
 
-    STATUS_CALL(
-        {
-            ubidi_getLogicalMap(self->object, indexMap, &status);
-            if (U_FAILURE(status))
-                free(indexMap);
-        });
+    STATUS_CALL(ubidi_getLogicalMap(self->object, indexMap.get(), &status));
 
     PyObject *result = PyTuple_New(length);
 
@@ -691,7 +686,6 @@ static PyObject *t_bidi_getLogicalMap(t_bidi *self)
         for (int i = 0; i < length; ++i)
             PyTuple_SET_ITEM(result, i, PyInt_FromLong(indexMap[i]));
     }
-    free(indexMap);
 
     return result;
 }
@@ -705,17 +699,12 @@ static PyObject *t_bidi_getVisualMap(t_bidi *self)
     else
         length = ubidi_getResultLength(self->object);
 
-    int *indexMap = (int *) calloc(length, sizeof(int));
+    std::unique_ptr<int[]> indexMap(new int[length]);
 
-    if (indexMap == NULL)
+    if (!indexMap.get())
         return PyErr_NoMemory();
 
-    STATUS_CALL(
-        {
-            ubidi_getVisualMap(self->object, indexMap, &status);
-            if (U_FAILURE(status))
-                free(indexMap);
-        });
+    STATUS_CALL(ubidi_getVisualMap(self->object, indexMap.get(), &status));
 
     PyObject *result = PyTuple_New(length);
 
@@ -724,7 +713,6 @@ static PyObject *t_bidi_getVisualMap(t_bidi *self)
         for (int i = 0; i < length; ++i)
             PyTuple_SET_ITEM(result, i, PyInt_FromLong(indexMap[i]));
     }
-    free(indexMap);
 
     return result;
 }
@@ -736,12 +724,12 @@ static PyObject *t_bidi_reorderLogical(PyTypeObject *type, PyObject *arg)
 
     if (!parseArg(arg, arg::H(&levels, &length)))
     {
-        int *indexMap = (int *) calloc(length, sizeof(int));
+        std::unique_ptr<int[]> indexMap(new int[length]);
 
-        if (indexMap == NULL)
+        if (!indexMap.get())
             return PyErr_NoMemory();
 
-        ubidi_reorderLogical((const UBiDiLevel *) levels.get(), length, indexMap);
+        ubidi_reorderLogical((const UBiDiLevel *) levels.get(), length, indexMap.get());
 
         PyObject *result = PyTuple_New(length);
 
@@ -750,7 +738,6 @@ static PyObject *t_bidi_reorderLogical(PyTypeObject *type, PyObject *arg)
             for (size_t i = 0; i < length; ++i)
                 PyTuple_SET_ITEM(result, i, PyInt_FromLong(indexMap[i]));
         }
-        free(indexMap);
 
         return result;
     }
@@ -765,12 +752,12 @@ static PyObject *t_bidi_reorderVisual(PyTypeObject *type, PyObject *arg)
 
     if (!parseArg(arg, arg::H(&levels, &length)))
     {
-        int *indexMap = (int *) calloc(length, sizeof(int));
+        std::unique_ptr<int[]> indexMap(new int[length]);
 
-        if (indexMap == NULL)
+        if (!indexMap.get())
             return PyErr_NoMemory();
 
-        ubidi_reorderVisual((const UBiDiLevel *) levels.get(), length, indexMap);
+        ubidi_reorderVisual((const UBiDiLevel *) levels.get(), length, indexMap.get());
 
         PyObject *result = PyTuple_New(length);
 
@@ -779,7 +766,6 @@ static PyObject *t_bidi_reorderVisual(PyTypeObject *type, PyObject *arg)
             for (size_t i = 0; i < length; ++i)
                 PyTuple_SET_ITEM(result, i, PyInt_FromLong(indexMap[i]));
         }
-        free(indexMap);
 
         return result;
     }
@@ -801,12 +787,12 @@ static PyObject *t_bidi_invertMap(PyTypeObject *type, PyObject *arg)
                 maxSrc = srcMap[i];
 
         int destLength = maxSrc + 1;
-        int *destMap = (int *) calloc(destLength, sizeof(int));
+        std::unique_ptr<int[]> destMap(new int[destLength]);
 
-        if (destMap == NULL)
+        if (!destMap.get())
             return PyErr_NoMemory();
 
-        ubidi_invertMap((const int *) srcMap.get(), destMap, srcLength);
+        ubidi_invertMap((const int *) srcMap.get(), destMap.get(), srcLength);
 
         PyObject *result = PyTuple_New(destLength);
 
@@ -815,7 +801,6 @@ static PyObject *t_bidi_invertMap(PyTypeObject *type, PyObject *arg)
             for (int i = 0; i < destLength; ++i)
                 PyTuple_SET_ITEM(result, i, PyInt_FromLong(destMap[i]));
         }
-        free(destMap);
 
         return result;
     }

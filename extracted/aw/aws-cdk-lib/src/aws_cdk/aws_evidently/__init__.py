@@ -69,7 +69,1506 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.CfnExperimentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_goals": "metricGoals",
+        "name": "name",
+        "online_ab_config": "onlineAbConfig",
+        "project": "project",
+        "treatments": "treatments",
+        "description": "description",
+        "randomization_salt": "randomizationSalt",
+        "remove_segment": "removeSegment",
+        "running_status": "runningStatus",
+        "sampling_rate": "samplingRate",
+        "segment": "segment",
+        "tags": "tags",
+    },
+)
+class CfnExperimentProps:
+    def __init__(
+        self,
+        *,
+        metric_goals: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnExperiment.MetricGoalObjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        online_ab_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnExperiment.OnlineAbConfigObjectProperty", typing.Dict[builtins.str, typing.Any]]],
+        project: builtins.str,
+        treatments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnExperiment.TreatmentObjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        randomization_salt: typing.Optional[builtins.str] = None,
+        remove_segment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        running_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnExperiment.RunningStatusObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sampling_rate: typing.Optional[jsii.Number] = None,
+        segment: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExperiment``.
+
+        :param metric_goals: An array of structures that defines the metrics used for the experiment, and whether a higher or lower value for each metric is the goal. You can use up to three metrics in an experiment.
+        :param name: A name for the new experiment.
+        :param online_ab_config: A structure that contains the configuration of which variation to use as the "control" version. The "control" version is used for comparison with other variations. This structure also specifies how much experiment traffic is allocated to each variation.
+        :param project: The name or the ARN of the project where this experiment is to be created.
+        :param treatments: An array of structures that describe the configuration of each feature variation used in the experiment.
+        :param description: An optional description of the experiment.
+        :param randomization_salt: When Evidently assigns a particular user session to an experiment, it must use a randomization ID to determine which variation the user session is served. This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the experiment name as the ``randomizationSalt`` .
+        :param remove_segment: Set this to ``true`` to remove the segment that is associated with this experiment. You can't use this parameter if the experiment is currently running.
+        :param running_status: A structure that you can use to start and stop the experiment.
+        :param sampling_rate: The portion of the available audience that you want to allocate to this experiment, in thousandths of a percent. The available audience is the total audience minus the audience that you have allocated to overrides or current launches of this feature. This is represented in thousandths of a percent. For example, specify 10,000 to allocate 10% of the available audience.
+        :param segment: Specifies an audience *segment* to use in the experiment. When a segment is used in an experiment, only user sessions that match the segment pattern are used in the experiment. For more information, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
+        :param tags: Assigns one or more tags (key-value pairs) to the experiment. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an experiment. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            cfn_experiment_props = evidently.CfnExperimentProps(
+                metric_goals=[evidently.CfnExperiment.MetricGoalObjectProperty(
+                    desired_change="desiredChange",
+                    entity_id_key="entityIdKey",
+                    metric_name="metricName",
+                    value_key="valueKey",
+            
+                    # the properties below are optional
+                    event_pattern="eventPattern",
+                    unit_label="unitLabel"
+                )],
+                name="name",
+                online_ab_config=evidently.CfnExperiment.OnlineAbConfigObjectProperty(
+                    control_treatment_name="controlTreatmentName",
+                    treatment_weights=[evidently.CfnExperiment.TreatmentToWeightProperty(
+                        split_weight=123,
+                        treatment="treatment"
+                    )]
+                ),
+                project="project",
+                treatments=[evidently.CfnExperiment.TreatmentObjectProperty(
+                    feature="feature",
+                    treatment_name="treatmentName",
+                    variation="variation",
+            
+                    # the properties below are optional
+                    description="description"
+                )],
+            
+                # the properties below are optional
+                description="description",
+                randomization_salt="randomizationSalt",
+                remove_segment=False,
+                running_status=evidently.CfnExperiment.RunningStatusObjectProperty(
+                    status="status",
+            
+                    # the properties below are optional
+                    analysis_complete_time="analysisCompleteTime",
+                    desired_state="desiredState",
+                    reason="reason"
+                ),
+                sampling_rate=123,
+                segment="segment",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b511a5b944573df5aa1fb656233057b55fbb2369fc71a21a16cf2485a314559)
+            check_type(argname="argument metric_goals", value=metric_goals, expected_type=type_hints["metric_goals"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument online_ab_config", value=online_ab_config, expected_type=type_hints["online_ab_config"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument treatments", value=treatments, expected_type=type_hints["treatments"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument randomization_salt", value=randomization_salt, expected_type=type_hints["randomization_salt"])
+            check_type(argname="argument remove_segment", value=remove_segment, expected_type=type_hints["remove_segment"])
+            check_type(argname="argument running_status", value=running_status, expected_type=type_hints["running_status"])
+            check_type(argname="argument sampling_rate", value=sampling_rate, expected_type=type_hints["sampling_rate"])
+            check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_goals": metric_goals,
+            "name": name,
+            "online_ab_config": online_ab_config,
+            "project": project,
+            "treatments": treatments,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if randomization_salt is not None:
+            self._values["randomization_salt"] = randomization_salt
+        if remove_segment is not None:
+            self._values["remove_segment"] = remove_segment
+        if running_status is not None:
+            self._values["running_status"] = running_status
+        if sampling_rate is not None:
+            self._values["sampling_rate"] = sampling_rate
+        if segment is not None:
+            self._values["segment"] = segment
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def metric_goals(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnExperiment.MetricGoalObjectProperty"]]]:
+        '''An array of structures that defines the metrics used for the experiment, and whether a higher or lower value for each metric is the goal.
+
+        You can use up to three metrics in an experiment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-metricgoals
+        '''
+        result = self._values.get("metric_goals")
+        assert result is not None, "Required property 'metric_goals' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnExperiment.MetricGoalObjectProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the new experiment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def online_ab_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnExperiment.OnlineAbConfigObjectProperty"]:
+        '''A structure that contains the configuration of which variation to use as the "control" version.
+
+        The "control" version is used for comparison with other variations. This structure also specifies how much experiment traffic is allocated to each variation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-onlineabconfig
+        '''
+        result = self._values.get("online_ab_config")
+        assert result is not None, "Required property 'online_ab_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnExperiment.OnlineAbConfigObjectProperty"], result)
+
+    @builtins.property
+    def project(self) -> builtins.str:
+        '''The name or the ARN of the project where this experiment is to be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-project
+        '''
+        result = self._values.get("project")
+        assert result is not None, "Required property 'project' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def treatments(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnExperiment.TreatmentObjectProperty"]]]:
+        '''An array of structures that describe the configuration of each feature variation used in the experiment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-treatments
+        '''
+        result = self._values.get("treatments")
+        assert result is not None, "Required property 'treatments' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnExperiment.TreatmentObjectProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the experiment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def randomization_salt(self) -> typing.Optional[builtins.str]:
+        '''When Evidently assigns a particular user session to an experiment, it must use a randomization ID to determine which variation the user session is served.
+
+        This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the experiment name as the ``randomizationSalt`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-randomizationsalt
+        '''
+        result = self._values.get("randomization_salt")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def remove_segment(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Set this to ``true`` to remove the segment that is associated with this experiment.
+
+        You can't use this parameter if the experiment is currently running.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-removesegment
+        '''
+        result = self._values.get("remove_segment")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def running_status(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnExperiment.RunningStatusObjectProperty"]]:
+        '''A structure that you can use to start and stop the experiment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-runningstatus
+        '''
+        result = self._values.get("running_status")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnExperiment.RunningStatusObjectProperty"]], result)
+
+    @builtins.property
+    def sampling_rate(self) -> typing.Optional[jsii.Number]:
+        '''The portion of the available audience that you want to allocate to this experiment, in thousandths of a percent.
+
+        The available audience is the total audience minus the audience that you have allocated to overrides or current launches of this feature.
+
+        This is represented in thousandths of a percent. For example, specify 10,000 to allocate 10% of the available audience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-samplingrate
+        '''
+        result = self._values.get("sampling_rate")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def segment(self) -> typing.Optional[builtins.str]:
+        '''Specifies an audience *segment* to use in the experiment.
+
+        When a segment is used in an experiment, only user sessions that match the segment pattern are used in the experiment.
+
+        For more information, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-segment
+        '''
+        result = self._values.get("segment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns one or more tags (key-value pairs) to the experiment.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with an experiment.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExperimentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.CfnFeatureProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "project": "project",
+        "variations": "variations",
+        "default_variation": "defaultVariation",
+        "description": "description",
+        "entity_overrides": "entityOverrides",
+        "evaluation_strategy": "evaluationStrategy",
+        "tags": "tags",
+    },
+)
+class CfnFeatureProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        project: builtins.str,
+        variations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFeature.VariationObjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        default_variation: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        entity_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFeature.EntityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        evaluation_strategy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFeature``.
+
+        :param name: The name for the feature. It can include up to 127 characters.
+        :param project: The name or ARN of the project that is to contain the new feature.
+        :param variations: An array of structures that contain the configuration of the feature's different variations. Each ``VariationObject`` in the ``Variations`` array for a feature must have the same type of value ( ``BooleanValue`` , ``DoubleValue`` , ``LongValue`` or ``StringValue`` ).
+        :param default_variation: The name of the variation to use as the default variation. The default variation is served to users who are not allocated to any ongoing launches or experiments of this feature. This variation must also be listed in the ``Variations`` structure. If you omit ``DefaultVariation`` , the first variation listed in the ``Variations`` structure is used as the default variation.
+        :param description: An optional description of the feature.
+        :param entity_overrides: Specify users that should always be served a specific variation of a feature. Each user is specified by a key-value pair . For each key, specify a user by entering their user ID, account ID, or some other identifier. For the value, specify the name of the variation that they are to be served.
+        :param evaluation_strategy: Specify ``ALL_RULES`` to activate the traffic allocation specified by any ongoing launches or experiments. Specify ``DEFAULT_VARIATION`` to serve the default variation to all users instead.
+        :param tags: Assigns one or more tags (key-value pairs) to the feature. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a feature. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            cfn_feature_props = evidently.CfnFeatureProps(
+                name="name",
+                project="project",
+                variations=[evidently.CfnFeature.VariationObjectProperty(
+                    variation_name="variationName",
+            
+                    # the properties below are optional
+                    boolean_value=False,
+                    double_value=123,
+                    long_value=123,
+                    string_value="stringValue"
+                )],
+            
+                # the properties below are optional
+                default_variation="defaultVariation",
+                description="description",
+                entity_overrides=[evidently.CfnFeature.EntityOverrideProperty(
+                    entity_id="entityId",
+                    variation="variation"
+                )],
+                evaluation_strategy="evaluationStrategy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fd5d4006d379348c243366df7a4e27203488741fbadb765bad2ae169ac59650)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument variations", value=variations, expected_type=type_hints["variations"])
+            check_type(argname="argument default_variation", value=default_variation, expected_type=type_hints["default_variation"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument entity_overrides", value=entity_overrides, expected_type=type_hints["entity_overrides"])
+            check_type(argname="argument evaluation_strategy", value=evaluation_strategy, expected_type=type_hints["evaluation_strategy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "project": project,
+            "variations": variations,
+        }
+        if default_variation is not None:
+            self._values["default_variation"] = default_variation
+        if description is not None:
+            self._values["description"] = description
+        if entity_overrides is not None:
+            self._values["entity_overrides"] = entity_overrides
+        if evaluation_strategy is not None:
+            self._values["evaluation_strategy"] = evaluation_strategy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the feature.
+
+        It can include up to 127 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project(self) -> builtins.str:
+        '''The name or ARN of the project that is to contain the new feature.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-project
+        '''
+        result = self._values.get("project")
+        assert result is not None, "Required property 'project' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def variations(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFeature.VariationObjectProperty"]]]:
+        '''An array of structures that contain the configuration of the feature's different variations.
+
+        Each ``VariationObject`` in the ``Variations`` array for a feature must have the same type of value ( ``BooleanValue`` , ``DoubleValue`` , ``LongValue`` or ``StringValue`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-variations
+        '''
+        result = self._values.get("variations")
+        assert result is not None, "Required property 'variations' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFeature.VariationObjectProperty"]]], result)
+
+    @builtins.property
+    def default_variation(self) -> typing.Optional[builtins.str]:
+        '''The name of the variation to use as the default variation.
+
+        The default variation is served to users who are not allocated to any ongoing launches or experiments of this feature.
+
+        This variation must also be listed in the ``Variations`` structure.
+
+        If you omit ``DefaultVariation`` , the first variation listed in the ``Variations`` structure is used as the default variation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-defaultvariation
+        '''
+        result = self._values.get("default_variation")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the feature.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def entity_overrides(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFeature.EntityOverrideProperty"]]]]:
+        '''Specify users that should always be served a specific variation of a feature.
+
+        Each user is specified by a key-value pair . For each key, specify a user by entering their user ID, account ID, or some other identifier. For the value, specify the name of the variation that they are to be served.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-entityoverrides
+        '''
+        result = self._values.get("entity_overrides")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFeature.EntityOverrideProperty"]]]], result)
+
+    @builtins.property
+    def evaluation_strategy(self) -> typing.Optional[builtins.str]:
+        '''Specify ``ALL_RULES`` to activate the traffic allocation specified by any ongoing launches or experiments.
+
+        Specify ``DEFAULT_VARIATION`` to serve the default variation to all users instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-evaluationstrategy
+        '''
+        result = self._values.get("evaluation_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns one or more tags (key-value pairs) to the feature.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with a feature.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFeatureProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.CfnLaunchProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "groups": "groups",
+        "name": "name",
+        "project": "project",
+        "scheduled_splits_config": "scheduledSplitsConfig",
+        "description": "description",
+        "execution_status": "executionStatus",
+        "metric_monitors": "metricMonitors",
+        "randomization_salt": "randomizationSalt",
+        "tags": "tags",
+    },
+)
+class CfnLaunchProps:
+    def __init__(
+        self,
+        *,
+        groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLaunch.LaunchGroupObjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        project: builtins.str,
+        scheduled_splits_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLaunch.StepConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        execution_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLaunch.ExecutionStatusObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLaunch.MetricDefinitionObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        randomization_salt: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLaunch``.
+
+        :param groups: An array of structures that contains the feature and variations that are to be used for the launch. You can up to five launch groups in a launch.
+        :param name: The name for the launch. It can include up to 127 characters.
+        :param project: The name or ARN of the project that you want to create the launch in.
+        :param scheduled_splits_config: An array of structures that define the traffic allocation percentages among the feature variations during each step of the launch.
+        :param description: An optional description for the launch.
+        :param execution_status: A structure that you can use to start and stop the launch.
+        :param metric_monitors: An array of structures that define the metrics that will be used to monitor the launch performance. You can have up to three metric monitors in the array.
+        :param randomization_salt: When Evidently assigns a particular user session to a launch, it must use a randomization ID to determine which variation the user session is served. This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the launch name as the ``randomizationsSalt`` .
+        :param tags: Assigns one or more tags (key-value pairs) to the launch. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a launch. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            cfn_launch_props = evidently.CfnLaunchProps(
+                groups=[evidently.CfnLaunch.LaunchGroupObjectProperty(
+                    feature="feature",
+                    group_name="groupName",
+                    variation="variation",
+            
+                    # the properties below are optional
+                    description="description"
+                )],
+                name="name",
+                project="project",
+                scheduled_splits_config=[evidently.CfnLaunch.StepConfigProperty(
+                    group_weights=[evidently.CfnLaunch.GroupToWeightProperty(
+                        group_name="groupName",
+                        split_weight=123
+                    )],
+                    start_time="startTime",
+            
+                    # the properties below are optional
+                    segment_overrides=[evidently.CfnLaunch.SegmentOverrideProperty(
+                        evaluation_order=123,
+                        segment="segment",
+                        weights=[evidently.CfnLaunch.GroupToWeightProperty(
+                            group_name="groupName",
+                            split_weight=123
+                        )]
+                    )]
+                )],
+            
+                # the properties below are optional
+                description="description",
+                execution_status=evidently.CfnLaunch.ExecutionStatusObjectProperty(
+                    status="status",
+            
+                    # the properties below are optional
+                    desired_state="desiredState",
+                    reason="reason"
+                ),
+                metric_monitors=[evidently.CfnLaunch.MetricDefinitionObjectProperty(
+                    entity_id_key="entityIdKey",
+                    metric_name="metricName",
+                    value_key="valueKey",
+            
+                    # the properties below are optional
+                    event_pattern="eventPattern",
+                    unit_label="unitLabel"
+                )],
+                randomization_salt="randomizationSalt",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20a136d1b38127f4fb34c7d6619d1b4038b0d2be6c3ce76d9f52535d191c3021)
+            check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument scheduled_splits_config", value=scheduled_splits_config, expected_type=type_hints["scheduled_splits_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
+            check_type(argname="argument metric_monitors", value=metric_monitors, expected_type=type_hints["metric_monitors"])
+            check_type(argname="argument randomization_salt", value=randomization_salt, expected_type=type_hints["randomization_salt"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "groups": groups,
+            "name": name,
+            "project": project,
+            "scheduled_splits_config": scheduled_splits_config,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if execution_status is not None:
+            self._values["execution_status"] = execution_status
+        if metric_monitors is not None:
+            self._values["metric_monitors"] = metric_monitors
+        if randomization_salt is not None:
+            self._values["randomization_salt"] = randomization_salt
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def groups(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.LaunchGroupObjectProperty"]]]:
+        '''An array of structures that contains the feature and variations that are to be used for the launch.
+
+        You can up to five launch groups in a launch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-groups
+        '''
+        result = self._values.get("groups")
+        assert result is not None, "Required property 'groups' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.LaunchGroupObjectProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the launch.
+
+        It can include up to 127 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project(self) -> builtins.str:
+        '''The name or ARN of the project that you want to create the launch in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-project
+        '''
+        result = self._values.get("project")
+        assert result is not None, "Required property 'project' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scheduled_splits_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.StepConfigProperty"]]]:
+        '''An array of structures that define the traffic allocation percentages among the feature variations during each step of the launch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-scheduledsplitsconfig
+        '''
+        result = self._values.get("scheduled_splits_config")
+        assert result is not None, "Required property 'scheduled_splits_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.StepConfigProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for the launch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_status(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLaunch.ExecutionStatusObjectProperty"]]:
+        '''A structure that you can use to start and stop the launch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-executionstatus
+        '''
+        result = self._values.get("execution_status")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLaunch.ExecutionStatusObjectProperty"]], result)
+
+    @builtins.property
+    def metric_monitors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.MetricDefinitionObjectProperty"]]]]:
+        '''An array of structures that define the metrics that will be used to monitor the launch performance.
+
+        You can have up to three metric monitors in the array.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-metricmonitors
+        '''
+        result = self._values.get("metric_monitors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLaunch.MetricDefinitionObjectProperty"]]]], result)
+
+    @builtins.property
+    def randomization_salt(self) -> typing.Optional[builtins.str]:
+        '''When Evidently assigns a particular user session to a launch, it must use a randomization ID to determine which variation the user session is served.
+
+        This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the launch name as the ``randomizationsSalt`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-randomizationsalt
+        '''
+        result = self._values.get("randomization_salt")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns one or more tags (key-value pairs) to the launch.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with a launch.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLaunchProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.CfnProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "app_config_resource": "appConfigResource",
+        "data_delivery": "dataDelivery",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnProjectProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        app_config_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.AppConfigResourceObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.DataDeliveryObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProject``.
+
+        :param name: The name for the project. It can include up to 127 characters.
+        :param app_config_resource: Use this parameter if the project will use *client-side evaluation powered by AWS AppConfig* . Client-side evaluation allows your application to assign variations to user sessions locally instead of by calling the `EvaluateFeature <https://docs.aws.amazon.com/cloudwatchevidently/latest/APIReference/API_EvaluateFeature.html>`_ operation. This mitigates the latency and availability risks that come with an API call. For more information, see `Use client-side evaluation - powered by AWS AppConfig . <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-client-side-evaluation.html>`_ This parameter is a structure that contains information about the AWS AppConfig application that will be used as for client-side evaluation. To create a project that uses client-side evaluation, you must have the ``evidently:ExportProjectAsConfiguration`` permission.
+        :param data_delivery: A structure that contains information about where Evidently is to store evaluation events for longer term storage, if you choose to do so. If you choose not to store these events, Evidently deletes them after using them to produce metrics and other experiment results that you can view. You can't specify both ``CloudWatchLogs`` and ``S3Destination`` in the same operation.
+        :param description: An optional description of the project.
+        :param tags: Assigns one or more tags (key-value pairs) to the project. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a project. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            cfn_project_props = evidently.CfnProjectProps(
+                name="name",
+            
+                # the properties below are optional
+                app_config_resource=evidently.CfnProject.AppConfigResourceObjectProperty(
+                    application_id="applicationId",
+                    environment_id="environmentId"
+                ),
+                data_delivery=evidently.CfnProject.DataDeliveryObjectProperty(
+                    log_group="logGroup",
+                    s3=evidently.CfnProject.S3DestinationProperty(
+                        bucket_name="bucketName",
+            
+                        # the properties below are optional
+                        prefix="prefix"
+                    )
+                ),
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac738cde3fd44d5472b342dd1f8c8a1576f7a69d882c6c2b152887958091799f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument app_config_resource", value=app_config_resource, expected_type=type_hints["app_config_resource"])
+            check_type(argname="argument data_delivery", value=data_delivery, expected_type=type_hints["data_delivery"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if app_config_resource is not None:
+            self._values["app_config_resource"] = app_config_resource
+        if data_delivery is not None:
+            self._values["data_delivery"] = data_delivery
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the project.
+
+        It can include up to 127 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_config_resource(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.AppConfigResourceObjectProperty"]]:
+        '''Use this parameter if the project will use *client-side evaluation powered by AWS AppConfig* .
+
+        Client-side evaluation allows your application to assign variations to user sessions locally instead of by calling the `EvaluateFeature <https://docs.aws.amazon.com/cloudwatchevidently/latest/APIReference/API_EvaluateFeature.html>`_ operation. This mitigates the latency and availability risks that come with an API call. For more information, see `Use client-side evaluation - powered by AWS AppConfig . <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-client-side-evaluation.html>`_
+
+        This parameter is a structure that contains information about the AWS AppConfig application that will be used as for client-side evaluation.
+
+        To create a project that uses client-side evaluation, you must have the ``evidently:ExportProjectAsConfiguration`` permission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-appconfigresource
+        '''
+        result = self._values.get("app_config_resource")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.AppConfigResourceObjectProperty"]], result)
+
+    @builtins.property
+    def data_delivery(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.DataDeliveryObjectProperty"]]:
+        '''A structure that contains information about where Evidently is to store evaluation events for longer term storage, if you choose to do so.
+
+        If you choose not to store these events, Evidently deletes them after using them to produce metrics and other experiment results that you can view.
+
+        You can't specify both ``CloudWatchLogs`` and ``S3Destination`` in the same operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-datadelivery
+        '''
+        result = self._values.get("data_delivery")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.DataDeliveryObjectProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns one or more tags (key-value pairs) to the project.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with a project.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.CfnSegmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "pattern": "pattern",
+        "tags": "tags",
+    },
+)
+class CfnSegmentProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        pattern: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSegment``.
+
+        :param name: A name for the segment.
+        :param description: An optional description for this segment.
+        :param pattern: The pattern to use for the segment. For more information about pattern syntax, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
+        :param tags: Assigns one or more tags (key-value pairs) to the feature. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a feature. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            cfn_segment_props = evidently.CfnSegmentProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                pattern="pattern",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5a222ca964d86153aba5e0b6e9b948b76db2ac5e739383e297480eb342788df)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if pattern is not None:
+            self._values["pattern"] = pattern
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the segment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for this segment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pattern(self) -> typing.Optional[builtins.str]:
+        '''The pattern to use for the segment.
+
+        For more information about pattern syntax, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-pattern
+        '''
+        result = self._values.get("pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Assigns one or more tags (key-value pairs) to the feature.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with a feature.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSegmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.ExperimentReference",
+    jsii_struct_bases=[],
+    name_mapping={"experiment_arn": "experimentArn"},
+)
+class ExperimentReference:
+    def __init__(self, *, experiment_arn: builtins.str) -> None:
+        '''A reference to a Experiment resource.
+
+        :param experiment_arn: The Arn of the Experiment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            experiment_reference = evidently.ExperimentReference(
+                experiment_arn="experimentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8aeeaaa5624ba155e6d4dafab6c532b02a098583437ea653aebad9f4172ffe7)
+            check_type(argname="argument experiment_arn", value=experiment_arn, expected_type=type_hints["experiment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "experiment_arn": experiment_arn,
+        }
+
+    @builtins.property
+    def experiment_arn(self) -> builtins.str:
+        '''The Arn of the Experiment resource.'''
+        result = self._values.get("experiment_arn")
+        assert result is not None, "Required property 'experiment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExperimentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.FeatureReference",
+    jsii_struct_bases=[],
+    name_mapping={"feature_arn": "featureArn"},
+)
+class FeatureReference:
+    def __init__(self, *, feature_arn: builtins.str) -> None:
+        '''A reference to a Feature resource.
+
+        :param feature_arn: The Arn of the Feature resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            feature_reference = evidently.FeatureReference(
+                feature_arn="featureArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98a09f36f16c05501542cc0cfb1d9f3622a17e8b22cf4808bc5e748b49231b1f)
+            check_type(argname="argument feature_arn", value=feature_arn, expected_type=type_hints["feature_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "feature_arn": feature_arn,
+        }
+
+    @builtins.property
+    def feature_arn(self) -> builtins.str:
+        '''The Arn of the Feature resource.'''
+        result = self._values.get("feature_arn")
+        assert result is not None, "Required property 'feature_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FeatureReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_evidently.IExperimentRef")
+class IExperimentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Experiment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentRef")
+    def experiment_ref(self) -> ExperimentReference:
+        '''(experimental) A reference to a Experiment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExperimentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Experiment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_evidently.IExperimentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentRef")
+    def experiment_ref(self) -> ExperimentReference:
+        '''(experimental) A reference to a Experiment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ExperimentReference, jsii.get(self, "experimentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExperimentRef).__jsii_proxy_class__ = lambda : _IExperimentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_evidently.IFeatureRef")
+class IFeatureRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Feature.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="featureRef")
+    def feature_ref(self) -> FeatureReference:
+        '''(experimental) A reference to a Feature resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFeatureRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Feature.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_evidently.IFeatureRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="featureRef")
+    def feature_ref(self) -> FeatureReference:
+        '''(experimental) A reference to a Feature resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FeatureReference, jsii.get(self, "featureRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFeatureRef).__jsii_proxy_class__ = lambda : _IFeatureRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_evidently.ILaunchRef")
+class ILaunchRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Launch.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRef")
+    def launch_ref(self) -> "LaunchReference":
+        '''(experimental) A reference to a Launch resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILaunchRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Launch.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_evidently.ILaunchRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRef")
+    def launch_ref(self) -> "LaunchReference":
+        '''(experimental) A reference to a Launch resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LaunchReference", jsii.get(self, "launchRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILaunchRef).__jsii_proxy_class__ = lambda : _ILaunchRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_evidently.IProjectRef")
+class IProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProjectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_evidently.IProjectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProjectReference", jsii.get(self, "projectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_evidently.ISegmentRef")
+class ISegmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Segment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> "SegmentReference":
+        '''(experimental) A reference to a Segment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISegmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Segment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_evidently.ISegmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> "SegmentReference":
+        '''(experimental) A reference to a Segment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SegmentReference", jsii.get(self, "segmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISegmentRef).__jsii_proxy_class__ = lambda : _ISegmentRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.LaunchReference",
+    jsii_struct_bases=[],
+    name_mapping={"launch_arn": "launchArn"},
+)
+class LaunchReference:
+    def __init__(self, *, launch_arn: builtins.str) -> None:
+        '''A reference to a Launch resource.
+
+        :param launch_arn: The Arn of the Launch resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            launch_reference = evidently.LaunchReference(
+                launch_arn="launchArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa7dd8b11df55aa267f537743ee89830bb1de718105153ffc624b6625c213d6f)
+            check_type(argname="argument launch_arn", value=launch_arn, expected_type=type_hints["launch_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "launch_arn": launch_arn,
+        }
+
+    @builtins.property
+    def launch_arn(self) -> builtins.str:
+        '''The Arn of the Launch resource.'''
+        result = self._values.get("launch_arn")
+        assert result is not None, "Required property 'launch_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LaunchReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.ProjectReference",
+    jsii_struct_bases=[],
+    name_mapping={"project_arn": "projectArn"},
+)
+class ProjectReference:
+    def __init__(self, *, project_arn: builtins.str) -> None:
+        '''A reference to a Project resource.
+
+        :param project_arn: The Arn of the Project resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            project_reference = evidently.ProjectReference(
+                project_arn="projectArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae05f107ab398fb83986bc8fe33cd6761b2508ca79680bf6d48b45d69e52e8a0)
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_arn": project_arn,
+        }
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The Arn of the Project resource.'''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_evidently.SegmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"segment_arn": "segmentArn"},
+)
+class SegmentReference:
+    def __init__(self, *, segment_arn: builtins.str) -> None:
+        '''A reference to a Segment resource.
+
+        :param segment_arn: The Arn of the Segment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_evidently as evidently
+            
+            segment_reference = evidently.SegmentReference(
+                segment_arn="segmentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bc90dc30b00c3d05aae331cd0a1da549e20ec6f1ce1fe35df0d6599392975c5)
+            check_type(argname="argument segment_arn", value=segment_arn, expected_type=type_hints["segment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "segment_arn": segment_arn,
+        }
+
+    @builtins.property
+    def segment_arn(self) -> builtins.str:
+        '''The Arn of the Segment resource.'''
+        result = self._values.get("segment_arn")
+        assert result is not None, "Required property 'segment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SegmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IExperimentRef, _ITaggable_36806126)
 class CfnExperiment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -241,6 +1740,12 @@ class CfnExperiment(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentRef")
+    def experiment_ref(self) -> ExperimentReference:
+        '''A reference to a Experiment resource.'''
+        return typing.cast(ExperimentReference, jsii.get(self, "experimentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -957,310 +2462,7 @@ class CfnExperiment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_evidently.CfnExperimentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "metric_goals": "metricGoals",
-        "name": "name",
-        "online_ab_config": "onlineAbConfig",
-        "project": "project",
-        "treatments": "treatments",
-        "description": "description",
-        "randomization_salt": "randomizationSalt",
-        "remove_segment": "removeSegment",
-        "running_status": "runningStatus",
-        "sampling_rate": "samplingRate",
-        "segment": "segment",
-        "tags": "tags",
-    },
-)
-class CfnExperimentProps:
-    def __init__(
-        self,
-        *,
-        metric_goals: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.MetricGoalObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        online_ab_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.OnlineAbConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]],
-        project: builtins.str,
-        treatments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.TreatmentObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        randomization_salt: typing.Optional[builtins.str] = None,
-        remove_segment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        running_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.RunningStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sampling_rate: typing.Optional[jsii.Number] = None,
-        segment: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnExperiment``.
-
-        :param metric_goals: An array of structures that defines the metrics used for the experiment, and whether a higher or lower value for each metric is the goal. You can use up to three metrics in an experiment.
-        :param name: A name for the new experiment.
-        :param online_ab_config: A structure that contains the configuration of which variation to use as the "control" version. The "control" version is used for comparison with other variations. This structure also specifies how much experiment traffic is allocated to each variation.
-        :param project: The name or the ARN of the project where this experiment is to be created.
-        :param treatments: An array of structures that describe the configuration of each feature variation used in the experiment.
-        :param description: An optional description of the experiment.
-        :param randomization_salt: When Evidently assigns a particular user session to an experiment, it must use a randomization ID to determine which variation the user session is served. This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the experiment name as the ``randomizationSalt`` .
-        :param remove_segment: Set this to ``true`` to remove the segment that is associated with this experiment. You can't use this parameter if the experiment is currently running.
-        :param running_status: A structure that you can use to start and stop the experiment.
-        :param sampling_rate: The portion of the available audience that you want to allocate to this experiment, in thousandths of a percent. The available audience is the total audience minus the audience that you have allocated to overrides or current launches of this feature. This is represented in thousandths of a percent. For example, specify 10,000 to allocate 10% of the available audience.
-        :param segment: Specifies an audience *segment* to use in the experiment. When a segment is used in an experiment, only user sessions that match the segment pattern are used in the experiment. For more information, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
-        :param tags: Assigns one or more tags (key-value pairs) to the experiment. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an experiment. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_evidently as evidently
-            
-            cfn_experiment_props = evidently.CfnExperimentProps(
-                metric_goals=[evidently.CfnExperiment.MetricGoalObjectProperty(
-                    desired_change="desiredChange",
-                    entity_id_key="entityIdKey",
-                    metric_name="metricName",
-                    value_key="valueKey",
-            
-                    # the properties below are optional
-                    event_pattern="eventPattern",
-                    unit_label="unitLabel"
-                )],
-                name="name",
-                online_ab_config=evidently.CfnExperiment.OnlineAbConfigObjectProperty(
-                    control_treatment_name="controlTreatmentName",
-                    treatment_weights=[evidently.CfnExperiment.TreatmentToWeightProperty(
-                        split_weight=123,
-                        treatment="treatment"
-                    )]
-                ),
-                project="project",
-                treatments=[evidently.CfnExperiment.TreatmentObjectProperty(
-                    feature="feature",
-                    treatment_name="treatmentName",
-                    variation="variation",
-            
-                    # the properties below are optional
-                    description="description"
-                )],
-            
-                # the properties below are optional
-                description="description",
-                randomization_salt="randomizationSalt",
-                remove_segment=False,
-                running_status=evidently.CfnExperiment.RunningStatusObjectProperty(
-                    status="status",
-            
-                    # the properties below are optional
-                    analysis_complete_time="analysisCompleteTime",
-                    desired_state="desiredState",
-                    reason="reason"
-                ),
-                sampling_rate=123,
-                segment="segment",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b511a5b944573df5aa1fb656233057b55fbb2369fc71a21a16cf2485a314559)
-            check_type(argname="argument metric_goals", value=metric_goals, expected_type=type_hints["metric_goals"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument online_ab_config", value=online_ab_config, expected_type=type_hints["online_ab_config"])
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-            check_type(argname="argument treatments", value=treatments, expected_type=type_hints["treatments"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument randomization_salt", value=randomization_salt, expected_type=type_hints["randomization_salt"])
-            check_type(argname="argument remove_segment", value=remove_segment, expected_type=type_hints["remove_segment"])
-            check_type(argname="argument running_status", value=running_status, expected_type=type_hints["running_status"])
-            check_type(argname="argument sampling_rate", value=sampling_rate, expected_type=type_hints["sampling_rate"])
-            check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "metric_goals": metric_goals,
-            "name": name,
-            "online_ab_config": online_ab_config,
-            "project": project,
-            "treatments": treatments,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if randomization_salt is not None:
-            self._values["randomization_salt"] = randomization_salt
-        if remove_segment is not None:
-            self._values["remove_segment"] = remove_segment
-        if running_status is not None:
-            self._values["running_status"] = running_status
-        if sampling_rate is not None:
-            self._values["sampling_rate"] = sampling_rate
-        if segment is not None:
-            self._values["segment"] = segment
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def metric_goals(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnExperiment.MetricGoalObjectProperty]]]:
-        '''An array of structures that defines the metrics used for the experiment, and whether a higher or lower value for each metric is the goal.
-
-        You can use up to three metrics in an experiment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-metricgoals
-        '''
-        result = self._values.get("metric_goals")
-        assert result is not None, "Required property 'metric_goals' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnExperiment.MetricGoalObjectProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the new experiment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def online_ab_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnExperiment.OnlineAbConfigObjectProperty]:
-        '''A structure that contains the configuration of which variation to use as the "control" version.
-
-        The "control" version is used for comparison with other variations. This structure also specifies how much experiment traffic is allocated to each variation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-onlineabconfig
-        '''
-        result = self._values.get("online_ab_config")
-        assert result is not None, "Required property 'online_ab_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnExperiment.OnlineAbConfigObjectProperty], result)
-
-    @builtins.property
-    def project(self) -> builtins.str:
-        '''The name or the ARN of the project where this experiment is to be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-project
-        '''
-        result = self._values.get("project")
-        assert result is not None, "Required property 'project' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def treatments(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnExperiment.TreatmentObjectProperty]]]:
-        '''An array of structures that describe the configuration of each feature variation used in the experiment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-treatments
-        '''
-        result = self._values.get("treatments")
-        assert result is not None, "Required property 'treatments' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnExperiment.TreatmentObjectProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the experiment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def randomization_salt(self) -> typing.Optional[builtins.str]:
-        '''When Evidently assigns a particular user session to an experiment, it must use a randomization ID to determine which variation the user session is served.
-
-        This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the experiment name as the ``randomizationSalt`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-randomizationsalt
-        '''
-        result = self._values.get("randomization_salt")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def remove_segment(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Set this to ``true`` to remove the segment that is associated with this experiment.
-
-        You can't use this parameter if the experiment is currently running.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-removesegment
-        '''
-        result = self._values.get("remove_segment")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def running_status(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnExperiment.RunningStatusObjectProperty]]:
-        '''A structure that you can use to start and stop the experiment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-runningstatus
-        '''
-        result = self._values.get("running_status")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnExperiment.RunningStatusObjectProperty]], result)
-
-    @builtins.property
-    def sampling_rate(self) -> typing.Optional[jsii.Number]:
-        '''The portion of the available audience that you want to allocate to this experiment, in thousandths of a percent.
-
-        The available audience is the total audience minus the audience that you have allocated to overrides or current launches of this feature.
-
-        This is represented in thousandths of a percent. For example, specify 10,000 to allocate 10% of the available audience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-samplingrate
-        '''
-        result = self._values.get("sampling_rate")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def segment(self) -> typing.Optional[builtins.str]:
-        '''Specifies an audience *segment* to use in the experiment.
-
-        When a segment is used in an experiment, only user sessions that match the segment pattern are used in the experiment.
-
-        For more information, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-segment
-        '''
-        result = self._values.get("segment")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the experiment.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with an experiment.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-experiment.html#cfn-evidently-experiment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnExperimentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFeatureRef, _ITaggable_36806126)
 class CfnFeature(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1396,6 +2598,12 @@ class CfnFeature(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="featureRef")
+    def feature_ref(self) -> FeatureReference:
+        '''A reference to a Feature resource.'''
+        return typing.cast(FeatureReference, jsii.get(self, "featureRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1720,220 +2928,7 @@ class CfnFeature(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_evidently.CfnFeatureProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "project": "project",
-        "variations": "variations",
-        "default_variation": "defaultVariation",
-        "description": "description",
-        "entity_overrides": "entityOverrides",
-        "evaluation_strategy": "evaluationStrategy",
-        "tags": "tags",
-    },
-)
-class CfnFeatureProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        project: builtins.str,
-        variations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.VariationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        default_variation: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        entity_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.EntityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        evaluation_strategy: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFeature``.
-
-        :param name: The name for the feature. It can include up to 127 characters.
-        :param project: The name or ARN of the project that is to contain the new feature.
-        :param variations: An array of structures that contain the configuration of the feature's different variations. Each ``VariationObject`` in the ``Variations`` array for a feature must have the same type of value ( ``BooleanValue`` , ``DoubleValue`` , ``LongValue`` or ``StringValue`` ).
-        :param default_variation: The name of the variation to use as the default variation. The default variation is served to users who are not allocated to any ongoing launches or experiments of this feature. This variation must also be listed in the ``Variations`` structure. If you omit ``DefaultVariation`` , the first variation listed in the ``Variations`` structure is used as the default variation.
-        :param description: An optional description of the feature.
-        :param entity_overrides: Specify users that should always be served a specific variation of a feature. Each user is specified by a key-value pair . For each key, specify a user by entering their user ID, account ID, or some other identifier. For the value, specify the name of the variation that they are to be served.
-        :param evaluation_strategy: Specify ``ALL_RULES`` to activate the traffic allocation specified by any ongoing launches or experiments. Specify ``DEFAULT_VARIATION`` to serve the default variation to all users instead.
-        :param tags: Assigns one or more tags (key-value pairs) to the feature. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a feature. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_evidently as evidently
-            
-            cfn_feature_props = evidently.CfnFeatureProps(
-                name="name",
-                project="project",
-                variations=[evidently.CfnFeature.VariationObjectProperty(
-                    variation_name="variationName",
-            
-                    # the properties below are optional
-                    boolean_value=False,
-                    double_value=123,
-                    long_value=123,
-                    string_value="stringValue"
-                )],
-            
-                # the properties below are optional
-                default_variation="defaultVariation",
-                description="description",
-                entity_overrides=[evidently.CfnFeature.EntityOverrideProperty(
-                    entity_id="entityId",
-                    variation="variation"
-                )],
-                evaluation_strategy="evaluationStrategy",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fd5d4006d379348c243366df7a4e27203488741fbadb765bad2ae169ac59650)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-            check_type(argname="argument variations", value=variations, expected_type=type_hints["variations"])
-            check_type(argname="argument default_variation", value=default_variation, expected_type=type_hints["default_variation"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument entity_overrides", value=entity_overrides, expected_type=type_hints["entity_overrides"])
-            check_type(argname="argument evaluation_strategy", value=evaluation_strategy, expected_type=type_hints["evaluation_strategy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "project": project,
-            "variations": variations,
-        }
-        if default_variation is not None:
-            self._values["default_variation"] = default_variation
-        if description is not None:
-            self._values["description"] = description
-        if entity_overrides is not None:
-            self._values["entity_overrides"] = entity_overrides
-        if evaluation_strategy is not None:
-            self._values["evaluation_strategy"] = evaluation_strategy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the feature.
-
-        It can include up to 127 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project(self) -> builtins.str:
-        '''The name or ARN of the project that is to contain the new feature.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-project
-        '''
-        result = self._values.get("project")
-        assert result is not None, "Required property 'project' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def variations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFeature.VariationObjectProperty]]]:
-        '''An array of structures that contain the configuration of the feature's different variations.
-
-        Each ``VariationObject`` in the ``Variations`` array for a feature must have the same type of value ( ``BooleanValue`` , ``DoubleValue`` , ``LongValue`` or ``StringValue`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-variations
-        '''
-        result = self._values.get("variations")
-        assert result is not None, "Required property 'variations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFeature.VariationObjectProperty]]], result)
-
-    @builtins.property
-    def default_variation(self) -> typing.Optional[builtins.str]:
-        '''The name of the variation to use as the default variation.
-
-        The default variation is served to users who are not allocated to any ongoing launches or experiments of this feature.
-
-        This variation must also be listed in the ``Variations`` structure.
-
-        If you omit ``DefaultVariation`` , the first variation listed in the ``Variations`` structure is used as the default variation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-defaultvariation
-        '''
-        result = self._values.get("default_variation")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the feature.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def entity_overrides(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFeature.EntityOverrideProperty]]]]:
-        '''Specify users that should always be served a specific variation of a feature.
-
-        Each user is specified by a key-value pair . For each key, specify a user by entering their user ID, account ID, or some other identifier. For the value, specify the name of the variation that they are to be served.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-entityoverrides
-        '''
-        result = self._values.get("entity_overrides")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFeature.EntityOverrideProperty]]]], result)
-
-    @builtins.property
-    def evaluation_strategy(self) -> typing.Optional[builtins.str]:
-        '''Specify ``ALL_RULES`` to activate the traffic allocation specified by any ongoing launches or experiments.
-
-        Specify ``DEFAULT_VARIATION`` to serve the default variation to all users instead.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-evaluationstrategy
-        '''
-        result = self._values.get("evaluation_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the feature.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with a feature.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-feature.html#cfn-evidently-feature-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFeatureProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ILaunchRef, _ITaggable_36806126)
 class CfnLaunch(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2101,6 +3096,12 @@ class CfnLaunch(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRef")
+    def launch_ref(self) -> LaunchReference:
+        '''A reference to a Launch resource.'''
+        return typing.cast(LaunchReference, jsii.get(self, "launchRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2876,260 +3877,7 @@ class CfnLaunch(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_evidently.CfnLaunchProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "groups": "groups",
-        "name": "name",
-        "project": "project",
-        "scheduled_splits_config": "scheduledSplitsConfig",
-        "description": "description",
-        "execution_status": "executionStatus",
-        "metric_monitors": "metricMonitors",
-        "randomization_salt": "randomizationSalt",
-        "tags": "tags",
-    },
-)
-class CfnLaunchProps:
-    def __init__(
-        self,
-        *,
-        groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.LaunchGroupObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        project: builtins.str,
-        scheduled_splits_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        execution_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.ExecutionStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.MetricDefinitionObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        randomization_salt: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLaunch``.
-
-        :param groups: An array of structures that contains the feature and variations that are to be used for the launch. You can up to five launch groups in a launch.
-        :param name: The name for the launch. It can include up to 127 characters.
-        :param project: The name or ARN of the project that you want to create the launch in.
-        :param scheduled_splits_config: An array of structures that define the traffic allocation percentages among the feature variations during each step of the launch.
-        :param description: An optional description for the launch.
-        :param execution_status: A structure that you can use to start and stop the launch.
-        :param metric_monitors: An array of structures that define the metrics that will be used to monitor the launch performance. You can have up to three metric monitors in the array.
-        :param randomization_salt: When Evidently assigns a particular user session to a launch, it must use a randomization ID to determine which variation the user session is served. This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the launch name as the ``randomizationsSalt`` .
-        :param tags: Assigns one or more tags (key-value pairs) to the launch. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a launch. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_evidently as evidently
-            
-            cfn_launch_props = evidently.CfnLaunchProps(
-                groups=[evidently.CfnLaunch.LaunchGroupObjectProperty(
-                    feature="feature",
-                    group_name="groupName",
-                    variation="variation",
-            
-                    # the properties below are optional
-                    description="description"
-                )],
-                name="name",
-                project="project",
-                scheduled_splits_config=[evidently.CfnLaunch.StepConfigProperty(
-                    group_weights=[evidently.CfnLaunch.GroupToWeightProperty(
-                        group_name="groupName",
-                        split_weight=123
-                    )],
-                    start_time="startTime",
-            
-                    # the properties below are optional
-                    segment_overrides=[evidently.CfnLaunch.SegmentOverrideProperty(
-                        evaluation_order=123,
-                        segment="segment",
-                        weights=[evidently.CfnLaunch.GroupToWeightProperty(
-                            group_name="groupName",
-                            split_weight=123
-                        )]
-                    )]
-                )],
-            
-                # the properties below are optional
-                description="description",
-                execution_status=evidently.CfnLaunch.ExecutionStatusObjectProperty(
-                    status="status",
-            
-                    # the properties below are optional
-                    desired_state="desiredState",
-                    reason="reason"
-                ),
-                metric_monitors=[evidently.CfnLaunch.MetricDefinitionObjectProperty(
-                    entity_id_key="entityIdKey",
-                    metric_name="metricName",
-                    value_key="valueKey",
-            
-                    # the properties below are optional
-                    event_pattern="eventPattern",
-                    unit_label="unitLabel"
-                )],
-                randomization_salt="randomizationSalt",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a136d1b38127f4fb34c7d6619d1b4038b0d2be6c3ce76d9f52535d191c3021)
-            check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
-            check_type(argname="argument scheduled_splits_config", value=scheduled_splits_config, expected_type=type_hints["scheduled_splits_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
-            check_type(argname="argument metric_monitors", value=metric_monitors, expected_type=type_hints["metric_monitors"])
-            check_type(argname="argument randomization_salt", value=randomization_salt, expected_type=type_hints["randomization_salt"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "groups": groups,
-            "name": name,
-            "project": project,
-            "scheduled_splits_config": scheduled_splits_config,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if execution_status is not None:
-            self._values["execution_status"] = execution_status
-        if metric_monitors is not None:
-            self._values["metric_monitors"] = metric_monitors
-        if randomization_salt is not None:
-            self._values["randomization_salt"] = randomization_salt
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def groups(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.LaunchGroupObjectProperty]]]:
-        '''An array of structures that contains the feature and variations that are to be used for the launch.
-
-        You can up to five launch groups in a launch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-groups
-        '''
-        result = self._values.get("groups")
-        assert result is not None, "Required property 'groups' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.LaunchGroupObjectProperty]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the launch.
-
-        It can include up to 127 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project(self) -> builtins.str:
-        '''The name or ARN of the project that you want to create the launch in.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-project
-        '''
-        result = self._values.get("project")
-        assert result is not None, "Required property 'project' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def scheduled_splits_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.StepConfigProperty]]]:
-        '''An array of structures that define the traffic allocation percentages among the feature variations during each step of the launch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-scheduledsplitsconfig
-        '''
-        result = self._values.get("scheduled_splits_config")
-        assert result is not None, "Required property 'scheduled_splits_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.StepConfigProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for the launch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def execution_status(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLaunch.ExecutionStatusObjectProperty]]:
-        '''A structure that you can use to start and stop the launch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-executionstatus
-        '''
-        result = self._values.get("execution_status")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLaunch.ExecutionStatusObjectProperty]], result)
-
-    @builtins.property
-    def metric_monitors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.MetricDefinitionObjectProperty]]]]:
-        '''An array of structures that define the metrics that will be used to monitor the launch performance.
-
-        You can have up to three metric monitors in the array.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-metricmonitors
-        '''
-        result = self._values.get("metric_monitors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLaunch.MetricDefinitionObjectProperty]]]], result)
-
-    @builtins.property
-    def randomization_salt(self) -> typing.Optional[builtins.str]:
-        '''When Evidently assigns a particular user session to a launch, it must use a randomization ID to determine which variation the user session is served.
-
-        This randomization ID is a combination of the entity ID and ``randomizationSalt`` . If you omit ``randomizationSalt`` , Evidently uses the launch name as the ``randomizationsSalt`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-randomizationsalt
-        '''
-        result = self._values.get("randomization_salt")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the launch.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with a launch.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-launch.html#cfn-evidently-launch-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLaunchProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IProjectRef, _ITaggable_36806126)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3253,6 +4001,12 @@ class CfnProject(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> ProjectReference:
+        '''A reference to a Project resource.'''
+        return typing.cast(ProjectReference, jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3560,170 +4314,7 @@ class CfnProject(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_evidently.CfnProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "app_config_resource": "appConfigResource",
-        "data_delivery": "dataDelivery",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnProjectProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        app_config_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.AppConfigResourceObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.DataDeliveryObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProject``.
-
-        :param name: The name for the project. It can include up to 127 characters.
-        :param app_config_resource: Use this parameter if the project will use *client-side evaluation powered by AWS AppConfig* . Client-side evaluation allows your application to assign variations to user sessions locally instead of by calling the `EvaluateFeature <https://docs.aws.amazon.com/cloudwatchevidently/latest/APIReference/API_EvaluateFeature.html>`_ operation. This mitigates the latency and availability risks that come with an API call. For more information, see `Use client-side evaluation - powered by AWS AppConfig . <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-client-side-evaluation.html>`_ This parameter is a structure that contains information about the AWS AppConfig application that will be used as for client-side evaluation. To create a project that uses client-side evaluation, you must have the ``evidently:ExportProjectAsConfiguration`` permission.
-        :param data_delivery: A structure that contains information about where Evidently is to store evaluation events for longer term storage, if you choose to do so. If you choose not to store these events, Evidently deletes them after using them to produce metrics and other experiment results that you can view. You can't specify both ``CloudWatchLogs`` and ``S3Destination`` in the same operation.
-        :param description: An optional description of the project.
-        :param tags: Assigns one or more tags (key-value pairs) to the project. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a project. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_evidently as evidently
-            
-            cfn_project_props = evidently.CfnProjectProps(
-                name="name",
-            
-                # the properties below are optional
-                app_config_resource=evidently.CfnProject.AppConfigResourceObjectProperty(
-                    application_id="applicationId",
-                    environment_id="environmentId"
-                ),
-                data_delivery=evidently.CfnProject.DataDeliveryObjectProperty(
-                    log_group="logGroup",
-                    s3=evidently.CfnProject.S3DestinationProperty(
-                        bucket_name="bucketName",
-            
-                        # the properties below are optional
-                        prefix="prefix"
-                    )
-                ),
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac738cde3fd44d5472b342dd1f8c8a1576f7a69d882c6c2b152887958091799f)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument app_config_resource", value=app_config_resource, expected_type=type_hints["app_config_resource"])
-            check_type(argname="argument data_delivery", value=data_delivery, expected_type=type_hints["data_delivery"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if app_config_resource is not None:
-            self._values["app_config_resource"] = app_config_resource
-        if data_delivery is not None:
-            self._values["data_delivery"] = data_delivery
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the project.
-
-        It can include up to 127 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def app_config_resource(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.AppConfigResourceObjectProperty]]:
-        '''Use this parameter if the project will use *client-side evaluation powered by AWS AppConfig* .
-
-        Client-side evaluation allows your application to assign variations to user sessions locally instead of by calling the `EvaluateFeature <https://docs.aws.amazon.com/cloudwatchevidently/latest/APIReference/API_EvaluateFeature.html>`_ operation. This mitigates the latency and availability risks that come with an API call. For more information, see `Use client-side evaluation - powered by AWS AppConfig . <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-client-side-evaluation.html>`_
-
-        This parameter is a structure that contains information about the AWS AppConfig application that will be used as for client-side evaluation.
-
-        To create a project that uses client-side evaluation, you must have the ``evidently:ExportProjectAsConfiguration`` permission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-appconfigresource
-        '''
-        result = self._values.get("app_config_resource")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.AppConfigResourceObjectProperty]], result)
-
-    @builtins.property
-    def data_delivery(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.DataDeliveryObjectProperty]]:
-        '''A structure that contains information about where Evidently is to store evaluation events for longer term storage, if you choose to do so.
-
-        If you choose not to store these events, Evidently deletes them after using them to produce metrics and other experiment results that you can view.
-
-        You can't specify both ``CloudWatchLogs`` and ``S3Destination`` in the same operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-datadelivery
-        '''
-        result = self._values.get("data_delivery")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.DataDeliveryObjectProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the project.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with a project.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-project.html#cfn-evidently-project-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISegmentRef, _ITaggable_36806126)
 class CfnSegment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3837,6 +4428,12 @@ class CfnSegment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="segmentRef")
+    def segment_ref(self) -> SegmentReference:
+        '''A reference to a Segment resource.'''
+        return typing.cast(SegmentReference, jsii.get(self, "segmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -3895,128 +4492,6 @@ class CfnSegment(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_evidently.CfnSegmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "pattern": "pattern",
-        "tags": "tags",
-    },
-)
-class CfnSegmentProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        pattern: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSegment``.
-
-        :param name: A name for the segment.
-        :param description: An optional description for this segment.
-        :param pattern: The pattern to use for the segment. For more information about pattern syntax, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
-        :param tags: Assigns one or more tags (key-value pairs) to the feature. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with a feature. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_evidently as evidently
-            
-            cfn_segment_props = evidently.CfnSegmentProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                pattern="pattern",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5a222ca964d86153aba5e0b6e9b948b76db2ac5e739383e297480eb342788df)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if pattern is not None:
-            self._values["pattern"] = pattern
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the segment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for this segment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pattern(self) -> typing.Optional[builtins.str]:
-        '''The pattern to use for the segment.
-
-        For more information about pattern syntax, see `Segment rule pattern syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Evidently-segments.html#CloudWatch-Evidently-segments-syntax>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-pattern
-        '''
-        result = self._values.get("pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the feature.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with a feature.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evidently-segment.html#cfn-evidently-segment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSegmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnExperiment",
     "CfnExperimentProps",
@@ -4028,9 +4503,122 @@ __all__ = [
     "CfnProjectProps",
     "CfnSegment",
     "CfnSegmentProps",
+    "ExperimentReference",
+    "FeatureReference",
+    "IExperimentRef",
+    "IFeatureRef",
+    "ILaunchRef",
+    "IProjectRef",
+    "ISegmentRef",
+    "LaunchReference",
+    "ProjectReference",
+    "SegmentReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1b511a5b944573df5aa1fb656233057b55fbb2369fc71a21a16cf2485a314559(
+    *,
+    metric_goals: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.MetricGoalObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    online_ab_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.OnlineAbConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]],
+    project: builtins.str,
+    treatments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.TreatmentObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    randomization_salt: typing.Optional[builtins.str] = None,
+    remove_segment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    running_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.RunningStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sampling_rate: typing.Optional[jsii.Number] = None,
+    segment: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fd5d4006d379348c243366df7a4e27203488741fbadb765bad2ae169ac59650(
+    *,
+    name: builtins.str,
+    project: builtins.str,
+    variations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.VariationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    default_variation: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    entity_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.EntityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    evaluation_strategy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20a136d1b38127f4fb34c7d6619d1b4038b0d2be6c3ce76d9f52535d191c3021(
+    *,
+    groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.LaunchGroupObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    project: builtins.str,
+    scheduled_splits_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    execution_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.ExecutionStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.MetricDefinitionObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    randomization_salt: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac738cde3fd44d5472b342dd1f8c8a1576f7a69d882c6c2b152887958091799f(
+    *,
+    name: builtins.str,
+    app_config_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.AppConfigResourceObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.DataDeliveryObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5a222ca964d86153aba5e0b6e9b948b76db2ac5e739383e297480eb342788df(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    pattern: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8aeeaaa5624ba155e6d4dafab6c532b02a098583437ea653aebad9f4172ffe7(
+    *,
+    experiment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98a09f36f16c05501542cc0cfb1d9f3622a17e8b22cf4808bc5e748b49231b1f(
+    *,
+    feature_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa7dd8b11df55aa267f537743ee89830bb1de718105153ffc624b6625c213d6f(
+    *,
+    launch_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae05f107ab398fb83986bc8fe33cd6761b2508ca79680bf6d48b45d69e52e8a0(
+    *,
+    project_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bc90dc30b00c3d05aae331cd0a1da549e20ec6f1ce1fe35df0d6599392975c5(
+    *,
+    segment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__734b87b8f3689149de24177947f45b4fba5a135b998ba47c50d89ce2cb06add4(
     scope: _constructs_77d1e7e8.Construct,
@@ -4184,24 +4772,6 @@ def _typecheckingstub__3c24913e7b4ce7d0ccc2499c81ecea7d897c69c7fbc1291a0521dbb0d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1b511a5b944573df5aa1fb656233057b55fbb2369fc71a21a16cf2485a314559(
-    *,
-    metric_goals: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.MetricGoalObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    online_ab_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.OnlineAbConfigObjectProperty, typing.Dict[builtins.str, typing.Any]]],
-    project: builtins.str,
-    treatments: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.TreatmentObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    randomization_salt: typing.Optional[builtins.str] = None,
-    remove_segment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    running_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnExperiment.RunningStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sampling_rate: typing.Optional[jsii.Number] = None,
-    segment: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__032b8fcb49dd9128128c244f2e15873395777d391323d4e1a7f50f4087f87f94(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4293,20 +4863,6 @@ def _typecheckingstub__5d69f83bb962985fff0b5f289781eb2e76e626dd2982d400f93a03220
     double_value: typing.Optional[jsii.Number] = None,
     long_value: typing.Optional[jsii.Number] = None,
     string_value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4fd5d4006d379348c243366df7a4e27203488741fbadb765bad2ae169ac59650(
-    *,
-    name: builtins.str,
-    project: builtins.str,
-    variations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.VariationObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    default_variation: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    entity_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFeature.EntityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    evaluation_strategy: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4450,21 +5006,6 @@ def _typecheckingstub__53dab4eaa2aacc5ea0d3c97532af5d0ff1af68ac00101231878cc8d51
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__20a136d1b38127f4fb34c7d6619d1b4038b0d2be6c3ce76d9f52535d191c3021(
-    *,
-    groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.LaunchGroupObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    project: builtins.str,
-    scheduled_splits_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.StepConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    execution_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.ExecutionStatusObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_monitors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunch.MetricDefinitionObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    randomization_salt: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aff4f82edbe2ec588dd5ba5124dc949189afd4900acb296b20585139e3090ef5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4544,17 +5085,6 @@ def _typecheckingstub__935dc8f5ef3388acf3a2b6c49314a8bbe0d39ba91cc2d1a203206a8e7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ac738cde3fd44d5472b342dd1f8c8a1576f7a69d882c6c2b152887958091799f(
-    *,
-    name: builtins.str,
-    app_config_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.AppConfigResourceObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.DataDeliveryObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__01a413dc152997585ec36406e5b383d22c40c45e581645d850b78404030c0dfd(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4599,16 +5129,6 @@ def _typecheckingstub__52f007071723973771838bffd2f7d57f9055fe40d904edd15559d3e3b
 
 def _typecheckingstub__699cd365ca1e9e81d1b1415334e92effb9e6ec1384e6de77039b6fa9552aa28d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e5a222ca964d86153aba5e0b6e9b948b76db2ac5e739383e297480eb342788df(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    pattern: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

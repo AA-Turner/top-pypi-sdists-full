@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: parallel-web
-Version: 0.2.0
+Version: 0.2.1
 Summary: The official Python library for the Parallel API
 Project-URL: Homepage, https://github.com/parallel-web/parallel-sdk-python
 Project-URL: Repository, https://github.com/parallel-web/parallel-sdk-python

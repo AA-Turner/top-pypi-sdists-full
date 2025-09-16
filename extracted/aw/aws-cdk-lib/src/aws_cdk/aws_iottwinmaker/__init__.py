@@ -68,7 +68,1563 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnComponentTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "component_type_id": "componentTypeId",
+        "workspace_id": "workspaceId",
+        "composite_component_types": "compositeComponentTypes",
+        "description": "description",
+        "extends_from": "extendsFrom",
+        "functions": "functions",
+        "is_singleton": "isSingleton",
+        "property_definitions": "propertyDefinitions",
+        "property_groups": "propertyGroups",
+        "tags": "tags",
+    },
+)
+class CfnComponentTypeProps:
+    def __init__(
+        self,
+        *,
+        component_type_id: builtins.str,
+        workspace_id: builtins.str,
+        composite_component_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponentType.CompositeComponentTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        extends_from: typing.Optional[typing.Sequence[builtins.str]] = None,
+        functions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponentType.FunctionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        is_singleton: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        property_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponentType.PropertyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        property_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponentType.PropertyGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComponentType``.
+
+        :param component_type_id: The ID of the component type.
+        :param workspace_id: The ID of the workspace that contains the component type.
+        :param composite_component_types: Maps strings to ``compositeComponentTypes`` of the ``componentType`` . ``CompositeComponentType`` is referenced by ``componentTypeId`` .
+        :param description: The description of the component type.
+        :param extends_from: The name of the parent component type that this component type extends.
+        :param functions: An object that maps strings to the functions in the component type. Each string in the mapping must be unique to this object. For information on the FunctionResponse object see the `FunctionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_FunctionResponse.html>`_ API reference.
+        :param is_singleton: A boolean value that specifies whether an entity can have more than one component of this type.
+        :param property_definitions: An object that maps strings to the property definitions in the component type. Each string in the mapping must be unique to this object. For information about the PropertyDefinitionResponse object, see the `PropertyDefinitionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_PropertyDefinitionResponse.html>`_ API reference.
+        :param property_groups: An object that maps strings to the property groups in the component type. Each string in the mapping must be unique to this object.
+        :param tags: The ComponentType tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            # data_type_property_: iottwinmaker.CfnComponentType.DataTypeProperty
+            # data_value_property_: iottwinmaker.CfnComponentType.DataValueProperty
+            # relationship_value: Any
+            
+            cfn_component_type_props = iottwinmaker.CfnComponentTypeProps(
+                component_type_id="componentTypeId",
+                workspace_id="workspaceId",
+            
+                # the properties below are optional
+                composite_component_types={
+                    "composite_component_types_key": iottwinmaker.CfnComponentType.CompositeComponentTypeProperty(
+                        component_type_id="componentTypeId"
+                    )
+                },
+                description="description",
+                extends_from=["extendsFrom"],
+                functions={
+                    "functions_key": iottwinmaker.CfnComponentType.FunctionProperty(
+                        implemented_by=iottwinmaker.CfnComponentType.DataConnectorProperty(
+                            is_native=False,
+                            lambda_=iottwinmaker.CfnComponentType.LambdaFunctionProperty(
+                                arn="arn"
+                            )
+                        ),
+                        required_properties=["requiredProperties"],
+                        scope="scope"
+                    )
+                },
+                is_singleton=False,
+                property_definitions={
+                    "property_definitions_key": iottwinmaker.CfnComponentType.PropertyDefinitionProperty(
+                        configurations={
+                            "configurations_key": "configurations"
+                        },
+                        data_type=iottwinmaker.CfnComponentType.DataTypeProperty(
+                            type="type",
+            
+                            # the properties below are optional
+                            allowed_values=[iottwinmaker.CfnComponentType.DataValueProperty(
+                                boolean_value=False,
+                                double_value=123,
+                                expression="expression",
+                                integer_value=123,
+                                list_value=[data_value_property_],
+                                long_value=123,
+                                map_value={
+                                    "map_value_key": data_value_property_
+                                },
+                                relationship_value=relationship_value,
+                                string_value="stringValue"
+                            )],
+                            nested_type=data_type_property_,
+                            relationship=iottwinmaker.CfnComponentType.RelationshipProperty(
+                                relationship_type="relationshipType",
+                                target_component_type_id="targetComponentTypeId"
+                            ),
+                            unit_of_measure="unitOfMeasure"
+                        ),
+                        default_value=iottwinmaker.CfnComponentType.DataValueProperty(
+                            boolean_value=False,
+                            double_value=123,
+                            expression="expression",
+                            integer_value=123,
+                            list_value=[data_value_property_],
+                            long_value=123,
+                            map_value={
+                                "map_value_key": data_value_property_
+                            },
+                            relationship_value=relationship_value,
+                            string_value="stringValue"
+                        ),
+                        is_external_id=False,
+                        is_required_in_entity=False,
+                        is_stored_externally=False,
+                        is_time_series=False
+                    )
+                },
+                property_groups={
+                    "property_groups_key": iottwinmaker.CfnComponentType.PropertyGroupProperty(
+                        group_type="groupType",
+                        property_names=["propertyNames"]
+                    )
+                },
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__324a0cc887ec1065b9d5ba872572072fa8c481530426ba50811e338f2dde6f9b)
+            check_type(argname="argument component_type_id", value=component_type_id, expected_type=type_hints["component_type_id"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+            check_type(argname="argument composite_component_types", value=composite_component_types, expected_type=type_hints["composite_component_types"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument extends_from", value=extends_from, expected_type=type_hints["extends_from"])
+            check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
+            check_type(argname="argument is_singleton", value=is_singleton, expected_type=type_hints["is_singleton"])
+            check_type(argname="argument property_definitions", value=property_definitions, expected_type=type_hints["property_definitions"])
+            check_type(argname="argument property_groups", value=property_groups, expected_type=type_hints["property_groups"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "component_type_id": component_type_id,
+            "workspace_id": workspace_id,
+        }
+        if composite_component_types is not None:
+            self._values["composite_component_types"] = composite_component_types
+        if description is not None:
+            self._values["description"] = description
+        if extends_from is not None:
+            self._values["extends_from"] = extends_from
+        if functions is not None:
+            self._values["functions"] = functions
+        if is_singleton is not None:
+            self._values["is_singleton"] = is_singleton
+        if property_definitions is not None:
+            self._values["property_definitions"] = property_definitions
+        if property_groups is not None:
+            self._values["property_groups"] = property_groups
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def component_type_id(self) -> builtins.str:
+        '''The ID of the component type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-componenttypeid
+        '''
+        result = self._values.get("component_type_id")
+        assert result is not None, "Required property 'component_type_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The ID of the workspace that contains the component type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-workspaceid
+        '''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def composite_component_types(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.CompositeComponentTypeProperty"]]]]:
+        '''Maps strings to ``compositeComponentTypes`` of the ``componentType`` .
+
+        ``CompositeComponentType`` is referenced by ``componentTypeId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-compositecomponenttypes
+        '''
+        result = self._values.get("composite_component_types")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.CompositeComponentTypeProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the component type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def extends_from(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of the parent component type that this component type extends.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-extendsfrom
+        '''
+        result = self._values.get("extends_from")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def functions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.FunctionProperty"]]]]:
+        '''An object that maps strings to the functions in the component type.
+
+        Each string in the mapping must be unique to this object.
+
+        For information on the FunctionResponse object see the `FunctionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_FunctionResponse.html>`_ API reference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-functions
+        '''
+        result = self._values.get("functions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.FunctionProperty"]]]], result)
+
+    @builtins.property
+    def is_singleton(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A boolean value that specifies whether an entity can have more than one component of this type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-issingleton
+        '''
+        result = self._values.get("is_singleton")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def property_definitions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.PropertyDefinitionProperty"]]]]:
+        '''An object that maps strings to the property definitions in the component type.
+
+        Each string in the mapping must be unique to this object.
+
+        For information about the PropertyDefinitionResponse object, see the `PropertyDefinitionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_PropertyDefinitionResponse.html>`_ API reference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-propertydefinitions
+        '''
+        result = self._values.get("property_definitions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.PropertyDefinitionProperty"]]]], result)
+
+    @builtins.property
+    def property_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.PropertyGroupProperty"]]]]:
+        '''An object that maps strings to the property groups in the component type.
+
+        Each string in the mapping must be unique to this object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-propertygroups
+        '''
+        result = self._values.get("property_groups")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnComponentType.PropertyGroupProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The ComponentType tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComponentTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnEntityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "entity_name": "entityName",
+        "workspace_id": "workspaceId",
+        "components": "components",
+        "composite_components": "compositeComponents",
+        "description": "description",
+        "entity_id": "entityId",
+        "parent_entity_id": "parentEntityId",
+        "tags": "tags",
+    },
+)
+class CfnEntityProps:
+    def __init__(
+        self,
+        *,
+        entity_name: builtins.str,
+        workspace_id: builtins.str,
+        components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnEntity.ComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        composite_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnEntity.CompositeComponentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        entity_id: typing.Optional[builtins.str] = None,
+        parent_entity_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEntity``.
+
+        :param entity_name: The entity name.
+        :param workspace_id: The ID of the workspace that contains the entity.
+        :param components: An object that maps strings to the components in the entity. Each string in the mapping must be unique to this object. For information on the component object see the `component <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_ComponentResponse.html>`_ API reference.
+        :param composite_components: Maps string to ``compositeComponent`` updates in the request. Each key of the map represents the ``componentPath`` of the ``compositeComponent`` .
+        :param description: The description of the entity.
+        :param entity_id: The ID of the entity.
+        :param parent_entity_id: The ID of the parent entity.
+        :param tags: Metadata that you can use to manage the entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            # data_value_property_: iottwinmaker.CfnEntity.DataValueProperty
+            # definition: Any
+            # error: Any
+            # relationship_value: Any
+            
+            cfn_entity_props = iottwinmaker.CfnEntityProps(
+                entity_name="entityName",
+                workspace_id="workspaceId",
+            
+                # the properties below are optional
+                components={
+                    "components_key": iottwinmaker.CfnEntity.ComponentProperty(
+                        component_name="componentName",
+                        component_type_id="componentTypeId",
+                        defined_in="definedIn",
+                        description="description",
+                        properties={
+                            "properties_key": iottwinmaker.CfnEntity.PropertyProperty(
+                                definition=definition,
+                                value=iottwinmaker.CfnEntity.DataValueProperty(
+                                    boolean_value=False,
+                                    double_value=123,
+                                    expression="expression",
+                                    integer_value=123,
+                                    list_value=[data_value_property_],
+                                    long_value=123,
+                                    map_value={
+                                        "map_value_key": data_value_property_
+                                    },
+                                    relationship_value=relationship_value,
+                                    string_value="stringValue"
+                                )
+                            )
+                        },
+                        property_groups={
+                            "property_groups_key": iottwinmaker.CfnEntity.PropertyGroupProperty(
+                                group_type="groupType",
+                                property_names=["propertyNames"]
+                            )
+                        },
+                        status=iottwinmaker.CfnEntity.StatusProperty(
+                            error=error,
+                            state="state"
+                        )
+                    )
+                },
+                composite_components={
+                    "composite_components_key": iottwinmaker.CfnEntity.CompositeComponentProperty(
+                        component_name="componentName",
+                        component_path="componentPath",
+                        component_type_id="componentTypeId",
+                        description="description",
+                        properties={
+                            "properties_key": iottwinmaker.CfnEntity.PropertyProperty(
+                                definition=definition,
+                                value=iottwinmaker.CfnEntity.DataValueProperty(
+                                    boolean_value=False,
+                                    double_value=123,
+                                    expression="expression",
+                                    integer_value=123,
+                                    list_value=[data_value_property_],
+                                    long_value=123,
+                                    map_value={
+                                        "map_value_key": data_value_property_
+                                    },
+                                    relationship_value=relationship_value,
+                                    string_value="stringValue"
+                                )
+                            )
+                        },
+                        property_groups={
+                            "property_groups_key": iottwinmaker.CfnEntity.PropertyGroupProperty(
+                                group_type="groupType",
+                                property_names=["propertyNames"]
+                            )
+                        },
+                        status=iottwinmaker.CfnEntity.StatusProperty(
+                            error=error,
+                            state="state"
+                        )
+                    )
+                },
+                description="description",
+                entity_id="entityId",
+                parent_entity_id="parentEntityId",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88b197f79cd935d9bcd530ddc23032a643cc5a8cb23ce9b819abd0e828c83616)
+            check_type(argname="argument entity_name", value=entity_name, expected_type=type_hints["entity_name"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
+            check_type(argname="argument composite_components", value=composite_components, expected_type=type_hints["composite_components"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
+            check_type(argname="argument parent_entity_id", value=parent_entity_id, expected_type=type_hints["parent_entity_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entity_name": entity_name,
+            "workspace_id": workspace_id,
+        }
+        if components is not None:
+            self._values["components"] = components
+        if composite_components is not None:
+            self._values["composite_components"] = composite_components
+        if description is not None:
+            self._values["description"] = description
+        if entity_id is not None:
+            self._values["entity_id"] = entity_id
+        if parent_entity_id is not None:
+            self._values["parent_entity_id"] = parent_entity_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def entity_name(self) -> builtins.str:
+        '''The entity name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-entityname
+        '''
+        result = self._values.get("entity_name")
+        assert result is not None, "Required property 'entity_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The ID of the workspace that contains the entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-workspaceid
+        '''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def components(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnEntity.ComponentProperty"]]]]:
+        '''An object that maps strings to the components in the entity.
+
+        Each string in the mapping must be unique to this object.
+
+        For information on the component object see the `component <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_ComponentResponse.html>`_ API reference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-components
+        '''
+        result = self._values.get("components")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnEntity.ComponentProperty"]]]], result)
+
+    @builtins.property
+    def composite_components(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnEntity.CompositeComponentProperty"]]]]:
+        '''Maps string to ``compositeComponent`` updates in the request.
+
+        Each key of the map represents the ``componentPath`` of the ``compositeComponent`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-compositecomponents
+        '''
+        result = self._values.get("composite_components")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnEntity.CompositeComponentProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def entity_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-entityid
+        '''
+        result = self._values.get("entity_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parent_entity_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the parent entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-parententityid
+        '''
+        result = self._values.get("parent_entity_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can use to manage the entity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEntityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnSceneProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content_location": "contentLocation",
+        "scene_id": "sceneId",
+        "workspace_id": "workspaceId",
+        "capabilities": "capabilities",
+        "description": "description",
+        "scene_metadata": "sceneMetadata",
+        "tags": "tags",
+    },
+)
+class CfnSceneProps:
+    def __init__(
+        self,
+        *,
+        content_location: builtins.str,
+        scene_id: builtins.str,
+        workspace_id: builtins.str,
+        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScene``.
+
+        :param content_location: The relative path that specifies the location of the content definition file.
+        :param scene_id: The ID of the scene.
+        :param workspace_id: The ID of the workspace.
+        :param capabilities: A list of capabilities that the scene uses to render.
+        :param description: The description of this scene.
+        :param scene_metadata: The scene metadata.
+        :param tags: The ComponentType tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            cfn_scene_props = iottwinmaker.CfnSceneProps(
+                content_location="contentLocation",
+                scene_id="sceneId",
+                workspace_id="workspaceId",
+            
+                # the properties below are optional
+                capabilities=["capabilities"],
+                description="description",
+                scene_metadata={
+                    "scene_metadata_key": "sceneMetadata"
+                },
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82a36415e841f5ed3140cd3e0387f54673b74205e417aba4df516fe5cce73da5)
+            check_type(argname="argument content_location", value=content_location, expected_type=type_hints["content_location"])
+            check_type(argname="argument scene_id", value=scene_id, expected_type=type_hints["scene_id"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument scene_metadata", value=scene_metadata, expected_type=type_hints["scene_metadata"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content_location": content_location,
+            "scene_id": scene_id,
+            "workspace_id": workspace_id,
+        }
+        if capabilities is not None:
+            self._values["capabilities"] = capabilities
+        if description is not None:
+            self._values["description"] = description
+        if scene_metadata is not None:
+            self._values["scene_metadata"] = scene_metadata
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content_location(self) -> builtins.str:
+        '''The relative path that specifies the location of the content definition file.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-contentlocation
+        '''
+        result = self._values.get("content_location")
+        assert result is not None, "Required property 'content_location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scene_id(self) -> builtins.str:
+        '''The ID of the scene.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-sceneid
+        '''
+        result = self._values.get("scene_id")
+        assert result is not None, "Required property 'scene_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The ID of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-workspaceid
+        '''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of capabilities that the scene uses to render.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-capabilities
+        '''
+        result = self._values.get("capabilities")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of this scene.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scene_metadata(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The scene metadata.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-scenemetadata
+        '''
+        result = self._values.get("scene_metadata")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The ComponentType tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSceneProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnSyncJobProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "sync_role": "syncRole",
+        "sync_source": "syncSource",
+        "workspace_id": "workspaceId",
+        "tags": "tags",
+    },
+)
+class CfnSyncJobProps:
+    def __init__(
+        self,
+        *,
+        sync_role: builtins.str,
+        sync_source: builtins.str,
+        workspace_id: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSyncJob``.
+
+        :param sync_role: The SyncJob IAM role. This IAM role is used by the sync job to read from the syncSource, and create, update or delete the corresponding resources.
+        :param sync_source: The sync source. .. epigraph:: Currently the only supported syncSoucre is ``SITEWISE`` .
+        :param workspace_id: The ID of the workspace that contains the sync job.
+        :param tags: Metadata you can use to manage the SyncJob.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            cfn_sync_job_props = iottwinmaker.CfnSyncJobProps(
+                sync_role="syncRole",
+                sync_source="syncSource",
+                workspace_id="workspaceId",
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a2dfd00663f2a7f6d86ff78981dd0901f87d56236db0c3e11164cf2a3f6f40b)
+            check_type(argname="argument sync_role", value=sync_role, expected_type=type_hints["sync_role"])
+            check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sync_role": sync_role,
+            "sync_source": sync_source,
+            "workspace_id": workspace_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def sync_role(self) -> builtins.str:
+        '''The SyncJob IAM role.
+
+        This IAM role is used by the sync job to read from the syncSource, and create, update or delete the corresponding resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-syncrole
+        '''
+        result = self._values.get("sync_role")
+        assert result is not None, "Required property 'sync_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sync_source(self) -> builtins.str:
+        '''The sync source.
+
+        .. epigraph::
+
+           Currently the only supported syncSoucre is ``SITEWISE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-syncsource
+        '''
+        result = self._values.get("sync_source")
+        assert result is not None, "Required property 'sync_source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The ID of the workspace that contains the sync job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-workspaceid
+        '''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata you can use to manage the SyncJob.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSyncJobProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnWorkspaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "role": "role",
+        "s3_location": "s3Location",
+        "workspace_id": "workspaceId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnWorkspaceProps:
+    def __init__(
+        self,
+        *,
+        role: builtins.str,
+        s3_location: builtins.str,
+        workspace_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspace``.
+
+        :param role: The ARN of the execution role associated with the workspace.
+        :param s3_location: The ARN of the S3 bucket where resources associated with the workspace are stored.
+        :param workspace_id: The ID of the workspace.
+        :param description: The description of the workspace.
+        :param tags: Metadata that you can use to manage the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            cfn_workspace_props = iottwinmaker.CfnWorkspaceProps(
+                role="role",
+                s3_location="s3Location",
+                workspace_id="workspaceId",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28aa375d16a697afdd54efb7fe26200b47cdb12808e073e144acd26ed6356448)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role": role,
+            "s3_location": s3_location,
+            "workspace_id": workspace_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def role(self) -> builtins.str:
+        '''The ARN of the execution role associated with the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-role
+        '''
+        result = self._values.get("role")
+        assert result is not None, "Required property 'role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_location(self) -> builtins.str:
+        '''The ARN of the S3 bucket where resources associated with the workspace are stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-s3location
+        '''
+        result = self._values.get("s3_location")
+        assert result is not None, "Required property 's3_location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The ID of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-workspaceid
+        '''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Metadata that you can use to manage the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.ComponentTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "component_type_arn": "componentTypeArn",
+        "component_type_id": "componentTypeId",
+        "workspace_id": "workspaceId",
+    },
+)
+class ComponentTypeReference:
+    def __init__(
+        self,
+        *,
+        component_type_arn: builtins.str,
+        component_type_id: builtins.str,
+        workspace_id: builtins.str,
+    ) -> None:
+        '''A reference to a ComponentType resource.
+
+        :param component_type_arn: The ARN of the ComponentType resource.
+        :param component_type_id: The ComponentTypeId of the ComponentType resource.
+        :param workspace_id: The WorkspaceId of the ComponentType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            component_type_reference = iottwinmaker.ComponentTypeReference(
+                component_type_arn="componentTypeArn",
+                component_type_id="componentTypeId",
+                workspace_id="workspaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a278675f3242fdf249d90e7f7b6f1e4ff3b4355ff1753080fa4510932eb712c1)
+            check_type(argname="argument component_type_arn", value=component_type_arn, expected_type=type_hints["component_type_arn"])
+            check_type(argname="argument component_type_id", value=component_type_id, expected_type=type_hints["component_type_id"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "component_type_arn": component_type_arn,
+            "component_type_id": component_type_id,
+            "workspace_id": workspace_id,
+        }
+
+    @builtins.property
+    def component_type_arn(self) -> builtins.str:
+        '''The ARN of the ComponentType resource.'''
+        result = self._values.get("component_type_arn")
+        assert result is not None, "Required property 'component_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def component_type_id(self) -> builtins.str:
+        '''The ComponentTypeId of the ComponentType resource.'''
+        result = self._values.get("component_type_id")
+        assert result is not None, "Required property 'component_type_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The WorkspaceId of the ComponentType resource.'''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComponentTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.EntityReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "entity_arn": "entityArn",
+        "entity_id": "entityId",
+        "workspace_id": "workspaceId",
+    },
+)
+class EntityReference:
+    def __init__(
+        self,
+        *,
+        entity_arn: builtins.str,
+        entity_id: builtins.str,
+        workspace_id: builtins.str,
+    ) -> None:
+        '''A reference to a Entity resource.
+
+        :param entity_arn: The ARN of the Entity resource.
+        :param entity_id: The EntityId of the Entity resource.
+        :param workspace_id: The WorkspaceId of the Entity resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            entity_reference = iottwinmaker.EntityReference(
+                entity_arn="entityArn",
+                entity_id="entityId",
+                workspace_id="workspaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ed5f6b8ed7c84dca74135e8006ec0329ab3e36594b1e0b1083d9deb210d0b5e)
+            check_type(argname="argument entity_arn", value=entity_arn, expected_type=type_hints["entity_arn"])
+            check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entity_arn": entity_arn,
+            "entity_id": entity_id,
+            "workspace_id": workspace_id,
+        }
+
+    @builtins.property
+    def entity_arn(self) -> builtins.str:
+        '''The ARN of the Entity resource.'''
+        result = self._values.get("entity_arn")
+        assert result is not None, "Required property 'entity_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def entity_id(self) -> builtins.str:
+        '''The EntityId of the Entity resource.'''
+        result = self._values.get("entity_id")
+        assert result is not None, "Required property 'entity_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The WorkspaceId of the Entity resource.'''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EntityReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iottwinmaker.IComponentTypeRef")
+class IComponentTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ComponentType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="componentTypeRef")
+    def component_type_ref(self) -> ComponentTypeReference:
+        '''(experimental) A reference to a ComponentType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IComponentTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ComponentType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iottwinmaker.IComponentTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="componentTypeRef")
+    def component_type_ref(self) -> ComponentTypeReference:
+        '''(experimental) A reference to a ComponentType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ComponentTypeReference, jsii.get(self, "componentTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IComponentTypeRef).__jsii_proxy_class__ = lambda : _IComponentTypeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iottwinmaker.IEntityRef")
+class IEntityRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Entity.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRef")
+    def entity_ref(self) -> EntityReference:
+        '''(experimental) A reference to a Entity resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEntityRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Entity.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iottwinmaker.IEntityRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRef")
+    def entity_ref(self) -> EntityReference:
+        '''(experimental) A reference to a Entity resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EntityReference, jsii.get(self, "entityRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEntityRef).__jsii_proxy_class__ = lambda : _IEntityRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iottwinmaker.ISceneRef")
+class ISceneRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Scene.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sceneRef")
+    def scene_ref(self) -> "SceneReference":
+        '''(experimental) A reference to a Scene resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISceneRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Scene.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iottwinmaker.ISceneRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sceneRef")
+    def scene_ref(self) -> "SceneReference":
+        '''(experimental) A reference to a Scene resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SceneReference", jsii.get(self, "sceneRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISceneRef).__jsii_proxy_class__ = lambda : _ISceneRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iottwinmaker.ISyncJobRef")
+class ISyncJobRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SyncJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="syncJobRef")
+    def sync_job_ref(self) -> "SyncJobReference":
+        '''(experimental) A reference to a SyncJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISyncJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SyncJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iottwinmaker.ISyncJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="syncJobRef")
+    def sync_job_ref(self) -> "SyncJobReference":
+        '''(experimental) A reference to a SyncJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SyncJobReference", jsii.get(self, "syncJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISyncJobRef).__jsii_proxy_class__ = lambda : _ISyncJobRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iottwinmaker.IWorkspaceRef")
+class IWorkspaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkspaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iottwinmaker.IWorkspaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkspaceReference", jsii.get(self, "workspaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkspaceRef).__jsii_proxy_class__ = lambda : _IWorkspaceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.SceneReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "scene_arn": "sceneArn",
+        "scene_id": "sceneId",
+        "workspace_id": "workspaceId",
+    },
+)
+class SceneReference:
+    def __init__(
+        self,
+        *,
+        scene_arn: builtins.str,
+        scene_id: builtins.str,
+        workspace_id: builtins.str,
+    ) -> None:
+        '''A reference to a Scene resource.
+
+        :param scene_arn: The ARN of the Scene resource.
+        :param scene_id: The SceneId of the Scene resource.
+        :param workspace_id: The WorkspaceId of the Scene resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            scene_reference = iottwinmaker.SceneReference(
+                scene_arn="sceneArn",
+                scene_id="sceneId",
+                workspace_id="workspaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__945d61e0736413a3c34f6d2eadcb226774b9ea19693b8e751fd4f60ef4988c6a)
+            check_type(argname="argument scene_arn", value=scene_arn, expected_type=type_hints["scene_arn"])
+            check_type(argname="argument scene_id", value=scene_id, expected_type=type_hints["scene_id"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scene_arn": scene_arn,
+            "scene_id": scene_id,
+            "workspace_id": workspace_id,
+        }
+
+    @builtins.property
+    def scene_arn(self) -> builtins.str:
+        '''The ARN of the Scene resource.'''
+        result = self._values.get("scene_arn")
+        assert result is not None, "Required property 'scene_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scene_id(self) -> builtins.str:
+        '''The SceneId of the Scene resource.'''
+        result = self._values.get("scene_id")
+        assert result is not None, "Required property 'scene_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The WorkspaceId of the Scene resource.'''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SceneReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.SyncJobReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "sync_job_arn": "syncJobArn",
+        "sync_source": "syncSource",
+        "workspace_id": "workspaceId",
+    },
+)
+class SyncJobReference:
+    def __init__(
+        self,
+        *,
+        sync_job_arn: builtins.str,
+        sync_source: builtins.str,
+        workspace_id: builtins.str,
+    ) -> None:
+        '''A reference to a SyncJob resource.
+
+        :param sync_job_arn: The ARN of the SyncJob resource.
+        :param sync_source: The SyncSource of the SyncJob resource.
+        :param workspace_id: The WorkspaceId of the SyncJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            sync_job_reference = iottwinmaker.SyncJobReference(
+                sync_job_arn="syncJobArn",
+                sync_source="syncSource",
+                workspace_id="workspaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b552c80f357ab3bfd1a7d71c601991858bf2374502063e8a04b5c06ac1993fd4)
+            check_type(argname="argument sync_job_arn", value=sync_job_arn, expected_type=type_hints["sync_job_arn"])
+            check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sync_job_arn": sync_job_arn,
+            "sync_source": sync_source,
+            "workspace_id": workspace_id,
+        }
+
+    @builtins.property
+    def sync_job_arn(self) -> builtins.str:
+        '''The ARN of the SyncJob resource.'''
+        result = self._values.get("sync_job_arn")
+        assert result is not None, "Required property 'sync_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sync_source(self) -> builtins.str:
+        '''The SyncSource of the SyncJob resource.'''
+        result = self._values.get("sync_source")
+        assert result is not None, "Required property 'sync_source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The WorkspaceId of the SyncJob resource.'''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SyncJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iottwinmaker.WorkspaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_arn": "workspaceArn", "workspace_id": "workspaceId"},
+)
+class WorkspaceReference:
+    def __init__(
+        self,
+        *,
+        workspace_arn: builtins.str,
+        workspace_id: builtins.str,
+    ) -> None:
+        '''A reference to a Workspace resource.
+
+        :param workspace_arn: The ARN of the Workspace resource.
+        :param workspace_id: The WorkspaceId of the Workspace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iottwinmaker as iottwinmaker
+            
+            workspace_reference = iottwinmaker.WorkspaceReference(
+                workspace_arn="workspaceArn",
+                workspace_id="workspaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bc84d066fbc1b34da4cee087c6f25efa01f16238b8d2440f60e76d7ff4bd7fc)
+            check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
+            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_arn": workspace_arn,
+            "workspace_id": workspace_id,
+        }
+
+    @builtins.property
+    def workspace_arn(self) -> builtins.str:
+        '''The ARN of the Workspace resource.'''
+        result = self._values.get("workspace_arn")
+        assert result is not None, "Required property 'workspace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_id(self) -> builtins.str:
+        '''The WorkspaceId of the Workspace resource.'''
+        result = self._values.get("workspace_id")
+        assert result is not None, "Required property 'workspace_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkspaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IComponentTypeRef, _ITaggable_36806126)
 class CfnComponentType(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -343,6 +1899,12 @@ class CfnComponentType(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="componentTypeRef")
+    def component_type_ref(self) -> ComponentTypeReference:
+        '''A reference to a ComponentType resource.'''
+        return typing.cast(ComponentTypeReference, jsii.get(self, "componentTypeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1704,307 +3266,7 @@ class CfnComponentType(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnComponentTypeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "component_type_id": "componentTypeId",
-        "workspace_id": "workspaceId",
-        "composite_component_types": "compositeComponentTypes",
-        "description": "description",
-        "extends_from": "extendsFrom",
-        "functions": "functions",
-        "is_singleton": "isSingleton",
-        "property_definitions": "propertyDefinitions",
-        "property_groups": "propertyGroups",
-        "tags": "tags",
-    },
-)
-class CfnComponentTypeProps:
-    def __init__(
-        self,
-        *,
-        component_type_id: builtins.str,
-        workspace_id: builtins.str,
-        composite_component_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.CompositeComponentTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        extends_from: typing.Optional[typing.Sequence[builtins.str]] = None,
-        functions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        is_singleton: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        property_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        property_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnComponentType``.
-
-        :param component_type_id: The ID of the component type.
-        :param workspace_id: The ID of the workspace that contains the component type.
-        :param composite_component_types: Maps strings to ``compositeComponentTypes`` of the ``componentType`` . ``CompositeComponentType`` is referenced by ``componentTypeId`` .
-        :param description: The description of the component type.
-        :param extends_from: The name of the parent component type that this component type extends.
-        :param functions: An object that maps strings to the functions in the component type. Each string in the mapping must be unique to this object. For information on the FunctionResponse object see the `FunctionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_FunctionResponse.html>`_ API reference.
-        :param is_singleton: A boolean value that specifies whether an entity can have more than one component of this type.
-        :param property_definitions: An object that maps strings to the property definitions in the component type. Each string in the mapping must be unique to this object. For information about the PropertyDefinitionResponse object, see the `PropertyDefinitionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_PropertyDefinitionResponse.html>`_ API reference.
-        :param property_groups: An object that maps strings to the property groups in the component type. Each string in the mapping must be unique to this object.
-        :param tags: The ComponentType tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iottwinmaker as iottwinmaker
-            
-            # data_type_property_: iottwinmaker.CfnComponentType.DataTypeProperty
-            # data_value_property_: iottwinmaker.CfnComponentType.DataValueProperty
-            # relationship_value: Any
-            
-            cfn_component_type_props = iottwinmaker.CfnComponentTypeProps(
-                component_type_id="componentTypeId",
-                workspace_id="workspaceId",
-            
-                # the properties below are optional
-                composite_component_types={
-                    "composite_component_types_key": iottwinmaker.CfnComponentType.CompositeComponentTypeProperty(
-                        component_type_id="componentTypeId"
-                    )
-                },
-                description="description",
-                extends_from=["extendsFrom"],
-                functions={
-                    "functions_key": iottwinmaker.CfnComponentType.FunctionProperty(
-                        implemented_by=iottwinmaker.CfnComponentType.DataConnectorProperty(
-                            is_native=False,
-                            lambda_=iottwinmaker.CfnComponentType.LambdaFunctionProperty(
-                                arn="arn"
-                            )
-                        ),
-                        required_properties=["requiredProperties"],
-                        scope="scope"
-                    )
-                },
-                is_singleton=False,
-                property_definitions={
-                    "property_definitions_key": iottwinmaker.CfnComponentType.PropertyDefinitionProperty(
-                        configurations={
-                            "configurations_key": "configurations"
-                        },
-                        data_type=iottwinmaker.CfnComponentType.DataTypeProperty(
-                            type="type",
-            
-                            # the properties below are optional
-                            allowed_values=[iottwinmaker.CfnComponentType.DataValueProperty(
-                                boolean_value=False,
-                                double_value=123,
-                                expression="expression",
-                                integer_value=123,
-                                list_value=[data_value_property_],
-                                long_value=123,
-                                map_value={
-                                    "map_value_key": data_value_property_
-                                },
-                                relationship_value=relationship_value,
-                                string_value="stringValue"
-                            )],
-                            nested_type=data_type_property_,
-                            relationship=iottwinmaker.CfnComponentType.RelationshipProperty(
-                                relationship_type="relationshipType",
-                                target_component_type_id="targetComponentTypeId"
-                            ),
-                            unit_of_measure="unitOfMeasure"
-                        ),
-                        default_value=iottwinmaker.CfnComponentType.DataValueProperty(
-                            boolean_value=False,
-                            double_value=123,
-                            expression="expression",
-                            integer_value=123,
-                            list_value=[data_value_property_],
-                            long_value=123,
-                            map_value={
-                                "map_value_key": data_value_property_
-                            },
-                            relationship_value=relationship_value,
-                            string_value="stringValue"
-                        ),
-                        is_external_id=False,
-                        is_required_in_entity=False,
-                        is_stored_externally=False,
-                        is_time_series=False
-                    )
-                },
-                property_groups={
-                    "property_groups_key": iottwinmaker.CfnComponentType.PropertyGroupProperty(
-                        group_type="groupType",
-                        property_names=["propertyNames"]
-                    )
-                },
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324a0cc887ec1065b9d5ba872572072fa8c481530426ba50811e338f2dde6f9b)
-            check_type(argname="argument component_type_id", value=component_type_id, expected_type=type_hints["component_type_id"])
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-            check_type(argname="argument composite_component_types", value=composite_component_types, expected_type=type_hints["composite_component_types"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument extends_from", value=extends_from, expected_type=type_hints["extends_from"])
-            check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
-            check_type(argname="argument is_singleton", value=is_singleton, expected_type=type_hints["is_singleton"])
-            check_type(argname="argument property_definitions", value=property_definitions, expected_type=type_hints["property_definitions"])
-            check_type(argname="argument property_groups", value=property_groups, expected_type=type_hints["property_groups"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "component_type_id": component_type_id,
-            "workspace_id": workspace_id,
-        }
-        if composite_component_types is not None:
-            self._values["composite_component_types"] = composite_component_types
-        if description is not None:
-            self._values["description"] = description
-        if extends_from is not None:
-            self._values["extends_from"] = extends_from
-        if functions is not None:
-            self._values["functions"] = functions
-        if is_singleton is not None:
-            self._values["is_singleton"] = is_singleton
-        if property_definitions is not None:
-            self._values["property_definitions"] = property_definitions
-        if property_groups is not None:
-            self._values["property_groups"] = property_groups
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def component_type_id(self) -> builtins.str:
-        '''The ID of the component type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-componenttypeid
-        '''
-        result = self._values.get("component_type_id")
-        assert result is not None, "Required property 'component_type_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The ID of the workspace that contains the component type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-workspaceid
-        '''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def composite_component_types(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.CompositeComponentTypeProperty]]]]:
-        '''Maps strings to ``compositeComponentTypes`` of the ``componentType`` .
-
-        ``CompositeComponentType`` is referenced by ``componentTypeId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-compositecomponenttypes
-        '''
-        result = self._values.get("composite_component_types")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.CompositeComponentTypeProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the component type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def extends_from(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of the parent component type that this component type extends.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-extendsfrom
-        '''
-        result = self._values.get("extends_from")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def functions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.FunctionProperty]]]]:
-        '''An object that maps strings to the functions in the component type.
-
-        Each string in the mapping must be unique to this object.
-
-        For information on the FunctionResponse object see the `FunctionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_FunctionResponse.html>`_ API reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-functions
-        '''
-        result = self._values.get("functions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.FunctionProperty]]]], result)
-
-    @builtins.property
-    def is_singleton(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A boolean value that specifies whether an entity can have more than one component of this type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-issingleton
-        '''
-        result = self._values.get("is_singleton")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def property_definitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.PropertyDefinitionProperty]]]]:
-        '''An object that maps strings to the property definitions in the component type.
-
-        Each string in the mapping must be unique to this object.
-
-        For information about the PropertyDefinitionResponse object, see the `PropertyDefinitionResponse <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_PropertyDefinitionResponse.html>`_ API reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-propertydefinitions
-        '''
-        result = self._values.get("property_definitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.PropertyDefinitionProperty]]]], result)
-
-    @builtins.property
-    def property_groups(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.PropertyGroupProperty]]]]:
-        '''An object that maps strings to the property groups in the component type.
-
-        Each string in the mapping must be unique to this object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-propertygroups
-        '''
-        result = self._values.get("property_groups")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnComponentType.PropertyGroupProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The ComponentType tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-componenttype.html#cfn-iottwinmaker-componenttype-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnComponentTypeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IEntityRef, _ITaggable_36806126)
 class CfnEntity(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2266,6 +3528,12 @@ class CfnEntity(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="entityRef")
+    def entity_ref(self) -> EntityReference:
+        '''A reference to a Entity resource.'''
+        return typing.cast(EntityReference, jsii.get(self, "entityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3825,267 +5093,7 @@ class CfnEntity(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnEntityProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "entity_name": "entityName",
-        "workspace_id": "workspaceId",
-        "components": "components",
-        "composite_components": "compositeComponents",
-        "description": "description",
-        "entity_id": "entityId",
-        "parent_entity_id": "parentEntityId",
-        "tags": "tags",
-    },
-)
-class CfnEntityProps:
-    def __init__(
-        self,
-        *,
-        entity_name: builtins.str,
-        workspace_id: builtins.str,
-        components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.ComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        composite_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.CompositeComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        entity_id: typing.Optional[builtins.str] = None,
-        parent_entity_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEntity``.
-
-        :param entity_name: The entity name.
-        :param workspace_id: The ID of the workspace that contains the entity.
-        :param components: An object that maps strings to the components in the entity. Each string in the mapping must be unique to this object. For information on the component object see the `component <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_ComponentResponse.html>`_ API reference.
-        :param composite_components: Maps string to ``compositeComponent`` updates in the request. Each key of the map represents the ``componentPath`` of the ``compositeComponent`` .
-        :param description: The description of the entity.
-        :param entity_id: The ID of the entity.
-        :param parent_entity_id: The ID of the parent entity.
-        :param tags: Metadata that you can use to manage the entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iottwinmaker as iottwinmaker
-            
-            # data_value_property_: iottwinmaker.CfnEntity.DataValueProperty
-            # definition: Any
-            # error: Any
-            # relationship_value: Any
-            
-            cfn_entity_props = iottwinmaker.CfnEntityProps(
-                entity_name="entityName",
-                workspace_id="workspaceId",
-            
-                # the properties below are optional
-                components={
-                    "components_key": iottwinmaker.CfnEntity.ComponentProperty(
-                        component_name="componentName",
-                        component_type_id="componentTypeId",
-                        defined_in="definedIn",
-                        description="description",
-                        properties={
-                            "properties_key": iottwinmaker.CfnEntity.PropertyProperty(
-                                definition=definition,
-                                value=iottwinmaker.CfnEntity.DataValueProperty(
-                                    boolean_value=False,
-                                    double_value=123,
-                                    expression="expression",
-                                    integer_value=123,
-                                    list_value=[data_value_property_],
-                                    long_value=123,
-                                    map_value={
-                                        "map_value_key": data_value_property_
-                                    },
-                                    relationship_value=relationship_value,
-                                    string_value="stringValue"
-                                )
-                            )
-                        },
-                        property_groups={
-                            "property_groups_key": iottwinmaker.CfnEntity.PropertyGroupProperty(
-                                group_type="groupType",
-                                property_names=["propertyNames"]
-                            )
-                        },
-                        status=iottwinmaker.CfnEntity.StatusProperty(
-                            error=error,
-                            state="state"
-                        )
-                    )
-                },
-                composite_components={
-                    "composite_components_key": iottwinmaker.CfnEntity.CompositeComponentProperty(
-                        component_name="componentName",
-                        component_path="componentPath",
-                        component_type_id="componentTypeId",
-                        description="description",
-                        properties={
-                            "properties_key": iottwinmaker.CfnEntity.PropertyProperty(
-                                definition=definition,
-                                value=iottwinmaker.CfnEntity.DataValueProperty(
-                                    boolean_value=False,
-                                    double_value=123,
-                                    expression="expression",
-                                    integer_value=123,
-                                    list_value=[data_value_property_],
-                                    long_value=123,
-                                    map_value={
-                                        "map_value_key": data_value_property_
-                                    },
-                                    relationship_value=relationship_value,
-                                    string_value="stringValue"
-                                )
-                            )
-                        },
-                        property_groups={
-                            "property_groups_key": iottwinmaker.CfnEntity.PropertyGroupProperty(
-                                group_type="groupType",
-                                property_names=["propertyNames"]
-                            )
-                        },
-                        status=iottwinmaker.CfnEntity.StatusProperty(
-                            error=error,
-                            state="state"
-                        )
-                    )
-                },
-                description="description",
-                entity_id="entityId",
-                parent_entity_id="parentEntityId",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88b197f79cd935d9bcd530ddc23032a643cc5a8cb23ce9b819abd0e828c83616)
-            check_type(argname="argument entity_name", value=entity_name, expected_type=type_hints["entity_name"])
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
-            check_type(argname="argument composite_components", value=composite_components, expected_type=type_hints["composite_components"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
-            check_type(argname="argument parent_entity_id", value=parent_entity_id, expected_type=type_hints["parent_entity_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "entity_name": entity_name,
-            "workspace_id": workspace_id,
-        }
-        if components is not None:
-            self._values["components"] = components
-        if composite_components is not None:
-            self._values["composite_components"] = composite_components
-        if description is not None:
-            self._values["description"] = description
-        if entity_id is not None:
-            self._values["entity_id"] = entity_id
-        if parent_entity_id is not None:
-            self._values["parent_entity_id"] = parent_entity_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def entity_name(self) -> builtins.str:
-        '''The entity name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-entityname
-        '''
-        result = self._values.get("entity_name")
-        assert result is not None, "Required property 'entity_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The ID of the workspace that contains the entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-workspaceid
-        '''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def components(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnEntity.ComponentProperty]]]]:
-        '''An object that maps strings to the components in the entity.
-
-        Each string in the mapping must be unique to this object.
-
-        For information on the component object see the `component <https://docs.aws.amazon.com//iot-twinmaker/latest/apireference/API_ComponentResponse.html>`_ API reference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-components
-        '''
-        result = self._values.get("components")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnEntity.ComponentProperty]]]], result)
-
-    @builtins.property
-    def composite_components(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnEntity.CompositeComponentProperty]]]]:
-        '''Maps string to ``compositeComponent`` updates in the request.
-
-        Each key of the map represents the ``componentPath`` of the ``compositeComponent`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-compositecomponents
-        '''
-        result = self._values.get("composite_components")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnEntity.CompositeComponentProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def entity_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-entityid
-        '''
-        result = self._values.get("entity_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parent_entity_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the parent entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-parententityid
-        '''
-        result = self._values.get("parent_entity_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can use to manage the entity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-entity.html#cfn-iottwinmaker-entity-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEntityProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISceneRef, _ITaggable_36806126)
 class CfnScene(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4232,6 +5240,12 @@ class CfnScene(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="sceneRef")
+    def scene_ref(self) -> SceneReference:
+        '''A reference to a Scene resource.'''
+        return typing.cast(SceneReference, jsii.get(self, "sceneRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4337,170 +5351,7 @@ class CfnScene(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnSceneProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "content_location": "contentLocation",
-        "scene_id": "sceneId",
-        "workspace_id": "workspaceId",
-        "capabilities": "capabilities",
-        "description": "description",
-        "scene_metadata": "sceneMetadata",
-        "tags": "tags",
-    },
-)
-class CfnSceneProps:
-    def __init__(
-        self,
-        *,
-        content_location: builtins.str,
-        scene_id: builtins.str,
-        workspace_id: builtins.str,
-        capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScene``.
-
-        :param content_location: The relative path that specifies the location of the content definition file.
-        :param scene_id: The ID of the scene.
-        :param workspace_id: The ID of the workspace.
-        :param capabilities: A list of capabilities that the scene uses to render.
-        :param description: The description of this scene.
-        :param scene_metadata: The scene metadata.
-        :param tags: The ComponentType tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iottwinmaker as iottwinmaker
-            
-            cfn_scene_props = iottwinmaker.CfnSceneProps(
-                content_location="contentLocation",
-                scene_id="sceneId",
-                workspace_id="workspaceId",
-            
-                # the properties below are optional
-                capabilities=["capabilities"],
-                description="description",
-                scene_metadata={
-                    "scene_metadata_key": "sceneMetadata"
-                },
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82a36415e841f5ed3140cd3e0387f54673b74205e417aba4df516fe5cce73da5)
-            check_type(argname="argument content_location", value=content_location, expected_type=type_hints["content_location"])
-            check_type(argname="argument scene_id", value=scene_id, expected_type=type_hints["scene_id"])
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-            check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument scene_metadata", value=scene_metadata, expected_type=type_hints["scene_metadata"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content_location": content_location,
-            "scene_id": scene_id,
-            "workspace_id": workspace_id,
-        }
-        if capabilities is not None:
-            self._values["capabilities"] = capabilities
-        if description is not None:
-            self._values["description"] = description
-        if scene_metadata is not None:
-            self._values["scene_metadata"] = scene_metadata
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def content_location(self) -> builtins.str:
-        '''The relative path that specifies the location of the content definition file.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-contentlocation
-        '''
-        result = self._values.get("content_location")
-        assert result is not None, "Required property 'content_location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def scene_id(self) -> builtins.str:
-        '''The ID of the scene.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-sceneid
-        '''
-        result = self._values.get("scene_id")
-        assert result is not None, "Required property 'scene_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The ID of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-workspaceid
-        '''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of capabilities that the scene uses to render.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-capabilities
-        '''
-        result = self._values.get("capabilities")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of this scene.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scene_metadata(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The scene metadata.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-scenemetadata
-        '''
-        result = self._values.get("scene_metadata")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The ComponentType tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-scene.html#cfn-iottwinmaker-scene-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSceneProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISyncJobRef, _ITaggable_36806126)
 class CfnSyncJob(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4633,6 +5484,12 @@ class CfnSyncJob(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="syncJobRef")
+    def sync_job_ref(self) -> SyncJobReference:
+        '''A reference to a SyncJob resource.'''
+        return typing.cast(SyncJobReference, jsii.get(self, "syncJobRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4694,124 +5551,7 @@ class CfnSyncJob(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnSyncJobProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "sync_role": "syncRole",
-        "sync_source": "syncSource",
-        "workspace_id": "workspaceId",
-        "tags": "tags",
-    },
-)
-class CfnSyncJobProps:
-    def __init__(
-        self,
-        *,
-        sync_role: builtins.str,
-        sync_source: builtins.str,
-        workspace_id: builtins.str,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSyncJob``.
-
-        :param sync_role: The SyncJob IAM role. This IAM role is used by the sync job to read from the syncSource, and create, update or delete the corresponding resources.
-        :param sync_source: The sync source. .. epigraph:: Currently the only supported syncSoucre is ``SITEWISE`` .
-        :param workspace_id: The ID of the workspace that contains the sync job.
-        :param tags: Metadata you can use to manage the SyncJob.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iottwinmaker as iottwinmaker
-            
-            cfn_sync_job_props = iottwinmaker.CfnSyncJobProps(
-                sync_role="syncRole",
-                sync_source="syncSource",
-                workspace_id="workspaceId",
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a2dfd00663f2a7f6d86ff78981dd0901f87d56236db0c3e11164cf2a3f6f40b)
-            check_type(argname="argument sync_role", value=sync_role, expected_type=type_hints["sync_role"])
-            check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sync_role": sync_role,
-            "sync_source": sync_source,
-            "workspace_id": workspace_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def sync_role(self) -> builtins.str:
-        '''The SyncJob IAM role.
-
-        This IAM role is used by the sync job to read from the syncSource, and create, update or delete the corresponding resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-syncrole
-        '''
-        result = self._values.get("sync_role")
-        assert result is not None, "Required property 'sync_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sync_source(self) -> builtins.str:
-        '''The sync source.
-
-        .. epigraph::
-
-           Currently the only supported syncSoucre is ``SITEWISE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-syncsource
-        '''
-        result = self._values.get("sync_source")
-        assert result is not None, "Required property 'sync_source' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The ID of the workspace that contains the sync job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-workspaceid
-        '''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata you can use to manage the SyncJob.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-syncjob.html#cfn-iottwinmaker-syncjob-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSyncJobProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IWorkspaceRef, _ITaggable_36806126)
 class CfnWorkspace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4945,6 +5685,12 @@ class CfnWorkspace(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> WorkspaceReference:
+        '''A reference to a Workspace resource.'''
+        return typing.cast(WorkspaceReference, jsii.get(self, "workspaceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> builtins.str:
         '''The ARN of the execution role associated with the workspace.'''
@@ -5013,133 +5759,6 @@ class CfnWorkspace(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iottwinmaker.CfnWorkspaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "role": "role",
-        "s3_location": "s3Location",
-        "workspace_id": "workspaceId",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnWorkspaceProps:
-    def __init__(
-        self,
-        *,
-        role: builtins.str,
-        s3_location: builtins.str,
-        workspace_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkspace``.
-
-        :param role: The ARN of the execution role associated with the workspace.
-        :param s3_location: The ARN of the S3 bucket where resources associated with the workspace are stored.
-        :param workspace_id: The ID of the workspace.
-        :param description: The description of the workspace.
-        :param tags: Metadata that you can use to manage the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iottwinmaker as iottwinmaker
-            
-            cfn_workspace_props = iottwinmaker.CfnWorkspaceProps(
-                role="role",
-                s3_location="s3Location",
-                workspace_id="workspaceId",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28aa375d16a697afdd54efb7fe26200b47cdb12808e073e144acd26ed6356448)
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role": role,
-            "s3_location": s3_location,
-            "workspace_id": workspace_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def role(self) -> builtins.str:
-        '''The ARN of the execution role associated with the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-role
-        '''
-        result = self._values.get("role")
-        assert result is not None, "Required property 'role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def s3_location(self) -> builtins.str:
-        '''The ARN of the S3 bucket where resources associated with the workspace are stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-s3location
-        '''
-        result = self._values.get("s3_location")
-        assert result is not None, "Required property 's3_location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The ID of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-workspaceid
-        '''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Metadata that you can use to manage the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iottwinmaker-workspace.html#cfn-iottwinmaker-workspace-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkspaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnComponentType",
     "CfnComponentTypeProps",
@@ -5151,9 +5770,127 @@ __all__ = [
     "CfnSyncJobProps",
     "CfnWorkspace",
     "CfnWorkspaceProps",
+    "ComponentTypeReference",
+    "EntityReference",
+    "IComponentTypeRef",
+    "IEntityRef",
+    "ISceneRef",
+    "ISyncJobRef",
+    "IWorkspaceRef",
+    "SceneReference",
+    "SyncJobReference",
+    "WorkspaceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__324a0cc887ec1065b9d5ba872572072fa8c481530426ba50811e338f2dde6f9b(
+    *,
+    component_type_id: builtins.str,
+    workspace_id: builtins.str,
+    composite_component_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.CompositeComponentTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    extends_from: typing.Optional[typing.Sequence[builtins.str]] = None,
+    functions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    is_singleton: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    property_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    property_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88b197f79cd935d9bcd530ddc23032a643cc5a8cb23ce9b819abd0e828c83616(
+    *,
+    entity_name: builtins.str,
+    workspace_id: builtins.str,
+    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.ComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    composite_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.CompositeComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    entity_id: typing.Optional[builtins.str] = None,
+    parent_entity_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82a36415e841f5ed3140cd3e0387f54673b74205e417aba4df516fe5cce73da5(
+    *,
+    content_location: builtins.str,
+    scene_id: builtins.str,
+    workspace_id: builtins.str,
+    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a2dfd00663f2a7f6d86ff78981dd0901f87d56236db0c3e11164cf2a3f6f40b(
+    *,
+    sync_role: builtins.str,
+    sync_source: builtins.str,
+    workspace_id: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28aa375d16a697afdd54efb7fe26200b47cdb12808e073e144acd26ed6356448(
+    *,
+    role: builtins.str,
+    s3_location: builtins.str,
+    workspace_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a278675f3242fdf249d90e7f7b6f1e4ff3b4355ff1753080fa4510932eb712c1(
+    *,
+    component_type_arn: builtins.str,
+    component_type_id: builtins.str,
+    workspace_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ed5f6b8ed7c84dca74135e8006ec0329ab3e36594b1e0b1083d9deb210d0b5e(
+    *,
+    entity_arn: builtins.str,
+    entity_id: builtins.str,
+    workspace_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__945d61e0736413a3c34f6d2eadcb226774b9ea19693b8e751fd4f60ef4988c6a(
+    *,
+    scene_arn: builtins.str,
+    scene_id: builtins.str,
+    workspace_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b552c80f357ab3bfd1a7d71c601991858bf2374502063e8a04b5c06ac1993fd4(
+    *,
+    sync_job_arn: builtins.str,
+    sync_source: builtins.str,
+    workspace_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bc84d066fbc1b34da4cee087c6f25efa01f16238b8d2440f60e76d7ff4bd7fc(
+    *,
+    workspace_arn: builtins.str,
+    workspace_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__b8644c92bbff89aa9e628d0fdc0ded7a2f9a39289146f897d6c9e6d84975a7a2(
     scope: _constructs_77d1e7e8.Construct,
@@ -5355,22 +6092,6 @@ def _typecheckingstub__ac6fe13a7b05f6856183480bafda65ea9e1351e2adfec7908b91529e2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__324a0cc887ec1065b9d5ba872572072fa8c481530426ba50811e338f2dde6f9b(
-    *,
-    component_type_id: builtins.str,
-    workspace_id: builtins.str,
-    composite_component_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.CompositeComponentTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    extends_from: typing.Optional[typing.Sequence[builtins.str]] = None,
-    functions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.FunctionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    is_singleton: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    property_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    property_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentType.PropertyGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6e1a29b5ee0db8b0f9fe80447cc93db85e2ed400b28a3c61bfca379d292ea661(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5563,20 +6284,6 @@ def _typecheckingstub__28ab81751c1d2e7e539a71d287760369286bfc3d825eeb956567885e8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__88b197f79cd935d9bcd530ddc23032a643cc5a8cb23ce9b819abd0e828c83616(
-    *,
-    entity_name: builtins.str,
-    workspace_id: builtins.str,
-    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.ComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    composite_components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnEntity.CompositeComponentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    entity_id: typing.Optional[builtins.str] = None,
-    parent_entity_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__80e723b8d84cf2c976c8c38d181a6082d3d8068ee103592ec3b3ba4c19985c5b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5646,19 +6353,6 @@ def _typecheckingstub__f702e95f8f27b96eafa5b9e4c780a3e0859e271e8017a2ab9bc6328e3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__82a36415e841f5ed3140cd3e0387f54673b74205e417aba4df516fe5cce73da5(
-    *,
-    content_location: builtins.str,
-    scene_id: builtins.str,
-    workspace_id: builtins.str,
-    capabilities: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    scene_metadata: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__861d883ddd39366312e5f4587a1c3e710d67db29706ef3b27eceb4a2acf126c5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5703,16 +6397,6 @@ def _typecheckingstub__f31853dbd41600582497d38f889f9ce661a966f6774f88f121e2936b1
 
 def _typecheckingstub__e729cadbe713ff07135016102ad280162c3056df6252e1fed2078b5cdb7a5c16(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a2dfd00663f2a7f6d86ff78981dd0901f87d56236db0c3e11164cf2a3f6f40b(
-    *,
-    sync_role: builtins.str,
-    sync_source: builtins.str,
-    workspace_id: builtins.str,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5768,17 +6452,6 @@ def _typecheckingstub__773f4c4f782018ddeab6d3a548948fa83f854afc74f3ee7b2a8dc3e09
 
 def _typecheckingstub__c446d54dbed29cc835e16bcc1e47c242abc0fa4a7c115f00f8cb855156606419(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__28aa375d16a697afdd54efb7fe26200b47cdb12808e073e144acd26ed6356448(
-    *,
-    role: builtins.str,
-    s3_location: builtins.str,
-    workspace_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

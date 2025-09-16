@@ -68,7 +68,2626 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.ApiReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class ApiReference:
+    def __init__(self) -> None:
+        '''A reference to a Api resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            api_reference = sam.ApiReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApiReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class ApplicationReference:
+    def __init__(self) -> None:
+        '''A reference to a Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            application_reference = sam.ApplicationReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnApiProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "stage_name": "stageName",
+        "access_log_setting": "accessLogSetting",
+        "always_deploy": "alwaysDeploy",
+        "auth": "auth",
+        "binary_media_types": "binaryMediaTypes",
+        "cache_cluster_enabled": "cacheClusterEnabled",
+        "cache_cluster_size": "cacheClusterSize",
+        "canary_setting": "canarySetting",
+        "cors": "cors",
+        "definition_body": "definitionBody",
+        "definition_uri": "definitionUri",
+        "description": "description",
+        "disable_execute_api_endpoint": "disableExecuteApiEndpoint",
+        "domain": "domain",
+        "endpoint_configuration": "endpointConfiguration",
+        "gateway_responses": "gatewayResponses",
+        "method_settings": "methodSettings",
+        "minimum_compression_size": "minimumCompressionSize",
+        "models": "models",
+        "name": "name",
+        "open_api_version": "openApiVersion",
+        "tags": "tags",
+        "tracing_enabled": "tracingEnabled",
+        "variables": "variables",
+    },
+)
+class CfnApiProps:
+    def __init__(
+        self,
+        *,
+        stage_name: builtins.str,
+        access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApi.AccessLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        always_deploy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApi.AuthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cache_cluster_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        cache_cluster_size: typing.Optional[builtins.str] = None,
+        canary_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApi.CanarySettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cors: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnApi.CorsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_body: typing.Any = None,
+        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnApi.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApi.DomainConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoint_configuration: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnApi.EndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gateway_responses: typing.Any = None,
+        method_settings: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
+        minimum_compression_size: typing.Optional[jsii.Number] = None,
+        models: typing.Any = None,
+        name: typing.Optional[builtins.str] = None,
+        open_api_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApi``.
+
+        :param stage_name: 
+        :param access_log_setting: 
+        :param always_deploy: 
+        :param auth: 
+        :param binary_media_types: 
+        :param cache_cluster_enabled: 
+        :param cache_cluster_size: 
+        :param canary_setting: 
+        :param cors: 
+        :param definition_body: 
+        :param definition_uri: 
+        :param description: 
+        :param disable_execute_api_endpoint: 
+        :param domain: 
+        :param endpoint_configuration: 
+        :param gateway_responses: 
+        :param method_settings: 
+        :param minimum_compression_size: 
+        :param models: 
+        :param name: 
+        :param open_api_version: 
+        :param tags: 
+        :param tracing_enabled: 
+        :param variables: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            # authorizers: Any
+            # definition_body: Any
+            # gateway_responses: Any
+            # method_settings: Any
+            # models: Any
+            
+            cfn_api_props = sam.CfnApiProps(
+                stage_name="stageName",
+            
+                # the properties below are optional
+                access_log_setting=sam.CfnApi.AccessLogSettingProperty(
+                    destination_arn="destinationArn",
+                    format="format"
+                ),
+                always_deploy=False,
+                auth=sam.CfnApi.AuthProperty(
+                    add_default_authorizer_to_cors_preflight=False,
+                    authorizers=authorizers,
+                    default_authorizer="defaultAuthorizer"
+                ),
+                binary_media_types=["binaryMediaTypes"],
+                cache_cluster_enabled=False,
+                cache_cluster_size="cacheClusterSize",
+                canary_setting=sam.CfnApi.CanarySettingProperty(
+                    deployment_id="deploymentId",
+                    percent_traffic=123,
+                    stage_variable_overrides={
+                        "stage_variable_overrides_key": "stageVariableOverrides"
+                    },
+                    use_stage_cache=False
+                ),
+                cors="cors",
+                definition_body=definition_body,
+                definition_uri="definitionUri",
+                description="description",
+                disable_execute_api_endpoint=False,
+                domain=sam.CfnApi.DomainConfigurationProperty(
+                    certificate_arn="certificateArn",
+                    domain_name="domainName",
+            
+                    # the properties below are optional
+                    base_path=["basePath"],
+                    endpoint_configuration="endpointConfiguration",
+                    mutual_tls_authentication=sam.CfnApi.MutualTlsAuthenticationProperty(
+                        truststore_uri="truststoreUri",
+                        truststore_version="truststoreVersion"
+                    ),
+                    ownership_verification_certificate_arn="ownershipVerificationCertificateArn",
+                    route53=sam.CfnApi.Route53ConfigurationProperty(
+                        distributed_domain_name="distributedDomainName",
+                        evaluate_target_health=False,
+                        hosted_zone_id="hostedZoneId",
+                        hosted_zone_name="hostedZoneName",
+                        ip_v6=False
+                    ),
+                    security_policy="securityPolicy"
+                ),
+                endpoint_configuration="endpointConfiguration",
+                gateway_responses=gateway_responses,
+                method_settings=[method_settings],
+                minimum_compression_size=123,
+                models=models,
+                name="name",
+                open_api_version="openApiVersion",
+                tags={
+                    "tags_key": "tags"
+                },
+                tracing_enabled=False,
+                variables={
+                    "variables_key": "variables"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c3541ced1e3b9f417bf5019481767d1f0ed3628dc1464b54b8ea1849ea8aa47)
+            check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
+            check_type(argname="argument access_log_setting", value=access_log_setting, expected_type=type_hints["access_log_setting"])
+            check_type(argname="argument always_deploy", value=always_deploy, expected_type=type_hints["always_deploy"])
+            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
+            check_type(argname="argument binary_media_types", value=binary_media_types, expected_type=type_hints["binary_media_types"])
+            check_type(argname="argument cache_cluster_enabled", value=cache_cluster_enabled, expected_type=type_hints["cache_cluster_enabled"])
+            check_type(argname="argument cache_cluster_size", value=cache_cluster_size, expected_type=type_hints["cache_cluster_size"])
+            check_type(argname="argument canary_setting", value=canary_setting, expected_type=type_hints["canary_setting"])
+            check_type(argname="argument cors", value=cors, expected_type=type_hints["cors"])
+            check_type(argname="argument definition_body", value=definition_body, expected_type=type_hints["definition_body"])
+            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_execute_api_endpoint", value=disable_execute_api_endpoint, expected_type=type_hints["disable_execute_api_endpoint"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument endpoint_configuration", value=endpoint_configuration, expected_type=type_hints["endpoint_configuration"])
+            check_type(argname="argument gateway_responses", value=gateway_responses, expected_type=type_hints["gateway_responses"])
+            check_type(argname="argument method_settings", value=method_settings, expected_type=type_hints["method_settings"])
+            check_type(argname="argument minimum_compression_size", value=minimum_compression_size, expected_type=type_hints["minimum_compression_size"])
+            check_type(argname="argument models", value=models, expected_type=type_hints["models"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument open_api_version", value=open_api_version, expected_type=type_hints["open_api_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tracing_enabled", value=tracing_enabled, expected_type=type_hints["tracing_enabled"])
+            check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stage_name": stage_name,
+        }
+        if access_log_setting is not None:
+            self._values["access_log_setting"] = access_log_setting
+        if always_deploy is not None:
+            self._values["always_deploy"] = always_deploy
+        if auth is not None:
+            self._values["auth"] = auth
+        if binary_media_types is not None:
+            self._values["binary_media_types"] = binary_media_types
+        if cache_cluster_enabled is not None:
+            self._values["cache_cluster_enabled"] = cache_cluster_enabled
+        if cache_cluster_size is not None:
+            self._values["cache_cluster_size"] = cache_cluster_size
+        if canary_setting is not None:
+            self._values["canary_setting"] = canary_setting
+        if cors is not None:
+            self._values["cors"] = cors
+        if definition_body is not None:
+            self._values["definition_body"] = definition_body
+        if definition_uri is not None:
+            self._values["definition_uri"] = definition_uri
+        if description is not None:
+            self._values["description"] = description
+        if disable_execute_api_endpoint is not None:
+            self._values["disable_execute_api_endpoint"] = disable_execute_api_endpoint
+        if domain is not None:
+            self._values["domain"] = domain
+        if endpoint_configuration is not None:
+            self._values["endpoint_configuration"] = endpoint_configuration
+        if gateway_responses is not None:
+            self._values["gateway_responses"] = gateway_responses
+        if method_settings is not None:
+            self._values["method_settings"] = method_settings
+        if minimum_compression_size is not None:
+            self._values["minimum_compression_size"] = minimum_compression_size
+        if models is not None:
+            self._values["models"] = models
+        if name is not None:
+            self._values["name"] = name
+        if open_api_version is not None:
+            self._values["open_api_version"] = open_api_version
+        if tags is not None:
+            self._values["tags"] = tags
+        if tracing_enabled is not None:
+            self._values["tracing_enabled"] = tracing_enabled
+        if variables is not None:
+            self._values["variables"] = variables
+
+    @builtins.property
+    def stage_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-stagename
+        '''
+        result = self._values.get("stage_name")
+        assert result is not None, "Required property 'stage_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_log_setting(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.AccessLogSettingProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-accesslogsetting
+        '''
+        result = self._values.get("access_log_setting")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.AccessLogSettingProperty"]], result)
+
+    @builtins.property
+    def always_deploy(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-alwaysdeploy
+        '''
+        result = self._values.get("always_deploy")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def auth(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.AuthProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-auth
+        '''
+        result = self._values.get("auth")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.AuthProperty"]], result)
+
+    @builtins.property
+    def binary_media_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-binarymediatypes
+        '''
+        result = self._values.get("binary_media_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cache_cluster_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cacheclusterenabled
+        '''
+        result = self._values.get("cache_cluster_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def cache_cluster_size(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cacheclustersize
+        '''
+        result = self._values.get("cache_cluster_size")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def canary_setting(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.CanarySettingProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-canarysetting
+        '''
+        result = self._values.get("canary_setting")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.CanarySettingProperty"]], result)
+
+    @builtins.property
+    def cors(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.CorsConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cors
+        '''
+        result = self._values.get("cors")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.CorsConfigurationProperty"]], result)
+
+    @builtins.property
+    def definition_body(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-definitionbody
+        '''
+        result = self._values.get("definition_body")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def definition_uri(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.S3LocationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-definitionuri
+        '''
+        result = self._values.get("definition_uri")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.S3LocationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_execute_api_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-disableexecuteapiendpoint
+        '''
+        result = self._values.get("disable_execute_api_endpoint")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def domain(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.DomainConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApi.DomainConfigurationProperty"]], result)
+
+    @builtins.property
+    def endpoint_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.EndpointConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-endpointconfiguration
+        '''
+        result = self._values.get("endpoint_configuration")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApi.EndpointConfigurationProperty"]], result)
+
+    @builtins.property
+    def gateway_responses(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-gatewayresponses
+        '''
+        result = self._values.get("gateway_responses")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def method_settings(
+        self,
+    ) -> typing.Optional[typing.Union[typing.List[typing.Any], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-methodsettings
+        '''
+        result = self._values.get("method_settings")
+        return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def minimum_compression_size(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-minimumcompressionsize
+        '''
+        result = self._values.get("minimum_compression_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def models(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-models
+        '''
+        result = self._values.get("models")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def open_api_version(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-openapiversion
+        '''
+        result = self._values.get("open_api_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def tracing_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-tracingenabled
+        '''
+        result = self._values.get("tracing_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def variables(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-variables
+        '''
+        result = self._values.get("variables")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApiProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "location": "location",
+        "notification_arns": "notificationArns",
+        "parameters": "parameters",
+        "tags": "tags",
+        "timeout_in_minutes": "timeoutInMinutes",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param location: 
+        :param notification_arns: 
+        :param parameters: 
+        :param tags: 
+        :param timeout_in_minutes: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            cfn_application_props = sam.CfnApplicationProps(
+                location="location",
+            
+                # the properties below are optional
+                notification_arns=["notificationArns"],
+                parameters={
+                    "parameters_key": "parameters"
+                },
+                tags={
+                    "tags_key": "tags"
+                },
+                timeout_in_minutes=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cdd3da86c77e72e8f53daca88bd679d2d41f1881eeba6c4c20c6c5e7f670253)
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "location": location,
+        }
+        if notification_arns is not None:
+            self._values["notification_arns"] = notification_arns
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout_in_minutes is not None:
+            self._values["timeout_in_minutes"] = timeout_in_minutes
+
+    @builtins.property
+    def location(
+        self,
+    ) -> typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApplication.ApplicationLocationProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(typing.Union[builtins.str, _IResolvable_da3f097b, "CfnApplication.ApplicationLocationProperty"], result)
+
+    @builtins.property
+    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-notificationarns
+        '''
+        result = self._values.get("notification_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-timeoutinminutes
+        '''
+        result = self._values.get("timeout_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnFunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "architectures": "architectures",
+        "assume_role_policy_document": "assumeRolePolicyDocument",
+        "auto_publish_alias": "autoPublishAlias",
+        "auto_publish_code_sha256": "autoPublishCodeSha256",
+        "code_signing_config_arn": "codeSigningConfigArn",
+        "code_uri": "codeUri",
+        "dead_letter_queue": "deadLetterQueue",
+        "deployment_preference": "deploymentPreference",
+        "description": "description",
+        "environment": "environment",
+        "ephemeral_storage": "ephemeralStorage",
+        "event_invoke_config": "eventInvokeConfig",
+        "events": "events",
+        "file_system_configs": "fileSystemConfigs",
+        "function_name": "functionName",
+        "function_url_config": "functionUrlConfig",
+        "handler": "handler",
+        "image_config": "imageConfig",
+        "image_uri": "imageUri",
+        "inline_code": "inlineCode",
+        "kms_key_arn": "kmsKeyArn",
+        "layers": "layers",
+        "memory_size": "memorySize",
+        "package_type": "packageType",
+        "permissions_boundary": "permissionsBoundary",
+        "policies": "policies",
+        "provisioned_concurrency_config": "provisionedConcurrencyConfig",
+        "reserved_concurrent_executions": "reservedConcurrentExecutions",
+        "role": "role",
+        "runtime": "runtime",
+        "tags": "tags",
+        "timeout": "timeout",
+        "tracing": "tracing",
+        "version_description": "versionDescription",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnFunctionProps:
+    def __init__(
+        self,
+        *,
+        architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+        assume_role_policy_document: typing.Any = None,
+        auto_publish_alias: typing.Optional[builtins.str] = None,
+        auto_publish_code_sha256: typing.Optional[builtins.str] = None,
+        code_signing_config_arn: typing.Optional[builtins.str] = None,
+        code_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnFunction.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dead_letter_queue: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.DeadLetterQueueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.DeploymentPreferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.FunctionEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ephemeral_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.EphemeralStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_invoke_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.EventInvokeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.EventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.FileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        function_name: typing.Optional[builtins.str] = None,
+        function_url_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.FunctionUrlConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        handler: typing.Optional[builtins.str] = None,
+        image_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.ImageConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        image_uri: typing.Optional[builtins.str] = None,
+        inline_code: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        layers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        memory_size: typing.Optional[jsii.Number] = None,
+        package_type: typing.Optional[builtins.str] = None,
+        permissions_boundary: typing.Optional[builtins.str] = None,
+        policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnFunction.IAMPolicyDocumentProperty", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnFunction.IAMPolicyDocumentProperty", typing.Dict[builtins.str, typing.Any]], typing.Union["CfnFunction.SAMPolicyTemplateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioned_concurrency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.ProvisionedConcurrencyConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
+        role: typing.Optional[builtins.str] = None,
+        runtime: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        timeout: typing.Optional[jsii.Number] = None,
+        tracing: typing.Optional[builtins.str] = None,
+        version_description: typing.Optional[builtins.str] = None,
+        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFunction.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFunction``.
+
+        :param architectures: 
+        :param assume_role_policy_document: 
+        :param auto_publish_alias: 
+        :param auto_publish_code_sha256: 
+        :param code_signing_config_arn: 
+        :param code_uri: 
+        :param dead_letter_queue: 
+        :param deployment_preference: 
+        :param description: 
+        :param environment: 
+        :param ephemeral_storage: 
+        :param event_invoke_config: 
+        :param events: 
+        :param file_system_configs: 
+        :param function_name: 
+        :param function_url_config: 
+        :param handler: 
+        :param image_config: 
+        :param image_uri: 
+        :param inline_code: 
+        :param kms_key_arn: 
+        :param layers: 
+        :param memory_size: 
+        :param package_type: 
+        :param permissions_boundary: 
+        :param policies: 
+        :param provisioned_concurrency_config: 
+        :param reserved_concurrent_executions: 
+        :param role: 
+        :param runtime: 
+        :param tags: 
+        :param timeout: 
+        :param tracing: 
+        :param version_description: 
+        :param vpc_config: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            # assume_role_policy_document: Any
+            
+            cfn_function_props = sam.CfnFunctionProps(
+                architectures=["architectures"],
+                assume_role_policy_document=assume_role_policy_document,
+                auto_publish_alias="autoPublishAlias",
+                auto_publish_code_sha256="autoPublishCodeSha256",
+                code_signing_config_arn="codeSigningConfigArn",
+                code_uri="codeUri",
+                dead_letter_queue=sam.CfnFunction.DeadLetterQueueProperty(
+                    target_arn="targetArn",
+                    type="type"
+                ),
+                deployment_preference=sam.CfnFunction.DeploymentPreferenceProperty(
+                    alarms=["alarms"],
+                    enabled=False,
+                    hooks=sam.CfnFunction.HooksProperty(
+                        post_traffic="postTraffic",
+                        pre_traffic="preTraffic"
+                    ),
+                    role="role",
+                    type="type"
+                ),
+                description="description",
+                environment=sam.CfnFunction.FunctionEnvironmentProperty(
+                    variables={
+                        "variables_key": "variables"
+                    }
+                ),
+                ephemeral_storage=sam.CfnFunction.EphemeralStorageProperty(
+                    size=123
+                ),
+                event_invoke_config=sam.CfnFunction.EventInvokeConfigProperty(
+                    destination_config=sam.CfnFunction.EventInvokeDestinationConfigProperty(
+                        on_failure=sam.CfnFunction.DestinationProperty(
+                            destination="destination",
+            
+                            # the properties below are optional
+                            type="type"
+                        ),
+                        on_success=sam.CfnFunction.DestinationProperty(
+                            destination="destination",
+            
+                            # the properties below are optional
+                            type="type"
+                        )
+                    ),
+                    maximum_event_age_in_seconds=123,
+                    maximum_retry_attempts=123
+                ),
+                events={
+                    "events_key": sam.CfnFunction.EventSourceProperty(
+                        properties=sam.CfnFunction.AlexaSkillEventProperty(
+                            skill_id="skillId"
+                        ),
+                        type="type"
+                    )
+                },
+                file_system_configs=[sam.CfnFunction.FileSystemConfigProperty(
+                    arn="arn",
+                    local_mount_path="localMountPath"
+                )],
+                function_name="functionName",
+                function_url_config=sam.CfnFunction.FunctionUrlConfigProperty(
+                    auth_type="authType",
+            
+                    # the properties below are optional
+                    cors="cors",
+                    invoke_mode="invokeMode"
+                ),
+                handler="handler",
+                image_config=sam.CfnFunction.ImageConfigProperty(
+                    command=["command"],
+                    entry_point=["entryPoint"],
+                    working_directory="workingDirectory"
+                ),
+                image_uri="imageUri",
+                inline_code="inlineCode",
+                kms_key_arn="kmsKeyArn",
+                layers=["layers"],
+                memory_size=123,
+                package_type="packageType",
+                permissions_boundary="permissionsBoundary",
+                policies="policies",
+                provisioned_concurrency_config=sam.CfnFunction.ProvisionedConcurrencyConfigProperty(
+                    provisioned_concurrent_executions="provisionedConcurrentExecutions"
+                ),
+                reserved_concurrent_executions=123,
+                role="role",
+                runtime="runtime",
+                tags={
+                    "tags_key": "tags"
+                },
+                timeout=123,
+                tracing="tracing",
+                version_description="versionDescription",
+                vpc_config=sam.CfnFunction.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d36d7a3f5429a8550f324d9ddc7ca791a504b5e17ff50b124622826fe13b568b)
+            check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
+            check_type(argname="argument assume_role_policy_document", value=assume_role_policy_document, expected_type=type_hints["assume_role_policy_document"])
+            check_type(argname="argument auto_publish_alias", value=auto_publish_alias, expected_type=type_hints["auto_publish_alias"])
+            check_type(argname="argument auto_publish_code_sha256", value=auto_publish_code_sha256, expected_type=type_hints["auto_publish_code_sha256"])
+            check_type(argname="argument code_signing_config_arn", value=code_signing_config_arn, expected_type=type_hints["code_signing_config_arn"])
+            check_type(argname="argument code_uri", value=code_uri, expected_type=type_hints["code_uri"])
+            check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
+            check_type(argname="argument deployment_preference", value=deployment_preference, expected_type=type_hints["deployment_preference"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
+            check_type(argname="argument event_invoke_config", value=event_invoke_config, expected_type=type_hints["event_invoke_config"])
+            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+            check_type(argname="argument file_system_configs", value=file_system_configs, expected_type=type_hints["file_system_configs"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument function_url_config", value=function_url_config, expected_type=type_hints["function_url_config"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument image_config", value=image_config, expected_type=type_hints["image_config"])
+            check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
+            check_type(argname="argument inline_code", value=inline_code, expected_type=type_hints["inline_code"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument layers", value=layers, expected_type=type_hints["layers"])
+            check_type(argname="argument memory_size", value=memory_size, expected_type=type_hints["memory_size"])
+            check_type(argname="argument package_type", value=package_type, expected_type=type_hints["package_type"])
+            check_type(argname="argument permissions_boundary", value=permissions_boundary, expected_type=type_hints["permissions_boundary"])
+            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
+            check_type(argname="argument provisioned_concurrency_config", value=provisioned_concurrency_config, expected_type=type_hints["provisioned_concurrency_config"])
+            check_type(argname="argument reserved_concurrent_executions", value=reserved_concurrent_executions, expected_type=type_hints["reserved_concurrent_executions"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            check_type(argname="argument tracing", value=tracing, expected_type=type_hints["tracing"])
+            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if architectures is not None:
+            self._values["architectures"] = architectures
+        if assume_role_policy_document is not None:
+            self._values["assume_role_policy_document"] = assume_role_policy_document
+        if auto_publish_alias is not None:
+            self._values["auto_publish_alias"] = auto_publish_alias
+        if auto_publish_code_sha256 is not None:
+            self._values["auto_publish_code_sha256"] = auto_publish_code_sha256
+        if code_signing_config_arn is not None:
+            self._values["code_signing_config_arn"] = code_signing_config_arn
+        if code_uri is not None:
+            self._values["code_uri"] = code_uri
+        if dead_letter_queue is not None:
+            self._values["dead_letter_queue"] = dead_letter_queue
+        if deployment_preference is not None:
+            self._values["deployment_preference"] = deployment_preference
+        if description is not None:
+            self._values["description"] = description
+        if environment is not None:
+            self._values["environment"] = environment
+        if ephemeral_storage is not None:
+            self._values["ephemeral_storage"] = ephemeral_storage
+        if event_invoke_config is not None:
+            self._values["event_invoke_config"] = event_invoke_config
+        if events is not None:
+            self._values["events"] = events
+        if file_system_configs is not None:
+            self._values["file_system_configs"] = file_system_configs
+        if function_name is not None:
+            self._values["function_name"] = function_name
+        if function_url_config is not None:
+            self._values["function_url_config"] = function_url_config
+        if handler is not None:
+            self._values["handler"] = handler
+        if image_config is not None:
+            self._values["image_config"] = image_config
+        if image_uri is not None:
+            self._values["image_uri"] = image_uri
+        if inline_code is not None:
+            self._values["inline_code"] = inline_code
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if layers is not None:
+            self._values["layers"] = layers
+        if memory_size is not None:
+            self._values["memory_size"] = memory_size
+        if package_type is not None:
+            self._values["package_type"] = package_type
+        if permissions_boundary is not None:
+            self._values["permissions_boundary"] = permissions_boundary
+        if policies is not None:
+            self._values["policies"] = policies
+        if provisioned_concurrency_config is not None:
+            self._values["provisioned_concurrency_config"] = provisioned_concurrency_config
+        if reserved_concurrent_executions is not None:
+            self._values["reserved_concurrent_executions"] = reserved_concurrent_executions
+        if role is not None:
+            self._values["role"] = role
+        if runtime is not None:
+            self._values["runtime"] = runtime
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout is not None:
+            self._values["timeout"] = timeout
+        if tracing is not None:
+            self._values["tracing"] = tracing
+        if version_description is not None:
+            self._values["version_description"] = version_description
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-architectures
+        '''
+        result = self._values.get("architectures")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def assume_role_policy_document(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-assumerolepolicydocument
+        '''
+        result = self._values.get("assume_role_policy_document")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def auto_publish_alias(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-autopublishalias
+        '''
+        result = self._values.get("auto_publish_alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_publish_code_sha256(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-autopublishcodesha256
+        '''
+        result = self._values.get("auto_publish_code_sha256")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def code_signing_config_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-codesigningconfigarn
+        '''
+        result = self._values.get("code_signing_config_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def code_uri(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.S3LocationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-codeuri
+        '''
+        result = self._values.get("code_uri")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.S3LocationProperty"]], result)
+
+    @builtins.property
+    def dead_letter_queue(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.DeadLetterQueueProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-deadletterqueue
+        '''
+        result = self._values.get("dead_letter_queue")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.DeadLetterQueueProperty"]], result)
+
+    @builtins.property
+    def deployment_preference(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.DeploymentPreferenceProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-deploymentpreference
+        '''
+        result = self._values.get("deployment_preference")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.DeploymentPreferenceProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.FunctionEnvironmentProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-environment
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.FunctionEnvironmentProperty"]], result)
+
+    @builtins.property
+    def ephemeral_storage(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.EphemeralStorageProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-ephemeralstorage
+        '''
+        result = self._values.get("ephemeral_storage")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.EphemeralStorageProperty"]], result)
+
+    @builtins.property
+    def event_invoke_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.EventInvokeConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-eventinvokeconfig
+        '''
+        result = self._values.get("event_invoke_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.EventInvokeConfigProperty"]], result)
+
+    @builtins.property
+    def events(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnFunction.EventSourceProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-events
+        '''
+        result = self._values.get("events")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnFunction.EventSourceProperty"]]]], result)
+
+    @builtins.property
+    def file_system_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFunction.FileSystemConfigProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-filesystemconfigs
+        '''
+        result = self._values.get("file_system_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFunction.FileSystemConfigProperty"]]]], result)
+
+    @builtins.property
+    def function_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-functionname
+        '''
+        result = self._values.get("function_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def function_url_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.FunctionUrlConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-functionurlconfig
+        '''
+        result = self._values.get("function_url_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.FunctionUrlConfigProperty"]], result)
+
+    @builtins.property
+    def handler(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-handler
+        '''
+        result = self._values.get("handler")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.ImageConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-imageconfig
+        '''
+        result = self._values.get("image_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.ImageConfigProperty"]], result)
+
+    @builtins.property
+    def image_uri(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-imageuri
+        '''
+        result = self._values.get("image_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inline_code(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-inlinecode
+        '''
+        result = self._values.get("inline_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def layers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-layers
+        '''
+        result = self._values.get("layers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def memory_size(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-memorysize
+        '''
+        result = self._values.get("memory_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def package_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-packagetype
+        '''
+        result = self._values.get("package_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def permissions_boundary(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-permissionsboundary
+        '''
+        result = self._values.get("permissions_boundary")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policies(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.IAMPolicyDocumentProperty", typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.IAMPolicyDocumentProperty", "CfnFunction.SAMPolicyTemplateProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-policies
+        '''
+        result = self._values.get("policies")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.IAMPolicyDocumentProperty", typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnFunction.IAMPolicyDocumentProperty", "CfnFunction.SAMPolicyTemplateProperty"]]]], result)
+
+    @builtins.property
+    def provisioned_concurrency_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.ProvisionedConcurrencyConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-provisionedconcurrencyconfig
+        '''
+        result = self._values.get("provisioned_concurrency_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.ProvisionedConcurrencyConfigProperty"]], result)
+
+    @builtins.property
+    def reserved_concurrent_executions(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-reservedconcurrentexecutions
+        '''
+        result = self._values.get("reserved_concurrent_executions")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-role
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def runtime(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-runtime
+        '''
+        result = self._values.get("runtime")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-timeout
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tracing(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-tracing
+        '''
+        result = self._values.get("tracing")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-versiondescription
+        '''
+        result = self._values.get("version_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.VpcConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFunction.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnHttpApiProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_log_setting": "accessLogSetting",
+        "auth": "auth",
+        "cors_configuration": "corsConfiguration",
+        "default_route_settings": "defaultRouteSettings",
+        "definition_body": "definitionBody",
+        "definition_uri": "definitionUri",
+        "description": "description",
+        "disable_execute_api_endpoint": "disableExecuteApiEndpoint",
+        "domain": "domain",
+        "fail_on_warnings": "failOnWarnings",
+        "route_settings": "routeSettings",
+        "stage_name": "stageName",
+        "stage_variables": "stageVariables",
+        "tags": "tags",
+    },
+)
+class CfnHttpApiProps:
+    def __init__(
+        self,
+        *,
+        access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHttpApi.AccessLogSettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHttpApi.HttpApiAuthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cors_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, typing.Union["CfnHttpApi.CorsConfigurationObjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHttpApi.RouteSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        definition_body: typing.Any = None,
+        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnHttpApi.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHttpApi.HttpApiDomainConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnHttpApi.RouteSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stage_name: typing.Optional[builtins.str] = None,
+        stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHttpApi``.
+
+        :param access_log_setting: 
+        :param auth: 
+        :param cors_configuration: 
+        :param default_route_settings: 
+        :param definition_body: 
+        :param definition_uri: 
+        :param description: 
+        :param disable_execute_api_endpoint: 
+        :param domain: 
+        :param fail_on_warnings: 
+        :param route_settings: 
+        :param stage_name: 
+        :param stage_variables: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            # authorizers: Any
+            # definition_body: Any
+            
+            cfn_http_api_props = sam.CfnHttpApiProps(
+                access_log_setting=sam.CfnHttpApi.AccessLogSettingProperty(
+                    destination_arn="destinationArn",
+                    format="format"
+                ),
+                auth=sam.CfnHttpApi.HttpApiAuthProperty(
+                    authorizers=authorizers,
+                    default_authorizer="defaultAuthorizer"
+                ),
+                cors_configuration=False,
+                default_route_settings=sam.CfnHttpApi.RouteSettingsProperty(
+                    data_trace_enabled=False,
+                    detailed_metrics_enabled=False,
+                    logging_level="loggingLevel",
+                    throttling_burst_limit=123,
+                    throttling_rate_limit=123
+                ),
+                definition_body=definition_body,
+                definition_uri="definitionUri",
+                description="description",
+                disable_execute_api_endpoint=False,
+                domain=sam.CfnHttpApi.HttpApiDomainConfigurationProperty(
+                    certificate_arn="certificateArn",
+                    domain_name="domainName",
+            
+                    # the properties below are optional
+                    base_path="basePath",
+                    endpoint_configuration="endpointConfiguration",
+                    mutual_tls_authentication=sam.CfnHttpApi.MutualTlsAuthenticationProperty(
+                        truststore_uri="truststoreUri",
+                        truststore_version=False
+                    ),
+                    route53=sam.CfnHttpApi.Route53ConfigurationProperty(
+                        distributed_domain_name="distributedDomainName",
+                        evaluate_target_health=False,
+                        hosted_zone_id="hostedZoneId",
+                        hosted_zone_name="hostedZoneName",
+                        ip_v6=False
+                    ),
+                    security_policy="securityPolicy"
+                ),
+                fail_on_warnings=False,
+                route_settings=sam.CfnHttpApi.RouteSettingsProperty(
+                    data_trace_enabled=False,
+                    detailed_metrics_enabled=False,
+                    logging_level="loggingLevel",
+                    throttling_burst_limit=123,
+                    throttling_rate_limit=123
+                ),
+                stage_name="stageName",
+                stage_variables={
+                    "stage_variables_key": "stageVariables"
+                },
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fee3d57c5905e9ae9b8f419c1e059cc2543719f1378802233950cf6fd8455b0)
+            check_type(argname="argument access_log_setting", value=access_log_setting, expected_type=type_hints["access_log_setting"])
+            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
+            check_type(argname="argument cors_configuration", value=cors_configuration, expected_type=type_hints["cors_configuration"])
+            check_type(argname="argument default_route_settings", value=default_route_settings, expected_type=type_hints["default_route_settings"])
+            check_type(argname="argument definition_body", value=definition_body, expected_type=type_hints["definition_body"])
+            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_execute_api_endpoint", value=disable_execute_api_endpoint, expected_type=type_hints["disable_execute_api_endpoint"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument fail_on_warnings", value=fail_on_warnings, expected_type=type_hints["fail_on_warnings"])
+            check_type(argname="argument route_settings", value=route_settings, expected_type=type_hints["route_settings"])
+            check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
+            check_type(argname="argument stage_variables", value=stage_variables, expected_type=type_hints["stage_variables"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_log_setting is not None:
+            self._values["access_log_setting"] = access_log_setting
+        if auth is not None:
+            self._values["auth"] = auth
+        if cors_configuration is not None:
+            self._values["cors_configuration"] = cors_configuration
+        if default_route_settings is not None:
+            self._values["default_route_settings"] = default_route_settings
+        if definition_body is not None:
+            self._values["definition_body"] = definition_body
+        if definition_uri is not None:
+            self._values["definition_uri"] = definition_uri
+        if description is not None:
+            self._values["description"] = description
+        if disable_execute_api_endpoint is not None:
+            self._values["disable_execute_api_endpoint"] = disable_execute_api_endpoint
+        if domain is not None:
+            self._values["domain"] = domain
+        if fail_on_warnings is not None:
+            self._values["fail_on_warnings"] = fail_on_warnings
+        if route_settings is not None:
+            self._values["route_settings"] = route_settings
+        if stage_name is not None:
+            self._values["stage_name"] = stage_name
+        if stage_variables is not None:
+            self._values["stage_variables"] = stage_variables
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def access_log_setting(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.AccessLogSettingProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-accesslogsetting
+        '''
+        result = self._values.get("access_log_setting")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.AccessLogSettingProperty"]], result)
+
+    @builtins.property
+    def auth(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.HttpApiAuthProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-auth
+        '''
+        result = self._values.get("auth")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.HttpApiAuthProperty"]], result)
+
+    @builtins.property
+    def cors_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, "CfnHttpApi.CorsConfigurationObjectProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-corsconfiguration
+        '''
+        result = self._values.get("cors_configuration")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, "CfnHttpApi.CorsConfigurationObjectProperty"]], result)
+
+    @builtins.property
+    def default_route_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.RouteSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-defaultroutesettings
+        '''
+        result = self._values.get("default_route_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.RouteSettingsProperty"]], result)
+
+    @builtins.property
+    def definition_body(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-definitionbody
+        '''
+        result = self._values.get("definition_body")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def definition_uri(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnHttpApi.S3LocationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-definitionuri
+        '''
+        result = self._values.get("definition_uri")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnHttpApi.S3LocationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_execute_api_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-disableexecuteapiendpoint
+        '''
+        result = self._values.get("disable_execute_api_endpoint")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def domain(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.HttpApiDomainConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.HttpApiDomainConfigurationProperty"]], result)
+
+    @builtins.property
+    def fail_on_warnings(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-failonwarnings
+        '''
+        result = self._values.get("fail_on_warnings")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def route_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.RouteSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-routesettings
+        '''
+        result = self._values.get("route_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnHttpApi.RouteSettingsProperty"]], result)
+
+    @builtins.property
+    def stage_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-stagename
+        '''
+        result = self._values.get("stage_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stage_variables(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-stagevariables
+        '''
+        result = self._values.get("stage_variables")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHttpApiProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnLayerVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compatible_runtimes": "compatibleRuntimes",
+        "content_uri": "contentUri",
+        "description": "description",
+        "layer_name": "layerName",
+        "license_info": "licenseInfo",
+        "retention_policy": "retentionPolicy",
+    },
+)
+class CfnLayerVersionProps:
+    def __init__(
+        self,
+        *,
+        compatible_runtimes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        content_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnLayerVersion.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        layer_name: typing.Optional[builtins.str] = None,
+        license_info: typing.Optional[builtins.str] = None,
+        retention_policy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLayerVersion``.
+
+        :param compatible_runtimes: 
+        :param content_uri: 
+        :param description: 
+        :param layer_name: 
+        :param license_info: 
+        :param retention_policy: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            cfn_layer_version_props = sam.CfnLayerVersionProps(
+                compatible_runtimes=["compatibleRuntimes"],
+                content_uri="contentUri",
+                description="description",
+                layer_name="layerName",
+                license_info="licenseInfo",
+                retention_policy="retentionPolicy"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71f32d1d804bafc80050e7d70d1d4cf4812a0a9fa8f770efb7646469f71b29c7)
+            check_type(argname="argument compatible_runtimes", value=compatible_runtimes, expected_type=type_hints["compatible_runtimes"])
+            check_type(argname="argument content_uri", value=content_uri, expected_type=type_hints["content_uri"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument layer_name", value=layer_name, expected_type=type_hints["layer_name"])
+            check_type(argname="argument license_info", value=license_info, expected_type=type_hints["license_info"])
+            check_type(argname="argument retention_policy", value=retention_policy, expected_type=type_hints["retention_policy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if compatible_runtimes is not None:
+            self._values["compatible_runtimes"] = compatible_runtimes
+        if content_uri is not None:
+            self._values["content_uri"] = content_uri
+        if description is not None:
+            self._values["description"] = description
+        if layer_name is not None:
+            self._values["layer_name"] = layer_name
+        if license_info is not None:
+            self._values["license_info"] = license_info
+        if retention_policy is not None:
+            self._values["retention_policy"] = retention_policy
+
+    @builtins.property
+    def compatible_runtimes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-compatibleruntimes
+        '''
+        result = self._values.get("compatible_runtimes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def content_uri(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnLayerVersion.S3LocationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-contenturi
+        '''
+        result = self._values.get("content_uri")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnLayerVersion.S3LocationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def layer_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-layername
+        '''
+        result = self._values.get("layer_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def license_info(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-licenseinfo
+        '''
+        result = self._values.get("license_info")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def retention_policy(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-retentionpolicy
+        '''
+        result = self._values.get("retention_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLayerVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnSimpleTableProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "primary_key": "primaryKey",
+        "provisioned_throughput": "provisionedThroughput",
+        "sse_specification": "sseSpecification",
+        "table_name": "tableName",
+        "tags": "tags",
+    },
+)
+class CfnSimpleTableProps:
+    def __init__(
+        self,
+        *,
+        primary_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimpleTable.PrimaryKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimpleTable.ProvisionedThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSimpleTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        table_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSimpleTable``.
+
+        :param primary_key: 
+        :param provisioned_throughput: 
+        :param sse_specification: 
+        :param table_name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            cfn_simple_table_props = sam.CfnSimpleTableProps(
+                primary_key=sam.CfnSimpleTable.PrimaryKeyProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    name="name"
+                ),
+                provisioned_throughput=sam.CfnSimpleTable.ProvisionedThroughputProperty(
+                    write_capacity_units=123,
+            
+                    # the properties below are optional
+                    read_capacity_units=123
+                ),
+                sse_specification=sam.CfnSimpleTable.SSESpecificationProperty(
+                    sse_enabled=False
+                ),
+                table_name="tableName",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__598a09546c8d488353c6a28e36199c3a64135f51ecbcebfaab1a6094ceadba3b)
+            check_type(argname="argument primary_key", value=primary_key, expected_type=type_hints["primary_key"])
+            check_type(argname="argument provisioned_throughput", value=provisioned_throughput, expected_type=type_hints["provisioned_throughput"])
+            check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if primary_key is not None:
+            self._values["primary_key"] = primary_key
+        if provisioned_throughput is not None:
+            self._values["provisioned_throughput"] = provisioned_throughput
+        if sse_specification is not None:
+            self._values["sse_specification"] = sse_specification
+        if table_name is not None:
+            self._values["table_name"] = table_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def primary_key(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.PrimaryKeyProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-primarykey
+        '''
+        result = self._values.get("primary_key")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.PrimaryKeyProperty"]], result)
+
+    @builtins.property
+    def provisioned_throughput(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.ProvisionedThroughputProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-provisionedthroughput
+        '''
+        result = self._values.get("provisioned_throughput")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.ProvisionedThroughputProperty"]], result)
+
+    @builtins.property
+    def sse_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.SSESpecificationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-ssespecification
+        '''
+        result = self._values.get("sse_specification")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSimpleTable.SSESpecificationProperty"]], result)
+
+    @builtins.property
+    def table_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-tablename
+        '''
+        result = self._values.get("table_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSimpleTableProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.CfnStateMachineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "definition": "definition",
+        "definition_substitutions": "definitionSubstitutions",
+        "definition_uri": "definitionUri",
+        "events": "events",
+        "logging": "logging",
+        "name": "name",
+        "permissions_boundaries": "permissionsBoundaries",
+        "policies": "policies",
+        "role": "role",
+        "tags": "tags",
+        "tracing": "tracing",
+        "type": "type",
+    },
+)
+class CfnStateMachineProps:
+    def __init__(
+        self,
+        *,
+        definition: typing.Any = None,
+        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnStateMachine.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.EventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        permissions_boundaries: typing.Optional[builtins.str] = None,
+        policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnStateMachine.IAMPolicyDocumentProperty", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union["CfnStateMachine.IAMPolicyDocumentProperty", typing.Dict[builtins.str, typing.Any]], typing.Union["CfnStateMachine.SAMPolicyTemplateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        role: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tracing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStateMachine.TracingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStateMachine``.
+
+        :param definition: 
+        :param definition_substitutions: 
+        :param definition_uri: 
+        :param events: 
+        :param logging: 
+        :param name: 
+        :param permissions_boundaries: 
+        :param policies: 
+        :param role: 
+        :param tags: 
+        :param tracing: 
+        :param type: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            # definition: Any
+            
+            cfn_state_machine_props = sam.CfnStateMachineProps(
+                definition=definition,
+                definition_substitutions={
+                    "definition_substitutions_key": "definitionSubstitutions"
+                },
+                definition_uri="definitionUri",
+                events={
+                    "events_key": sam.CfnStateMachine.EventSourceProperty(
+                        properties=sam.CfnStateMachine.ApiEventProperty(
+                            method="method",
+                            path="path",
+            
+                            # the properties below are optional
+                            rest_api_id="restApiId"
+                        ),
+                        type="type"
+                    )
+                },
+                logging=sam.CfnStateMachine.LoggingConfigurationProperty(
+                    destinations=[sam.CfnStateMachine.LogDestinationProperty(
+                        cloud_watch_logs_log_group=sam.CfnStateMachine.CloudWatchLogsLogGroupProperty(
+                            log_group_arn="logGroupArn"
+                        )
+                    )],
+                    include_execution_data=False,
+                    level="level"
+                ),
+                name="name",
+                permissions_boundaries="permissionsBoundaries",
+                policies="policies",
+                role="role",
+                tags={
+                    "tags_key": "tags"
+                },
+                tracing=sam.CfnStateMachine.TracingConfigurationProperty(
+                    enabled=False
+                ),
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__505a369e8f3bf625077dedf7f13099c6e0c8e2c05182396505111670528d74d7)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument definition_substitutions", value=definition_substitutions, expected_type=type_hints["definition_substitutions"])
+            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
+            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
+            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument permissions_boundaries", value=permissions_boundaries, expected_type=type_hints["permissions_boundaries"])
+            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tracing", value=tracing, expected_type=type_hints["tracing"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if definition is not None:
+            self._values["definition"] = definition
+        if definition_substitutions is not None:
+            self._values["definition_substitutions"] = definition_substitutions
+        if definition_uri is not None:
+            self._values["definition_uri"] = definition_uri
+        if events is not None:
+            self._values["events"] = events
+        if logging is not None:
+            self._values["logging"] = logging
+        if name is not None:
+            self._values["name"] = name
+        if permissions_boundaries is not None:
+            self._values["permissions_boundaries"] = permissions_boundaries
+        if policies is not None:
+            self._values["policies"] = policies
+        if role is not None:
+            self._values["role"] = role
+        if tags is not None:
+            self._values["tags"] = tags
+        if tracing is not None:
+            self._values["tracing"] = tracing
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def definition(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definition
+        '''
+        result = self._values.get("definition")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def definition_substitutions(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definitionsubstitutions
+        '''
+        result = self._values.get("definition_substitutions")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def definition_uri(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definitionuri
+        '''
+        result = self._values.get("definition_uri")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.S3LocationProperty"]], result)
+
+    @builtins.property
+    def events(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EventSourceProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-events
+        '''
+        result = self._values.get("events")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnStateMachine.EventSourceProperty"]]]], result)
+
+    @builtins.property
+    def logging(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-logging
+        '''
+        result = self._values.get("logging")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.LoggingConfigurationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def permissions_boundaries(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-permissionsboundaries
+        '''
+        result = self._values.get("permissions_boundaries")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policies(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.IAMPolicyDocumentProperty", typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.IAMPolicyDocumentProperty", "CfnStateMachine.SAMPolicyTemplateProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-policies
+        '''
+        result = self._values.get("policies")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.IAMPolicyDocumentProperty", typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, "CfnStateMachine.IAMPolicyDocumentProperty", "CfnStateMachine.SAMPolicyTemplateProperty"]]]], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-role
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def tracing(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-tracing
+        '''
+        result = self._values.get("tracing")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStateMachine.TracingConfigurationProperty"]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStateMachineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.FunctionReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class FunctionReference:
+    def __init__(self) -> None:
+        '''A reference to a Function resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            function_reference = sam.FunctionReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.HttpApiReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class HttpApiReference:
+    def __init__(self) -> None:
+        '''A reference to a HttpApi resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            http_api_reference = sam.HttpApiReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpApiReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.IApiRef")
+class IApiRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Api.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apiRef")
+    def api_ref(self) -> ApiReference:
+        '''(experimental) A reference to a Api resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApiRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Api.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.IApiRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apiRef")
+    def api_ref(self) -> ApiReference:
+        '''(experimental) A reference to a Api resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApiReference, jsii.get(self, "apiRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApiRef).__jsii_proxy_class__ = lambda : _IApiRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.IFunctionRef")
+class IFunctionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Function.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> FunctionReference:
+        '''(experimental) A reference to a Function resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFunctionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Function.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.IFunctionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> FunctionReference:
+        '''(experimental) A reference to a Function resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FunctionReference, jsii.get(self, "functionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFunctionRef).__jsii_proxy_class__ = lambda : _IFunctionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.IHttpApiRef")
+class IHttpApiRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a HttpApi.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="httpApiRef")
+    def http_api_ref(self) -> HttpApiReference:
+        '''(experimental) A reference to a HttpApi resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHttpApiRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HttpApi.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.IHttpApiRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="httpApiRef")
+    def http_api_ref(self) -> HttpApiReference:
+        '''(experimental) A reference to a HttpApi resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HttpApiReference, jsii.get(self, "httpApiRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHttpApiRef).__jsii_proxy_class__ = lambda : _IHttpApiRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.ILayerVersionRef")
+class ILayerVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LayerVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="layerVersionRef")
+    def layer_version_ref(self) -> "LayerVersionReference":
+        '''(experimental) A reference to a LayerVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILayerVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LayerVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.ILayerVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="layerVersionRef")
+    def layer_version_ref(self) -> "LayerVersionReference":
+        '''(experimental) A reference to a LayerVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LayerVersionReference", jsii.get(self, "layerVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILayerVersionRef).__jsii_proxy_class__ = lambda : _ILayerVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.ISimpleTableRef")
+class ISimpleTableRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SimpleTable.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleTableRef")
+    def simple_table_ref(self) -> "SimpleTableReference":
+        '''(experimental) A reference to a SimpleTable resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISimpleTableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SimpleTable.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.ISimpleTableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleTableRef")
+    def simple_table_ref(self) -> "SimpleTableReference":
+        '''(experimental) A reference to a SimpleTable resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SimpleTableReference", jsii.get(self, "simpleTableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISimpleTableRef).__jsii_proxy_class__ = lambda : _ISimpleTableRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sam.IStateMachineRef")
+class IStateMachineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachine.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> "StateMachineReference":
+        '''(experimental) A reference to a StateMachine resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStateMachineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StateMachine.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sam.IStateMachineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> "StateMachineReference":
+        '''(experimental) A reference to a StateMachine resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StateMachineReference", jsii.get(self, "stateMachineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStateMachineRef).__jsii_proxy_class__ = lambda : _IStateMachineRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.LayerVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class LayerVersionReference:
+    def __init__(self) -> None:
+        '''A reference to a LayerVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            layer_version_reference = sam.LayerVersionReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LayerVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.SimpleTableReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class SimpleTableReference:
+    def __init__(self) -> None:
+        '''A reference to a SimpleTable resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            simple_table_reference = sam.SimpleTableReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SimpleTableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sam.StateMachineReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class StateMachineReference:
+    def __init__(self) -> None:
+        '''A reference to a StateMachine resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sam as sam
+            
+            state_machine_reference = sam.StateMachineReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StateMachineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApiRef, _ITaggable_36806126)
 class CfnApi(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -286,6 +2905,12 @@ class CfnApi(
     def REQUIRED_TRANSFORM(cls) -> builtins.str:
         '''The ``Transform`` a template must use in order to use this resource.'''
         return typing.cast(builtins.str, jsii.sget(cls, "REQUIRED_TRANSFORM"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiRef")
+    def api_ref(self) -> ApiReference:
+        '''A reference to a Api resource.'''
+        return typing.cast(ApiReference, jsii.get(self, "apiRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1556,482 +4181,7 @@ class CfnApi(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnApiProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "stage_name": "stageName",
-        "access_log_setting": "accessLogSetting",
-        "always_deploy": "alwaysDeploy",
-        "auth": "auth",
-        "binary_media_types": "binaryMediaTypes",
-        "cache_cluster_enabled": "cacheClusterEnabled",
-        "cache_cluster_size": "cacheClusterSize",
-        "canary_setting": "canarySetting",
-        "cors": "cors",
-        "definition_body": "definitionBody",
-        "definition_uri": "definitionUri",
-        "description": "description",
-        "disable_execute_api_endpoint": "disableExecuteApiEndpoint",
-        "domain": "domain",
-        "endpoint_configuration": "endpointConfiguration",
-        "gateway_responses": "gatewayResponses",
-        "method_settings": "methodSettings",
-        "minimum_compression_size": "minimumCompressionSize",
-        "models": "models",
-        "name": "name",
-        "open_api_version": "openApiVersion",
-        "tags": "tags",
-        "tracing_enabled": "tracingEnabled",
-        "variables": "variables",
-    },
-)
-class CfnApiProps:
-    def __init__(
-        self,
-        *,
-        stage_name: builtins.str,
-        access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        always_deploy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cache_cluster_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cache_cluster_size: typing.Optional[builtins.str] = None,
-        canary_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.CanarySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cors: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_body: typing.Any = None,
-        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.DomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        endpoint_configuration: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        gateway_responses: typing.Any = None,
-        method_settings: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
-        minimum_compression_size: typing.Optional[jsii.Number] = None,
-        models: typing.Any = None,
-        name: typing.Optional[builtins.str] = None,
-        open_api_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApi``.
-
-        :param stage_name: 
-        :param access_log_setting: 
-        :param always_deploy: 
-        :param auth: 
-        :param binary_media_types: 
-        :param cache_cluster_enabled: 
-        :param cache_cluster_size: 
-        :param canary_setting: 
-        :param cors: 
-        :param definition_body: 
-        :param definition_uri: 
-        :param description: 
-        :param disable_execute_api_endpoint: 
-        :param domain: 
-        :param endpoint_configuration: 
-        :param gateway_responses: 
-        :param method_settings: 
-        :param minimum_compression_size: 
-        :param models: 
-        :param name: 
-        :param open_api_version: 
-        :param tags: 
-        :param tracing_enabled: 
-        :param variables: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            # authorizers: Any
-            # definition_body: Any
-            # gateway_responses: Any
-            # method_settings: Any
-            # models: Any
-            
-            cfn_api_props = sam.CfnApiProps(
-                stage_name="stageName",
-            
-                # the properties below are optional
-                access_log_setting=sam.CfnApi.AccessLogSettingProperty(
-                    destination_arn="destinationArn",
-                    format="format"
-                ),
-                always_deploy=False,
-                auth=sam.CfnApi.AuthProperty(
-                    add_default_authorizer_to_cors_preflight=False,
-                    authorizers=authorizers,
-                    default_authorizer="defaultAuthorizer"
-                ),
-                binary_media_types=["binaryMediaTypes"],
-                cache_cluster_enabled=False,
-                cache_cluster_size="cacheClusterSize",
-                canary_setting=sam.CfnApi.CanarySettingProperty(
-                    deployment_id="deploymentId",
-                    percent_traffic=123,
-                    stage_variable_overrides={
-                        "stage_variable_overrides_key": "stageVariableOverrides"
-                    },
-                    use_stage_cache=False
-                ),
-                cors="cors",
-                definition_body=definition_body,
-                definition_uri="definitionUri",
-                description="description",
-                disable_execute_api_endpoint=False,
-                domain=sam.CfnApi.DomainConfigurationProperty(
-                    certificate_arn="certificateArn",
-                    domain_name="domainName",
-            
-                    # the properties below are optional
-                    base_path=["basePath"],
-                    endpoint_configuration="endpointConfiguration",
-                    mutual_tls_authentication=sam.CfnApi.MutualTlsAuthenticationProperty(
-                        truststore_uri="truststoreUri",
-                        truststore_version="truststoreVersion"
-                    ),
-                    ownership_verification_certificate_arn="ownershipVerificationCertificateArn",
-                    route53=sam.CfnApi.Route53ConfigurationProperty(
-                        distributed_domain_name="distributedDomainName",
-                        evaluate_target_health=False,
-                        hosted_zone_id="hostedZoneId",
-                        hosted_zone_name="hostedZoneName",
-                        ip_v6=False
-                    ),
-                    security_policy="securityPolicy"
-                ),
-                endpoint_configuration="endpointConfiguration",
-                gateway_responses=gateway_responses,
-                method_settings=[method_settings],
-                minimum_compression_size=123,
-                models=models,
-                name="name",
-                open_api_version="openApiVersion",
-                tags={
-                    "tags_key": "tags"
-                },
-                tracing_enabled=False,
-                variables={
-                    "variables_key": "variables"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c3541ced1e3b9f417bf5019481767d1f0ed3628dc1464b54b8ea1849ea8aa47)
-            check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
-            check_type(argname="argument access_log_setting", value=access_log_setting, expected_type=type_hints["access_log_setting"])
-            check_type(argname="argument always_deploy", value=always_deploy, expected_type=type_hints["always_deploy"])
-            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
-            check_type(argname="argument binary_media_types", value=binary_media_types, expected_type=type_hints["binary_media_types"])
-            check_type(argname="argument cache_cluster_enabled", value=cache_cluster_enabled, expected_type=type_hints["cache_cluster_enabled"])
-            check_type(argname="argument cache_cluster_size", value=cache_cluster_size, expected_type=type_hints["cache_cluster_size"])
-            check_type(argname="argument canary_setting", value=canary_setting, expected_type=type_hints["canary_setting"])
-            check_type(argname="argument cors", value=cors, expected_type=type_hints["cors"])
-            check_type(argname="argument definition_body", value=definition_body, expected_type=type_hints["definition_body"])
-            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument disable_execute_api_endpoint", value=disable_execute_api_endpoint, expected_type=type_hints["disable_execute_api_endpoint"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument endpoint_configuration", value=endpoint_configuration, expected_type=type_hints["endpoint_configuration"])
-            check_type(argname="argument gateway_responses", value=gateway_responses, expected_type=type_hints["gateway_responses"])
-            check_type(argname="argument method_settings", value=method_settings, expected_type=type_hints["method_settings"])
-            check_type(argname="argument minimum_compression_size", value=minimum_compression_size, expected_type=type_hints["minimum_compression_size"])
-            check_type(argname="argument models", value=models, expected_type=type_hints["models"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument open_api_version", value=open_api_version, expected_type=type_hints["open_api_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tracing_enabled", value=tracing_enabled, expected_type=type_hints["tracing_enabled"])
-            check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stage_name": stage_name,
-        }
-        if access_log_setting is not None:
-            self._values["access_log_setting"] = access_log_setting
-        if always_deploy is not None:
-            self._values["always_deploy"] = always_deploy
-        if auth is not None:
-            self._values["auth"] = auth
-        if binary_media_types is not None:
-            self._values["binary_media_types"] = binary_media_types
-        if cache_cluster_enabled is not None:
-            self._values["cache_cluster_enabled"] = cache_cluster_enabled
-        if cache_cluster_size is not None:
-            self._values["cache_cluster_size"] = cache_cluster_size
-        if canary_setting is not None:
-            self._values["canary_setting"] = canary_setting
-        if cors is not None:
-            self._values["cors"] = cors
-        if definition_body is not None:
-            self._values["definition_body"] = definition_body
-        if definition_uri is not None:
-            self._values["definition_uri"] = definition_uri
-        if description is not None:
-            self._values["description"] = description
-        if disable_execute_api_endpoint is not None:
-            self._values["disable_execute_api_endpoint"] = disable_execute_api_endpoint
-        if domain is not None:
-            self._values["domain"] = domain
-        if endpoint_configuration is not None:
-            self._values["endpoint_configuration"] = endpoint_configuration
-        if gateway_responses is not None:
-            self._values["gateway_responses"] = gateway_responses
-        if method_settings is not None:
-            self._values["method_settings"] = method_settings
-        if minimum_compression_size is not None:
-            self._values["minimum_compression_size"] = minimum_compression_size
-        if models is not None:
-            self._values["models"] = models
-        if name is not None:
-            self._values["name"] = name
-        if open_api_version is not None:
-            self._values["open_api_version"] = open_api_version
-        if tags is not None:
-            self._values["tags"] = tags
-        if tracing_enabled is not None:
-            self._values["tracing_enabled"] = tracing_enabled
-        if variables is not None:
-            self._values["variables"] = variables
-
-    @builtins.property
-    def stage_name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-stagename
-        '''
-        result = self._values.get("stage_name")
-        assert result is not None, "Required property 'stage_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_log_setting(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.AccessLogSettingProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-accesslogsetting
-        '''
-        result = self._values.get("access_log_setting")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.AccessLogSettingProperty]], result)
-
-    @builtins.property
-    def always_deploy(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-alwaysdeploy
-        '''
-        result = self._values.get("always_deploy")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def auth(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.AuthProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-auth
-        '''
-        result = self._values.get("auth")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.AuthProperty]], result)
-
-    @builtins.property
-    def binary_media_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-binarymediatypes
-        '''
-        result = self._values.get("binary_media_types")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def cache_cluster_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cacheclusterenabled
-        '''
-        result = self._values.get("cache_cluster_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def cache_cluster_size(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cacheclustersize
-        '''
-        result = self._values.get("cache_cluster_size")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def canary_setting(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.CanarySettingProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-canarysetting
-        '''
-        result = self._values.get("canary_setting")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.CanarySettingProperty]], result)
-
-    @builtins.property
-    def cors(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.CorsConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-cors
-        '''
-        result = self._values.get("cors")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.CorsConfigurationProperty]], result)
-
-    @builtins.property
-    def definition_body(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-definitionbody
-        '''
-        result = self._values.get("definition_body")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def definition_uri(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.S3LocationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-definitionuri
-        '''
-        result = self._values.get("definition_uri")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.S3LocationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def disable_execute_api_endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-disableexecuteapiendpoint
-        '''
-        result = self._values.get("disable_execute_api_endpoint")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def domain(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.DomainConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApi.DomainConfigurationProperty]], result)
-
-    @builtins.property
-    def endpoint_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.EndpointConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-endpointconfiguration
-        '''
-        result = self._values.get("endpoint_configuration")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.EndpointConfigurationProperty]], result)
-
-    @builtins.property
-    def gateway_responses(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-gatewayresponses
-        '''
-        result = self._values.get("gateway_responses")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def method_settings(
-        self,
-    ) -> typing.Optional[typing.Union[typing.List[typing.Any], _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-methodsettings
-        '''
-        result = self._values.get("method_settings")
-        return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def minimum_compression_size(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-minimumcompressionsize
-        '''
-        result = self._values.get("minimum_compression_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def models(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-models
-        '''
-        result = self._values.get("models")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def open_api_version(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-openapiversion
-        '''
-        result = self._values.get("open_api_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def tracing_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-tracingenabled
-        '''
-        result = self._values.get("tracing_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def variables(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-api.html#cfn-serverless-api-variables
-        '''
-        result = self._values.get("variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApiProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2133,6 +4283,12 @@ class CfnApplication(
     def REQUIRED_TRANSFORM(cls) -> builtins.str:
         '''The ``Transform`` a template must use in order to use this resource.'''
         return typing.cast(builtins.str, jsii.sget(cls, "REQUIRED_TRANSFORM"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2293,135 +4449,7 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "location": "location",
-        "notification_arns": "notificationArns",
-        "parameters": "parameters",
-        "tags": "tags",
-        "timeout_in_minutes": "timeoutInMinutes",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationLocationProperty, typing.Dict[builtins.str, typing.Any]]],
-        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param location: 
-        :param notification_arns: 
-        :param parameters: 
-        :param tags: 
-        :param timeout_in_minutes: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            cfn_application_props = sam.CfnApplicationProps(
-                location="location",
-            
-                # the properties below are optional
-                notification_arns=["notificationArns"],
-                parameters={
-                    "parameters_key": "parameters"
-                },
-                tags={
-                    "tags_key": "tags"
-                },
-                timeout_in_minutes=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cdd3da86c77e72e8f53daca88bd679d2d41f1881eeba6c4c20c6c5e7f670253)
-            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
-            check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument timeout_in_minutes", value=timeout_in_minutes, expected_type=type_hints["timeout_in_minutes"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "location": location,
-        }
-        if notification_arns is not None:
-            self._values["notification_arns"] = notification_arns
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if tags is not None:
-            self._values["tags"] = tags
-        if timeout_in_minutes is not None:
-            self._values["timeout_in_minutes"] = timeout_in_minutes
-
-    @builtins.property
-    def location(
-        self,
-    ) -> typing.Union[builtins.str, _IResolvable_da3f097b, CfnApplication.ApplicationLocationProperty]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-location
-        '''
-        result = self._values.get("location")
-        assert result is not None, "Required property 'location' is missing"
-        return typing.cast(typing.Union[builtins.str, _IResolvable_da3f097b, CfnApplication.ApplicationLocationProperty], result)
-
-    @builtins.property
-    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-notificationarns
-        '''
-        result = self._values.get("notification_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-application.html#cfn-serverless-application-timeoutinminutes
-        '''
-        result = self._values.get("timeout_in_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFunctionRef, _ITaggable_36806126)
 class CfnFunction(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2706,6 +4734,12 @@ class CfnFunction(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionRef")
+    def function_ref(self) -> FunctionReference:
+        '''A reference to a Function resource.'''
+        return typing.cast(FunctionReference, jsii.get(self, "functionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8396,664 +10430,7 @@ class CfnFunction(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnFunctionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "architectures": "architectures",
-        "assume_role_policy_document": "assumeRolePolicyDocument",
-        "auto_publish_alias": "autoPublishAlias",
-        "auto_publish_code_sha256": "autoPublishCodeSha256",
-        "code_signing_config_arn": "codeSigningConfigArn",
-        "code_uri": "codeUri",
-        "dead_letter_queue": "deadLetterQueue",
-        "deployment_preference": "deploymentPreference",
-        "description": "description",
-        "environment": "environment",
-        "ephemeral_storage": "ephemeralStorage",
-        "event_invoke_config": "eventInvokeConfig",
-        "events": "events",
-        "file_system_configs": "fileSystemConfigs",
-        "function_name": "functionName",
-        "function_url_config": "functionUrlConfig",
-        "handler": "handler",
-        "image_config": "imageConfig",
-        "image_uri": "imageUri",
-        "inline_code": "inlineCode",
-        "kms_key_arn": "kmsKeyArn",
-        "layers": "layers",
-        "memory_size": "memorySize",
-        "package_type": "packageType",
-        "permissions_boundary": "permissionsBoundary",
-        "policies": "policies",
-        "provisioned_concurrency_config": "provisionedConcurrencyConfig",
-        "reserved_concurrent_executions": "reservedConcurrentExecutions",
-        "role": "role",
-        "runtime": "runtime",
-        "tags": "tags",
-        "timeout": "timeout",
-        "tracing": "tracing",
-        "version_description": "versionDescription",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnFunctionProps:
-    def __init__(
-        self,
-        *,
-        architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
-        assume_role_policy_document: typing.Any = None,
-        auto_publish_alias: typing.Optional[builtins.str] = None,
-        auto_publish_code_sha256: typing.Optional[builtins.str] = None,
-        code_signing_config_arn: typing.Optional[builtins.str] = None,
-        code_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        dead_letter_queue: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeadLetterQueueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ephemeral_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EphemeralStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        event_invoke_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventInvokeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        function_name: typing.Optional[builtins.str] = None,
-        function_url_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        handler: typing.Optional[builtins.str] = None,
-        image_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ImageConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        image_uri: typing.Optional[builtins.str] = None,
-        inline_code: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        layers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        memory_size: typing.Optional[jsii.Number] = None,
-        package_type: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnFunction.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        provisioned_concurrency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ProvisionedConcurrencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[builtins.str] = None,
-        runtime: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        timeout: typing.Optional[jsii.Number] = None,
-        tracing: typing.Optional[builtins.str] = None,
-        version_description: typing.Optional[builtins.str] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFunction``.
-
-        :param architectures: 
-        :param assume_role_policy_document: 
-        :param auto_publish_alias: 
-        :param auto_publish_code_sha256: 
-        :param code_signing_config_arn: 
-        :param code_uri: 
-        :param dead_letter_queue: 
-        :param deployment_preference: 
-        :param description: 
-        :param environment: 
-        :param ephemeral_storage: 
-        :param event_invoke_config: 
-        :param events: 
-        :param file_system_configs: 
-        :param function_name: 
-        :param function_url_config: 
-        :param handler: 
-        :param image_config: 
-        :param image_uri: 
-        :param inline_code: 
-        :param kms_key_arn: 
-        :param layers: 
-        :param memory_size: 
-        :param package_type: 
-        :param permissions_boundary: 
-        :param policies: 
-        :param provisioned_concurrency_config: 
-        :param reserved_concurrent_executions: 
-        :param role: 
-        :param runtime: 
-        :param tags: 
-        :param timeout: 
-        :param tracing: 
-        :param version_description: 
-        :param vpc_config: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            # assume_role_policy_document: Any
-            
-            cfn_function_props = sam.CfnFunctionProps(
-                architectures=["architectures"],
-                assume_role_policy_document=assume_role_policy_document,
-                auto_publish_alias="autoPublishAlias",
-                auto_publish_code_sha256="autoPublishCodeSha256",
-                code_signing_config_arn="codeSigningConfigArn",
-                code_uri="codeUri",
-                dead_letter_queue=sam.CfnFunction.DeadLetterQueueProperty(
-                    target_arn="targetArn",
-                    type="type"
-                ),
-                deployment_preference=sam.CfnFunction.DeploymentPreferenceProperty(
-                    alarms=["alarms"],
-                    enabled=False,
-                    hooks=sam.CfnFunction.HooksProperty(
-                        post_traffic="postTraffic",
-                        pre_traffic="preTraffic"
-                    ),
-                    role="role",
-                    type="type"
-                ),
-                description="description",
-                environment=sam.CfnFunction.FunctionEnvironmentProperty(
-                    variables={
-                        "variables_key": "variables"
-                    }
-                ),
-                ephemeral_storage=sam.CfnFunction.EphemeralStorageProperty(
-                    size=123
-                ),
-                event_invoke_config=sam.CfnFunction.EventInvokeConfigProperty(
-                    destination_config=sam.CfnFunction.EventInvokeDestinationConfigProperty(
-                        on_failure=sam.CfnFunction.DestinationProperty(
-                            destination="destination",
-            
-                            # the properties below are optional
-                            type="type"
-                        ),
-                        on_success=sam.CfnFunction.DestinationProperty(
-                            destination="destination",
-            
-                            # the properties below are optional
-                            type="type"
-                        )
-                    ),
-                    maximum_event_age_in_seconds=123,
-                    maximum_retry_attempts=123
-                ),
-                events={
-                    "events_key": sam.CfnFunction.EventSourceProperty(
-                        properties=sam.CfnFunction.AlexaSkillEventProperty(
-                            skill_id="skillId"
-                        ),
-                        type="type"
-                    )
-                },
-                file_system_configs=[sam.CfnFunction.FileSystemConfigProperty(
-                    arn="arn",
-                    local_mount_path="localMountPath"
-                )],
-                function_name="functionName",
-                function_url_config=sam.CfnFunction.FunctionUrlConfigProperty(
-                    auth_type="authType",
-            
-                    # the properties below are optional
-                    cors="cors",
-                    invoke_mode="invokeMode"
-                ),
-                handler="handler",
-                image_config=sam.CfnFunction.ImageConfigProperty(
-                    command=["command"],
-                    entry_point=["entryPoint"],
-                    working_directory="workingDirectory"
-                ),
-                image_uri="imageUri",
-                inline_code="inlineCode",
-                kms_key_arn="kmsKeyArn",
-                layers=["layers"],
-                memory_size=123,
-                package_type="packageType",
-                permissions_boundary="permissionsBoundary",
-                policies="policies",
-                provisioned_concurrency_config=sam.CfnFunction.ProvisionedConcurrencyConfigProperty(
-                    provisioned_concurrent_executions="provisionedConcurrentExecutions"
-                ),
-                reserved_concurrent_executions=123,
-                role="role",
-                runtime="runtime",
-                tags={
-                    "tags_key": "tags"
-                },
-                timeout=123,
-                tracing="tracing",
-                version_description="versionDescription",
-                vpc_config=sam.CfnFunction.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d36d7a3f5429a8550f324d9ddc7ca791a504b5e17ff50b124622826fe13b568b)
-            check_type(argname="argument architectures", value=architectures, expected_type=type_hints["architectures"])
-            check_type(argname="argument assume_role_policy_document", value=assume_role_policy_document, expected_type=type_hints["assume_role_policy_document"])
-            check_type(argname="argument auto_publish_alias", value=auto_publish_alias, expected_type=type_hints["auto_publish_alias"])
-            check_type(argname="argument auto_publish_code_sha256", value=auto_publish_code_sha256, expected_type=type_hints["auto_publish_code_sha256"])
-            check_type(argname="argument code_signing_config_arn", value=code_signing_config_arn, expected_type=type_hints["code_signing_config_arn"])
-            check_type(argname="argument code_uri", value=code_uri, expected_type=type_hints["code_uri"])
-            check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
-            check_type(argname="argument deployment_preference", value=deployment_preference, expected_type=type_hints["deployment_preference"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-            check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
-            check_type(argname="argument event_invoke_config", value=event_invoke_config, expected_type=type_hints["event_invoke_config"])
-            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-            check_type(argname="argument file_system_configs", value=file_system_configs, expected_type=type_hints["file_system_configs"])
-            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
-            check_type(argname="argument function_url_config", value=function_url_config, expected_type=type_hints["function_url_config"])
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument image_config", value=image_config, expected_type=type_hints["image_config"])
-            check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
-            check_type(argname="argument inline_code", value=inline_code, expected_type=type_hints["inline_code"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument layers", value=layers, expected_type=type_hints["layers"])
-            check_type(argname="argument memory_size", value=memory_size, expected_type=type_hints["memory_size"])
-            check_type(argname="argument package_type", value=package_type, expected_type=type_hints["package_type"])
-            check_type(argname="argument permissions_boundary", value=permissions_boundary, expected_type=type_hints["permissions_boundary"])
-            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
-            check_type(argname="argument provisioned_concurrency_config", value=provisioned_concurrency_config, expected_type=type_hints["provisioned_concurrency_config"])
-            check_type(argname="argument reserved_concurrent_executions", value=reserved_concurrent_executions, expected_type=type_hints["reserved_concurrent_executions"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument tracing", value=tracing, expected_type=type_hints["tracing"])
-            check_type(argname="argument version_description", value=version_description, expected_type=type_hints["version_description"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if architectures is not None:
-            self._values["architectures"] = architectures
-        if assume_role_policy_document is not None:
-            self._values["assume_role_policy_document"] = assume_role_policy_document
-        if auto_publish_alias is not None:
-            self._values["auto_publish_alias"] = auto_publish_alias
-        if auto_publish_code_sha256 is not None:
-            self._values["auto_publish_code_sha256"] = auto_publish_code_sha256
-        if code_signing_config_arn is not None:
-            self._values["code_signing_config_arn"] = code_signing_config_arn
-        if code_uri is not None:
-            self._values["code_uri"] = code_uri
-        if dead_letter_queue is not None:
-            self._values["dead_letter_queue"] = dead_letter_queue
-        if deployment_preference is not None:
-            self._values["deployment_preference"] = deployment_preference
-        if description is not None:
-            self._values["description"] = description
-        if environment is not None:
-            self._values["environment"] = environment
-        if ephemeral_storage is not None:
-            self._values["ephemeral_storage"] = ephemeral_storage
-        if event_invoke_config is not None:
-            self._values["event_invoke_config"] = event_invoke_config
-        if events is not None:
-            self._values["events"] = events
-        if file_system_configs is not None:
-            self._values["file_system_configs"] = file_system_configs
-        if function_name is not None:
-            self._values["function_name"] = function_name
-        if function_url_config is not None:
-            self._values["function_url_config"] = function_url_config
-        if handler is not None:
-            self._values["handler"] = handler
-        if image_config is not None:
-            self._values["image_config"] = image_config
-        if image_uri is not None:
-            self._values["image_uri"] = image_uri
-        if inline_code is not None:
-            self._values["inline_code"] = inline_code
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if layers is not None:
-            self._values["layers"] = layers
-        if memory_size is not None:
-            self._values["memory_size"] = memory_size
-        if package_type is not None:
-            self._values["package_type"] = package_type
-        if permissions_boundary is not None:
-            self._values["permissions_boundary"] = permissions_boundary
-        if policies is not None:
-            self._values["policies"] = policies
-        if provisioned_concurrency_config is not None:
-            self._values["provisioned_concurrency_config"] = provisioned_concurrency_config
-        if reserved_concurrent_executions is not None:
-            self._values["reserved_concurrent_executions"] = reserved_concurrent_executions
-        if role is not None:
-            self._values["role"] = role
-        if runtime is not None:
-            self._values["runtime"] = runtime
-        if tags is not None:
-            self._values["tags"] = tags
-        if timeout is not None:
-            self._values["timeout"] = timeout
-        if tracing is not None:
-            self._values["tracing"] = tracing
-        if version_description is not None:
-            self._values["version_description"] = version_description
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-architectures
-        '''
-        result = self._values.get("architectures")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def assume_role_policy_document(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-assumerolepolicydocument
-        '''
-        result = self._values.get("assume_role_policy_document")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def auto_publish_alias(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-autopublishalias
-        '''
-        result = self._values.get("auto_publish_alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_publish_code_sha256(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-autopublishcodesha256
-        '''
-        result = self._values.get("auto_publish_code_sha256")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def code_signing_config_arn(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-codesigningconfigarn
-        '''
-        result = self._values.get("code_signing_config_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def code_uri(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.S3LocationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-codeuri
-        '''
-        result = self._values.get("code_uri")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.S3LocationProperty]], result)
-
-    @builtins.property
-    def dead_letter_queue(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.DeadLetterQueueProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-deadletterqueue
-        '''
-        result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.DeadLetterQueueProperty]], result)
-
-    @builtins.property
-    def deployment_preference(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.DeploymentPreferenceProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-deploymentpreference
-        '''
-        result = self._values.get("deployment_preference")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.DeploymentPreferenceProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.FunctionEnvironmentProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-environment
-        '''
-        result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.FunctionEnvironmentProperty]], result)
-
-    @builtins.property
-    def ephemeral_storage(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.EphemeralStorageProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-ephemeralstorage
-        '''
-        result = self._values.get("ephemeral_storage")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.EphemeralStorageProperty]], result)
-
-    @builtins.property
-    def event_invoke_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.EventInvokeConfigProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-eventinvokeconfig
-        '''
-        result = self._values.get("event_invoke_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.EventInvokeConfigProperty]], result)
-
-    @builtins.property
-    def events(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnFunction.EventSourceProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-events
-        '''
-        result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnFunction.EventSourceProperty]]]], result)
-
-    @builtins.property
-    def file_system_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFunction.FileSystemConfigProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-filesystemconfigs
-        '''
-        result = self._values.get("file_system_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFunction.FileSystemConfigProperty]]]], result)
-
-    @builtins.property
-    def function_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-functionname
-        '''
-        result = self._values.get("function_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def function_url_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.FunctionUrlConfigProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-functionurlconfig
-        '''
-        result = self._values.get("function_url_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.FunctionUrlConfigProperty]], result)
-
-    @builtins.property
-    def handler(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-handler
-        '''
-        result = self._values.get("handler")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def image_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.ImageConfigProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-imageconfig
-        '''
-        result = self._values.get("image_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.ImageConfigProperty]], result)
-
-    @builtins.property
-    def image_uri(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-imageuri
-        '''
-        result = self._values.get("image_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def inline_code(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-inlinecode
-        '''
-        result = self._values.get("inline_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def layers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-layers
-        '''
-        result = self._values.get("layers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def memory_size(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-memorysize
-        '''
-        result = self._values.get("memory_size")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def package_type(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-packagetype
-        '''
-        result = self._values.get("package_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def permissions_boundary(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-permissionsboundary
-        '''
-        result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policies(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.IAMPolicyDocumentProperty, typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.IAMPolicyDocumentProperty, CfnFunction.SAMPolicyTemplateProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-policies
-        '''
-        result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.IAMPolicyDocumentProperty, typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, CfnFunction.IAMPolicyDocumentProperty, CfnFunction.SAMPolicyTemplateProperty]]]], result)
-
-    @builtins.property
-    def provisioned_concurrency_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.ProvisionedConcurrencyConfigProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-provisionedconcurrencyconfig
-        '''
-        result = self._values.get("provisioned_concurrency_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.ProvisionedConcurrencyConfigProperty]], result)
-
-    @builtins.property
-    def reserved_concurrent_executions(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-reservedconcurrentexecutions
-        '''
-        result = self._values.get("reserved_concurrent_executions")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def role(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-role
-        '''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def runtime(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-runtime
-        '''
-        result = self._values.get("runtime")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-timeout
-        '''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tracing(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-tracing
-        '''
-        result = self._values.get("tracing")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-versiondescription
-        '''
-        result = self._values.get("version_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.VpcConfigProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-function.html#cfn-serverless-function-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunction.VpcConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFunctionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IHttpApiRef, _ITaggable_36806126)
 class CfnHttpApi(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9234,6 +10611,12 @@ class CfnHttpApi(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="httpApiRef")
+    def http_api_ref(self) -> HttpApiReference:
+        '''A reference to a HttpApi resource.'''
+        return typing.cast(HttpApiReference, jsii.get(self, "httpApiRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10287,323 +11670,7 @@ class CfnHttpApi(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnHttpApiProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "access_log_setting": "accessLogSetting",
-        "auth": "auth",
-        "cors_configuration": "corsConfiguration",
-        "default_route_settings": "defaultRouteSettings",
-        "definition_body": "definitionBody",
-        "definition_uri": "definitionUri",
-        "description": "description",
-        "disable_execute_api_endpoint": "disableExecuteApiEndpoint",
-        "domain": "domain",
-        "fail_on_warnings": "failOnWarnings",
-        "route_settings": "routeSettings",
-        "stage_name": "stageName",
-        "stage_variables": "stageVariables",
-        "tags": "tags",
-    },
-)
-class CfnHttpApiProps:
-    def __init__(
-        self,
-        *,
-        access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiAuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cors_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, typing.Union[CfnHttpApi.CorsConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        default_route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        definition_body: typing.Any = None,
-        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnHttpApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiDomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        stage_name: typing.Optional[builtins.str] = None,
-        stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHttpApi``.
-
-        :param access_log_setting: 
-        :param auth: 
-        :param cors_configuration: 
-        :param default_route_settings: 
-        :param definition_body: 
-        :param definition_uri: 
-        :param description: 
-        :param disable_execute_api_endpoint: 
-        :param domain: 
-        :param fail_on_warnings: 
-        :param route_settings: 
-        :param stage_name: 
-        :param stage_variables: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            # authorizers: Any
-            # definition_body: Any
-            
-            cfn_http_api_props = sam.CfnHttpApiProps(
-                access_log_setting=sam.CfnHttpApi.AccessLogSettingProperty(
-                    destination_arn="destinationArn",
-                    format="format"
-                ),
-                auth=sam.CfnHttpApi.HttpApiAuthProperty(
-                    authorizers=authorizers,
-                    default_authorizer="defaultAuthorizer"
-                ),
-                cors_configuration=False,
-                default_route_settings=sam.CfnHttpApi.RouteSettingsProperty(
-                    data_trace_enabled=False,
-                    detailed_metrics_enabled=False,
-                    logging_level="loggingLevel",
-                    throttling_burst_limit=123,
-                    throttling_rate_limit=123
-                ),
-                definition_body=definition_body,
-                definition_uri="definitionUri",
-                description="description",
-                disable_execute_api_endpoint=False,
-                domain=sam.CfnHttpApi.HttpApiDomainConfigurationProperty(
-                    certificate_arn="certificateArn",
-                    domain_name="domainName",
-            
-                    # the properties below are optional
-                    base_path="basePath",
-                    endpoint_configuration="endpointConfiguration",
-                    mutual_tls_authentication=sam.CfnHttpApi.MutualTlsAuthenticationProperty(
-                        truststore_uri="truststoreUri",
-                        truststore_version=False
-                    ),
-                    route53=sam.CfnHttpApi.Route53ConfigurationProperty(
-                        distributed_domain_name="distributedDomainName",
-                        evaluate_target_health=False,
-                        hosted_zone_id="hostedZoneId",
-                        hosted_zone_name="hostedZoneName",
-                        ip_v6=False
-                    ),
-                    security_policy="securityPolicy"
-                ),
-                fail_on_warnings=False,
-                route_settings=sam.CfnHttpApi.RouteSettingsProperty(
-                    data_trace_enabled=False,
-                    detailed_metrics_enabled=False,
-                    logging_level="loggingLevel",
-                    throttling_burst_limit=123,
-                    throttling_rate_limit=123
-                ),
-                stage_name="stageName",
-                stage_variables={
-                    "stage_variables_key": "stageVariables"
-                },
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fee3d57c5905e9ae9b8f419c1e059cc2543719f1378802233950cf6fd8455b0)
-            check_type(argname="argument access_log_setting", value=access_log_setting, expected_type=type_hints["access_log_setting"])
-            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
-            check_type(argname="argument cors_configuration", value=cors_configuration, expected_type=type_hints["cors_configuration"])
-            check_type(argname="argument default_route_settings", value=default_route_settings, expected_type=type_hints["default_route_settings"])
-            check_type(argname="argument definition_body", value=definition_body, expected_type=type_hints["definition_body"])
-            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument disable_execute_api_endpoint", value=disable_execute_api_endpoint, expected_type=type_hints["disable_execute_api_endpoint"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument fail_on_warnings", value=fail_on_warnings, expected_type=type_hints["fail_on_warnings"])
-            check_type(argname="argument route_settings", value=route_settings, expected_type=type_hints["route_settings"])
-            check_type(argname="argument stage_name", value=stage_name, expected_type=type_hints["stage_name"])
-            check_type(argname="argument stage_variables", value=stage_variables, expected_type=type_hints["stage_variables"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if access_log_setting is not None:
-            self._values["access_log_setting"] = access_log_setting
-        if auth is not None:
-            self._values["auth"] = auth
-        if cors_configuration is not None:
-            self._values["cors_configuration"] = cors_configuration
-        if default_route_settings is not None:
-            self._values["default_route_settings"] = default_route_settings
-        if definition_body is not None:
-            self._values["definition_body"] = definition_body
-        if definition_uri is not None:
-            self._values["definition_uri"] = definition_uri
-        if description is not None:
-            self._values["description"] = description
-        if disable_execute_api_endpoint is not None:
-            self._values["disable_execute_api_endpoint"] = disable_execute_api_endpoint
-        if domain is not None:
-            self._values["domain"] = domain
-        if fail_on_warnings is not None:
-            self._values["fail_on_warnings"] = fail_on_warnings
-        if route_settings is not None:
-            self._values["route_settings"] = route_settings
-        if stage_name is not None:
-            self._values["stage_name"] = stage_name
-        if stage_variables is not None:
-            self._values["stage_variables"] = stage_variables
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def access_log_setting(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.AccessLogSettingProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-accesslogsetting
-        '''
-        result = self._values.get("access_log_setting")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.AccessLogSettingProperty]], result)
-
-    @builtins.property
-    def auth(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.HttpApiAuthProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-auth
-        '''
-        result = self._values.get("auth")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.HttpApiAuthProperty]], result)
-
-    @builtins.property
-    def cors_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, CfnHttpApi.CorsConfigurationObjectProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-corsconfiguration
-        '''
-        result = self._values.get("cors_configuration")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, CfnHttpApi.CorsConfigurationObjectProperty]], result)
-
-    @builtins.property
-    def default_route_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.RouteSettingsProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-defaultroutesettings
-        '''
-        result = self._values.get("default_route_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.RouteSettingsProperty]], result)
-
-    @builtins.property
-    def definition_body(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-definitionbody
-        '''
-        result = self._values.get("definition_body")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def definition_uri(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnHttpApi.S3LocationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-definitionuri
-        '''
-        result = self._values.get("definition_uri")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnHttpApi.S3LocationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def disable_execute_api_endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-disableexecuteapiendpoint
-        '''
-        result = self._values.get("disable_execute_api_endpoint")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def domain(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.HttpApiDomainConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.HttpApiDomainConfigurationProperty]], result)
-
-    @builtins.property
-    def fail_on_warnings(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-failonwarnings
-        '''
-        result = self._values.get("fail_on_warnings")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def route_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.RouteSettingsProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-routesettings
-        '''
-        result = self._values.get("route_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.RouteSettingsProperty]], result)
-
-    @builtins.property
-    def stage_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-stagename
-        '''
-        result = self._values.get("stage_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def stage_variables(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-stagevariables
-        '''
-        result = self._values.get("stage_variables")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-httpapi.html#cfn-serverless-httpapi-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHttpApiProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ILayerVersionRef)
 class CfnLayerVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10708,6 +11775,12 @@ class CfnLayerVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="layerVersionRef")
+    def layer_version_ref(self) -> LayerVersionReference:
+        '''A reference to a LayerVersion resource.'''
+        return typing.cast(LayerVersionReference, jsii.get(self, "layerVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="compatibleRuntimes")
@@ -10874,141 +11947,7 @@ class CfnLayerVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnLayerVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "compatible_runtimes": "compatibleRuntimes",
-        "content_uri": "contentUri",
-        "description": "description",
-        "layer_name": "layerName",
-        "license_info": "licenseInfo",
-        "retention_policy": "retentionPolicy",
-    },
-)
-class CfnLayerVersionProps:
-    def __init__(
-        self,
-        *,
-        compatible_runtimes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        content_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnLayerVersion.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        layer_name: typing.Optional[builtins.str] = None,
-        license_info: typing.Optional[builtins.str] = None,
-        retention_policy: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLayerVersion``.
-
-        :param compatible_runtimes: 
-        :param content_uri: 
-        :param description: 
-        :param layer_name: 
-        :param license_info: 
-        :param retention_policy: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            cfn_layer_version_props = sam.CfnLayerVersionProps(
-                compatible_runtimes=["compatibleRuntimes"],
-                content_uri="contentUri",
-                description="description",
-                layer_name="layerName",
-                license_info="licenseInfo",
-                retention_policy="retentionPolicy"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71f32d1d804bafc80050e7d70d1d4cf4812a0a9fa8f770efb7646469f71b29c7)
-            check_type(argname="argument compatible_runtimes", value=compatible_runtimes, expected_type=type_hints["compatible_runtimes"])
-            check_type(argname="argument content_uri", value=content_uri, expected_type=type_hints["content_uri"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument layer_name", value=layer_name, expected_type=type_hints["layer_name"])
-            check_type(argname="argument license_info", value=license_info, expected_type=type_hints["license_info"])
-            check_type(argname="argument retention_policy", value=retention_policy, expected_type=type_hints["retention_policy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if compatible_runtimes is not None:
-            self._values["compatible_runtimes"] = compatible_runtimes
-        if content_uri is not None:
-            self._values["content_uri"] = content_uri
-        if description is not None:
-            self._values["description"] = description
-        if layer_name is not None:
-            self._values["layer_name"] = layer_name
-        if license_info is not None:
-            self._values["license_info"] = license_info
-        if retention_policy is not None:
-            self._values["retention_policy"] = retention_policy
-
-    @builtins.property
-    def compatible_runtimes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-compatibleruntimes
-        '''
-        result = self._values.get("compatible_runtimes")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def content_uri(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnLayerVersion.S3LocationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-contenturi
-        '''
-        result = self._values.get("content_uri")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnLayerVersion.S3LocationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def layer_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-layername
-        '''
-        result = self._values.get("layer_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def license_info(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-licenseinfo
-        '''
-        result = self._values.get("license_info")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def retention_policy(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-layerversion.html#cfn-serverless-layerversion-retentionpolicy
-        '''
-        result = self._values.get("retention_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLayerVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISimpleTableRef, _ITaggable_36806126)
 class CfnSimpleTable(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11123,6 +12062,12 @@ class CfnSimpleTable(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="simpleTableRef")
+    def simple_table_ref(self) -> SimpleTableReference:
+        '''A reference to a SimpleTable resource.'''
+        return typing.cast(SimpleTableReference, jsii.get(self, "simpleTableRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -11407,144 +12352,7 @@ class CfnSimpleTable(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnSimpleTableProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "primary_key": "primaryKey",
-        "provisioned_throughput": "provisionedThroughput",
-        "sse_specification": "sseSpecification",
-        "table_name": "tableName",
-        "tags": "tags",
-    },
-)
-class CfnSimpleTableProps:
-    def __init__(
-        self,
-        *,
-        primary_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.PrimaryKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        table_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSimpleTable``.
-
-        :param primary_key: 
-        :param provisioned_throughput: 
-        :param sse_specification: 
-        :param table_name: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            cfn_simple_table_props = sam.CfnSimpleTableProps(
-                primary_key=sam.CfnSimpleTable.PrimaryKeyProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    name="name"
-                ),
-                provisioned_throughput=sam.CfnSimpleTable.ProvisionedThroughputProperty(
-                    write_capacity_units=123,
-            
-                    # the properties below are optional
-                    read_capacity_units=123
-                ),
-                sse_specification=sam.CfnSimpleTable.SSESpecificationProperty(
-                    sse_enabled=False
-                ),
-                table_name="tableName",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__598a09546c8d488353c6a28e36199c3a64135f51ecbcebfaab1a6094ceadba3b)
-            check_type(argname="argument primary_key", value=primary_key, expected_type=type_hints["primary_key"])
-            check_type(argname="argument provisioned_throughput", value=provisioned_throughput, expected_type=type_hints["provisioned_throughput"])
-            check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if primary_key is not None:
-            self._values["primary_key"] = primary_key
-        if provisioned_throughput is not None:
-            self._values["provisioned_throughput"] = provisioned_throughput
-        if sse_specification is not None:
-            self._values["sse_specification"] = sse_specification
-        if table_name is not None:
-            self._values["table_name"] = table_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def primary_key(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.PrimaryKeyProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-primarykey
-        '''
-        result = self._values.get("primary_key")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.PrimaryKeyProperty]], result)
-
-    @builtins.property
-    def provisioned_throughput(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.ProvisionedThroughputProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-provisionedthroughput
-        '''
-        result = self._values.get("provisioned_throughput")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.ProvisionedThroughputProperty]], result)
-
-    @builtins.property
-    def sse_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.SSESpecificationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-ssespecification
-        '''
-        result = self._values.get("sse_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimpleTable.SSESpecificationProperty]], result)
-
-    @builtins.property
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-tablename
-        '''
-        result = self._values.get("table_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-simpletable.html#cfn-serverless-simpletable-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSimpleTableProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStateMachineRef, _ITaggable_36806126)
 class CfnStateMachine(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11700,6 +12508,12 @@ class CfnStateMachine(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineRef")
+    def state_machine_ref(self) -> StateMachineReference:
+        '''A reference to a StateMachine resource.'''
+        return typing.cast(StateMachineReference, jsii.get(self, "stateMachineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -12909,268 +13723,9 @@ class CfnStateMachine(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sam.CfnStateMachineProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "definition": "definition",
-        "definition_substitutions": "definitionSubstitutions",
-        "definition_uri": "definitionUri",
-        "events": "events",
-        "logging": "logging",
-        "name": "name",
-        "permissions_boundaries": "permissionsBoundaries",
-        "policies": "policies",
-        "role": "role",
-        "tags": "tags",
-        "tracing": "tracing",
-        "type": "type",
-    },
-)
-class CfnStateMachineProps:
-    def __init__(
-        self,
-        *,
-        definition: typing.Any = None,
-        definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        permissions_boundaries: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnStateMachine.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        role: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        tracing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStateMachine``.
-
-        :param definition: 
-        :param definition_substitutions: 
-        :param definition_uri: 
-        :param events: 
-        :param logging: 
-        :param name: 
-        :param permissions_boundaries: 
-        :param policies: 
-        :param role: 
-        :param tags: 
-        :param tracing: 
-        :param type: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sam as sam
-            
-            # definition: Any
-            
-            cfn_state_machine_props = sam.CfnStateMachineProps(
-                definition=definition,
-                definition_substitutions={
-                    "definition_substitutions_key": "definitionSubstitutions"
-                },
-                definition_uri="definitionUri",
-                events={
-                    "events_key": sam.CfnStateMachine.EventSourceProperty(
-                        properties=sam.CfnStateMachine.ApiEventProperty(
-                            method="method",
-                            path="path",
-            
-                            # the properties below are optional
-                            rest_api_id="restApiId"
-                        ),
-                        type="type"
-                    )
-                },
-                logging=sam.CfnStateMachine.LoggingConfigurationProperty(
-                    destinations=[sam.CfnStateMachine.LogDestinationProperty(
-                        cloud_watch_logs_log_group=sam.CfnStateMachine.CloudWatchLogsLogGroupProperty(
-                            log_group_arn="logGroupArn"
-                        )
-                    )],
-                    include_execution_data=False,
-                    level="level"
-                ),
-                name="name",
-                permissions_boundaries="permissionsBoundaries",
-                policies="policies",
-                role="role",
-                tags={
-                    "tags_key": "tags"
-                },
-                tracing=sam.CfnStateMachine.TracingConfigurationProperty(
-                    enabled=False
-                ),
-                type="type"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__505a369e8f3bf625077dedf7f13099c6e0c8e2c05182396505111670528d74d7)
-            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
-            check_type(argname="argument definition_substitutions", value=definition_substitutions, expected_type=type_hints["definition_substitutions"])
-            check_type(argname="argument definition_uri", value=definition_uri, expected_type=type_hints["definition_uri"])
-            check_type(argname="argument events", value=events, expected_type=type_hints["events"])
-            check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument permissions_boundaries", value=permissions_boundaries, expected_type=type_hints["permissions_boundaries"])
-            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tracing", value=tracing, expected_type=type_hints["tracing"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if definition is not None:
-            self._values["definition"] = definition
-        if definition_substitutions is not None:
-            self._values["definition_substitutions"] = definition_substitutions
-        if definition_uri is not None:
-            self._values["definition_uri"] = definition_uri
-        if events is not None:
-            self._values["events"] = events
-        if logging is not None:
-            self._values["logging"] = logging
-        if name is not None:
-            self._values["name"] = name
-        if permissions_boundaries is not None:
-            self._values["permissions_boundaries"] = permissions_boundaries
-        if policies is not None:
-            self._values["policies"] = policies
-        if role is not None:
-            self._values["role"] = role
-        if tags is not None:
-            self._values["tags"] = tags
-        if tracing is not None:
-            self._values["tracing"] = tracing
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def definition(self) -> typing.Any:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definition
-        '''
-        result = self._values.get("definition")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def definition_substitutions(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definitionsubstitutions
-        '''
-        result = self._values.get("definition_substitutions")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def definition_uri(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-definitionuri
-        '''
-        result = self._values.get("definition_uri")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.S3LocationProperty]], result)
-
-    @builtins.property
-    def events(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnStateMachine.EventSourceProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-events
-        '''
-        result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnStateMachine.EventSourceProperty]]]], result)
-
-    @builtins.property
-    def logging(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-logging
-        '''
-        result = self._values.get("logging")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.LoggingConfigurationProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def permissions_boundaries(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-permissionsboundaries
-        '''
-        result = self._values.get("permissions_boundaries")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policies(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.IAMPolicyDocumentProperty, typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.IAMPolicyDocumentProperty, CfnStateMachine.SAMPolicyTemplateProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-policies
-        '''
-        result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.IAMPolicyDocumentProperty, typing.List[typing.Union[builtins.str, _IResolvable_da3f097b, CfnStateMachine.IAMPolicyDocumentProperty, CfnStateMachine.SAMPolicyTemplateProperty]]]], result)
-
-    @builtins.property
-    def role(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-role
-        '''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def tracing(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-tracing
-        '''
-        result = self._values.get("tracing")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStateMachine.TracingConfigurationProperty]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-serverless-statemachine.html#cfn-serverless-statemachine-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStateMachineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApiReference",
+    "ApplicationReference",
     "CfnApi",
     "CfnApiProps",
     "CfnApplication",
@@ -13185,9 +13740,164 @@ __all__ = [
     "CfnSimpleTableProps",
     "CfnStateMachine",
     "CfnStateMachineProps",
+    "FunctionReference",
+    "HttpApiReference",
+    "IApiRef",
+    "IApplicationRef",
+    "IFunctionRef",
+    "IHttpApiRef",
+    "ILayerVersionRef",
+    "ISimpleTableRef",
+    "IStateMachineRef",
+    "LayerVersionReference",
+    "SimpleTableReference",
+    "StateMachineReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0c3541ced1e3b9f417bf5019481767d1f0ed3628dc1464b54b8ea1849ea8aa47(
+    *,
+    stage_name: builtins.str,
+    access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    always_deploy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cache_cluster_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cache_cluster_size: typing.Optional[builtins.str] = None,
+    canary_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.CanarySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cors: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_body: typing.Any = None,
+    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.DomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint_configuration: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gateway_responses: typing.Any = None,
+    method_settings: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
+    minimum_compression_size: typing.Optional[jsii.Number] = None,
+    models: typing.Any = None,
+    name: typing.Optional[builtins.str] = None,
+    open_api_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cdd3da86c77e72e8f53daca88bd679d2d41f1881eeba6c4c20c6c5e7f670253(
+    *,
+    location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeout_in_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d36d7a3f5429a8550f324d9ddc7ca791a504b5e17ff50b124622826fe13b568b(
+    *,
+    architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
+    assume_role_policy_document: typing.Any = None,
+    auto_publish_alias: typing.Optional[builtins.str] = None,
+    auto_publish_code_sha256: typing.Optional[builtins.str] = None,
+    code_signing_config_arn: typing.Optional[builtins.str] = None,
+    code_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_queue: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeadLetterQueueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ephemeral_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EphemeralStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_invoke_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventInvokeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    function_name: typing.Optional[builtins.str] = None,
+    function_url_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    handler: typing.Optional[builtins.str] = None,
+    image_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ImageConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image_uri: typing.Optional[builtins.str] = None,
+    inline_code: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    layers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    memory_size: typing.Optional[jsii.Number] = None,
+    package_type: typing.Optional[builtins.str] = None,
+    permissions_boundary: typing.Optional[builtins.str] = None,
+    policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnFunction.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    provisioned_concurrency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ProvisionedConcurrencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
+    role: typing.Optional[builtins.str] = None,
+    runtime: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timeout: typing.Optional[jsii.Number] = None,
+    tracing: typing.Optional[builtins.str] = None,
+    version_description: typing.Optional[builtins.str] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fee3d57c5905e9ae9b8f419c1e059cc2543719f1378802233950cf6fd8455b0(
+    *,
+    access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiAuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cors_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, typing.Union[CfnHttpApi.CorsConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    definition_body: typing.Any = None,
+    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnHttpApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiDomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stage_name: typing.Optional[builtins.str] = None,
+    stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71f32d1d804bafc80050e7d70d1d4cf4812a0a9fa8f770efb7646469f71b29c7(
+    *,
+    compatible_runtimes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    content_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnLayerVersion.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    layer_name: typing.Optional[builtins.str] = None,
+    license_info: typing.Optional[builtins.str] = None,
+    retention_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__598a09546c8d488353c6a28e36199c3a64135f51ecbcebfaab1a6094ceadba3b(
+    *,
+    primary_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.PrimaryKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__505a369e8f3bf625077dedf7f13099c6e0c8e2c05182396505111670528d74d7(
+    *,
+    definition: typing.Any = None,
+    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    permissions_boundaries: typing.Optional[builtins.str] = None,
+    policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnStateMachine.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    role: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tracing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__3135996bb5e2b67d63a2144c699a4377166e2b1ebabc180e4c43b45b5c59afc6(
     scope: _constructs_77d1e7e8.Construct,
@@ -13465,36 +14175,6 @@ def _typecheckingstub__64d64a8ff239842e276cc5e9a2d2aa0f5e33af73e03496183475271e8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0c3541ced1e3b9f417bf5019481767d1f0ed3628dc1464b54b8ea1849ea8aa47(
-    *,
-    stage_name: builtins.str,
-    access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    always_deploy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.AuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cache_cluster_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cache_cluster_size: typing.Optional[builtins.str] = None,
-    canary_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.CanarySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cors: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_body: typing.Any = None,
-    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApi.DomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    endpoint_configuration: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApi.EndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    gateway_responses: typing.Any = None,
-    method_settings: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
-    minimum_compression_size: typing.Optional[jsii.Number] = None,
-    models: typing.Any = None,
-    name: typing.Optional[builtins.str] = None,
-    open_api_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    tracing_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__64c7803062c8244dab10c00b85c3ab7470f7dfeddb1993dc04852359393beb15(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13554,17 +14234,6 @@ def _typecheckingstub__397227b947496de6fb046a0031f35d134a16d78a2e12e88cce0ddcbad
     *,
     application_id: builtins.str,
     semantic_version: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5cdd3da86c77e72e8f53daca88bd679d2d41f1881eeba6c4c20c6c5e7f670253(
-    *,
-    location: typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationLocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    timeout_in_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14354,47 +15023,6 @@ def _typecheckingstub__4435eeff1c78c56e31a2a7233adfeb0466c2772d7ba3682a80039a306
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d36d7a3f5429a8550f324d9ddc7ca791a504b5e17ff50b124622826fe13b568b(
-    *,
-    architectures: typing.Optional[typing.Sequence[builtins.str]] = None,
-    assume_role_policy_document: typing.Any = None,
-    auto_publish_alias: typing.Optional[builtins.str] = None,
-    auto_publish_code_sha256: typing.Optional[builtins.str] = None,
-    code_signing_config_arn: typing.Optional[builtins.str] = None,
-    code_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dead_letter_queue: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeadLetterQueueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    deployment_preference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.DeploymentPreferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ephemeral_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EphemeralStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_invoke_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventInvokeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    function_name: typing.Optional[builtins.str] = None,
-    function_url_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.FunctionUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    handler: typing.Optional[builtins.str] = None,
-    image_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ImageConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    image_uri: typing.Optional[builtins.str] = None,
-    inline_code: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    layers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    memory_size: typing.Optional[jsii.Number] = None,
-    package_type: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnFunction.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnFunction.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    provisioned_concurrency_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.ProvisionedConcurrencyConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[builtins.str] = None,
-    runtime: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    timeout: typing.Optional[jsii.Number] = None,
-    tracing: typing.Optional[builtins.str] = None,
-    version_description: typing.Optional[builtins.str] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFunction.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2810a638ba3e7320fe893fabc5f6e87ff6c30d560aa983c6a0d6c0f8bf36db24(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14593,26 +15221,6 @@ def _typecheckingstub__74ce10b0d8c46201b88b9b0a1c3fb634f855f8d93c63ea0589504071a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8fee3d57c5905e9ae9b8f419c1e059cc2543719f1378802233950cf6fd8455b0(
-    *,
-    access_log_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.AccessLogSettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiAuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cors_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b, typing.Union[CfnHttpApi.CorsConfigurationObjectProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default_route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    definition_body: typing.Any = None,
-    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnHttpApi.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    disable_execute_api_endpoint: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    domain: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.HttpApiDomainConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    fail_on_warnings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    route_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnHttpApi.RouteSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stage_name: typing.Optional[builtins.str] = None,
-    stage_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d4f065acd39501197153b2ca3e032a641ca99d4d20a65016ce46a93cd18e68dc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14680,18 +15288,6 @@ def _typecheckingstub__10e0516e96e125765d789af3e0b7b3712f4bb6dcd1df25ef9f15e0aef
     bucket: builtins.str,
     key: builtins.str,
     version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__71f32d1d804bafc80050e7d70d1d4cf4812a0a9fa8f770efb7646469f71b29c7(
-    *,
-    compatible_runtimes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    content_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnLayerVersion.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    layer_name: typing.Optional[builtins.str] = None,
-    license_info: typing.Optional[builtins.str] = None,
-    retention_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14770,17 +15366,6 @@ def _typecheckingstub__487d0524c5037b22c73aabd8a4b7e2dabf1f5ac6c75c09973275c283a
 def _typecheckingstub__7477a7138a2224049d36e777df52e78339ec289222e92cb6a4dcb006f978dbfe(
     *,
     sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__598a09546c8d488353c6a28e36199c3a64135f51ecbcebfaab1a6094ceadba3b(
-    *,
-    primary_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.PrimaryKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provisioned_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.ProvisionedThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14999,24 +15584,6 @@ def _typecheckingstub__88ef1508a492222432242a9718c81cccbfe38b86b513c9f606ee3bbc3
 def _typecheckingstub__8568d1e5362e81260a69221e107002da0809dc2714f5960aaa894d488ddaa3db(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__505a369e8f3bf625077dedf7f13099c6e0c8e2c05182396505111670528d74d7(
-    *,
-    definition: typing.Any = None,
-    definition_substitutions: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    definition_uri: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    logging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    permissions_boundaries: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[builtins.str, _IResolvable_da3f097b, typing.Union[CfnStateMachine.IAMPolicyDocumentProperty, typing.Dict[builtins.str, typing.Any]], typing.Union[CfnStateMachine.SAMPolicyTemplateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    role: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    tracing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachine.TracingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

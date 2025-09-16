@@ -1,7 +1,6 @@
 import click
 
 from adam.commands.command import Command
-from adam.commands.command_helpers import ClusterCommandHelper
 from adam.commands.deploy.deploy_pod import DeployPod
 from .deploy_frontend import DeployFrontend
 from adam.repl_state import ReplState

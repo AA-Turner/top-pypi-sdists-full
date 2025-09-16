@@ -8,17 +8,28 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_observabilityadmin.type_defs import ResponseMetadataTypeDef
+    from mypy_boto3_observabilityadmin.type_defs import SourceLogsConfigurationTypeDef
 
-    data: ResponseMetadataTypeDef = ...
+    data: SourceLogsConfigurationTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from typing import Union
 
-from .literals import ResourceTypeType, StatusType, TelemetryStateType, TelemetryTypeType
+from .literals import (
+    CentralizationFailureReasonType,
+    EncryptedLogGroupStrategyType,
+    EncryptionConflictResolutionStrategyType,
+    EncryptionStrategyType,
+    ResourceTypeType,
+    RuleHealthType,
+    StatusType,
+    TelemetryStateType,
+    TelemetryTypeType,
+)
 
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
@@ -33,19 +44,35 @@ else:
 
 
 __all__ = (
+    "CentralizationRuleDestinationTypeDef",
+    "CentralizationRuleOutputTypeDef",
+    "CentralizationRuleSourceOutputTypeDef",
+    "CentralizationRuleSourceTypeDef",
+    "CentralizationRuleSummaryTypeDef",
+    "CentralizationRuleTypeDef",
+    "CentralizationRuleUnionTypeDef",
+    "CreateCentralizationRuleForOrganizationInputTypeDef",
+    "CreateCentralizationRuleForOrganizationOutputTypeDef",
     "CreateTelemetryRuleForOrganizationInputTypeDef",
     "CreateTelemetryRuleForOrganizationOutputTypeDef",
     "CreateTelemetryRuleInputTypeDef",
     "CreateTelemetryRuleOutputTypeDef",
+    "DeleteCentralizationRuleForOrganizationInputTypeDef",
     "DeleteTelemetryRuleForOrganizationInputTypeDef",
     "DeleteTelemetryRuleInputTypeDef",
+    "DestinationLogsConfigurationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "GetCentralizationRuleForOrganizationInputTypeDef",
+    "GetCentralizationRuleForOrganizationOutputTypeDef",
     "GetTelemetryEvaluationStatusForOrganizationOutputTypeDef",
     "GetTelemetryEvaluationStatusOutputTypeDef",
     "GetTelemetryRuleForOrganizationInputTypeDef",
     "GetTelemetryRuleForOrganizationOutputTypeDef",
     "GetTelemetryRuleInputTypeDef",
     "GetTelemetryRuleOutputTypeDef",
+    "ListCentralizationRulesForOrganizationInputPaginateTypeDef",
+    "ListCentralizationRulesForOrganizationInputTypeDef",
+    "ListCentralizationRulesForOrganizationOutputTypeDef",
     "ListResourceTelemetryForOrganizationInputPaginateTypeDef",
     "ListResourceTelemetryForOrganizationInputTypeDef",
     "ListResourceTelemetryForOrganizationOutputTypeDef",
@@ -60,20 +87,43 @@ __all__ = (
     "ListTelemetryRulesInputPaginateTypeDef",
     "ListTelemetryRulesInputTypeDef",
     "ListTelemetryRulesOutputTypeDef",
+    "LogsBackupConfigurationTypeDef",
+    "LogsEncryptionConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "SourceLogsConfigurationTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
     "TelemetryDestinationConfigurationTypeDef",
     "TelemetryRuleSummaryTypeDef",
     "TelemetryRuleTypeDef",
     "UntagResourceInputTypeDef",
+    "UpdateCentralizationRuleForOrganizationInputTypeDef",
+    "UpdateCentralizationRuleForOrganizationOutputTypeDef",
     "UpdateTelemetryRuleForOrganizationInputTypeDef",
     "UpdateTelemetryRuleForOrganizationOutputTypeDef",
     "UpdateTelemetryRuleInputTypeDef",
     "UpdateTelemetryRuleOutputTypeDef",
     "VPCFlowLogParametersTypeDef",
 )
+
+
+class SourceLogsConfigurationTypeDef(TypedDict):
+    LogGroupSelectionCriteria: str
+    EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
+
+
+class CentralizationRuleSummaryTypeDef(TypedDict):
+    RuleName: NotRequired[str]
+    RuleArn: NotRequired[str]
+    CreatorAccountId: NotRequired[str]
+    CreatedTimeStamp: NotRequired[int]
+    CreatedRegion: NotRequired[str]
+    LastUpdateTimeStamp: NotRequired[int]
+    RuleHealth: NotRequired[RuleHealthType]
+    FailureReason: NotRequired[CentralizationFailureReasonType]
+    DestinationAccountId: NotRequired[str]
+    DestinationRegion: NotRequired[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -84,11 +134,30 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class DeleteCentralizationRuleForOrganizationInputTypeDef(TypedDict):
+    RuleIdentifier: str
+
+
 class DeleteTelemetryRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
 
 
 class DeleteTelemetryRuleInputTypeDef(TypedDict):
+    RuleIdentifier: str
+
+
+class LogsBackupConfigurationTypeDef(TypedDict):
+    Region: str
+    KmsKeyArn: NotRequired[str]
+
+
+class LogsEncryptionConfigurationTypeDef(TypedDict):
+    EncryptionStrategy: EncryptionStrategyType
+    KmsKeyArn: NotRequired[str]
+    EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
+
+
+class GetCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
 
 
@@ -104,6 +173,13 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class ListCentralizationRulesForOrganizationInputTypeDef(TypedDict):
+    RuleNamePrefix: NotRequired[str]
+    AllRegions: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListResourceTelemetryForOrganizationInputTypeDef(TypedDict):
@@ -177,6 +253,23 @@ class UntagResourceInputTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class CentralizationRuleSourceOutputTypeDef(TypedDict):
+    Regions: List[str]
+    Scope: NotRequired[str]
+    SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+
+
+class CentralizationRuleSourceTypeDef(TypedDict):
+    Regions: Sequence[str]
+    Scope: NotRequired[str]
+    SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+
+
+class CreateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
+    RuleArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
     RuleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -203,8 +296,19 @@ class GetTelemetryEvaluationStatusOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListCentralizationRulesForOrganizationOutputTypeDef(TypedDict):
+    CentralizationRuleSummaries: List[CentralizationRuleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListTagsForResourceOutputTypeDef(TypedDict):
     Tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
+    RuleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -216,6 +320,17 @@ class UpdateTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
 class UpdateTelemetryRuleOutputTypeDef(TypedDict):
     RuleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DestinationLogsConfigurationTypeDef(TypedDict):
+    LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
+    BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
+
+
+class ListCentralizationRulesForOrganizationInputPaginateTypeDef(TypedDict):
+    RuleNamePrefix: NotRequired[str]
+    AllRegions: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListResourceTelemetryForOrganizationInputPaginateTypeDef(TypedDict):
@@ -278,12 +393,28 @@ class TelemetryDestinationConfigurationTypeDef(TypedDict):
     VPCFlowLogParameters: NotRequired[VPCFlowLogParametersTypeDef]
 
 
+class CentralizationRuleDestinationTypeDef(TypedDict):
+    Region: str
+    Account: NotRequired[str]
+    DestinationLogsConfiguration: NotRequired[DestinationLogsConfigurationTypeDef]
+
+
 class TelemetryRuleTypeDef(TypedDict):
     TelemetryType: TelemetryTypeType
     ResourceType: NotRequired[ResourceTypeType]
     DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationTypeDef]
     Scope: NotRequired[str]
     SelectionCriteria: NotRequired[str]
+
+
+class CentralizationRuleOutputTypeDef(TypedDict):
+    Source: CentralizationRuleSourceOutputTypeDef
+    Destination: CentralizationRuleDestinationTypeDef
+
+
+class CentralizationRuleTypeDef(TypedDict):
+    Source: CentralizationRuleSourceTypeDef
+    Destination: CentralizationRuleDestinationTypeDef
 
 
 class CreateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
@@ -324,3 +455,30 @@ class UpdateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
 class UpdateTelemetryRuleInputTypeDef(TypedDict):
     RuleIdentifier: str
     Rule: TelemetryRuleTypeDef
+
+
+class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
+    RuleName: str
+    RuleArn: str
+    CreatorAccountId: str
+    CreatedTimeStamp: int
+    CreatedRegion: str
+    LastUpdateTimeStamp: int
+    RuleHealth: RuleHealthType
+    FailureReason: CentralizationFailureReasonType
+    CentralizationRule: CentralizationRuleOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+CentralizationRuleUnionTypeDef = Union[CentralizationRuleTypeDef, CentralizationRuleOutputTypeDef]
+
+
+class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
+    RuleName: str
+    Rule: CentralizationRuleUnionTypeDef
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
+    RuleIdentifier: str
+    Rule: CentralizationRuleUnionTypeDef

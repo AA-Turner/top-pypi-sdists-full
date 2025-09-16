@@ -20,7 +20,6 @@ mod ignore_index;
 mod version;
 mod visitors;
 
-mod identifier;
 mod rules;
 
 #[cfg(test)]
@@ -171,6 +170,8 @@ impl std::fmt::Display for UnknownRuleName {
         write!(f, "invalid rule name {}", self.val)
     }
 }
+
+impl std::error::Error for UnknownRuleName {}
 
 impl std::str::FromStr for Rule {
     type Err = UnknownRuleName;

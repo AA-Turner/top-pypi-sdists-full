@@ -1,0 +1,79 @@
+[package]
+name = "rustworkx"
+description = "A python graph library implemented in Rust"
+readme = "README.md"
+keywords = ["python", "graph"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[workspace]
+members = [
+    "rustworkx-core",
+    "rustworkx-core/fuzz"
+]
+
+[workspace.package]
+version = "0.17.1"
+edition = "2021"
+rust-version = "1.79"
+authors = ["Matthew Treinish <mtreinish@kortar.org>"]
+repository = "https://github.com/Qiskit/rustworkx"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+foldhash = "0.1.5"
+fixedbitset = "0.5.7"
+indexmap = { version = ">=1.9, <3", features = ["rayon"] }
+ndarray = { version = "0.16.1", features = ["rayon"] }
+num-traits = "0.2"
+petgraph = "0.8"
+hashbrown = { version = ">=0.13, <0.16", features = ["rayon"] }
+numpy = "0.24"
+rand = "0.9"
+rand_distr = "0.5"
+rand_pcg = "0.9"
+rayon = "1.10"
+
+[lib]
+name = "rustworkx"
+crate-type = ["cdylib"]
+
+[dependencies]
+foldhash.workspace = true
+fixedbitset.workspace = true
+hashbrown.workspace = true
+indexmap.workspace = true
+ndarray.workspace = true
+ndarray-stats = "0.6.0"
+num-bigint = "0.4"
+num-complex = "0.4"
+num-traits.workspace = true
+numpy.workspace = true
+petgraph.workspace = true
+quick-xml = "0.37"
+rand.workspace = true
+rand_distr.workspace = true
+rand_pcg.workspace = true
+rayon.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+smallvec = { version = "1.0", features = ["union"] }
+rustworkx-core = { path = "rustworkx-core", version = "=0.17.1" }
+flate2 = "1.0.35"
+
+[dependencies.pyo3]
+version = "0.24"
+features = ["abi3-py39", "extension-module", "hashbrown", "num-bigint", "num-complex", "indexmap", "py-clone"]
+
+[dependencies.sprs]
+version = "^0.11"
+default-features = false
+features = ["multi_thread"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

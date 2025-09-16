@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module defines classes to estimate the 2D background and background
-RMS in an image.
+Define classes to estimate the 2D background and background RMS in an
+image.
 """
 
 import warnings
@@ -9,7 +9,6 @@ import warnings
 import astropy.units as u
 import numpy as np
 from astropy.nddata import NDData, block_replicate, reshape_as_blocks
-from astropy.stats import SigmaClip
 from astropy.utils import lazyproperty
 from astropy.utils.decorators import deprecated, deprecated_renamed_argument
 from astropy.utils.exceptions import AstropyUserWarning
@@ -20,13 +19,17 @@ from photutils.background.core import SExtractorBackground, StdBackgroundRMS
 from photutils.background.interpolators import (BkgIDWInterpolator,
                                                 BkgZoomInterpolator)
 from photutils.utils import ShepardIDWInterpolator
-from photutils.utils._parameters import as_pair
+from photutils.utils._parameters import (SigmaClipSentinelDefault, as_pair,
+                                         create_default_sigmaclip)
 from photutils.utils._repr import make_repr
 from photutils.utils._stats import nanmedian, nanmin
 
 __all__ = ['Background2D']
 
 __doctest_skip__ = ['Background2D']
+
+
+SIGMA_CLIP = SigmaClipSentinelDefault(sigma=3.0, maxiters=10)
 
 
 class Background2D:
@@ -81,22 +84,25 @@ class Background2D:
 
     mask : array_like (bool), optional
         A boolean mask, with the same shape as ``data``, where a `True`
-        value indicates the corresponding element of ``data`` is
-        masked. Masked data are excluded from calculations. ``mask`` is
-        intended to mask sources or bad pixels. Use ``coverage_mask``
-        to mask blank areas of an image. ``mask`` and ``coverage_mask``
-        differ only in that ``coverage_mask`` is applied to the output
-        background and background RMS maps (see ``fill_value``).
+        value indicates the corresponding element of ``data`` is masked.
+        Masked data are excluded from the background and background
+        RMS calculations. ``mask`` is intended to mask sources or bad
+        pixels, but a background and background RMS value will be
+        calculated for them based on interpolation of the low-resolution
+        background and background RMS maps. Use ``coverage_mask`` to
+        mask blank areas of an image. ``coverage_mask`` pixels are
+        assigned a value of ``fill_value`` (default = 0) in the output
+        background and background RMS maps.
 
     coverage_mask : array_like (bool), optional
         A boolean mask, with the same shape as ``data``, where a `True`
         value indicates the corresponding element of ``data`` is masked.
         ``coverage_mask`` should be `True` where there is no coverage
         (i.e., no data) for a given pixel (e.g., blank areas in a mosaic
-        image). It should not be used for bad pixels (in that case use
-        ``mask`` instead). ``mask`` and ``coverage_mask`` differ only in
-        that ``coverage_mask`` is applied to the output background and
-        background RMS maps (see ``fill_value``).
+        image). It should not be used to mask sources or bad pixels (in
+        that case use ``mask`` instead). ``coverage_mask`` pixels are
+        assigned a value of ``fill_value`` (default = 0) in the output
+        background and background RMS maps.
 
     fill_value : float, optional
         The value used to fill the output background and background RMS
@@ -158,11 +164,10 @@ class Background2D:
           smaller than the ``data`` size to minimize the amount of
           cropping.
 
-    sigma_clip : `astropy.stats.SigmaClip` instance, optional
+    sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
         A `~astropy.stats.SigmaClip` object that defines the sigma
         clipping parameters. If `None` then no sigma clipping will
-        be performed. The default is to perform sigma clipping with
-        ``sigma=3.0`` and ``maxiters=10``.
+        be performed.
 
     bkg_estimator : callable, optional
         A callable object (a function or e.g., an instance of
@@ -215,10 +220,8 @@ class Background2D:
     def __init__(self, data, box_size, *, mask=None, coverage_mask=None,
                  fill_value=0.0, exclude_percentile=10.0, filter_size=(3, 3),
                  filter_threshold=None, edge_method='pad',
-                 sigma_clip=SigmaClip(sigma=3.0, maxiters=10),
-                 bkg_estimator=SExtractorBackground(sigma_clip=None),
-                 bkgrms_estimator=StdBackgroundRMS(sigma_clip=None),
-                 interpolator=BkgZoomInterpolator()):
+                 sigma_clip=SIGMA_CLIP, bkg_estimator=None,
+                 bkgrms_estimator=None, interpolator=None):
 
         if isinstance(data, (u.Quantity, NDData)):  # includes CCDData
             self._unit = data.unit
@@ -226,11 +229,18 @@ class Background2D:
         else:
             self._unit = None
 
-        # this is a temporary instance variable to store the input data
+        # self._data is a temporary instance variable to store the input
+        # data (the variable is deleted in self._calculate_stats)
         self._data = self._validate_array(data, 'data', shape=False)
-
         self._data_dtype = self._data.dtype
+        self._data_shape = self._data.shape
+        if np.all(~np.isfinite(self._data)):
+            msg = ('Input data contains all non-finite (NaN or infinity) '
+                   'values. Cannot compute a background.')
+            raise ValueError(msg)
 
+        # self._mask is a temporary instance variable to store the input
+        # mask array (deleted in self._calculate_stats)
         self._mask = self._validate_array(mask, 'mask')
         self.coverage_mask = self._validate_array(coverage_mask,
                                                   'coverage_mask')
@@ -241,17 +251,30 @@ class Background2D:
 
         self.fill_value = fill_value
         if exclude_percentile < 0 or exclude_percentile > 100:
-            raise ValueError('exclude_percentile must be between 0 and 100 '
-                             '(inclusive).')
+            msg = 'exclude_percentile must be between 0 and 100 (inclusive)'
+            raise ValueError(msg)
         self.exclude_percentile = exclude_percentile
         self.filter_size = as_pair('filter_size', filter_size,
                                    lower_bound=(0, 1), check_odd=True)
         self.filter_threshold = filter_threshold
         if edge_method not in ('pad', 'crop'):
-            raise ValueError('edge_method must be "pad" or "crop"')
+            msg = 'edge_method must be "pad" or "crop"'
+            raise ValueError(msg)
         self.edge_method = edge_method
+
+        if sigma_clip is SIGMA_CLIP:
+            sigma_clip = create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
+                                                  maxiters=SIGMA_CLIP.maxiters)
         self.sigma_clip = sigma_clip
+
+        if interpolator is None:
+            interpolator = BkgZoomInterpolator()
         self.interpolator = interpolator
+
+        if bkg_estimator is None:
+            bkg_estimator = SExtractorBackground(sigma_clip=None)
+        if bkgrms_estimator is None:
+            bkgrms_estimator = StdBackgroundRMS(sigma_clip=None)
 
         # we perform sigma clipping as a separate step to avoid
         # calling it twice for the background and background RMS
@@ -261,10 +284,6 @@ class Background2D:
         self.bkgrms_estimator = bkgrms_estimator
 
         self._box_npixels = None
-        self._params = ('box_size', 'coverage_mask',
-                        'fill_value', 'exclude_percentile', 'filter_size',
-                        'filter_threshold', 'edge_method', 'sigma_clip',
-                        'bkg_estimator', 'bkgrms_estimator', 'interpolator')
 
         # store the interpolator keyword arguments for later use
         # (before self._data is deleted in self._calculate_stats)
@@ -293,13 +312,36 @@ class Background2D:
             self._interp_kwargs['mesh_yxcen'] = self._calculate_mesh_yxcen()
             self._interp_kwargs['mesh_nan_mask'] = self._mesh_nan_mask
 
+    def __repr_str_params(self):
+        params = ('data', 'box_size', 'mask', 'coverage_mask', 'fill_value',
+                  'exclude_percentile', 'filter_size', 'filter_threshold',
+                  'edge_method', 'sigma_clip', 'bkg_estimator',
+                  'bkgrms_estimator', 'interpolator')
+
+        data_repr = f'<array; shape={self._interp_kwargs["shape"]}>'
+
+        if '_mask' in self.__dict__ and self._mask is None:
+            mask_repr = None
+        else:
+            mask_repr = data_repr
+
+        if 'coverage_mask' in self.__dict__ and self.coverage_mask is None:
+            coverage_mask_repr = None
+        else:
+            coverage_mask_repr = data_repr
+
+        overrides = {'data': data_repr, 'mask': mask_repr,
+                     'coverage_mask': coverage_mask_repr}
+
+        return params, overrides
+
     def __repr__(self):
-        ellipsis = ('coverage_mask',)
-        return make_repr(self, self._params, ellipsis=ellipsis)
+        params, overrides = self.__repr_str_params()
+        return make_repr(self, params, overrides=overrides)
 
     def __str__(self):
-        ellipsis = ('coverage_mask',)
-        return make_repr(self, self._params, ellipsis=ellipsis, long=True)
+        params, overrides = self.__repr_str_params()
+        return make_repr(self, params, overrides=overrides, long=True)
 
     def _validate_array(self, array, name, shape=True):
         """
@@ -310,9 +352,11 @@ class Background2D:
         if array is not None:
             array = np.asanyarray(array)
             if array.ndim != 2:
-                raise ValueError(f'{name} must be a 2D array.')
+                msg = f'{name} must be a 2D array'
+                raise ValueError(msg)
             if shape and array.shape != self._data.shape:
-                raise ValueError(f'data and {name} must have the same shape.')
+                msg = f'data and {name} must have the same shape'
+                raise ValueError(msg)
         return array
 
     def _apply_units(self, data):
@@ -347,7 +391,10 @@ class Background2D:
             return self._mask
 
         mask = np.logical_or(self._mask, self.coverage_mask)
-        del self._mask
+
+        if self._mask is not None:
+            del self._mask
+
         return mask
 
     def _combine_all_masks(self, mask):
@@ -357,20 +404,24 @@ class Background2D:
         """
         input_mask = self._combine_input_masks()
 
-        msg = ('Input data contains invalid values (NaNs or infs), which '
-               'were automatically masked.')
+        msg = ('Input data contains non-finite (NaN or infinity) values, '
+               'which were automatically masked.')
 
         if input_mask is None:
             if np.any(mask):
                 warnings.warn(msg, AstropyUserWarning)
-            return mask
 
-        total_mask = np.logical_or(input_mask, mask)
-
-        if input_mask is not None:
+            total_mask = mask
+        else:
             condition = np.logical_and(np.logical_not(input_mask), mask)
             if np.any(condition):
                 warnings.warn(msg, AstropyUserWarning)
+
+            total_mask = np.logical_or(input_mask, mask)
+
+        if np.all(total_mask):
+            msg = 'All input pixels are masked. Cannot compute a background.'
+            raise ValueError(msg)
 
         return total_mask
 
@@ -472,13 +523,6 @@ class Background2D:
         Calculate the background and background RMS statistics in each
         box.
 
-        Parameters
-        ----------
-        data : 2D `~numpy.ndarray`
-            The 2D input data array. The data array is assumed to have
-            been prepared by the ``_prepare_data`` method, where NaNs
-            are used to mask invalid data values.
-
         Returns
         -------
         bkg : 2D `~numpy.ndarray`
@@ -577,11 +621,12 @@ class Background2D:
                 ngood = np.hstack([ngood, col_ngood])
 
         if np.all(np.isnan(bkg)):
-            raise ValueError('All boxes contain <= '
-                             f'{self._good_npixels_threshold} good pixels. '
-                             'Please check your data or increase '
-                             '"exclude_percentile" to allow more boxes to '
-                             'be included.')
+            msg = (f'All boxes contain <= {self._good_npixels_threshold} '
+                   f'unmasked or finite pixels ({self.box_size=}, '
+                   f'{self.exclude_percentile=}). Please check your data '
+                   'or increase "exclude_percentile" to allow more boxes to '
+                   'be included.')
+            raise ValueError(msg)
 
         # we no longer need the copy of the input array
         del self._data
@@ -592,45 +637,43 @@ class Background2D:
                           reg=0.0):
         """
         Fill in any NaN values in the low-resolution 2D mesh background
-        and background RMS images.
+        and background RMS images using inverse distance weighting (IDW)
+        interpolation.
 
-        IDW interpolation is used to replace the NaN pixels.
-
-        This is required to use a regular-grid interpolator to expand
-        the low-resolution image to the full size image.
+        This method ensures that the low-resolution mesh contains no
+        NaNs before applying a regular-grid interpolator to expand it to
+        the full image size. If there are no NaNs, the input is returned
+        (cast to the original dtype). Otherwise, NaN pixels are replaced
+        by IDW interpolation using valid mesh values.
 
         Parameters
         ----------
         data : 2D `~numpy.ndarray`
-            A 2D array of the box statistics.
+            A 2D array of the box statistics, possibly containing NaNs.
 
         n_neighbors : int, optional
             The maximum number of nearest neighbors to use during the
             interpolation.
 
         eps : float, optional
-            Set to use approximate nearest neighbors; the kth neighbor
-            is guaranteed to be no further than (1 + ``eps``) times the
-            distance to the real *k*-th nearest neighbor. See
-            `scipy.spatial.cKDTree.query` for further information.
+            Approximation parameter for nearest neighbors (see
+            `scipy.spatial.cKDTree.query`).
 
         power : float, optional
             The power of the inverse distance used for the interpolation
-            weights. See the Notes section for more details.
+            weights.
 
         reg : float, optional
-            The regularization parameter. It may be used to control the
-            smoothness of the interpolator. See the Notes section for
-            more details.
+            Regularization parameter to control the smoothness of the
+            interpolator.
 
         Returns
         -------
         result : 2D `~numpy.ndarray`
-            A 2D array of the box values where NaN values have been
-            filled by IDW interpolation.
+            The input array with NaNs replaced by interpolated values.
         """
         if not np.any(np.isnan(data)):
-            # output integer dtype if input data was integer dtyle
+            # change output dtype to integer if input data dtype was integer
             if data.dtype != self._data_dtype:
                 data = data.astype(self._data_dtype)
             return data
@@ -649,7 +692,7 @@ class Background2D:
         interp_data = np.copy(data)  # copy to avoid modifying the input data
         interp_data[idx] = interp_values
 
-        # output integer dtype if input data was integer dtyle
+        # change output dtype to integer if input data dtype was integer
         if interp_data.dtype != self._data_dtype:
             interp_data = interp_data.astype(self._data_dtype)
 

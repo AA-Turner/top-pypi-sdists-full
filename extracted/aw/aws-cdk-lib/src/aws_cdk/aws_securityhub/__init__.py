@@ -69,165 +69,151 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnAggregatorV2(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnAggregatorV2",
-):
-    '''Enables aggregation across AWS Regions .
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.AggregatorV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={"aggregator_v2_arn": "aggregatorV2Arn"},
+)
+class AggregatorV2Reference:
+    def __init__(self, *, aggregator_v2_arn: builtins.str) -> None:
+        '''A reference to a AggregatorV2 resource.
 
-    This API is in private preview and subject to change.
+        :param aggregator_v2_arn: The AggregatorV2Arn of the AggregatorV2 resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html
-    :cloudformationResource: AWS::SecurityHub::AggregatorV2
-    :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=_generated
 
-    Example::
+        Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_securityhub as securityhub
-        
-        cfn_aggregator_v2 = securityhub.CfnAggregatorV2(self, "MyCfnAggregatorV2",
-            linked_regions=["linkedRegions"],
-            region_linking_mode="regionLinkingMode",
-        
-            # the properties below are optional
-            tags={
-                "tags_key": "tags"
-            }
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        linked_regions: typing.Sequence[builtins.str],
-        region_linking_mode: builtins.str,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param linked_regions: The list of Regions that are linked to the aggregation Region.
-        :param region_linking_mode: Determines how Regions are linked to an Aggregator V2.
-        :param tags: A list of key-value pairs to be applied to the AggregatorV2.
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            aggregator_v2_reference = securityhub.AggregatorV2Reference(
+                aggregator_v2_arn="aggregatorV2Arn"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a48a2a082be753c7ff9a23ae8720fc6090537bc7754b3949c569c91cc2d97185)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAggregatorV2Props(
-            linked_regions=linked_regions,
-            region_linking_mode=region_linking_mode,
-            tags=tags,
+            type_hints = typing.get_type_hints(_typecheckingstub__da3c2310fb11f30a86671bb2addead99b71ef1e397edaee3f54612d615ba55b3)
+            check_type(argname="argument aggregator_v2_arn", value=aggregator_v2_arn, expected_type=type_hints["aggregator_v2_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aggregator_v2_arn": aggregator_v2_arn,
+        }
+
+    @builtins.property
+    def aggregator_v2_arn(self) -> builtins.str:
+        '''The AggregatorV2Arn of the AggregatorV2 resource.'''
+        result = self._values.get("aggregator_v2_arn")
+        assert result is not None, "Required property 'aggregator_v2_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AggregatorV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
 
-        jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.AutomationRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class AutomationRuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a AutomationRule resource.
 
-        :param inspector: tree inspector to collect and process attributes.
+        :param rule_arn: The RuleArn of the AutomationRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            automation_rule_reference = securityhub.AutomationRuleReference(
+                rule_arn="ruleArn"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__faa540694e43a0e61feeb3f53848b1f6e9494b6ed7da21b25aac134881132c39)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+            type_hints = typing.get_type_hints(_typecheckingstub__247123306bed7a330539f8c72599c1bf0426865fb9d69c37276d3b2cb180d90c)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
 
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The RuleArn of the AutomationRule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AutomationRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.AutomationRuleV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class AutomationRuleV2Reference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a AutomationRuleV2 resource.
+
+        :param rule_arn: The RuleArn of the AutomationRuleV2 resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            automation_rule_v2_reference = securityhub.AutomationRuleV2Reference(
+                rule_arn="ruleArn"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6872b5e370c8e8f4d83602fa651c03fde81b36e7c5bc3b28fa097f66a87ee66)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+            type_hints = typing.get_type_hints(_typecheckingstub__7b6c53c3be2a41ed0b192befe0743a566e85b284ce92911f4f854491d65a94d4)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="attrAggregationRegion")
-    def attr_aggregation_region(self) -> builtins.str:
-        '''The AWS Region where data is aggregated.
+    def rule_arn(self) -> builtins.str:
+        '''The RuleArn of the AutomationRuleV2 resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
 
-        :cloudformationAttribute: AggregationRegion
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAggregationRegion"))
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-    @builtins.property
-    @jsii.member(jsii_name="attrAggregatorV2Arn")
-    def attr_aggregator_v2_arn(self) -> builtins.str:
-        '''The ARN of the AggregatorV2.
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-        :cloudformationAttribute: AggregatorV2Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAggregatorV2Arn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="linkedRegions")
-    def linked_regions(self) -> typing.List[builtins.str]:
-        '''The list of Regions that are linked to the aggregation Region.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "linkedRegions"))
-
-    @linked_regions.setter
-    def linked_regions(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73719aabf2def1251bbcce62564af2561a7db568f2cc383d665c93c84e03855c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkedRegions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="regionLinkingMode")
-    def region_linking_mode(self) -> builtins.str:
-        '''Determines how Regions are linked to an Aggregator V2.'''
-        return typing.cast(builtins.str, jsii.get(self, "regionLinkingMode"))
-
-    @region_linking_mode.setter
-    def region_linking_mode(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f12f6fa7491c9cf6429ed03592fa2e0b84dd1df61b65fe9caf3ffa327ed324f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionLinkingMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A list of key-value pairs to be applied to the AggregatorV2.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(
-        self,
-        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e47a206d80ca672182e6fba3a9c614bda1d391a22aa37078d5b442ce9858a656)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+    def __repr__(self) -> str:
+        return "AutomationRuleV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -325,7 +311,3401 @@ class CfnAggregatorV2Props:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "criteria": "criteria",
+        "description": "description",
+        "rule_name": "ruleName",
+        "rule_order": "ruleOrder",
+        "is_terminal": "isTerminal",
+        "rule_status": "ruleStatus",
+        "tags": "tags",
+    },
+)
+class CfnAutomationRuleProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRule.AutomationRulesActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRule.AutomationRulesFindingFiltersProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: builtins.str,
+        rule_name: builtins.str,
+        rule_order: jsii.Number,
+        is_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        rule_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAutomationRule``.
+
+        :param actions: One or more actions to update finding fields if a finding matches the conditions specified in ``Criteria`` .
+        :param criteria: A set of `AWS Security Finding Format (ASFF) <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html>`_ finding field attributes and corresponding expected values that Security Hub uses to filter findings. If a rule is enabled and a finding matches the criteria specified in this parameter, Security Hub applies the rule action to the finding.
+        :param description: A description of the rule.
+        :param rule_name: The name of the rule.
+        :param rule_order: An integer ranging from 1 to 1000 that represents the order in which the rule action is applied to findings. Security Hub applies rules with lower values for this parameter first.
+        :param is_terminal: Specifies whether a rule is the last to be applied with respect to a finding that matches the rule criteria. This is useful when a finding matches the criteria for multiple rules, and each rule has different actions. If a rule is terminal, Security Hub applies the rule action to a finding that matches the rule criteria and doesn't evaluate other rules for the finding. By default, a rule isn't terminal.
+        :param rule_status: Whether the rule is active after it is created. If this parameter is equal to ``ENABLED`` , Security Hub applies the rule to findings and finding updates after the rule is created.
+        :param tags: User-defined tags associated with an automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_automation_rule_props = securityhub.CfnAutomationRuleProps(
+                actions=[securityhub.CfnAutomationRule.AutomationRulesActionProperty(
+                    finding_fields_update=securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
+                        confidence=123,
+                        criticality=123,
+                        note=securityhub.CfnAutomationRule.NoteUpdateProperty(
+                            text="text",
+                            updated_by="updatedBy"
+                        ),
+                        related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
+                            id="id",
+                            product_arn="productArn"
+                        )],
+                        severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
+                            label="label",
+                            normalized=123,
+                            product=123
+                        ),
+                        types=["types"],
+                        user_defined_fields={
+                            "user_defined_fields_key": "userDefinedFields"
+                        },
+                        verification_state="verificationState",
+                        workflow=securityhub.CfnAutomationRule.WorkflowUpdateProperty(
+                            status="status"
+                        )
+                    ),
+                    type="type"
+                )],
+                criteria=securityhub.CfnAutomationRule.AutomationRulesFindingFiltersProperty(
+                    aws_account_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    company_name=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_associated_standards_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_security_control_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_status=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    confidence=[securityhub.CfnAutomationRule.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    created_at=[securityhub.CfnAutomationRule.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    criticality=[securityhub.CfnAutomationRule.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    description=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    first_observed_at=[securityhub.CfnAutomationRule.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    generator_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    last_observed_at=[securityhub.CfnAutomationRule.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    note_text=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    note_updated_at=[securityhub.CfnAutomationRule.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    note_updated_by=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    product_arn=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    product_name=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    record_state=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    related_findings_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    related_findings_product_arn=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_details_other=[securityhub.CfnAutomationRule.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    resource_id=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_partition=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_region=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_tags=[securityhub.CfnAutomationRule.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    resource_type=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    severity_label=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    source_url=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    title=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    type=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    updated_at=[securityhub.CfnAutomationRule.DateFilterProperty(
+                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    user_defined_fields=[securityhub.CfnAutomationRule.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    verification_state=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    workflow_status=[securityhub.CfnAutomationRule.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )]
+                ),
+                description="description",
+                rule_name="ruleName",
+                rule_order=123,
+            
+                # the properties below are optional
+                is_terminal=False,
+                rule_status="ruleStatus",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__221241b44c93ea569fcf69aaaade0ce7cf31b7343bc3d072d74ccd16895d9a2d)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
+            check_type(argname="argument is_terminal", value=is_terminal, expected_type=type_hints["is_terminal"])
+            check_type(argname="argument rule_status", value=rule_status, expected_type=type_hints["rule_status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "criteria": criteria,
+            "description": description,
+            "rule_name": rule_name,
+            "rule_order": rule_order,
+        }
+        if is_terminal is not None:
+            self._values["is_terminal"] = is_terminal
+        if rule_status is not None:
+            self._values["rule_status"] = rule_status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRule.AutomationRulesActionProperty"]]]:
+        '''One or more actions to update finding fields if a finding matches the conditions specified in ``Criteria`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRule.AutomationRulesActionProperty"]]], result)
+
+    @builtins.property
+    def criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRule.AutomationRulesFindingFiltersProperty"]:
+        '''A set of `AWS Security Finding Format (ASFF) <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html>`_ finding field attributes and corresponding expected values that Security Hub uses to filter findings. If a rule is enabled and a finding matches the criteria specified in this parameter, Security Hub applies the rule action to the finding.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-criteria
+        '''
+        result = self._values.get("criteria")
+        assert result is not None, "Required property 'criteria' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRule.AutomationRulesFindingFiltersProperty"], result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-rulename
+        '''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_order(self) -> jsii.Number:
+        '''An integer ranging from 1 to 1000 that represents the order in which the rule action is applied to findings.
+
+        Security Hub applies rules with lower values for this parameter first.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-ruleorder
+        '''
+        result = self._values.get("rule_order")
+        assert result is not None, "Required property 'rule_order' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def is_terminal(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether a rule is the last to be applied with respect to a finding that matches the rule criteria.
+
+        This is useful when a finding matches the criteria for multiple rules, and each rule has different actions. If a rule is terminal, Security Hub applies the rule action to a finding that matches the rule criteria and doesn't evaluate other rules for the finding. By default, a rule isn't terminal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-isterminal
+        '''
+        result = self._values.get("is_terminal")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def rule_status(self) -> typing.Optional[builtins.str]:
+        '''Whether the rule is active after it is created.
+
+        If this parameter is equal to ``ENABLED`` , Security Hub applies the rule to findings and finding updates after the rule is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-rulestatus
+        '''
+        result = self._values.get("rule_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''User-defined tags associated with an automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutomationRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "criteria": "criteria",
+        "description": "description",
+        "rule_name": "ruleName",
+        "rule_order": "ruleOrder",
+        "rule_status": "ruleStatus",
+        "tags": "tags",
+    },
+)
+class CfnAutomationRuleV2Props:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.AutomationRulesActionV2Property", typing.Dict[builtins.str, typing.Any]]]]],
+        criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAutomationRuleV2.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: builtins.str,
+        rule_name: builtins.str,
+        rule_order: jsii.Number,
+        rule_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAutomationRuleV2``.
+
+        :param actions: A list of actions to be performed when the rule criteria is met.
+        :param criteria: The filtering type and configuration of the automation rule.
+        :param description: A description of the V2 automation rule.
+        :param rule_name: The name of the V2 automation rule.
+        :param rule_order: The value for the rule priority.
+        :param rule_status: The status of the V2 automation rule.
+        :param tags: A list of key-value pairs associated with the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_automation_rule_v2_props = securityhub.CfnAutomationRuleV2Props(
+                actions=[securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property(
+                    type="type",
+            
+                    # the properties below are optional
+                    external_integration_configuration=securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
+                        connector_arn="connectorArn"
+                    ),
+                    finding_fields_update=securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
+                        comment="comment",
+                        severity_id=123,
+                        status_id=123
+                    )
+                )],
+                criteria=securityhub.CfnAutomationRuleV2.CriteriaProperty(
+                    ocsf_finding_criteria=securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
+                        composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
+                            boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
+                                    value=False
+                                )
+                            )],
+                            date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
+                                    date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
+                                        unit="unit",
+                                        value=123
+                                    ),
+                                    end="end",
+                                    start="start"
+                                )
+                            )],
+                            map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
+                                    comparison="comparison",
+                                    key="key",
+                                    value="value"
+                                )
+                            )],
+                            number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
+                                    eq=123,
+                                    gte=123,
+                                    lte=123
+                                )
+                            )],
+                            operator="operator",
+                            string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
+                                field_name="fieldName",
+                                filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
+                                    comparison="comparison",
+                                    value="value"
+                                )
+                            )]
+                        )],
+                        composite_operator="compositeOperator"
+                    )
+                ),
+                description="description",
+                rule_name="ruleName",
+                rule_order=123,
+            
+                # the properties below are optional
+                rule_status="ruleStatus",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
+            check_type(argname="argument rule_status", value=rule_status, expected_type=type_hints["rule_status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "criteria": criteria,
+            "description": description,
+            "rule_name": rule_name,
+            "rule_order": rule_order,
+        }
+        if rule_status is not None:
+            self._values["rule_status"] = rule_status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesActionV2Property"]]]:
+        '''A list of actions to be performed when the rule criteria is met.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.AutomationRulesActionV2Property"]]], result)
+
+    @builtins.property
+    def criteria(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CriteriaProperty"]:
+        '''The filtering type and configuration of the automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-criteria
+        '''
+        result = self._values.get("criteria")
+        assert result is not None, "Required property 'criteria' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAutomationRuleV2.CriteriaProperty"], result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulename
+        '''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_order(self) -> jsii.Number:
+        '''The value for the rule priority.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-ruleorder
+        '''
+        result = self._values.get("rule_order")
+        assert result is not None, "Required property 'rule_order' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def rule_status(self) -> typing.Optional[builtins.str]:
+        '''The status of the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulestatus
+        '''
+        result = self._values.get("rule_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs associated with the V2 automation rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutomationRuleV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnConfigurationPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_policy": "configurationPolicy",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnConfigurationPolicyProps:
+    def __init__(
+        self,
+        *,
+        configuration_policy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationPolicy.PolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationPolicy``.
+
+        :param configuration_policy: An object that defines how AWS Security Hub is configured. It includes whether Security Hub is enabled or disabled, a list of enabled security standards, a list of enabled or disabled security controls, and a list of custom parameter values for specified controls. If you provide a list of security controls that are enabled in the configuration policy, Security Hub disables all other controls (including newly released controls). If you provide a list of security controls that are disabled in the configuration policy, Security Hub enables all other controls (including newly released controls).
+        :param name: The name of the configuration policy. Alphanumeric characters and the following ASCII characters are permitted: ``-, ., !, *, /`` .
+        :param description: The description of the configuration policy.
+        :param tags: User-defined tags associated with a configuration policy. For more information, see `Tagging AWS Security Hub resources <https://docs.aws.amazon.com/securityhub/latest/userguide/tagging-resources.html>`_ in the *Security Hub user guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_configuration_policy_props = securityhub.CfnConfigurationPolicyProps(
+                configuration_policy=securityhub.CfnConfigurationPolicy.PolicyProperty(
+                    security_hub=securityhub.CfnConfigurationPolicy.SecurityHubPolicyProperty(
+                        enabled_standard_identifiers=["enabledStandardIdentifiers"],
+                        security_controls_configuration=securityhub.CfnConfigurationPolicy.SecurityControlsConfigurationProperty(
+                            disabled_security_control_identifiers=["disabledSecurityControlIdentifiers"],
+                            enabled_security_control_identifiers=["enabledSecurityControlIdentifiers"],
+                            security_control_custom_parameters=[securityhub.CfnConfigurationPolicy.SecurityControlCustomParameterProperty(
+                                parameters={
+                                    "parameters_key": securityhub.CfnConfigurationPolicy.ParameterConfigurationProperty(
+                                        value_type="valueType",
+            
+                                        # the properties below are optional
+                                        value=securityhub.CfnConfigurationPolicy.ParameterValueProperty(
+                                            boolean=False,
+                                            double=123,
+                                            enum="enum",
+                                            enum_list=["enumList"],
+                                            integer=123,
+                                            integer_list=[123],
+                                            string="string",
+                                            string_list=["stringList"]
+                                        )
+                                    )
+                                },
+                                security_control_id="securityControlId"
+                            )]
+                        ),
+                        service_enabled=False
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9df36e470a5cb19a48e0918f07ba5c7fe4f2f6e13983d94bef33b262d3aa6d74)
+            check_type(argname="argument configuration_policy", value=configuration_policy, expected_type=type_hints["configuration_policy"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_policy": configuration_policy,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration_policy(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConfigurationPolicy.PolicyProperty"]:
+        '''An object that defines how AWS Security Hub is configured.
+
+        It includes whether Security Hub is enabled or disabled, a list of enabled security standards, a list of enabled or disabled security controls, and a list of custom parameter values for specified controls. If you provide a list of security controls that are enabled in the configuration policy, Security Hub disables all other controls (including newly released controls). If you provide a list of security controls that are disabled in the configuration policy, Security Hub enables all other controls (including newly released controls).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-configurationpolicy
+        '''
+        result = self._values.get("configuration_policy")
+        assert result is not None, "Required property 'configuration_policy' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConfigurationPolicy.PolicyProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the configuration policy.
+
+        Alphanumeric characters and the following ASCII characters are permitted: ``-, ., !, *, /`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the configuration policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''User-defined tags associated with a configuration policy.
+
+        For more information, see `Tagging AWS Security Hub resources <https://docs.aws.amazon.com/securityhub/latest/userguide/tagging-resources.html>`_ in the *Security Hub user guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnDelegatedAdminProps",
+    jsii_struct_bases=[],
+    name_mapping={"admin_account_id": "adminAccountId"},
+)
+class CfnDelegatedAdminProps:
+    def __init__(self, *, admin_account_id: builtins.str) -> None:
+        '''Properties for defining a ``CfnDelegatedAdmin``.
+
+        :param admin_account_id: The AWS account identifier of the account to designate as the Security Hub administrator account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-delegatedadmin.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_delegated_admin_props = securityhub.CfnDelegatedAdminProps(
+                admin_account_id="adminAccountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bccd0acf2d461662eef1addff325ba8fe883439d680f7762ea393681a481c0ca)
+            check_type(argname="argument admin_account_id", value=admin_account_id, expected_type=type_hints["admin_account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "admin_account_id": admin_account_id,
+        }
+
+    @builtins.property
+    def admin_account_id(self) -> builtins.str:
+        '''The AWS account identifier of the account to designate as the Security Hub administrator account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-delegatedadmin.html#cfn-securityhub-delegatedadmin-adminaccountid
+        '''
+        result = self._values.get("admin_account_id")
+        assert result is not None, "Required property 'admin_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDelegatedAdminProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnFindingAggregatorProps",
+    jsii_struct_bases=[],
+    name_mapping={"region_linking_mode": "regionLinkingMode", "regions": "regions"},
+)
+class CfnFindingAggregatorProps:
+    def __init__(
+        self,
+        *,
+        region_linking_mode: builtins.str,
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFindingAggregator``.
+
+        :param region_linking_mode: Indicates whether to aggregate findings from all of the available Regions in the current partition. Also determines whether to automatically aggregate findings from new Regions as Security Hub supports them and you opt into them. The selected option also determines how to use the Regions provided in the Regions list. In AWS CloudFormation , the options for this property are as follows: - ``ALL_REGIONS`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them. - ``ALL_REGIONS_EXCEPT_SPECIFIED`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled, except for the Regions listed in the ``Regions`` parameter. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them. - ``SPECIFIED_REGIONS`` - Indicates to aggregate findings only from the Regions listed in the ``Regions`` parameter. Security Hub does not automatically aggregate findings from new Regions.
+        :param regions: If ``RegionLinkingMode`` is ``ALL_REGIONS_EXCEPT_SPECIFIED`` , then this is a space-separated list of Regions that do not aggregate findings to the aggregation Region. If ``RegionLinkingMode`` is ``SPECIFIED_REGIONS`` , then this is a space-separated list of Regions that do aggregate findings to the aggregation Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_finding_aggregator_props = securityhub.CfnFindingAggregatorProps(
+                region_linking_mode="regionLinkingMode",
+            
+                # the properties below are optional
+                regions=["regions"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da8ea981397b9b6c6a280597905a46066379d6756790684f43ea4354282836a9)
+            check_type(argname="argument region_linking_mode", value=region_linking_mode, expected_type=type_hints["region_linking_mode"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "region_linking_mode": region_linking_mode,
+        }
+        if regions is not None:
+            self._values["regions"] = regions
+
+    @builtins.property
+    def region_linking_mode(self) -> builtins.str:
+        '''Indicates whether to aggregate findings from all of the available Regions in the current partition.
+
+        Also determines whether to automatically aggregate findings from new Regions as Security Hub supports them and you opt into them.
+
+        The selected option also determines how to use the Regions provided in the Regions list.
+
+        In AWS CloudFormation , the options for this property are as follows:
+
+        - ``ALL_REGIONS`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them.
+        - ``ALL_REGIONS_EXCEPT_SPECIFIED`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled, except for the Regions listed in the ``Regions`` parameter. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them.
+        - ``SPECIFIED_REGIONS`` - Indicates to aggregate findings only from the Regions listed in the ``Regions`` parameter. Security Hub does not automatically aggregate findings from new Regions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html#cfn-securityhub-findingaggregator-regionlinkingmode
+        '''
+        result = self._values.get("region_linking_mode")
+        assert result is not None, "Required property 'region_linking_mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''If ``RegionLinkingMode`` is ``ALL_REGIONS_EXCEPT_SPECIFIED`` , then this is a space-separated list of Regions that do not aggregate findings to the aggregation Region.
+
+        If ``RegionLinkingMode`` is ``SPECIFIED_REGIONS`` , then this is a space-separated list of Regions that do aggregate findings to the aggregation Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html#cfn-securityhub-findingaggregator-regions
+        '''
+        result = self._values.get("regions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFindingAggregatorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auto_enable_controls": "autoEnableControls",
+        "control_finding_generator": "controlFindingGenerator",
+        "enable_default_standards": "enableDefaultStandards",
+        "tags": "tags",
+    },
+)
+class CfnHubProps:
+    def __init__(
+        self,
+        *,
+        auto_enable_controls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        control_finding_generator: typing.Optional[builtins.str] = None,
+        enable_default_standards: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHub``.
+
+        :param auto_enable_controls: Whether to automatically enable new controls when they are added to standards that are enabled. By default, this is set to ``true`` , and new controls are enabled automatically. To not automatically enable new controls, set this to ``false`` . When you automatically enable new controls, you can interact with the controls in the console and programmatically immediately after release. However, automatically enabled controls have a temporary default status of ``DISABLED`` . It can take up to several days for Security Hub to process the control release and designate the control as ``ENABLED`` in your account. During the processing period, you can manually enable or disable a control, and Security Hub will maintain that designation regardless of whether you have ``AutoEnableControls`` set to ``true`` .
+        :param control_finding_generator: Specifies whether an account has consolidated control findings turned on or off. If the value for this field is set to ``SECURITY_CONTROL`` , Security Hub generates a single finding for a control check even when the check applies to multiple enabled standards. If the value for this field is set to ``STANDARD_CONTROL`` , Security Hub generates separate findings for a control check when the check applies to multiple enabled standards. The value for this field in a member account matches the value in the administrator account. For accounts that aren't part of an organization, the default value of this field is ``SECURITY_CONTROL`` if you enabled Security Hub on or after February 23, 2023.
+        :param enable_default_standards: Whether to enable the security standards that Security Hub has designated as automatically enabled. If you don't provide a value for ``EnableDefaultStandards`` , it is set to ``true`` , and the designated standards are automatically enabled in each AWS Region where you enable Security Hub . If you don't want to enable the designated standards, set ``EnableDefaultStandards`` to ``false`` . Currently, the automatically enabled standards are the Center for Internet Security (CIS) AWS Foundations Benchmark v1.2.0 and AWS Foundational Security Best Practices (FSBP).
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            # tags: Any
+            
+            cfn_hub_props = securityhub.CfnHubProps(
+                auto_enable_controls=False,
+                control_finding_generator="controlFindingGenerator",
+                enable_default_standards=False,
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a38c34c1f2742403521eb4af2098475d7afb878d3f9aba37048ae543b43e29c)
+            check_type(argname="argument auto_enable_controls", value=auto_enable_controls, expected_type=type_hints["auto_enable_controls"])
+            check_type(argname="argument control_finding_generator", value=control_finding_generator, expected_type=type_hints["control_finding_generator"])
+            check_type(argname="argument enable_default_standards", value=enable_default_standards, expected_type=type_hints["enable_default_standards"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auto_enable_controls is not None:
+            self._values["auto_enable_controls"] = auto_enable_controls
+        if control_finding_generator is not None:
+            self._values["control_finding_generator"] = control_finding_generator
+        if enable_default_standards is not None:
+            self._values["enable_default_standards"] = enable_default_standards
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def auto_enable_controls(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to automatically enable new controls when they are added to standards that are enabled.
+
+        By default, this is set to ``true`` , and new controls are enabled automatically. To not automatically enable new controls, set this to ``false`` .
+
+        When you automatically enable new controls, you can interact with the controls in the console and programmatically immediately after release. However, automatically enabled controls have a temporary default status of ``DISABLED`` . It can take up to several days for Security Hub to process the control release and designate the control as ``ENABLED`` in your account. During the processing period, you can manually enable or disable a control, and Security Hub will maintain that designation regardless of whether you have ``AutoEnableControls`` set to ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-autoenablecontrols
+        '''
+        result = self._values.get("auto_enable_controls")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def control_finding_generator(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether an account has consolidated control findings turned on or off.
+
+        If the value for this field is set to ``SECURITY_CONTROL`` , Security Hub generates a single finding for a control check even when the check applies to multiple enabled standards.
+
+        If the value for this field is set to ``STANDARD_CONTROL`` , Security Hub generates separate findings for a control check when the check applies to multiple enabled standards.
+
+        The value for this field in a member account matches the value in the administrator account. For accounts that aren't part of an organization, the default value of this field is ``SECURITY_CONTROL`` if you enabled Security Hub on or after February 23, 2023.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-controlfindinggenerator
+        '''
+        result = self._values.get("control_finding_generator")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_default_standards(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to enable the security standards that Security Hub has designated as automatically enabled.
+
+        If you don't provide a value for ``EnableDefaultStandards`` , it is set to ``true`` , and the designated standards are automatically enabled in each AWS Region where you enable Security Hub . If you don't want to enable the designated standards, set ``EnableDefaultStandards`` to ``false`` .
+
+        Currently, the automatically enabled standards are the Center for Internet Security (CIS) AWS Foundations Benchmark v1.2.0 and AWS Foundational Security Best Practices (FSBP).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-enabledefaultstandards
+        '''
+        result = self._values.get("enable_default_standards")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHubProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2Props",
+    jsii_struct_bases=[],
+    name_mapping={"tags": "tags"},
+)
+class CfnHubV2Props:
+    def __init__(
+        self,
+        *,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnHubV2``.
+
+        :param tags: The tags to add to the hub V2 resource when you enable Security Hub.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_hub_v2_props = securityhub.CfnHubV2Props(
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to add to the hub V2 resource when you enable Security Hub.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html#cfn-securityhub-hubv2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnHubV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnInsightProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "filters": "filters",
+        "group_by_attribute": "groupByAttribute",
+        "name": "name",
+    },
+)
+class CfnInsightProps:
+    def __init__(
+        self,
+        *,
+        filters: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInsight.AwsSecurityFindingFiltersProperty", typing.Dict[builtins.str, typing.Any]]],
+        group_by_attribute: builtins.str,
+        name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnInsight``.
+
+        :param filters: One or more attributes used to filter the findings included in the insight. The insight only includes findings that match the criteria defined in the filters. You can filter by up to ten finding attributes. For each attribute, you can provide up to 20 filter values.
+        :param group_by_attribute: The grouping attribute for the insight's findings. Indicates how to group the matching findings, and identifies the type of item that the insight applies to. For example, if an insight is grouped by resource identifier, then the insight produces a list of resource identifiers.
+        :param name: The name of a Security Hub insight.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_insight_props = securityhub.CfnInsightProps(
+                filters=securityhub.CfnInsight.AwsSecurityFindingFiltersProperty(
+                    aws_account_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    aws_account_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    company_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_associated_standards_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_security_control_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_security_control_parameters_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_security_control_parameters_value=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    compliance_status=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    confidence=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    created_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    criticality=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    description=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_provider_fields_confidence=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    finding_provider_fields_criticality=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    finding_provider_fields_related_findings_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_provider_fields_related_findings_product_arn=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_provider_fields_severity_label=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_provider_fields_severity_original=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_provider_fields_types=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    first_observed_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    generator_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    keyword=[securityhub.CfnInsight.KeywordFilterProperty(
+                        value="value"
+                    )],
+                    last_observed_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    malware_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    malware_path=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    malware_state=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    malware_type=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_destination_domain=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_destination_ip_v4=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    network_destination_ip_v6=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    network_destination_port=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    network_direction=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_protocol=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_source_domain=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_source_ip_v4=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    network_source_ip_v6=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    network_source_mac=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    network_source_port=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    note_text=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    note_updated_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    note_updated_by=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    process_launched_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    process_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    process_parent_pid=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    process_path=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    process_pid=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    process_terminated_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    product_arn=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    product_fields=[securityhub.CfnInsight.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    product_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    recommendation_text=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    record_state=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    region=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    related_findings_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    related_findings_product_arn=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_application_arn=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_application_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_iam_instance_profile_arn=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_image_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_ip_v4_addresses=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    resource_aws_ec2_instance_ip_v6_addresses=[securityhub.CfnInsight.IpFilterProperty(
+                        cidr="cidr"
+                    )],
+                    resource_aws_ec2_instance_key_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_launched_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    resource_aws_ec2_instance_subnet_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_type=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_ec2_instance_vpc_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_iam_access_key_created_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    resource_aws_iam_access_key_principal_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_iam_access_key_status=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_iam_access_key_user_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_iam_user_user_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_s3_bucket_owner_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_aws_s3_bucket_owner_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_container_image_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_container_image_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_container_launched_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    resource_container_name=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_details_other=[securityhub.CfnInsight.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    resource_id=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_partition=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_region=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_tags=[securityhub.CfnInsight.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    resource_type=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    sample=[securityhub.CfnInsight.BooleanFilterProperty(
+                        value=False
+                    )],
+                    severity_label=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    severity_normalized=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    severity_product=[securityhub.CfnInsight.NumberFilterProperty(
+                        eq=123,
+                        gte=123,
+                        lte=123
+                    )],
+                    source_url=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    threat_intel_indicator_category=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    threat_intel_indicator_last_observed_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    threat_intel_indicator_source=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    threat_intel_indicator_source_url=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    threat_intel_indicator_type=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    threat_intel_indicator_value=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    title=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    type=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    updated_at=[securityhub.CfnInsight.DateFilterProperty(
+                        date_range=securityhub.CfnInsight.DateRangeProperty(
+                            unit="unit",
+                            value=123
+                        ),
+                        end="end",
+                        start="start"
+                    )],
+                    user_defined_fields=[securityhub.CfnInsight.MapFilterProperty(
+                        comparison="comparison",
+                        key="key",
+                        value="value"
+                    )],
+                    verification_state=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    vulnerabilities_exploit_available=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    vulnerabilities_fix_available=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    workflow_state=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    workflow_status=[securityhub.CfnInsight.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )]
+                ),
+                group_by_attribute="groupByAttribute",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__592cb12c63690d3f829ab7f245b3d227f77eaa3657e0fd4c8452bc7d2a8ed3f8)
+            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument group_by_attribute", value=group_by_attribute, expected_type=type_hints["group_by_attribute"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filters": filters,
+            "group_by_attribute": group_by_attribute,
+            "name": name,
+        }
+
+    @builtins.property
+    def filters(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnInsight.AwsSecurityFindingFiltersProperty"]:
+        '''One or more attributes used to filter the findings included in the insight.
+
+        The insight only includes findings that match the criteria defined in the filters. You can filter by up to ten finding attributes. For each attribute, you can provide up to 20 filter values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-filters
+        '''
+        result = self._values.get("filters")
+        assert result is not None, "Required property 'filters' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInsight.AwsSecurityFindingFiltersProperty"], result)
+
+    @builtins.property
+    def group_by_attribute(self) -> builtins.str:
+        '''The grouping attribute for the insight's findings.
+
+        Indicates how to group the matching findings, and identifies the type of item that the insight applies to. For example, if an insight is grouped by resource identifier, then the insight produces a list of resource identifiers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-groupbyattribute
+        '''
+        result = self._values.get("group_by_attribute")
+        assert result is not None, "Required property 'group_by_attribute' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of a Security Hub insight.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInsightProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnOrganizationConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auto_enable": "autoEnable",
+        "auto_enable_standards": "autoEnableStandards",
+        "configuration_type": "configurationType",
+    },
+)
+class CfnOrganizationConfigurationProps:
+    def __init__(
+        self,
+        *,
+        auto_enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        auto_enable_standards: typing.Optional[builtins.str] = None,
+        configuration_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOrganizationConfiguration``.
+
+        :param auto_enable: Whether to automatically enable Security Hub in new member accounts when they join the organization. If set to ``true`` , then Security Hub is automatically enabled in new accounts. If set to ``false`` , then Security Hub isn't enabled in new accounts automatically. The default value is ``false`` . If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``false`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which Security Hub is enabled and associate the policy with new organization accounts.
+        :param auto_enable_standards: Whether to automatically enable Security Hub `default standards <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-enable-disable.html>`_ in new member accounts when they join the organization. The default value of this parameter is equal to ``DEFAULT`` . If equal to ``DEFAULT`` , then Security Hub default standards are automatically enabled for new member accounts. If equal to ``NONE`` , then default standards are not automatically enabled for new member accounts. If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``NONE`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which specific security standards are enabled and associate the policy with new organization accounts.
+        :param configuration_type: Indicates whether the organization uses local or central configuration. If you use local configuration, the Security Hub delegated administrator can set ``AutoEnable`` to ``true`` and ``AutoEnableStandards`` to ``DEFAULT`` . This automatically enables Security Hub and default security standards in new organization accounts. These new account settings must be set separately in each AWS Region , and settings may be different in each Region. If you use central configuration, the delegated administrator can create configuration policies. Configuration policies can be used to configure Security Hub, security standards, and security controls in multiple accounts and Regions. If you want new organization accounts to use a specific configuration, you can create a configuration policy and associate it with the root or specific organizational units (OUs). New accounts will inherit the policy from the root or their assigned OU.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_organization_configuration_props = securityhub.CfnOrganizationConfigurationProps(
+                auto_enable=False,
+            
+                # the properties below are optional
+                auto_enable_standards="autoEnableStandards",
+                configuration_type="configurationType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ecf45ca90d45aaa80bedc86eb8694d0887c6098fd444f073808d0642111f565)
+            check_type(argname="argument auto_enable", value=auto_enable, expected_type=type_hints["auto_enable"])
+            check_type(argname="argument auto_enable_standards", value=auto_enable_standards, expected_type=type_hints["auto_enable_standards"])
+            check_type(argname="argument configuration_type", value=configuration_type, expected_type=type_hints["configuration_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auto_enable": auto_enable,
+        }
+        if auto_enable_standards is not None:
+            self._values["auto_enable_standards"] = auto_enable_standards
+        if configuration_type is not None:
+            self._values["configuration_type"] = configuration_type
+
+    @builtins.property
+    def auto_enable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Whether to automatically enable Security Hub in new member accounts when they join the organization.
+
+        If set to ``true`` , then Security Hub is automatically enabled in new accounts. If set to ``false`` , then Security Hub isn't enabled in new accounts automatically. The default value is ``false`` .
+
+        If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``false`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which Security Hub is enabled and associate the policy with new organization accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-autoenable
+        '''
+        result = self._values.get("auto_enable")
+        assert result is not None, "Required property 'auto_enable' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def auto_enable_standards(self) -> typing.Optional[builtins.str]:
+        '''Whether to automatically enable Security Hub `default standards <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-enable-disable.html>`_ in new member accounts when they join the organization.
+
+        The default value of this parameter is equal to ``DEFAULT`` .
+
+        If equal to ``DEFAULT`` , then Security Hub default standards are automatically enabled for new member accounts. If equal to ``NONE`` , then default standards are not automatically enabled for new member accounts.
+
+        If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``NONE`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which specific security standards are enabled and associate the policy with new organization accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-autoenablestandards
+        '''
+        result = self._values.get("auto_enable_standards")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def configuration_type(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the organization uses local or central configuration.
+
+        If you use local configuration, the Security Hub delegated administrator can set ``AutoEnable`` to ``true`` and ``AutoEnableStandards`` to ``DEFAULT`` . This automatically enables Security Hub and default security standards in new organization accounts. These new account settings must be set separately in each AWS Region , and settings may be different in each Region.
+
+        If you use central configuration, the delegated administrator can create configuration policies. Configuration policies can be used to configure Security Hub, security standards, and security controls in multiple accounts and Regions. If you want new organization accounts to use a specific configuration, you can create a configuration policy and associate it with the root or specific organizational units (OUs). New accounts will inherit the policy from the root or their assigned OU.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-configurationtype
+        '''
+        result = self._values.get("configuration_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOrganizationConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnPolicyAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_policy_id": "configurationPolicyId",
+        "target_id": "targetId",
+        "target_type": "targetType",
+    },
+)
+class CfnPolicyAssociationProps:
+    def __init__(
+        self,
+        *,
+        configuration_policy_id: builtins.str,
+        target_id: builtins.str,
+        target_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicyAssociation``.
+
+        :param configuration_policy_id: The universally unique identifier (UUID) of the configuration policy. A self-managed configuration has no UUID. The identifier of a self-managed configuration is ``SELF_MANAGED_SECURITY_HUB`` .
+        :param target_id: The identifier of the target account, organizational unit, or the root.
+        :param target_type: Specifies whether the target is an AWS account , organizational unit, or the root.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_policy_association_props = securityhub.CfnPolicyAssociationProps(
+                configuration_policy_id="configurationPolicyId",
+                target_id="targetId",
+                target_type="targetType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3aaebd41d827b42b51371d194682a0933ab2ac5e1a75e6cbbd1e269c3a37afc)
+            check_type(argname="argument configuration_policy_id", value=configuration_policy_id, expected_type=type_hints["configuration_policy_id"])
+            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
+            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_policy_id": configuration_policy_id,
+            "target_id": target_id,
+            "target_type": target_type,
+        }
+
+    @builtins.property
+    def configuration_policy_id(self) -> builtins.str:
+        '''The universally unique identifier (UUID) of the configuration policy.
+
+        A self-managed configuration has no UUID. The identifier of a self-managed configuration is ``SELF_MANAGED_SECURITY_HUB`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-configurationpolicyid
+        '''
+        result = self._values.get("configuration_policy_id")
+        assert result is not None, "Required property 'configuration_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_id(self) -> builtins.str:
+        '''The identifier of the target account, organizational unit, or the root.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-targetid
+        '''
+        result = self._values.get("target_id")
+        assert result is not None, "Required property 'target_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_type(self) -> builtins.str:
+        '''Specifies whether the target is an AWS account , organizational unit, or the root.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-targettype
+        '''
+        result = self._values.get("target_type")
+        assert result is not None, "Required property 'target_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnProductSubscriptionProps",
+    jsii_struct_bases=[],
+    name_mapping={"product_arn": "productArn"},
+)
+class CfnProductSubscriptionProps:
+    def __init__(self, *, product_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnProductSubscription``.
+
+        :param product_arn: The ARN of the product to enable the integration for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-productsubscription.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_product_subscription_props = securityhub.CfnProductSubscriptionProps(
+                product_arn="productArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1bfdbbfd3a598a5b02234a0dfd7a548ca422910244f63e8798ff35dfb927389)
+            check_type(argname="argument product_arn", value=product_arn, expected_type=type_hints["product_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "product_arn": product_arn,
+        }
+
+    @builtins.property
+    def product_arn(self) -> builtins.str:
+        '''The ARN of the product to enable the integration for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-productsubscription.html#cfn-securityhub-productsubscription-productarn
+        '''
+        result = self._values.get("product_arn")
+        assert result is not None, "Required property 'product_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProductSubscriptionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnSecurityControlProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "parameters": "parameters",
+        "last_update_reason": "lastUpdateReason",
+        "security_control_arn": "securityControlArn",
+        "security_control_id": "securityControlId",
+    },
+)
+class CfnSecurityControlProps:
+    def __init__(
+        self,
+        *,
+        parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityControl.ParameterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        last_update_reason: typing.Optional[builtins.str] = None,
+        security_control_arn: typing.Optional[builtins.str] = None,
+        security_control_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityControl``.
+
+        :param parameters: An object that identifies the name of a control parameter, its current value, and whether it has been customized.
+        :param last_update_reason: The most recent reason for updating the customizable properties of a security control. This differs from the ``UpdateReason`` field of the ```BatchUpdateStandardsControlAssociations`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_BatchUpdateStandardsControlAssociations.html>`_ API, which tracks the reason for updating the enablement status of a control. This field accepts alphanumeric characters in addition to white spaces, dashes, and underscores.
+        :param security_control_arn: The Amazon Resource Name (ARN) for a security control across standards, such as ``arn:aws:securityhub:eu-central-1:123456789012:security-control/S3.1`` . This parameter doesn't mention a specific standard.
+        :param security_control_id: The unique identifier of a security control across standards. Values for this field typically consist of an AWS service name and a number, such as APIGateway.3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_security_control_props = securityhub.CfnSecurityControlProps(
+                parameters={
+                    "parameters_key": securityhub.CfnSecurityControl.ParameterConfigurationProperty(
+                        value_type="valueType",
+            
+                        # the properties below are optional
+                        value=securityhub.CfnSecurityControl.ParameterValueProperty(
+                            boolean=False,
+                            double=123,
+                            enum="enum",
+                            enum_list=["enumList"],
+                            integer=123,
+                            integer_list=[123],
+                            string="string",
+                            string_list=["stringList"]
+                        )
+                    )
+                },
+            
+                # the properties below are optional
+                last_update_reason="lastUpdateReason",
+                security_control_arn="securityControlArn",
+                security_control_id="securityControlId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__592aeb56f2970a16d30327b0b500710f94ac9725954a4c60fb68c82fd900e348)
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument last_update_reason", value=last_update_reason, expected_type=type_hints["last_update_reason"])
+            check_type(argname="argument security_control_arn", value=security_control_arn, expected_type=type_hints["security_control_arn"])
+            check_type(argname="argument security_control_id", value=security_control_id, expected_type=type_hints["security_control_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameters": parameters,
+        }
+        if last_update_reason is not None:
+            self._values["last_update_reason"] = last_update_reason
+        if security_control_arn is not None:
+            self._values["security_control_arn"] = security_control_arn
+        if security_control_id is not None:
+            self._values["security_control_id"] = security_control_id
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSecurityControl.ParameterConfigurationProperty"]]]:
+        '''An object that identifies the name of a control parameter, its current value, and whether it has been customized.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-parameters
+        '''
+        result = self._values.get("parameters")
+        assert result is not None, "Required property 'parameters' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSecurityControl.ParameterConfigurationProperty"]]], result)
+
+    @builtins.property
+    def last_update_reason(self) -> typing.Optional[builtins.str]:
+        '''The most recent reason for updating the customizable properties of a security control.
+
+        This differs from the ``UpdateReason`` field of the ```BatchUpdateStandardsControlAssociations`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_BatchUpdateStandardsControlAssociations.html>`_ API, which tracks the reason for updating the enablement status of a control. This field accepts alphanumeric characters in addition to white spaces, dashes, and underscores.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-lastupdatereason
+        '''
+        result = self._values.get("last_update_reason")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_control_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) for a security control across standards, such as ``arn:aws:securityhub:eu-central-1:123456789012:security-control/S3.1`` . This parameter doesn't mention a specific standard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-securitycontrolarn
+        '''
+        result = self._values.get("security_control_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_control_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of a security control across standards.
+
+        Values for this field typically consist of an AWS service name and a number, such as APIGateway.3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-securitycontrolid
+        '''
+        result = self._values.get("security_control_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityControlProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnStandardProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "standards_arn": "standardsArn",
+        "disabled_standards_controls": "disabledStandardsControls",
+    },
+)
+class CfnStandardProps:
+    def __init__(
+        self,
+        *,
+        standards_arn: builtins.str,
+        disabled_standards_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStandard.StandardsControlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStandard``.
+
+        :param standards_arn: The ARN of the standard that you want to enable. To view a list of available Security Hub standards and their ARNs, use the ```DescribeStandards`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_DescribeStandards.html>`_ API operation.
+        :param disabled_standards_controls: Specifies which controls are to be disabled in a standard. *Maximum* : ``100``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_standard_props = securityhub.CfnStandardProps(
+                standards_arn="standardsArn",
+            
+                # the properties below are optional
+                disabled_standards_controls=[securityhub.CfnStandard.StandardsControlProperty(
+                    standards_control_arn="standardsControlArn",
+            
+                    # the properties below are optional
+                    reason="reason"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c125ac887ee3a111d19b82adf6b2639cf7fa812a424f7c788a920efcfdf1c39)
+            check_type(argname="argument standards_arn", value=standards_arn, expected_type=type_hints["standards_arn"])
+            check_type(argname="argument disabled_standards_controls", value=disabled_standards_controls, expected_type=type_hints["disabled_standards_controls"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "standards_arn": standards_arn,
+        }
+        if disabled_standards_controls is not None:
+            self._values["disabled_standards_controls"] = disabled_standards_controls
+
+    @builtins.property
+    def standards_arn(self) -> builtins.str:
+        '''The ARN of the standard that you want to enable.
+
+        To view a list of available Security Hub standards and their ARNs, use the ```DescribeStandards`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_DescribeStandards.html>`_ API operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html#cfn-securityhub-standard-standardsarn
+        '''
+        result = self._values.get("standards_arn")
+        assert result is not None, "Required property 'standards_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def disabled_standards_controls(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStandard.StandardsControlProperty"]]]]:
+        '''Specifies which controls are to be disabled in a standard.
+
+        *Maximum* : ``100``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html#cfn-securityhub-standard-disabledstandardscontrols
+        '''
+        result = self._values.get("disabled_standards_controls")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStandard.StandardsControlProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStandardProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.ConfigurationPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"configuration_policy_arn": "configurationPolicyArn"},
+)
+class ConfigurationPolicyReference:
+    def __init__(self, *, configuration_policy_arn: builtins.str) -> None:
+        '''A reference to a ConfigurationPolicy resource.
+
+        :param configuration_policy_arn: The Arn of the ConfigurationPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            configuration_policy_reference = securityhub.ConfigurationPolicyReference(
+                configuration_policy_arn="configurationPolicyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5927233f95959ab7ffbb7740a71693a497568a10ba46d122a410ae4ffa688a00)
+            check_type(argname="argument configuration_policy_arn", value=configuration_policy_arn, expected_type=type_hints["configuration_policy_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_policy_arn": configuration_policy_arn,
+        }
+
+    @builtins.property
+    def configuration_policy_arn(self) -> builtins.str:
+        '''The Arn of the ConfigurationPolicy resource.'''
+        result = self._values.get("configuration_policy_arn")
+        assert result is not None, "Required property 'configuration_policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.DelegatedAdminReference",
+    jsii_struct_bases=[],
+    name_mapping={"delegated_admin_identifier": "delegatedAdminIdentifier"},
+)
+class DelegatedAdminReference:
+    def __init__(self, *, delegated_admin_identifier: builtins.str) -> None:
+        '''A reference to a DelegatedAdmin resource.
+
+        :param delegated_admin_identifier: The DelegatedAdminIdentifier of the DelegatedAdmin resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            delegated_admin_reference = securityhub.DelegatedAdminReference(
+                delegated_admin_identifier="delegatedAdminIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9feed7ac7c8af40fa8bfee8f69776d680a9f5a5775bb3609e2232e240e487285)
+            check_type(argname="argument delegated_admin_identifier", value=delegated_admin_identifier, expected_type=type_hints["delegated_admin_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "delegated_admin_identifier": delegated_admin_identifier,
+        }
+
+    @builtins.property
+    def delegated_admin_identifier(self) -> builtins.str:
+        '''The DelegatedAdminIdentifier of the DelegatedAdmin resource.'''
+        result = self._values.get("delegated_admin_identifier")
+        assert result is not None, "Required property 'delegated_admin_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DelegatedAdminReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.FindingAggregatorReference",
+    jsii_struct_bases=[],
+    name_mapping={"finding_aggregator_arn": "findingAggregatorArn"},
+)
+class FindingAggregatorReference:
+    def __init__(self, *, finding_aggregator_arn: builtins.str) -> None:
+        '''A reference to a FindingAggregator resource.
+
+        :param finding_aggregator_arn: The FindingAggregatorArn of the FindingAggregator resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            finding_aggregator_reference = securityhub.FindingAggregatorReference(
+                finding_aggregator_arn="findingAggregatorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afc0ba006d9956c2be1350fcfdf9f33e96e85d609b8cda743bcf73bbcf990d56)
+            check_type(argname="argument finding_aggregator_arn", value=finding_aggregator_arn, expected_type=type_hints["finding_aggregator_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "finding_aggregator_arn": finding_aggregator_arn,
+        }
+
+    @builtins.property
+    def finding_aggregator_arn(self) -> builtins.str:
+        '''The FindingAggregatorArn of the FindingAggregator resource.'''
+        result = self._values.get("finding_aggregator_arn")
+        assert result is not None, "Required property 'finding_aggregator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FindingAggregatorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.HubReference",
+    jsii_struct_bases=[],
+    name_mapping={"hub_arn": "hubARN"},
+)
+class HubReference:
+    def __init__(self, *, hub_arn: builtins.str) -> None:
+        '''A reference to a Hub resource.
+
+        :param hub_arn: The ARN of the Hub resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            hub_reference = securityhub.HubReference(
+                hub_aRN="hubARN"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfec9154dfb1d8736f7f14d9e17af7d3934b3580e5ef39124462e8163672eaca)
+            check_type(argname="argument hub_arn", value=hub_arn, expected_type=type_hints["hub_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hub_arn": hub_arn,
+        }
+
+    @builtins.property
+    def hub_arn(self) -> builtins.str:
+        '''The ARN of the Hub resource.'''
+        result = self._values.get("hub_arn")
+        assert result is not None, "Required property 'hub_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HubReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.HubV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={"hub_v2_arn": "hubV2Arn"},
+)
+class HubV2Reference:
+    def __init__(self, *, hub_v2_arn: builtins.str) -> None:
+        '''A reference to a HubV2 resource.
+
+        :param hub_v2_arn: The HubV2Arn of the HubV2 resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            hub_v2_reference = securityhub.HubV2Reference(
+                hub_v2_arn="hubV2Arn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__960b16a21f973a0b916f1b71ec1a7c754ce44f4b3c481dddc74b870bc936d57b)
+            check_type(argname="argument hub_v2_arn", value=hub_v2_arn, expected_type=type_hints["hub_v2_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hub_v2_arn": hub_v2_arn,
+        }
+
+    @builtins.property
+    def hub_v2_arn(self) -> builtins.str:
+        '''The HubV2Arn of the HubV2 resource.'''
+        result = self._values.get("hub_v2_arn")
+        assert result is not None, "Required property 'hub_v2_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HubV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IAggregatorV2Ref")
+class IAggregatorV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AggregatorV2.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aggregatorV2Ref")
+    def aggregator_v2_ref(self) -> AggregatorV2Reference:
+        '''(experimental) A reference to a AggregatorV2 resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAggregatorV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AggregatorV2.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IAggregatorV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="aggregatorV2Ref")
+    def aggregator_v2_ref(self) -> AggregatorV2Reference:
+        '''(experimental) A reference to a AggregatorV2 resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AggregatorV2Reference, jsii.get(self, "aggregatorV2Ref"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAggregatorV2Ref).__jsii_proxy_class__ = lambda : _IAggregatorV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IAutomationRuleRef")
+class IAutomationRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AutomationRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleRef")
+    def automation_rule_ref(self) -> AutomationRuleReference:
+        '''(experimental) A reference to a AutomationRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAutomationRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomationRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IAutomationRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleRef")
+    def automation_rule_ref(self) -> AutomationRuleReference:
+        '''(experimental) A reference to a AutomationRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AutomationRuleReference, jsii.get(self, "automationRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAutomationRuleRef).__jsii_proxy_class__ = lambda : _IAutomationRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IAutomationRuleV2Ref")
+class IAutomationRuleV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AutomationRuleV2.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleV2Ref")
+    def automation_rule_v2_ref(self) -> AutomationRuleV2Reference:
+        '''(experimental) A reference to a AutomationRuleV2 resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAutomationRuleV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AutomationRuleV2.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IAutomationRuleV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleV2Ref")
+    def automation_rule_v2_ref(self) -> AutomationRuleV2Reference:
+        '''(experimental) A reference to a AutomationRuleV2 resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AutomationRuleV2Reference, jsii.get(self, "automationRuleV2Ref"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAutomationRuleV2Ref).__jsii_proxy_class__ = lambda : _IAutomationRuleV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IConfigurationPolicyRef")
+class IConfigurationPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationPolicyRef")
+    def configuration_policy_ref(self) -> ConfigurationPolicyReference:
+        '''(experimental) A reference to a ConfigurationPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IConfigurationPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationPolicyRef")
+    def configuration_policy_ref(self) -> ConfigurationPolicyReference:
+        '''(experimental) A reference to a ConfigurationPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationPolicyReference, jsii.get(self, "configurationPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationPolicyRef).__jsii_proxy_class__ = lambda : _IConfigurationPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IDelegatedAdminRef")
+class IDelegatedAdminRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DelegatedAdmin.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="delegatedAdminRef")
+    def delegated_admin_ref(self) -> DelegatedAdminReference:
+        '''(experimental) A reference to a DelegatedAdmin resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDelegatedAdminRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DelegatedAdmin.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IDelegatedAdminRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="delegatedAdminRef")
+    def delegated_admin_ref(self) -> DelegatedAdminReference:
+        '''(experimental) A reference to a DelegatedAdmin resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DelegatedAdminReference, jsii.get(self, "delegatedAdminRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDelegatedAdminRef).__jsii_proxy_class__ = lambda : _IDelegatedAdminRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IFindingAggregatorRef")
+class IFindingAggregatorRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FindingAggregator.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="findingAggregatorRef")
+    def finding_aggregator_ref(self) -> FindingAggregatorReference:
+        '''(experimental) A reference to a FindingAggregator resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFindingAggregatorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FindingAggregator.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IFindingAggregatorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="findingAggregatorRef")
+    def finding_aggregator_ref(self) -> FindingAggregatorReference:
+        '''(experimental) A reference to a FindingAggregator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FindingAggregatorReference, jsii.get(self, "findingAggregatorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFindingAggregatorRef).__jsii_proxy_class__ = lambda : _IFindingAggregatorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IHubRef")
+class IHubRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Hub.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hubRef")
+    def hub_ref(self) -> HubReference:
+        '''(experimental) A reference to a Hub resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHubRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Hub.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IHubRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="hubRef")
+    def hub_ref(self) -> HubReference:
+        '''(experimental) A reference to a Hub resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HubReference, jsii.get(self, "hubRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHubRef).__jsii_proxy_class__ = lambda : _IHubRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IHubV2Ref")
+class IHubV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a HubV2.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="hubV2Ref")
+    def hub_v2_ref(self) -> HubV2Reference:
+        '''(experimental) A reference to a HubV2 resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHubV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HubV2.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IHubV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="hubV2Ref")
+    def hub_v2_ref(self) -> HubV2Reference:
+        '''(experimental) A reference to a HubV2 resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(HubV2Reference, jsii.get(self, "hubV2Ref"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHubV2Ref).__jsii_proxy_class__ = lambda : _IHubV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IInsightRef")
+class IInsightRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Insight.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRef")
+    def insight_ref(self) -> "InsightReference":
+        '''(experimental) A reference to a Insight resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInsightRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Insight.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IInsightRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRef")
+    def insight_ref(self) -> "InsightReference":
+        '''(experimental) A reference to a Insight resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InsightReference", jsii.get(self, "insightRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInsightRef).__jsii_proxy_class__ = lambda : _IInsightRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IOrganizationConfigurationRef")
+class IOrganizationConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OrganizationConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="organizationConfigurationRef")
+    def organization_configuration_ref(self) -> "OrganizationConfigurationReference":
+        '''(experimental) A reference to a OrganizationConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOrganizationConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OrganizationConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IOrganizationConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="organizationConfigurationRef")
+    def organization_configuration_ref(self) -> "OrganizationConfigurationReference":
+        '''(experimental) A reference to a OrganizationConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OrganizationConfigurationReference", jsii.get(self, "organizationConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOrganizationConfigurationRef).__jsii_proxy_class__ = lambda : _IOrganizationConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IPolicyAssociationRef")
+class IPolicyAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyAssociationRef")
+    def policy_association_ref(self) -> "PolicyAssociationReference":
+        '''(experimental) A reference to a PolicyAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IPolicyAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyAssociationRef")
+    def policy_association_ref(self) -> "PolicyAssociationReference":
+        '''(experimental) A reference to a PolicyAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyAssociationReference", jsii.get(self, "policyAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyAssociationRef).__jsii_proxy_class__ = lambda : _IPolicyAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IProductSubscriptionRef")
+class IProductSubscriptionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ProductSubscription.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="productSubscriptionRef")
+    def product_subscription_ref(self) -> "ProductSubscriptionReference":
+        '''(experimental) A reference to a ProductSubscription resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProductSubscriptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ProductSubscription.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IProductSubscriptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="productSubscriptionRef")
+    def product_subscription_ref(self) -> "ProductSubscriptionReference":
+        '''(experimental) A reference to a ProductSubscription resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProductSubscriptionReference", jsii.get(self, "productSubscriptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProductSubscriptionRef).__jsii_proxy_class__ = lambda : _IProductSubscriptionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.ISecurityControlRef")
+class ISecurityControlRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityControl.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityControlRef")
+    def security_control_ref(self) -> "SecurityControlReference":
+        '''(experimental) A reference to a SecurityControl resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityControlRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityControl.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.ISecurityControlRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityControlRef")
+    def security_control_ref(self) -> "SecurityControlReference":
+        '''(experimental) A reference to a SecurityControl resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityControlReference", jsii.get(self, "securityControlRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityControlRef).__jsii_proxy_class__ = lambda : _ISecurityControlRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_securityhub.IStandardRef")
+class IStandardRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Standard.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="standardRef")
+    def standard_ref(self) -> "StandardReference":
+        '''(experimental) A reference to a Standard resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStandardRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Standard.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_securityhub.IStandardRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="standardRef")
+    def standard_ref(self) -> "StandardReference":
+        '''(experimental) A reference to a Standard resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StandardReference", jsii.get(self, "standardRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStandardRef).__jsii_proxy_class__ = lambda : _IStandardRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.InsightReference",
+    jsii_struct_bases=[],
+    name_mapping={"insight_arn": "insightArn"},
+)
+class InsightReference:
+    def __init__(self, *, insight_arn: builtins.str) -> None:
+        '''A reference to a Insight resource.
+
+        :param insight_arn: The InsightArn of the Insight resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            insight_reference = securityhub.InsightReference(
+                insight_arn="insightArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ff684b1f27d3f70e82c6f975bcf534f2dafb329dd2ef36057597e8ad8857597)
+            check_type(argname="argument insight_arn", value=insight_arn, expected_type=type_hints["insight_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "insight_arn": insight_arn,
+        }
+
+    @builtins.property
+    def insight_arn(self) -> builtins.str:
+        '''The InsightArn of the Insight resource.'''
+        result = self._values.get("insight_arn")
+        assert result is not None, "Required property 'insight_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InsightReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.OrganizationConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "organization_configuration_identifier": "organizationConfigurationIdentifier",
+    },
+)
+class OrganizationConfigurationReference:
+    def __init__(self, *, organization_configuration_identifier: builtins.str) -> None:
+        '''A reference to a OrganizationConfiguration resource.
+
+        :param organization_configuration_identifier: The OrganizationConfigurationIdentifier of the OrganizationConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            organization_configuration_reference = securityhub.OrganizationConfigurationReference(
+                organization_configuration_identifier="organizationConfigurationIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75df26814ddb13f63668715a67e7ec06bef39124ab8fd8ff2bf4f70f23c19ffc)
+            check_type(argname="argument organization_configuration_identifier", value=organization_configuration_identifier, expected_type=type_hints["organization_configuration_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "organization_configuration_identifier": organization_configuration_identifier,
+        }
+
+    @builtins.property
+    def organization_configuration_identifier(self) -> builtins.str:
+        '''The OrganizationConfigurationIdentifier of the OrganizationConfiguration resource.'''
+        result = self._values.get("organization_configuration_identifier")
+        assert result is not None, "Required property 'organization_configuration_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrganizationConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.PolicyAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"association_identifier": "associationIdentifier"},
+)
+class PolicyAssociationReference:
+    def __init__(self, *, association_identifier: builtins.str) -> None:
+        '''A reference to a PolicyAssociation resource.
+
+        :param association_identifier: The AssociationIdentifier of the PolicyAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            policy_association_reference = securityhub.PolicyAssociationReference(
+                association_identifier="associationIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94e4694adda15f17fdea460a379d733302212c4b522478d85bdc914e43705a11)
+            check_type(argname="argument association_identifier", value=association_identifier, expected_type=type_hints["association_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "association_identifier": association_identifier,
+        }
+
+    @builtins.property
+    def association_identifier(self) -> builtins.str:
+        '''The AssociationIdentifier of the PolicyAssociation resource.'''
+        result = self._values.get("association_identifier")
+        assert result is not None, "Required property 'association_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.ProductSubscriptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"product_subscription_arn": "productSubscriptionArn"},
+)
+class ProductSubscriptionReference:
+    def __init__(self, *, product_subscription_arn: builtins.str) -> None:
+        '''A reference to a ProductSubscription resource.
+
+        :param product_subscription_arn: The ProductSubscriptionArn of the ProductSubscription resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            product_subscription_reference = securityhub.ProductSubscriptionReference(
+                product_subscription_arn="productSubscriptionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e954fb9fe57925456f352b6e4343d5fc3fa1be0bfb328b6d5fcf74daa8dc4649)
+            check_type(argname="argument product_subscription_arn", value=product_subscription_arn, expected_type=type_hints["product_subscription_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "product_subscription_arn": product_subscription_arn,
+        }
+
+    @builtins.property
+    def product_subscription_arn(self) -> builtins.str:
+        '''The ProductSubscriptionArn of the ProductSubscription resource.'''
+        result = self._values.get("product_subscription_arn")
+        assert result is not None, "Required property 'product_subscription_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProductSubscriptionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.SecurityControlReference",
+    jsii_struct_bases=[],
+    name_mapping={"security_control_id": "securityControlId"},
+)
+class SecurityControlReference:
+    def __init__(self, *, security_control_id: builtins.str) -> None:
+        '''A reference to a SecurityControl resource.
+
+        :param security_control_id: The SecurityControlId of the SecurityControl resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            security_control_reference = securityhub.SecurityControlReference(
+                security_control_id="securityControlId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e81e6da1f30e11b4e9019a5149fe23722620b214c4cf1b3d9d5fecc3fc9889d)
+            check_type(argname="argument security_control_id", value=security_control_id, expected_type=type_hints["security_control_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_control_id": security_control_id,
+        }
+
+    @builtins.property
+    def security_control_id(self) -> builtins.str:
+        '''The SecurityControlId of the SecurityControl resource.'''
+        result = self._values.get("security_control_id")
+        assert result is not None, "Required property 'security_control_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityControlReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.StandardReference",
+    jsii_struct_bases=[],
+    name_mapping={"standards_subscription_arn": "standardsSubscriptionArn"},
+)
+class StandardReference:
+    def __init__(self, *, standards_subscription_arn: builtins.str) -> None:
+        '''A reference to a Standard resource.
+
+        :param standards_subscription_arn: The StandardsSubscriptionArn of the Standard resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            standard_reference = securityhub.StandardReference(
+                standards_subscription_arn="standardsSubscriptionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16418bf4d837e72542d78d9c6079da018a13ef5b1bf3e85fa8d382e03b9d2df2)
+            check_type(argname="argument standards_subscription_arn", value=standards_subscription_arn, expected_type=type_hints["standards_subscription_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "standards_subscription_arn": standards_subscription_arn,
+        }
+
+    @builtins.property
+    def standards_subscription_arn(self) -> builtins.str:
+        '''The StandardsSubscriptionArn of the Standard resource.'''
+        result = self._values.get("standards_subscription_arn")
+        assert result is not None, "Required property 'standards_subscription_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StandardReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAggregatorV2Ref, _ITaggableV2_4e6798f8)
+class CfnAggregatorV2(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnAggregatorV2",
+):
+    '''Enables aggregation across AWS Regions .
+
+    This API is in private preview and subject to change.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-aggregatorv2.html
+    :cloudformationResource: AWS::SecurityHub::AggregatorV2
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityhub as securityhub
+        
+        cfn_aggregator_v2 = securityhub.CfnAggregatorV2(self, "MyCfnAggregatorV2",
+            linked_regions=["linkedRegions"],
+            region_linking_mode="regionLinkingMode",
+        
+            # the properties below are optional
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        linked_regions: typing.Sequence[builtins.str],
+        region_linking_mode: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param linked_regions: The list of Regions that are linked to the aggregation Region.
+        :param region_linking_mode: Determines how Regions are linked to an Aggregator V2.
+        :param tags: A list of key-value pairs to be applied to the AggregatorV2.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a48a2a082be753c7ff9a23ae8720fc6090537bc7754b3949c569c91cc2d97185)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAggregatorV2Props(
+            linked_regions=linked_regions,
+            region_linking_mode=region_linking_mode,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__faa540694e43a0e61feeb3f53848b1f6e9494b6ed7da21b25aac134881132c39)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6872b5e370c8e8f4d83602fa651c03fde81b36e7c5bc3b28fa097f66a87ee66)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aggregatorV2Ref")
+    def aggregator_v2_ref(self) -> AggregatorV2Reference:
+        '''A reference to a AggregatorV2 resource.'''
+        return typing.cast(AggregatorV2Reference, jsii.get(self, "aggregatorV2Ref"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAggregationRegion")
+    def attr_aggregation_region(self) -> builtins.str:
+        '''The AWS Region where data is aggregated.
+
+        :cloudformationAttribute: AggregationRegion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAggregationRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAggregatorV2Arn")
+    def attr_aggregator_v2_arn(self) -> builtins.str:
+        '''The ARN of the AggregatorV2.
+
+        :cloudformationAttribute: AggregatorV2Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAggregatorV2Arn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="linkedRegions")
+    def linked_regions(self) -> typing.List[builtins.str]:
+        '''The list of Regions that are linked to the aggregation Region.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "linkedRegions"))
+
+    @linked_regions.setter
+    def linked_regions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73719aabf2def1251bbcce62564af2561a7db568f2cc383d665c93c84e03855c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "linkedRegions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regionLinkingMode")
+    def region_linking_mode(self) -> builtins.str:
+        '''Determines how Regions are linked to an Aggregator V2.'''
+        return typing.cast(builtins.str, jsii.get(self, "regionLinkingMode"))
+
+    @region_linking_mode.setter
+    def region_linking_mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f12f6fa7491c9cf6429ed03592fa2e0b84dd1df61b65fe9caf3ffa327ed324f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionLinkingMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of key-value pairs to be applied to the AggregatorV2.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e47a206d80ca672182e6fba3a9c614bda1d391a22aa37078d5b442ce9858a656)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IAutomationRuleRef, _ITaggableV2_4e6798f8)
 class CfnAutomationRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -670,6 +4050,12 @@ class CfnAutomationRule(
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleRef")
+    def automation_rule_ref(self) -> AutomationRuleReference:
+        '''A reference to a AutomationRule resource.'''
+        return typing.cast(AutomationRuleReference, jsii.get(self, "automationRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -2763,387 +6149,7 @@ class CfnAutomationRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "criteria": "criteria",
-        "description": "description",
-        "rule_name": "ruleName",
-        "rule_order": "ruleOrder",
-        "is_terminal": "isTerminal",
-        "rule_status": "ruleStatus",
-        "tags": "tags",
-    },
-)
-class CfnAutomationRuleProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: builtins.str,
-        rule_name: builtins.str,
-        rule_order: jsii.Number,
-        is_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        rule_status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAutomationRule``.
-
-        :param actions: One or more actions to update finding fields if a finding matches the conditions specified in ``Criteria`` .
-        :param criteria: A set of `AWS Security Finding Format (ASFF) <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html>`_ finding field attributes and corresponding expected values that Security Hub uses to filter findings. If a rule is enabled and a finding matches the criteria specified in this parameter, Security Hub applies the rule action to the finding.
-        :param description: A description of the rule.
-        :param rule_name: The name of the rule.
-        :param rule_order: An integer ranging from 1 to 1000 that represents the order in which the rule action is applied to findings. Security Hub applies rules with lower values for this parameter first.
-        :param is_terminal: Specifies whether a rule is the last to be applied with respect to a finding that matches the rule criteria. This is useful when a finding matches the criteria for multiple rules, and each rule has different actions. If a rule is terminal, Security Hub applies the rule action to a finding that matches the rule criteria and doesn't evaluate other rules for the finding. By default, a rule isn't terminal.
-        :param rule_status: Whether the rule is active after it is created. If this parameter is equal to ``ENABLED`` , Security Hub applies the rule to findings and finding updates after the rule is created.
-        :param tags: User-defined tags associated with an automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_automation_rule_props = securityhub.CfnAutomationRuleProps(
-                actions=[securityhub.CfnAutomationRule.AutomationRulesActionProperty(
-                    finding_fields_update=securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
-                        confidence=123,
-                        criticality=123,
-                        note=securityhub.CfnAutomationRule.NoteUpdateProperty(
-                            text="text",
-                            updated_by="updatedBy"
-                        ),
-                        related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
-                            id="id",
-                            product_arn="productArn"
-                        )],
-                        severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
-                            label="label",
-                            normalized=123,
-                            product=123
-                        ),
-                        types=["types"],
-                        user_defined_fields={
-                            "user_defined_fields_key": "userDefinedFields"
-                        },
-                        verification_state="verificationState",
-                        workflow=securityhub.CfnAutomationRule.WorkflowUpdateProperty(
-                            status="status"
-                        )
-                    ),
-                    type="type"
-                )],
-                criteria=securityhub.CfnAutomationRule.AutomationRulesFindingFiltersProperty(
-                    aws_account_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    company_name=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_associated_standards_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_security_control_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_status=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    confidence=[securityhub.CfnAutomationRule.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    created_at=[securityhub.CfnAutomationRule.DateFilterProperty(
-                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    criticality=[securityhub.CfnAutomationRule.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    description=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    first_observed_at=[securityhub.CfnAutomationRule.DateFilterProperty(
-                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    generator_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    last_observed_at=[securityhub.CfnAutomationRule.DateFilterProperty(
-                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    note_text=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    note_updated_at=[securityhub.CfnAutomationRule.DateFilterProperty(
-                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    note_updated_by=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    product_arn=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    product_name=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    record_state=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    related_findings_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    related_findings_product_arn=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_details_other=[securityhub.CfnAutomationRule.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    resource_id=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_partition=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_region=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_tags=[securityhub.CfnAutomationRule.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    resource_type=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    severity_label=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    source_url=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    title=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    type=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    updated_at=[securityhub.CfnAutomationRule.DateFilterProperty(
-                        date_range=securityhub.CfnAutomationRule.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    user_defined_fields=[securityhub.CfnAutomationRule.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    verification_state=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    workflow_status=[securityhub.CfnAutomationRule.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )]
-                ),
-                description="description",
-                rule_name="ruleName",
-                rule_order=123,
-            
-                # the properties below are optional
-                is_terminal=False,
-                rule_status="ruleStatus",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__221241b44c93ea569fcf69aaaade0ce7cf31b7343bc3d072d74ccd16895d9a2d)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
-            check_type(argname="argument is_terminal", value=is_terminal, expected_type=type_hints["is_terminal"])
-            check_type(argname="argument rule_status", value=rule_status, expected_type=type_hints["rule_status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "criteria": criteria,
-            "description": description,
-            "rule_name": rule_name,
-            "rule_order": rule_order,
-        }
-        if is_terminal is not None:
-            self._values["is_terminal"] = is_terminal
-        if rule_status is not None:
-            self._values["rule_status"] = rule_status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def actions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRule.AutomationRulesActionProperty]]]:
-        '''One or more actions to update finding fields if a finding matches the conditions specified in ``Criteria`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRule.AutomationRulesActionProperty]]], result)
-
-    @builtins.property
-    def criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAutomationRule.AutomationRulesFindingFiltersProperty]:
-        '''A set of `AWS Security Finding Format (ASFF) <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html>`_ finding field attributes and corresponding expected values that Security Hub uses to filter findings. If a rule is enabled and a finding matches the criteria specified in this parameter, Security Hub applies the rule action to the finding.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-criteria
-        '''
-        result = self._values.get("criteria")
-        assert result is not None, "Required property 'criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAutomationRule.AutomationRulesFindingFiltersProperty], result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_name(self) -> builtins.str:
-        '''The name of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-rulename
-        '''
-        result = self._values.get("rule_name")
-        assert result is not None, "Required property 'rule_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_order(self) -> jsii.Number:
-        '''An integer ranging from 1 to 1000 that represents the order in which the rule action is applied to findings.
-
-        Security Hub applies rules with lower values for this parameter first.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-ruleorder
-        '''
-        result = self._values.get("rule_order")
-        assert result is not None, "Required property 'rule_order' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def is_terminal(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether a rule is the last to be applied with respect to a finding that matches the rule criteria.
-
-        This is useful when a finding matches the criteria for multiple rules, and each rule has different actions. If a rule is terminal, Security Hub applies the rule action to a finding that matches the rule criteria and doesn't evaluate other rules for the finding. By default, a rule isn't terminal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-isterminal
-        '''
-        result = self._values.get("is_terminal")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def rule_status(self) -> typing.Optional[builtins.str]:
-        '''Whether the rule is active after it is created.
-
-        If this parameter is equal to ``ENABLED`` , Security Hub applies the rule to findings and finding updates after the rule is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-rulestatus
-        '''
-        result = self._values.get("rule_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''User-defined tags associated with an automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrule.html#cfn-securityhub-automationrule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAutomationRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IAutomationRuleV2Ref, _ITaggableV2_4e6798f8)
 class CfnAutomationRuleV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3342,6 +6348,12 @@ class CfnAutomationRuleV2(
         :cloudformationAttribute: UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="automationRuleV2Ref")
+    def automation_rule_v2_ref(self) -> AutomationRuleV2Reference:
+        '''A reference to a AutomationRuleV2 resource.'''
+        return typing.cast(AutomationRuleV2Reference, jsii.get(self, "automationRuleV2Ref"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -5001,229 +8013,7 @@ class CfnAutomationRuleV2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnAutomationRuleV2Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "criteria": "criteria",
-        "description": "description",
-        "rule_name": "ruleName",
-        "rule_order": "ruleOrder",
-        "rule_status": "ruleStatus",
-        "tags": "tags",
-    },
-)
-class CfnAutomationRuleV2Props:
-    def __init__(
-        self,
-        *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
-        criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: builtins.str,
-        rule_name: builtins.str,
-        rule_order: jsii.Number,
-        rule_status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAutomationRuleV2``.
-
-        :param actions: A list of actions to be performed when the rule criteria is met.
-        :param criteria: The filtering type and configuration of the automation rule.
-        :param description: A description of the V2 automation rule.
-        :param rule_name: The name of the V2 automation rule.
-        :param rule_order: The value for the rule priority.
-        :param rule_status: The status of the V2 automation rule.
-        :param tags: A list of key-value pairs associated with the V2 automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_automation_rule_v2_props = securityhub.CfnAutomationRuleV2Props(
-                actions=[securityhub.CfnAutomationRuleV2.AutomationRulesActionV2Property(
-                    type="type",
-            
-                    # the properties below are optional
-                    external_integration_configuration=securityhub.CfnAutomationRuleV2.ExternalIntegrationConfigurationProperty(
-                        connector_arn="connectorArn"
-                    ),
-                    finding_fields_update=securityhub.CfnAutomationRuleV2.AutomationRulesFindingFieldsUpdateV2Property(
-                        comment="comment",
-                        severity_id=123,
-                        status_id=123
-                    )
-                )],
-                criteria=securityhub.CfnAutomationRuleV2.CriteriaProperty(
-                    ocsf_finding_criteria=securityhub.CfnAutomationRuleV2.OcsfFindingFiltersProperty(
-                        composite_filters=[securityhub.CfnAutomationRuleV2.CompositeFilterProperty(
-                            boolean_filters=[securityhub.CfnAutomationRuleV2.OcsfBooleanFilterProperty(
-                                field_name="fieldName",
-                                filter=securityhub.CfnAutomationRuleV2.BooleanFilterProperty(
-                                    value=False
-                                )
-                            )],
-                            date_filters=[securityhub.CfnAutomationRuleV2.OcsfDateFilterProperty(
-                                field_name="fieldName",
-                                filter=securityhub.CfnAutomationRuleV2.DateFilterProperty(
-                                    date_range=securityhub.CfnAutomationRuleV2.DateRangeProperty(
-                                        unit="unit",
-                                        value=123
-                                    ),
-                                    end="end",
-                                    start="start"
-                                )
-                            )],
-                            map_filters=[securityhub.CfnAutomationRuleV2.OcsfMapFilterProperty(
-                                field_name="fieldName",
-                                filter=securityhub.CfnAutomationRuleV2.MapFilterProperty(
-                                    comparison="comparison",
-                                    key="key",
-                                    value="value"
-                                )
-                            )],
-                            number_filters=[securityhub.CfnAutomationRuleV2.OcsfNumberFilterProperty(
-                                field_name="fieldName",
-                                filter=securityhub.CfnAutomationRuleV2.NumberFilterProperty(
-                                    eq=123,
-                                    gte=123,
-                                    lte=123
-                                )
-                            )],
-                            operator="operator",
-                            string_filters=[securityhub.CfnAutomationRuleV2.OcsfStringFilterProperty(
-                                field_name="fieldName",
-                                filter=securityhub.CfnAutomationRuleV2.StringFilterProperty(
-                                    comparison="comparison",
-                                    value="value"
-                                )
-                            )]
-                        )],
-                        composite_operator="compositeOperator"
-                    )
-                ),
-                description="description",
-                rule_name="ruleName",
-                rule_order=123,
-            
-                # the properties below are optional
-                rule_status="ruleStatus",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument criteria", value=criteria, expected_type=type_hints["criteria"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument rule_order", value=rule_order, expected_type=type_hints["rule_order"])
-            check_type(argname="argument rule_status", value=rule_status, expected_type=type_hints["rule_status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "criteria": criteria,
-            "description": description,
-            "rule_name": rule_name,
-            "rule_order": rule_order,
-        }
-        if rule_status is not None:
-            self._values["rule_status"] = rule_status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def actions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.AutomationRulesActionV2Property]]]:
-        '''A list of actions to be performed when the rule criteria is met.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.AutomationRulesActionV2Property]]], result)
-
-    @builtins.property
-    def criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.CriteriaProperty]:
-        '''The filtering type and configuration of the automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-criteria
-        '''
-        result = self._values.get("criteria")
-        assert result is not None, "Required property 'criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAutomationRuleV2.CriteriaProperty], result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description of the V2 automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_name(self) -> builtins.str:
-        '''The name of the V2 automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulename
-        '''
-        result = self._values.get("rule_name")
-        assert result is not None, "Required property 'rule_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_order(self) -> jsii.Number:
-        '''The value for the rule priority.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-ruleorder
-        '''
-        result = self._values.get("rule_order")
-        assert result is not None, "Required property 'rule_order' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def rule_status(self) -> typing.Optional[builtins.str]:
-        '''The status of the V2 automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-rulestatus
-        '''
-        result = self._values.get("rule_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A list of key-value pairs associated with the V2 automation rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-automationrulev2.html#cfn-securityhub-automationrulev2-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAutomationRuleV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IConfigurationPolicyRef, _ITaggableV2_4e6798f8)
 class CfnConfigurationPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5402,6 +8192,12 @@ class CfnConfigurationPolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationPolicyRef")
+    def configuration_policy_ref(self) -> ConfigurationPolicyReference:
+        '''A reference to a ConfigurationPolicy resource.'''
+        return typing.cast(ConfigurationPolicyReference, jsii.get(self, "configurationPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationPolicy")
@@ -6154,155 +8950,7 @@ class CfnConfigurationPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnConfigurationPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration_policy": "configurationPolicy",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnConfigurationPolicyProps:
-    def __init__(
-        self,
-        *,
-        configuration_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationPolicy.PolicyProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationPolicy``.
-
-        :param configuration_policy: An object that defines how AWS Security Hub is configured. It includes whether Security Hub is enabled or disabled, a list of enabled security standards, a list of enabled or disabled security controls, and a list of custom parameter values for specified controls. If you provide a list of security controls that are enabled in the configuration policy, Security Hub disables all other controls (including newly released controls). If you provide a list of security controls that are disabled in the configuration policy, Security Hub enables all other controls (including newly released controls).
-        :param name: The name of the configuration policy. Alphanumeric characters and the following ASCII characters are permitted: ``-, ., !, *, /`` .
-        :param description: The description of the configuration policy.
-        :param tags: User-defined tags associated with a configuration policy. For more information, see `Tagging AWS Security Hub resources <https://docs.aws.amazon.com/securityhub/latest/userguide/tagging-resources.html>`_ in the *Security Hub user guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_configuration_policy_props = securityhub.CfnConfigurationPolicyProps(
-                configuration_policy=securityhub.CfnConfigurationPolicy.PolicyProperty(
-                    security_hub=securityhub.CfnConfigurationPolicy.SecurityHubPolicyProperty(
-                        enabled_standard_identifiers=["enabledStandardIdentifiers"],
-                        security_controls_configuration=securityhub.CfnConfigurationPolicy.SecurityControlsConfigurationProperty(
-                            disabled_security_control_identifiers=["disabledSecurityControlIdentifiers"],
-                            enabled_security_control_identifiers=["enabledSecurityControlIdentifiers"],
-                            security_control_custom_parameters=[securityhub.CfnConfigurationPolicy.SecurityControlCustomParameterProperty(
-                                parameters={
-                                    "parameters_key": securityhub.CfnConfigurationPolicy.ParameterConfigurationProperty(
-                                        value_type="valueType",
-            
-                                        # the properties below are optional
-                                        value=securityhub.CfnConfigurationPolicy.ParameterValueProperty(
-                                            boolean=False,
-                                            double=123,
-                                            enum="enum",
-                                            enum_list=["enumList"],
-                                            integer=123,
-                                            integer_list=[123],
-                                            string="string",
-                                            string_list=["stringList"]
-                                        )
-                                    )
-                                },
-                                security_control_id="securityControlId"
-                            )]
-                        ),
-                        service_enabled=False
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9df36e470a5cb19a48e0918f07ba5c7fe4f2f6e13983d94bef33b262d3aa6d74)
-            check_type(argname="argument configuration_policy", value=configuration_policy, expected_type=type_hints["configuration_policy"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration_policy": configuration_policy,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def configuration_policy(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConfigurationPolicy.PolicyProperty]:
-        '''An object that defines how AWS Security Hub is configured.
-
-        It includes whether Security Hub is enabled or disabled, a list of enabled security standards, a list of enabled or disabled security controls, and a list of custom parameter values for specified controls. If you provide a list of security controls that are enabled in the configuration policy, Security Hub disables all other controls (including newly released controls). If you provide a list of security controls that are disabled in the configuration policy, Security Hub enables all other controls (including newly released controls).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-configurationpolicy
-        '''
-        result = self._values.get("configuration_policy")
-        assert result is not None, "Required property 'configuration_policy' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConfigurationPolicy.PolicyProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the configuration policy.
-
-        Alphanumeric characters and the following ASCII characters are permitted: ``-, ., !, *, /`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the configuration policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''User-defined tags associated with a configuration policy.
-
-        For more information, see `Tagging AWS Security Hub resources <https://docs.aws.amazon.com/securityhub/latest/userguide/tagging-resources.html>`_ in the *Security Hub user guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-configurationpolicy.html#cfn-securityhub-configurationpolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IDelegatedAdminRef)
 class CfnDelegatedAdmin(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6407,6 +9055,12 @@ class CfnDelegatedAdmin(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="delegatedAdminRef")
+    def delegated_admin_ref(self) -> DelegatedAdminReference:
+        '''A reference to a DelegatedAdmin resource.'''
+        return typing.cast(DelegatedAdminReference, jsii.get(self, "delegatedAdminRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="adminAccountId")
     def admin_account_id(self) -> builtins.str:
         '''The AWS account identifier of the account to designate as the Security Hub administrator account.'''
@@ -6420,60 +9074,7 @@ class CfnDelegatedAdmin(
         jsii.set(self, "adminAccountId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnDelegatedAdminProps",
-    jsii_struct_bases=[],
-    name_mapping={"admin_account_id": "adminAccountId"},
-)
-class CfnDelegatedAdminProps:
-    def __init__(self, *, admin_account_id: builtins.str) -> None:
-        '''Properties for defining a ``CfnDelegatedAdmin``.
-
-        :param admin_account_id: The AWS account identifier of the account to designate as the Security Hub administrator account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-delegatedadmin.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_delegated_admin_props = securityhub.CfnDelegatedAdminProps(
-                admin_account_id="adminAccountId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bccd0acf2d461662eef1addff325ba8fe883439d680f7762ea393681a481c0ca)
-            check_type(argname="argument admin_account_id", value=admin_account_id, expected_type=type_hints["admin_account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "admin_account_id": admin_account_id,
-        }
-
-    @builtins.property
-    def admin_account_id(self) -> builtins.str:
-        '''The AWS account identifier of the account to designate as the Security Hub administrator account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-delegatedadmin.html#cfn-securityhub-delegatedadmin-adminaccountid
-        '''
-        result = self._values.get("admin_account_id")
-        assert result is not None, "Required property 'admin_account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDelegatedAdminProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFindingAggregatorRef)
 class CfnFindingAggregator(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6587,6 +9188,12 @@ class CfnFindingAggregator(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="findingAggregatorRef")
+    def finding_aggregator_ref(self) -> FindingAggregatorReference:
+        '''A reference to a FindingAggregator resource.'''
+        return typing.cast(FindingAggregatorReference, jsii.get(self, "findingAggregatorRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="regionLinkingMode")
     def region_linking_mode(self) -> builtins.str:
         '''Indicates whether to aggregate findings from all of the available Regions in the current partition.'''
@@ -6613,93 +9220,7 @@ class CfnFindingAggregator(
         jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnFindingAggregatorProps",
-    jsii_struct_bases=[],
-    name_mapping={"region_linking_mode": "regionLinkingMode", "regions": "regions"},
-)
-class CfnFindingAggregatorProps:
-    def __init__(
-        self,
-        *,
-        region_linking_mode: builtins.str,
-        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFindingAggregator``.
-
-        :param region_linking_mode: Indicates whether to aggregate findings from all of the available Regions in the current partition. Also determines whether to automatically aggregate findings from new Regions as Security Hub supports them and you opt into them. The selected option also determines how to use the Regions provided in the Regions list. In AWS CloudFormation , the options for this property are as follows: - ``ALL_REGIONS`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them. - ``ALL_REGIONS_EXCEPT_SPECIFIED`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled, except for the Regions listed in the ``Regions`` parameter. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them. - ``SPECIFIED_REGIONS`` - Indicates to aggregate findings only from the Regions listed in the ``Regions`` parameter. Security Hub does not automatically aggregate findings from new Regions.
-        :param regions: If ``RegionLinkingMode`` is ``ALL_REGIONS_EXCEPT_SPECIFIED`` , then this is a space-separated list of Regions that do not aggregate findings to the aggregation Region. If ``RegionLinkingMode`` is ``SPECIFIED_REGIONS`` , then this is a space-separated list of Regions that do aggregate findings to the aggregation Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_finding_aggregator_props = securityhub.CfnFindingAggregatorProps(
-                region_linking_mode="regionLinkingMode",
-            
-                # the properties below are optional
-                regions=["regions"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da8ea981397b9b6c6a280597905a46066379d6756790684f43ea4354282836a9)
-            check_type(argname="argument region_linking_mode", value=region_linking_mode, expected_type=type_hints["region_linking_mode"])
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "region_linking_mode": region_linking_mode,
-        }
-        if regions is not None:
-            self._values["regions"] = regions
-
-    @builtins.property
-    def region_linking_mode(self) -> builtins.str:
-        '''Indicates whether to aggregate findings from all of the available Regions in the current partition.
-
-        Also determines whether to automatically aggregate findings from new Regions as Security Hub supports them and you opt into them.
-
-        The selected option also determines how to use the Regions provided in the Regions list.
-
-        In AWS CloudFormation , the options for this property are as follows:
-
-        - ``ALL_REGIONS`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them.
-        - ``ALL_REGIONS_EXCEPT_SPECIFIED`` - Indicates to aggregate findings from all of the Regions where Security Hub is enabled, except for the Regions listed in the ``Regions`` parameter. When you choose this option, Security Hub also automatically aggregates findings from new Regions as Security Hub supports them and you opt into them.
-        - ``SPECIFIED_REGIONS`` - Indicates to aggregate findings only from the Regions listed in the ``Regions`` parameter. Security Hub does not automatically aggregate findings from new Regions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html#cfn-securityhub-findingaggregator-regionlinkingmode
-        '''
-        result = self._values.get("region_linking_mode")
-        assert result is not None, "Required property 'region_linking_mode' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''If ``RegionLinkingMode`` is ``ALL_REGIONS_EXCEPT_SPECIFIED`` , then this is a space-separated list of Regions that do not aggregate findings to the aggregation Region.
-
-        If ``RegionLinkingMode`` is ``SPECIFIED_REGIONS`` , then this is a space-separated list of Regions that do aggregate findings to the aggregation Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-findingaggregator.html#cfn-securityhub-findingaggregator-regions
-        '''
-        result = self._values.get("regions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFindingAggregatorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IHubRef, _ITaggable_36806126)
 class CfnHub(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6820,6 +9341,12 @@ class CfnHub(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="hubRef")
+    def hub_ref(self) -> HubReference:
+        '''A reference to a Hub resource.'''
+        return typing.cast(HubReference, jsii.get(self, "hubRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -6888,135 +9415,7 @@ class CfnHub(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auto_enable_controls": "autoEnableControls",
-        "control_finding_generator": "controlFindingGenerator",
-        "enable_default_standards": "enableDefaultStandards",
-        "tags": "tags",
-    },
-)
-class CfnHubProps:
-    def __init__(
-        self,
-        *,
-        auto_enable_controls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        control_finding_generator: typing.Optional[builtins.str] = None,
-        enable_default_standards: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHub``.
-
-        :param auto_enable_controls: Whether to automatically enable new controls when they are added to standards that are enabled. By default, this is set to ``true`` , and new controls are enabled automatically. To not automatically enable new controls, set this to ``false`` . When you automatically enable new controls, you can interact with the controls in the console and programmatically immediately after release. However, automatically enabled controls have a temporary default status of ``DISABLED`` . It can take up to several days for Security Hub to process the control release and designate the control as ``ENABLED`` in your account. During the processing period, you can manually enable or disable a control, and Security Hub will maintain that designation regardless of whether you have ``AutoEnableControls`` set to ``true`` .
-        :param control_finding_generator: Specifies whether an account has consolidated control findings turned on or off. If the value for this field is set to ``SECURITY_CONTROL`` , Security Hub generates a single finding for a control check even when the check applies to multiple enabled standards. If the value for this field is set to ``STANDARD_CONTROL`` , Security Hub generates separate findings for a control check when the check applies to multiple enabled standards. The value for this field in a member account matches the value in the administrator account. For accounts that aren't part of an organization, the default value of this field is ``SECURITY_CONTROL`` if you enabled Security Hub on or after February 23, 2023.
-        :param enable_default_standards: Whether to enable the security standards that Security Hub has designated as automatically enabled. If you don't provide a value for ``EnableDefaultStandards`` , it is set to ``true`` , and the designated standards are automatically enabled in each AWS Region where you enable Security Hub . If you don't want to enable the designated standards, set ``EnableDefaultStandards`` to ``false`` . Currently, the automatically enabled standards are the Center for Internet Security (CIS) AWS Foundations Benchmark v1.2.0 and AWS Foundational Security Best Practices (FSBP).
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            # tags: Any
-            
-            cfn_hub_props = securityhub.CfnHubProps(
-                auto_enable_controls=False,
-                control_finding_generator="controlFindingGenerator",
-                enable_default_standards=False,
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a38c34c1f2742403521eb4af2098475d7afb878d3f9aba37048ae543b43e29c)
-            check_type(argname="argument auto_enable_controls", value=auto_enable_controls, expected_type=type_hints["auto_enable_controls"])
-            check_type(argname="argument control_finding_generator", value=control_finding_generator, expected_type=type_hints["control_finding_generator"])
-            check_type(argname="argument enable_default_standards", value=enable_default_standards, expected_type=type_hints["enable_default_standards"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if auto_enable_controls is not None:
-            self._values["auto_enable_controls"] = auto_enable_controls
-        if control_finding_generator is not None:
-            self._values["control_finding_generator"] = control_finding_generator
-        if enable_default_standards is not None:
-            self._values["enable_default_standards"] = enable_default_standards
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def auto_enable_controls(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to automatically enable new controls when they are added to standards that are enabled.
-
-        By default, this is set to ``true`` , and new controls are enabled automatically. To not automatically enable new controls, set this to ``false`` .
-
-        When you automatically enable new controls, you can interact with the controls in the console and programmatically immediately after release. However, automatically enabled controls have a temporary default status of ``DISABLED`` . It can take up to several days for Security Hub to process the control release and designate the control as ``ENABLED`` in your account. During the processing period, you can manually enable or disable a control, and Security Hub will maintain that designation regardless of whether you have ``AutoEnableControls`` set to ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-autoenablecontrols
-        '''
-        result = self._values.get("auto_enable_controls")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def control_finding_generator(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether an account has consolidated control findings turned on or off.
-
-        If the value for this field is set to ``SECURITY_CONTROL`` , Security Hub generates a single finding for a control check even when the check applies to multiple enabled standards.
-
-        If the value for this field is set to ``STANDARD_CONTROL`` , Security Hub generates separate findings for a control check when the check applies to multiple enabled standards.
-
-        The value for this field in a member account matches the value in the administrator account. For accounts that aren't part of an organization, the default value of this field is ``SECURITY_CONTROL`` if you enabled Security Hub on or after February 23, 2023.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-controlfindinggenerator
-        '''
-        result = self._values.get("control_finding_generator")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_default_standards(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to enable the security standards that Security Hub has designated as automatically enabled.
-
-        If you don't provide a value for ``EnableDefaultStandards`` , it is set to ``true`` , and the designated standards are automatically enabled in each AWS Region where you enable Security Hub . If you don't want to enable the designated standards, set ``EnableDefaultStandards`` to ``false`` .
-
-        Currently, the automatically enabled standards are the Center for Internet Security (CIS) AWS Foundations Benchmark v1.2.0 and AWS Foundational Security Best Practices (FSBP).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-enabledefaultstandards
-        '''
-        result = self._values.get("enable_default_standards")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hub.html#cfn-securityhub-hub-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHubProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IHubV2Ref, _ITaggableV2_4e6798f8)
 class CfnHubV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7123,6 +9522,12 @@ class CfnHubV2(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="hubV2Ref")
+    def hub_v2_ref(self) -> HubV2Reference:
+        '''A reference to a HubV2 resource.'''
+        return typing.cast(HubV2Reference, jsii.get(self, "hubV2Ref"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The tags to add to the hub V2 resource when you enable Security Hub.'''
@@ -7139,65 +9544,7 @@ class CfnHubV2(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnHubV2Props",
-    jsii_struct_bases=[],
-    name_mapping={"tags": "tags"},
-)
-class CfnHubV2Props:
-    def __init__(
-        self,
-        *,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnHubV2``.
-
-        :param tags: The tags to add to the hub V2 resource when you enable Security Hub.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_hub_v2_props = securityhub.CfnHubV2Props(
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344)
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to add to the hub V2 resource when you enable Security Hub.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-hubv2.html#cfn-securityhub-hubv2-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnHubV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInsightRef)
 class CfnInsight(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7762,6 +10109,12 @@ class CfnInsight(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="insightRef")
+    def insight_ref(self) -> InsightReference:
+        '''A reference to a Insight resource.'''
+        return typing.cast(InsightReference, jsii.get(self, "insightRef"))
 
     @builtins.property
     @jsii.member(jsii_name="filters")
@@ -10792,571 +13145,7 @@ class CfnInsight(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnInsightProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "filters": "filters",
-        "group_by_attribute": "groupByAttribute",
-        "name": "name",
-    },
-)
-class CfnInsightProps:
-    def __init__(
-        self,
-        *,
-        filters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInsight.AwsSecurityFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
-        group_by_attribute: builtins.str,
-        name: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnInsight``.
-
-        :param filters: One or more attributes used to filter the findings included in the insight. The insight only includes findings that match the criteria defined in the filters. You can filter by up to ten finding attributes. For each attribute, you can provide up to 20 filter values.
-        :param group_by_attribute: The grouping attribute for the insight's findings. Indicates how to group the matching findings, and identifies the type of item that the insight applies to. For example, if an insight is grouped by resource identifier, then the insight produces a list of resource identifiers.
-        :param name: The name of a Security Hub insight.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_insight_props = securityhub.CfnInsightProps(
-                filters=securityhub.CfnInsight.AwsSecurityFindingFiltersProperty(
-                    aws_account_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    aws_account_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    company_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_associated_standards_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_security_control_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_security_control_parameters_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_security_control_parameters_value=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    compliance_status=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    confidence=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    created_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    criticality=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    description=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_provider_fields_confidence=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    finding_provider_fields_criticality=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    finding_provider_fields_related_findings_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_provider_fields_related_findings_product_arn=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_provider_fields_severity_label=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_provider_fields_severity_original=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_provider_fields_types=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    first_observed_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    generator_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    keyword=[securityhub.CfnInsight.KeywordFilterProperty(
-                        value="value"
-                    )],
-                    last_observed_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    malware_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    malware_path=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    malware_state=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    malware_type=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_destination_domain=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_destination_ip_v4=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    network_destination_ip_v6=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    network_destination_port=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    network_direction=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_protocol=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_source_domain=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_source_ip_v4=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    network_source_ip_v6=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    network_source_mac=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    network_source_port=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    note_text=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    note_updated_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    note_updated_by=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    process_launched_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    process_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    process_parent_pid=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    process_path=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    process_pid=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    process_terminated_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    product_arn=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    product_fields=[securityhub.CfnInsight.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    product_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    recommendation_text=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    record_state=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    region=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    related_findings_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    related_findings_product_arn=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_application_arn=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_application_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_iam_instance_profile_arn=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_image_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_ip_v4_addresses=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    resource_aws_ec2_instance_ip_v6_addresses=[securityhub.CfnInsight.IpFilterProperty(
-                        cidr="cidr"
-                    )],
-                    resource_aws_ec2_instance_key_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_launched_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    resource_aws_ec2_instance_subnet_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_type=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_ec2_instance_vpc_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_iam_access_key_created_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    resource_aws_iam_access_key_principal_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_iam_access_key_status=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_iam_access_key_user_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_iam_user_user_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_s3_bucket_owner_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_aws_s3_bucket_owner_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_container_image_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_container_image_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_container_launched_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    resource_container_name=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_details_other=[securityhub.CfnInsight.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    resource_id=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_partition=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_region=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_tags=[securityhub.CfnInsight.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    resource_type=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    sample=[securityhub.CfnInsight.BooleanFilterProperty(
-                        value=False
-                    )],
-                    severity_label=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    severity_normalized=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    severity_product=[securityhub.CfnInsight.NumberFilterProperty(
-                        eq=123,
-                        gte=123,
-                        lte=123
-                    )],
-                    source_url=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    threat_intel_indicator_category=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    threat_intel_indicator_last_observed_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    threat_intel_indicator_source=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    threat_intel_indicator_source_url=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    threat_intel_indicator_type=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    threat_intel_indicator_value=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    title=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    type=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    updated_at=[securityhub.CfnInsight.DateFilterProperty(
-                        date_range=securityhub.CfnInsight.DateRangeProperty(
-                            unit="unit",
-                            value=123
-                        ),
-                        end="end",
-                        start="start"
-                    )],
-                    user_defined_fields=[securityhub.CfnInsight.MapFilterProperty(
-                        comparison="comparison",
-                        key="key",
-                        value="value"
-                    )],
-                    verification_state=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    vulnerabilities_exploit_available=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    vulnerabilities_fix_available=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    workflow_state=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    workflow_status=[securityhub.CfnInsight.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )]
-                ),
-                group_by_attribute="groupByAttribute",
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__592cb12c63690d3f829ab7f245b3d227f77eaa3657e0fd4c8452bc7d2a8ed3f8)
-            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
-            check_type(argname="argument group_by_attribute", value=group_by_attribute, expected_type=type_hints["group_by_attribute"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "filters": filters,
-            "group_by_attribute": group_by_attribute,
-            "name": name,
-        }
-
-    @builtins.property
-    def filters(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnInsight.AwsSecurityFindingFiltersProperty]:
-        '''One or more attributes used to filter the findings included in the insight.
-
-        The insight only includes findings that match the criteria defined in the filters. You can filter by up to ten finding attributes. For each attribute, you can provide up to 20 filter values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-filters
-        '''
-        result = self._values.get("filters")
-        assert result is not None, "Required property 'filters' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnInsight.AwsSecurityFindingFiltersProperty], result)
-
-    @builtins.property
-    def group_by_attribute(self) -> builtins.str:
-        '''The grouping attribute for the insight's findings.
-
-        Indicates how to group the matching findings, and identifies the type of item that the insight applies to. For example, if an insight is grouped by resource identifier, then the insight produces a list of resource identifiers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-groupbyattribute
-        '''
-        result = self._values.get("group_by_attribute")
-        assert result is not None, "Required property 'group_by_attribute' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of a Security Hub insight.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-insight.html#cfn-securityhub-insight-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInsightProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IOrganizationConfigurationRef)
 class CfnOrganizationConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11489,6 +13278,12 @@ class CfnOrganizationConfiguration(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="organizationConfigurationRef")
+    def organization_configuration_ref(self) -> OrganizationConfigurationReference:
+        '''A reference to a OrganizationConfiguration resource.'''
+        return typing.cast(OrganizationConfigurationReference, jsii.get(self, "organizationConfigurationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="autoEnable")
     def auto_enable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
         '''Whether to automatically enable Security Hub in new member accounts when they join the organization.'''
@@ -11531,114 +13326,7 @@ class CfnOrganizationConfiguration(
         jsii.set(self, "configurationType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnOrganizationConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auto_enable": "autoEnable",
-        "auto_enable_standards": "autoEnableStandards",
-        "configuration_type": "configurationType",
-    },
-)
-class CfnOrganizationConfigurationProps:
-    def __init__(
-        self,
-        *,
-        auto_enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        auto_enable_standards: typing.Optional[builtins.str] = None,
-        configuration_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOrganizationConfiguration``.
-
-        :param auto_enable: Whether to automatically enable Security Hub in new member accounts when they join the organization. If set to ``true`` , then Security Hub is automatically enabled in new accounts. If set to ``false`` , then Security Hub isn't enabled in new accounts automatically. The default value is ``false`` . If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``false`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which Security Hub is enabled and associate the policy with new organization accounts.
-        :param auto_enable_standards: Whether to automatically enable Security Hub `default standards <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-enable-disable.html>`_ in new member accounts when they join the organization. The default value of this parameter is equal to ``DEFAULT`` . If equal to ``DEFAULT`` , then Security Hub default standards are automatically enabled for new member accounts. If equal to ``NONE`` , then default standards are not automatically enabled for new member accounts. If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``NONE`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which specific security standards are enabled and associate the policy with new organization accounts.
-        :param configuration_type: Indicates whether the organization uses local or central configuration. If you use local configuration, the Security Hub delegated administrator can set ``AutoEnable`` to ``true`` and ``AutoEnableStandards`` to ``DEFAULT`` . This automatically enables Security Hub and default security standards in new organization accounts. These new account settings must be set separately in each AWS Region , and settings may be different in each Region. If you use central configuration, the delegated administrator can create configuration policies. Configuration policies can be used to configure Security Hub, security standards, and security controls in multiple accounts and Regions. If you want new organization accounts to use a specific configuration, you can create a configuration policy and associate it with the root or specific organizational units (OUs). New accounts will inherit the policy from the root or their assigned OU.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_organization_configuration_props = securityhub.CfnOrganizationConfigurationProps(
-                auto_enable=False,
-            
-                # the properties below are optional
-                auto_enable_standards="autoEnableStandards",
-                configuration_type="configurationType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ecf45ca90d45aaa80bedc86eb8694d0887c6098fd444f073808d0642111f565)
-            check_type(argname="argument auto_enable", value=auto_enable, expected_type=type_hints["auto_enable"])
-            check_type(argname="argument auto_enable_standards", value=auto_enable_standards, expected_type=type_hints["auto_enable_standards"])
-            check_type(argname="argument configuration_type", value=configuration_type, expected_type=type_hints["configuration_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auto_enable": auto_enable,
-        }
-        if auto_enable_standards is not None:
-            self._values["auto_enable_standards"] = auto_enable_standards
-        if configuration_type is not None:
-            self._values["configuration_type"] = configuration_type
-
-    @builtins.property
-    def auto_enable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Whether to automatically enable Security Hub in new member accounts when they join the organization.
-
-        If set to ``true`` , then Security Hub is automatically enabled in new accounts. If set to ``false`` , then Security Hub isn't enabled in new accounts automatically. The default value is ``false`` .
-
-        If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``false`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which Security Hub is enabled and associate the policy with new organization accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-autoenable
-        '''
-        result = self._values.get("auto_enable")
-        assert result is not None, "Required property 'auto_enable' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def auto_enable_standards(self) -> typing.Optional[builtins.str]:
-        '''Whether to automatically enable Security Hub `default standards <https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-enable-disable.html>`_ in new member accounts when they join the organization.
-
-        The default value of this parameter is equal to ``DEFAULT`` .
-
-        If equal to ``DEFAULT`` , then Security Hub default standards are automatically enabled for new member accounts. If equal to ``NONE`` , then default standards are not automatically enabled for new member accounts.
-
-        If the ``ConfigurationType`` of your organization is set to ``CENTRAL`` , then this field is set to ``NONE`` and can't be changed in the home Region and linked Regions. However, in that case, the delegated administrator can create a configuration policy in which specific security standards are enabled and associate the policy with new organization accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-autoenablestandards
-        '''
-        result = self._values.get("auto_enable_standards")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def configuration_type(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether the organization uses local or central configuration.
-
-        If you use local configuration, the Security Hub delegated administrator can set ``AutoEnable`` to ``true`` and ``AutoEnableStandards`` to ``DEFAULT`` . This automatically enables Security Hub and default security standards in new organization accounts. These new account settings must be set separately in each AWS Region , and settings may be different in each Region.
-
-        If you use central configuration, the delegated administrator can create configuration policies. Configuration policies can be used to configure Security Hub, security standards, and security controls in multiple accounts and Regions. If you want new organization accounts to use a specific configuration, you can create a configuration policy and associate it with the root or specific organizational units (OUs). New accounts will inherit the policy from the root or their assigned OU.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-organizationconfiguration.html#cfn-securityhub-organizationconfiguration-configurationtype
-        '''
-        result = self._values.get("configuration_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOrganizationConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPolicyAssociationRef)
 class CfnPolicyAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11776,6 +13464,12 @@ class CfnPolicyAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="policyAssociationRef")
+    def policy_association_ref(self) -> PolicyAssociationReference:
+        '''A reference to a PolicyAssociation resource.'''
+        return typing.cast(PolicyAssociationReference, jsii.get(self, "policyAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="configurationPolicyId")
     def configuration_policy_id(self) -> builtins.str:
         '''The universally unique identifier (UUID) of the configuration policy.'''
@@ -11815,100 +13509,7 @@ class CfnPolicyAssociation(
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnPolicyAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration_policy_id": "configurationPolicyId",
-        "target_id": "targetId",
-        "target_type": "targetType",
-    },
-)
-class CfnPolicyAssociationProps:
-    def __init__(
-        self,
-        *,
-        configuration_policy_id: builtins.str,
-        target_id: builtins.str,
-        target_type: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnPolicyAssociation``.
-
-        :param configuration_policy_id: The universally unique identifier (UUID) of the configuration policy. A self-managed configuration has no UUID. The identifier of a self-managed configuration is ``SELF_MANAGED_SECURITY_HUB`` .
-        :param target_id: The identifier of the target account, organizational unit, or the root.
-        :param target_type: Specifies whether the target is an AWS account , organizational unit, or the root.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_policy_association_props = securityhub.CfnPolicyAssociationProps(
-                configuration_policy_id="configurationPolicyId",
-                target_id="targetId",
-                target_type="targetType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3aaebd41d827b42b51371d194682a0933ab2ac5e1a75e6cbbd1e269c3a37afc)
-            check_type(argname="argument configuration_policy_id", value=configuration_policy_id, expected_type=type_hints["configuration_policy_id"])
-            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
-            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration_policy_id": configuration_policy_id,
-            "target_id": target_id,
-            "target_type": target_type,
-        }
-
-    @builtins.property
-    def configuration_policy_id(self) -> builtins.str:
-        '''The universally unique identifier (UUID) of the configuration policy.
-
-        A self-managed configuration has no UUID. The identifier of a self-managed configuration is ``SELF_MANAGED_SECURITY_HUB`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-configurationpolicyid
-        '''
-        result = self._values.get("configuration_policy_id")
-        assert result is not None, "Required property 'configuration_policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_id(self) -> builtins.str:
-        '''The identifier of the target account, organizational unit, or the root.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-targetid
-        '''
-        result = self._values.get("target_id")
-        assert result is not None, "Required property 'target_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_type(self) -> builtins.str:
-        '''Specifies whether the target is an AWS account , organizational unit, or the root.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-policyassociation.html#cfn-securityhub-policyassociation-targettype
-        '''
-        result = self._values.get("target_type")
-        assert result is not None, "Required property 'target_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPolicyAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IProductSubscriptionRef)
 class CfnProductSubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12002,6 +13603,12 @@ class CfnProductSubscription(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="productSubscriptionRef")
+    def product_subscription_ref(self) -> ProductSubscriptionReference:
+        '''A reference to a ProductSubscription resource.'''
+        return typing.cast(ProductSubscriptionReference, jsii.get(self, "productSubscriptionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="productArn")
     def product_arn(self) -> builtins.str:
         '''The ARN of the product to enable the integration for.'''
@@ -12015,60 +13622,7 @@ class CfnProductSubscription(
         jsii.set(self, "productArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnProductSubscriptionProps",
-    jsii_struct_bases=[],
-    name_mapping={"product_arn": "productArn"},
-)
-class CfnProductSubscriptionProps:
-    def __init__(self, *, product_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnProductSubscription``.
-
-        :param product_arn: The ARN of the product to enable the integration for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-productsubscription.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_product_subscription_props = securityhub.CfnProductSubscriptionProps(
-                product_arn="productArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1bfdbbfd3a598a5b02234a0dfd7a548ca422910244f63e8798ff35dfb927389)
-            check_type(argname="argument product_arn", value=product_arn, expected_type=type_hints["product_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "product_arn": product_arn,
-        }
-
-    @builtins.property
-    def product_arn(self) -> builtins.str:
-        '''The ARN of the product to enable the integration for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-productsubscription.html#cfn-securityhub-productsubscription-productarn
-        '''
-        result = self._values.get("product_arn")
-        assert result is not None, "Required property 'product_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProductSubscriptionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISecurityControlRef)
 class CfnSecurityControl(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12181,6 +13735,12 @@ class CfnSecurityControl(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="securityControlRef")
+    def security_control_ref(self) -> SecurityControlReference:
+        '''A reference to a SecurityControl resource.'''
+        return typing.cast(SecurityControlReference, jsii.get(self, "securityControlRef"))
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -12501,138 +14061,7 @@ class CfnSecurityControl(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnSecurityControlProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "parameters": "parameters",
-        "last_update_reason": "lastUpdateReason",
-        "security_control_arn": "securityControlArn",
-        "security_control_id": "securityControlId",
-    },
-)
-class CfnSecurityControlProps:
-    def __init__(
-        self,
-        *,
-        parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityControl.ParameterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        last_update_reason: typing.Optional[builtins.str] = None,
-        security_control_arn: typing.Optional[builtins.str] = None,
-        security_control_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityControl``.
-
-        :param parameters: An object that identifies the name of a control parameter, its current value, and whether it has been customized.
-        :param last_update_reason: The most recent reason for updating the customizable properties of a security control. This differs from the ``UpdateReason`` field of the ```BatchUpdateStandardsControlAssociations`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_BatchUpdateStandardsControlAssociations.html>`_ API, which tracks the reason for updating the enablement status of a control. This field accepts alphanumeric characters in addition to white spaces, dashes, and underscores.
-        :param security_control_arn: The Amazon Resource Name (ARN) for a security control across standards, such as ``arn:aws:securityhub:eu-central-1:123456789012:security-control/S3.1`` . This parameter doesn't mention a specific standard.
-        :param security_control_id: The unique identifier of a security control across standards. Values for this field typically consist of an AWS service name and a number, such as APIGateway.3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_security_control_props = securityhub.CfnSecurityControlProps(
-                parameters={
-                    "parameters_key": securityhub.CfnSecurityControl.ParameterConfigurationProperty(
-                        value_type="valueType",
-            
-                        # the properties below are optional
-                        value=securityhub.CfnSecurityControl.ParameterValueProperty(
-                            boolean=False,
-                            double=123,
-                            enum="enum",
-                            enum_list=["enumList"],
-                            integer=123,
-                            integer_list=[123],
-                            string="string",
-                            string_list=["stringList"]
-                        )
-                    )
-                },
-            
-                # the properties below are optional
-                last_update_reason="lastUpdateReason",
-                security_control_arn="securityControlArn",
-                security_control_id="securityControlId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__592aeb56f2970a16d30327b0b500710f94ac9725954a4c60fb68c82fd900e348)
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument last_update_reason", value=last_update_reason, expected_type=type_hints["last_update_reason"])
-            check_type(argname="argument security_control_arn", value=security_control_arn, expected_type=type_hints["security_control_arn"])
-            check_type(argname="argument security_control_id", value=security_control_id, expected_type=type_hints["security_control_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameters": parameters,
-        }
-        if last_update_reason is not None:
-            self._values["last_update_reason"] = last_update_reason
-        if security_control_arn is not None:
-            self._values["security_control_arn"] = security_control_arn
-        if security_control_id is not None:
-            self._values["security_control_id"] = security_control_id
-
-    @builtins.property
-    def parameters(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnSecurityControl.ParameterConfigurationProperty]]]:
-        '''An object that identifies the name of a control parameter, its current value, and whether it has been customized.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-parameters
-        '''
-        result = self._values.get("parameters")
-        assert result is not None, "Required property 'parameters' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnSecurityControl.ParameterConfigurationProperty]]], result)
-
-    @builtins.property
-    def last_update_reason(self) -> typing.Optional[builtins.str]:
-        '''The most recent reason for updating the customizable properties of a security control.
-
-        This differs from the ``UpdateReason`` field of the ```BatchUpdateStandardsControlAssociations`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_BatchUpdateStandardsControlAssociations.html>`_ API, which tracks the reason for updating the enablement status of a control. This field accepts alphanumeric characters in addition to white spaces, dashes, and underscores.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-lastupdatereason
-        '''
-        result = self._values.get("last_update_reason")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_control_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) for a security control across standards, such as ``arn:aws:securityhub:eu-central-1:123456789012:security-control/S3.1`` . This parameter doesn't mention a specific standard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-securitycontrolarn
-        '''
-        result = self._values.get("security_control_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_control_id(self) -> typing.Optional[builtins.str]:
-        '''The unique identifier of a security control across standards.
-
-        Values for this field typically consist of an AWS service name and a number, such as APIGateway.3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-securitycontrol.html#cfn-securityhub-securitycontrol-securitycontrolid
-        '''
-        result = self._values.get("security_control_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityControlProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IStandardRef)
 class CfnStandard(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12737,6 +14166,12 @@ class CfnStandard(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="standardRef")
+    def standard_ref(self) -> StandardReference:
+        '''A reference to a Standard resource.'''
+        return typing.cast(StandardReference, jsii.get(self, "standardRef"))
 
     @builtins.property
     @jsii.member(jsii_name="standardsArn")
@@ -12850,95 +14285,10 @@ class CfnStandard(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_securityhub.CfnStandardProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "standards_arn": "standardsArn",
-        "disabled_standards_controls": "disabledStandardsControls",
-    },
-)
-class CfnStandardProps:
-    def __init__(
-        self,
-        *,
-        standards_arn: builtins.str,
-        disabled_standards_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStandard.StandardsControlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStandard``.
-
-        :param standards_arn: The ARN of the standard that you want to enable. To view a list of available Security Hub standards and their ARNs, use the ```DescribeStandards`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_DescribeStandards.html>`_ API operation.
-        :param disabled_standards_controls: Specifies which controls are to be disabled in a standard. *Maximum* : ``100``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_securityhub as securityhub
-            
-            cfn_standard_props = securityhub.CfnStandardProps(
-                standards_arn="standardsArn",
-            
-                # the properties below are optional
-                disabled_standards_controls=[securityhub.CfnStandard.StandardsControlProperty(
-                    standards_control_arn="standardsControlArn",
-            
-                    # the properties below are optional
-                    reason="reason"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c125ac887ee3a111d19b82adf6b2639cf7fa812a424f7c788a920efcfdf1c39)
-            check_type(argname="argument standards_arn", value=standards_arn, expected_type=type_hints["standards_arn"])
-            check_type(argname="argument disabled_standards_controls", value=disabled_standards_controls, expected_type=type_hints["disabled_standards_controls"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "standards_arn": standards_arn,
-        }
-        if disabled_standards_controls is not None:
-            self._values["disabled_standards_controls"] = disabled_standards_controls
-
-    @builtins.property
-    def standards_arn(self) -> builtins.str:
-        '''The ARN of the standard that you want to enable.
-
-        To view a list of available Security Hub standards and their ARNs, use the ```DescribeStandards`` <https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_DescribeStandards.html>`_ API operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html#cfn-securityhub-standard-standardsarn
-        '''
-        result = self._values.get("standards_arn")
-        assert result is not None, "Required property 'standards_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def disabled_standards_controls(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStandard.StandardsControlProperty]]]]:
-        '''Specifies which controls are to be disabled in a standard.
-
-        *Maximum* : ``100``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-standard.html#cfn-securityhub-standard-disabledstandardscontrols
-        '''
-        result = self._values.get("disabled_standards_controls")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStandard.StandardsControlProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStandardProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AggregatorV2Reference",
+    "AutomationRuleReference",
+    "AutomationRuleV2Reference",
     "CfnAggregatorV2",
     "CfnAggregatorV2Props",
     "CfnAutomationRule",
@@ -12967,9 +14317,262 @@ __all__ = [
     "CfnSecurityControlProps",
     "CfnStandard",
     "CfnStandardProps",
+    "ConfigurationPolicyReference",
+    "DelegatedAdminReference",
+    "FindingAggregatorReference",
+    "HubReference",
+    "HubV2Reference",
+    "IAggregatorV2Ref",
+    "IAutomationRuleRef",
+    "IAutomationRuleV2Ref",
+    "IConfigurationPolicyRef",
+    "IDelegatedAdminRef",
+    "IFindingAggregatorRef",
+    "IHubRef",
+    "IHubV2Ref",
+    "IInsightRef",
+    "IOrganizationConfigurationRef",
+    "IPolicyAssociationRef",
+    "IProductSubscriptionRef",
+    "ISecurityControlRef",
+    "IStandardRef",
+    "InsightReference",
+    "OrganizationConfigurationReference",
+    "PolicyAssociationReference",
+    "ProductSubscriptionReference",
+    "SecurityControlReference",
+    "StandardReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__da3c2310fb11f30a86671bb2addead99b71ef1e397edaee3f54612d615ba55b3(
+    *,
+    aggregator_v2_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__247123306bed7a330539f8c72599c1bf0426865fb9d69c37276d3b2cb180d90c(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b6c53c3be2a41ed0b192befe0743a566e85b284ce92911f4f854491d65a94d4(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba603e1d6925ab7babf45e555f2f6c66e3573a9e5841cd7b5ebf0d444664667e(
+    *,
+    linked_regions: typing.Sequence[builtins.str],
+    region_linking_mode: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__221241b44c93ea569fcf69aaaade0ce7cf31b7343bc3d072d74ccd16895d9a2d(
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: builtins.str,
+    rule_name: builtins.str,
+    rule_order: jsii.Number,
+    is_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    rule_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4(
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: builtins.str,
+    rule_name: builtins.str,
+    rule_order: jsii.Number,
+    rule_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9df36e470a5cb19a48e0918f07ba5c7fe4f2f6e13983d94bef33b262d3aa6d74(
+    *,
+    configuration_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationPolicy.PolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bccd0acf2d461662eef1addff325ba8fe883439d680f7762ea393681a481c0ca(
+    *,
+    admin_account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da8ea981397b9b6c6a280597905a46066379d6756790684f43ea4354282836a9(
+    *,
+    region_linking_mode: builtins.str,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a38c34c1f2742403521eb4af2098475d7afb878d3f9aba37048ae543b43e29c(
+    *,
+    auto_enable_controls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    control_finding_generator: typing.Optional[builtins.str] = None,
+    enable_default_standards: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344(
+    *,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__592cb12c63690d3f829ab7f245b3d227f77eaa3657e0fd4c8452bc7d2a8ed3f8(
+    *,
+    filters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInsight.AwsSecurityFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
+    group_by_attribute: builtins.str,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ecf45ca90d45aaa80bedc86eb8694d0887c6098fd444f073808d0642111f565(
+    *,
+    auto_enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    auto_enable_standards: typing.Optional[builtins.str] = None,
+    configuration_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3aaebd41d827b42b51371d194682a0933ab2ac5e1a75e6cbbd1e269c3a37afc(
+    *,
+    configuration_policy_id: builtins.str,
+    target_id: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1bfdbbfd3a598a5b02234a0dfd7a548ca422910244f63e8798ff35dfb927389(
+    *,
+    product_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__592aeb56f2970a16d30327b0b500710f94ac9725954a4c60fb68c82fd900e348(
+    *,
+    parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityControl.ParameterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    last_update_reason: typing.Optional[builtins.str] = None,
+    security_control_arn: typing.Optional[builtins.str] = None,
+    security_control_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c125ac887ee3a111d19b82adf6b2639cf7fa812a424f7c788a920efcfdf1c39(
+    *,
+    standards_arn: builtins.str,
+    disabled_standards_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStandard.StandardsControlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5927233f95959ab7ffbb7740a71693a497568a10ba46d122a410ae4ffa688a00(
+    *,
+    configuration_policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9feed7ac7c8af40fa8bfee8f69776d680a9f5a5775bb3609e2232e240e487285(
+    *,
+    delegated_admin_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afc0ba006d9956c2be1350fcfdf9f33e96e85d609b8cda743bcf73bbcf990d56(
+    *,
+    finding_aggregator_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfec9154dfb1d8736f7f14d9e17af7d3934b3580e5ef39124462e8163672eaca(
+    *,
+    hub_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__960b16a21f973a0b916f1b71ec1a7c754ce44f4b3c481dddc74b870bc936d57b(
+    *,
+    hub_v2_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ff684b1f27d3f70e82c6f975bcf534f2dafb329dd2ef36057597e8ad8857597(
+    *,
+    insight_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75df26814ddb13f63668715a67e7ec06bef39124ab8fd8ff2bf4f70f23c19ffc(
+    *,
+    organization_configuration_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94e4694adda15f17fdea460a379d733302212c4b522478d85bdc914e43705a11(
+    *,
+    association_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e954fb9fe57925456f352b6e4343d5fc3fa1be0bfb328b6d5fcf74daa8dc4649(
+    *,
+    product_subscription_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e81e6da1f30e11b4e9019a5149fe23722620b214c4cf1b3d9d5fecc3fc9889d(
+    *,
+    security_control_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16418bf4d837e72542d78d9c6079da018a13ef5b1bf3e85fa8d382e03b9d2df2(
+    *,
+    standards_subscription_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__a48a2a082be753c7ff9a23ae8720fc6090537bc7754b3949c569c91cc2d97185(
     scope: _constructs_77d1e7e8.Construct,
@@ -13008,15 +14611,6 @@ def _typecheckingstub__3f12f6fa7491c9cf6429ed03592fa2e0b84dd1df61b65fe9caf3ffa32
 
 def _typecheckingstub__e47a206d80ca672182e6fba3a9c614bda1d391a22aa37078d5b442ce9858a656(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba603e1d6925ab7babf45e555f2f6c66e3573a9e5841cd7b5ebf0d444664667e(
-    *,
-    linked_regions: typing.Sequence[builtins.str],
-    region_linking_mode: builtins.str,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13236,20 +14830,6 @@ def _typecheckingstub__e47be336b722bb880cce3edf7d5752dceac8f243282fcb2bc5094d82b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__221241b44c93ea569fcf69aaaade0ce7cf31b7343bc3d072d74ccd16895d9a2d(
-    *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.AutomationRulesFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: builtins.str,
-    rule_name: builtins.str,
-    rule_order: jsii.Number,
-    is_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    rule_status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d67bab57d18f8318b1f3e5e5aee0425c6d6ad2a73c3def328f22c6e22aa173d4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13461,19 +15041,6 @@ def _typecheckingstub__5b950655292e8a1a447bc6fef9ec46917dffad72edcfb67f4bae7b7bd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__96bf6ac88f339a8dafdb0d899cf9e7c5353a67121a8a0b34137e9631c11f04a4(
-    *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.AutomationRulesActionV2Property, typing.Dict[builtins.str, typing.Any]]]]],
-    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRuleV2.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: builtins.str,
-    rule_name: builtins.str,
-    rule_order: jsii.Number,
-    rule_status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e2cee5cf3fe5ba0b354ff30ea357f97d4a69893bed692305ae2919f0061404d2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13577,16 +15144,6 @@ def _typecheckingstub__6a1f60581e7a327c6c6d837a42e963fe4a8810a6d9642040c0f78837b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9df36e470a5cb19a48e0918f07ba5c7fe4f2f6e13983d94bef33b262d3aa6d74(
-    *,
-    configuration_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationPolicy.PolicyProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e27e329e801cb67f6ec71f03a054a574103f5946def22c1bfdcd99ba50827d58(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13610,13 +15167,6 @@ def _typecheckingstub__2c0e442efc9a3d07aaf74da8d8d9132c602da0b1c240bc4589e6ce7e3
 
 def _typecheckingstub__f5fdd5db8baf5624dbb4185acb8020d5499aa459d03967b97375912c3e6844c5(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bccd0acf2d461662eef1addff325ba8fe883439d680f7762ea393681a481c0ca(
-    *,
-    admin_account_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13651,14 +15201,6 @@ def _typecheckingstub__475994d9cd8d46f8f3a69625c313f5aeede3069bc0a97c77f42878864
 
 def _typecheckingstub__8df27b51aae55bb4c2c3ab84a0b047bdd2763b4077910af8afa3825bbe83283d(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__da8ea981397b9b6c6a280597905a46066379d6756790684f43ea4354282836a9(
-    *,
-    region_linking_mode: builtins.str,
-    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13711,16 +15253,6 @@ def _typecheckingstub__e17fb796b4e0971555823ae1c97a99f19e5677ae303ff0ef984cd00ac
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9a38c34c1f2742403521eb4af2098475d7afb878d3f9aba37048ae543b43e29c(
-    *,
-    auto_enable_controls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    control_finding_generator: typing.Optional[builtins.str] = None,
-    enable_default_standards: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8a938d6f02e5cc9357e7ae741d101719d29a8539be57e63f7148a944106dccc1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13744,13 +15276,6 @@ def _typecheckingstub__f92498b56c6fcd7d027c6ff068634a704396d6376eee870869ddf3ffc
 
 def _typecheckingstub__6e41e91c55f6f2a331ab968ca257da397cb59475bac947e28be333f8f3cdc7cb(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5701f591c6bb91f50e9187f704248e0e20e49f80fdbb611b3664c43166095344(
-    *,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13970,15 +15495,6 @@ def _typecheckingstub__334c5662d5059b01b0797e56b688a03d7d992a0448888f48c76891386
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__592cb12c63690d3f829ab7f245b3d227f77eaa3657e0fd4c8452bc7d2a8ed3f8(
-    *,
-    filters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInsight.AwsSecurityFindingFiltersProperty, typing.Dict[builtins.str, typing.Any]]],
-    group_by_attribute: builtins.str,
-    name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__186515c514aa6c3a2fef9e692700a118bb6ae2548e12249056898382ffeb0d85(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14016,15 +15532,6 @@ def _typecheckingstub__a91a9e8125723c3bbf2b823016143a56e3921498aeef3bea3e38ab250
 
 def _typecheckingstub__a9716e72aa1123497cebad00869227a883554f1d22c3001478ca2aa367e4480e(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ecf45ca90d45aaa80bedc86eb8694d0887c6098fd444f073808d0642111f565(
-    *,
-    auto_enable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    auto_enable_standards: typing.Optional[builtins.str] = None,
-    configuration_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14070,15 +15577,6 @@ def _typecheckingstub__ecc5d3f7535d58c2be7c9d763790a7e3c9fe6b64d4feea0c9122267c1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a3aaebd41d827b42b51371d194682a0933ab2ac5e1a75e6cbbd1e269c3a37afc(
-    *,
-    configuration_policy_id: builtins.str,
-    target_id: builtins.str,
-    target_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__45ff00dc1d7d1ca799678f5a142f5b951b1d37a1f101efd45167c0d18d8a8593(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14102,13 +15600,6 @@ def _typecheckingstub__1b4fc7b3dc1098174b63be9cc3fb55214b9d990ac65e3b77855b5668f
 
 def _typecheckingstub__1e63b86460e92e5a56fd9d1eaf71d8f57c62718a7502fdde0b9cc7898029252a(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a1bfdbbfd3a598a5b02234a0dfd7a548ca422910244f63e8798ff35dfb927389(
-    *,
-    product_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14183,16 +15674,6 @@ def _typecheckingstub__0cc6352822613fffa320be35bf75f34228be34d529ce2169c19a447dc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__592aeb56f2970a16d30327b0b500710f94ac9725954a4c60fb68c82fd900e348(
-    *,
-    parameters: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityControl.ParameterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    last_update_reason: typing.Optional[builtins.str] = None,
-    security_control_arn: typing.Optional[builtins.str] = None,
-    security_control_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__561d4df3cc67420b6eb1bedde6e0c0dfd6f3e64e2787adbaf250b63890914f1f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14231,14 +15712,6 @@ def _typecheckingstub__6ef5462ffb9eee57944c11caa687907b4e26d622e7e133c3335b59694
     *,
     standards_control_arn: builtins.str,
     reason: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4c125ac887ee3a111d19b82adf6b2639cf7fa812a424f7c788a920efcfdf1c39(
-    *,
-    standards_arn: builtins.str,
-    disabled_standards_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStandard.StandardsControlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

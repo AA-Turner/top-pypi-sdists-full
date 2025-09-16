@@ -79,7 +79,433 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_paymentcryptography.AliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"alias_name": "aliasName"},
+)
+class AliasReference:
+    def __init__(self, *, alias_name: builtins.str) -> None:
+        '''A reference to a Alias resource.
+
+        :param alias_name: The AliasName of the Alias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_paymentcryptography as paymentcryptography
+            
+            alias_reference = paymentcryptography.AliasReference(
+                alias_name="aliasName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__592ba65c601a0400c3a271fc92c6fb459e8bceb63ac583ff2062fa47431efd0e)
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias_name": alias_name,
+        }
+
+    @builtins.property
+    def alias_name(self) -> builtins.str:
+        '''The AliasName of the Alias resource.'''
+        result = self._values.get("alias_name")
+        assert result is not None, "Required property 'alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={"alias_name": "aliasName", "key_arn": "keyArn"},
+)
+class CfnAliasProps:
+    def __init__(
+        self,
+        *,
+        alias_name: builtins.str,
+        key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlias``.
+
+        :param alias_name: A friendly name that you can use to refer to a key. The value must begin with ``alias/`` . .. epigraph:: Do not include confidential or sensitive information in this field. This field may be displayed in plaintext in AWS CloudTrail logs and other output.
+        :param key_arn: The ``KeyARN`` of the key associated with the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_paymentcryptography as paymentcryptography
+            
+            cfn_alias_props = paymentcryptography.CfnAliasProps(
+                alias_name="aliasName",
+            
+                # the properties below are optional
+                key_arn="keyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428)
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+            check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alias_name": alias_name,
+        }
+        if key_arn is not None:
+            self._values["key_arn"] = key_arn
+
+    @builtins.property
+    def alias_name(self) -> builtins.str:
+        '''A friendly name that you can use to refer to a key. The value must begin with ``alias/`` .
+
+        .. epigraph::
+
+           Do not include confidential or sensitive information in this field. This field may be displayed in plaintext in AWS CloudTrail logs and other output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html#cfn-paymentcryptography-alias-aliasname
+        '''
+        result = self._values.get("alias_name")
+        assert result is not None, "Required property 'alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ``KeyARN`` of the key associated with the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html#cfn-paymentcryptography-alias-keyarn
+        '''
+        result = self._values.get("key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnKeyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "exportable": "exportable",
+        "key_attributes": "keyAttributes",
+        "derive_key_usage": "deriveKeyUsage",
+        "enabled": "enabled",
+        "key_check_value_algorithm": "keyCheckValueAlgorithm",
+        "tags": "tags",
+    },
+)
+class CfnKeyProps:
+    def __init__(
+        self,
+        *,
+        exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union["CfnKey.KeyAttributesProperty", typing.Dict[builtins.str, typing.Any]]],
+        derive_key_usage: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        key_check_value_algorithm: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnKey``.
+
+        :param exportable: Specifies whether the key is exportable. This data is immutable after the key is created.
+        :param key_attributes: The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key. This data is immutable after the key is created.
+        :param derive_key_usage: The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
+        :param enabled: Specifies whether the key is enabled.
+        :param key_check_value_algorithm: The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV). It is used to validate the key integrity. For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_paymentcryptography as paymentcryptography
+            
+            cfn_key_props = paymentcryptography.CfnKeyProps(
+                exportable=False,
+                key_attributes=paymentcryptography.CfnKey.KeyAttributesProperty(
+                    key_algorithm="keyAlgorithm",
+                    key_class="keyClass",
+                    key_modes_of_use=paymentcryptography.CfnKey.KeyModesOfUseProperty(
+                        decrypt=False,
+                        derive_key=False,
+                        encrypt=False,
+                        generate=False,
+                        no_restrictions=False,
+                        sign=False,
+                        unwrap=False,
+                        verify=False,
+                        wrap=False
+                    ),
+                    key_usage="keyUsage"
+                ),
+            
+                # the properties below are optional
+                derive_key_usage="deriveKeyUsage",
+                enabled=False,
+                key_check_value_algorithm="keyCheckValueAlgorithm",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78)
+            check_type(argname="argument exportable", value=exportable, expected_type=type_hints["exportable"])
+            check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
+            check_type(argname="argument derive_key_usage", value=derive_key_usage, expected_type=type_hints["derive_key_usage"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument key_check_value_algorithm", value=key_check_value_algorithm, expected_type=type_hints["key_check_value_algorithm"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "exportable": exportable,
+            "key_attributes": key_attributes,
+        }
+        if derive_key_usage is not None:
+            self._values["derive_key_usage"] = derive_key_usage
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if key_check_value_algorithm is not None:
+            self._values["key_check_value_algorithm"] = key_check_value_algorithm
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def exportable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Specifies whether the key is exportable.
+
+        This data is immutable after the key is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-exportable
+        '''
+        result = self._values.get("exportable")
+        assert result is not None, "Required property 'exportable' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def key_attributes(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnKey.KeyAttributesProperty"]:
+        '''The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key.
+
+        This data is immutable after the key is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-keyattributes
+        '''
+        result = self._values.get("key_attributes")
+        assert result is not None, "Required property 'key_attributes' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnKey.KeyAttributesProperty"], result)
+
+    @builtins.property
+    def derive_key_usage(self) -> typing.Optional[builtins.str]:
+        '''The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-derivekeyusage
+        '''
+        result = self._values.get("derive_key_usage")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether the key is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def key_check_value_algorithm(self) -> typing.Optional[builtins.str]:
+        '''The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV).
+
+        It is used to validate the key integrity.
+
+        For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-keycheckvaluealgorithm
+        '''
+        result = self._values.get("key_check_value_algorithm")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnKeyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_paymentcryptography.IAliasRef")
+class IAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Alias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''(experimental) A reference to a Alias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Alias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_paymentcryptography.IAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''(experimental) A reference to a Alias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAliasRef).__jsii_proxy_class__ = lambda : _IAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_paymentcryptography.IKeyRef")
+class IKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Key.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="keyRef")
+    def key_ref(self) -> "KeyReference":
+        '''(experimental) A reference to a Key resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKeyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Key.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_paymentcryptography.IKeyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="keyRef")
+    def key_ref(self) -> "KeyReference":
+        '''(experimental) A reference to a Key resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KeyReference", jsii.get(self, "keyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKeyRef).__jsii_proxy_class__ = lambda : _IKeyRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_paymentcryptography.KeyReference",
+    jsii_struct_bases=[],
+    name_mapping={"key_identifier": "keyIdentifier"},
+)
+class KeyReference:
+    def __init__(self, *, key_identifier: builtins.str) -> None:
+        '''A reference to a Key resource.
+
+        :param key_identifier: The KeyIdentifier of the Key resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_paymentcryptography as paymentcryptography
+            
+            key_reference = paymentcryptography.KeyReference(
+                key_identifier="keyIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a7ce523eea4964fcf1c8a14ff891080948e0ef18c0c9068e2ef7eefdfc1e2f3)
+            check_type(argname="argument key_identifier", value=key_identifier, expected_type=type_hints["key_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_identifier": key_identifier,
+        }
+
+    @builtins.property
+    def key_identifier(self) -> builtins.str:
+        '''The KeyIdentifier of the Key resource.'''
+        result = self._values.get("key_identifier")
+        assert result is not None, "Required property 'key_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KeyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAliasRef)
 class CfnAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -173,6 +599,12 @@ class CfnAlias(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="aliasRef")
+    def alias_ref(self) -> AliasReference:
+        '''A reference to a Alias resource.'''
+        return typing.cast(AliasReference, jsii.get(self, "aliasRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -207,85 +639,7 @@ class CfnAlias(
         jsii.set(self, "keyArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={"alias_name": "aliasName", "key_arn": "keyArn"},
-)
-class CfnAliasProps:
-    def __init__(
-        self,
-        *,
-        alias_name: builtins.str,
-        key_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAlias``.
-
-        :param alias_name: A friendly name that you can use to refer to a key. The value must begin with ``alias/`` . .. epigraph:: Do not include confidential or sensitive information in this field. This field may be displayed in plaintext in AWS CloudTrail logs and other output.
-        :param key_arn: The ``KeyARN`` of the key associated with the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_paymentcryptography as paymentcryptography
-            
-            cfn_alias_props = paymentcryptography.CfnAliasProps(
-                alias_name="aliasName",
-            
-                # the properties below are optional
-                key_arn="keyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428)
-            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
-            check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alias_name": alias_name,
-        }
-        if key_arn is not None:
-            self._values["key_arn"] = key_arn
-
-    @builtins.property
-    def alias_name(self) -> builtins.str:
-        '''A friendly name that you can use to refer to a key. The value must begin with ``alias/`` .
-
-        .. epigraph::
-
-           Do not include confidential or sensitive information in this field. This field may be displayed in plaintext in AWS CloudTrail logs and other output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html#cfn-paymentcryptography-alias-aliasname
-        '''
-        result = self._values.get("alias_name")
-        assert result is not None, "Required property 'alias_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def key_arn(self) -> typing.Optional[builtins.str]:
-        '''The ``KeyARN`` of the key associated with the alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-alias.html#cfn-paymentcryptography-alias-keyarn
-        '''
-        result = self._values.get("key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IKeyRef, _ITaggableV2_4e6798f8)
 class CfnKey(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -458,6 +812,12 @@ class CfnKey(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyRef")
+    def key_ref(self) -> KeyReference:
+        '''A reference to a Key resource.'''
+        return typing.cast(KeyReference, jsii.get(self, "keyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="exportable")
@@ -894,184 +1254,52 @@ class CfnKey(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnKeyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "exportable": "exportable",
-        "key_attributes": "keyAttributes",
-        "derive_key_usage": "deriveKeyUsage",
-        "enabled": "enabled",
-        "key_check_value_algorithm": "keyCheckValueAlgorithm",
-        "tags": "tags",
-    },
-)
-class CfnKeyProps:
-    def __init__(
-        self,
-        *,
-        exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
-        derive_key_usage: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        key_check_value_algorithm: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnKey``.
-
-        :param exportable: Specifies whether the key is exportable. This data is immutable after the key is created.
-        :param key_attributes: The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key. This data is immutable after the key is created.
-        :param derive_key_usage: The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
-        :param enabled: Specifies whether the key is enabled.
-        :param key_check_value_algorithm: The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV). It is used to validate the key integrity. For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_paymentcryptography as paymentcryptography
-            
-            cfn_key_props = paymentcryptography.CfnKeyProps(
-                exportable=False,
-                key_attributes=paymentcryptography.CfnKey.KeyAttributesProperty(
-                    key_algorithm="keyAlgorithm",
-                    key_class="keyClass",
-                    key_modes_of_use=paymentcryptography.CfnKey.KeyModesOfUseProperty(
-                        decrypt=False,
-                        derive_key=False,
-                        encrypt=False,
-                        generate=False,
-                        no_restrictions=False,
-                        sign=False,
-                        unwrap=False,
-                        verify=False,
-                        wrap=False
-                    ),
-                    key_usage="keyUsage"
-                ),
-            
-                # the properties below are optional
-                derive_key_usage="deriveKeyUsage",
-                enabled=False,
-                key_check_value_algorithm="keyCheckValueAlgorithm",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78)
-            check_type(argname="argument exportable", value=exportable, expected_type=type_hints["exportable"])
-            check_type(argname="argument key_attributes", value=key_attributes, expected_type=type_hints["key_attributes"])
-            check_type(argname="argument derive_key_usage", value=derive_key_usage, expected_type=type_hints["derive_key_usage"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument key_check_value_algorithm", value=key_check_value_algorithm, expected_type=type_hints["key_check_value_algorithm"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "exportable": exportable,
-            "key_attributes": key_attributes,
-        }
-        if derive_key_usage is not None:
-            self._values["derive_key_usage"] = derive_key_usage
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if key_check_value_algorithm is not None:
-            self._values["key_check_value_algorithm"] = key_check_value_algorithm
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def exportable(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Specifies whether the key is exportable.
-
-        This data is immutable after the key is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-exportable
-        '''
-        result = self._values.get("exportable")
-        assert result is not None, "Required property 'exportable' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def key_attributes(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnKey.KeyAttributesProperty]:
-        '''The role of the key, the algorithm it supports, and the cryptographic operations allowed with the key.
-
-        This data is immutable after the key is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-keyattributes
-        '''
-        result = self._values.get("key_attributes")
-        assert result is not None, "Required property 'key_attributes' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnKey.KeyAttributesProperty], result)
-
-    @builtins.property
-    def derive_key_usage(self) -> typing.Optional[builtins.str]:
-        '''The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-derivekeyusage
-        '''
-        result = self._values.get("derive_key_usage")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the key is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def key_check_value_algorithm(self) -> typing.Optional[builtins.str]:
-        '''The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV).
-
-        It is used to validate the key integrity.
-
-        For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-keycheckvaluealgorithm
-        '''
-        result = self._values.get("key_check_value_algorithm")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnKeyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AliasReference",
     "CfnAlias",
     "CfnAliasProps",
     "CfnKey",
     "CfnKeyProps",
+    "IAliasRef",
+    "IKeyRef",
+    "KeyReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__592ba65c601a0400c3a271fc92c6fb459e8bceb63ac583ff2062fa47431efd0e(
+    *,
+    alias_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428(
+    *,
+    alias_name: builtins.str,
+    key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78(
+    *,
+    exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
+    derive_key_usage: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    key_check_value_algorithm: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a7ce523eea4964fcf1c8a14ff891080948e0ef18c0c9068e2ef7eefdfc1e2f3(
+    *,
+    key_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__03e3543c569149d753dcca4f9aa62f90766372bafcd1f94b89e73d5b425564e5(
     scope: _constructs_77d1e7e8.Construct,
@@ -1103,14 +1331,6 @@ def _typecheckingstub__dbda40ab380bdefcb4b1f97fbdfb383ed08815fcaf1d136e881314e87
 
 def _typecheckingstub__fbafef3a7fe6a4ee77cdd86bde1df29b8df0e985f7099527ccce1ce9c0fb18d5(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0461ccf0903c4c242ef15c5e4bc2830b51a5cf5ebc2b326557f67cfef92bc428(
-    *,
-    alias_name: builtins.str,
-    key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1198,18 +1418,6 @@ def _typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851
     unwrap: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     verify: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     wrap: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e888b2cf78(
-    *,
-    exportable: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    key_attributes: typing.Union[_IResolvable_da3f097b, typing.Union[CfnKey.KeyAttributesProperty, typing.Dict[builtins.str, typing.Any]]],
-    derive_key_usage: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    key_check_value_algorithm: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

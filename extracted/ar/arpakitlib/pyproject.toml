@@ -1,9 +1,9 @@
 [project]
 name = "arpakitlib"
-version = "1.8.244"
+version = "1.8.249"
 description = "arpakitlib"
 authors = [
-    { name = "arpakit_support", email = "support@arpakit.com" }
+    { name = "arpakit_company", email = "support@arpakit.com" }
 ]
 license = { text = "Apache License 2.0" }
 readme = "README.md"

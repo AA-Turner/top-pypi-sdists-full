@@ -1,4 +1,4 @@
-from connector.serializers.request import AnnotatedField
+from connector.serializers.request import AnnotatedField, SemanticType
 from pydantic import BaseModel
 
 
@@ -43,7 +43,7 @@ class TestSerializersAnnotatedField:
         """Make sure the semantic_type parameter adds the right property extension to the JSON Schema"""
 
         class TestModel(BaseModel):
-            name: str = AnnotatedField(semantic_type="account-id")
+            name: str = AnnotatedField(semantic_type=SemanticType.ACCOUNT_ID)
 
         schema = TestModel.model_json_schema()
-        assert schema["properties"]["name"]["x-semantic"] == "account-id"
+        assert schema["properties"]["name"]["x-semantic"] == SemanticType.ACCOUNT_ID.value

@@ -11,6 +11,7 @@ from .evaluation_dataset_metric_aggregation import EvaluationDatasetMetricAggreg
 from .insights_configuration import InsightsConfiguration
 from .llm import LLMDefinition
 from .llm_blueprint import LLMBlueprint
+from .llm_gateway_catalog import LLMGatewayCatalog, LLMGatewayCatalogEntry, LLMReference
 from .llm_test_configuration import LLMTestConfiguration
 from .llm_test_result import LLMTestResult
 from .metric_insights import MetricInsights

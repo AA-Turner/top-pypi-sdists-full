@@ -11,6 +11,7 @@ from swarms.prompts.multi_agent_collab_prompt import (
 )
 from swarms.structs.agent import Agent
 from swarms.structs.agent_rearrange import AgentRearrange
+from swarms.structs.batched_grid_workflow import BatchedGridWorkflow
 from swarms.structs.concurrent_workflow import ConcurrentWorkflow
 from swarms.structs.council_as_judge import CouncilAsAJudge
 from swarms.structs.groupchat import GroupChat
@@ -193,10 +194,13 @@ class SwarmRouter:
         speaker_function: str = None,
         heavy_swarm_loops_per_agent: int = 1,
         heavy_swarm_question_agent_model_name: str = "gpt-4.1",
-        heavy_swarm_worker_model_name: str = "claude-3-5-sonnet-20240620",
+        heavy_swarm_worker_model_name: str = "gpt-4.1",
+        heavy_swarm_swarm_show_output: bool = True,
         telemetry_enabled: bool = False,
         council_judge_model_name: str = "gpt-4o-mini",  # Add missing model_name attribute
         verbose: bool = False,
+        worker_tools: List[Callable] = None,
+        aggregation_strategy: str = "synthesis",
         *args,
         **kwargs,
     ):
@@ -234,6 +238,11 @@ class SwarmRouter:
         self.telemetry_enabled = telemetry_enabled
         self.council_judge_model_name = council_judge_model_name  # Add missing model_name attribute
         self.verbose = verbose
+        self.worker_tools = worker_tools
+        self.aggregation_strategy = aggregation_strategy
+        self.heavy_swarm_swarm_show_output = (
+            heavy_swarm_swarm_show_output
+        )
 
         # Initialize swarm factory for O(1) lookup performance
         self._swarm_factory = self._initialize_swarm_factory()
@@ -264,7 +273,10 @@ class SwarmRouter:
                     "SwarmRouter: Swarm type cannot be 'none'. Check the docs for all the swarm types available. https://docs.swarms.world/en/latest/swarms/structs/swarm_router/"
                 )
 
-            if self.agents is None:
+            if (
+                self.swarm_type != "HeavySwarm"
+                and self.agents is None
+            ):
                 raise SwarmRouterConfigError(
                     "SwarmRouter: No agents provided for the swarm. Check the docs to learn of required parameters. https://docs.swarms.world/en/latest/swarms/structs/agent/"
                 )
@@ -385,6 +397,7 @@ class SwarmRouter:
             "MultiAgentRouter": self._create_multi_agent_router,
             "SequentialWorkflow": self._create_sequential_workflow,
             "ConcurrentWorkflow": self._create_concurrent_workflow,
+            "BatchedGridWorkflow": self._create_batched_grid_workflow,
         }
 
     def _create_heavy_swarm(self, *args, **kwargs):
@@ -392,12 +405,14 @@ class SwarmRouter:
         return HeavySwarm(
             name=self.name,
             description=self.description,
-            agents=self.agents,
-            max_loops=self.max_loops,
             output_type=self.output_type,
             loops_per_agent=self.heavy_swarm_loops_per_agent,
             question_agent_model_name=self.heavy_swarm_question_agent_model_name,
             worker_model_name=self.heavy_swarm_worker_model_name,
+            agent_prints_on=self.heavy_swarm_swarm_show_output,
+            worker_tools=self.worker_tools,
+            aggregation_strategy=self.aggregation_strategy,
+            show_dashboard=False,
         )
 
     def _create_agent_rearrange(self, *args, **kwargs):
@@ -413,6 +428,15 @@ class SwarmRouter:
             return_entire_history=self.return_entire_history,
             *args,
             **kwargs,
+        )
+
+    def _create_batched_grid_workflow(self, *args, **kwargs):
+        """Factory function for BatchedGridWorkflow."""
+        return BatchedGridWorkflow(
+            name=self.name,
+            description=self.description,
+            agents=self.agents,
+            max_loops=self.max_loops,
         )
 
     def _create_malt(self, *args, **kwargs):
@@ -635,10 +659,9 @@ class SwarmRouter:
 
     def _run(
         self,
-        task: str,
+        task: Optional[str] = None,
+        tasks: Optional[List[str]] = None,
         img: Optional[str] = None,
-        model_response: Optional[str] = None,
-        imgs: Optional[List[str]] = None,
         *args,
         **kwargs,
     ) -> Any:
@@ -666,8 +689,21 @@ class SwarmRouter:
             enabled_on=self.telemetry_enabled,
         )
 
+        args = {}
+
+        if tasks is not None:
+            args["tasks"] = tasks
+        else:
+            args["task"] = task
+
+        if img is not None:
+            args["img"] = img
+
         try:
-            result = self.swarm.run(task=task, *args, **kwargs)
+            if self.swarm_type == "BatchedGridWorkflow":
+                result = self.swarm.run(**args, **kwargs)
+            else:
+                result = self.swarm.run(**args, **kwargs)
 
             log_execution(
                 swarm_id=self.id,
@@ -694,10 +730,9 @@ class SwarmRouter:
 
     def run(
         self,
-        task: str,
+        task: Optional[str] = None,
         img: Optional[str] = None,
-        imgs: Optional[List[str]] = None,
-        model_response: Optional[str] = None,
+        tasks: Optional[List[str]] = None,
         *args,
         **kwargs,
     ) -> Any:
@@ -722,8 +757,7 @@ class SwarmRouter:
             return self._run(
                 task=task,
                 img=img,
-                imgs=imgs,
-                model_response=model_response,
+                tasks=tasks,
                 *args,
                 **kwargs,
             )

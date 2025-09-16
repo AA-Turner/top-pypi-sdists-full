@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.40.30",
+    version="1.40.31",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -378,7 +378,6 @@ setup(
         "types_boto3_shield",
         "types_boto3_signer",
         "types_boto3_simspaceweaver",
-        "types_boto3_sms",
         "types_boto3_snow_device_management",
         "types_boto3_snowball",
         "types_boto3_sns",
@@ -432,7 +431,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.40.30 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.40.31 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -820,7 +819,6 @@ setup(
         "types_boto3_shield": ["py.typed", "*.pyi"],
         "types_boto3_signer": ["py.typed", "*.pyi"],
         "types_boto3_simspaceweaver": ["py.typed", "*.pyi"],
-        "types_boto3_sms": ["py.typed", "*.pyi"],
         "types_boto3_snow_device_management": ["py.typed", "*.pyi"],
         "types_boto3_snowball": ["py.typed", "*.pyi"],
         "types_boto3_sns": ["py.typed", "*.pyi"],

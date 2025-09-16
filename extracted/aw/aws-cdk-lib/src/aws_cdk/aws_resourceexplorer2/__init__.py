@@ -68,7 +68,558 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnDefaultViewAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"view_arn": "viewArn"},
+)
+class CfnDefaultViewAssociationProps:
+    def __init__(self, *, view_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnDefaultViewAssociation``.
+
+        :param view_arn: The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation. The specified view must already exist in the specified Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-defaultviewassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            cfn_default_view_association_props = resourceexplorer2.CfnDefaultViewAssociationProps(
+                view_arn="viewArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42)
+            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_arn": view_arn,
+        }
+
+    @builtins.property
+    def view_arn(self) -> builtins.str:
+        '''The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation.
+
+        The specified view must already exist in the specified Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-defaultviewassociation.html#cfn-resourceexplorer2-defaultviewassociation-viewarn
+        '''
+        result = self._values.get("view_arn")
+        assert result is not None, "Required property 'view_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDefaultViewAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={"type": "type", "tags": "tags"},
+)
+class CfnIndexProps:
+    def __init__(
+        self,
+        *,
+        type: builtins.str,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIndex``.
+
+        :param type: Specifies the type of the index in this Region. For information about the aggregator index and how it differs from a local index, see `Turning on cross-Region search by creating an aggregator index <https://docs.aws.amazon.com/resource-explorer/latest/userguide/manage-aggregator-region.html>`_ in the *AWS Resource Explorer User Guide.* .
+        :param tags: The specified tags are attached to only the index created in this AWS Region . The tags don't attach to any of the resources listed in the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            cfn_index_props = resourceexplorer2.CfnIndexProps(
+                type="type",
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''Specifies the type of the index in this Region.
+
+        For information about the aggregator index and how it differs from a local index, see `Turning on cross-Region search by creating an aggregator index <https://docs.aws.amazon.com/resource-explorer/latest/userguide/manage-aggregator-region.html>`_ in the *AWS Resource Explorer User Guide.* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html#cfn-resourceexplorer2-index-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The specified tags are attached to only the index created in this AWS Region .
+
+        The tags don't attach to any of the resources listed in the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html#cfn-resourceexplorer2-index-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIndexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnViewProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "view_name": "viewName",
+        "filters": "filters",
+        "included_properties": "includedProperties",
+        "scope": "scope",
+        "tags": "tags",
+    },
+)
+class CfnViewProps:
+    def __init__(
+        self,
+        *,
+        view_name: builtins.str,
+        filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnView.FiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnView.IncludedPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scope: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnView``.
+
+        :param view_name: The name of the new view.
+        :param filters: An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view. When you use this view in a `Search <https://docs.aws.amazon.com/resource-explorer/latest/apireference/API_Search.html>`_ operation, the filter string is combined with the search's ``QueryString`` parameter using a logical ``AND`` operator. For information about the supported syntax, see `Search query reference for Resource Explorer <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html>`_ in the *AWS Resource Explorer User Guide* . .. epigraph:: This query string in the context of this operation supports only `filter prefixes <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-filters>`_ with optional `operators <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-operators>`_ . It doesn't support free-form text. For example, the string ``region:us* service:ec2 -tag:stage=prod`` includes all Amazon EC2 resources in any AWS Region that begin with the letters ``us`` and are *not* tagged with a key ``Stage`` that has the value ``prod`` .
+        :param included_properties: A list of fields that provide additional information about the view.
+        :param scope: The root ARN of the account, an organizational unit (OU), or an organization ARN. If left empty, the default is account.
+        :param tags: Tag key and value pairs that are attached to the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            cfn_view_props = resourceexplorer2.CfnViewProps(
+                view_name="viewName",
+            
+                # the properties below are optional
+                filters=resourceexplorer2.CfnView.FiltersProperty(
+                    filter_string="filterString"
+                ),
+                included_properties=[resourceexplorer2.CfnView.IncludedPropertyProperty(
+                    name="name"
+                )],
+                scope="scope",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d)
+            check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
+            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument included_properties", value=included_properties, expected_type=type_hints["included_properties"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_name": view_name,
+        }
+        if filters is not None:
+            self._values["filters"] = filters
+        if included_properties is not None:
+            self._values["included_properties"] = included_properties
+        if scope is not None:
+            self._values["scope"] = scope
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def view_name(self) -> builtins.str:
+        '''The name of the new view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-viewname
+        '''
+        result = self._values.get("view_name")
+        assert result is not None, "Required property 'view_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnView.FiltersProperty"]]:
+        '''An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view.
+
+        When you use this view in a `Search <https://docs.aws.amazon.com/resource-explorer/latest/apireference/API_Search.html>`_ operation, the filter string is combined with the search's ``QueryString`` parameter using a logical ``AND`` operator.
+
+        For information about the supported syntax, see `Search query reference for Resource Explorer <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html>`_ in the *AWS Resource Explorer User Guide* .
+        .. epigraph::
+
+           This query string in the context of this operation supports only `filter prefixes <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-filters>`_ with optional `operators <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-operators>`_ . It doesn't support free-form text. For example, the string ``region:us* service:ec2 -tag:stage=prod`` includes all Amazon EC2 resources in any AWS Region that begin with the letters ``us`` and are *not* tagged with a key ``Stage`` that has the value ``prod`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-filters
+        '''
+        result = self._values.get("filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnView.FiltersProperty"]], result)
+
+    @builtins.property
+    def included_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnView.IncludedPropertyProperty"]]]]:
+        '''A list of fields that provide additional information about the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-includedproperties
+        '''
+        result = self._values.get("included_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnView.IncludedPropertyProperty"]]]], result)
+
+    @builtins.property
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''The root ARN of the account, an organizational unit (OU), or an organization ARN.
+
+        If left empty, the default is account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Tag key and value pairs that are attached to the view.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnViewProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.DefaultViewAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"associated_aws_principal": "associatedAwsPrincipal"},
+)
+class DefaultViewAssociationReference:
+    def __init__(self, *, associated_aws_principal: builtins.str) -> None:
+        '''A reference to a DefaultViewAssociation resource.
+
+        :param associated_aws_principal: The AssociatedAwsPrincipal of the DefaultViewAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            default_view_association_reference = resourceexplorer2.DefaultViewAssociationReference(
+                associated_aws_principal="associatedAwsPrincipal"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__767b91071fe4cc7114ef1cd84b3c71d0b47fdfa334a2fc345987e42ac4d261cd)
+            check_type(argname="argument associated_aws_principal", value=associated_aws_principal, expected_type=type_hints["associated_aws_principal"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "associated_aws_principal": associated_aws_principal,
+        }
+
+    @builtins.property
+    def associated_aws_principal(self) -> builtins.str:
+        '''The AssociatedAwsPrincipal of the DefaultViewAssociation resource.'''
+        result = self._values.get("associated_aws_principal")
+        assert result is not None, "Required property 'associated_aws_principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DefaultViewAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.IDefaultViewAssociationRef"
+)
+class IDefaultViewAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultViewAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultViewAssociationRef")
+    def default_view_association_ref(self) -> DefaultViewAssociationReference:
+        '''(experimental) A reference to a DefaultViewAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDefaultViewAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultViewAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resourceexplorer2.IDefaultViewAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultViewAssociationRef")
+    def default_view_association_ref(self) -> DefaultViewAssociationReference:
+        '''(experimental) A reference to a DefaultViewAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DefaultViewAssociationReference, jsii.get(self, "defaultViewAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDefaultViewAssociationRef).__jsii_proxy_class__ = lambda : _IDefaultViewAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_resourceexplorer2.IIndexRef")
+class IIndexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resourceexplorer2.IIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IndexReference", jsii.get(self, "indexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_resourceexplorer2.IViewRef")
+class IViewRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IViewRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a View.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resourceexplorer2.IViewRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> "ViewReference":
+        '''(experimental) A reference to a View resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ViewReference", jsii.get(self, "viewRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IViewRef).__jsii_proxy_class__ = lambda : _IViewRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.IndexReference",
+    jsii_struct_bases=[],
+    name_mapping={"index_arn": "indexArn"},
+)
+class IndexReference:
+    def __init__(self, *, index_arn: builtins.str) -> None:
+        '''A reference to a Index resource.
+
+        :param index_arn: The Arn of the Index resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            index_reference = resourceexplorer2.IndexReference(
+                index_arn="indexArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d0decb60c4f61297c27da65d9e9afe7280ff7ad2f84bfb1e110eaf5027f47e3)
+            check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_arn": index_arn,
+        }
+
+    @builtins.property
+    def index_arn(self) -> builtins.str:
+        '''The Arn of the Index resource.'''
+        result = self._values.get("index_arn")
+        assert result is not None, "Required property 'index_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourceexplorer2.ViewReference",
+    jsii_struct_bases=[],
+    name_mapping={"view_arn": "viewArn"},
+)
+class ViewReference:
+    def __init__(self, *, view_arn: builtins.str) -> None:
+        '''A reference to a View resource.
+
+        :param view_arn: The ViewArn of the View resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
+            
+            view_reference = resourceexplorer2.ViewReference(
+                view_arn="viewArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f879dc5981e886e4d2c745bfbd5db86d7c2e790525a427468d180efe1f94e779)
+            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "view_arn": view_arn,
+        }
+
+    @builtins.property
+    def view_arn(self) -> builtins.str:
+        '''The ViewArn of the View resource.'''
+        result = self._values.get("view_arn")
+        assert result is not None, "Required property 'view_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViewReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDefaultViewAssociationRef)
 class CfnDefaultViewAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -162,6 +713,12 @@ class CfnDefaultViewAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="defaultViewAssociationRef")
+    def default_view_association_ref(self) -> DefaultViewAssociationReference:
+        '''A reference to a DefaultViewAssociation resource.'''
+        return typing.cast(DefaultViewAssociationReference, jsii.get(self, "defaultViewAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="viewArn")
     def view_arn(self) -> builtins.str:
         '''The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation.'''
@@ -175,62 +732,7 @@ class CfnDefaultViewAssociation(
         jsii.set(self, "viewArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnDefaultViewAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"view_arn": "viewArn"},
-)
-class CfnDefaultViewAssociationProps:
-    def __init__(self, *, view_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnDefaultViewAssociation``.
-
-        :param view_arn: The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation. The specified view must already exist in the specified Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-defaultviewassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
-            
-            cfn_default_view_association_props = resourceexplorer2.CfnDefaultViewAssociationProps(
-                view_arn="viewArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42)
-            check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "view_arn": view_arn,
-        }
-
-    @builtins.property
-    def view_arn(self) -> builtins.str:
-        '''The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation.
-
-        The specified view must already exist in the specified Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-defaultviewassociation.html#cfn-resourceexplorer2-defaultviewassociation-viewarn
-        '''
-        result = self._values.get("view_arn")
-        assert result is not None, "Required property 'view_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDefaultViewAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IIndexRef, _ITaggable_36806126)
 class CfnIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -346,6 +848,12 @@ class CfnIndex(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> IndexReference:
+        '''A reference to a Index resource.'''
+        return typing.cast(IndexReference, jsii.get(self, "indexRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -381,87 +889,7 @@ class CfnIndex(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnIndexProps",
-    jsii_struct_bases=[],
-    name_mapping={"type": "type", "tags": "tags"},
-)
-class CfnIndexProps:
-    def __init__(
-        self,
-        *,
-        type: builtins.str,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIndex``.
-
-        :param type: Specifies the type of the index in this Region. For information about the aggregator index and how it differs from a local index, see `Turning on cross-Region search by creating an aggregator index <https://docs.aws.amazon.com/resource-explorer/latest/userguide/manage-aggregator-region.html>`_ in the *AWS Resource Explorer User Guide.* .
-        :param tags: The specified tags are attached to only the index created in this AWS Region . The tags don't attach to any of the resources listed in the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
-            
-            cfn_index_props = resourceexplorer2.CfnIndexProps(
-                type="type",
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Specifies the type of the index in this Region.
-
-        For information about the aggregator index and how it differs from a local index, see `Turning on cross-Region search by creating an aggregator index <https://docs.aws.amazon.com/resource-explorer/latest/userguide/manage-aggregator-region.html>`_ in the *AWS Resource Explorer User Guide.* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html#cfn-resourceexplorer2-index-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The specified tags are attached to only the index created in this AWS Region .
-
-        The tags don't attach to any of the resources listed in the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-index.html#cfn-resourceexplorer2-index-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIndexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IViewRef, _ITaggable_36806126)
 class CfnView(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -581,6 +1009,12 @@ class CfnView(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="viewRef")
+    def view_ref(self) -> ViewReference:
+        '''A reference to a View resource.'''
+        return typing.cast(ViewReference, jsii.get(self, "viewRef"))
 
     @builtins.property
     @jsii.member(jsii_name="viewName")
@@ -820,150 +1254,6 @@ class CfnView(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnViewProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "view_name": "viewName",
-        "filters": "filters",
-        "included_properties": "includedProperties",
-        "scope": "scope",
-        "tags": "tags",
-    },
-)
-class CfnViewProps:
-    def __init__(
-        self,
-        *,
-        view_name: builtins.str,
-        filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        scope: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnView``.
-
-        :param view_name: The name of the new view.
-        :param filters: An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view. When you use this view in a `Search <https://docs.aws.amazon.com/resource-explorer/latest/apireference/API_Search.html>`_ operation, the filter string is combined with the search's ``QueryString`` parameter using a logical ``AND`` operator. For information about the supported syntax, see `Search query reference for Resource Explorer <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html>`_ in the *AWS Resource Explorer User Guide* . .. epigraph:: This query string in the context of this operation supports only `filter prefixes <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-filters>`_ with optional `operators <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-operators>`_ . It doesn't support free-form text. For example, the string ``region:us* service:ec2 -tag:stage=prod`` includes all Amazon EC2 resources in any AWS Region that begin with the letters ``us`` and are *not* tagged with a key ``Stage`` that has the value ``prod`` .
-        :param included_properties: A list of fields that provide additional information about the view.
-        :param scope: The root ARN of the account, an organizational unit (OU), or an organization ARN. If left empty, the default is account.
-        :param tags: Tag key and value pairs that are attached to the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resourceexplorer2 as resourceexplorer2
-            
-            cfn_view_props = resourceexplorer2.CfnViewProps(
-                view_name="viewName",
-            
-                # the properties below are optional
-                filters=resourceexplorer2.CfnView.FiltersProperty(
-                    filter_string="filterString"
-                ),
-                included_properties=[resourceexplorer2.CfnView.IncludedPropertyProperty(
-                    name="name"
-                )],
-                scope="scope",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d)
-            check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
-            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
-            check_type(argname="argument included_properties", value=included_properties, expected_type=type_hints["included_properties"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "view_name": view_name,
-        }
-        if filters is not None:
-            self._values["filters"] = filters
-        if included_properties is not None:
-            self._values["included_properties"] = included_properties
-        if scope is not None:
-            self._values["scope"] = scope
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def view_name(self) -> builtins.str:
-        '''The name of the new view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-viewname
-        '''
-        result = self._values.get("view_name")
-        assert result is not None, "Required property 'view_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnView.FiltersProperty]]:
-        '''An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view.
-
-        When you use this view in a `Search <https://docs.aws.amazon.com/resource-explorer/latest/apireference/API_Search.html>`_ operation, the filter string is combined with the search's ``QueryString`` parameter using a logical ``AND`` operator.
-
-        For information about the supported syntax, see `Search query reference for Resource Explorer <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html>`_ in the *AWS Resource Explorer User Guide* .
-        .. epigraph::
-
-           This query string in the context of this operation supports only `filter prefixes <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-filters>`_ with optional `operators <https://docs.aws.amazon.com/resource-explorer/latest/userguide/using-search-query-syntax.html#query-syntax-operators>`_ . It doesn't support free-form text. For example, the string ``region:us* service:ec2 -tag:stage=prod`` includes all Amazon EC2 resources in any AWS Region that begin with the letters ``us`` and are *not* tagged with a key ``Stage`` that has the value ``prod`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-filters
-        '''
-        result = self._values.get("filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnView.FiltersProperty]], result)
-
-    @builtins.property
-    def included_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnView.IncludedPropertyProperty]]]]:
-        '''A list of fields that provide additional information about the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-includedproperties
-        '''
-        result = self._values.get("included_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnView.IncludedPropertyProperty]]]], result)
-
-    @builtins.property
-    def scope(self) -> typing.Optional[builtins.str]:
-        '''The root ARN of the account, an organizational unit (OU), or an organization ARN.
-
-        If left empty, the default is account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-scope
-        '''
-        result = self._values.get("scope")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Tag key and value pairs that are attached to the view.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnViewProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDefaultViewAssociation",
     "CfnDefaultViewAssociationProps",
@@ -971,9 +1261,62 @@ __all__ = [
     "CfnIndexProps",
     "CfnView",
     "CfnViewProps",
+    "DefaultViewAssociationReference",
+    "IDefaultViewAssociationRef",
+    "IIndexRef",
+    "IViewRef",
+    "IndexReference",
+    "ViewReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42(
+    *,
+    view_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628(
+    *,
+    type: builtins.str,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d(
+    *,
+    view_name: builtins.str,
+    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scope: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__767b91071fe4cc7114ef1cd84b3c71d0b47fdfa334a2fc345987e42ac4d261cd(
+    *,
+    associated_aws_principal: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d0decb60c4f61297c27da65d9e9afe7280ff7ad2f84bfb1e110eaf5027f47e3(
+    *,
+    index_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f879dc5981e886e4d2c745bfbd5db86d7c2e790525a427468d180efe1f94e779(
+    *,
+    view_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__63112644362183375393f464fd83dd8b1bd993c1724b0718d649f4624fa4242b(
     scope: _constructs_77d1e7e8.Construct,
@@ -998,13 +1341,6 @@ def _typecheckingstub__fd920c7487b699e37154cd1ba3a752af6eb4789ed12a7c8762c530b9f
 
 def _typecheckingstub__2d34137c13dccff8aec091fe498d52117edd5707c82c68e72ee608bacd180f14(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42(
-    *,
-    view_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1039,14 +1375,6 @@ def _typecheckingstub__ee8250a3f3491b042dbc508f663480728f7a2654be50c8b46f65888be
 
 def _typecheckingstub__8cf3e59046bbed69cac69bb9d9a3fcb94f8253aa6c2753a213e4e0970930dbf4(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628(
-    *,
-    type: builtins.str,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1123,17 +1451,6 @@ def _typecheckingstub__0b2008d74d735dee7e077ba99ee91afcce783365dbdad581b46682239
 def _typecheckingstub__bd724c6b685500a7e2e21d499880a01c7a397039f097a6228c73a6e017923915(
     *,
     filter_string: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d(
-    *,
-    view_name: builtins.str,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    scope: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

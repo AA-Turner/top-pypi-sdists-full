@@ -7,7 +7,7 @@ from typing import List, Optional, Sequence, Tuple
 import click
 from tabulate import tabulate
 
-from launchable.utils.link import CIRCLECI_KEY, GITHUB_ACTIONS_KEY, JENKINS_URL_KEY, LinkKind, capture_link
+from launchable.utils.link import CIRCLECI_KEY, GITHUB_ACTIONS_KEY, JENKINS_URL_KEY, capture_links
 from launchable.utils.tracking import Tracking, TrackingClient
 
 from ...utils import subprocess
@@ -316,14 +316,7 @@ def build(
     def send(ws: List[Workspace]) -> Optional[str]:
         # figure out all the CI links to capture
         def compute_links():
-            _links = capture_link(os.environ)
-            for k, v in links:
-                _links.append({
-                    "title": k,
-                    "url": v,
-                    "kind": LinkKind.CUSTOM_LINK.name,
-                })
-            return _links
+            return capture_links(links, os.environ)
 
         try:
             payload = {

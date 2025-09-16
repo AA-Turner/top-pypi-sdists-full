@@ -6,7 +6,7 @@ import asyncio
 import socket
 from dataclasses import dataclass
 from importlib import metadata
-from typing import Any, Self, cast
+from typing import Any, Self
 
 from aiohttp import ClientError, ClientSession
 from aiohttp.hdrs import METH_GET
@@ -59,7 +59,7 @@ class P1Monitor:
         url = URL.build(
             scheme="http",
             host=self.host,
-            port=self.port,
+            port=int(self.port),
             path="/api/",
         ).join(URL(uri))
 
@@ -103,7 +103,7 @@ class P1Monitor:
                 {"Content-Type": content_type, "response": text},
             )
 
-        return cast(dict[str, Any], await response.json())
+        return await response.json()
 
     async def smartmeter(self) -> SmartMeter:
         """Get the latest values from you smart meter.

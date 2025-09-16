@@ -1,8 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.deploy.deploy_utils import undeploy_frontend
 from adam.config import Config
-from adam.k8s_utils.ingresses import Ingresses
-from adam.k8s_utils.services import Services
 from adam.repl_state import ReplState, RequiredState
 
 class UndeployFrontend(Command):

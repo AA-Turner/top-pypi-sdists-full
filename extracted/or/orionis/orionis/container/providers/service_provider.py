@@ -16,35 +16,57 @@ class ServiceProvider(IServiceProvider):
 
     def __init__(self, app: IApplication) -> None:
         """
-        Initialize the ServiceProvider with the application container.
+        Initialize a new ServiceProvider instance with the given application container.
 
         Parameters
         ----------
         app : IApplication
-            The application container instance.
+            The application container instance to which this service provider will be attached.
+
+        Returns
+        -------
+        None
+            This constructor does not return a value.
         """
+
+        # Store the application container instance for use in service registration and bootstrapping
         self.app = app
 
     async def register(self) -> None:
         """
         Register services and components into the application container.
 
-        This method must be implemented by subclasses to bind services,
-        configurations, or other components to the application container.
+        This asynchronous method should be implemented by subclasses to bind services,
+        configurations, or other components to the application container. It is called
+        during the application's service registration phase.
+
+        Returns
+        -------
+        None
+            This method does not return a value.
 
         Raises
         ------
         NotImplementedError
             If the method is not overridden in a subclass.
         """
-        raise NotImplementedError("This method should be overridden in the subclass")
+
+        # Optionally overridden by subclasses to register services
+        pass
 
     async def boot(self) -> None:
         """
-        Perform post-registration initialization or bootstrapping.
+        Perform post-registration initialization or bootstrapping tasks.
 
-        This method is called after all services have been registered.
-        Override this method to initialize services, set up event listeners,
-        or perform other boot-time operations.
+        This asynchronous method is called after all services have been registered.
+        Subclasses may override this method to initialize services, set up event listeners,
+        or perform other operations required at application boot time.
+
+        Returns
+        -------
+        None
+            This method does not return a value.
         """
+
+        # Optionally overridden by subclasses to perform boot-time operations
         pass

@@ -2253,33 +2253,25 @@ static PyObject *t_localebuilder_build(t_localebuilder *self)
 
 #if U_ICU_VERSION_HEX >= VERSION_HEX(65, 0, 0)
 
-// takes ownership of locales pointer array
 class LocaleIterator : public Locale::Iterator {
   public:
-    LocaleIterator(Locale **locales, int len) :
-        locales_(locales), len_(len),
-        current_(0)
+    LocaleIterator(std::unique_ptr<Locale *[]> &&locales, int len) :
+        locales(std::move(locales)), len(len), current(0)
     {}
-
-    ~LocaleIterator()
-    {
-        free(locales_);  // allocated with calloc in pl2cpa in common.cpp
-    }
 
     UBool hasNext() const override
     {
-        return current_ < len_;
+        return current < len;
     }
 
     const Locale &next() override
     {
-        return *locales_[current_++];
+        return *locales[current++];
     }
 
   private:
-    Locale **locales_;
-    int len_;
-    int current_;
+    std::unique_ptr<Locale *[]> locales;
+    int len, current;
 };
 
 
@@ -2322,12 +2314,12 @@ static PyObject *t_localematcherbuilder_setSupportedLocalesFromListString(
 static PyObject *t_localematcherbuilder_setSupportedLocales(
     t_localematcherbuilder *self, PyObject *arg)
 {
-    std::unique_ptr<Locale *, decltype(free) *> locales(NULL, free);
+    std::unique_ptr<Locale *[]> locales;
     size_t len;
 
     if (!parseArg(arg, arg::Q<Locale>(TYPE_CLASSID(Locale), &locales, &len)))
     {
-        LocaleIterator it(locales.release(), len);
+        LocaleIterator it(std::move(locales), len);
 
         self->object->setSupportedLocales(it);
         Py_RETURN_SELF();
@@ -2499,7 +2491,7 @@ static PyObject *t_localematcher_getBestMatch(t_localematcher *self,
                                               PyObject *arg)
 {
     Locale *locale;
-    std::unique_ptr<Locale *, decltype(free) *> locales(NULL, free);
+    std::unique_ptr<Locale *[]> locales;
     size_t len;
 
     if (!parseArg(arg, arg::P<Locale>(TYPE_CLASSID(Locale), &locale)))
@@ -2512,7 +2504,7 @@ static PyObject *t_localematcher_getBestMatch(t_localematcher *self,
 
     if (!parseArg(arg, arg::Q<Locale>(TYPE_CLASSID(Locale), &locales, &len)))
     {
-        LocaleIterator it(locales.release(), len);
+        LocaleIterator it(std::move(locales), len);
         const Locale *result;
 
         STATUS_CALL(result = self->object->getBestMatch(it, status));
@@ -2546,7 +2538,7 @@ static PyObject *t_localematcher_getBestMatchResult(
     t_localematcher *self, PyObject *arg)
 {
     Locale *locale;
-    std::unique_ptr<Locale *, decltype(free) *> locales(NULL, free);
+    std::unique_ptr<Locale *[]> locales;
     size_t len;
 
     if (!parseArg(arg, arg::P<Locale>(TYPE_CLASSID(Locale), &locale)))
@@ -2559,7 +2551,7 @@ static PyObject *t_localematcher_getBestMatchResult(
 
     if (!parseArg(arg, arg::Q<Locale>(TYPE_CLASSID(Locale), &locales, &len)))
     {
-        LocaleIterator it(locales.release(), len);
+        LocaleIterator it(std::move(locales), len);
 
         STATUS_RESULT_CALL(
             LocaleMatcherResult result = self->object->getBestMatchResult(
@@ -2608,17 +2600,11 @@ static PyObject *t_localematcher_acceptLanguage(PyTypeObject *type,
                        arg::m(&accepts, &num_accepts),
                        arg::m(&locales, &num_locales)))
         {
-            const char **accept_buffers =
-                (const char **) calloc(num_accepts, sizeof(char *));
-            const char **locale_buffers =
-                (const char **) calloc(num_locales, sizeof(char *));
+            std::unique_ptr<const char *[]> accept_buffers(new const char *[num_accepts]);
+            std::unique_ptr<const char *[]> locale_buffers(new const char *[num_locales]);
 
-            if (!accept_buffers || !locale_buffers)
-            {
-                free(locale_buffers);
-                free(accept_buffers);
+            if (!accept_buffers.get() || !locale_buffers.get())
                 return PyErr_NoMemory();
-            }
 
             for (size_t i = 0; i < num_accepts; ++i)
                 accept_buffers[i] = accepts[i].c_str();
@@ -2628,14 +2614,10 @@ static PyObject *t_localematcher_acceptLanguage(PyTypeObject *type,
 
             UErrorCode status = U_ZERO_ERROR;
             UEnumeration *locale_enum = uenum_openCharStringsEnumeration(
-                locale_buffers, num_locales, &status);
+                locale_buffers.get(), num_locales, &status);
 
             if (U_FAILURE(status))
-            {
-                free(locale_buffers);
-                free(accept_buffers);
                 return ICUException(status).reportError();
-            }
             else
                 status = U_ZERO_ERROR;
 
@@ -2643,11 +2625,9 @@ static PyObject *t_localematcher_acceptLanguage(PyTypeObject *type,
             char buffer[128];
             size_t size = uloc_acceptLanguage(
                 buffer, sizeof(buffer), &result,
-                accept_buffers, num_accepts, locale_enum, &status);
+                accept_buffers.get(), num_accepts, locale_enum, &status);
 
             uenum_close(locale_enum);
-            free(locale_buffers);
-            free(accept_buffers);
 
             if (U_FAILURE(status))
                 return ICUException(status).reportError();
@@ -2682,10 +2662,9 @@ static PyObject *t_localematcher_acceptLanguageFromHTTP(PyTypeObject *type,
                        arg::n(&header_value),
                        arg::m(&locales, &num_locales)))
         {
-            const char **locale_buffers =
-                (const char **) calloc(num_locales, sizeof(char *));
+            std::unique_ptr<const char *[]> locale_buffers(new const char *[num_locales]);
 
-            if (!locale_buffers)
+            if (!locale_buffers.get())
                 return PyErr_NoMemory();
 
             for (size_t i = 0; i < num_locales; ++i)
@@ -2693,13 +2672,10 @@ static PyObject *t_localematcher_acceptLanguageFromHTTP(PyTypeObject *type,
 
             UErrorCode status = U_ZERO_ERROR;
             UEnumeration *locale_enum = uenum_openCharStringsEnumeration(
-                locale_buffers, num_locales, &status);
+                locale_buffers.get(), num_locales, &status);
 
             if (U_FAILURE(status))
-            {
-                free(locale_buffers);
                 return ICUException(status).reportError();
-            }
             else
                 status = U_ZERO_ERROR;
 
@@ -2710,7 +2686,6 @@ static PyObject *t_localematcher_acceptLanguageFromHTTP(PyTypeObject *type,
                 header_value.c_str(), locale_enum, &status);
 
             uenum_close(locale_enum);
-            free(locale_buffers);
 
             if (U_FAILURE(status))
                 return ICUException(status).reportError();
@@ -3003,11 +2978,23 @@ void _init_locale(PyObject *m)
 
     INSTALL_ENUM(ULocaleDataExemplarSetType, "ES_STANDARD",
                  ULOCDATA_ES_STANDARD);
+    INSTALL_ENUM(ULocaleDataExemplarSetType, "STANDARD",
+                 ULOCDATA_ES_STANDARD);
     INSTALL_ENUM(ULocaleDataExemplarSetType, "ES_AUXILIARY",
+                 ULOCDATA_ES_AUXILIARY);
+    INSTALL_ENUM(ULocaleDataExemplarSetType, "AUXILIARY",
                  ULOCDATA_ES_AUXILIARY);
 #if U_ICU_VERSION_HEX >= 0x04080000
     INSTALL_ENUM(ULocaleDataExemplarSetType, "ES_INDEX",
                  ULOCDATA_ES_INDEX);
+    INSTALL_ENUM(ULocaleDataExemplarSetType, "INDEX",
+                 ULOCDATA_ES_INDEX);
+#endif
+#if U_ICU_VERSION_HEX >= VERSION_HEX(51, 0, 0)
+    INSTALL_ENUM(ULocaleDataExemplarSetType, "ES_PUNCTUATION",
+                 ULOCDATA_ES_PUNCTUATION);
+    INSTALL_ENUM(ULocaleDataExemplarSetType, "PUNCTUATION",
+                 ULOCDATA_ES_PUNCTUATION);
 #endif
 
     INSTALL_ENUM(UMeasurementSystem, "SI", UMS_SI);

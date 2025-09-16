@@ -44,6 +44,7 @@ from formulas.errors import (
 from formulas.tokens.operand import Error, XlError
 
 COMPILING = sh.Token('Run')
+DSP = sh.Token('Dsp')
 
 
 def get_shape(r=1, c=1):
@@ -56,7 +57,13 @@ def _init_reshape(base_shape, value):
     res = np.empty(base_shape, object)
     res[:, :] = getattr(value, '_default', Error.errors['#N/A'])
     r, c = get_shape(*value.shape)
-    return res, r, c
+    if r is None and c is not None and base_shape[0] != 1:
+        value = np.repeat(value[:, :base_shape[1]], base_shape[0], axis=0)
+        c = min(base_shape[1], c)
+    elif c is None and r is not None and base_shape[1] != 1:
+        value = np.repeat(value[:base_shape[0]], base_shape[1], axis=1)
+        r = min(base_shape[0], r)
+    return res, r, c, value
 
 
 class Array(np.ndarray):
@@ -69,9 +76,9 @@ class Array(np.ndarray):
             # noinspection PyArgumentList
             return super(Array, self).reshape(shape, *shapes, order=order)
         except ValueError:
-            res, r, c = _init_reshape(shape, self)
+            res, r, c, val = _init_reshape(shape, self)
             try:
-                res[:r, :c] = self
+                res[:r, :c] = val
             except ValueError:
                 res[:, :] = self.collapse(shape)
             return res
@@ -80,6 +87,7 @@ class Array(np.ndarray):
         if self._collapse_value is not None and \
                 tuple(shape) == (1, 1) != self.shape:
             return self._collapse_value
+
         return np.resize(self, shape)
 
     def __reduce__(self):
@@ -444,6 +452,23 @@ def args2list(max_shape, shapes, *args):
     return map(args2vals, zip(*it))
 
 
+_get_first_val = np.vectorize(
+    lambda x: x[0][0] if isinstance(x, list) else x, otypes=[object]
+)
+
+
+def return_2d_func(res, *args):
+    if not res.shape:
+        res = res.item()
+        res = np.asarray(res, object).view(Array)
+    elif res.shape == (1, 1):
+        res = res[0, 0]
+        res = np.asarray(res, object).view(Array)
+    else:
+        res = _get_first_val(res)
+    return res
+
+
 def wrap_ufunc(
         func, input_parser=lambda *a: map(float, a), check_error=get_error,
         args_parser=lambda *a: map(replace_empty, a), otype=Array,
@@ -485,6 +510,9 @@ def wrap_ufunc(
                 res = res.view(otype)
             except AttributeError:
                 res = np.asarray([[res]], object).view(otype)
+            return return_func(res, *args)
+        except FoundError as ex:
+            res = np.asarray([[ex.err]], object).view(otype)
             return return_func(res, *args)
         except ValueError as ex:
             try:

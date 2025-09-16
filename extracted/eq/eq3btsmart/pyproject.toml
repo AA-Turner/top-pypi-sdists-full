@@ -25,7 +25,7 @@ description = "Python library to interact with eQ-3 Bluetooth Smart thermostats"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["bleak", "bleak-retry-connector", "construct-typing"]
-version = "2.2.0"
+version = "2.3.0"
 
 [dependency-groups]
 dev = ["codespell", "mypy", "pytest", "pytest-asyncio", "pytest-cov", "ruff"]

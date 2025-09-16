@@ -171,543 +171,6 @@ from ..aws_iam import (
 from ..aws_kms import IKey as _IKey_5f11635f
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnQueue(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sqs.CfnQueue",
-):
-    '''The ``AWS::SQS::Queue`` resource creates an Amazon SQS standard or FIFO queue.
-
-    Keep the following caveats in mind:
-
-    - If you don't specify the ``FifoQueue`` property, Amazon SQS creates a standard queue.
-
-    .. epigraph::
-
-       You can't change the queue type after you create it and you can't convert an existing standard queue into a FIFO queue. You must either create a new FIFO queue for your application or delete your existing standard queue and recreate it as a FIFO queue. For more information, see `Moving from a standard queue to a FIFO queue <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues-moving.html>`_ in the *Amazon SQS Developer Guide* .
-
-    - If you don't provide a value for a property, the queue is created with the default value for the property.
-    - If you delete a queue, you must wait at least 60 seconds before creating a queue with the same name.
-    - To successfully create a new queue, you must provide a queue name that adheres to the `limits related to queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/limits-queues.html>`_ and is unique within the scope of your queues.
-
-    For more information about creating FIFO (first-in-first-out) queues, see `Creating an Amazon SQS queue ( AWS CloudFormation ) <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/create-queue-cloudformation.html>`_ in the *Amazon SQS Developer Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
-    :cloudformationResource: AWS::SQS::Queue
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sqs as sqs
-        
-        # redrive_allow_policy: Any
-        # redrive_policy: Any
-        
-        cfn_queue = sqs.CfnQueue(self, "MyCfnQueue",
-            content_based_deduplication=False,
-            deduplication_scope="deduplicationScope",
-            delay_seconds=123,
-            fifo_queue=False,
-            fifo_throughput_limit="fifoThroughputLimit",
-            kms_data_key_reuse_period_seconds=123,
-            kms_master_key_id="kmsMasterKeyId",
-            maximum_message_size=123,
-            message_retention_period=123,
-            queue_name="queueName",
-            receive_message_wait_time_seconds=123,
-            redrive_allow_policy=redrive_allow_policy,
-            redrive_policy=redrive_policy,
-            sqs_managed_sse_enabled=False,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            visibility_timeout=123
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        deduplication_scope: typing.Optional[builtins.str] = None,
-        delay_seconds: typing.Optional[jsii.Number] = None,
-        fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        fifo_throughput_limit: typing.Optional[builtins.str] = None,
-        kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-        kms_master_key_id: typing.Optional[builtins.str] = None,
-        maximum_message_size: typing.Optional[jsii.Number] = None,
-        message_retention_period: typing.Optional[jsii.Number] = None,
-        queue_name: typing.Optional[builtins.str] = None,
-        receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
-        redrive_allow_policy: typing.Any = None,
-        redrive_policy: typing.Any = None,
-        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visibility_timeout: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param content_based_deduplication: For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication. During the deduplication interval, Amazon SQS treats messages that are sent with identical content as duplicates and delivers only one copy of the message. For more information, see the ``ContentBasedDeduplication`` attribute for the ``[CreateQueue](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html)`` action in the *Amazon SQS API Reference* .
-        :param deduplication_scope: For high throughput for FIFO queues, specifies whether message deduplication occurs at the message group or queue level. Valid values are ``messageGroup`` and ``queue`` . To enable high throughput for a FIFO queue, set this attribute to ``messageGroup`` *and* set the ``FifoThroughputLimit`` attribute to ``perMessageGroupId`` . If you set these attributes to anything other than these values, normal throughput is in effect and deduplication occurs as specified. For more information, see `High throughput for FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html>`_ and `Quotas related to messages <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html>`_ in the *Amazon SQS Developer Guide* .
-        :param delay_seconds: The time in seconds for which the delivery of all messages in the queue is delayed. You can specify an integer value of ``0`` to ``900`` (15 minutes). The default value is ``0`` .
-        :param fifo_queue: If set to true, creates a FIFO queue. If you don't specify this property, Amazon SQS creates a standard queue. For more information, see `Amazon SQS FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html>`_ in the *Amazon SQS Developer Guide* .
-        :param fifo_throughput_limit: For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group. Valid values are ``perQueue`` and ``perMessageGroupId`` . To enable high throughput for a FIFO queue, set this attribute to ``perMessageGroupId`` *and* set the ``DeduplicationScope`` attribute to ``messageGroup`` . If you set these attributes to anything other than these values, normal throughput is in effect and deduplication occurs as specified. For more information, see `High throughput for FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html>`_ and `Quotas related to messages <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html>`_ in the *Amazon SQS Developer Guide* .
-        :param kms_data_key_reuse_period_seconds: The length of time in seconds for which Amazon SQS can reuse a data key to encrypt or decrypt messages before calling AWS KMS again. The value must be an integer between 60 (1 minute) and 86,400 (24 hours). The default is 300 (5 minutes). .. epigraph:: A shorter time period provides better security, but results in more calls to AWS KMS , which might incur charges after Free Tier. For more information, see `Encryption at rest <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html#sqs-how-does-the-data-key-reuse-period-work>`_ in the *Amazon SQS Developer Guide* .
-        :param kms_master_key_id: The ID of an AWS Key Management Service (KMS) for Amazon SQS , or a custom KMS. To use the AWS managed KMS for Amazon SQS , specify a (default) alias ARN, alias name (for example ``alias/aws/sqs`` ), key ARN, or key ID. For more information, see the following: - `Encryption at rest <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html>`_ in the *Amazon SQS Developer Guide* - `CreateQueue <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>`_ in the *Amazon SQS API Reference* - `Request Parameters <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters>`_ in the *AWS Key Management Service API Reference* - The Key Management Service (KMS) section of the `Security best practices for AWS Key Management Service <https://docs.aws.amazon.com/kms/latest/developerguide/best-practices.html>`_ in the *AWS Key Management Service Developer Guide*
-        :param maximum_message_size: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer from 1,024 bytes (1 KiB) to 1,048,576 bytes (1 MiB). Default: 1,048,576 bytes (1 MiB).
-        :param message_retention_period: The number of seconds that Amazon SQS retains a message. You can specify an integer value from ``60`` seconds (1 minute) to ``1,209,600`` seconds (14 days). The default value is ``345,600`` seconds (4 days).
-        :param queue_name: A name for the queue. To create a FIFO queue, the name of your FIFO queue must end with the ``.fifo`` suffix. For more information, see `Amazon SQS FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html>`_ in the *Amazon SQS Developer Guide* . If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the queue name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ in the *AWS CloudFormation User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param receive_message_wait_time_seconds: Specifies the duration, in seconds, that the ReceiveMessage action call waits until a message is in the queue in order to include it in the response, rather than returning an empty response if a message isn't yet available. You can specify an integer from 1 to 20. Short polling is used as the default or when you specify 0 for this property. For more information, see `Consuming messages using long polling <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html#sqs-long-polling>`_ in the *Amazon SQS Developer Guide* .
-        :param redrive_allow_policy: The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object. The parameters are as follows: - ``redrivePermission`` : The permission type that defines which source queues can specify the current queue as the dead-letter queue. Valid values are: - ``allowAll`` : (Default) Any source queues in this AWS account in the same Region can specify this queue as the dead-letter queue. - ``denyAll`` : No source queues can specify this queue as the dead-letter queue. - ``byQueue`` : Only queues specified by the ``sourceQueueArns`` parameter can specify this queue as the dead-letter queue. - ``sourceQueueArns`` : The Amazon Resource Names (ARN)s of the source queues that can specify this queue as the dead-letter queue and redrive messages. You can specify this parameter only when the ``redrivePermission`` parameter is set to ``byQueue`` . You can specify up to 10 source queue ARNs. To allow more than 10 source queues to specify dead-letter queues, set the ``redrivePermission`` parameter to ``allowAll`` .
-        :param redrive_policy: The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object. The parameters are as follows: - ``deadLetterTargetArn`` : The Amazon Resource Name (ARN) of the dead-letter queue to which Amazon SQS moves messages after the value of ``maxReceiveCount`` is exceeded. - ``maxReceiveCount`` : The number of times a message is received by a consumer of the source queue before being moved to the dead-letter queue. When the ``ReceiveCount`` for a message exceeds the ``maxReceiveCount`` for a queue, Amazon SQS moves the message to the dead-letter-queue. .. epigraph:: The dead-letter queue of a FIFO queue must also be a FIFO queue. Similarly, the dead-letter queue of a standard queue must also be a standard queue. *JSON* ``{ "deadLetterTargetArn" : *String* , "maxReceiveCount" : *Integer* }`` *YAML* ``deadLetterTargetArn : *String*`` ``maxReceiveCount : *Integer*``
-        :param sqs_managed_sse_enabled: Enables server-side queue encryption using SQS owned encryption keys. Only one server-side encryption option is supported per queue (for example, `SSE-KMS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html>`_ or `SSE-SQS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html>`_ ). When ``SqsManagedSseEnabled`` is not defined, ``SSE-SQS`` encryption is enabled by default.
-        :param tags: The tags that you attach to this queue. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *AWS CloudFormation User Guide* .
-        :param visibility_timeout: The length of time during which a message will be unavailable after a message is delivered from the queue. This blocks other components from receiving the same message and gives the initial component time to process and delete the message from the queue. Values must be from 0 to 43,200 seconds (12 hours). If you don't specify a value, AWS CloudFormation uses the default value of 30 seconds. For more information about Amazon SQS queue visibility timeouts, see `Visibility timeout <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>`_ in the *Amazon SQS Developer Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409e2c9f3a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnQueueProps(
-            content_based_deduplication=content_based_deduplication,
-            deduplication_scope=deduplication_scope,
-            delay_seconds=delay_seconds,
-            fifo_queue=fifo_queue,
-            fifo_throughput_limit=fifo_throughput_limit,
-            kms_data_key_reuse_period_seconds=kms_data_key_reuse_period_seconds,
-            kms_master_key_id=kms_master_key_id,
-            maximum_message_size=maximum_message_size,
-            message_retention_period=message_retention_period,
-            queue_name=queue_name,
-            receive_message_wait_time_seconds=receive_message_wait_time_seconds,
-            redrive_allow_policy=redrive_allow_policy,
-            redrive_policy=redrive_policy,
-            sqs_managed_sse_enabled=sqs_managed_sse_enabled,
-            tags=tags,
-            visibility_timeout=visibility_timeout,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2edac588147bdde110e32931a1f527ce029c9c91623ac9467d77dfcabed1ecf)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__236dcd91758bc5c11159f148d82348c81a166a523238d27a181e043a66bcc984)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) of the queue.
-
-        For example: ``arn:aws:sqs:us-east-2:123456789012:mystack-myqueue-15PG5C2FC1CW8`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrQueueName")
-    def attr_queue_name(self) -> builtins.str:
-        '''Returns the queue name.
-
-        For example: ``mystack-myqueue-1VF9BKQH5BJVI`` .
-
-        :cloudformationAttribute: QueueName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrQueueName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrQueueUrl")
-    def attr_queue_url(self) -> builtins.str:
-        '''Returns the URLs of the queues from the policy.
-
-        :cloudformationAttribute: QueueUrl
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrQueueUrl"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="contentBasedDeduplication")
-    def content_based_deduplication(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "contentBasedDeduplication"))
-
-    @content_based_deduplication.setter
-    def content_based_deduplication(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contentBasedDeduplication", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deduplicationScope")
-    def deduplication_scope(self) -> typing.Optional[builtins.str]:
-        '''For high throughput for FIFO queues, specifies whether message deduplication occurs at the message group or queue level.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deduplicationScope"))
-
-    @deduplication_scope.setter
-    def deduplication_scope(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0abc4529ef387826e6c0bff9743cc2c96bf5954528897f415976030c126eb284)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deduplicationScope", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="delaySeconds")
-    def delay_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The time in seconds for which the delivery of all messages in the queue is delayed.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "delaySeconds"))
-
-    @delay_seconds.setter
-    def delay_seconds(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c5037721)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "delaySeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="fifoQueue")
-    def fifo_queue(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If set to true, creates a FIFO queue.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "fifoQueue"))
-
-    @fifo_queue.setter
-    def fifo_queue(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fifoQueue", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="fifoThroughputLimit")
-    def fifo_throughput_limit(self) -> typing.Optional[builtins.str]:
-        '''For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "fifoThroughputLimit"))
-
-    @fifo_throughput_limit.setter
-    def fifo_throughput_limit(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d81525207b63d054bcd4ad3923d013ce7a65791f9a60cd09fcd751ba890a497)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fifoThroughputLimit", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsDataKeyReusePeriodSeconds")
-    def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The length of time in seconds for which Amazon SQS can reuse a data key to encrypt or decrypt messages before calling AWS KMS again.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "kmsDataKeyReusePeriodSeconds"))
-
-    @kms_data_key_reuse_period_seconds.setter
-    def kms_data_key_reuse_period_seconds(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40f27d3914d194bf6b93118da1158c0d806d038253664b21c384b71b0b744cad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsDataKeyReusePeriodSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsMasterKeyId")
-    def kms_master_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of an AWS Key Management Service (KMS) for Amazon SQS , or a custom KMS.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsMasterKeyId"))
-
-    @kms_master_key_id.setter
-    def kms_master_key_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1edd65cddbda9f734e1f85edbd60c8f32a77bb83366989f21ee37ba463ea4730)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsMasterKeyId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maximumMessageSize")
-    def maximum_message_size(self) -> typing.Optional[jsii.Number]:
-        '''The limit of how many bytes that a message can contain before Amazon SQS rejects it.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMessageSize"))
-
-    @maximum_message_size.setter
-    def maximum_message_size(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0937348e9f5cb274266edef6ef289172f6dbb7546a90caff469f117d34471978)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumMessageSize", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="messageRetentionPeriod")
-    def message_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of seconds that Amazon SQS retains a message.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "messageRetentionPeriod"))
-
-    @message_retention_period.setter
-    def message_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21a661a987567c72d08c78c8144420eba8cbb11eb7636f08fc060fd84e608fce)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "messageRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="queueName")
-    def queue_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the queue.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "queueName"))
-
-    @queue_name.setter
-    def queue_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61dd4da399)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queueName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="receiveMessageWaitTimeSeconds")
-    def receive_message_wait_time_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Specifies the duration, in seconds, that the ReceiveMessage action call waits until a message is in the queue in order to include it in the response, rather than returning an empty response if a message isn't yet available.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "receiveMessageWaitTimeSeconds"))
-
-    @receive_message_wait_time_seconds.setter
-    def receive_message_wait_time_seconds(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "receiveMessageWaitTimeSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="redriveAllowPolicy")
-    def redrive_allow_policy(self) -> typing.Any:
-        '''The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object.'''
-        return typing.cast(typing.Any, jsii.get(self, "redriveAllowPolicy"))
-
-    @redrive_allow_policy.setter
-    def redrive_allow_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="redrivePolicy")
-    def redrive_policy(self) -> typing.Any:
-        '''The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object.'''
-        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
-
-    @redrive_policy.setter
-    def redrive_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sqsManagedSseEnabled")
-    def sqs_managed_sse_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Enables server-side queue encryption using SQS owned encryption keys.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "sqsManagedSseEnabled"))
-
-    @sqs_managed_sse_enabled.setter
-    def sqs_managed_sse_enabled(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sqsManagedSseEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags that you attach to this queue.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="visibilityTimeout")
-    def visibility_timeout(self) -> typing.Optional[jsii.Number]:
-        '''The length of time during which a message will be unavailable after a message is delivered from the queue.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "visibilityTimeout"))
-
-    @visibility_timeout.setter
-    def visibility_timeout(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48cda16b71aad6d8bf96a8fd88f815146f039d81c6d0d808d2369955e4d3538f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visibilityTimeout", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnQueueInlinePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sqs.CfnQueueInlinePolicy",
-):
-    '''The ``AWS::SQS::QueueInlinePolicy`` resource associates one Amazon SQS queue with one policy.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queueinlinepolicy.html
-    :cloudformationResource: AWS::SQS::QueueInlinePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sqs as sqs
-        
-        # policy_document: Any
-        
-        cfn_queue_inline_policy = sqs.CfnQueueInlinePolicy(self, "MyCfnQueueInlinePolicy",
-            policy_document=policy_document,
-            queue="queue"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_document: typing.Any,
-        queue: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_document: A policy document that contains the permissions for the specified Amazon SQS queues. For more information about Amazon SQS policies, see `Using custom policies with the Amazon SQS access policy language <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-creating-custom-policies.html>`_ in the *Amazon SQS Developer Guide* .
-        :param queue: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html)`` resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a4a58f0061e5bc1b45f4a41f066d63064e48860dda7c96bf6a78c07d708be3e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnQueueInlinePolicyProps(policy_document=policy_document, queue=queue)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c076ea64b445e3d9bfc6e9a477574b1c255cf5b418bca5369a75bae6dd0d4c0f)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0acb8c97b52293a176d172b05d5b2fdd9fe43cb2bf6842374eef4f6e6c7d3ca)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''A policy document that contains the permissions for the specified Amazon SQS queues.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aac3822f2f3ec918fc858517bd93cecb6a600209491929c794eccc0e1e537ca)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="queue")
-    def queue(self) -> builtins.str:
-        '''The URLs of the queues to which you want to add the policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "queue"))
-
-    @queue.setter
-    def queue(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4d38d11b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queue", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_sqs.CfnQueueInlinePolicyProps",
     jsii_struct_bases=[],
@@ -779,127 +242,6 @@ class CfnQueueInlinePolicyProps:
         return "CfnQueueInlinePolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnQueuePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_sqs.CfnQueuePolicy",
-):
-    '''The ``AWS::SQS::QueuePolicy`` type applies a policy to Amazon SQS queues.
-
-    For an example snippet, see `Declaring an Amazon SQS policy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-sqs-policy>`_ in the *AWS CloudFormation User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queuepolicy.html
-    :cloudformationResource: AWS::SQS::QueuePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sqs as sqs
-        
-        # policy_document: Any
-        
-        cfn_queue_policy = sqs.CfnQueuePolicy(self, "MyCfnQueuePolicy",
-            policy_document=policy_document,
-            queues=["queues"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_document: typing.Any,
-        queues: typing.Sequence[builtins.str],
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_document: A policy document that contains the permissions for the specified Amazon SQS queues. For more information about Amazon SQS policies, see `Using custom policies with the Amazon SQS access policy language <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-creating-custom-policies.html>`_ in the *Amazon SQS Developer Guide* .
-        :param queues: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html)`` resource.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf0938ca02c83217053a748eaced04a040ecea55f727e4a44ff3eff90a9ea987)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnQueuePolicyProps(policy_document=policy_document, queues=queues)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d559da0e8ce42a9494dc47b11b1fa822e7527d123a88ce573a75312016b2724)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd0cd9a724185c298ed861735fbe510352de3936c44fb3421515423fc1bf35f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The provider-assigned unique ID for this managed resource.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''A policy document that contains the permissions for the specified Amazon SQS queues.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b9b0dce5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="queues")
-    def queues(self) -> typing.List[builtins.str]:
-        '''The URLs of the queues to which you want to add the policy.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "queues"))
-
-    @queues.setter
-    def queues(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queues", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2594,6 +1936,129 @@ class _IQueueProxy(
 typing.cast(typing.Any, IQueue).__jsii_proxy_class__ = lambda : _IQueueProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sqs.IQueueInlinePolicyRef")
+class IQueueInlinePolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a QueueInlinePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queueInlinePolicyRef")
+    def queue_inline_policy_ref(self) -> "QueueInlinePolicyReference":
+        '''(experimental) A reference to a QueueInlinePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueueInlinePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QueueInlinePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sqs.IQueueInlinePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queueInlinePolicyRef")
+    def queue_inline_policy_ref(self) -> "QueueInlinePolicyReference":
+        '''(experimental) A reference to a QueueInlinePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueueInlinePolicyReference", jsii.get(self, "queueInlinePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueueInlinePolicyRef).__jsii_proxy_class__ = lambda : _IQueueInlinePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sqs.IQueuePolicyRef")
+class IQueuePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a QueuePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queuePolicyRef")
+    def queue_policy_ref(self) -> "QueuePolicyReference":
+        '''(experimental) A reference to a QueuePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueuePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a QueuePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sqs.IQueuePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queuePolicyRef")
+    def queue_policy_ref(self) -> "QueuePolicyReference":
+        '''(experimental) A reference to a QueuePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueuePolicyReference", jsii.get(self, "queuePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueuePolicyRef).__jsii_proxy_class__ = lambda : _IQueuePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sqs.IQueueRef")
+class IQueueRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueueRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sqs.IQueueRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueueReference", jsii.get(self, "queueRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueueRef).__jsii_proxy_class__ = lambda : _IQueueRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_sqs.QueueAttributes",
     jsii_struct_bases=[],
@@ -3535,6 +3000,55 @@ class QueueEncryption(enum.Enum):
     '''
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sqs.QueueInlinePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue": "queue"},
+)
+class QueueInlinePolicyReference:
+    def __init__(self, *, queue: builtins.str) -> None:
+        '''A reference to a QueueInlinePolicy resource.
+
+        :param queue: The Queue of the QueueInlinePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sqs as sqs
+            
+            queue_inline_policy_reference = sqs.QueueInlinePolicyReference(
+                queue="queue"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0efada089d642ce5dbfb17b6acc684ba73f6da36661f7d734e1d7f1ed463e8d)
+            check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue": queue,
+        }
+
+    @builtins.property
+    def queue(self) -> builtins.str:
+        '''The Queue of the QueueInlinePolicy resource.'''
+        result = self._values.get("queue")
+        assert result is not None, "Required property 'queue' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueueInlinePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class QueuePolicy(
     _Resource_45bc6135,
     metaclass=jsii.JSIIMeta,
@@ -3659,6 +3173,55 @@ class QueuePolicyProps:
 
     def __repr__(self) -> str:
         return "QueuePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sqs.QueuePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue_policy_id": "queuePolicyId"},
+)
+class QueuePolicyReference:
+    def __init__(self, *, queue_policy_id: builtins.str) -> None:
+        '''A reference to a QueuePolicy resource.
+
+        :param queue_policy_id: The Id of the QueuePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sqs as sqs
+            
+            queue_policy_reference = sqs.QueuePolicyReference(
+                queue_policy_id="queuePolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a658bcf8034c0e59c76e02055be1c461bf21396856ae420515e3c359dcc91ba5)
+            check_type(argname="argument queue_policy_id", value=queue_policy_id, expected_type=type_hints["queue_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue_policy_id": queue_policy_id,
+        }
+
+    @builtins.property
+    def queue_policy_id(self) -> builtins.str:
+        '''The Id of the QueuePolicy resource.'''
+        result = self._values.get("queue_policy_id")
+        assert result is not None, "Required property 'queue_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueuePolicyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4026,6 +3589,66 @@ class QueueProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sqs.QueueReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue_arn": "queueArn", "queue_url": "queueUrl"},
+)
+class QueueReference:
+    def __init__(self, *, queue_arn: builtins.str, queue_url: builtins.str) -> None:
+        '''A reference to a Queue resource.
+
+        :param queue_arn: The ARN of the Queue resource.
+        :param queue_url: The QueueUrl of the Queue resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sqs as sqs
+            
+            queue_reference = sqs.QueueReference(
+                queue_arn="queueArn",
+                queue_url="queueUrl"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cb7e890e67be1387bf3d3ae65871f9f2d316c44b845f0941193100bf40248ac)
+            check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
+            check_type(argname="argument queue_url", value=queue_url, expected_type=type_hints["queue_url"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue_arn": queue_arn,
+            "queue_url": queue_url,
+        }
+
+    @builtins.property
+    def queue_arn(self) -> builtins.str:
+        '''The ARN of the Queue resource.'''
+        result = self._values.get("queue_arn")
+        assert result is not None, "Required property 'queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def queue_url(self) -> builtins.str:
+        '''The QueueUrl of the Queue resource.'''
+        result = self._values.get("queue_url")
+        assert result is not None, "Required property 'queue_url' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueueReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_sqs.RedriveAllowPolicy",
     jsii_struct_bases=[],
     name_mapping={
@@ -4147,6 +3770,682 @@ class RedrivePermission(enum.Enum):
     '''No source queues can specify this queue as the dead-letter queue.'''
     BY_QUEUE = "BY_QUEUE"
     '''Only queues specified by the ``sourceQueueArns`` parameter can specify this queue as the dead-letter queue.'''
+
+
+@jsii.implements(_IInspectable_c2943556, IQueueRef, _ITaggable_36806126)
+class CfnQueue(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sqs.CfnQueue",
+):
+    '''The ``AWS::SQS::Queue`` resource creates an Amazon SQS standard or FIFO queue.
+
+    Keep the following caveats in mind:
+
+    - If you don't specify the ``FifoQueue`` property, Amazon SQS creates a standard queue.
+
+    .. epigraph::
+
+       You can't change the queue type after you create it and you can't convert an existing standard queue into a FIFO queue. You must either create a new FIFO queue for your application or delete your existing standard queue and recreate it as a FIFO queue. For more information, see `Moving from a standard queue to a FIFO queue <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues-moving.html>`_ in the *Amazon SQS Developer Guide* .
+
+    - If you don't provide a value for a property, the queue is created with the default value for the property.
+    - If you delete a queue, you must wait at least 60 seconds before creating a queue with the same name.
+    - To successfully create a new queue, you must provide a queue name that adheres to the `limits related to queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/limits-queues.html>`_ and is unique within the scope of your queues.
+
+    For more information about creating FIFO (first-in-first-out) queues, see `Creating an Amazon SQS queue ( AWS CloudFormation ) <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/create-queue-cloudformation.html>`_ in the *Amazon SQS Developer Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html
+    :cloudformationResource: AWS::SQS::Queue
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sqs as sqs
+        
+        # redrive_allow_policy: Any
+        # redrive_policy: Any
+        
+        cfn_queue = sqs.CfnQueue(self, "MyCfnQueue",
+            content_based_deduplication=False,
+            deduplication_scope="deduplicationScope",
+            delay_seconds=123,
+            fifo_queue=False,
+            fifo_throughput_limit="fifoThroughputLimit",
+            kms_data_key_reuse_period_seconds=123,
+            kms_master_key_id="kmsMasterKeyId",
+            maximum_message_size=123,
+            message_retention_period=123,
+            queue_name="queueName",
+            receive_message_wait_time_seconds=123,
+            redrive_allow_policy=redrive_allow_policy,
+            redrive_policy=redrive_policy,
+            sqs_managed_sse_enabled=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            visibility_timeout=123
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        deduplication_scope: typing.Optional[builtins.str] = None,
+        delay_seconds: typing.Optional[jsii.Number] = None,
+        fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        fifo_throughput_limit: typing.Optional[builtins.str] = None,
+        kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+        kms_master_key_id: typing.Optional[builtins.str] = None,
+        maximum_message_size: typing.Optional[jsii.Number] = None,
+        message_retention_period: typing.Optional[jsii.Number] = None,
+        queue_name: typing.Optional[builtins.str] = None,
+        receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
+        redrive_allow_policy: typing.Any = None,
+        redrive_policy: typing.Any = None,
+        sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        visibility_timeout: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content_based_deduplication: For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication. During the deduplication interval, Amazon SQS treats messages that are sent with identical content as duplicates and delivers only one copy of the message. For more information, see the ``ContentBasedDeduplication`` attribute for the ``[CreateQueue](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html)`` action in the *Amazon SQS API Reference* .
+        :param deduplication_scope: For high throughput for FIFO queues, specifies whether message deduplication occurs at the message group or queue level. Valid values are ``messageGroup`` and ``queue`` . To enable high throughput for a FIFO queue, set this attribute to ``messageGroup`` *and* set the ``FifoThroughputLimit`` attribute to ``perMessageGroupId`` . If you set these attributes to anything other than these values, normal throughput is in effect and deduplication occurs as specified. For more information, see `High throughput for FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html>`_ and `Quotas related to messages <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html>`_ in the *Amazon SQS Developer Guide* .
+        :param delay_seconds: The time in seconds for which the delivery of all messages in the queue is delayed. You can specify an integer value of ``0`` to ``900`` (15 minutes). The default value is ``0`` .
+        :param fifo_queue: If set to true, creates a FIFO queue. If you don't specify this property, Amazon SQS creates a standard queue. For more information, see `Amazon SQS FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html>`_ in the *Amazon SQS Developer Guide* .
+        :param fifo_throughput_limit: For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group. Valid values are ``perQueue`` and ``perMessageGroupId`` . To enable high throughput for a FIFO queue, set this attribute to ``perMessageGroupId`` *and* set the ``DeduplicationScope`` attribute to ``messageGroup`` . If you set these attributes to anything other than these values, normal throughput is in effect and deduplication occurs as specified. For more information, see `High throughput for FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html>`_ and `Quotas related to messages <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html>`_ in the *Amazon SQS Developer Guide* .
+        :param kms_data_key_reuse_period_seconds: The length of time in seconds for which Amazon SQS can reuse a data key to encrypt or decrypt messages before calling AWS KMS again. The value must be an integer between 60 (1 minute) and 86,400 (24 hours). The default is 300 (5 minutes). .. epigraph:: A shorter time period provides better security, but results in more calls to AWS KMS , which might incur charges after Free Tier. For more information, see `Encryption at rest <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html#sqs-how-does-the-data-key-reuse-period-work>`_ in the *Amazon SQS Developer Guide* .
+        :param kms_master_key_id: The ID of an AWS Key Management Service (KMS) for Amazon SQS , or a custom KMS. To use the AWS managed KMS for Amazon SQS , specify a (default) alias ARN, alias name (for example ``alias/aws/sqs`` ), key ARN, or key ID. For more information, see the following: - `Encryption at rest <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html>`_ in the *Amazon SQS Developer Guide* - `CreateQueue <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>`_ in the *Amazon SQS API Reference* - `Request Parameters <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html#API_DescribeKey_RequestParameters>`_ in the *AWS Key Management Service API Reference* - The Key Management Service (KMS) section of the `Security best practices for AWS Key Management Service <https://docs.aws.amazon.com/kms/latest/developerguide/best-practices.html>`_ in the *AWS Key Management Service Developer Guide*
+        :param maximum_message_size: The limit of how many bytes that a message can contain before Amazon SQS rejects it. You can specify an integer from 1,024 bytes (1 KiB) to 1,048,576 bytes (1 MiB). Default: 1,048,576 bytes (1 MiB).
+        :param message_retention_period: The number of seconds that Amazon SQS retains a message. You can specify an integer value from ``60`` seconds (1 minute) to ``1,209,600`` seconds (14 days). The default value is ``345,600`` seconds (4 days).
+        :param queue_name: A name for the queue. To create a FIFO queue, the name of your FIFO queue must end with the ``.fifo`` suffix. For more information, see `Amazon SQS FIFO queues <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html>`_ in the *Amazon SQS Developer Guide* . If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the queue name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ in the *AWS CloudFormation User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param receive_message_wait_time_seconds: Specifies the duration, in seconds, that the ReceiveMessage action call waits until a message is in the queue in order to include it in the response, rather than returning an empty response if a message isn't yet available. You can specify an integer from 1 to 20. Short polling is used as the default or when you specify 0 for this property. For more information, see `Consuming messages using long polling <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html#sqs-long-polling>`_ in the *Amazon SQS Developer Guide* .
+        :param redrive_allow_policy: The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object. The parameters are as follows: - ``redrivePermission`` : The permission type that defines which source queues can specify the current queue as the dead-letter queue. Valid values are: - ``allowAll`` : (Default) Any source queues in this AWS account in the same Region can specify this queue as the dead-letter queue. - ``denyAll`` : No source queues can specify this queue as the dead-letter queue. - ``byQueue`` : Only queues specified by the ``sourceQueueArns`` parameter can specify this queue as the dead-letter queue. - ``sourceQueueArns`` : The Amazon Resource Names (ARN)s of the source queues that can specify this queue as the dead-letter queue and redrive messages. You can specify this parameter only when the ``redrivePermission`` parameter is set to ``byQueue`` . You can specify up to 10 source queue ARNs. To allow more than 10 source queues to specify dead-letter queues, set the ``redrivePermission`` parameter to ``allowAll`` .
+        :param redrive_policy: The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object. The parameters are as follows: - ``deadLetterTargetArn`` : The Amazon Resource Name (ARN) of the dead-letter queue to which Amazon SQS moves messages after the value of ``maxReceiveCount`` is exceeded. - ``maxReceiveCount`` : The number of times a message is received by a consumer of the source queue before being moved to the dead-letter queue. When the ``ReceiveCount`` for a message exceeds the ``maxReceiveCount`` for a queue, Amazon SQS moves the message to the dead-letter-queue. .. epigraph:: The dead-letter queue of a FIFO queue must also be a FIFO queue. Similarly, the dead-letter queue of a standard queue must also be a standard queue. *JSON* ``{ "deadLetterTargetArn" : *String* , "maxReceiveCount" : *Integer* }`` *YAML* ``deadLetterTargetArn : *String*`` ``maxReceiveCount : *Integer*``
+        :param sqs_managed_sse_enabled: Enables server-side queue encryption using SQS owned encryption keys. Only one server-side encryption option is supported per queue (for example, `SSE-KMS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sse-existing-queue.html>`_ or `SSE-SQS <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-configure-sqs-sse-queue.html>`_ ). When ``SqsManagedSseEnabled`` is not defined, ``SSE-SQS`` encryption is enabled by default.
+        :param tags: The tags that you attach to this queue. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *AWS CloudFormation User Guide* .
+        :param visibility_timeout: The length of time during which a message will be unavailable after a message is delivered from the queue. This blocks other components from receiving the same message and gives the initial component time to process and delete the message from the queue. Values must be from 0 to 43,200 seconds (12 hours). If you don't specify a value, AWS CloudFormation uses the default value of 30 seconds. For more information about Amazon SQS queue visibility timeouts, see `Visibility timeout <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>`_ in the *Amazon SQS Developer Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409e2c9f3a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQueueProps(
+            content_based_deduplication=content_based_deduplication,
+            deduplication_scope=deduplication_scope,
+            delay_seconds=delay_seconds,
+            fifo_queue=fifo_queue,
+            fifo_throughput_limit=fifo_throughput_limit,
+            kms_data_key_reuse_period_seconds=kms_data_key_reuse_period_seconds,
+            kms_master_key_id=kms_master_key_id,
+            maximum_message_size=maximum_message_size,
+            message_retention_period=message_retention_period,
+            queue_name=queue_name,
+            receive_message_wait_time_seconds=receive_message_wait_time_seconds,
+            redrive_allow_policy=redrive_allow_policy,
+            redrive_policy=redrive_policy,
+            sqs_managed_sse_enabled=sqs_managed_sse_enabled,
+            tags=tags,
+            visibility_timeout=visibility_timeout,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2edac588147bdde110e32931a1f527ce029c9c91623ac9467d77dfcabed1ecf)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__236dcd91758bc5c11159f148d82348c81a166a523238d27a181e043a66bcc984)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) of the queue.
+
+        For example: ``arn:aws:sqs:us-east-2:123456789012:mystack-myqueue-15PG5C2FC1CW8`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrQueueName")
+    def attr_queue_name(self) -> builtins.str:
+        '''Returns the queue name.
+
+        For example: ``mystack-myqueue-1VF9BKQH5BJVI`` .
+
+        :cloudformationAttribute: QueueName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrQueueName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrQueueUrl")
+    def attr_queue_url(self) -> builtins.str:
+        '''Returns the URLs of the queues from the policy.
+
+        :cloudformationAttribute: QueueUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrQueueUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> QueueReference:
+        '''A reference to a Queue resource.'''
+        return typing.cast(QueueReference, jsii.get(self, "queueRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentBasedDeduplication")
+    def content_based_deduplication(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''For first-in-first-out (FIFO) queues, specifies whether to enable content-based deduplication.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "contentBasedDeduplication"))
+
+    @content_based_deduplication.setter
+    def content_based_deduplication(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentBasedDeduplication", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deduplicationScope")
+    def deduplication_scope(self) -> typing.Optional[builtins.str]:
+        '''For high throughput for FIFO queues, specifies whether message deduplication occurs at the message group or queue level.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deduplicationScope"))
+
+    @deduplication_scope.setter
+    def deduplication_scope(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0abc4529ef387826e6c0bff9743cc2c96bf5954528897f415976030c126eb284)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deduplicationScope", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="delaySeconds")
+    def delay_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The time in seconds for which the delivery of all messages in the queue is delayed.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "delaySeconds"))
+
+    @delay_seconds.setter
+    def delay_seconds(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c5037721)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "delaySeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fifoQueue")
+    def fifo_queue(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If set to true, creates a FIFO queue.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "fifoQueue"))
+
+    @fifo_queue.setter
+    def fifo_queue(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fifoQueue", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fifoThroughputLimit")
+    def fifo_throughput_limit(self) -> typing.Optional[builtins.str]:
+        '''For high throughput for FIFO queues, specifies whether the FIFO queue throughput quota applies to the entire queue or per message group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "fifoThroughputLimit"))
+
+    @fifo_throughput_limit.setter
+    def fifo_throughput_limit(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d81525207b63d054bcd4ad3923d013ce7a65791f9a60cd09fcd751ba890a497)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fifoThroughputLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsDataKeyReusePeriodSeconds")
+    def kms_data_key_reuse_period_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The length of time in seconds for which Amazon SQS can reuse a data key to encrypt or decrypt messages before calling AWS KMS again.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "kmsDataKeyReusePeriodSeconds"))
+
+    @kms_data_key_reuse_period_seconds.setter
+    def kms_data_key_reuse_period_seconds(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40f27d3914d194bf6b93118da1158c0d806d038253664b21c384b71b0b744cad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsDataKeyReusePeriodSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsMasterKeyId")
+    def kms_master_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of an AWS Key Management Service (KMS) for Amazon SQS , or a custom KMS.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsMasterKeyId"))
+
+    @kms_master_key_id.setter
+    def kms_master_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1edd65cddbda9f734e1f85edbd60c8f32a77bb83366989f21ee37ba463ea4730)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsMasterKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumMessageSize")
+    def maximum_message_size(self) -> typing.Optional[jsii.Number]:
+        '''The limit of how many bytes that a message can contain before Amazon SQS rejects it.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMessageSize"))
+
+    @maximum_message_size.setter
+    def maximum_message_size(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0937348e9f5cb274266edef6ef289172f6dbb7546a90caff469f117d34471978)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumMessageSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="messageRetentionPeriod")
+    def message_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds that Amazon SQS retains a message.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "messageRetentionPeriod"))
+
+    @message_retention_period.setter
+    def message_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21a661a987567c72d08c78c8144420eba8cbb11eb7636f08fc060fd84e608fce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "messageRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queueName")
+    def queue_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the queue.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "queueName"))
+
+    @queue_name.setter
+    def queue_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61dd4da399)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queueName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="receiveMessageWaitTimeSeconds")
+    def receive_message_wait_time_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the duration, in seconds, that the ReceiveMessage action call waits until a message is in the queue in order to include it in the response, rather than returning an empty response if a message isn't yet available.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "receiveMessageWaitTimeSeconds"))
+
+    @receive_message_wait_time_seconds.setter
+    def receive_message_wait_time_seconds(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "receiveMessageWaitTimeSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="redriveAllowPolicy")
+    def redrive_allow_policy(self) -> typing.Any:
+        '''The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object.'''
+        return typing.cast(typing.Any, jsii.get(self, "redriveAllowPolicy"))
+
+    @redrive_allow_policy.setter
+    def redrive_allow_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="redrivePolicy")
+    def redrive_policy(self) -> typing.Any:
+        '''The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object.'''
+        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
+
+    @redrive_policy.setter
+    def redrive_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sqsManagedSseEnabled")
+    def sqs_managed_sse_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Enables server-side queue encryption using SQS owned encryption keys.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "sqsManagedSseEnabled"))
+
+    @sqs_managed_sse_enabled.setter
+    def sqs_managed_sse_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sqsManagedSseEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags that you attach to this queue.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="visibilityTimeout")
+    def visibility_timeout(self) -> typing.Optional[jsii.Number]:
+        '''The length of time during which a message will be unavailable after a message is delivered from the queue.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "visibilityTimeout"))
+
+    @visibility_timeout.setter
+    def visibility_timeout(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48cda16b71aad6d8bf96a8fd88f815146f039d81c6d0d808d2369955e4d3538f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "visibilityTimeout", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IQueueInlinePolicyRef)
+class CfnQueueInlinePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sqs.CfnQueueInlinePolicy",
+):
+    '''The ``AWS::SQS::QueueInlinePolicy`` resource associates one Amazon SQS queue with one policy.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queueinlinepolicy.html
+    :cloudformationResource: AWS::SQS::QueueInlinePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sqs as sqs
+        
+        # policy_document: Any
+        
+        cfn_queue_inline_policy = sqs.CfnQueueInlinePolicy(self, "MyCfnQueueInlinePolicy",
+            policy_document=policy_document,
+            queue="queue"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        queue: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: A policy document that contains the permissions for the specified Amazon SQS queues. For more information about Amazon SQS policies, see `Using custom policies with the Amazon SQS access policy language <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-creating-custom-policies.html>`_ in the *Amazon SQS Developer Guide* .
+        :param queue: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sqs-queues.html)`` resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a4a58f0061e5bc1b45f4a41f066d63064e48860dda7c96bf6a78c07d708be3e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQueueInlinePolicyProps(policy_document=policy_document, queue=queue)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c076ea64b445e3d9bfc6e9a477574b1c255cf5b418bca5369a75bae6dd0d4c0f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0acb8c97b52293a176d172b05d5b2fdd9fe43cb2bf6842374eef4f6e6c7d3ca)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queueInlinePolicyRef")
+    def queue_inline_policy_ref(self) -> QueueInlinePolicyReference:
+        '''A reference to a QueueInlinePolicy resource.'''
+        return typing.cast(QueueInlinePolicyReference, jsii.get(self, "queueInlinePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''A policy document that contains the permissions for the specified Amazon SQS queues.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1aac3822f2f3ec918fc858517bd93cecb6a600209491929c794eccc0e1e537ca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queue")
+    def queue(self) -> builtins.str:
+        '''The URLs of the queues to which you want to add the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "queue"))
+
+    @queue.setter
+    def queue(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4d38d11b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IQueuePolicyRef)
+class CfnQueuePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sqs.CfnQueuePolicy",
+):
+    '''The ``AWS::SQS::QueuePolicy`` type applies a policy to Amazon SQS queues.
+
+    For an example snippet, see `Declaring an Amazon SQS policy <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-sqs-policy>`_ in the *AWS CloudFormation User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queuepolicy.html
+    :cloudformationResource: AWS::SQS::QueuePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sqs as sqs
+        
+        # policy_document: Any
+        
+        cfn_queue_policy = sqs.CfnQueuePolicy(self, "MyCfnQueuePolicy",
+            policy_document=policy_document,
+            queues=["queues"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        queues: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: A policy document that contains the permissions for the specified Amazon SQS queues. For more information about Amazon SQS policies, see `Using custom policies with the Amazon SQS access policy language <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-creating-custom-policies.html>`_ in the *Amazon SQS Developer Guide* .
+        :param queues: The URLs of the queues to which you want to add the policy. You can use the ``[Ref](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ref.html)`` function to specify an ``[AWS::SQS::Queue](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sqs-queue.html)`` resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf0938ca02c83217053a748eaced04a040ecea55f727e4a44ff3eff90a9ea987)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnQueuePolicyProps(policy_document=policy_document, queues=queues)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d559da0e8ce42a9494dc47b11b1fa822e7527d123a88ce573a75312016b2724)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fd0cd9a724185c298ed861735fbe510352de3936c44fb3421515423fc1bf35f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The provider-assigned unique ID for this managed resource.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="queuePolicyRef")
+    def queue_policy_ref(self) -> QueuePolicyReference:
+        '''A reference to a QueuePolicy resource.'''
+        return typing.cast(QueuePolicyReference, jsii.get(self, "queuePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''A policy document that contains the permissions for the specified Amazon SQS queues.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b9b0dce5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queues")
+    def queues(self) -> typing.List[builtins.str]:
+        '''The URLs of the queues to which you want to add the policy.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "queues"))
+
+    @queues.setter
+    def queues(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queues", value) # pyright: ignore[reportArgumentType]
 
 
 class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Queue"):
@@ -4374,18 +4673,262 @@ __all__ = [
     "DeduplicationScope",
     "FifoThroughputLimit",
     "IQueue",
+    "IQueueInlinePolicyRef",
+    "IQueuePolicyRef",
+    "IQueueRef",
     "Queue",
     "QueueAttributes",
     "QueueBase",
     "QueueEncryption",
+    "QueueInlinePolicyReference",
     "QueuePolicy",
     "QueuePolicyProps",
+    "QueuePolicyReference",
     "QueueProps",
+    "QueueReference",
     "RedriveAllowPolicy",
     "RedrivePermission",
 ]
 
 publication.publish()
+
+def _typecheckingstub__02a76413e8e4d74861fa5e81d44930c6b14048fb5d7282c90c3b79ab22ad70f0(
+    *,
+    policy_document: typing.Any,
+    queue: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aea0967b759b2f27be1496e2fdd3f2d8ccffc42a6f0c89bee2521656680b104(
+    *,
+    policy_document: typing.Any,
+    queues: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fdefcde5dbe865461bead4520126014a0ec05bd2ffb75d2c2800ff3030754b3(
+    *,
+    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deduplication_scope: typing.Optional[builtins.str] = None,
+    delay_seconds: typing.Optional[jsii.Number] = None,
+    fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fifo_throughput_limit: typing.Optional[builtins.str] = None,
+    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
+    kms_master_key_id: typing.Optional[builtins.str] = None,
+    maximum_message_size: typing.Optional[jsii.Number] = None,
+    message_retention_period: typing.Optional[jsii.Number] = None,
+    queue_name: typing.Optional[builtins.str] = None,
+    receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
+    redrive_allow_policy: typing.Any = None,
+    redrive_policy: typing.Any = None,
+    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visibility_timeout: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0da853146e002899643e154ec7e028c4d8126479377d4ec0f4604053d8341c65(
+    *,
+    max_receive_count: jsii.Number,
+    queue: IQueue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea0451819e2455c6ee9b50f403e68931b5e90e379366b4341546882871994f5d(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a27eed791bc165454bda377834d5e6dc523a1816052181a1d4e6edf424e7744f(
+    grantee: _IGrantable_71c4f5de,
+    *queue_actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5da94a52ae7998debd568a5368198659935145c2960a17f24cdcc61e106618b(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__259c1cbbca404fd7b306bfb8e05e77c1d36743bd55e1212ceecf383f245d6244(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c96217067b025063a2c6673c914a427a61983f12646083c578096402bb248abb(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dc9d740764123624195584bb5156ec848518db29961d3251cb049c755259d70(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee8edffb48f3fc9ffd5062b78d7caac31c2d7bc4368f11fd9ecebf59e5d531cd(
+    *,
+    queue_arn: builtins.str,
+    fifo: typing.Optional[builtins.bool] = None,
+    key_arn: typing.Optional[builtins.str] = None,
+    queue_name: typing.Optional[builtins.str] = None,
+    queue_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa206ab8c58ba435f5c1def7c5a542d929e9974133736af9b77e4b133777e98a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6c886fa7695bf0fd2e55e28767c6c53578faafa0492da24fadb1af9092075fa(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ccb1295772d7c42db85d59f3c6462ecdb405d599f31d6f5f2cfbab034371366(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5a5ff7c810718528837ec11092f8e03040d6e612831c88a6e7076dbc91fefde(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfd8b992fb1933e6301f1bd505a1e614230868a1ad14e16c1798998235c1918c(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__000d6e6399155667ed0303df2ba4fb206e3ad9c268260ad60726c9690b5409e3(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ffb259ebfbf10975a9ae041468c8a95370628f64ddfb35eda3c5a406f766edf(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_Unit_61bc6f70] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0efada089d642ce5dbfb17b6acc684ba73f6da36661f7d734e1d7f1ed463e8d(
+    *,
+    queue: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b4ac77ae6599f1fc32eef37d5d035abed4dfa01de0a450178293ec02890e37d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    queues: typing.Sequence[IQueue],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad2f3a9369d50afefd40ef9004e8bd6890c82e4bb8762d2f52bc61e32a0a56ed(
+    *,
+    queues: typing.Sequence[IQueue],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a658bcf8034c0e59c76e02055be1c461bf21396856ae420515e3c359dcc91ba5(
+    *,
+    queue_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7cc541a1a72c528b56f0602d369e4a26dcd2a75c1de2089bcfd282f0118aa3b7(
+    *,
+    content_based_deduplication: typing.Optional[builtins.bool] = None,
+    data_key_reuse: typing.Optional[_Duration_4839e8c3] = None,
+    dead_letter_queue: typing.Optional[typing.Union[DeadLetterQueue, typing.Dict[builtins.str, typing.Any]]] = None,
+    deduplication_scope: typing.Optional[DeduplicationScope] = None,
+    delivery_delay: typing.Optional[_Duration_4839e8c3] = None,
+    encryption: typing.Optional[QueueEncryption] = None,
+    encryption_master_key: typing.Optional[_IKey_5f11635f] = None,
+    enforce_ssl: typing.Optional[builtins.bool] = None,
+    fifo: typing.Optional[builtins.bool] = None,
+    fifo_throughput_limit: typing.Optional[FifoThroughputLimit] = None,
+    max_message_size_bytes: typing.Optional[jsii.Number] = None,
+    queue_name: typing.Optional[builtins.str] = None,
+    receive_message_wait_time: typing.Optional[_Duration_4839e8c3] = None,
+    redrive_allow_policy: typing.Optional[typing.Union[RedriveAllowPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3cb7e890e67be1387bf3d3ae65871f9f2d316c44b845f0941193100bf40248ac(
+    *,
+    queue_arn: builtins.str,
+    queue_url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d4d5d927b345a46d0dfa5a41792aa2178d115c36b82fd6fe9bd4534e1f7379d(
+    *,
+    redrive_permission: typing.Optional[RedrivePermission] = None,
+    source_queues: typing.Optional[typing.Sequence[IQueue]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__3eb05e7ff1a578da7a665c63824c9ec0104e997736ccc02638ac12409e2c9f3a(
     scope: _constructs_77d1e7e8.Construct,
@@ -4553,14 +5096,6 @@ def _typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__02a76413e8e4d74861fa5e81d44930c6b14048fb5d7282c90c3b79ab22ad70f0(
-    *,
-    policy_document: typing.Any,
-    queue: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__cf0938ca02c83217053a748eaced04a040ecea55f727e4a44ff3eff90a9ea987(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4591,214 +5126,6 @@ def _typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b
 
 def _typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d(
     value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8aea0967b759b2f27be1496e2fdd3f2d8ccffc42a6f0c89bee2521656680b104(
-    *,
-    policy_document: typing.Any,
-    queues: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8fdefcde5dbe865461bead4520126014a0ec05bd2ffb75d2c2800ff3030754b3(
-    *,
-    content_based_deduplication: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    deduplication_scope: typing.Optional[builtins.str] = None,
-    delay_seconds: typing.Optional[jsii.Number] = None,
-    fifo_queue: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    fifo_throughput_limit: typing.Optional[builtins.str] = None,
-    kms_data_key_reuse_period_seconds: typing.Optional[jsii.Number] = None,
-    kms_master_key_id: typing.Optional[builtins.str] = None,
-    maximum_message_size: typing.Optional[jsii.Number] = None,
-    message_retention_period: typing.Optional[jsii.Number] = None,
-    queue_name: typing.Optional[builtins.str] = None,
-    receive_message_wait_time_seconds: typing.Optional[jsii.Number] = None,
-    redrive_allow_policy: typing.Any = None,
-    redrive_policy: typing.Any = None,
-    sqs_managed_sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visibility_timeout: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0da853146e002899643e154ec7e028c4d8126479377d4ec0f4604053d8341c65(
-    *,
-    max_receive_count: jsii.Number,
-    queue: IQueue,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea0451819e2455c6ee9b50f403e68931b5e90e379366b4341546882871994f5d(
-    statement: _PolicyStatement_0fe33853,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a27eed791bc165454bda377834d5e6dc523a1816052181a1d4e6edf424e7744f(
-    grantee: _IGrantable_71c4f5de,
-    *queue_actions: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e5da94a52ae7998debd568a5368198659935145c2960a17f24cdcc61e106618b(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__259c1cbbca404fd7b306bfb8e05e77c1d36743bd55e1212ceecf383f245d6244(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c96217067b025063a2c6673c914a427a61983f12646083c578096402bb248abb(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0dc9d740764123624195584bb5156ec848518db29961d3251cb049c755259d70(
-    metric_name: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    color: typing.Optional[builtins.str] = None,
-    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    id: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
-    region: typing.Optional[builtins.str] = None,
-    stack_account: typing.Optional[builtins.str] = None,
-    stack_region: typing.Optional[builtins.str] = None,
-    statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
-    visible: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee8edffb48f3fc9ffd5062b78d7caac31c2d7bc4368f11fd9ecebf59e5d531cd(
-    *,
-    queue_arn: builtins.str,
-    fifo: typing.Optional[builtins.bool] = None,
-    key_arn: typing.Optional[builtins.str] = None,
-    queue_name: typing.Optional[builtins.str] = None,
-    queue_url: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa206ab8c58ba435f5c1def7c5a542d929e9974133736af9b77e4b133777e98a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    environment_from_arn: typing.Optional[builtins.str] = None,
-    physical_name: typing.Optional[builtins.str] = None,
-    region: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6c886fa7695bf0fd2e55e28767c6c53578faafa0492da24fadb1af9092075fa(
-    statement: _PolicyStatement_0fe33853,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ccb1295772d7c42db85d59f3c6462ecdb405d599f31d6f5f2cfbab034371366(
-    grantee: _IGrantable_71c4f5de,
-    *actions: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e5a5ff7c810718528837ec11092f8e03040d6e612831c88a6e7076dbc91fefde(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bfd8b992fb1933e6301f1bd505a1e614230868a1ad14e16c1798998235c1918c(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__000d6e6399155667ed0303df2ba4fb206e3ad9c268260ad60726c9690b5409e3(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ffb259ebfbf10975a9ae041468c8a95370628f64ddfb35eda3c5a406f766edf(
-    metric_name: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    color: typing.Optional[builtins.str] = None,
-    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    id: typing.Optional[builtins.str] = None,
-    label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
-    region: typing.Optional[builtins.str] = None,
-    stack_account: typing.Optional[builtins.str] = None,
-    stack_region: typing.Optional[builtins.str] = None,
-    statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
-    visible: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b4ac77ae6599f1fc32eef37d5d035abed4dfa01de0a450178293ec02890e37d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    queues: typing.Sequence[IQueue],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ad2f3a9369d50afefd40ef9004e8bd6890c82e4bb8762d2f52bc61e32a0a56ed(
-    *,
-    queues: typing.Sequence[IQueue],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7cc541a1a72c528b56f0602d369e4a26dcd2a75c1de2089bcfd282f0118aa3b7(
-    *,
-    content_based_deduplication: typing.Optional[builtins.bool] = None,
-    data_key_reuse: typing.Optional[_Duration_4839e8c3] = None,
-    dead_letter_queue: typing.Optional[typing.Union[DeadLetterQueue, typing.Dict[builtins.str, typing.Any]]] = None,
-    deduplication_scope: typing.Optional[DeduplicationScope] = None,
-    delivery_delay: typing.Optional[_Duration_4839e8c3] = None,
-    encryption: typing.Optional[QueueEncryption] = None,
-    encryption_master_key: typing.Optional[_IKey_5f11635f] = None,
-    enforce_ssl: typing.Optional[builtins.bool] = None,
-    fifo: typing.Optional[builtins.bool] = None,
-    fifo_throughput_limit: typing.Optional[FifoThroughputLimit] = None,
-    max_message_size_bytes: typing.Optional[jsii.Number] = None,
-    queue_name: typing.Optional[builtins.str] = None,
-    receive_message_wait_time: typing.Optional[_Duration_4839e8c3] = None,
-    redrive_allow_policy: typing.Optional[typing.Union[RedriveAllowPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
-    visibility_timeout: typing.Optional[_Duration_4839e8c3] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d4d5d927b345a46d0dfa5a41792aa2178d115c36b82fd6fe9bd4534e1f7379d(
-    *,
-    redrive_permission: typing.Optional[RedrivePermission] = None,
-    source_queues: typing.Optional[typing.Sequence[IQueue]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

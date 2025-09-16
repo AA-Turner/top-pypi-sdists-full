@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylamarzocco
-Version: 2.0.11
+Version: 2.1.0
 Summary: A Python implementation of the La Marzocco API
 Author-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
 Maintainer-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
@@ -22,6 +22,7 @@ License-File: LICENSE
 Requires-Dist: bleak>=0.20.0
 Requires-Dist: aiohttp>=3.8
 Requires-Dist: mashumaro>=3.0
+Requires-Dist: cryptography>=41.0
 Provides-Extra: dev
 Requires-Dist: covdefaults==2.3.0; extra == "dev"
 Requires-Dist: coverage==7.6.7; extra == "dev"

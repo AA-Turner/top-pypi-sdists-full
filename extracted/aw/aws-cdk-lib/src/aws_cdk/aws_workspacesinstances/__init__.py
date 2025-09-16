@@ -79,7 +79,771 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnVolumeAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "device": "device",
+        "volume_id": "volumeId",
+        "workspace_instance_id": "workspaceInstanceId",
+        "disassociate_mode": "disassociateMode",
+    },
+)
+class CfnVolumeAssociationProps:
+    def __init__(
+        self,
+        *,
+        device: builtins.str,
+        volume_id: builtins.str,
+        workspace_instance_id: builtins.str,
+        disassociate_mode: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVolumeAssociation``.
+
+        :param device: The device name for the volume attachment.
+        :param volume_id: ID of the volume to attach to the workspace instance.
+        :param workspace_instance_id: ID of the workspace instance to associate with the volume.
+        :param disassociate_mode: Mode to use when disassociating the volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            cfn_volume_association_props = workspacesinstances.CfnVolumeAssociationProps(
+                device="device",
+                volume_id="volumeId",
+                workspace_instance_id="workspaceInstanceId",
+            
+                # the properties below are optional
+                disassociate_mode="disassociateMode"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f051309343f88ebe1cc3dc3f2fff77a39c42174a07969dff75f195781a41fbf)
+            check_type(argname="argument device", value=device, expected_type=type_hints["device"])
+            check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
+            check_type(argname="argument workspace_instance_id", value=workspace_instance_id, expected_type=type_hints["workspace_instance_id"])
+            check_type(argname="argument disassociate_mode", value=disassociate_mode, expected_type=type_hints["disassociate_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "device": device,
+            "volume_id": volume_id,
+            "workspace_instance_id": workspace_instance_id,
+        }
+        if disassociate_mode is not None:
+            self._values["disassociate_mode"] = disassociate_mode
+
+    @builtins.property
+    def device(self) -> builtins.str:
+        '''The device name for the volume attachment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-device
+        '''
+        result = self._values.get("device")
+        assert result is not None, "Required property 'device' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def volume_id(self) -> builtins.str:
+        '''ID of the volume to attach to the workspace instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-volumeid
+        '''
+        result = self._values.get("volume_id")
+        assert result is not None, "Required property 'volume_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_instance_id(self) -> builtins.str:
+        '''ID of the workspace instance to associate with the volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-workspaceinstanceid
+        '''
+        result = self._values.get("workspace_instance_id")
+        assert result is not None, "Required property 'workspace_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def disassociate_mode(self) -> typing.Optional[builtins.str]:
+        '''Mode to use when disassociating the volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-disassociatemode
+        '''
+        result = self._values.get("disassociate_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVolumeAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnVolumeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone": "availabilityZone",
+        "encrypted": "encrypted",
+        "iops": "iops",
+        "kms_key_id": "kmsKeyId",
+        "size_in_gb": "sizeInGb",
+        "snapshot_id": "snapshotId",
+        "tag_specifications": "tagSpecifications",
+        "throughput": "throughput",
+        "volume_type": "volumeType",
+    },
+)
+class CfnVolumeProps:
+    def __init__(
+        self,
+        *,
+        availability_zone: builtins.str,
+        encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        iops: typing.Optional[jsii.Number] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        size_in_gb: typing.Optional[jsii.Number] = None,
+        snapshot_id: typing.Optional[builtins.str] = None,
+        tag_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnVolume.TagSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        throughput: typing.Optional[jsii.Number] = None,
+        volume_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVolume``.
+
+        :param availability_zone: The Availability Zone in which to create the volume.
+        :param encrypted: Indicates whether the volume should be encrypted.
+        :param iops: The number of I/O operations per second (IOPS).
+        :param kms_key_id: The identifier of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use for Amazon EBS encryption.
+        :param size_in_gb: The size of the volume, in GiBs.
+        :param snapshot_id: The snapshot from which to create the volume.
+        :param tag_specifications: The tags passed to EBS volume.
+        :param throughput: The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
+        :param volume_type: The volume type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            cfn_volume_props = workspacesinstances.CfnVolumeProps(
+                availability_zone="availabilityZone",
+            
+                # the properties below are optional
+                encrypted=False,
+                iops=123,
+                kms_key_id="kmsKeyId",
+                size_in_gb=123,
+                snapshot_id="snapshotId",
+                tag_specifications=[workspacesinstances.CfnVolume.TagSpecificationProperty(
+                    resource_type="resourceType",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
+                )],
+                throughput=123,
+                volume_type="volumeType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86994d3c65438656f95433a2d79f0f9f2640fb4eb23141adf1234d9d1e1d53cd)
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
+            check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument size_in_gb", value=size_in_gb, expected_type=type_hints["size_in_gb"])
+            check_type(argname="argument snapshot_id", value=snapshot_id, expected_type=type_hints["snapshot_id"])
+            check_type(argname="argument tag_specifications", value=tag_specifications, expected_type=type_hints["tag_specifications"])
+            check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "availability_zone": availability_zone,
+        }
+        if encrypted is not None:
+            self._values["encrypted"] = encrypted
+        if iops is not None:
+            self._values["iops"] = iops
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if size_in_gb is not None:
+            self._values["size_in_gb"] = size_in_gb
+        if snapshot_id is not None:
+            self._values["snapshot_id"] = snapshot_id
+        if tag_specifications is not None:
+            self._values["tag_specifications"] = tag_specifications
+        if throughput is not None:
+            self._values["throughput"] = throughput
+        if volume_type is not None:
+            self._values["volume_type"] = volume_type
+
+    @builtins.property
+    def availability_zone(self) -> builtins.str:
+        '''The Availability Zone in which to create the volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        assert result is not None, "Required property 'availability_zone' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def encrypted(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the volume should be encrypted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-encrypted
+        '''
+        result = self._values.get("encrypted")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def iops(self) -> typing.Optional[jsii.Number]:
+        '''The number of I/O operations per second (IOPS).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-iops
+        '''
+        result = self._values.get("iops")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use for Amazon EBS encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def size_in_gb(self) -> typing.Optional[jsii.Number]:
+        '''The size of the volume, in GiBs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-sizeingb
+        '''
+        result = self._values.get("size_in_gb")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def snapshot_id(self) -> typing.Optional[builtins.str]:
+        '''The snapshot from which to create the volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-snapshotid
+        '''
+        result = self._values.get("snapshot_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tag_specifications(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVolume.TagSpecificationProperty"]]]]:
+        '''The tags passed to EBS volume.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-tagspecifications
+        '''
+        result = self._values.get("tag_specifications")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnVolume.TagSpecificationProperty"]]]], result)
+
+    @builtins.property
+    def throughput(self) -> typing.Optional[jsii.Number]:
+        '''The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-throughput
+        '''
+        result = self._values.get("throughput")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_type(self) -> typing.Optional[builtins.str]:
+        '''The volume type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-volumetype
+        '''
+        result = self._values.get("volume_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVolumeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={"managed_instance": "managedInstance", "tags": "tags"},
+)
+class CfnWorkspaceInstanceProps:
+    def __init__(
+        self,
+        *,
+        managed_instance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspaceInstance.ManagedInstanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspaceInstance``.
+
+        :param managed_instance: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            cfn_workspace_instance_props = workspacesinstances.CfnWorkspaceInstanceProps(
+                managed_instance=workspacesinstances.CfnWorkspaceInstance.ManagedInstanceProperty(
+                    image_id="imageId",
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    block_device_mappings=[workspacesinstances.CfnWorkspaceInstance.BlockDeviceMappingProperty(
+                        device_name="deviceName",
+                        ebs=workspacesinstances.CfnWorkspaceInstance.EbsBlockDeviceProperty(
+                            encrypted=False,
+                            iops=123,
+                            kms_key_id="kmsKeyId",
+                            throughput=123,
+                            volume_size=123,
+                            volume_type="volumeType"
+                        ),
+                        no_device="noDevice",
+                        virtual_name="virtualName"
+                    )],
+                    cpu_options=workspacesinstances.CfnWorkspaceInstance.CpuOptionsRequestProperty(
+                        core_count=123,
+                        threads_per_core=123
+                    ),
+                    credit_specification=workspacesinstances.CfnWorkspaceInstance.CreditSpecificationRequestProperty(
+                        cpu_credits="cpuCredits"
+                    ),
+                    disable_api_stop=False,
+                    ebs_optimized=False,
+                    enclave_options=workspacesinstances.CfnWorkspaceInstance.EnclaveOptionsRequestProperty(
+                        enabled=False
+                    ),
+                    hibernation_options=workspacesinstances.CfnWorkspaceInstance.HibernationOptionsRequestProperty(
+                        configured=False
+                    ),
+                    iam_instance_profile=workspacesinstances.CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty(
+                        name="name"
+                    ),
+                    key_name="keyName",
+                    maintenance_options=workspacesinstances.CfnWorkspaceInstance.InstanceMaintenanceOptionsRequestProperty(
+                        auto_recovery="autoRecovery"
+                    ),
+                    metadata_options=workspacesinstances.CfnWorkspaceInstance.InstanceMetadataOptionsRequestProperty(
+                        http_endpoint="httpEndpoint",
+                        http_protocol_ipv6="httpProtocolIpv6",
+                        http_put_response_hop_limit=123,
+                        http_tokens="httpTokens",
+                        instance_metadata_tags="instanceMetadataTags"
+                    ),
+                    monitoring=workspacesinstances.CfnWorkspaceInstance.RunInstancesMonitoringEnabledProperty(
+                        enabled=False
+                    ),
+                    network_interfaces=[workspacesinstances.CfnWorkspaceInstance.InstanceNetworkInterfaceSpecificationProperty(
+                        description="description",
+                        device_index=123,
+                        groups=["groups"],
+                        subnet_id="subnetId"
+                    )],
+                    network_performance_options=workspacesinstances.CfnWorkspaceInstance.InstanceNetworkPerformanceOptionsRequestProperty(
+                        bandwidth_weighting="bandwidthWeighting"
+                    ),
+                    placement=workspacesinstances.CfnWorkspaceInstance.PlacementProperty(
+                        availability_zone="availabilityZone",
+                        group_name="groupName",
+                        tenancy="tenancy"
+                    ),
+                    private_dns_name_options=workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
+                        enable_resource_name_dns_aaaa_record=False,
+                        enable_resource_name_dns_aRecord=False,
+                        hostname_type="hostnameType"
+                    ),
+                    tag_specifications=[workspacesinstances.CfnWorkspaceInstance.TagSpecificationProperty(
+                        resource_type="resourceType",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    user_data="userData"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d4292dcb083e5a048440cd4455e31dfc65f5b3dd4c844b99e38e6c3941cca08)
+            check_type(argname="argument managed_instance", value=managed_instance, expected_type=type_hints["managed_instance"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if managed_instance is not None:
+            self._values["managed_instance"] = managed_instance
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def managed_instance(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspaceInstance.ManagedInstanceProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html#cfn-workspacesinstances-workspaceinstance-managedinstance
+        '''
+        result = self._values.get("managed_instance")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspaceInstance.ManagedInstanceProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html#cfn-workspacesinstances-workspaceinstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesinstances.IVolumeAssociationRef")
+class IVolumeAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a VolumeAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeAssociationRef")
+    def volume_association_ref(self) -> "VolumeAssociationReference":
+        '''(experimental) A reference to a VolumeAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVolumeAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VolumeAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesinstances.IVolumeAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeAssociationRef")
+    def volume_association_ref(self) -> "VolumeAssociationReference":
+        '''(experimental) A reference to a VolumeAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VolumeAssociationReference", jsii.get(self, "volumeAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVolumeAssociationRef).__jsii_proxy_class__ = lambda : _IVolumeAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesinstances.IVolumeRef")
+class IVolumeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Volume.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> "VolumeReference":
+        '''(experimental) A reference to a Volume resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVolumeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Volume.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesinstances.IVolumeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> "VolumeReference":
+        '''(experimental) A reference to a Volume resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VolumeReference", jsii.get(self, "volumeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVolumeRef).__jsii_proxy_class__ = lambda : _IVolumeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesinstances.IWorkspaceInstanceRef")
+class IWorkspaceInstanceRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkspaceInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceInstanceRef")
+    def workspace_instance_ref(self) -> "WorkspaceInstanceReference":
+        '''(experimental) A reference to a WorkspaceInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkspaceInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkspaceInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesinstances.IWorkspaceInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceInstanceRef")
+    def workspace_instance_ref(self) -> "WorkspaceInstanceReference":
+        '''(experimental) A reference to a WorkspaceInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkspaceInstanceReference", jsii.get(self, "workspaceInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkspaceInstanceRef).__jsii_proxy_class__ = lambda : _IWorkspaceInstanceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.VolumeAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "device": "device",
+        "volume_id": "volumeId",
+        "workspace_instance_id": "workspaceInstanceId",
+    },
+)
+class VolumeAssociationReference:
+    def __init__(
+        self,
+        *,
+        device: builtins.str,
+        volume_id: builtins.str,
+        workspace_instance_id: builtins.str,
+    ) -> None:
+        '''A reference to a VolumeAssociation resource.
+
+        :param device: The Device of the VolumeAssociation resource.
+        :param volume_id: The VolumeId of the VolumeAssociation resource.
+        :param workspace_instance_id: The WorkspaceInstanceId of the VolumeAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            volume_association_reference = workspacesinstances.VolumeAssociationReference(
+                device="device",
+                volume_id="volumeId",
+                workspace_instance_id="workspaceInstanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78ff67f870ec0068cf8d4694b1167bdf27fe00f6d4a0316f9c6cb86242f95ec8)
+            check_type(argname="argument device", value=device, expected_type=type_hints["device"])
+            check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
+            check_type(argname="argument workspace_instance_id", value=workspace_instance_id, expected_type=type_hints["workspace_instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "device": device,
+            "volume_id": volume_id,
+            "workspace_instance_id": workspace_instance_id,
+        }
+
+    @builtins.property
+    def device(self) -> builtins.str:
+        '''The Device of the VolumeAssociation resource.'''
+        result = self._values.get("device")
+        assert result is not None, "Required property 'device' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def volume_id(self) -> builtins.str:
+        '''The VolumeId of the VolumeAssociation resource.'''
+        result = self._values.get("volume_id")
+        assert result is not None, "Required property 'volume_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_instance_id(self) -> builtins.str:
+        '''The WorkspaceInstanceId of the VolumeAssociation resource.'''
+        result = self._values.get("workspace_instance_id")
+        assert result is not None, "Required property 'workspace_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VolumeAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.VolumeReference",
+    jsii_struct_bases=[],
+    name_mapping={"volume_id": "volumeId"},
+)
+class VolumeReference:
+    def __init__(self, *, volume_id: builtins.str) -> None:
+        '''A reference to a Volume resource.
+
+        :param volume_id: The VolumeId of the Volume resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            volume_reference = workspacesinstances.VolumeReference(
+                volume_id="volumeId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__358f231761e03a173dad2cfa738ed049b636ce4bb8eaa2612a7e4dfccce16dbb)
+            check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "volume_id": volume_id,
+        }
+
+    @builtins.property
+    def volume_id(self) -> builtins.str:
+        '''The VolumeId of the Volume resource.'''
+        result = self._values.get("volume_id")
+        assert result is not None, "Required property 'volume_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VolumeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesinstances.WorkspaceInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_instance_id": "workspaceInstanceId"},
+)
+class WorkspaceInstanceReference:
+    def __init__(self, *, workspace_instance_id: builtins.str) -> None:
+        '''A reference to a WorkspaceInstance resource.
+
+        :param workspace_instance_id: The WorkspaceInstanceId of the WorkspaceInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesinstances as workspacesinstances
+            
+            workspace_instance_reference = workspacesinstances.WorkspaceInstanceReference(
+                workspace_instance_id="workspaceInstanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb0f1c5f83268db690fecbf03ce9fc4408143e4740ed56aa07455b2f62910ae9)
+            check_type(argname="argument workspace_instance_id", value=workspace_instance_id, expected_type=type_hints["workspace_instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_instance_id": workspace_instance_id,
+        }
+
+    @builtins.property
+    def workspace_instance_id(self) -> builtins.str:
+        '''The WorkspaceInstanceId of the WorkspaceInstance resource.'''
+        result = self._values.get("workspace_instance_id")
+        assert result is not None, "Required property 'workspace_instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkspaceInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IVolumeRef)
 class CfnVolume(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -207,6 +971,12 @@ class CfnVolume(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> VolumeReference:
+        '''A reference to a Volume resource.'''
+        return typing.cast(VolumeReference, jsii.get(self, "volumeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -407,7 +1177,7 @@ class CfnVolume(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IVolumeAssociationRef)
 class CfnVolumeAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -502,6 +1272,12 @@ class CfnVolumeAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="volumeAssociationRef")
+    def volume_association_ref(self) -> VolumeAssociationReference:
+        '''A reference to a VolumeAssociation resource.'''
+        return typing.cast(VolumeAssociationReference, jsii.get(self, "volumeAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="device")
     def device(self) -> builtins.str:
         '''The device name for the volume attachment.'''
@@ -554,315 +1330,7 @@ class CfnVolumeAssociation(
         jsii.set(self, "disassociateMode", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnVolumeAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "device": "device",
-        "volume_id": "volumeId",
-        "workspace_instance_id": "workspaceInstanceId",
-        "disassociate_mode": "disassociateMode",
-    },
-)
-class CfnVolumeAssociationProps:
-    def __init__(
-        self,
-        *,
-        device: builtins.str,
-        volume_id: builtins.str,
-        workspace_instance_id: builtins.str,
-        disassociate_mode: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVolumeAssociation``.
-
-        :param device: The device name for the volume attachment.
-        :param volume_id: ID of the volume to attach to the workspace instance.
-        :param workspace_instance_id: ID of the workspace instance to associate with the volume.
-        :param disassociate_mode: Mode to use when disassociating the volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesinstances as workspacesinstances
-            
-            cfn_volume_association_props = workspacesinstances.CfnVolumeAssociationProps(
-                device="device",
-                volume_id="volumeId",
-                workspace_instance_id="workspaceInstanceId",
-            
-                # the properties below are optional
-                disassociate_mode="disassociateMode"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f051309343f88ebe1cc3dc3f2fff77a39c42174a07969dff75f195781a41fbf)
-            check_type(argname="argument device", value=device, expected_type=type_hints["device"])
-            check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
-            check_type(argname="argument workspace_instance_id", value=workspace_instance_id, expected_type=type_hints["workspace_instance_id"])
-            check_type(argname="argument disassociate_mode", value=disassociate_mode, expected_type=type_hints["disassociate_mode"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "device": device,
-            "volume_id": volume_id,
-            "workspace_instance_id": workspace_instance_id,
-        }
-        if disassociate_mode is not None:
-            self._values["disassociate_mode"] = disassociate_mode
-
-    @builtins.property
-    def device(self) -> builtins.str:
-        '''The device name for the volume attachment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-device
-        '''
-        result = self._values.get("device")
-        assert result is not None, "Required property 'device' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def volume_id(self) -> builtins.str:
-        '''ID of the volume to attach to the workspace instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-volumeid
-        '''
-        result = self._values.get("volume_id")
-        assert result is not None, "Required property 'volume_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def workspace_instance_id(self) -> builtins.str:
-        '''ID of the workspace instance to associate with the volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-workspaceinstanceid
-        '''
-        result = self._values.get("workspace_instance_id")
-        assert result is not None, "Required property 'workspace_instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def disassociate_mode(self) -> typing.Optional[builtins.str]:
-        '''Mode to use when disassociating the volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volumeassociation.html#cfn-workspacesinstances-volumeassociation-disassociatemode
-        '''
-        result = self._values.get("disassociate_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVolumeAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnVolumeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zone": "availabilityZone",
-        "encrypted": "encrypted",
-        "iops": "iops",
-        "kms_key_id": "kmsKeyId",
-        "size_in_gb": "sizeInGb",
-        "snapshot_id": "snapshotId",
-        "tag_specifications": "tagSpecifications",
-        "throughput": "throughput",
-        "volume_type": "volumeType",
-    },
-)
-class CfnVolumeProps:
-    def __init__(
-        self,
-        *,
-        availability_zone: builtins.str,
-        encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        iops: typing.Optional[jsii.Number] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        size_in_gb: typing.Optional[jsii.Number] = None,
-        snapshot_id: typing.Optional[builtins.str] = None,
-        tag_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.TagSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        throughput: typing.Optional[jsii.Number] = None,
-        volume_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVolume``.
-
-        :param availability_zone: The Availability Zone in which to create the volume.
-        :param encrypted: Indicates whether the volume should be encrypted.
-        :param iops: The number of I/O operations per second (IOPS).
-        :param kms_key_id: The identifier of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use for Amazon EBS encryption.
-        :param size_in_gb: The size of the volume, in GiBs.
-        :param snapshot_id: The snapshot from which to create the volume.
-        :param tag_specifications: The tags passed to EBS volume.
-        :param throughput: The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
-        :param volume_type: The volume type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesinstances as workspacesinstances
-            
-            cfn_volume_props = workspacesinstances.CfnVolumeProps(
-                availability_zone="availabilityZone",
-            
-                # the properties below are optional
-                encrypted=False,
-                iops=123,
-                kms_key_id="kmsKeyId",
-                size_in_gb=123,
-                snapshot_id="snapshotId",
-                tag_specifications=[workspacesinstances.CfnVolume.TagSpecificationProperty(
-                    resource_type="resourceType",
-                    tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )]
-                )],
-                throughput=123,
-                volume_type="volumeType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86994d3c65438656f95433a2d79f0f9f2640fb4eb23141adf1234d9d1e1d53cd)
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
-            check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument size_in_gb", value=size_in_gb, expected_type=type_hints["size_in_gb"])
-            check_type(argname="argument snapshot_id", value=snapshot_id, expected_type=type_hints["snapshot_id"])
-            check_type(argname="argument tag_specifications", value=tag_specifications, expected_type=type_hints["tag_specifications"])
-            check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
-            check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "availability_zone": availability_zone,
-        }
-        if encrypted is not None:
-            self._values["encrypted"] = encrypted
-        if iops is not None:
-            self._values["iops"] = iops
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if size_in_gb is not None:
-            self._values["size_in_gb"] = size_in_gb
-        if snapshot_id is not None:
-            self._values["snapshot_id"] = snapshot_id
-        if tag_specifications is not None:
-            self._values["tag_specifications"] = tag_specifications
-        if throughput is not None:
-            self._values["throughput"] = throughput
-        if volume_type is not None:
-            self._values["volume_type"] = volume_type
-
-    @builtins.property
-    def availability_zone(self) -> builtins.str:
-        '''The Availability Zone in which to create the volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        assert result is not None, "Required property 'availability_zone' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def encrypted(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the volume should be encrypted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-encrypted
-        '''
-        result = self._values.get("encrypted")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def iops(self) -> typing.Optional[jsii.Number]:
-        '''The number of I/O operations per second (IOPS).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-iops
-        '''
-        result = self._values.get("iops")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use for Amazon EBS encryption.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def size_in_gb(self) -> typing.Optional[jsii.Number]:
-        '''The size of the volume, in GiBs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-sizeingb
-        '''
-        result = self._values.get("size_in_gb")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''The snapshot from which to create the volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-snapshotid
-        '''
-        result = self._values.get("snapshot_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tag_specifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVolume.TagSpecificationProperty]]]]:
-        '''The tags passed to EBS volume.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-tagspecifications
-        '''
-        result = self._values.get("tag_specifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVolume.TagSpecificationProperty]]]], result)
-
-    @builtins.property
-    def throughput(self) -> typing.Optional[jsii.Number]:
-        '''The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-throughput
-        '''
-        result = self._values.get("throughput")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def volume_type(self) -> typing.Optional[builtins.str]:
-        '''The volume type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-volume.html#cfn-workspacesinstances-volume-volumetype
-        '''
-        result = self._values.get("volume_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVolumeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IWorkspaceInstanceRef, _ITaggableV2_4e6798f8)
 class CfnWorkspaceInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1062,6 +1530,12 @@ class CfnWorkspaceInstance(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceInstanceRef")
+    def workspace_instance_ref(self) -> WorkspaceInstanceReference:
+        '''A reference to a WorkspaceInstance resource.'''
+        return typing.cast(WorkspaceInstanceReference, jsii.get(self, "workspaceInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="managedInstance")
@@ -2715,157 +3189,6 @@ class CfnWorkspaceInstance(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={"managed_instance": "managedInstance", "tags": "tags"},
-)
-class CfnWorkspaceInstanceProps:
-    def __init__(
-        self,
-        *,
-        managed_instance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.ManagedInstanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkspaceInstance``.
-
-        :param managed_instance: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesinstances as workspacesinstances
-            
-            cfn_workspace_instance_props = workspacesinstances.CfnWorkspaceInstanceProps(
-                managed_instance=workspacesinstances.CfnWorkspaceInstance.ManagedInstanceProperty(
-                    image_id="imageId",
-                    instance_type="instanceType",
-            
-                    # the properties below are optional
-                    block_device_mappings=[workspacesinstances.CfnWorkspaceInstance.BlockDeviceMappingProperty(
-                        device_name="deviceName",
-                        ebs=workspacesinstances.CfnWorkspaceInstance.EbsBlockDeviceProperty(
-                            encrypted=False,
-                            iops=123,
-                            kms_key_id="kmsKeyId",
-                            throughput=123,
-                            volume_size=123,
-                            volume_type="volumeType"
-                        ),
-                        no_device="noDevice",
-                        virtual_name="virtualName"
-                    )],
-                    cpu_options=workspacesinstances.CfnWorkspaceInstance.CpuOptionsRequestProperty(
-                        core_count=123,
-                        threads_per_core=123
-                    ),
-                    credit_specification=workspacesinstances.CfnWorkspaceInstance.CreditSpecificationRequestProperty(
-                        cpu_credits="cpuCredits"
-                    ),
-                    disable_api_stop=False,
-                    ebs_optimized=False,
-                    enclave_options=workspacesinstances.CfnWorkspaceInstance.EnclaveOptionsRequestProperty(
-                        enabled=False
-                    ),
-                    hibernation_options=workspacesinstances.CfnWorkspaceInstance.HibernationOptionsRequestProperty(
-                        configured=False
-                    ),
-                    iam_instance_profile=workspacesinstances.CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty(
-                        name="name"
-                    ),
-                    key_name="keyName",
-                    maintenance_options=workspacesinstances.CfnWorkspaceInstance.InstanceMaintenanceOptionsRequestProperty(
-                        auto_recovery="autoRecovery"
-                    ),
-                    metadata_options=workspacesinstances.CfnWorkspaceInstance.InstanceMetadataOptionsRequestProperty(
-                        http_endpoint="httpEndpoint",
-                        http_protocol_ipv6="httpProtocolIpv6",
-                        http_put_response_hop_limit=123,
-                        http_tokens="httpTokens",
-                        instance_metadata_tags="instanceMetadataTags"
-                    ),
-                    monitoring=workspacesinstances.CfnWorkspaceInstance.RunInstancesMonitoringEnabledProperty(
-                        enabled=False
-                    ),
-                    network_interfaces=[workspacesinstances.CfnWorkspaceInstance.InstanceNetworkInterfaceSpecificationProperty(
-                        description="description",
-                        device_index=123,
-                        groups=["groups"],
-                        subnet_id="subnetId"
-                    )],
-                    network_performance_options=workspacesinstances.CfnWorkspaceInstance.InstanceNetworkPerformanceOptionsRequestProperty(
-                        bandwidth_weighting="bandwidthWeighting"
-                    ),
-                    placement=workspacesinstances.CfnWorkspaceInstance.PlacementProperty(
-                        availability_zone="availabilityZone",
-                        group_name="groupName",
-                        tenancy="tenancy"
-                    ),
-                    private_dns_name_options=workspacesinstances.CfnWorkspaceInstance.PrivateDnsNameOptionsRequestProperty(
-                        enable_resource_name_dns_aaaa_record=False,
-                        enable_resource_name_dns_aRecord=False,
-                        hostname_type="hostnameType"
-                    ),
-                    tag_specifications=[workspacesinstances.CfnWorkspaceInstance.TagSpecificationProperty(
-                        resource_type="resourceType",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    user_data="userData"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d4292dcb083e5a048440cd4455e31dfc65f5b3dd4c844b99e38e6c3941cca08)
-            check_type(argname="argument managed_instance", value=managed_instance, expected_type=type_hints["managed_instance"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if managed_instance is not None:
-            self._values["managed_instance"] = managed_instance
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def managed_instance(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspaceInstance.ManagedInstanceProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html#cfn-workspacesinstances-workspaceinstance-managedinstance
-        '''
-        result = self._values.get("managed_instance")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkspaceInstance.ManagedInstanceProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesinstances-workspaceinstance.html#cfn-workspacesinstances-workspaceinstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkspaceInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnVolume",
     "CfnVolumeAssociation",
@@ -2873,9 +3196,71 @@ __all__ = [
     "CfnVolumeProps",
     "CfnWorkspaceInstance",
     "CfnWorkspaceInstanceProps",
+    "IVolumeAssociationRef",
+    "IVolumeRef",
+    "IWorkspaceInstanceRef",
+    "VolumeAssociationReference",
+    "VolumeReference",
+    "WorkspaceInstanceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__7f051309343f88ebe1cc3dc3f2fff77a39c42174a07969dff75f195781a41fbf(
+    *,
+    device: builtins.str,
+    volume_id: builtins.str,
+    workspace_instance_id: builtins.str,
+    disassociate_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86994d3c65438656f95433a2d79f0f9f2640fb4eb23141adf1234d9d1e1d53cd(
+    *,
+    availability_zone: builtins.str,
+    encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iops: typing.Optional[jsii.Number] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    size_in_gb: typing.Optional[jsii.Number] = None,
+    snapshot_id: typing.Optional[builtins.str] = None,
+    tag_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.TagSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    throughput: typing.Optional[jsii.Number] = None,
+    volume_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d4292dcb083e5a048440cd4455e31dfc65f5b3dd4c844b99e38e6c3941cca08(
+    *,
+    managed_instance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.ManagedInstanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78ff67f870ec0068cf8d4694b1167bdf27fe00f6d4a0316f9c6cb86242f95ec8(
+    *,
+    device: builtins.str,
+    volume_id: builtins.str,
+    workspace_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__358f231761e03a173dad2cfa738ed049b636ce4bb8eaa2612a7e4dfccce16dbb(
+    *,
+    volume_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb0f1c5f83268db690fecbf03ce9fc4408143e4740ed56aa07455b2f62910ae9(
+    *,
+    workspace_instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6f8f538e7b445e64dae7c3f3fa5cbf03f73a9175df0c28d38e372410d7a38644(
     scope: _constructs_77d1e7e8.Construct,
@@ -3012,31 +3397,6 @@ def _typecheckingstub__cb0e90de13632397d9f05ecf786f58d468973d0cf21a6f5c435c070b2
 
 def _typecheckingstub__d1139240ee9e52471c21751caa541f36622002b63b2edb0a487ae73612ae098a(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7f051309343f88ebe1cc3dc3f2fff77a39c42174a07969dff75f195781a41fbf(
-    *,
-    device: builtins.str,
-    volume_id: builtins.str,
-    workspace_instance_id: builtins.str,
-    disassociate_mode: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86994d3c65438656f95433a2d79f0f9f2640fb4eb23141adf1234d9d1e1d53cd(
-    *,
-    availability_zone: builtins.str,
-    encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    iops: typing.Optional[jsii.Number] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    size_in_gb: typing.Optional[jsii.Number] = None,
-    snapshot_id: typing.Optional[builtins.str] = None,
-    tag_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVolume.TagSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    throughput: typing.Optional[jsii.Number] = None,
-    volume_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3229,14 +3589,6 @@ def _typecheckingstub__6fcd9d05f58e0d776ba7b11b076d5a7c565bc9ea5ce223eab03cdac46
 def _typecheckingstub__a80a115a0fb3e43ec2f01b3395420a80cbdd00bb61da5e1c9176167d6eb9bbf0(
     *,
     resource_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d4292dcb083e5a048440cd4455e31dfc65f5b3dd4c844b99e38e6c3941cca08(
-    *,
-    managed_instance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.ManagedInstanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

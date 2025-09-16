@@ -69,7 +69,1455 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "index_id": "indexId",
+        "name": "name",
+        "type": "type",
+        "custom_document_enrichment_configuration": "customDocumentEnrichmentConfiguration",
+        "data_source_configuration": "dataSourceConfiguration",
+        "description": "description",
+        "language_code": "languageCode",
+        "role_arn": "roleArn",
+        "schedule": "schedule",
+        "tags": "tags",
+    },
+)
+class CfnDataSourceProps:
+    def __init__(
+        self,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        type: builtins.str,
+        custom_document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.CustomDocumentEnrichmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DataSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        language_code: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        schedule: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataSource``.
+
+        :param index_id: The identifier of the index you want to use with the data source connector.
+        :param name: The name of the data source.
+        :param type: The type of the data source.
+        :param custom_document_enrichment_configuration: Configuration information for altering document metadata and content during the document ingestion process.
+        :param data_source_configuration: Configuration information for an Amazon Kendra data source. The contents of the configuration depend on the type of data source. You can only specify one type of data source in the configuration. You can't specify the ``Configuration`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . The ``Configuration`` parameter is required for all other data sources.
+        :param description: A description for the data source connector.
+        :param language_code: The code for a language. This shows a supported language for all documents in the data source. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
+        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the data source. You can't specify the ``RoleArn`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . The ``RoleArn`` parameter is required for all other data sources.
+        :param schedule: Sets the frequency that Amazon Kendra checks the documents in your data source and updates the index. If you don't set a schedule, Amazon Kendra doesn't periodically update the index.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_data_source_props = kendra.CfnDataSourceProps(
+                index_id="indexId",
+                name="name",
+                type="type",
+            
+                # the properties below are optional
+                custom_document_enrichment_configuration=kendra.CfnDataSource.CustomDocumentEnrichmentConfigurationProperty(
+                    inline_configurations=[kendra.CfnDataSource.InlineCustomDocumentEnrichmentConfigurationProperty(
+                        condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
+                            condition_document_attribute_key="conditionDocumentAttributeKey",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        ),
+                        document_content_deletion=False,
+                        target=kendra.CfnDataSource.DocumentAttributeTargetProperty(
+                            target_document_attribute_key="targetDocumentAttributeKey",
+            
+                            # the properties below are optional
+                            target_document_attribute_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            ),
+                            target_document_attribute_value_deletion=False
+                        )
+                    )],
+                    post_extraction_hook_configuration=kendra.CfnDataSource.HookConfigurationProperty(
+                        lambda_arn="lambdaArn",
+                        s3_bucket="s3Bucket",
+            
+                        # the properties below are optional
+                        invocation_condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
+                            condition_document_attribute_key="conditionDocumentAttributeKey",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        )
+                    ),
+                    pre_extraction_hook_configuration=kendra.CfnDataSource.HookConfigurationProperty(
+                        lambda_arn="lambdaArn",
+                        s3_bucket="s3Bucket",
+            
+                        # the properties below are optional
+                        invocation_condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
+                            condition_document_attribute_key="conditionDocumentAttributeKey",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        )
+                    ),
+                    role_arn="roleArn"
+                ),
+                data_source_configuration=kendra.CfnDataSource.DataSourceConfigurationProperty(
+                    confluence_configuration=kendra.CfnDataSource.ConfluenceConfigurationProperty(
+                        secret_arn="secretArn",
+                        server_url="serverUrl",
+                        version="version",
+            
+                        # the properties below are optional
+                        attachment_configuration=kendra.CfnDataSource.ConfluenceAttachmentConfigurationProperty(
+                            attachment_field_mappings=[kendra.CfnDataSource.ConfluenceAttachmentToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )],
+                            crawl_attachments=False
+                        ),
+                        blog_configuration=kendra.CfnDataSource.ConfluenceBlogConfigurationProperty(
+                            blog_field_mappings=[kendra.CfnDataSource.ConfluenceBlogToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        ),
+                        exclusion_patterns=["exclusionPatterns"],
+                        inclusion_patterns=["inclusionPatterns"],
+                        page_configuration=kendra.CfnDataSource.ConfluencePageConfigurationProperty(
+                            page_field_mappings=[kendra.CfnDataSource.ConfluencePageToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        ),
+                        space_configuration=kendra.CfnDataSource.ConfluenceSpaceConfigurationProperty(
+                            crawl_archived_spaces=False,
+                            crawl_personal_spaces=False,
+                            exclude_spaces=["excludeSpaces"],
+                            include_spaces=["includeSpaces"],
+                            space_field_mappings=[kendra.CfnDataSource.ConfluenceSpaceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        ),
+                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_ids=["subnetIds"]
+                        )
+                    ),
+                    database_configuration=kendra.CfnDataSource.DatabaseConfigurationProperty(
+                        column_configuration=kendra.CfnDataSource.ColumnConfigurationProperty(
+                            change_detecting_columns=["changeDetectingColumns"],
+                            document_data_column_name="documentDataColumnName",
+                            document_id_column_name="documentIdColumnName",
+            
+                            # the properties below are optional
+                            document_title_column_name="documentTitleColumnName",
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        ),
+                        connection_configuration=kendra.CfnDataSource.ConnectionConfigurationProperty(
+                            database_host="databaseHost",
+                            database_name="databaseName",
+                            database_port=123,
+                            secret_arn="secretArn",
+                            table_name="tableName"
+                        ),
+                        database_engine_type="databaseEngineType",
+            
+                        # the properties below are optional
+                        acl_configuration=kendra.CfnDataSource.AclConfigurationProperty(
+                            allowed_groups_column_name="allowedGroupsColumnName"
+                        ),
+                        sql_configuration=kendra.CfnDataSource.SqlConfigurationProperty(
+                            query_identifiers_enclosing_option="queryIdentifiersEnclosingOption"
+                        ),
+                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_ids=["subnetIds"]
+                        )
+                    ),
+                    google_drive_configuration=kendra.CfnDataSource.GoogleDriveConfigurationProperty(
+                        secret_arn="secretArn",
+            
+                        # the properties below are optional
+                        exclude_mime_types=["excludeMimeTypes"],
+                        exclude_shared_drives=["excludeSharedDrives"],
+                        exclude_user_accounts=["excludeUserAccounts"],
+                        exclusion_patterns=["exclusionPatterns"],
+                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                            data_source_field_name="dataSourceFieldName",
+                            index_field_name="indexFieldName",
+            
+                            # the properties below are optional
+                            date_field_format="dateFieldFormat"
+                        )],
+                        inclusion_patterns=["inclusionPatterns"]
+                    ),
+                    one_drive_configuration=kendra.CfnDataSource.OneDriveConfigurationProperty(
+                        one_drive_users=kendra.CfnDataSource.OneDriveUsersProperty(
+                            one_drive_user_list=["oneDriveUserList"],
+                            one_drive_user_s3_path=kendra.CfnDataSource.S3PathProperty(
+                                bucket="bucket",
+                                key="key"
+                            )
+                        ),
+                        secret_arn="secretArn",
+                        tenant_domain="tenantDomain",
+            
+                        # the properties below are optional
+                        disable_local_groups=False,
+                        exclusion_patterns=["exclusionPatterns"],
+                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                            data_source_field_name="dataSourceFieldName",
+                            index_field_name="indexFieldName",
+            
+                            # the properties below are optional
+                            date_field_format="dateFieldFormat"
+                        )],
+                        inclusion_patterns=["inclusionPatterns"]
+                    ),
+                    s3_configuration=kendra.CfnDataSource.S3DataSourceConfigurationProperty(
+                        bucket_name="bucketName",
+            
+                        # the properties below are optional
+                        access_control_list_configuration=kendra.CfnDataSource.AccessControlListConfigurationProperty(
+                            key_path="keyPath"
+                        ),
+                        documents_metadata_configuration=kendra.CfnDataSource.DocumentsMetadataConfigurationProperty(
+                            s3_prefix="s3Prefix"
+                        ),
+                        exclusion_patterns=["exclusionPatterns"],
+                        inclusion_patterns=["inclusionPatterns"],
+                        inclusion_prefixes=["inclusionPrefixes"]
+                    ),
+                    salesforce_configuration=kendra.CfnDataSource.SalesforceConfigurationProperty(
+                        secret_arn="secretArn",
+                        server_url="serverUrl",
+            
+                        # the properties below are optional
+                        chatter_feed_configuration=kendra.CfnDataSource.SalesforceChatterFeedConfigurationProperty(
+                            document_data_field_name="documentDataFieldName",
+            
+                            # the properties below are optional
+                            document_title_field_name="documentTitleFieldName",
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )],
+                            include_filter_types=["includeFilterTypes"]
+                        ),
+                        crawl_attachments=False,
+                        exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
+                        include_attachment_file_patterns=["includeAttachmentFilePatterns"],
+                        knowledge_article_configuration=kendra.CfnDataSource.SalesforceKnowledgeArticleConfigurationProperty(
+                            included_states=["includedStates"],
+            
+                            # the properties below are optional
+                            custom_knowledge_article_type_configurations=[kendra.CfnDataSource.SalesforceCustomKnowledgeArticleTypeConfigurationProperty(
+                                document_data_field_name="documentDataFieldName",
+                                name="name",
+            
+                                # the properties below are optional
+                                document_title_field_name="documentTitleFieldName",
+                                field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                    data_source_field_name="dataSourceFieldName",
+                                    index_field_name="indexFieldName",
+            
+                                    # the properties below are optional
+                                    date_field_format="dateFieldFormat"
+                                )]
+                            )],
+                            standard_knowledge_article_type_configuration=kendra.CfnDataSource.SalesforceStandardKnowledgeArticleTypeConfigurationProperty(
+                                document_data_field_name="documentDataFieldName",
+            
+                                # the properties below are optional
+                                document_title_field_name="documentTitleFieldName",
+                                field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                    data_source_field_name="dataSourceFieldName",
+                                    index_field_name="indexFieldName",
+            
+                                    # the properties below are optional
+                                    date_field_format="dateFieldFormat"
+                                )]
+                            )
+                        ),
+                        standard_object_attachment_configuration=kendra.CfnDataSource.SalesforceStandardObjectAttachmentConfigurationProperty(
+                            document_title_field_name="documentTitleFieldName",
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        ),
+                        standard_object_configurations=[kendra.CfnDataSource.SalesforceStandardObjectConfigurationProperty(
+                            document_data_field_name="documentDataFieldName",
+                            name="name",
+            
+                            # the properties below are optional
+                            document_title_field_name="documentTitleFieldName",
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )]
+                        )]
+                    ),
+                    service_now_configuration=kendra.CfnDataSource.ServiceNowConfigurationProperty(
+                        host_url="hostUrl",
+                        secret_arn="secretArn",
+                        service_now_build_version="serviceNowBuildVersion",
+            
+                        # the properties below are optional
+                        authentication_type="authenticationType",
+                        knowledge_article_configuration=kendra.CfnDataSource.ServiceNowKnowledgeArticleConfigurationProperty(
+                            document_data_field_name="documentDataFieldName",
+            
+                            # the properties below are optional
+                            crawl_attachments=False,
+                            document_title_field_name="documentTitleFieldName",
+                            exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )],
+                            filter_query="filterQuery",
+                            include_attachment_file_patterns=["includeAttachmentFilePatterns"]
+                        ),
+                        service_catalog_configuration=kendra.CfnDataSource.ServiceNowServiceCatalogConfigurationProperty(
+                            document_data_field_name="documentDataFieldName",
+            
+                            # the properties below are optional
+                            crawl_attachments=False,
+                            document_title_field_name="documentTitleFieldName",
+                            exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
+                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                                data_source_field_name="dataSourceFieldName",
+                                index_field_name="indexFieldName",
+            
+                                # the properties below are optional
+                                date_field_format="dateFieldFormat"
+                            )],
+                            include_attachment_file_patterns=["includeAttachmentFilePatterns"]
+                        )
+                    ),
+                    share_point_configuration=kendra.CfnDataSource.SharePointConfigurationProperty(
+                        secret_arn="secretArn",
+                        share_point_version="sharePointVersion",
+                        urls=["urls"],
+            
+                        # the properties below are optional
+                        crawl_attachments=False,
+                        disable_local_groups=False,
+                        document_title_field_name="documentTitleFieldName",
+                        exclusion_patterns=["exclusionPatterns"],
+                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                            data_source_field_name="dataSourceFieldName",
+                            index_field_name="indexFieldName",
+            
+                            # the properties below are optional
+                            date_field_format="dateFieldFormat"
+                        )],
+                        inclusion_patterns=["inclusionPatterns"],
+                        ssl_certificate_s3_path=kendra.CfnDataSource.S3PathProperty(
+                            bucket="bucket",
+                            key="key"
+                        ),
+                        use_change_log=False,
+                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
+                            security_group_ids=["securityGroupIds"],
+                            subnet_ids=["subnetIds"]
+                        )
+                    ),
+                    template_configuration=kendra.CfnDataSource.TemplateConfigurationProperty(
+                        template="template"
+                    ),
+                    web_crawler_configuration=kendra.CfnDataSource.WebCrawlerConfigurationProperty(
+                        urls=kendra.CfnDataSource.WebCrawlerUrlsProperty(
+                            seed_url_configuration=kendra.CfnDataSource.WebCrawlerSeedUrlConfigurationProperty(
+                                seed_urls=["seedUrls"],
+            
+                                # the properties below are optional
+                                web_crawler_mode="webCrawlerMode"
+                            ),
+                            site_maps_configuration=kendra.CfnDataSource.WebCrawlerSiteMapsConfigurationProperty(
+                                site_maps=["siteMaps"]
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        authentication_configuration=kendra.CfnDataSource.WebCrawlerAuthenticationConfigurationProperty(
+                            basic_authentication=[kendra.CfnDataSource.WebCrawlerBasicAuthenticationProperty(
+                                credentials="credentials",
+                                host="host",
+                                port=123
+                            )]
+                        ),
+                        crawl_depth=123,
+                        max_content_size_per_page_in_mega_bytes=123,
+                        max_links_per_page=123,
+                        max_urls_per_minute_crawl_rate=123,
+                        proxy_configuration=kendra.CfnDataSource.ProxyConfigurationProperty(
+                            host="host",
+                            port=123,
+            
+                            # the properties below are optional
+                            credentials="credentials"
+                        ),
+                        url_exclusion_patterns=["urlExclusionPatterns"],
+                        url_inclusion_patterns=["urlInclusionPatterns"]
+                    ),
+                    work_docs_configuration=kendra.CfnDataSource.WorkDocsConfigurationProperty(
+                        organization_id="organizationId",
+            
+                        # the properties below are optional
+                        crawl_comments=False,
+                        exclusion_patterns=["exclusionPatterns"],
+                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
+                            data_source_field_name="dataSourceFieldName",
+                            index_field_name="indexFieldName",
+            
+                            # the properties below are optional
+                            date_field_format="dateFieldFormat"
+                        )],
+                        inclusion_patterns=["inclusionPatterns"],
+                        use_change_log=False
+                    )
+                ),
+                description="description",
+                language_code="languageCode",
+                role_arn="roleArn",
+                schedule="schedule",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9542f7b6e1451dc9177bf24b7be378edc74ce522d3fa3c567f3674a5f145a654)
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument custom_document_enrichment_configuration", value=custom_document_enrichment_configuration, expected_type=type_hints["custom_document_enrichment_configuration"])
+            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_id": index_id,
+            "name": name,
+            "type": type,
+        }
+        if custom_document_enrichment_configuration is not None:
+            self._values["custom_document_enrichment_configuration"] = custom_document_enrichment_configuration
+        if data_source_configuration is not None:
+            self._values["data_source_configuration"] = data_source_configuration
+        if description is not None:
+            self._values["description"] = description
+        if language_code is not None:
+            self._values["language_code"] = language_code
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if schedule is not None:
+            self._values["schedule"] = schedule
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index you want to use with the data source connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of the data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_document_enrichment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.CustomDocumentEnrichmentConfigurationProperty"]]:
+        '''Configuration information for altering document metadata and content during the document ingestion process.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-customdocumentenrichmentconfiguration
+        '''
+        result = self._values.get("custom_document_enrichment_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.CustomDocumentEnrichmentConfigurationProperty"]], result)
+
+    @builtins.property
+    def data_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceConfigurationProperty"]]:
+        '''Configuration information for an Amazon Kendra data source.
+
+        The contents of the configuration depend on the type of data source. You can only specify one type of data source in the configuration.
+
+        You can't specify the ``Configuration`` parameter when the ``Type`` parameter is set to ``CUSTOM`` .
+
+        The ``Configuration`` parameter is required for all other data sources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-datasourceconfiguration
+        '''
+        result = self._values.get("data_source_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the data source connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def language_code(self) -> typing.Optional[builtins.str]:
+        '''The code for a language.
+
+        This shows a supported language for all documents in the data source. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-languagecode
+        '''
+        result = self._values.get("language_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of a role with permission to access the data source.
+
+        You can't specify the ``RoleArn`` parameter when the ``Type`` parameter is set to ``CUSTOM`` .
+
+        The ``RoleArn`` parameter is required for all other data sources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule(self) -> typing.Optional[builtins.str]:
+        '''Sets the frequency that Amazon Kendra checks the documents in your data source and updates the index.
+
+        If you don't set a schedule, Amazon Kendra doesn't periodically update the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-schedule
+        '''
+        result = self._values.get("schedule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnFaqProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "index_id": "indexId",
+        "name": "name",
+        "role_arn": "roleArn",
+        "s3_path": "s3Path",
+        "description": "description",
+        "file_format": "fileFormat",
+        "language_code": "languageCode",
+        "tags": "tags",
+    },
+)
+class CfnFaqProps:
+    def __init__(
+        self,
+        *,
+        index_id: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        s3_path: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFaq.S3PathProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        file_format: typing.Optional[builtins.str] = None,
+        language_code: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFaq``.
+
+        :param index_id: The identifier of the index that contains the FAQ.
+        :param name: The name that you assigned the FAQ when you created or updated the FAQ.
+        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the S3 bucket that contains the FAQ.
+        :param s3_path: The Amazon Simple Storage Service (Amazon S3) location of the FAQ input data.
+        :param description: A description for the FAQ.
+        :param file_format: The format of the input file. You can choose between a basic CSV format, a CSV format that includes customs attributes in a header, and a JSON format that includes custom attributes. The format must match the format of the file stored in the S3 bucket identified in the S3Path parameter. Valid values are: - ``CSV`` - ``CSV_WITH_HEADER`` - ``JSON``
+        :param language_code: The code for a language. This shows a supported language for the FAQ document as part of the summary information for FAQs. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_faq_props = kendra.CfnFaqProps(
+                index_id="indexId",
+                name="name",
+                role_arn="roleArn",
+                s3_path=kendra.CfnFaq.S3PathProperty(
+                    bucket="bucket",
+                    key="key"
+                ),
+            
+                # the properties below are optional
+                description="description",
+                file_format="fileFormat",
+                language_code="languageCode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d80eed0b304b1e2dc88b2a6b3ac2392e3650ef0ac292928d043232bd3fae1be)
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument s3_path", value=s3_path, expected_type=type_hints["s3_path"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument file_format", value=file_format, expected_type=type_hints["file_format"])
+            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_id": index_id,
+            "name": name,
+            "role_arn": role_arn,
+            "s3_path": s3_path,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if file_format is not None:
+            self._values["file_format"] = file_format
+        if language_code is not None:
+            self._values["language_code"] = language_code
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index that contains the FAQ.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name that you assigned the FAQ when you created or updated the FAQ.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a role with permission to access the S3 bucket that contains the FAQ.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_path(self) -> typing.Union[_IResolvable_da3f097b, "CfnFaq.S3PathProperty"]:
+        '''The Amazon Simple Storage Service (Amazon S3) location of the FAQ input data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-s3path
+        '''
+        result = self._values.get("s3_path")
+        assert result is not None, "Required property 's3_path' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFaq.S3PathProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the FAQ.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def file_format(self) -> typing.Optional[builtins.str]:
+        '''The format of the input file.
+
+        You can choose between a basic CSV format, a CSV format that includes customs attributes in a header, and a JSON format that includes custom attributes.
+
+        The format must match the format of the file stored in the S3 bucket identified in the S3Path parameter.
+
+        Valid values are:
+
+        - ``CSV``
+        - ``CSV_WITH_HEADER``
+        - ``JSON``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-fileformat
+        '''
+        result = self._values.get("file_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def language_code(self) -> typing.Optional[builtins.str]:
+        '''The code for a language.
+
+        This shows a supported language for the FAQ document as part of the summary information for FAQs. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-languagecode
+        '''
+        result = self._values.get("language_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFaqProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.CfnIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "edition": "edition",
+        "name": "name",
+        "role_arn": "roleArn",
+        "capacity_units": "capacityUnits",
+        "description": "description",
+        "document_metadata_configurations": "documentMetadataConfigurations",
+        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
+        "tags": "tags",
+        "user_context_policy": "userContextPolicy",
+        "user_token_configurations": "userTokenConfigurations",
+    },
+)
+class CfnIndexProps:
+    def __init__(
+        self,
+        *,
+        edition: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.CapacityUnitsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        document_metadata_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.DocumentMetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.ServerSideEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_context_policy: typing.Optional[builtins.str] = None,
+        user_token_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.UserTokenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIndex``.
+
+        :param edition: Indicates whether the index is a Enterprise Edition index, a Developer Edition index, or a GenAI Enterprise Edition index.
+        :param name: The name of the index.
+        :param role_arn: An IAM role that gives Amazon Kendra permissions to access your Amazon CloudWatch logs and metrics. This is also the role used when you use the `BatchPutDocument <https://docs.aws.amazon.com/kendra/latest/dg/BatchPutDocument.html>`_ operation to index documents from an Amazon S3 bucket.
+        :param capacity_units: Specifies additional capacity units configured for your Enterprise Edition index. You can add and remove capacity units to fit your usage requirements.
+        :param description: A description for the index.
+        :param document_metadata_configurations: Specifies the properties of an index field. You can add either a custom or a built-in field. You can add and remove built-in fields at any time. When a built-in field is removed it's configuration reverts to the default for the field. Custom fields can't be removed from an index after they are added.
+        :param server_side_encryption_configuration: The identifier of the AWS KMS customer managed key (CMK) to use to encrypt data indexed by Amazon Kendra. Amazon Kendra doesn't support asymmetric CMKs.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param user_context_policy: The user context policy. ATTRIBUTE_FILTER - All indexed content is searchable and displayable for all users. If you want to filter search results on user context, you can use the attribute filters of ``_user_id`` and ``_group_ids`` or you can provide user and group information in ``UserContext`` . USER_TOKEN - Enables token-based user access control to filter search results on user context. All documents with no access control and all documents accessible to the user will be searchable and displayable.
+        :param user_token_configurations: Defines the type of user token used for the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            cfn_index_props = kendra.CfnIndexProps(
+                edition="edition",
+                name="name",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                capacity_units=kendra.CfnIndex.CapacityUnitsConfigurationProperty(
+                    query_capacity_units=123,
+                    storage_capacity_units=123
+                ),
+                description="description",
+                document_metadata_configurations=[kendra.CfnIndex.DocumentMetadataConfigurationProperty(
+                    name="name",
+                    type="type",
+            
+                    # the properties below are optional
+                    relevance=kendra.CfnIndex.RelevanceProperty(
+                        duration="duration",
+                        freshness=False,
+                        importance=123,
+                        rank_order="rankOrder",
+                        value_importance_items=[kendra.CfnIndex.ValueImportanceItemProperty(
+                            key="key",
+                            value=123
+                        )]
+                    ),
+                    search=kendra.CfnIndex.SearchProperty(
+                        displayable=False,
+                        facetable=False,
+                        searchable=False,
+                        sortable=False
+                    )
+                )],
+                server_side_encryption_configuration=kendra.CfnIndex.ServerSideEncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                user_context_policy="userContextPolicy",
+                user_token_configurations=[kendra.CfnIndex.UserTokenConfigurationProperty(
+                    json_token_type_configuration=kendra.CfnIndex.JsonTokenTypeConfigurationProperty(
+                        group_attribute_field="groupAttributeField",
+                        user_name_attribute_field="userNameAttributeField"
+                    ),
+                    jwt_token_type_configuration=kendra.CfnIndex.JwtTokenTypeConfigurationProperty(
+                        key_location="keyLocation",
+            
+                        # the properties below are optional
+                        claim_regex="claimRegex",
+                        group_attribute_field="groupAttributeField",
+                        issuer="issuer",
+                        secret_manager_arn="secretManagerArn",
+                        url="url",
+                        user_name_attribute_field="userNameAttributeField"
+                    )
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ce90bfc8458d52938a1a8558591d2e8ee975572889b24651808cc701715add3)
+            check_type(argname="argument edition", value=edition, expected_type=type_hints["edition"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument document_metadata_configurations", value=document_metadata_configurations, expected_type=type_hints["document_metadata_configurations"])
+            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument user_context_policy", value=user_context_policy, expected_type=type_hints["user_context_policy"])
+            check_type(argname="argument user_token_configurations", value=user_token_configurations, expected_type=type_hints["user_token_configurations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "edition": edition,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if capacity_units is not None:
+            self._values["capacity_units"] = capacity_units
+        if description is not None:
+            self._values["description"] = description
+        if document_metadata_configurations is not None:
+            self._values["document_metadata_configurations"] = document_metadata_configurations
+        if server_side_encryption_configuration is not None:
+            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if user_context_policy is not None:
+            self._values["user_context_policy"] = user_context_policy
+        if user_token_configurations is not None:
+            self._values["user_token_configurations"] = user_token_configurations
+
+    @builtins.property
+    def edition(self) -> builtins.str:
+        '''Indicates whether the index is a Enterprise Edition index, a Developer Edition index, or a GenAI Enterprise Edition index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-edition
+        '''
+        result = self._values.get("edition")
+        assert result is not None, "Required property 'edition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''An IAM role that gives Amazon Kendra permissions to access your Amazon CloudWatch logs and metrics.
+
+        This is also the role used when you use the `BatchPutDocument <https://docs.aws.amazon.com/kendra/latest/dg/BatchPutDocument.html>`_ operation to index documents from an Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capacity_units(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.CapacityUnitsConfigurationProperty"]]:
+        '''Specifies additional capacity units configured for your Enterprise Edition index.
+
+        You can add and remove capacity units to fit your usage requirements.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-capacityunits
+        '''
+        result = self._values.get("capacity_units")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.CapacityUnitsConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_metadata_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.DocumentMetadataConfigurationProperty"]]]]:
+        '''Specifies the properties of an index field.
+
+        You can add either a custom or a built-in field. You can add and remove built-in fields at any time. When a built-in field is removed it's configuration reverts to the default for the field. Custom fields can't be removed from an index after they are added.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-documentmetadataconfigurations
+        '''
+        result = self._values.get("document_metadata_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.DocumentMetadataConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def server_side_encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.ServerSideEncryptionConfigurationProperty"]]:
+        '''The identifier of the AWS KMS customer managed key (CMK) to use to encrypt data indexed by Amazon Kendra.
+
+        Amazon Kendra doesn't support asymmetric CMKs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-serversideencryptionconfiguration
+        '''
+        result = self._values.get("server_side_encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.ServerSideEncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def user_context_policy(self) -> typing.Optional[builtins.str]:
+        '''The user context policy.
+
+        ATTRIBUTE_FILTER
+
+        - All indexed content is searchable and displayable for all users. If you want to filter search results on user context, you can use the attribute filters of ``_user_id`` and ``_group_ids`` or you can provide user and group information in ``UserContext`` .
+
+        USER_TOKEN
+
+        - Enables token-based user access control to filter search results on user context. All documents with no access control and all documents accessible to the user will be searchable and displayable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-usercontextpolicy
+        '''
+        result = self._values.get("user_context_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def user_token_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.UserTokenConfigurationProperty"]]]]:
+        '''Defines the type of user token used for the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-usertokenconfigurations
+        '''
+        result = self._values.get("user_token_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.UserTokenConfigurationProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIndexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.DataSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source_arn": "dataSourceArn",
+        "data_source_id": "dataSourceId",
+        "index_id": "indexId",
+    },
+)
+class DataSourceReference:
+    def __init__(
+        self,
+        *,
+        data_source_arn: builtins.str,
+        data_source_id: builtins.str,
+        index_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataSource resource.
+
+        :param data_source_arn: The ARN of the DataSource resource.
+        :param data_source_id: The Id of the DataSource resource.
+        :param index_id: The IndexId of the DataSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            data_source_reference = kendra.DataSourceReference(
+                data_source_arn="dataSourceArn",
+                data_source_id="dataSourceId",
+                index_id="indexId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6de5c919af627bb3d6049f31b5ab6da7152d743fa0e1fc4b7bd4a259b600960a)
+            check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
+            check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source_arn": data_source_arn,
+            "data_source_id": data_source_id,
+            "index_id": index_id,
+        }
+
+    @builtins.property
+    def data_source_arn(self) -> builtins.str:
+        '''The ARN of the DataSource resource.'''
+        result = self._values.get("data_source_arn")
+        assert result is not None, "Required property 'data_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_source_id(self) -> builtins.str:
+        '''The Id of the DataSource resource.'''
+        result = self._values.get("data_source_id")
+        assert result is not None, "Required property 'data_source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The IndexId of the DataSource resource.'''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.FaqReference",
+    jsii_struct_bases=[],
+    name_mapping={"faq_arn": "faqArn", "faq_id": "faqId", "index_id": "indexId"},
+)
+class FaqReference:
+    def __init__(
+        self,
+        *,
+        faq_arn: builtins.str,
+        faq_id: builtins.str,
+        index_id: builtins.str,
+    ) -> None:
+        '''A reference to a Faq resource.
+
+        :param faq_arn: The ARN of the Faq resource.
+        :param faq_id: The Id of the Faq resource.
+        :param index_id: The IndexId of the Faq resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            faq_reference = kendra.FaqReference(
+                faq_arn="faqArn",
+                faq_id="faqId",
+                index_id="indexId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1acc940613f68b5e3ec625da7accaa79001b157705877ea79c10ccfa5bbbc223)
+            check_type(argname="argument faq_arn", value=faq_arn, expected_type=type_hints["faq_arn"])
+            check_type(argname="argument faq_id", value=faq_id, expected_type=type_hints["faq_id"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "faq_arn": faq_arn,
+            "faq_id": faq_id,
+            "index_id": index_id,
+        }
+
+    @builtins.property
+    def faq_arn(self) -> builtins.str:
+        '''The ARN of the Faq resource.'''
+        result = self._values.get("faq_arn")
+        assert result is not None, "Required property 'faq_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def faq_id(self) -> builtins.str:
+        '''The Id of the Faq resource.'''
+        result = self._values.get("faq_id")
+        assert result is not None, "Required property 'faq_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The IndexId of the Faq resource.'''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FaqReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kendra.IDataSourceRef")
+class IDataSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kendra.IDataSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kendra.IFaqRef")
+class IFaqRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Faq.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="faqRef")
+    def faq_ref(self) -> FaqReference:
+        '''(experimental) A reference to a Faq resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFaqRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Faq.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kendra.IFaqRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="faqRef")
+    def faq_ref(self) -> FaqReference:
+        '''(experimental) A reference to a Faq resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FaqReference, jsii.get(self, "faqRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFaqRef).__jsii_proxy_class__ = lambda : _IFaqRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kendra.IIndexRef")
+class IIndexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kendra.IIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IndexReference", jsii.get(self, "indexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kendra.IndexReference",
+    jsii_struct_bases=[],
+    name_mapping={"index_arn": "indexArn", "index_id": "indexId"},
+)
+class IndexReference:
+    def __init__(self, *, index_arn: builtins.str, index_id: builtins.str) -> None:
+        '''A reference to a Index resource.
+
+        :param index_arn: The ARN of the Index resource.
+        :param index_id: The Id of the Index resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kendra as kendra
+            
+            index_reference = kendra.IndexReference(
+                index_arn="indexArn",
+                index_id="indexId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bc5046b0edb7017ba89bc7158cdd2188ccfb29fadc26ae34bc536c02559a5f8)
+            check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "index_arn": index_arn,
+            "index_id": index_id,
+        }
+
+    @builtins.property
+    def index_arn(self) -> builtins.str:
+        '''The ARN of the Index resource.'''
+        result = self._values.get("index_arn")
+        assert result is not None, "Required property 'index_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The Id of the Index resource.'''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDataSourceRef, _ITaggable_36806126)
 class CfnDataSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -629,6 +2077,12 @@ class CfnDataSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''A reference to a DataSource resource.'''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7400,648 +8854,7 @@ class CfnDataSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kendra.CfnDataSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "index_id": "indexId",
-        "name": "name",
-        "type": "type",
-        "custom_document_enrichment_configuration": "customDocumentEnrichmentConfiguration",
-        "data_source_configuration": "dataSourceConfiguration",
-        "description": "description",
-        "language_code": "languageCode",
-        "role_arn": "roleArn",
-        "schedule": "schedule",
-        "tags": "tags",
-    },
-)
-class CfnDataSourceProps:
-    def __init__(
-        self,
-        *,
-        index_id: builtins.str,
-        name: builtins.str,
-        type: builtins.str,
-        custom_document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.CustomDocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        language_code: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        schedule: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataSource``.
-
-        :param index_id: The identifier of the index you want to use with the data source connector.
-        :param name: The name of the data source.
-        :param type: The type of the data source.
-        :param custom_document_enrichment_configuration: Configuration information for altering document metadata and content during the document ingestion process.
-        :param data_source_configuration: Configuration information for an Amazon Kendra data source. The contents of the configuration depend on the type of data source. You can only specify one type of data source in the configuration. You can't specify the ``Configuration`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . The ``Configuration`` parameter is required for all other data sources.
-        :param description: A description for the data source connector.
-        :param language_code: The code for a language. This shows a supported language for all documents in the data source. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
-        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the data source. You can't specify the ``RoleArn`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . The ``RoleArn`` parameter is required for all other data sources.
-        :param schedule: Sets the frequency that Amazon Kendra checks the documents in your data source and updates the index. If you don't set a schedule, Amazon Kendra doesn't periodically update the index.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kendra as kendra
-            
-            cfn_data_source_props = kendra.CfnDataSourceProps(
-                index_id="indexId",
-                name="name",
-                type="type",
-            
-                # the properties below are optional
-                custom_document_enrichment_configuration=kendra.CfnDataSource.CustomDocumentEnrichmentConfigurationProperty(
-                    inline_configurations=[kendra.CfnDataSource.InlineCustomDocumentEnrichmentConfigurationProperty(
-                        condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
-                            condition_document_attribute_key="conditionDocumentAttributeKey",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        ),
-                        document_content_deletion=False,
-                        target=kendra.CfnDataSource.DocumentAttributeTargetProperty(
-                            target_document_attribute_key="targetDocumentAttributeKey",
-            
-                            # the properties below are optional
-                            target_document_attribute_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            ),
-                            target_document_attribute_value_deletion=False
-                        )
-                    )],
-                    post_extraction_hook_configuration=kendra.CfnDataSource.HookConfigurationProperty(
-                        lambda_arn="lambdaArn",
-                        s3_bucket="s3Bucket",
-            
-                        # the properties below are optional
-                        invocation_condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
-                            condition_document_attribute_key="conditionDocumentAttributeKey",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        )
-                    ),
-                    pre_extraction_hook_configuration=kendra.CfnDataSource.HookConfigurationProperty(
-                        lambda_arn="lambdaArn",
-                        s3_bucket="s3Bucket",
-            
-                        # the properties below are optional
-                        invocation_condition=kendra.CfnDataSource.DocumentAttributeConditionProperty(
-                            condition_document_attribute_key="conditionDocumentAttributeKey",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            condition_on_value=kendra.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        )
-                    ),
-                    role_arn="roleArn"
-                ),
-                data_source_configuration=kendra.CfnDataSource.DataSourceConfigurationProperty(
-                    confluence_configuration=kendra.CfnDataSource.ConfluenceConfigurationProperty(
-                        secret_arn="secretArn",
-                        server_url="serverUrl",
-                        version="version",
-            
-                        # the properties below are optional
-                        attachment_configuration=kendra.CfnDataSource.ConfluenceAttachmentConfigurationProperty(
-                            attachment_field_mappings=[kendra.CfnDataSource.ConfluenceAttachmentToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )],
-                            crawl_attachments=False
-                        ),
-                        blog_configuration=kendra.CfnDataSource.ConfluenceBlogConfigurationProperty(
-                            blog_field_mappings=[kendra.CfnDataSource.ConfluenceBlogToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        ),
-                        exclusion_patterns=["exclusionPatterns"],
-                        inclusion_patterns=["inclusionPatterns"],
-                        page_configuration=kendra.CfnDataSource.ConfluencePageConfigurationProperty(
-                            page_field_mappings=[kendra.CfnDataSource.ConfluencePageToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        ),
-                        space_configuration=kendra.CfnDataSource.ConfluenceSpaceConfigurationProperty(
-                            crawl_archived_spaces=False,
-                            crawl_personal_spaces=False,
-                            exclude_spaces=["excludeSpaces"],
-                            include_spaces=["includeSpaces"],
-                            space_field_mappings=[kendra.CfnDataSource.ConfluenceSpaceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        ),
-                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
-                            security_group_ids=["securityGroupIds"],
-                            subnet_ids=["subnetIds"]
-                        )
-                    ),
-                    database_configuration=kendra.CfnDataSource.DatabaseConfigurationProperty(
-                        column_configuration=kendra.CfnDataSource.ColumnConfigurationProperty(
-                            change_detecting_columns=["changeDetectingColumns"],
-                            document_data_column_name="documentDataColumnName",
-                            document_id_column_name="documentIdColumnName",
-            
-                            # the properties below are optional
-                            document_title_column_name="documentTitleColumnName",
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        ),
-                        connection_configuration=kendra.CfnDataSource.ConnectionConfigurationProperty(
-                            database_host="databaseHost",
-                            database_name="databaseName",
-                            database_port=123,
-                            secret_arn="secretArn",
-                            table_name="tableName"
-                        ),
-                        database_engine_type="databaseEngineType",
-            
-                        # the properties below are optional
-                        acl_configuration=kendra.CfnDataSource.AclConfigurationProperty(
-                            allowed_groups_column_name="allowedGroupsColumnName"
-                        ),
-                        sql_configuration=kendra.CfnDataSource.SqlConfigurationProperty(
-                            query_identifiers_enclosing_option="queryIdentifiersEnclosingOption"
-                        ),
-                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
-                            security_group_ids=["securityGroupIds"],
-                            subnet_ids=["subnetIds"]
-                        )
-                    ),
-                    google_drive_configuration=kendra.CfnDataSource.GoogleDriveConfigurationProperty(
-                        secret_arn="secretArn",
-            
-                        # the properties below are optional
-                        exclude_mime_types=["excludeMimeTypes"],
-                        exclude_shared_drives=["excludeSharedDrives"],
-                        exclude_user_accounts=["excludeUserAccounts"],
-                        exclusion_patterns=["exclusionPatterns"],
-                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                            data_source_field_name="dataSourceFieldName",
-                            index_field_name="indexFieldName",
-            
-                            # the properties below are optional
-                            date_field_format="dateFieldFormat"
-                        )],
-                        inclusion_patterns=["inclusionPatterns"]
-                    ),
-                    one_drive_configuration=kendra.CfnDataSource.OneDriveConfigurationProperty(
-                        one_drive_users=kendra.CfnDataSource.OneDriveUsersProperty(
-                            one_drive_user_list=["oneDriveUserList"],
-                            one_drive_user_s3_path=kendra.CfnDataSource.S3PathProperty(
-                                bucket="bucket",
-                                key="key"
-                            )
-                        ),
-                        secret_arn="secretArn",
-                        tenant_domain="tenantDomain",
-            
-                        # the properties below are optional
-                        disable_local_groups=False,
-                        exclusion_patterns=["exclusionPatterns"],
-                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                            data_source_field_name="dataSourceFieldName",
-                            index_field_name="indexFieldName",
-            
-                            # the properties below are optional
-                            date_field_format="dateFieldFormat"
-                        )],
-                        inclusion_patterns=["inclusionPatterns"]
-                    ),
-                    s3_configuration=kendra.CfnDataSource.S3DataSourceConfigurationProperty(
-                        bucket_name="bucketName",
-            
-                        # the properties below are optional
-                        access_control_list_configuration=kendra.CfnDataSource.AccessControlListConfigurationProperty(
-                            key_path="keyPath"
-                        ),
-                        documents_metadata_configuration=kendra.CfnDataSource.DocumentsMetadataConfigurationProperty(
-                            s3_prefix="s3Prefix"
-                        ),
-                        exclusion_patterns=["exclusionPatterns"],
-                        inclusion_patterns=["inclusionPatterns"],
-                        inclusion_prefixes=["inclusionPrefixes"]
-                    ),
-                    salesforce_configuration=kendra.CfnDataSource.SalesforceConfigurationProperty(
-                        secret_arn="secretArn",
-                        server_url="serverUrl",
-            
-                        # the properties below are optional
-                        chatter_feed_configuration=kendra.CfnDataSource.SalesforceChatterFeedConfigurationProperty(
-                            document_data_field_name="documentDataFieldName",
-            
-                            # the properties below are optional
-                            document_title_field_name="documentTitleFieldName",
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )],
-                            include_filter_types=["includeFilterTypes"]
-                        ),
-                        crawl_attachments=False,
-                        exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
-                        include_attachment_file_patterns=["includeAttachmentFilePatterns"],
-                        knowledge_article_configuration=kendra.CfnDataSource.SalesforceKnowledgeArticleConfigurationProperty(
-                            included_states=["includedStates"],
-            
-                            # the properties below are optional
-                            custom_knowledge_article_type_configurations=[kendra.CfnDataSource.SalesforceCustomKnowledgeArticleTypeConfigurationProperty(
-                                document_data_field_name="documentDataFieldName",
-                                name="name",
-            
-                                # the properties below are optional
-                                document_title_field_name="documentTitleFieldName",
-                                field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                    data_source_field_name="dataSourceFieldName",
-                                    index_field_name="indexFieldName",
-            
-                                    # the properties below are optional
-                                    date_field_format="dateFieldFormat"
-                                )]
-                            )],
-                            standard_knowledge_article_type_configuration=kendra.CfnDataSource.SalesforceStandardKnowledgeArticleTypeConfigurationProperty(
-                                document_data_field_name="documentDataFieldName",
-            
-                                # the properties below are optional
-                                document_title_field_name="documentTitleFieldName",
-                                field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                    data_source_field_name="dataSourceFieldName",
-                                    index_field_name="indexFieldName",
-            
-                                    # the properties below are optional
-                                    date_field_format="dateFieldFormat"
-                                )]
-                            )
-                        ),
-                        standard_object_attachment_configuration=kendra.CfnDataSource.SalesforceStandardObjectAttachmentConfigurationProperty(
-                            document_title_field_name="documentTitleFieldName",
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        ),
-                        standard_object_configurations=[kendra.CfnDataSource.SalesforceStandardObjectConfigurationProperty(
-                            document_data_field_name="documentDataFieldName",
-                            name="name",
-            
-                            # the properties below are optional
-                            document_title_field_name="documentTitleFieldName",
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )]
-                        )]
-                    ),
-                    service_now_configuration=kendra.CfnDataSource.ServiceNowConfigurationProperty(
-                        host_url="hostUrl",
-                        secret_arn="secretArn",
-                        service_now_build_version="serviceNowBuildVersion",
-            
-                        # the properties below are optional
-                        authentication_type="authenticationType",
-                        knowledge_article_configuration=kendra.CfnDataSource.ServiceNowKnowledgeArticleConfigurationProperty(
-                            document_data_field_name="documentDataFieldName",
-            
-                            # the properties below are optional
-                            crawl_attachments=False,
-                            document_title_field_name="documentTitleFieldName",
-                            exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )],
-                            filter_query="filterQuery",
-                            include_attachment_file_patterns=["includeAttachmentFilePatterns"]
-                        ),
-                        service_catalog_configuration=kendra.CfnDataSource.ServiceNowServiceCatalogConfigurationProperty(
-                            document_data_field_name="documentDataFieldName",
-            
-                            # the properties below are optional
-                            crawl_attachments=False,
-                            document_title_field_name="documentTitleFieldName",
-                            exclude_attachment_file_patterns=["excludeAttachmentFilePatterns"],
-                            field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                                data_source_field_name="dataSourceFieldName",
-                                index_field_name="indexFieldName",
-            
-                                # the properties below are optional
-                                date_field_format="dateFieldFormat"
-                            )],
-                            include_attachment_file_patterns=["includeAttachmentFilePatterns"]
-                        )
-                    ),
-                    share_point_configuration=kendra.CfnDataSource.SharePointConfigurationProperty(
-                        secret_arn="secretArn",
-                        share_point_version="sharePointVersion",
-                        urls=["urls"],
-            
-                        # the properties below are optional
-                        crawl_attachments=False,
-                        disable_local_groups=False,
-                        document_title_field_name="documentTitleFieldName",
-                        exclusion_patterns=["exclusionPatterns"],
-                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                            data_source_field_name="dataSourceFieldName",
-                            index_field_name="indexFieldName",
-            
-                            # the properties below are optional
-                            date_field_format="dateFieldFormat"
-                        )],
-                        inclusion_patterns=["inclusionPatterns"],
-                        ssl_certificate_s3_path=kendra.CfnDataSource.S3PathProperty(
-                            bucket="bucket",
-                            key="key"
-                        ),
-                        use_change_log=False,
-                        vpc_configuration=kendra.CfnDataSource.DataSourceVpcConfigurationProperty(
-                            security_group_ids=["securityGroupIds"],
-                            subnet_ids=["subnetIds"]
-                        )
-                    ),
-                    template_configuration=kendra.CfnDataSource.TemplateConfigurationProperty(
-                        template="template"
-                    ),
-                    web_crawler_configuration=kendra.CfnDataSource.WebCrawlerConfigurationProperty(
-                        urls=kendra.CfnDataSource.WebCrawlerUrlsProperty(
-                            seed_url_configuration=kendra.CfnDataSource.WebCrawlerSeedUrlConfigurationProperty(
-                                seed_urls=["seedUrls"],
-            
-                                # the properties below are optional
-                                web_crawler_mode="webCrawlerMode"
-                            ),
-                            site_maps_configuration=kendra.CfnDataSource.WebCrawlerSiteMapsConfigurationProperty(
-                                site_maps=["siteMaps"]
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        authentication_configuration=kendra.CfnDataSource.WebCrawlerAuthenticationConfigurationProperty(
-                            basic_authentication=[kendra.CfnDataSource.WebCrawlerBasicAuthenticationProperty(
-                                credentials="credentials",
-                                host="host",
-                                port=123
-                            )]
-                        ),
-                        crawl_depth=123,
-                        max_content_size_per_page_in_mega_bytes=123,
-                        max_links_per_page=123,
-                        max_urls_per_minute_crawl_rate=123,
-                        proxy_configuration=kendra.CfnDataSource.ProxyConfigurationProperty(
-                            host="host",
-                            port=123,
-            
-                            # the properties below are optional
-                            credentials="credentials"
-                        ),
-                        url_exclusion_patterns=["urlExclusionPatterns"],
-                        url_inclusion_patterns=["urlInclusionPatterns"]
-                    ),
-                    work_docs_configuration=kendra.CfnDataSource.WorkDocsConfigurationProperty(
-                        organization_id="organizationId",
-            
-                        # the properties below are optional
-                        crawl_comments=False,
-                        exclusion_patterns=["exclusionPatterns"],
-                        field_mappings=[kendra.CfnDataSource.DataSourceToIndexFieldMappingProperty(
-                            data_source_field_name="dataSourceFieldName",
-                            index_field_name="indexFieldName",
-            
-                            # the properties below are optional
-                            date_field_format="dateFieldFormat"
-                        )],
-                        inclusion_patterns=["inclusionPatterns"],
-                        use_change_log=False
-                    )
-                ),
-                description="description",
-                language_code="languageCode",
-                role_arn="roleArn",
-                schedule="schedule",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9542f7b6e1451dc9177bf24b7be378edc74ce522d3fa3c567f3674a5f145a654)
-            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument custom_document_enrichment_configuration", value=custom_document_enrichment_configuration, expected_type=type_hints["custom_document_enrichment_configuration"])
-            check_type(argname="argument data_source_configuration", value=data_source_configuration, expected_type=type_hints["data_source_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "index_id": index_id,
-            "name": name,
-            "type": type,
-        }
-        if custom_document_enrichment_configuration is not None:
-            self._values["custom_document_enrichment_configuration"] = custom_document_enrichment_configuration
-        if data_source_configuration is not None:
-            self._values["data_source_configuration"] = data_source_configuration
-        if description is not None:
-            self._values["description"] = description
-        if language_code is not None:
-            self._values["language_code"] = language_code
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if schedule is not None:
-            self._values["schedule"] = schedule
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def index_id(self) -> builtins.str:
-        '''The identifier of the index you want to use with the data source connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-indexid
-        '''
-        result = self._values.get("index_id")
-        assert result is not None, "Required property 'index_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of the data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_document_enrichment_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.CustomDocumentEnrichmentConfigurationProperty]]:
-        '''Configuration information for altering document metadata and content during the document ingestion process.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-customdocumentenrichmentconfiguration
-        '''
-        result = self._values.get("custom_document_enrichment_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.CustomDocumentEnrichmentConfigurationProperty]], result)
-
-    @builtins.property
-    def data_source_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceConfigurationProperty]]:
-        '''Configuration information for an Amazon Kendra data source.
-
-        The contents of the configuration depend on the type of data source. You can only specify one type of data source in the configuration.
-
-        You can't specify the ``Configuration`` parameter when the ``Type`` parameter is set to ``CUSTOM`` .
-
-        The ``Configuration`` parameter is required for all other data sources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-datasourceconfiguration
-        '''
-        result = self._values.get("data_source_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the data source connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def language_code(self) -> typing.Optional[builtins.str]:
-        '''The code for a language.
-
-        This shows a supported language for all documents in the data source. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-languagecode
-        '''
-        result = self._values.get("language_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of a role with permission to access the data source.
-
-        You can't specify the ``RoleArn`` parameter when the ``Type`` parameter is set to ``CUSTOM`` .
-
-        The ``RoleArn`` parameter is required for all other data sources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule(self) -> typing.Optional[builtins.str]:
-        '''Sets the frequency that Amazon Kendra checks the documents in your data source and updates the index.
-
-        If you don't set a schedule, Amazon Kendra doesn't periodically update the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-schedule
-        '''
-        result = self._values.get("schedule")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-datasource.html#cfn-kendra-datasource-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFaqRef, _ITaggable_36806126)
 class CfnFaq(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8176,6 +8989,12 @@ class CfnFaq(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="faqRef")
+    def faq_ref(self) -> FaqReference:
+        '''A reference to a Faq resource.'''
+        return typing.cast(FaqReference, jsii.get(self, "faqRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8357,200 +9176,7 @@ class CfnFaq(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kendra.CfnFaqProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "index_id": "indexId",
-        "name": "name",
-        "role_arn": "roleArn",
-        "s3_path": "s3Path",
-        "description": "description",
-        "file_format": "fileFormat",
-        "language_code": "languageCode",
-        "tags": "tags",
-    },
-)
-class CfnFaqProps:
-    def __init__(
-        self,
-        *,
-        index_id: builtins.str,
-        name: builtins.str,
-        role_arn: builtins.str,
-        s3_path: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFaq.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        file_format: typing.Optional[builtins.str] = None,
-        language_code: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFaq``.
-
-        :param index_id: The identifier of the index that contains the FAQ.
-        :param name: The name that you assigned the FAQ when you created or updated the FAQ.
-        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the S3 bucket that contains the FAQ.
-        :param s3_path: The Amazon Simple Storage Service (Amazon S3) location of the FAQ input data.
-        :param description: A description for the FAQ.
-        :param file_format: The format of the input file. You can choose between a basic CSV format, a CSV format that includes customs attributes in a header, and a JSON format that includes custom attributes. The format must match the format of the file stored in the S3 bucket identified in the S3Path parameter. Valid values are: - ``CSV`` - ``CSV_WITH_HEADER`` - ``JSON``
-        :param language_code: The code for a language. This shows a supported language for the FAQ document as part of the summary information for FAQs. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kendra as kendra
-            
-            cfn_faq_props = kendra.CfnFaqProps(
-                index_id="indexId",
-                name="name",
-                role_arn="roleArn",
-                s3_path=kendra.CfnFaq.S3PathProperty(
-                    bucket="bucket",
-                    key="key"
-                ),
-            
-                # the properties below are optional
-                description="description",
-                file_format="fileFormat",
-                language_code="languageCode",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d80eed0b304b1e2dc88b2a6b3ac2392e3650ef0ac292928d043232bd3fae1be)
-            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument s3_path", value=s3_path, expected_type=type_hints["s3_path"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument file_format", value=file_format, expected_type=type_hints["file_format"])
-            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "index_id": index_id,
-            "name": name,
-            "role_arn": role_arn,
-            "s3_path": s3_path,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if file_format is not None:
-            self._values["file_format"] = file_format
-        if language_code is not None:
-            self._values["language_code"] = language_code
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def index_id(self) -> builtins.str:
-        '''The identifier of the index that contains the FAQ.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-indexid
-        '''
-        result = self._values.get("index_id")
-        assert result is not None, "Required property 'index_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name that you assigned the FAQ when you created or updated the FAQ.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a role with permission to access the S3 bucket that contains the FAQ.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def s3_path(self) -> typing.Union[_IResolvable_da3f097b, CfnFaq.S3PathProperty]:
-        '''The Amazon Simple Storage Service (Amazon S3) location of the FAQ input data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-s3path
-        '''
-        result = self._values.get("s3_path")
-        assert result is not None, "Required property 's3_path' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnFaq.S3PathProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the FAQ.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def file_format(self) -> typing.Optional[builtins.str]:
-        '''The format of the input file.
-
-        You can choose between a basic CSV format, a CSV format that includes customs attributes in a header, and a JSON format that includes custom attributes.
-
-        The format must match the format of the file stored in the S3 bucket identified in the S3Path parameter.
-
-        Valid values are:
-
-        - ``CSV``
-        - ``CSV_WITH_HEADER``
-        - ``JSON``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-fileformat
-        '''
-        result = self._values.get("file_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def language_code(self) -> typing.Optional[builtins.str]:
-        '''The code for a language.
-
-        This shows a supported language for the FAQ document as part of the summary information for FAQs. English is supported by default. For more information on supported languages, including their codes, see `Adding documents in languages other than English <https://docs.aws.amazon.com/kendra/latest/dg/in-adding-languages.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-languagecode
-        '''
-        result = self._values.get("language_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-faq.html#cfn-kendra-faq-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFaqProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IIndexRef, _ITaggable_36806126)
 class CfnIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8736,6 +9362,12 @@ class CfnIndex(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> IndexReference:
+        '''A reference to a Index resource.'''
+        return typing.cast(IndexReference, jsii.get(self, "indexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9820,282 +10452,6 @@ class CfnIndex(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kendra.CfnIndexProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "edition": "edition",
-        "name": "name",
-        "role_arn": "roleArn",
-        "capacity_units": "capacityUnits",
-        "description": "description",
-        "document_metadata_configurations": "documentMetadataConfigurations",
-        "server_side_encryption_configuration": "serverSideEncryptionConfiguration",
-        "tags": "tags",
-        "user_context_policy": "userContextPolicy",
-        "user_token_configurations": "userTokenConfigurations",
-    },
-)
-class CfnIndexProps:
-    def __init__(
-        self,
-        *,
-        edition: builtins.str,
-        name: builtins.str,
-        role_arn: builtins.str,
-        capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        document_metadata_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentMetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_context_policy: typing.Optional[builtins.str] = None,
-        user_token_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.UserTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIndex``.
-
-        :param edition: Indicates whether the index is a Enterprise Edition index, a Developer Edition index, or a GenAI Enterprise Edition index.
-        :param name: The name of the index.
-        :param role_arn: An IAM role that gives Amazon Kendra permissions to access your Amazon CloudWatch logs and metrics. This is also the role used when you use the `BatchPutDocument <https://docs.aws.amazon.com/kendra/latest/dg/BatchPutDocument.html>`_ operation to index documents from an Amazon S3 bucket.
-        :param capacity_units: Specifies additional capacity units configured for your Enterprise Edition index. You can add and remove capacity units to fit your usage requirements.
-        :param description: A description for the index.
-        :param document_metadata_configurations: Specifies the properties of an index field. You can add either a custom or a built-in field. You can add and remove built-in fields at any time. When a built-in field is removed it's configuration reverts to the default for the field. Custom fields can't be removed from an index after they are added.
-        :param server_side_encryption_configuration: The identifier of the AWS KMS customer managed key (CMK) to use to encrypt data indexed by Amazon Kendra. Amazon Kendra doesn't support asymmetric CMKs.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param user_context_policy: The user context policy. ATTRIBUTE_FILTER - All indexed content is searchable and displayable for all users. If you want to filter search results on user context, you can use the attribute filters of ``_user_id`` and ``_group_ids`` or you can provide user and group information in ``UserContext`` . USER_TOKEN - Enables token-based user access control to filter search results on user context. All documents with no access control and all documents accessible to the user will be searchable and displayable.
-        :param user_token_configurations: Defines the type of user token used for the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kendra as kendra
-            
-            cfn_index_props = kendra.CfnIndexProps(
-                edition="edition",
-                name="name",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                capacity_units=kendra.CfnIndex.CapacityUnitsConfigurationProperty(
-                    query_capacity_units=123,
-                    storage_capacity_units=123
-                ),
-                description="description",
-                document_metadata_configurations=[kendra.CfnIndex.DocumentMetadataConfigurationProperty(
-                    name="name",
-                    type="type",
-            
-                    # the properties below are optional
-                    relevance=kendra.CfnIndex.RelevanceProperty(
-                        duration="duration",
-                        freshness=False,
-                        importance=123,
-                        rank_order="rankOrder",
-                        value_importance_items=[kendra.CfnIndex.ValueImportanceItemProperty(
-                            key="key",
-                            value=123
-                        )]
-                    ),
-                    search=kendra.CfnIndex.SearchProperty(
-                        displayable=False,
-                        facetable=False,
-                        searchable=False,
-                        sortable=False
-                    )
-                )],
-                server_side_encryption_configuration=kendra.CfnIndex.ServerSideEncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                user_context_policy="userContextPolicy",
-                user_token_configurations=[kendra.CfnIndex.UserTokenConfigurationProperty(
-                    json_token_type_configuration=kendra.CfnIndex.JsonTokenTypeConfigurationProperty(
-                        group_attribute_field="groupAttributeField",
-                        user_name_attribute_field="userNameAttributeField"
-                    ),
-                    jwt_token_type_configuration=kendra.CfnIndex.JwtTokenTypeConfigurationProperty(
-                        key_location="keyLocation",
-            
-                        # the properties below are optional
-                        claim_regex="claimRegex",
-                        group_attribute_field="groupAttributeField",
-                        issuer="issuer",
-                        secret_manager_arn="secretManagerArn",
-                        url="url",
-                        user_name_attribute_field="userNameAttributeField"
-                    )
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ce90bfc8458d52938a1a8558591d2e8ee975572889b24651808cc701715add3)
-            check_type(argname="argument edition", value=edition, expected_type=type_hints["edition"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument capacity_units", value=capacity_units, expected_type=type_hints["capacity_units"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument document_metadata_configurations", value=document_metadata_configurations, expected_type=type_hints["document_metadata_configurations"])
-            check_type(argname="argument server_side_encryption_configuration", value=server_side_encryption_configuration, expected_type=type_hints["server_side_encryption_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument user_context_policy", value=user_context_policy, expected_type=type_hints["user_context_policy"])
-            check_type(argname="argument user_token_configurations", value=user_token_configurations, expected_type=type_hints["user_token_configurations"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "edition": edition,
-            "name": name,
-            "role_arn": role_arn,
-        }
-        if capacity_units is not None:
-            self._values["capacity_units"] = capacity_units
-        if description is not None:
-            self._values["description"] = description
-        if document_metadata_configurations is not None:
-            self._values["document_metadata_configurations"] = document_metadata_configurations
-        if server_side_encryption_configuration is not None:
-            self._values["server_side_encryption_configuration"] = server_side_encryption_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if user_context_policy is not None:
-            self._values["user_context_policy"] = user_context_policy
-        if user_token_configurations is not None:
-            self._values["user_token_configurations"] = user_token_configurations
-
-    @builtins.property
-    def edition(self) -> builtins.str:
-        '''Indicates whether the index is a Enterprise Edition index, a Developer Edition index, or a GenAI Enterprise Edition index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-edition
-        '''
-        result = self._values.get("edition")
-        assert result is not None, "Required property 'edition' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''An IAM role that gives Amazon Kendra permissions to access your Amazon CloudWatch logs and metrics.
-
-        This is also the role used when you use the `BatchPutDocument <https://docs.aws.amazon.com/kendra/latest/dg/BatchPutDocument.html>`_ operation to index documents from an Amazon S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def capacity_units(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.CapacityUnitsConfigurationProperty]]:
-        '''Specifies additional capacity units configured for your Enterprise Edition index.
-
-        You can add and remove capacity units to fit your usage requirements.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-capacityunits
-        '''
-        result = self._values.get("capacity_units")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.CapacityUnitsConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_metadata_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.DocumentMetadataConfigurationProperty]]]]:
-        '''Specifies the properties of an index field.
-
-        You can add either a custom or a built-in field. You can add and remove built-in fields at any time. When a built-in field is removed it's configuration reverts to the default for the field. Custom fields can't be removed from an index after they are added.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-documentmetadataconfigurations
-        '''
-        result = self._values.get("document_metadata_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.DocumentMetadataConfigurationProperty]]]], result)
-
-    @builtins.property
-    def server_side_encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.ServerSideEncryptionConfigurationProperty]]:
-        '''The identifier of the AWS KMS customer managed key (CMK) to use to encrypt data indexed by Amazon Kendra.
-
-        Amazon Kendra doesn't support asymmetric CMKs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-serversideencryptionconfiguration
-        '''
-        result = self._values.get("server_side_encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.ServerSideEncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def user_context_policy(self) -> typing.Optional[builtins.str]:
-        '''The user context policy.
-
-        ATTRIBUTE_FILTER
-
-        - All indexed content is searchable and displayable for all users. If you want to filter search results on user context, you can use the attribute filters of ``_user_id`` and ``_group_ids`` or you can provide user and group information in ``UserContext`` .
-
-        USER_TOKEN
-
-        - Enables token-based user access control to filter search results on user context. All documents with no access control and all documents accessible to the user will be searchable and displayable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-usercontextpolicy
-        '''
-        result = self._values.get("user_context_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def user_token_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.UserTokenConfigurationProperty]]]]:
-        '''Defines the type of user token used for the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-index.html#cfn-kendra-index-usertokenconfigurations
-        '''
-        result = self._values.get("user_token_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.UserTokenConfigurationProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIndexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDataSource",
     "CfnDataSourceProps",
@@ -10103,9 +10459,87 @@ __all__ = [
     "CfnFaqProps",
     "CfnIndex",
     "CfnIndexProps",
+    "DataSourceReference",
+    "FaqReference",
+    "IDataSourceRef",
+    "IFaqRef",
+    "IIndexRef",
+    "IndexReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__9542f7b6e1451dc9177bf24b7be378edc74ce522d3fa3c567f3674a5f145a654(
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    type: builtins.str,
+    custom_document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.CustomDocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    language_code: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    schedule: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d80eed0b304b1e2dc88b2a6b3ac2392e3650ef0ac292928d043232bd3fae1be(
+    *,
+    index_id: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    s3_path: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFaq.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    file_format: typing.Optional[builtins.str] = None,
+    language_code: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ce90bfc8458d52938a1a8558591d2e8ee975572889b24651808cc701715add3(
+    *,
+    edition: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    document_metadata_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentMetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_context_policy: typing.Optional[builtins.str] = None,
+    user_token_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.UserTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6de5c919af627bb3d6049f31b5ab6da7152d743fa0e1fc4b7bd4a259b600960a(
+    *,
+    data_source_arn: builtins.str,
+    data_source_id: builtins.str,
+    index_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1acc940613f68b5e3ec625da7accaa79001b157705877ea79c10ccfa5bbbc223(
+    *,
+    faq_arn: builtins.str,
+    faq_id: builtins.str,
+    index_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bc5046b0edb7017ba89bc7158cdd2188ccfb29fadc26ae34bc536c02559a5f8(
+    *,
+    index_arn: builtins.str,
+    index_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__db7b870c602f215572ec4f7667cd46c2ae4e2c6035e16924c08cf6d68dc1e858(
     scope: _constructs_77d1e7e8.Construct,
@@ -10696,22 +11130,6 @@ def _typecheckingstub__c81f941a7e6027762047ba2a4dca2a80cd0266333586cd6278af4d285
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9542f7b6e1451dc9177bf24b7be378edc74ce522d3fa3c567f3674a5f145a654(
-    *,
-    index_id: builtins.str,
-    name: builtins.str,
-    type: builtins.str,
-    custom_document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.CustomDocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    language_code: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    schedule: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__da52634bf448f13a8dfdf111b1193f46a241ac941af460a15585386c0620fb57(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10792,20 +11210,6 @@ def _typecheckingstub__6c660660356fbb032dd86a92e34819e3494aa7fd2f3187fca1481c4c3
     *,
     bucket: builtins.str,
     key: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d80eed0b304b1e2dc88b2a6b3ac2392e3650ef0ac292928d043232bd3fae1be(
-    *,
-    index_id: builtins.str,
-    name: builtins.str,
-    role_arn: builtins.str,
-    s3_path: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFaq.S3PathProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    file_format: typing.Optional[builtins.str] = None,
-    language_code: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10979,22 +11383,6 @@ def _typecheckingstub__062de87b3e323244109a14768e5e37dc72be812535477b570bfaaad65
     *,
     key: typing.Optional[builtins.str] = None,
     value: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8ce90bfc8458d52938a1a8558591d2e8ee975572889b24651808cc701715add3(
-    *,
-    edition: builtins.str,
-    name: builtins.str,
-    role_arn: builtins.str,
-    capacity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.CapacityUnitsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    document_metadata_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentMetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    server_side_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_context_policy: typing.Optional[builtins.str] = None,
-    user_token_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.UserTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

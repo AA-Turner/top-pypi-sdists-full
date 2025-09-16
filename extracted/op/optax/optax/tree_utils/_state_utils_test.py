@@ -30,6 +30,7 @@ from optax.schedules import _inject
 from optax.schedules import _schedule
 from optax.tree_utils import _random
 from optax.tree_utils import _state_utils
+from packaging import version
 
 
 @dataclasses.dataclass
@@ -81,7 +82,7 @@ class StateUtilsTest(absltest.TestCase):
     """Test we can map over params also for optimizer states using dicts."""
     opt = combine.chain(
         _scale_by_adam_with_dicts(),
-        transform.add_decayed_weights(1e-3),
+        transform.scale(1e-3),  # any empty state transform
     )
 
     params = _fake_params()
@@ -128,6 +129,10 @@ class StateUtilsTest(absltest.TestCase):
     self.assertEqual(expected, opt_state_sharding_spec)
 
   def test_state_chex_dataclass(self):
+    # TODO(rdyro): revisit if chex can rectify this incompatibility.
+    if version.Version(jax.__version__) >= version.Version('0.6.0'):
+      self.skipTest('chex.dataclass is not supported in jax >= 0.6.0')
+
     @chex.dataclass
     class Foo:
       count: int

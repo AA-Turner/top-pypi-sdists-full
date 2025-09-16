@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use tombi_ast::AstNode;
-use tombi_comment_directive::value::{TableCommonLintRules, TableFormatRules};
+use tombi_comment_directive::value::{TableCommonFormatRules, TableCommonLintRules};
 use tombi_comment_directive_serde::get_comment_directive_content;
 use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_future::{BoxFuture, Boxable};
@@ -10,7 +10,7 @@ use crate::rule::{inline_table_comma_trailing_comment, inline_table_keys_order};
 impl crate::Edit for tombi_ast::InlineTable {
     fn edit<'a: 'b, 'b>(
         &'a self,
-        accessors: &'a [tombi_schema_store::Accessor],
+        _accessors: &'a [tombi_schema_store::Accessor],
         source_path: Option<&'a std::path::Path>,
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
@@ -19,22 +19,6 @@ impl crate::Edit for tombi_ast::InlineTable {
 
         async move {
             let mut changes = vec![];
-
-            let comment_directive =
-                get_comment_directive_content::<TableFormatRules, TableCommonLintRules>(
-                    if let Some(key_value) = self
-                        .syntax()
-                        .parent()
-                        .and_then(|parent| tombi_ast::KeyValue::cast(parent))
-                    {
-                        key_value
-                            .comment_directives()
-                            .chain(self.comment_directives())
-                            .collect_vec()
-                    } else {
-                        self.comment_directives().collect_vec()
-                    },
-                );
 
             let value = &self
                 .clone()
@@ -48,10 +32,26 @@ impl crate::Edit for tombi_ast::InlineTable {
                 ));
                 changes.extend(
                     key_value
-                        .edit(accessors, source_path, current_schema, schema_context)
+                        .edit(&[], source_path, current_schema, schema_context)
                         .await,
                 );
             }
+
+            let comment_directive =
+                get_comment_directive_content::<TableCommonFormatRules, TableCommonLintRules>(
+                    if let Some(key_value) = self
+                        .syntax()
+                        .parent()
+                        .and_then(|parent| tombi_ast::KeyValue::cast(parent))
+                    {
+                        key_value
+                            .comment_directives()
+                            .chain(self.comment_directives())
+                            .collect_vec()
+                    } else {
+                        self.comment_directives().collect_vec()
+                    },
+                );
 
             changes.extend(
                 inline_table_keys_order(

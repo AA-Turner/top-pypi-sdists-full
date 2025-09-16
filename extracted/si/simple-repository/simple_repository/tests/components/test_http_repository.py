@@ -313,7 +313,7 @@ async def test_get_resource__not_modified(
             await repository.get_resource(
                 project_name="numpy",
                 resource_name="numpy-2.0.whl",
-                request_context=model.RequestContext(repository, {"etag": etag}),
+                request_context=model.RequestContext({"etag": etag}),
             )
 
 
@@ -333,7 +333,7 @@ async def test_get_resource_unavailable(project_detail: model.ProjectDetail, htt
 async def test_get_resource_project_unavailable(httpx_mock: pytest_httpx.HTTPXMock) -> None:
     repository = HttpRepository(url="https://example.com/simple/")
     with mock.patch.object(repository, "get_project_page", side_effect=errors.PackageNotFoundError("numpy")):
-        with pytest.raises(errors.ResourceUnavailable, match="numpy-3.0.whl"):
+        with pytest.raises(errors.PackageNotFoundError, match="numpy"):
             await repository.get_resource("numpy", "numpy-3.0.whl")
 
 

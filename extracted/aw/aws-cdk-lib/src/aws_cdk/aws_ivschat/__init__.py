@@ -69,7 +69,458 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ivschat.CfnLoggingConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination_configuration": "destinationConfiguration",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnLoggingConfigurationProps:
+    def __init__(
+        self,
+        *,
+        destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLoggingConfiguration``.
+
+        :param destination_configuration: The DestinationConfiguration is a complex type that contains information about where chat content will be logged.
+        :param name: Logging-configuration name. The value does not need to be unique.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ivschat as ivschat
+            
+            cfn_logging_configuration_props = ivschat.CfnLoggingConfigurationProps(
+                destination_configuration=ivschat.CfnLoggingConfiguration.DestinationConfigurationProperty(
+                    cloud_watch_logs=ivschat.CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty(
+                        log_group_name="logGroupName"
+                    ),
+                    firehose=ivschat.CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty(
+                        delivery_stream_name="deliveryStreamName"
+                    ),
+                    s3=ivschat.CfnLoggingConfiguration.S3DestinationConfigurationProperty(
+                        bucket_name="bucketName"
+                    )
+                ),
+            
+                # the properties below are optional
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688)
+            check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination_configuration": destination_configuration,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.DestinationConfigurationProperty"]:
+        '''The DestinationConfiguration is a complex type that contains information about where chat content will be logged.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration
+        '''
+        result = self._values.get("destination_configuration")
+        assert result is not None, "Required property 'destination_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.DestinationConfigurationProperty"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Logging-configuration name.
+
+        The value does not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLoggingConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ivschat.CfnRoomProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "logging_configuration_identifiers": "loggingConfigurationIdentifiers",
+        "maximum_message_length": "maximumMessageLength",
+        "maximum_message_rate_per_second": "maximumMessageRatePerSecond",
+        "message_review_handler": "messageReviewHandler",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnRoomProps:
+    def __init__(
+        self,
+        *,
+        logging_configuration_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        maximum_message_length: typing.Optional[jsii.Number] = None,
+        maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
+        message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRoom.MessageReviewHandlerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRoom``.
+
+        :param logging_configuration_identifiers: List of logging-configuration identifiers attached to the room.
+        :param maximum_message_length: Maximum number of characters in a single message. Messages are expected to be UTF-8 encoded and this limit applies specifically to rune/code-point count, not number of bytes. Default: - 500
+        :param maximum_message_rate_per_second: Maximum number of messages per second that can be sent to the room (by all clients). Default: - 10
+        :param message_review_handler: Configuration information for optional review of messages.
+        :param name: Room name. The value does not need to be unique.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ivschat as ivschat
+            
+            cfn_room_props = ivschat.CfnRoomProps(
+                logging_configuration_identifiers=["loggingConfigurationIdentifiers"],
+                maximum_message_length=123,
+                maximum_message_rate_per_second=123,
+                message_review_handler=ivschat.CfnRoom.MessageReviewHandlerProperty(
+                    fallback_result="fallbackResult",
+                    uri="uri"
+                ),
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3)
+            check_type(argname="argument logging_configuration_identifiers", value=logging_configuration_identifiers, expected_type=type_hints["logging_configuration_identifiers"])
+            check_type(argname="argument maximum_message_length", value=maximum_message_length, expected_type=type_hints["maximum_message_length"])
+            check_type(argname="argument maximum_message_rate_per_second", value=maximum_message_rate_per_second, expected_type=type_hints["maximum_message_rate_per_second"])
+            check_type(argname="argument message_review_handler", value=message_review_handler, expected_type=type_hints["message_review_handler"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if logging_configuration_identifiers is not None:
+            self._values["logging_configuration_identifiers"] = logging_configuration_identifiers
+        if maximum_message_length is not None:
+            self._values["maximum_message_length"] = maximum_message_length
+        if maximum_message_rate_per_second is not None:
+            self._values["maximum_message_rate_per_second"] = maximum_message_rate_per_second
+        if message_review_handler is not None:
+            self._values["message_review_handler"] = message_review_handler
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def logging_configuration_identifiers(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of logging-configuration identifiers attached to the room.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-loggingconfigurationidentifiers
+        '''
+        result = self._values.get("logging_configuration_identifiers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def maximum_message_length(self) -> typing.Optional[jsii.Number]:
+        '''Maximum number of characters in a single message.
+
+        Messages are expected to be UTF-8 encoded and this limit applies specifically to rune/code-point count, not number of bytes.
+
+        :default: - 500
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-maximummessagelength
+        '''
+        result = self._values.get("maximum_message_length")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def maximum_message_rate_per_second(self) -> typing.Optional[jsii.Number]:
+        '''Maximum number of messages per second that can be sent to the room (by all clients).
+
+        :default: - 10
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-maximummessageratepersecond
+        '''
+        result = self._values.get("maximum_message_rate_per_second")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def message_review_handler(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoom.MessageReviewHandlerProperty"]]:
+        '''Configuration information for optional review of messages.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-messagereviewhandler
+        '''
+        result = self._values.get("message_review_handler")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRoom.MessageReviewHandlerProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Room name.
+
+        The value does not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRoomProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ivschat.ILoggingConfigurationRef")
+class ILoggingConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfigurationRef")
+    def logging_configuration_ref(self) -> "LoggingConfigurationReference":
+        '''(experimental) A reference to a LoggingConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILoggingConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ivschat.ILoggingConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfigurationRef")
+    def logging_configuration_ref(self) -> "LoggingConfigurationReference":
+        '''(experimental) A reference to a LoggingConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LoggingConfigurationReference", jsii.get(self, "loggingConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILoggingConfigurationRef).__jsii_proxy_class__ = lambda : _ILoggingConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ivschat.IRoomRef")
+class IRoomRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Room.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="roomRef")
+    def room_ref(self) -> "RoomReference":
+        '''(experimental) A reference to a Room resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRoomRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Room.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ivschat.IRoomRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="roomRef")
+    def room_ref(self) -> "RoomReference":
+        '''(experimental) A reference to a Room resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RoomReference", jsii.get(self, "roomRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRoomRef).__jsii_proxy_class__ = lambda : _IRoomRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ivschat.LoggingConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"logging_configuration_arn": "loggingConfigurationArn"},
+)
+class LoggingConfigurationReference:
+    def __init__(self, *, logging_configuration_arn: builtins.str) -> None:
+        '''A reference to a LoggingConfiguration resource.
+
+        :param logging_configuration_arn: The Arn of the LoggingConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ivschat as ivschat
+            
+            logging_configuration_reference = ivschat.LoggingConfigurationReference(
+                logging_configuration_arn="loggingConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d78dfd0288e7a0f7d46063850d3c8a0cecd5a51daba765c912ccc3a32b84a1b)
+            check_type(argname="argument logging_configuration_arn", value=logging_configuration_arn, expected_type=type_hints["logging_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logging_configuration_arn": logging_configuration_arn,
+        }
+
+    @builtins.property
+    def logging_configuration_arn(self) -> builtins.str:
+        '''The Arn of the LoggingConfiguration resource.'''
+        result = self._values.get("logging_configuration_arn")
+        assert result is not None, "Required property 'logging_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggingConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ivschat.RoomReference",
+    jsii_struct_bases=[],
+    name_mapping={"room_arn": "roomArn"},
+)
+class RoomReference:
+    def __init__(self, *, room_arn: builtins.str) -> None:
+        '''A reference to a Room resource.
+
+        :param room_arn: The Arn of the Room resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ivschat as ivschat
+            
+            room_reference = ivschat.RoomReference(
+                room_arn="roomArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89f0bc197984926cda233a56d67b5e9fec24a4e311341cdd749ea4a4d48cb23e)
+            check_type(argname="argument room_arn", value=room_arn, expected_type=type_hints["room_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "room_arn": room_arn,
+        }
+
+    @builtins.property
+    def room_arn(self) -> builtins.str:
+        '''The Arn of the Room resource.'''
+        result = self._values.get("room_arn")
+        assert result is not None, "Required property 'room_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RoomReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ILoggingConfigurationRef, _ITaggable_36806126)
 class CfnLoggingConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -204,6 +655,12 @@ class CfnLoggingConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfigurationRef")
+    def logging_configuration_ref(self) -> LoggingConfigurationReference:
+        '''A reference to a LoggingConfiguration resource.'''
+        return typing.cast(LoggingConfigurationReference, jsii.get(self, "loggingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -515,119 +972,7 @@ class CfnLoggingConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ivschat.CfnLoggingConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destination_configuration": "destinationConfiguration",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnLoggingConfigurationProps:
-    def __init__(
-        self,
-        *,
-        destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLoggingConfiguration``.
-
-        :param destination_configuration: The DestinationConfiguration is a complex type that contains information about where chat content will be logged.
-        :param name: Logging-configuration name. The value does not need to be unique.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ivschat as ivschat
-            
-            cfn_logging_configuration_props = ivschat.CfnLoggingConfigurationProps(
-                destination_configuration=ivschat.CfnLoggingConfiguration.DestinationConfigurationProperty(
-                    cloud_watch_logs=ivschat.CfnLoggingConfiguration.CloudWatchLogsDestinationConfigurationProperty(
-                        log_group_name="logGroupName"
-                    ),
-                    firehose=ivschat.CfnLoggingConfiguration.FirehoseDestinationConfigurationProperty(
-                        delivery_stream_name="deliveryStreamName"
-                    ),
-                    s3=ivschat.CfnLoggingConfiguration.S3DestinationConfigurationProperty(
-                        bucket_name="bucketName"
-                    )
-                ),
-            
-                # the properties below are optional
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688)
-            check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "destination_configuration": destination_configuration,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destination_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.DestinationConfigurationProperty]:
-        '''The DestinationConfiguration is a complex type that contains information about where chat content will be logged.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-destinationconfiguration
-        '''
-        result = self._values.get("destination_configuration")
-        assert result is not None, "Required property 'destination_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.DestinationConfigurationProperty], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Logging-configuration name.
-
-        The value does not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-loggingconfiguration-tag.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-loggingconfiguration.html#cfn-ivschat-loggingconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLoggingConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRoomRef, _ITaggable_36806126)
 class CfnRoom(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -756,6 +1101,12 @@ class CfnRoom(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roomRef")
+    def room_ref(self) -> RoomReference:
+        '''A reference to a Room resource.'''
+        return typing.cast(RoomReference, jsii.get(self, "roomRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -933,172 +1284,53 @@ class CfnRoom(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ivschat.CfnRoomProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "logging_configuration_identifiers": "loggingConfigurationIdentifiers",
-        "maximum_message_length": "maximumMessageLength",
-        "maximum_message_rate_per_second": "maximumMessageRatePerSecond",
-        "message_review_handler": "messageReviewHandler",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnRoomProps:
-    def __init__(
-        self,
-        *,
-        logging_configuration_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        maximum_message_length: typing.Optional[jsii.Number] = None,
-        maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-        message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRoom``.
-
-        :param logging_configuration_identifiers: List of logging-configuration identifiers attached to the room.
-        :param maximum_message_length: Maximum number of characters in a single message. Messages are expected to be UTF-8 encoded and this limit applies specifically to rune/code-point count, not number of bytes. Default: - 500
-        :param maximum_message_rate_per_second: Maximum number of messages per second that can be sent to the room (by all clients). Default: - 10
-        :param message_review_handler: Configuration information for optional review of messages.
-        :param name: Room name. The value does not need to be unique.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ivschat as ivschat
-            
-            cfn_room_props = ivschat.CfnRoomProps(
-                logging_configuration_identifiers=["loggingConfigurationIdentifiers"],
-                maximum_message_length=123,
-                maximum_message_rate_per_second=123,
-                message_review_handler=ivschat.CfnRoom.MessageReviewHandlerProperty(
-                    fallback_result="fallbackResult",
-                    uri="uri"
-                ),
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3)
-            check_type(argname="argument logging_configuration_identifiers", value=logging_configuration_identifiers, expected_type=type_hints["logging_configuration_identifiers"])
-            check_type(argname="argument maximum_message_length", value=maximum_message_length, expected_type=type_hints["maximum_message_length"])
-            check_type(argname="argument maximum_message_rate_per_second", value=maximum_message_rate_per_second, expected_type=type_hints["maximum_message_rate_per_second"])
-            check_type(argname="argument message_review_handler", value=message_review_handler, expected_type=type_hints["message_review_handler"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if logging_configuration_identifiers is not None:
-            self._values["logging_configuration_identifiers"] = logging_configuration_identifiers
-        if maximum_message_length is not None:
-            self._values["maximum_message_length"] = maximum_message_length
-        if maximum_message_rate_per_second is not None:
-            self._values["maximum_message_rate_per_second"] = maximum_message_rate_per_second
-        if message_review_handler is not None:
-            self._values["message_review_handler"] = message_review_handler
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def logging_configuration_identifiers(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of logging-configuration identifiers attached to the room.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-loggingconfigurationidentifiers
-        '''
-        result = self._values.get("logging_configuration_identifiers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def maximum_message_length(self) -> typing.Optional[jsii.Number]:
-        '''Maximum number of characters in a single message.
-
-        Messages are expected to be UTF-8 encoded and this limit applies specifically to rune/code-point count, not number of bytes.
-
-        :default: - 500
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-maximummessagelength
-        '''
-        result = self._values.get("maximum_message_length")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def maximum_message_rate_per_second(self) -> typing.Optional[jsii.Number]:
-        '''Maximum number of messages per second that can be sent to the room (by all clients).
-
-        :default: - 10
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-maximummessageratepersecond
-        '''
-        result = self._values.get("maximum_message_rate_per_second")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def message_review_handler(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoom.MessageReviewHandlerProperty]]:
-        '''Configuration information for optional review of messages.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-messagereviewhandler
-        '''
-        result = self._values.get("message_review_handler")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRoom.MessageReviewHandlerProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Room name.
-
-        The value does not need to be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivschat-room-tag.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivschat-room.html#cfn-ivschat-room-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRoomProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnLoggingConfiguration",
     "CfnLoggingConfigurationProps",
     "CfnRoom",
     "CfnRoomProps",
+    "ILoggingConfigurationRef",
+    "IRoomRef",
+    "LoggingConfigurationReference",
+    "RoomReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688(
+    *,
+    destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3(
+    *,
+    logging_configuration_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    maximum_message_length: typing.Optional[jsii.Number] = None,
+    maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
+    message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d78dfd0288e7a0f7d46063850d3c8a0cecd5a51daba765c912ccc3a32b84a1b(
+    *,
+    logging_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89f0bc197984926cda233a56d67b5e9fec24a4e311341cdd749ea4a4d48cb23e(
+    *,
+    room_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f95aa7fbca48607e1b7f21599890b14234d06edef03619f810c807a7b1121eb9(
     scope: _constructs_77d1e7e8.Construct,
@@ -1171,15 +1403,6 @@ def _typecheckingstub__c037cb3283641604b00606142bfc019ab700b409deb4e9436a93bc4c2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bd8211326716cc0769a314101b6dc245bc511241754ebffa1df713e7defb4688(
-    *,
-    destination_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3b4e5ca285f18f1e8f75ce6f44ea1cf5cd39a13086ac408f0f6de6c51064f22d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1246,18 +1469,6 @@ def _typecheckingstub__b8de671f791820abae21cf6b0bd8d2f03cbf454fb6af42a06db0dd74e
     *,
     fallback_result: typing.Optional[builtins.str] = None,
     uri: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f899c64588038b94c1a897b6415ff71753daa2f6faffb1c99564c9bc3fec95e3(
-    *,
-    logging_configuration_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    maximum_message_length: typing.Optional[jsii.Number] = None,
-    maximum_message_rate_per_second: typing.Optional[jsii.Number] = None,
-    message_review_handler: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRoom.MessageReviewHandlerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

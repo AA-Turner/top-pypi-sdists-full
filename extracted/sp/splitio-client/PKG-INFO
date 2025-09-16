@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: splitio_client
-Version: 10.4.0
+Version: 10.5.0
 Summary: Split.io Python Client
 Home-page: https://github.com/splitio/python-client
-Download-URL: https://github.com/splitio/python-client/tarball/10.4.0
+Download-URL: https://github.com/splitio/python-client/tarball/10.5.0
 Author: Patricio Echague, Sebastian Arrubia
 Author-email: pato@split.io, sebastian@split.io
 License: Apache License 2.0

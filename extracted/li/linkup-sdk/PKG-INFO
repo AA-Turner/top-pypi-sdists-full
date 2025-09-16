@@ -1,37 +1,25 @@
 Metadata-Version: 2.4
 Name: linkup-sdk
-Version: 0.2.8
+Version: 0.2.9
 Summary: A Python Client SDK for the Linkup API
-Home-page: https://github.com/LinkupPlatform/linkup-python-sdk
-Author: LINKUP TECHNOLOGIES
-Author-email: contact@linkup.so
-License: MIT
+Project-URL: Homepage, https://github.com/LinkupPlatform/linkup-python-sdk
 Project-URL: Documentation, https://github.com/LinkupPlatform/linkup-python-sdk#readme
-Project-URL: Source Code, https://github.com/LinkupPlatform/linkup-python-sdk
-Project-URL: Issue Tracker, https://github.com/LinkupPlatform/linkup-python-sdk/issues
-Keywords: linkup api sdk client search
+Project-URL: Source, https://github.com/LinkupPlatform/linkup-python-sdk
+Project-URL: Tracker, https://github.com/LinkupPlatform/linkup-python-sdk/issues
+Author-email: LINKUP TECHNOLOGIES <contact@linkup.so>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: api,client,linkup,sdk,search
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: httpx
 Requires-Dist: pydantic
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: build
+Requires-Dist: uv<0.9.0,>=0.8.0; extra == 'build'
+Description-Content-Type: text/markdown
 
 # 🚀 Linkup Python SDK
 

@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Union, cast, overload
-from typing_extensions import NotRequired, TypedDict, Literal
-from .request import Request, RequestConfig
-from .async_request import AsyncRequest
-from typing import List, Union
+
+from typing_extensions import Literal, NotRequired, TypedDict
+
 from ._config import ClientConfig
-from .helpers import build_path
 from ._types import BaseResponse
+from .async_request import AsyncRequest
+from .request import Request, RequestConfig
 
 
 class TranslateImageParams(TypedDict):
@@ -50,10 +50,10 @@ class TranslateResponse(BaseResponse):
     """
 
 
-class TranslateImageResponse(TypedDict):
-    image: bytes
+class TranslateImageResponse(BaseResponse):
+    url: str
     """
-    The image data that was translated.
+    The URL or base64 of the translated image.
     """
 
 
@@ -63,14 +63,14 @@ class Translate(ClientConfig):
     def __init__(
         self,
         api_key: str,
-        api_url: str,
-        disable_request_logging: Union[bool, None] = False,
+        base_url: str,
+        headers: Union[Dict[str, str], None] = None,
     ):
-        super().__init__(api_key, api_url, disable_request_logging)
+        super().__init__(api_key, base_url, headers)
         self.config = RequestConfig(
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
-            disable_request_logging=disable_request_logging,
+            headers=headers,
         )
 
     def text(self, params: TranslateParams) -> TranslateResponse:
@@ -83,17 +83,19 @@ class Translate(ClientConfig):
         return resp
 
     @overload
-    def image(self, params: TranslateImageParams) -> TranslateImageResponse: ...
+    def image(self, params: TranslateImageParams) -> Union[TranslateImageResponse, bytes]: ...
     @overload
     def image(
         self, blob: bytes, options: TranslateImageParams = None
-    ) -> TranslateImageParams: ...
+    ) -> Union[TranslateImageResponse, bytes]: ...
 
     def image(
         self,
         blob: Union[TranslateImageParams, bytes],
         options: TranslateImageParams = None,
-    ) -> TranslateImageResponse:
+    ) -> Union[TranslateImageResponse, bytes]:
+        path = "/ai/translate/image"
+        options = options or {}
         if isinstance(
             blob, dict
         ):  # If params is provided as a dict, we assume it's the first argument
@@ -105,17 +107,12 @@ class Translate(ClientConfig):
             ).perform_with_content()
             return resp
 
-        options = options or {}
-        path = build_path(base_path="/ai/translate/image", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = Request(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp
@@ -127,14 +124,14 @@ class AsyncTranslate(ClientConfig):
     def __init__(
         self,
         api_key: str,
-        api_url: str,
-        disable_request_logging: Union[bool, None] = False,
+        base_url: str,
+        headers: Union[Dict[str, str], None] = None,
     ):
-        super().__init__(api_key, api_url, disable_request_logging)
+        super().__init__(api_key, base_url, headers)
         self.config = RequestConfig(
-            api_url=api_url,
+            base_url=base_url,
             api_key=api_key,
-            disable_request_logging=disable_request_logging,
+            headers=headers,
         )
 
     async def text(self, params: TranslateParams) -> TranslateResponse:
@@ -147,17 +144,19 @@ class AsyncTranslate(ClientConfig):
         return resp
 
     @overload
-    async def image(self, params: TranslateImageParams) -> TranslateImageResponse: ...
+    async def image(self, params: TranslateImageParams) -> Union[TranslateImageResponse, bytes]: ...
     @overload
     async def image(
         self, blob: bytes, options: TranslateImageParams = None
-    ) -> TranslateImageParams: ...
+    ) -> Union[TranslateImageResponse, bytes]: ...
 
     async def image(
         self,
         blob: Union[TranslateImageParams, bytes],
         options: TranslateImageParams = None,
-    ) -> TranslateImageResponse:
+    ) -> Union[TranslateImageResponse, bytes]:
+        path = "/ai/translate/image"
+        options = options or {}
         if isinstance(blob, dict):
             resp = await AsyncRequest(
                 config=self.config,
@@ -167,17 +166,12 @@ class AsyncTranslate(ClientConfig):
             ).perform_with_content()
             return resp
 
-        options = options or {}
-        path = build_path(base_path="/ai/translate/image", params=options)
-        content_type = options.get("content_type", "application/octet-stream")
-        headers = {"Content-Type": content_type}
-
+        files = {"file": blob}
         resp = await AsyncRequest(
             config=self.config,
             path=path,
             params=options,
-            data=blob,
-            headers=headers,
+            files=files,
             verb="post",
         ).perform_with_content()
         return resp

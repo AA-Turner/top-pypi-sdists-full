@@ -119,9 +119,9 @@ class FilesExperimental(Files):
         if self._async_status_location is None:
             return
 
-        catalog_item_data = wait_for_async_resolution(self._client, self._async_status_location)
+        location = wait_for_async_resolution(self._client, self._async_status_location)
 
-        new_file = Files.from_server_data(catalog_item_data)
+        new_file = Files.from_location(location)
         self.num_files = new_file.num_files
         self.from_archive = new_file.from_archive
         self._async_status_location = None

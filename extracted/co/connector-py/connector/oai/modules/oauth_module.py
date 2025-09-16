@@ -20,7 +20,7 @@ from connector_sdk_types.generated import (
     RefreshAccessTokenResponse,
     StandardCapabilityName,
 )
-from httpx import BasicAuth
+from httpx import BasicAuth, Response
 
 from connector.auth_helper import parse_auth_code_and_redirect_uri
 from connector.httpx_rewrite import AsyncClient
@@ -203,6 +203,27 @@ class OAuthModule(BaseIntegrationModule):
         )
         return code_verifier, code_challenge
 
+    @classmethod
+    def raise_for_oauth_status(cls, response: Response, url: str) -> None:
+        """
+        Utility method to call inside oauth capability implementations to handle errors.
+        This is to prevent retrying oauth requests.
+
+        Raises a ConnectorError with the error code API_ERROR (non retryable).
+        """
+        if response.status_code >= 300:
+            try:
+                error_data = response.json()
+                response_message = str(error_data)
+            except ValueError:
+                response_message = response.text
+
+            response_code = response.status_code
+            raise ConnectorError(
+                message=f"[{response_code}][{url.split('?')[0]}] OAuth request failed: {response_message}",
+                error_code=ErrorCode.API_ERROR,
+            )
+
     async def _send_authorized_request(
         self,
         url: str,
@@ -304,18 +325,7 @@ class OAuthModule(BaseIntegrationModule):
         )
 
         # Raise for status
-        if response.status_code >= 300:
-            try:
-                error_data = response.json()
-                response_message = str(error_data)
-            except ValueError:
-                response_message = response.text
-            response_code = response.status_code
-
-            raise ConnectorError(
-                message=f"[{response_code}][{url.split('?')[0]}] OAuth request failed: {response_message}",
-                error_code=ErrorCode.API_ERROR,
-            )
+        self.raise_for_oauth_status(response, url)
 
         # Convert token_type to lowercase if not specified
         response_json = response.json()

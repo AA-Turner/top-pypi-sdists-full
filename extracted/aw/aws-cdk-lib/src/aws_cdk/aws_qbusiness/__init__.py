@@ -79,7 +79,2770 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "application_id": "applicationId",
+    },
+)
+class ApplicationReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        application_id: builtins.str,
+    ) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ARN of the Application resource.
+        :param application_id: The ApplicationId of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            application_reference = qbusiness.ApplicationReference(
+                application_arn="applicationArn",
+                application_id="applicationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c938a5bf091b3ba60a49cedc06a98701cf7b8b03529c3dd1b49b95f08976498)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "application_id": application_id,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Application resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "display_name": "displayName",
+        "attachments_configuration": "attachmentsConfiguration",
+        "auto_subscription_configuration": "autoSubscriptionConfiguration",
+        "client_ids_for_oidc": "clientIdsForOidc",
+        "description": "description",
+        "encryption_configuration": "encryptionConfiguration",
+        "iam_identity_provider_arn": "iamIdentityProviderArn",
+        "identity_center_instance_arn": "identityCenterInstanceArn",
+        "identity_type": "identityType",
+        "personalization_configuration": "personalizationConfiguration",
+        "q_apps_configuration": "qAppsConfiguration",
+        "quick_sight_configuration": "quickSightConfiguration",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        display_name: builtins.str,
+        attachments_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AttachmentsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_subscription_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.AutoSubscriptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        client_ids_for_oidc: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iam_identity_provider_arn: typing.Optional[builtins.str] = None,
+        identity_center_instance_arn: typing.Optional[builtins.str] = None,
+        identity_type: typing.Optional[builtins.str] = None,
+        personalization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.PersonalizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        q_apps_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.QAppsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        quick_sight_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.QuickSightConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param display_name: The name of the Amazon Q Business application.
+        :param attachments_configuration: Configuration information for the file upload during chat feature.
+        :param auto_subscription_configuration: Subscription configuration information for an Amazon Q Business application using IAM identity federation for user management.
+        :param client_ids_for_oidc: The OIDC client ID for a Amazon Q Business application.
+        :param description: A description for the Amazon Q Business application.
+        :param encryption_configuration: Provides the identifier of the AWS KMS key used to encrypt data indexed by Amazon Q Business. Amazon Q Business doesn't support asymmetric keys.
+        :param iam_identity_provider_arn: The Amazon Resource Name (ARN) of an identity provider being used by an Amazon Q Business application.
+        :param identity_center_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. *Required* : ``Yes``
+        :param identity_type: The authentication type being used by a Amazon Q Business application.
+        :param personalization_configuration: Configuration information about chat response personalization. For more information, see `Personalizing chat responses <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/personalizing-chat-responses.html>`_ .
+        :param q_apps_configuration: Configuration information about Amazon Q Apps.
+        :param quick_sight_configuration: The Amazon QuickSight configuration for an Amazon Q Business application that uses QuickSight as the identity provider.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permissions to access your Amazon CloudWatch logs and metrics. If this property is not specified, Amazon Q Business will create a `service linked role (SLR) <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/using-service-linked-roles.html#slr-permissions>`_ and use it as the application's role.
+        :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business application. You can also use tags to help control access to the application. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            cfn_application_props = qbusiness.CfnApplicationProps(
+                display_name="displayName",
+            
+                # the properties below are optional
+                attachments_configuration=qbusiness.CfnApplication.AttachmentsConfigurationProperty(
+                    attachments_control_mode="attachmentsControlMode"
+                ),
+                auto_subscription_configuration=qbusiness.CfnApplication.AutoSubscriptionConfigurationProperty(
+                    auto_subscribe="autoSubscribe",
+            
+                    # the properties below are optional
+                    default_subscription_type="defaultSubscriptionType"
+                ),
+                client_ids_for_oidc=["clientIdsForOidc"],
+                description="description",
+                encryption_configuration=qbusiness.CfnApplication.EncryptionConfigurationProperty(
+                    kms_key_id="kmsKeyId"
+                ),
+                iam_identity_provider_arn="iamIdentityProviderArn",
+                identity_center_instance_arn="identityCenterInstanceArn",
+                identity_type="identityType",
+                personalization_configuration=qbusiness.CfnApplication.PersonalizationConfigurationProperty(
+                    personalization_control_mode="personalizationControlMode"
+                ),
+                q_apps_configuration=qbusiness.CfnApplication.QAppsConfigurationProperty(
+                    q_apps_control_mode="qAppsControlMode"
+                ),
+                quick_sight_configuration=qbusiness.CfnApplication.QuickSightConfigurationProperty(
+                    client_namespace="clientNamespace"
+                ),
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd218bde3aa6ce3304b30e1d4799c501a50db8db5cef8926c28924af066170bb)
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument attachments_configuration", value=attachments_configuration, expected_type=type_hints["attachments_configuration"])
+            check_type(argname="argument auto_subscription_configuration", value=auto_subscription_configuration, expected_type=type_hints["auto_subscription_configuration"])
+            check_type(argname="argument client_ids_for_oidc", value=client_ids_for_oidc, expected_type=type_hints["client_ids_for_oidc"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument iam_identity_provider_arn", value=iam_identity_provider_arn, expected_type=type_hints["iam_identity_provider_arn"])
+            check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
+            check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
+            check_type(argname="argument personalization_configuration", value=personalization_configuration, expected_type=type_hints["personalization_configuration"])
+            check_type(argname="argument q_apps_configuration", value=q_apps_configuration, expected_type=type_hints["q_apps_configuration"])
+            check_type(argname="argument quick_sight_configuration", value=quick_sight_configuration, expected_type=type_hints["quick_sight_configuration"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "display_name": display_name,
+        }
+        if attachments_configuration is not None:
+            self._values["attachments_configuration"] = attachments_configuration
+        if auto_subscription_configuration is not None:
+            self._values["auto_subscription_configuration"] = auto_subscription_configuration
+        if client_ids_for_oidc is not None:
+            self._values["client_ids_for_oidc"] = client_ids_for_oidc
+        if description is not None:
+            self._values["description"] = description
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
+        if iam_identity_provider_arn is not None:
+            self._values["iam_identity_provider_arn"] = iam_identity_provider_arn
+        if identity_center_instance_arn is not None:
+            self._values["identity_center_instance_arn"] = identity_center_instance_arn
+        if identity_type is not None:
+            self._values["identity_type"] = identity_type
+        if personalization_configuration is not None:
+            self._values["personalization_configuration"] = personalization_configuration
+        if q_apps_configuration is not None:
+            self._values["q_apps_configuration"] = q_apps_configuration
+        if quick_sight_configuration is not None:
+            self._values["quick_sight_configuration"] = quick_sight_configuration
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of the Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attachments_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AttachmentsConfigurationProperty"]]:
+        '''Configuration information for the file upload during chat feature.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-attachmentsconfiguration
+        '''
+        result = self._values.get("attachments_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AttachmentsConfigurationProperty"]], result)
+
+    @builtins.property
+    def auto_subscription_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoSubscriptionConfigurationProperty"]]:
+        '''Subscription configuration information for an Amazon Q Business application using IAM identity federation for user management.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-autosubscriptionconfiguration
+        '''
+        result = self._values.get("auto_subscription_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.AutoSubscriptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def client_ids_for_oidc(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The OIDC client ID for a Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-clientidsforoidc
+        '''
+        result = self._values.get("client_ids_for_oidc")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.EncryptionConfigurationProperty"]]:
+        '''Provides the identifier of the AWS KMS key used to encrypt data indexed by Amazon Q Business.
+
+        Amazon Q Business doesn't support asymmetric keys.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def iam_identity_provider_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an identity provider being used by an Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-iamidentityproviderarn
+        '''
+        result = self._values.get("iam_identity_provider_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application.
+
+        *Required* : ``Yes``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-identitycenterinstancearn
+        '''
+        result = self._values.get("identity_center_instance_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_type(self) -> typing.Optional[builtins.str]:
+        '''The authentication type being used by a Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-identitytype
+        '''
+        result = self._values.get("identity_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def personalization_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.PersonalizationConfigurationProperty"]]:
+        '''Configuration information about chat response personalization.
+
+        For more information, see `Personalizing chat responses <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/personalizing-chat-responses.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-personalizationconfiguration
+        '''
+        result = self._values.get("personalization_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.PersonalizationConfigurationProperty"]], result)
+
+    @builtins.property
+    def q_apps_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.QAppsConfigurationProperty"]]:
+        '''Configuration information about Amazon Q Apps.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-qappsconfiguration
+        '''
+        result = self._values.get("q_apps_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.QAppsConfigurationProperty"]], result)
+
+    @builtins.property
+    def quick_sight_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.QuickSightConfigurationProperty"]]:
+        '''The Amazon QuickSight configuration for an Amazon Q Business application that uses QuickSight as the identity provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-quicksightconfiguration
+        '''
+        result = self._values.get("quick_sight_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.QuickSightConfigurationProperty"]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM role with permissions to access your Amazon CloudWatch logs and metrics.
+
+        If this property is not specified, Amazon Q Business will create a `service linked role (SLR) <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/using-service-linked-roles.html#slr-permissions>`_ and use it as the application's role.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize your Amazon Q Business application.
+
+        You can also use tags to help control access to the application. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnDataAccessorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_configurations": "actionConfigurations",
+        "application_id": "applicationId",
+        "display_name": "displayName",
+        "principal": "principal",
+        "authentication_detail": "authenticationDetail",
+        "tags": "tags",
+    },
+)
+class CfnDataAccessorProps:
+    def __init__(
+        self,
+        *,
+        action_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAccessor.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        application_id: builtins.str,
+        display_name: builtins.str,
+        principal: builtins.str,
+        authentication_detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAccessor.DataAccessorAuthenticationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataAccessor``.
+
+        :param action_configurations: A list of action configurations specifying the allowed actions and any associated filters.
+        :param application_id: The unique identifier of the Amazon Q Business application.
+        :param display_name: The friendly name of the data accessor.
+        :param principal: The Amazon Resource Name (ARN) of the IAM role for the ISV associated with this data accessor.
+        :param authentication_detail: The authentication configuration details for the data accessor. This specifies how the ISV authenticates when accessing data through this data accessor.
+        :param tags: The tags to associate with the data accessor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            # attribute_filter_property_: qbusiness.CfnDataAccessor.AttributeFilterProperty
+            
+            cfn_data_accessor_props = qbusiness.CfnDataAccessorProps(
+                action_configurations=[qbusiness.CfnDataAccessor.ActionConfigurationProperty(
+                    action="action",
+            
+                    # the properties below are optional
+                    filter_configuration=qbusiness.CfnDataAccessor.ActionFilterConfigurationProperty(
+                        document_attribute_filter=qbusiness.CfnDataAccessor.AttributeFilterProperty(
+                            and_all_filters=[attribute_filter_property_],
+                            contains_all=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            contains_any=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            equals_to=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            greater_than=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            greater_than_or_equals=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            less_than=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            less_than_or_equals=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
+                                name="name",
+                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
+                                    date_value="dateValue",
+                                    long_value=123,
+                                    string_list_value=["stringListValue"],
+                                    string_value="stringValue"
+                                )
+                            ),
+                            not_filter=attribute_filter_property_,
+                            or_all_filters=[attribute_filter_property_]
+                        )
+                    )
+                )],
+                application_id="applicationId",
+                display_name="displayName",
+                principal="principal",
+            
+                # the properties below are optional
+                authentication_detail=qbusiness.CfnDataAccessor.DataAccessorAuthenticationDetailProperty(
+                    authentication_type="authenticationType",
+            
+                    # the properties below are optional
+                    authentication_configuration=qbusiness.CfnDataAccessor.DataAccessorAuthenticationConfigurationProperty(
+                        idc_trusted_token_issuer_configuration=qbusiness.CfnDataAccessor.DataAccessorIdcTrustedTokenIssuerConfigurationProperty(
+                            idc_trusted_token_issuer_arn="idcTrustedTokenIssuerArn"
+                        )
+                    ),
+                    external_ids=["externalIds"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4dfde2d4c17793fa3cb9793a9171b9042ac55727b3f0c3a17f1606cab5545458)
+            check_type(argname="argument action_configurations", value=action_configurations, expected_type=type_hints["action_configurations"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument authentication_detail", value=authentication_detail, expected_type=type_hints["authentication_detail"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_configurations": action_configurations,
+            "application_id": application_id,
+            "display_name": display_name,
+            "principal": principal,
+        }
+        if authentication_detail is not None:
+            self._values["authentication_detail"] = authentication_detail
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def action_configurations(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataAccessor.ActionConfigurationProperty"]]]:
+        '''A list of action configurations specifying the allowed actions and any associated filters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-actionconfigurations
+        '''
+        result = self._values.get("action_configurations")
+        assert result is not None, "Required property 'action_configurations' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataAccessor.ActionConfigurationProperty"]]], result)
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier of the Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The friendly name of the data accessor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role for the ISV associated with this data accessor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authentication_detail(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAccessor.DataAccessorAuthenticationDetailProperty"]]:
+        '''The authentication configuration details for the data accessor.
+
+        This specifies how the ISV authenticates when accessing data through this data accessor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-authenticationdetail
+        '''
+        result = self._values.get("authentication_detail")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAccessor.DataAccessorAuthenticationDetailProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to associate with the data accessor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataAccessorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "configuration": "configuration",
+        "display_name": "displayName",
+        "index_id": "indexId",
+        "description": "description",
+        "document_enrichment_configuration": "documentEnrichmentConfiguration",
+        "media_extraction_configuration": "mediaExtractionConfiguration",
+        "role_arn": "roleArn",
+        "sync_schedule": "syncSchedule",
+        "tags": "tags",
+        "vpc_configuration": "vpcConfiguration",
+    },
+)
+class CfnDataSourceProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        configuration: typing.Any,
+        display_name: builtins.str,
+        index_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DocumentEnrichmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        media_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.MediaExtractionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        sync_schedule: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataSource.DataSourceVpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataSource``.
+
+        :param application_id: The identifier of the Amazon Q Business application the data source will be attached to.
+        :param configuration: Use this property to specify a JSON or YAML schema with configuration properties specific to your data source connector to connect your data source repository to Amazon Q Business . You must use the JSON or YAML schema provided by Amazon Q . The following links have the configuration properties and schemas for AWS CloudFormation for the following connectors: - `Amazon Simple Storage Service <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/s3-cfn.html>`_ - `Amazon Q Web Crawler <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/web-crawler-cfn.html>`_ Similarly, you can find configuration templates and properties for your specific data source using the following steps: - Navigate to the `Supported connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connectors-list.html>`_ page in the Amazon Q Business User Guide, and select the data source connector of your choice. - Then, from that specific data source connector's page, choose the topic containing *Using AWS CloudFormation* to find the schemas for your data source connector, including configuration parameter descriptions and examples.
+        :param display_name: The name of the Amazon Q Business data source.
+        :param index_id: The identifier of the index the data source is attached to.
+        :param description: A description for the data source connector.
+        :param document_enrichment_configuration: Provides the configuration information for altering document metadata and content during the document ingestion process. For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
+        :param media_extraction_configuration: The configuration for extracting information from media in documents.
+        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources. This field is required for all connector types except custom connectors, where it is optional.
+        :param sync_schedule: Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index. If you don't set a schedule, Amazon Q Business won't periodically update the index. Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
+        :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+        :param vpc_configuration: Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source. For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            # configuration: Any
+            
+            cfn_data_source_props = qbusiness.CfnDataSourceProps(
+                application_id="applicationId",
+                configuration=configuration,
+                display_name="displayName",
+                index_id="indexId",
+            
+                # the properties below are optional
+                description="description",
+                document_enrichment_configuration=qbusiness.CfnDataSource.DocumentEnrichmentConfigurationProperty(
+                    inline_configurations=[qbusiness.CfnDataSource.InlineDocumentEnrichmentConfigurationProperty(
+                        condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
+                            key="key",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        ),
+                        document_content_operator="documentContentOperator",
+                        target=qbusiness.CfnDataSource.DocumentAttributeTargetProperty(
+                            key="key",
+            
+                            # the properties below are optional
+                            attribute_value_operator="attributeValueOperator",
+                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        )
+                    )],
+                    post_extraction_hook_configuration=qbusiness.CfnDataSource.HookConfigurationProperty(
+                        invocation_condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
+                            key="key",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        ),
+                        lambda_arn="lambdaArn",
+                        role_arn="roleArn",
+                        s3_bucket_name="s3BucketName"
+                    ),
+                    pre_extraction_hook_configuration=qbusiness.CfnDataSource.HookConfigurationProperty(
+                        invocation_condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
+                            key="key",
+                            operator="operator",
+            
+                            # the properties below are optional
+                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
+                                date_value="dateValue",
+                                long_value=123,
+                                string_list_value=["stringListValue"],
+                                string_value="stringValue"
+                            )
+                        ),
+                        lambda_arn="lambdaArn",
+                        role_arn="roleArn",
+                        s3_bucket_name="s3BucketName"
+                    )
+                ),
+                media_extraction_configuration=qbusiness.CfnDataSource.MediaExtractionConfigurationProperty(
+                    audio_extraction_configuration=qbusiness.CfnDataSource.AudioExtractionConfigurationProperty(
+                        audio_extraction_status="audioExtractionStatus"
+                    ),
+                    image_extraction_configuration=qbusiness.CfnDataSource.ImageExtractionConfigurationProperty(
+                        image_extraction_status="imageExtractionStatus"
+                    ),
+                    video_extraction_configuration=qbusiness.CfnDataSource.VideoExtractionConfigurationProperty(
+                        video_extraction_status="videoExtractionStatus"
+                    )
+                ),
+                role_arn="roleArn",
+                sync_schedule="syncSchedule",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_configuration=qbusiness.CfnDataSource.DataSourceVpcConfigurationProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0cb43c018c99c9e24bb29f0d009e1ded318999b690c706f1e2e099d30a9fe07)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument document_enrichment_configuration", value=document_enrichment_configuration, expected_type=type_hints["document_enrichment_configuration"])
+            check_type(argname="argument media_extraction_configuration", value=media_extraction_configuration, expected_type=type_hints["media_extraction_configuration"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument sync_schedule", value=sync_schedule, expected_type=type_hints["sync_schedule"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "configuration": configuration,
+            "display_name": display_name,
+            "index_id": index_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if document_enrichment_configuration is not None:
+            self._values["document_enrichment_configuration"] = document_enrichment_configuration
+        if media_extraction_configuration is not None:
+            self._values["media_extraction_configuration"] = media_extraction_configuration
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if sync_schedule is not None:
+            self._values["sync_schedule"] = sync_schedule
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_configuration is not None:
+            self._values["vpc_configuration"] = vpc_configuration
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q Business application the data source will be attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(self) -> typing.Any:
+        '''Use this property to specify a JSON or YAML schema with configuration properties specific to your data source connector to connect your data source repository to Amazon Q Business .
+
+        You must use the JSON or YAML schema provided by Amazon Q .
+
+        The following links have the configuration properties and schemas for AWS CloudFormation for the following connectors:
+
+        - `Amazon Simple Storage Service <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/s3-cfn.html>`_
+        - `Amazon Q Web Crawler <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/web-crawler-cfn.html>`_
+
+        Similarly, you can find configuration templates and properties for your specific data source using the following steps:
+
+        - Navigate to the `Supported connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connectors-list.html>`_ page in the Amazon Q Business User Guide, and select the data source connector of your choice.
+        - Then, from that specific data source connector's page, choose the topic containing *Using AWS CloudFormation* to find the schemas for your data source connector, including configuration parameter descriptions and examples.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of the Amazon Q Business data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The identifier of the index the data source is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-indexid
+        '''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the data source connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_enrichment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DocumentEnrichmentConfigurationProperty"]]:
+        '''Provides the configuration information for altering document metadata and content during the document ingestion process.
+
+        For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-documentenrichmentconfiguration
+        '''
+        result = self._values.get("document_enrichment_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DocumentEnrichmentConfigurationProperty"]], result)
+
+    @builtins.property
+    def media_extraction_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.MediaExtractionConfigurationProperty"]]:
+        '''The configuration for extracting information from media in documents.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-mediaextractionconfiguration
+        '''
+        result = self._values.get("media_extraction_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.MediaExtractionConfigurationProperty"]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources.
+
+        This field is required for all connector types except custom connectors, where it is optional.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sync_schedule(self) -> typing.Optional[builtins.str]:
+        '''Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index.
+
+        If you don't set a schedule, Amazon Q Business won't periodically update the index.
+
+        Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-syncschedule
+        '''
+        result = self._values.get("sync_schedule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize the data source connector.
+
+        You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceVpcConfigurationProperty"]]:
+        '''Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source.
+
+        For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-vpcconfiguration
+        '''
+        result = self._values.get("vpc_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataSource.DataSourceVpcConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "display_name": "displayName",
+        "capacity_configuration": "capacityConfiguration",
+        "description": "description",
+        "document_attribute_configurations": "documentAttributeConfigurations",
+        "tags": "tags",
+        "type": "type",
+    },
+)
+class CfnIndexProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        display_name: builtins.str,
+        capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.IndexCapacityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        document_attribute_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.DocumentAttributeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIndex``.
+
+        :param application_id: The identifier of the Amazon Q Business application using the index.
+        :param display_name: The name of the index.
+        :param capacity_configuration: The capacity units you want to provision for your index. You can add and remove capacity to fit your usage needs.
+        :param description: A description for the Amazon Q Business index.
+        :param document_attribute_configurations: Configuration information for document attributes. Document attributes are metadata or fields associated with your documents. For example, the company department name associated with each document. For more information, see `Understanding document attributes <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/doc-attributes.html>`_ .
+        :param tags: A list of key-value pairs that identify or categorize the index. You can also use tags to help control access to the index. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+        :param type: The index type that's suitable for your needs. For more information on what's included in each type of index, see `Amazon Q Business tiers <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/tiers.html#index-tiers>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            cfn_index_props = qbusiness.CfnIndexProps(
+                application_id="applicationId",
+                display_name="displayName",
+            
+                # the properties below are optional
+                capacity_configuration=qbusiness.CfnIndex.IndexCapacityConfigurationProperty(
+                    units=123
+                ),
+                description="description",
+                document_attribute_configurations=[qbusiness.CfnIndex.DocumentAttributeConfigurationProperty(
+                    name="name",
+                    search="search",
+                    type="type"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92562a229c76d1c1bf48f7735d22def1e598923d94ebef2d66b70a174c48887e)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument capacity_configuration", value=capacity_configuration, expected_type=type_hints["capacity_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument document_attribute_configurations", value=document_attribute_configurations, expected_type=type_hints["document_attribute_configurations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "display_name": display_name,
+        }
+        if capacity_configuration is not None:
+            self._values["capacity_configuration"] = capacity_configuration
+        if description is not None:
+            self._values["description"] = description
+        if document_attribute_configurations is not None:
+            self._values["document_attribute_configurations"] = document_attribute_configurations
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q Business application using the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capacity_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.IndexCapacityConfigurationProperty"]]:
+        '''The capacity units you want to provision for your index.
+
+        You can add and remove capacity to fit your usage needs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-capacityconfiguration
+        '''
+        result = self._values.get("capacity_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.IndexCapacityConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the Amazon Q Business index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_attribute_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.DocumentAttributeConfigurationProperty"]]]]:
+        '''Configuration information for document attributes.
+
+        Document attributes are metadata or fields associated with your documents. For example, the company department name associated with each document.
+
+        For more information, see `Understanding document attributes <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/doc-attributes.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-documentattributeconfigurations
+        '''
+        result = self._values.get("document_attribute_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIndex.DocumentAttributeConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize the index.
+
+        You can also use tags to help control access to the index. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The index type that's suitable for your needs.
+
+        For more information on what's included in each type of index, see `Amazon Q Business tiers <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/tiers.html#index-tiers>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIndexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnPermissionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "application_id": "applicationId",
+        "principal": "principal",
+        "statement_id": "statementId",
+        "conditions": "conditions",
+    },
+)
+class CfnPermissionProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Sequence[builtins.str],
+        application_id: builtins.str,
+        principal: builtins.str,
+        statement_id: builtins.str,
+        conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermission.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPermission``.
+
+        :param actions: The list of Amazon Q Business actions that the ISV is allowed to perform.
+        :param application_id: The unique identifier of the Amazon Q Business application.
+        :param principal: Provides user and group information used for filtering documents to use for generating Amazon Q Business conversation responses.
+        :param statement_id: A unique identifier for the policy statement.
+        :param conditions: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            cfn_permission_props = qbusiness.CfnPermissionProps(
+                actions=["actions"],
+                application_id="applicationId",
+                principal="principal",
+                statement_id="statementId",
+            
+                # the properties below are optional
+                conditions=[qbusiness.CfnPermission.ConditionProperty(
+                    condition_key="conditionKey",
+                    condition_operator="conditionOperator",
+                    condition_values=["conditionValues"]
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ea87fcda68d4a26468f5e5d1c394a46d117b80b00274f61bbd36b0329a0a8c4)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
+            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "application_id": application_id,
+            "principal": principal,
+            "statement_id": statement_id,
+        }
+        if conditions is not None:
+            self._values["conditions"] = conditions
+
+    @builtins.property
+    def actions(self) -> typing.List[builtins.str]:
+        '''The list of Amazon Q Business actions that the ISV is allowed to perform.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The unique identifier of the Amazon Q Business application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''Provides user and group information used for filtering documents to use for generating Amazon Q Business conversation responses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def statement_id(self) -> builtins.str:
+        '''A unique identifier for the policy statement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-statementid
+        '''
+        result = self._values.get("statement_id")
+        assert result is not None, "Required property 'statement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def conditions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPermission.ConditionProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-conditions
+        '''
+        result = self._values.get("conditions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPermission.ConditionProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPermissionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnPluginProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auth_configuration": "authConfiguration",
+        "display_name": "displayName",
+        "type": "type",
+        "application_id": "applicationId",
+        "custom_plugin_configuration": "customPluginConfiguration",
+        "server_url": "serverUrl",
+        "state": "state",
+        "tags": "tags",
+    },
+)
+class CfnPluginProps:
+    def __init__(
+        self,
+        *,
+        auth_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlugin.PluginAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        display_name: builtins.str,
+        type: builtins.str,
+        application_id: typing.Optional[builtins.str] = None,
+        custom_plugin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlugin.CustomPluginConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        server_url: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPlugin``.
+
+        :param auth_configuration: Authentication configuration information for an Amazon Q Business plugin.
+        :param display_name: The name of the plugin.
+        :param type: The type of the plugin.
+        :param application_id: The identifier of the application that will contain the plugin.
+        :param custom_plugin_configuration: Configuration information required to create a custom plugin.
+        :param server_url: The plugin server URL used for configuration.
+        :param state: The current status of the plugin.
+        :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            # no_auth_configuration: Any
+            
+            cfn_plugin_props = qbusiness.CfnPluginProps(
+                auth_configuration=qbusiness.CfnPlugin.PluginAuthConfigurationProperty(
+                    basic_auth_configuration=qbusiness.CfnPlugin.BasicAuthConfigurationProperty(
+                        role_arn="roleArn",
+                        secret_arn="secretArn"
+                    ),
+                    no_auth_configuration=no_auth_configuration,
+                    o_auth2_client_credential_configuration=qbusiness.CfnPlugin.OAuth2ClientCredentialConfigurationProperty(
+                        role_arn="roleArn",
+                        secret_arn="secretArn",
+            
+                        # the properties below are optional
+                        authorization_url="authorizationUrl",
+                        token_url="tokenUrl"
+                    )
+                ),
+                display_name="displayName",
+                type="type",
+            
+                # the properties below are optional
+                application_id="applicationId",
+                custom_plugin_configuration=qbusiness.CfnPlugin.CustomPluginConfigurationProperty(
+                    api_schema=qbusiness.CfnPlugin.APISchemaProperty(
+                        payload="payload",
+                        s3=qbusiness.CfnPlugin.S3Property(
+                            bucket="bucket",
+                            key="key"
+                        )
+                    ),
+                    api_schema_type="apiSchemaType",
+                    description="description"
+                ),
+                server_url="serverUrl",
+                state="state",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84b206da5d8532987dc555e3bb32deb781317bbd9702ad893387d9a51e07b05f)
+            check_type(argname="argument auth_configuration", value=auth_configuration, expected_type=type_hints["auth_configuration"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument custom_plugin_configuration", value=custom_plugin_configuration, expected_type=type_hints["custom_plugin_configuration"])
+            check_type(argname="argument server_url", value=server_url, expected_type=type_hints["server_url"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auth_configuration": auth_configuration,
+            "display_name": display_name,
+            "type": type,
+        }
+        if application_id is not None:
+            self._values["application_id"] = application_id
+        if custom_plugin_configuration is not None:
+            self._values["custom_plugin_configuration"] = custom_plugin_configuration
+        if server_url is not None:
+            self._values["server_url"] = server_url
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def auth_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnPlugin.PluginAuthConfigurationProperty"]:
+        '''Authentication configuration information for an Amazon Q Business plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-authconfiguration
+        '''
+        result = self._values.get("auth_configuration")
+        assert result is not None, "Required property 'auth_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPlugin.PluginAuthConfigurationProperty"], result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of the plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of the plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the application that will contain the plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-applicationid
+        '''
+        result = self._values.get("application_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_plugin_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlugin.CustomPluginConfigurationProperty"]]:
+        '''Configuration information required to create a custom plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-custompluginconfiguration
+        '''
+        result = self._values.get("custom_plugin_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlugin.CustomPluginConfigurationProperty"]], result)
+
+    @builtins.property
+    def server_url(self) -> typing.Optional[builtins.str]:
+        '''The plugin server URL used for configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-serverurl
+        '''
+        result = self._values.get("server_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The current status of the plugin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize the data source connector.
+
+        You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPluginProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnRetrieverProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "configuration": "configuration",
+        "display_name": "displayName",
+        "type": "type",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnRetrieverProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRetriever.RetrieverConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        display_name: builtins.str,
+        type: builtins.str,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRetriever``.
+
+        :param application_id: The identifier of the Amazon Q Business application using the retriever.
+        :param configuration: Provides information on how the retriever used for your Amazon Q Business application is configured.
+        :param display_name: The name of your retriever.
+        :param type: The type of your retriever.
+        :param role_arn: The ARN of an IAM role used by Amazon Q Business to access the basic authentication credentials stored in a Secrets Manager secret.
+        :param tags: A list of key-value pairs that identify or categorize the retriever. You can also use tags to help control access to the retriever. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            cfn_retriever_props = qbusiness.CfnRetrieverProps(
+                application_id="applicationId",
+                configuration=qbusiness.CfnRetriever.RetrieverConfigurationProperty(
+                    kendra_index_configuration=qbusiness.CfnRetriever.KendraIndexConfigurationProperty(
+                        index_id="indexId"
+                    ),
+                    native_index_configuration=qbusiness.CfnRetriever.NativeIndexConfigurationProperty(
+                        index_id="indexId"
+                    )
+                ),
+                display_name="displayName",
+                type="type",
+            
+                # the properties below are optional
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d26f55565cdfd207bc3128a08abf6cd7e371950c5a332ccf3973859a33980b6)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "configuration": configuration,
+            "display_name": display_name,
+            "type": type,
+        }
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q Business application using the retriever.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnRetriever.RetrieverConfigurationProperty"]:
+        '''Provides information on how the retriever used for your Amazon Q Business application is configured.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-configuration
+        '''
+        result = self._values.get("configuration")
+        assert result is not None, "Required property 'configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRetriever.RetrieverConfigurationProperty"], result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The name of your retriever.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of your retriever.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM role used by Amazon Q Business to access the basic authentication credentials stored in a Secrets Manager secret.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize the retriever.
+
+        You can also use tags to help control access to the retriever. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRetrieverProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.CfnWebExperienceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "browser_extension_configuration": "browserExtensionConfiguration",
+        "customization_configuration": "customizationConfiguration",
+        "identity_provider_configuration": "identityProviderConfiguration",
+        "origins": "origins",
+        "role_arn": "roleArn",
+        "sample_prompts_control_mode": "samplePromptsControlMode",
+        "subtitle": "subtitle",
+        "tags": "tags",
+        "title": "title",
+        "welcome_message": "welcomeMessage",
+    },
+)
+class CfnWebExperienceProps:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        browser_extension_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebExperience.BrowserExtensionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        customization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebExperience.CustomizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebExperience.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        origins: typing.Optional[typing.Sequence[builtins.str]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        sample_prompts_control_mode: typing.Optional[builtins.str] = None,
+        subtitle: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        title: typing.Optional[builtins.str] = None,
+        welcome_message: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebExperience``.
+
+        :param application_id: The identifier of the Amazon Q Business web experience.
+        :param browser_extension_configuration: The container for browser extension configuration for an Amazon Q Business web experience.
+        :param customization_configuration: Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
+        :param identity_provider_configuration: Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
+        :param origins: Sets the website domain origins that are allowed to embed the Amazon Q Business web experience. The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified). .. epigraph:: You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
+        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
+        :param sample_prompts_control_mode: Determines whether sample prompts are enabled in the web experience for an end user.
+        :param subtitle: A subtitle to personalize your Amazon Q Business web experience.
+        :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business web experience. You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+        :param title: The title for your Amazon Q Business web experience.
+        :param welcome_message: A message in an Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            cfn_web_experience_props = qbusiness.CfnWebExperienceProps(
+                application_id="applicationId",
+            
+                # the properties below are optional
+                browser_extension_configuration=qbusiness.CfnWebExperience.BrowserExtensionConfigurationProperty(
+                    enabled_browser_extensions=["enabledBrowserExtensions"]
+                ),
+                customization_configuration=qbusiness.CfnWebExperience.CustomizationConfigurationProperty(
+                    custom_css_url="customCssUrl",
+                    favicon_url="faviconUrl",
+                    font_url="fontUrl",
+                    logo_url="logoUrl"
+                ),
+                identity_provider_configuration=qbusiness.CfnWebExperience.IdentityProviderConfigurationProperty(
+                    open_id_connect_configuration=qbusiness.CfnWebExperience.OpenIDConnectProviderConfigurationProperty(
+                        secrets_arn="secretsArn",
+                        secrets_role="secretsRole"
+                    ),
+                    saml_configuration=qbusiness.CfnWebExperience.SamlProviderConfigurationProperty(
+                        authentication_url="authenticationUrl"
+                    )
+                ),
+                origins=["origins"],
+                role_arn="roleArn",
+                sample_prompts_control_mode="samplePromptsControlMode",
+                subtitle="subtitle",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                title="title",
+                welcome_message="welcomeMessage"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58d2b12e60ffd88803f1746b34f5f9b5b77805b460b8074165db15b9de292293)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument browser_extension_configuration", value=browser_extension_configuration, expected_type=type_hints["browser_extension_configuration"])
+            check_type(argname="argument customization_configuration", value=customization_configuration, expected_type=type_hints["customization_configuration"])
+            check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
+            check_type(argname="argument origins", value=origins, expected_type=type_hints["origins"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument sample_prompts_control_mode", value=sample_prompts_control_mode, expected_type=type_hints["sample_prompts_control_mode"])
+            check_type(argname="argument subtitle", value=subtitle, expected_type=type_hints["subtitle"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument welcome_message", value=welcome_message, expected_type=type_hints["welcome_message"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+        if browser_extension_configuration is not None:
+            self._values["browser_extension_configuration"] = browser_extension_configuration
+        if customization_configuration is not None:
+            self._values["customization_configuration"] = customization_configuration
+        if identity_provider_configuration is not None:
+            self._values["identity_provider_configuration"] = identity_provider_configuration
+        if origins is not None:
+            self._values["origins"] = origins
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if sample_prompts_control_mode is not None:
+            self._values["sample_prompts_control_mode"] = sample_prompts_control_mode
+        if subtitle is not None:
+            self._values["subtitle"] = subtitle
+        if tags is not None:
+            self._values["tags"] = tags
+        if title is not None:
+            self._values["title"] = title
+        if welcome_message is not None:
+            self._values["welcome_message"] = welcome_message
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The identifier of the Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-applicationid
+        '''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def browser_extension_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.BrowserExtensionConfigurationProperty"]]:
+        '''The container for browser extension configuration for an Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-browserextensionconfiguration
+        '''
+        result = self._values.get("browser_extension_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.BrowserExtensionConfigurationProperty"]], result)
+
+    @builtins.property
+    def customization_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.CustomizationConfigurationProperty"]]:
+        '''Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-customizationconfiguration
+        '''
+        result = self._values.get("customization_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.CustomizationConfigurationProperty"]], result)
+
+    @builtins.property
+    def identity_provider_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.IdentityProviderConfigurationProperty"]]:
+        '''Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-identityproviderconfiguration
+        '''
+        result = self._values.get("identity_provider_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebExperience.IdentityProviderConfigurationProperty"]], result)
+
+    @builtins.property
+    def origins(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Sets the website domain origins that are allowed to embed the Amazon Q Business web experience.
+
+        The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified).
+        .. epigraph::
+
+           You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-origins
+        '''
+        result = self._values.get("origins")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the service role attached to your web experience.
+
+        .. epigraph::
+
+           The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sample_prompts_control_mode(self) -> typing.Optional[builtins.str]:
+        '''Determines whether sample prompts are enabled in the web experience for an end user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-samplepromptscontrolmode
+        '''
+        result = self._values.get("sample_prompts_control_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subtitle(self) -> typing.Optional[builtins.str]:
+        '''A subtitle to personalize your Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-subtitle
+        '''
+        result = self._values.get("subtitle")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of key-value pairs that identify or categorize your Amazon Q Business web experience.
+
+        You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-tags
+        :: .
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def title(self) -> typing.Optional[builtins.str]:
+        '''The title for your Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-title
+        '''
+        result = self._values.get("title")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def welcome_message(self) -> typing.Optional[builtins.str]:
+        '''A message in an Amazon Q Business web experience.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-welcomemessage
+        '''
+        result = self._values.get("welcome_message")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebExperienceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.DataAccessorReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "data_accessor_arn": "dataAccessorArn",
+        "data_accessor_id": "dataAccessorId",
+    },
+)
+class DataAccessorReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        data_accessor_arn: builtins.str,
+        data_accessor_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataAccessor resource.
+
+        :param application_id: The ApplicationId of the DataAccessor resource.
+        :param data_accessor_arn: The ARN of the DataAccessor resource.
+        :param data_accessor_id: The DataAccessorId of the DataAccessor resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            data_accessor_reference = qbusiness.DataAccessorReference(
+                application_id="applicationId",
+                data_accessor_arn="dataAccessorArn",
+                data_accessor_id="dataAccessorId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35c5b8526677840550f9cd6a8ec472006ecf7866528386e511dbe9c5feed184a)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument data_accessor_arn", value=data_accessor_arn, expected_type=type_hints["data_accessor_arn"])
+            check_type(argname="argument data_accessor_id", value=data_accessor_id, expected_type=type_hints["data_accessor_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "data_accessor_arn": data_accessor_arn,
+            "data_accessor_id": data_accessor_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the DataAccessor resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_accessor_arn(self) -> builtins.str:
+        '''The ARN of the DataAccessor resource.'''
+        result = self._values.get("data_accessor_arn")
+        assert result is not None, "Required property 'data_accessor_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_accessor_id(self) -> builtins.str:
+        '''The DataAccessorId of the DataAccessor resource.'''
+        result = self._values.get("data_accessor_id")
+        assert result is not None, "Required property 'data_accessor_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAccessorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.DataSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "data_source_arn": "dataSourceArn",
+        "data_source_id": "dataSourceId",
+        "index_id": "indexId",
+    },
+)
+class DataSourceReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        data_source_arn: builtins.str,
+        data_source_id: builtins.str,
+        index_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataSource resource.
+
+        :param application_id: The ApplicationId of the DataSource resource.
+        :param data_source_arn: The ARN of the DataSource resource.
+        :param data_source_id: The DataSourceId of the DataSource resource.
+        :param index_id: The IndexId of the DataSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            data_source_reference = qbusiness.DataSourceReference(
+                application_id="applicationId",
+                data_source_arn="dataSourceArn",
+                data_source_id="dataSourceId",
+                index_id="indexId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__168c5e7b814813f96d7fe07b9b3932a7be9dd7dfd35b5b1eb7e43ff74f96b6e0)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
+            check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "data_source_arn": data_source_arn,
+            "data_source_id": data_source_id,
+            "index_id": index_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the DataSource resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_source_arn(self) -> builtins.str:
+        '''The ARN of the DataSource resource.'''
+        result = self._values.get("data_source_arn")
+        assert result is not None, "Required property 'data_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_source_id(self) -> builtins.str:
+        '''The DataSourceId of the DataSource resource.'''
+        result = self._values.get("data_source_id")
+        assert result is not None, "Required property 'data_source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The IndexId of the DataSource resource.'''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IDataAccessorRef")
+class IDataAccessorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataAccessor.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessorRef")
+    def data_accessor_ref(self) -> DataAccessorReference:
+        '''(experimental) A reference to a DataAccessor resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataAccessorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataAccessor.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IDataAccessorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessorRef")
+    def data_accessor_ref(self) -> DataAccessorReference:
+        '''(experimental) A reference to a DataAccessor resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataAccessorReference, jsii.get(self, "dataAccessorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataAccessorRef).__jsii_proxy_class__ = lambda : _IDataAccessorRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IDataSourceRef")
+class IDataSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IDataSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''(experimental) A reference to a DataSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IIndexRef")
+class IIndexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IndexReference", jsii.get(self, "indexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IPermissionRef")
+class IPermissionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Permission.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionRef")
+    def permission_ref(self) -> "PermissionReference":
+        '''(experimental) A reference to a Permission resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPermissionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Permission.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IPermissionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionRef")
+    def permission_ref(self) -> "PermissionReference":
+        '''(experimental) A reference to a Permission resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PermissionReference", jsii.get(self, "permissionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPermissionRef).__jsii_proxy_class__ = lambda : _IPermissionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IPluginRef")
+class IPluginRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Plugin.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pluginRef")
+    def plugin_ref(self) -> "PluginReference":
+        '''(experimental) A reference to a Plugin resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPluginRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Plugin.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IPluginRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pluginRef")
+    def plugin_ref(self) -> "PluginReference":
+        '''(experimental) A reference to a Plugin resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PluginReference", jsii.get(self, "pluginRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPluginRef).__jsii_proxy_class__ = lambda : _IPluginRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IRetrieverRef")
+class IRetrieverRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Retriever.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="retrieverRef")
+    def retriever_ref(self) -> "RetrieverReference":
+        '''(experimental) A reference to a Retriever resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRetrieverRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Retriever.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IRetrieverRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="retrieverRef")
+    def retriever_ref(self) -> "RetrieverReference":
+        '''(experimental) A reference to a Retriever resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RetrieverReference", jsii.get(self, "retrieverRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRetrieverRef).__jsii_proxy_class__ = lambda : _IRetrieverRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_qbusiness.IWebExperienceRef")
+class IWebExperienceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a WebExperience.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="webExperienceRef")
+    def web_experience_ref(self) -> "WebExperienceReference":
+        '''(experimental) A reference to a WebExperience resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWebExperienceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WebExperience.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_qbusiness.IWebExperienceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="webExperienceRef")
+    def web_experience_ref(self) -> "WebExperienceReference":
+        '''(experimental) A reference to a WebExperience resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WebExperienceReference", jsii.get(self, "webExperienceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWebExperienceRef).__jsii_proxy_class__ = lambda : _IWebExperienceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.IndexReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "index_arn": "indexArn",
+        "index_id": "indexId",
+    },
+)
+class IndexReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        index_arn: builtins.str,
+        index_id: builtins.str,
+    ) -> None:
+        '''A reference to a Index resource.
+
+        :param application_id: The ApplicationId of the Index resource.
+        :param index_arn: The ARN of the Index resource.
+        :param index_id: The IndexId of the Index resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            index_reference = qbusiness.IndexReference(
+                application_id="applicationId",
+                index_arn="indexArn",
+                index_id="indexId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84203be71812e79c78ee445d7abd9f8ba7bf29fa9f64302ed56ffee2fc119091)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
+            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "index_arn": index_arn,
+            "index_id": index_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Index resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_arn(self) -> builtins.str:
+        '''The ARN of the Index resource.'''
+        result = self._values.get("index_arn")
+        assert result is not None, "Required property 'index_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_id(self) -> builtins.str:
+        '''The IndexId of the Index resource.'''
+        result = self._values.get("index_id")
+        assert result is not None, "Required property 'index_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.PermissionReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_id": "applicationId", "statement_id": "statementId"},
+)
+class PermissionReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        statement_id: builtins.str,
+    ) -> None:
+        '''A reference to a Permission resource.
+
+        :param application_id: The ApplicationId of the Permission resource.
+        :param statement_id: The StatementId of the Permission resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            permission_reference = qbusiness.PermissionReference(
+                application_id="applicationId",
+                statement_id="statementId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27b5d0da13c52c507ede049439cd93f67e5f3c192b3bd5fc70258056a9187376)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "statement_id": statement_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Permission resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def statement_id(self) -> builtins.str:
+        '''The StatementId of the Permission resource.'''
+        result = self._values.get("statement_id")
+        assert result is not None, "Required property 'statement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PermissionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.PluginReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "plugin_arn": "pluginArn",
+        "plugin_id": "pluginId",
+    },
+)
+class PluginReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        plugin_arn: builtins.str,
+        plugin_id: builtins.str,
+    ) -> None:
+        '''A reference to a Plugin resource.
+
+        :param application_id: The ApplicationId of the Plugin resource.
+        :param plugin_arn: The ARN of the Plugin resource.
+        :param plugin_id: The PluginId of the Plugin resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            plugin_reference = qbusiness.PluginReference(
+                application_id="applicationId",
+                plugin_arn="pluginArn",
+                plugin_id="pluginId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__860a4bf54e8c9617ea3c7f589084fcd5003f7881e40280000e0f4d46d8f2c389)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument plugin_arn", value=plugin_arn, expected_type=type_hints["plugin_arn"])
+            check_type(argname="argument plugin_id", value=plugin_id, expected_type=type_hints["plugin_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "plugin_arn": plugin_arn,
+            "plugin_id": plugin_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Plugin resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def plugin_arn(self) -> builtins.str:
+        '''The ARN of the Plugin resource.'''
+        result = self._values.get("plugin_arn")
+        assert result is not None, "Required property 'plugin_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def plugin_id(self) -> builtins.str:
+        '''The PluginId of the Plugin resource.'''
+        result = self._values.get("plugin_id")
+        assert result is not None, "Required property 'plugin_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PluginReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.RetrieverReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "retriever_arn": "retrieverArn",
+        "retriever_id": "retrieverId",
+    },
+)
+class RetrieverReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        retriever_arn: builtins.str,
+        retriever_id: builtins.str,
+    ) -> None:
+        '''A reference to a Retriever resource.
+
+        :param application_id: The ApplicationId of the Retriever resource.
+        :param retriever_arn: The ARN of the Retriever resource.
+        :param retriever_id: The RetrieverId of the Retriever resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            retriever_reference = qbusiness.RetrieverReference(
+                application_id="applicationId",
+                retriever_arn="retrieverArn",
+                retriever_id="retrieverId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24ef3fb59d702ab5a00b853d218b9b80d1de2cbb86135ddf9152af1a37c25233)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument retriever_arn", value=retriever_arn, expected_type=type_hints["retriever_arn"])
+            check_type(argname="argument retriever_id", value=retriever_id, expected_type=type_hints["retriever_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "retriever_arn": retriever_arn,
+            "retriever_id": retriever_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the Retriever resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def retriever_arn(self) -> builtins.str:
+        '''The ARN of the Retriever resource.'''
+        result = self._values.get("retriever_arn")
+        assert result is not None, "Required property 'retriever_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def retriever_id(self) -> builtins.str:
+        '''The RetrieverId of the Retriever resource.'''
+        result = self._values.get("retriever_id")
+        assert result is not None, "Required property 'retriever_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RetrieverReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_qbusiness.WebExperienceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_id": "applicationId",
+        "web_experience_arn": "webExperienceArn",
+        "web_experience_id": "webExperienceId",
+    },
+)
+class WebExperienceReference:
+    def __init__(
+        self,
+        *,
+        application_id: builtins.str,
+        web_experience_arn: builtins.str,
+        web_experience_id: builtins.str,
+    ) -> None:
+        '''A reference to a WebExperience resource.
+
+        :param application_id: The ApplicationId of the WebExperience resource.
+        :param web_experience_arn: The ARN of the WebExperience resource.
+        :param web_experience_id: The WebExperienceId of the WebExperience resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_qbusiness as qbusiness
+            
+            web_experience_reference = qbusiness.WebExperienceReference(
+                application_id="applicationId",
+                web_experience_arn="webExperienceArn",
+                web_experience_id="webExperienceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5640c643fcc450e9b3df098e261b4e8f6a686d54f60e76dfd181f1d976213b89)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+            check_type(argname="argument web_experience_arn", value=web_experience_arn, expected_type=type_hints["web_experience_arn"])
+            check_type(argname="argument web_experience_id", value=web_experience_id, expected_type=type_hints["web_experience_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+            "web_experience_arn": web_experience_arn,
+            "web_experience_id": web_experience_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The ApplicationId of the WebExperience resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def web_experience_arn(self) -> builtins.str:
+        '''The ARN of the WebExperience resource.'''
+        result = self._values.get("web_experience_arn")
+        assert result is not None, "Required property 'web_experience_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def web_experience_id(self) -> builtins.str:
+        '''The WebExperienceId of the WebExperience resource.'''
+        result = self._values.get("web_experience_id")
+        assert result is not None, "Required property 'web_experience_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WebExperienceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggableV2_4e6798f8)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -233,6 +2996,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -867,317 +3636,7 @@ class CfnApplication(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "display_name": "displayName",
-        "attachments_configuration": "attachmentsConfiguration",
-        "auto_subscription_configuration": "autoSubscriptionConfiguration",
-        "client_ids_for_oidc": "clientIdsForOidc",
-        "description": "description",
-        "encryption_configuration": "encryptionConfiguration",
-        "iam_identity_provider_arn": "iamIdentityProviderArn",
-        "identity_center_instance_arn": "identityCenterInstanceArn",
-        "identity_type": "identityType",
-        "personalization_configuration": "personalizationConfiguration",
-        "q_apps_configuration": "qAppsConfiguration",
-        "quick_sight_configuration": "quickSightConfiguration",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        display_name: builtins.str,
-        attachments_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AttachmentsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        auto_subscription_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoSubscriptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        client_ids_for_oidc: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        iam_identity_provider_arn: typing.Optional[builtins.str] = None,
-        identity_center_instance_arn: typing.Optional[builtins.str] = None,
-        identity_type: typing.Optional[builtins.str] = None,
-        personalization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PersonalizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        q_apps_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QAppsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        quick_sight_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QuickSightConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param display_name: The name of the Amazon Q Business application.
-        :param attachments_configuration: Configuration information for the file upload during chat feature.
-        :param auto_subscription_configuration: Subscription configuration information for an Amazon Q Business application using IAM identity federation for user management.
-        :param client_ids_for_oidc: The OIDC client ID for a Amazon Q Business application.
-        :param description: A description for the Amazon Q Business application.
-        :param encryption_configuration: Provides the identifier of the AWS KMS key used to encrypt data indexed by Amazon Q Business. Amazon Q Business doesn't support asymmetric keys.
-        :param iam_identity_provider_arn: The Amazon Resource Name (ARN) of an identity provider being used by an Amazon Q Business application.
-        :param identity_center_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application. *Required* : ``Yes``
-        :param identity_type: The authentication type being used by a Amazon Q Business application.
-        :param personalization_configuration: Configuration information about chat response personalization. For more information, see `Personalizing chat responses <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/personalizing-chat-responses.html>`_ .
-        :param q_apps_configuration: Configuration information about Amazon Q Apps.
-        :param quick_sight_configuration: The Amazon QuickSight configuration for an Amazon Q Business application that uses QuickSight as the identity provider.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permissions to access your Amazon CloudWatch logs and metrics. If this property is not specified, Amazon Q Business will create a `service linked role (SLR) <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/using-service-linked-roles.html#slr-permissions>`_ and use it as the application's role.
-        :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business application. You can also use tags to help control access to the application. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            cfn_application_props = qbusiness.CfnApplicationProps(
-                display_name="displayName",
-            
-                # the properties below are optional
-                attachments_configuration=qbusiness.CfnApplication.AttachmentsConfigurationProperty(
-                    attachments_control_mode="attachmentsControlMode"
-                ),
-                auto_subscription_configuration=qbusiness.CfnApplication.AutoSubscriptionConfigurationProperty(
-                    auto_subscribe="autoSubscribe",
-            
-                    # the properties below are optional
-                    default_subscription_type="defaultSubscriptionType"
-                ),
-                client_ids_for_oidc=["clientIdsForOidc"],
-                description="description",
-                encryption_configuration=qbusiness.CfnApplication.EncryptionConfigurationProperty(
-                    kms_key_id="kmsKeyId"
-                ),
-                iam_identity_provider_arn="iamIdentityProviderArn",
-                identity_center_instance_arn="identityCenterInstanceArn",
-                identity_type="identityType",
-                personalization_configuration=qbusiness.CfnApplication.PersonalizationConfigurationProperty(
-                    personalization_control_mode="personalizationControlMode"
-                ),
-                q_apps_configuration=qbusiness.CfnApplication.QAppsConfigurationProperty(
-                    q_apps_control_mode="qAppsControlMode"
-                ),
-                quick_sight_configuration=qbusiness.CfnApplication.QuickSightConfigurationProperty(
-                    client_namespace="clientNamespace"
-                ),
-                role_arn="roleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd218bde3aa6ce3304b30e1d4799c501a50db8db5cef8926c28924af066170bb)
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument attachments_configuration", value=attachments_configuration, expected_type=type_hints["attachments_configuration"])
-            check_type(argname="argument auto_subscription_configuration", value=auto_subscription_configuration, expected_type=type_hints["auto_subscription_configuration"])
-            check_type(argname="argument client_ids_for_oidc", value=client_ids_for_oidc, expected_type=type_hints["client_ids_for_oidc"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
-            check_type(argname="argument iam_identity_provider_arn", value=iam_identity_provider_arn, expected_type=type_hints["iam_identity_provider_arn"])
-            check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
-            check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
-            check_type(argname="argument personalization_configuration", value=personalization_configuration, expected_type=type_hints["personalization_configuration"])
-            check_type(argname="argument q_apps_configuration", value=q_apps_configuration, expected_type=type_hints["q_apps_configuration"])
-            check_type(argname="argument quick_sight_configuration", value=quick_sight_configuration, expected_type=type_hints["quick_sight_configuration"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "display_name": display_name,
-        }
-        if attachments_configuration is not None:
-            self._values["attachments_configuration"] = attachments_configuration
-        if auto_subscription_configuration is not None:
-            self._values["auto_subscription_configuration"] = auto_subscription_configuration
-        if client_ids_for_oidc is not None:
-            self._values["client_ids_for_oidc"] = client_ids_for_oidc
-        if description is not None:
-            self._values["description"] = description
-        if encryption_configuration is not None:
-            self._values["encryption_configuration"] = encryption_configuration
-        if iam_identity_provider_arn is not None:
-            self._values["iam_identity_provider_arn"] = iam_identity_provider_arn
-        if identity_center_instance_arn is not None:
-            self._values["identity_center_instance_arn"] = identity_center_instance_arn
-        if identity_type is not None:
-            self._values["identity_type"] = identity_type
-        if personalization_configuration is not None:
-            self._values["personalization_configuration"] = personalization_configuration
-        if q_apps_configuration is not None:
-            self._values["q_apps_configuration"] = q_apps_configuration
-        if quick_sight_configuration is not None:
-            self._values["quick_sight_configuration"] = quick_sight_configuration
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The name of the Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attachments_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AttachmentsConfigurationProperty]]:
-        '''Configuration information for the file upload during chat feature.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-attachmentsconfiguration
-        '''
-        result = self._values.get("attachments_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AttachmentsConfigurationProperty]], result)
-
-    @builtins.property
-    def auto_subscription_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoSubscriptionConfigurationProperty]]:
-        '''Subscription configuration information for an Amazon Q Business application using IAM identity federation for user management.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-autosubscriptionconfiguration
-        '''
-        result = self._values.get("auto_subscription_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.AutoSubscriptionConfigurationProperty]], result)
-
-    @builtins.property
-    def client_ids_for_oidc(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The OIDC client ID for a Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-clientidsforoidc
-        '''
-        result = self._values.get("client_ids_for_oidc")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.EncryptionConfigurationProperty]]:
-        '''Provides the identifier of the AWS KMS key used to encrypt data indexed by Amazon Q Business.
-
-        Amazon Q Business doesn't support asymmetric keys.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-encryptionconfiguration
-        '''
-        result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.EncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def iam_identity_provider_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an identity provider being used by an Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-iamidentityproviderarn
-        '''
-        result = self._values.get("iam_identity_provider_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def identity_center_instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM Identity Center instance you are either creating for—or connecting to—your Amazon Q Business application.
-
-        *Required* : ``Yes``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-identitycenterinstancearn
-        '''
-        result = self._values.get("identity_center_instance_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def identity_type(self) -> typing.Optional[builtins.str]:
-        '''The authentication type being used by a Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-identitytype
-        '''
-        result = self._values.get("identity_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def personalization_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.PersonalizationConfigurationProperty]]:
-        '''Configuration information about chat response personalization.
-
-        For more information, see `Personalizing chat responses <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/personalizing-chat-responses.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-personalizationconfiguration
-        '''
-        result = self._values.get("personalization_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.PersonalizationConfigurationProperty]], result)
-
-    @builtins.property
-    def q_apps_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.QAppsConfigurationProperty]]:
-        '''Configuration information about Amazon Q Apps.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-qappsconfiguration
-        '''
-        result = self._values.get("q_apps_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.QAppsConfigurationProperty]], result)
-
-    @builtins.property
-    def quick_sight_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.QuickSightConfigurationProperty]]:
-        '''The Amazon QuickSight configuration for an Amazon Q Business application that uses QuickSight as the identity provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-quicksightconfiguration
-        '''
-        result = self._values.get("quick_sight_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.QuickSightConfigurationProperty]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an IAM role with permissions to access your Amazon CloudWatch logs and metrics.
-
-        If this property is not specified, Amazon Q Business will create a `service linked role (SLR) <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/using-service-linked-roles.html#slr-permissions>`_ and use it as the application's role.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize your Amazon Q Business application.
-
-        You can also use tags to help control access to the application. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-application.html#cfn-qbusiness-application-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDataAccessorRef, _ITaggableV2_4e6798f8)
 class CfnDataAccessor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1420,6 +3879,12 @@ class CfnDataAccessor(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataAccessorRef")
+    def data_accessor_ref(self) -> DataAccessorReference:
+        '''A reference to a DataAccessor resource.'''
+        return typing.cast(DataAccessorReference, jsii.get(self, "dataAccessorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actionConfigurations")
@@ -2485,243 +4950,7 @@ class CfnDataAccessor(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnDataAccessorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action_configurations": "actionConfigurations",
-        "application_id": "applicationId",
-        "display_name": "displayName",
-        "principal": "principal",
-        "authentication_detail": "authenticationDetail",
-        "tags": "tags",
-    },
-)
-class CfnDataAccessorProps:
-    def __init__(
-        self,
-        *,
-        action_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        application_id: builtins.str,
-        display_name: builtins.str,
-        principal: builtins.str,
-        authentication_detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.DataAccessorAuthenticationDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataAccessor``.
-
-        :param action_configurations: A list of action configurations specifying the allowed actions and any associated filters.
-        :param application_id: The unique identifier of the Amazon Q Business application.
-        :param display_name: The friendly name of the data accessor.
-        :param principal: The Amazon Resource Name (ARN) of the IAM role for the ISV associated with this data accessor.
-        :param authentication_detail: The authentication configuration details for the data accessor. This specifies how the ISV authenticates when accessing data through this data accessor.
-        :param tags: The tags to associate with the data accessor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            # attribute_filter_property_: qbusiness.CfnDataAccessor.AttributeFilterProperty
-            
-            cfn_data_accessor_props = qbusiness.CfnDataAccessorProps(
-                action_configurations=[qbusiness.CfnDataAccessor.ActionConfigurationProperty(
-                    action="action",
-            
-                    # the properties below are optional
-                    filter_configuration=qbusiness.CfnDataAccessor.ActionFilterConfigurationProperty(
-                        document_attribute_filter=qbusiness.CfnDataAccessor.AttributeFilterProperty(
-                            and_all_filters=[attribute_filter_property_],
-                            contains_all=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            contains_any=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            equals_to=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            greater_than=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            greater_than_or_equals=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            less_than=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            less_than_or_equals=qbusiness.CfnDataAccessor.DocumentAttributeProperty(
-                                name="name",
-                                value=qbusiness.CfnDataAccessor.DocumentAttributeValueProperty(
-                                    date_value="dateValue",
-                                    long_value=123,
-                                    string_list_value=["stringListValue"],
-                                    string_value="stringValue"
-                                )
-                            ),
-                            not_filter=attribute_filter_property_,
-                            or_all_filters=[attribute_filter_property_]
-                        )
-                    )
-                )],
-                application_id="applicationId",
-                display_name="displayName",
-                principal="principal",
-            
-                # the properties below are optional
-                authentication_detail=qbusiness.CfnDataAccessor.DataAccessorAuthenticationDetailProperty(
-                    authentication_type="authenticationType",
-            
-                    # the properties below are optional
-                    authentication_configuration=qbusiness.CfnDataAccessor.DataAccessorAuthenticationConfigurationProperty(
-                        idc_trusted_token_issuer_configuration=qbusiness.CfnDataAccessor.DataAccessorIdcTrustedTokenIssuerConfigurationProperty(
-                            idc_trusted_token_issuer_arn="idcTrustedTokenIssuerArn"
-                        )
-                    ),
-                    external_ids=["externalIds"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dfde2d4c17793fa3cb9793a9171b9042ac55727b3f0c3a17f1606cab5545458)
-            check_type(argname="argument action_configurations", value=action_configurations, expected_type=type_hints["action_configurations"])
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument authentication_detail", value=authentication_detail, expected_type=type_hints["authentication_detail"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action_configurations": action_configurations,
-            "application_id": application_id,
-            "display_name": display_name,
-            "principal": principal,
-        }
-        if authentication_detail is not None:
-            self._values["authentication_detail"] = authentication_detail
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def action_configurations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataAccessor.ActionConfigurationProperty]]]:
-        '''A list of action configurations specifying the allowed actions and any associated filters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-actionconfigurations
-        '''
-        result = self._values.get("action_configurations")
-        assert result is not None, "Required property 'action_configurations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataAccessor.ActionConfigurationProperty]]], result)
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier of the Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The friendly name of the data accessor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role for the ISV associated with this data accessor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def authentication_detail(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAccessor.DataAccessorAuthenticationDetailProperty]]:
-        '''The authentication configuration details for the data accessor.
-
-        This specifies how the ISV authenticates when accessing data through this data accessor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-authenticationdetail
-        '''
-        result = self._values.get("authentication_detail")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataAccessor.DataAccessorAuthenticationDetailProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to associate with the data accessor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-dataaccessor.html#cfn-qbusiness-dataaccessor-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataAccessorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDataSourceRef, _ITaggableV2_4e6798f8)
 class CfnDataSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2984,6 +5213,12 @@ class CfnDataSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceRef")
+    def data_source_ref(self) -> DataSourceReference:
+        '''A reference to a DataSource resource.'''
+        return typing.cast(DataSourceReference, jsii.get(self, "dataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationId")
@@ -4226,339 +6461,7 @@ class CfnDataSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnDataSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "configuration": "configuration",
-        "display_name": "displayName",
-        "index_id": "indexId",
-        "description": "description",
-        "document_enrichment_configuration": "documentEnrichmentConfiguration",
-        "media_extraction_configuration": "mediaExtractionConfiguration",
-        "role_arn": "roleArn",
-        "sync_schedule": "syncSchedule",
-        "tags": "tags",
-        "vpc_configuration": "vpcConfiguration",
-    },
-)
-class CfnDataSourceProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        configuration: typing.Any,
-        display_name: builtins.str,
-        index_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        media_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.MediaExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        sync_schedule: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataSource``.
-
-        :param application_id: The identifier of the Amazon Q Business application the data source will be attached to.
-        :param configuration: Use this property to specify a JSON or YAML schema with configuration properties specific to your data source connector to connect your data source repository to Amazon Q Business . You must use the JSON or YAML schema provided by Amazon Q . The following links have the configuration properties and schemas for AWS CloudFormation for the following connectors: - `Amazon Simple Storage Service <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/s3-cfn.html>`_ - `Amazon Q Web Crawler <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/web-crawler-cfn.html>`_ Similarly, you can find configuration templates and properties for your specific data source using the following steps: - Navigate to the `Supported connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connectors-list.html>`_ page in the Amazon Q Business User Guide, and select the data source connector of your choice. - Then, from that specific data source connector's page, choose the topic containing *Using AWS CloudFormation* to find the schemas for your data source connector, including configuration parameter descriptions and examples.
-        :param display_name: The name of the Amazon Q Business data source.
-        :param index_id: The identifier of the index the data source is attached to.
-        :param description: A description for the data source connector.
-        :param document_enrichment_configuration: Provides the configuration information for altering document metadata and content during the document ingestion process. For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
-        :param media_extraction_configuration: The configuration for extracting information from media in documents.
-        :param role_arn: The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources. This field is required for all connector types except custom connectors, where it is optional.
-        :param sync_schedule: Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index. If you don't set a schedule, Amazon Q Business won't periodically update the index. Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
-        :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-        :param vpc_configuration: Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source. For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            # configuration: Any
-            
-            cfn_data_source_props = qbusiness.CfnDataSourceProps(
-                application_id="applicationId",
-                configuration=configuration,
-                display_name="displayName",
-                index_id="indexId",
-            
-                # the properties below are optional
-                description="description",
-                document_enrichment_configuration=qbusiness.CfnDataSource.DocumentEnrichmentConfigurationProperty(
-                    inline_configurations=[qbusiness.CfnDataSource.InlineDocumentEnrichmentConfigurationProperty(
-                        condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
-                            key="key",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        ),
-                        document_content_operator="documentContentOperator",
-                        target=qbusiness.CfnDataSource.DocumentAttributeTargetProperty(
-                            key="key",
-            
-                            # the properties below are optional
-                            attribute_value_operator="attributeValueOperator",
-                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        )
-                    )],
-                    post_extraction_hook_configuration=qbusiness.CfnDataSource.HookConfigurationProperty(
-                        invocation_condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
-                            key="key",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        ),
-                        lambda_arn="lambdaArn",
-                        role_arn="roleArn",
-                        s3_bucket_name="s3BucketName"
-                    ),
-                    pre_extraction_hook_configuration=qbusiness.CfnDataSource.HookConfigurationProperty(
-                        invocation_condition=qbusiness.CfnDataSource.DocumentAttributeConditionProperty(
-                            key="key",
-                            operator="operator",
-            
-                            # the properties below are optional
-                            value=qbusiness.CfnDataSource.DocumentAttributeValueProperty(
-                                date_value="dateValue",
-                                long_value=123,
-                                string_list_value=["stringListValue"],
-                                string_value="stringValue"
-                            )
-                        ),
-                        lambda_arn="lambdaArn",
-                        role_arn="roleArn",
-                        s3_bucket_name="s3BucketName"
-                    )
-                ),
-                media_extraction_configuration=qbusiness.CfnDataSource.MediaExtractionConfigurationProperty(
-                    audio_extraction_configuration=qbusiness.CfnDataSource.AudioExtractionConfigurationProperty(
-                        audio_extraction_status="audioExtractionStatus"
-                    ),
-                    image_extraction_configuration=qbusiness.CfnDataSource.ImageExtractionConfigurationProperty(
-                        image_extraction_status="imageExtractionStatus"
-                    ),
-                    video_extraction_configuration=qbusiness.CfnDataSource.VideoExtractionConfigurationProperty(
-                        video_extraction_status="videoExtractionStatus"
-                    )
-                ),
-                role_arn="roleArn",
-                sync_schedule="syncSchedule",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_configuration=qbusiness.CfnDataSource.DataSourceVpcConfigurationProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0cb43c018c99c9e24bb29f0d009e1ded318999b690c706f1e2e099d30a9fe07)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument document_enrichment_configuration", value=document_enrichment_configuration, expected_type=type_hints["document_enrichment_configuration"])
-            check_type(argname="argument media_extraction_configuration", value=media_extraction_configuration, expected_type=type_hints["media_extraction_configuration"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument sync_schedule", value=sync_schedule, expected_type=type_hints["sync_schedule"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "configuration": configuration,
-            "display_name": display_name,
-            "index_id": index_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if document_enrichment_configuration is not None:
-            self._values["document_enrichment_configuration"] = document_enrichment_configuration
-        if media_extraction_configuration is not None:
-            self._values["media_extraction_configuration"] = media_extraction_configuration
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if sync_schedule is not None:
-            self._values["sync_schedule"] = sync_schedule
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_configuration is not None:
-            self._values["vpc_configuration"] = vpc_configuration
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q Business application the data source will be attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(self) -> typing.Any:
-        '''Use this property to specify a JSON or YAML schema with configuration properties specific to your data source connector to connect your data source repository to Amazon Q Business .
-
-        You must use the JSON or YAML schema provided by Amazon Q .
-
-        The following links have the configuration properties and schemas for AWS CloudFormation for the following connectors:
-
-        - `Amazon Simple Storage Service <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/s3-cfn.html>`_
-        - `Amazon Q Web Crawler <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/web-crawler-cfn.html>`_
-
-        Similarly, you can find configuration templates and properties for your specific data source using the following steps:
-
-        - Navigate to the `Supported connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connectors-list.html>`_ page in the Amazon Q Business User Guide, and select the data source connector of your choice.
-        - Then, from that specific data source connector's page, choose the topic containing *Using AWS CloudFormation* to find the schemas for your data source connector, including configuration parameter descriptions and examples.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The name of the Amazon Q Business data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def index_id(self) -> builtins.str:
-        '''The identifier of the index the data source is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-indexid
-        '''
-        result = self._values.get("index_id")
-        assert result is not None, "Required property 'index_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the data source connector.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_enrichment_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DocumentEnrichmentConfigurationProperty]]:
-        '''Provides the configuration information for altering document metadata and content during the document ingestion process.
-
-        For more information, see `Custom document enrichment <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/custom-document-enrichment.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-documentenrichmentconfiguration
-        '''
-        result = self._values.get("document_enrichment_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DocumentEnrichmentConfigurationProperty]], result)
-
-    @builtins.property
-    def media_extraction_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.MediaExtractionConfigurationProperty]]:
-        '''The configuration for extracting information from media in documents.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-mediaextractionconfiguration
-        '''
-        result = self._values.get("media_extraction_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.MediaExtractionConfigurationProperty]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an IAM role with permission to access the data source and required resources.
-
-        This field is required for all connector types except custom connectors, where it is optional.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sync_schedule(self) -> typing.Optional[builtins.str]:
-        '''Sets the frequency for Amazon Q Business to check the documents in your data source repository and update your index.
-
-        If you don't set a schedule, Amazon Q Business won't periodically update the index.
-
-        Specify a ``cron-`` format schedule string or an empty string to indicate that the index is updated on demand. You can't specify the ``Schedule`` parameter when the ``Type`` parameter is set to ``CUSTOM`` . If you do, you receive a ``ValidationException`` exception.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-syncschedule
-        '''
-        result = self._values.get("sync_schedule")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize the data source connector.
-
-        You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceVpcConfigurationProperty]]:
-        '''Configuration information for an Amazon VPC (Virtual Private Cloud) to connect to your data source.
-
-        For more information, see `Using Amazon VPC with Amazon Q Business connectors <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/connector-vpc.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-datasource.html#cfn-qbusiness-datasource-vpcconfiguration
-        '''
-        result = self._values.get("vpc_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataSource.DataSourceVpcConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IIndexRef, _ITaggableV2_4e6798f8)
 class CfnIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4737,6 +6640,12 @@ class CfnIndex(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> IndexReference:
+        '''A reference to a Index resource.'''
+        return typing.cast(IndexReference, jsii.get(self, "indexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationId")
@@ -5113,188 +7022,7 @@ class CfnIndex(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnIndexProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "display_name": "displayName",
-        "capacity_configuration": "capacityConfiguration",
-        "description": "description",
-        "document_attribute_configurations": "documentAttributeConfigurations",
-        "tags": "tags",
-        "type": "type",
-    },
-)
-class CfnIndexProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        display_name: builtins.str,
-        capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexCapacityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        document_attribute_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIndex``.
-
-        :param application_id: The identifier of the Amazon Q Business application using the index.
-        :param display_name: The name of the index.
-        :param capacity_configuration: The capacity units you want to provision for your index. You can add and remove capacity to fit your usage needs.
-        :param description: A description for the Amazon Q Business index.
-        :param document_attribute_configurations: Configuration information for document attributes. Document attributes are metadata or fields associated with your documents. For example, the company department name associated with each document. For more information, see `Understanding document attributes <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/doc-attributes.html>`_ .
-        :param tags: A list of key-value pairs that identify or categorize the index. You can also use tags to help control access to the index. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-        :param type: The index type that's suitable for your needs. For more information on what's included in each type of index, see `Amazon Q Business tiers <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/tiers.html#index-tiers>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            cfn_index_props = qbusiness.CfnIndexProps(
-                application_id="applicationId",
-                display_name="displayName",
-            
-                # the properties below are optional
-                capacity_configuration=qbusiness.CfnIndex.IndexCapacityConfigurationProperty(
-                    units=123
-                ),
-                description="description",
-                document_attribute_configurations=[qbusiness.CfnIndex.DocumentAttributeConfigurationProperty(
-                    name="name",
-                    search="search",
-                    type="type"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                type="type"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92562a229c76d1c1bf48f7735d22def1e598923d94ebef2d66b70a174c48887e)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument capacity_configuration", value=capacity_configuration, expected_type=type_hints["capacity_configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument document_attribute_configurations", value=document_attribute_configurations, expected_type=type_hints["document_attribute_configurations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "display_name": display_name,
-        }
-        if capacity_configuration is not None:
-            self._values["capacity_configuration"] = capacity_configuration
-        if description is not None:
-            self._values["description"] = description
-        if document_attribute_configurations is not None:
-            self._values["document_attribute_configurations"] = document_attribute_configurations
-        if tags is not None:
-            self._values["tags"] = tags
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q Business application using the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The name of the index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def capacity_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.IndexCapacityConfigurationProperty]]:
-        '''The capacity units you want to provision for your index.
-
-        You can add and remove capacity to fit your usage needs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-capacityconfiguration
-        '''
-        result = self._values.get("capacity_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.IndexCapacityConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the Amazon Q Business index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_attribute_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.DocumentAttributeConfigurationProperty]]]]:
-        '''Configuration information for document attributes.
-
-        Document attributes are metadata or fields associated with your documents. For example, the company department name associated with each document.
-
-        For more information, see `Understanding document attributes <https://docs.aws.amazon.com/amazonq/latest/business-use-dg/doc-attributes.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-documentattributeconfigurations
-        '''
-        result = self._values.get("document_attribute_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIndex.DocumentAttributeConfigurationProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize the index.
-
-        You can also use tags to help control access to the index. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The index type that's suitable for your needs.
-
-        For more information on what's included in each type of index, see `Amazon Q Business tiers <https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/tiers.html#index-tiers>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-index.html#cfn-qbusiness-index-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIndexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPermissionRef)
 class CfnPermission(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5397,6 +7125,12 @@ class CfnPermission(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionRef")
+    def permission_ref(self) -> PermissionReference:
+        '''A reference to a Permission resource.'''
+        return typing.cast(PermissionReference, jsii.get(self, "permissionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actions")
@@ -5554,137 +7288,7 @@ class CfnPermission(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnPermissionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "application_id": "applicationId",
-        "principal": "principal",
-        "statement_id": "statementId",
-        "conditions": "conditions",
-    },
-)
-class CfnPermissionProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[builtins.str],
-        application_id: builtins.str,
-        principal: builtins.str,
-        statement_id: builtins.str,
-        conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermission.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPermission``.
-
-        :param actions: The list of Amazon Q Business actions that the ISV is allowed to perform.
-        :param application_id: The unique identifier of the Amazon Q Business application.
-        :param principal: Provides user and group information used for filtering documents to use for generating Amazon Q Business conversation responses.
-        :param statement_id: A unique identifier for the policy statement.
-        :param conditions: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            cfn_permission_props = qbusiness.CfnPermissionProps(
-                actions=["actions"],
-                application_id="applicationId",
-                principal="principal",
-                statement_id="statementId",
-            
-                # the properties below are optional
-                conditions=[qbusiness.CfnPermission.ConditionProperty(
-                    condition_key="conditionKey",
-                    condition_operator="conditionOperator",
-                    condition_values=["conditionValues"]
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea87fcda68d4a26468f5e5d1c394a46d117b80b00274f61bbd36b0329a0a8c4)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
-            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "application_id": application_id,
-            "principal": principal,
-            "statement_id": statement_id,
-        }
-        if conditions is not None:
-            self._values["conditions"] = conditions
-
-    @builtins.property
-    def actions(self) -> typing.List[builtins.str]:
-        '''The list of Amazon Q Business actions that the ISV is allowed to perform.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The unique identifier of the Amazon Q Business application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''Provides user and group information used for filtering documents to use for generating Amazon Q Business conversation responses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def statement_id(self) -> builtins.str:
-        '''A unique identifier for the policy statement.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-statementid
-        '''
-        result = self._values.get("statement_id")
-        assert result is not None, "Required property 'statement_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def conditions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPermission.ConditionProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-permission.html#cfn-qbusiness-permission-conditions
-        '''
-        result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPermission.ConditionProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPermissionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPluginRef, _ITaggableV2_4e6798f8)
 class CfnPlugin(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5875,6 +7479,12 @@ class CfnPlugin(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pluginRef")
+    def plugin_ref(self) -> PluginReference:
+        '''A reference to a Plugin resource.'''
+        return typing.cast(PluginReference, jsii.get(self, "pluginRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authConfiguration")
@@ -6513,216 +8123,7 @@ class CfnPlugin(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnPluginProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auth_configuration": "authConfiguration",
-        "display_name": "displayName",
-        "type": "type",
-        "application_id": "applicationId",
-        "custom_plugin_configuration": "customPluginConfiguration",
-        "server_url": "serverUrl",
-        "state": "state",
-        "tags": "tags",
-    },
-)
-class CfnPluginProps:
-    def __init__(
-        self,
-        *,
-        auth_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.PluginAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        display_name: builtins.str,
-        type: builtins.str,
-        application_id: typing.Optional[builtins.str] = None,
-        custom_plugin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.CustomPluginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        server_url: typing.Optional[builtins.str] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPlugin``.
-
-        :param auth_configuration: Authentication configuration information for an Amazon Q Business plugin.
-        :param display_name: The name of the plugin.
-        :param type: The type of the plugin.
-        :param application_id: The identifier of the application that will contain the plugin.
-        :param custom_plugin_configuration: Configuration information required to create a custom plugin.
-        :param server_url: The plugin server URL used for configuration.
-        :param state: The current status of the plugin.
-        :param tags: A list of key-value pairs that identify or categorize the data source connector. You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            # no_auth_configuration: Any
-            
-            cfn_plugin_props = qbusiness.CfnPluginProps(
-                auth_configuration=qbusiness.CfnPlugin.PluginAuthConfigurationProperty(
-                    basic_auth_configuration=qbusiness.CfnPlugin.BasicAuthConfigurationProperty(
-                        role_arn="roleArn",
-                        secret_arn="secretArn"
-                    ),
-                    no_auth_configuration=no_auth_configuration,
-                    o_auth2_client_credential_configuration=qbusiness.CfnPlugin.OAuth2ClientCredentialConfigurationProperty(
-                        role_arn="roleArn",
-                        secret_arn="secretArn",
-            
-                        # the properties below are optional
-                        authorization_url="authorizationUrl",
-                        token_url="tokenUrl"
-                    )
-                ),
-                display_name="displayName",
-                type="type",
-            
-                # the properties below are optional
-                application_id="applicationId",
-                custom_plugin_configuration=qbusiness.CfnPlugin.CustomPluginConfigurationProperty(
-                    api_schema=qbusiness.CfnPlugin.APISchemaProperty(
-                        payload="payload",
-                        s3=qbusiness.CfnPlugin.S3Property(
-                            bucket="bucket",
-                            key="key"
-                        )
-                    ),
-                    api_schema_type="apiSchemaType",
-                    description="description"
-                ),
-                server_url="serverUrl",
-                state="state",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84b206da5d8532987dc555e3bb32deb781317bbd9702ad893387d9a51e07b05f)
-            check_type(argname="argument auth_configuration", value=auth_configuration, expected_type=type_hints["auth_configuration"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument custom_plugin_configuration", value=custom_plugin_configuration, expected_type=type_hints["custom_plugin_configuration"])
-            check_type(argname="argument server_url", value=server_url, expected_type=type_hints["server_url"])
-            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auth_configuration": auth_configuration,
-            "display_name": display_name,
-            "type": type,
-        }
-        if application_id is not None:
-            self._values["application_id"] = application_id
-        if custom_plugin_configuration is not None:
-            self._values["custom_plugin_configuration"] = custom_plugin_configuration
-        if server_url is not None:
-            self._values["server_url"] = server_url
-        if state is not None:
-            self._values["state"] = state
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def auth_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnPlugin.PluginAuthConfigurationProperty]:
-        '''Authentication configuration information for an Amazon Q Business plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-authconfiguration
-        '''
-        result = self._values.get("auth_configuration")
-        assert result is not None, "Required property 'auth_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnPlugin.PluginAuthConfigurationProperty], result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The name of the plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of the plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the application that will contain the plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-applicationid
-        '''
-        result = self._values.get("application_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_plugin_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlugin.CustomPluginConfigurationProperty]]:
-        '''Configuration information required to create a custom plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-custompluginconfiguration
-        '''
-        result = self._values.get("custom_plugin_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlugin.CustomPluginConfigurationProperty]], result)
-
-    @builtins.property
-    def server_url(self) -> typing.Optional[builtins.str]:
-        '''The plugin server URL used for configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-serverurl
-        '''
-        result = self._values.get("server_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The current status of the plugin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-state
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize the data source connector.
-
-        You can also use tags to help control access to the data source connector. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-plugin.html#cfn-qbusiness-plugin-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPluginProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IRetrieverRef, _ITaggableV2_4e6798f8)
 class CfnRetriever(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6884,6 +8285,12 @@ class CfnRetriever(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="retrieverRef")
+    def retriever_ref(self) -> RetrieverReference:
+        '''A reference to a Retriever resource.'''
+        return typing.cast(RetrieverReference, jsii.get(self, "retrieverRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationId")
@@ -7154,163 +8561,7 @@ class CfnRetriever(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnRetrieverProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "configuration": "configuration",
-        "display_name": "displayName",
-        "type": "type",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnRetrieverProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRetriever.RetrieverConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        display_name: builtins.str,
-        type: builtins.str,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRetriever``.
-
-        :param application_id: The identifier of the Amazon Q Business application using the retriever.
-        :param configuration: Provides information on how the retriever used for your Amazon Q Business application is configured.
-        :param display_name: The name of your retriever.
-        :param type: The type of your retriever.
-        :param role_arn: The ARN of an IAM role used by Amazon Q Business to access the basic authentication credentials stored in a Secrets Manager secret.
-        :param tags: A list of key-value pairs that identify or categorize the retriever. You can also use tags to help control access to the retriever. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            cfn_retriever_props = qbusiness.CfnRetrieverProps(
-                application_id="applicationId",
-                configuration=qbusiness.CfnRetriever.RetrieverConfigurationProperty(
-                    kendra_index_configuration=qbusiness.CfnRetriever.KendraIndexConfigurationProperty(
-                        index_id="indexId"
-                    ),
-                    native_index_configuration=qbusiness.CfnRetriever.NativeIndexConfigurationProperty(
-                        index_id="indexId"
-                    )
-                ),
-                display_name="displayName",
-                type="type",
-            
-                # the properties below are optional
-                role_arn="roleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d26f55565cdfd207bc3128a08abf6cd7e371950c5a332ccf3973859a33980b6)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-            "configuration": configuration,
-            "display_name": display_name,
-            "type": type,
-        }
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q Business application using the retriever.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnRetriever.RetrieverConfigurationProperty]:
-        '''Provides information on how the retriever used for your Amazon Q Business application is configured.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-configuration
-        '''
-        result = self._values.get("configuration")
-        assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnRetriever.RetrieverConfigurationProperty], result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''The name of your retriever.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of your retriever.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an IAM role used by Amazon Q Business to access the basic authentication credentials stored in a Secrets Manager secret.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize the retriever.
-
-        You can also use tags to help control access to the retriever. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-retriever.html#cfn-qbusiness-retriever-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRetrieverProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IWebExperienceRef, _ITaggableV2_4e6798f8)
 class CfnWebExperience(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7511,6 +8762,12 @@ class CfnWebExperience(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="webExperienceRef")
+    def web_experience_ref(self) -> WebExperienceReference:
+        '''A reference to a WebExperience resource.'''
+        return typing.cast(WebExperienceReference, jsii.get(self, "webExperienceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationId")
@@ -8041,264 +9298,8 @@ class CfnWebExperience(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_qbusiness.CfnWebExperienceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_id": "applicationId",
-        "browser_extension_configuration": "browserExtensionConfiguration",
-        "customization_configuration": "customizationConfiguration",
-        "identity_provider_configuration": "identityProviderConfiguration",
-        "origins": "origins",
-        "role_arn": "roleArn",
-        "sample_prompts_control_mode": "samplePromptsControlMode",
-        "subtitle": "subtitle",
-        "tags": "tags",
-        "title": "title",
-        "welcome_message": "welcomeMessage",
-    },
-)
-class CfnWebExperienceProps:
-    def __init__(
-        self,
-        *,
-        application_id: builtins.str,
-        browser_extension_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.BrowserExtensionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        customization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.CustomizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        origins: typing.Optional[typing.Sequence[builtins.str]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        sample_prompts_control_mode: typing.Optional[builtins.str] = None,
-        subtitle: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        title: typing.Optional[builtins.str] = None,
-        welcome_message: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWebExperience``.
-
-        :param application_id: The identifier of the Amazon Q Business web experience.
-        :param browser_extension_configuration: The container for browser extension configuration for an Amazon Q Business web experience.
-        :param customization_configuration: Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
-        :param identity_provider_configuration: Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
-        :param origins: Sets the website domain origins that are allowed to embed the Amazon Q Business web experience. The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified). .. epigraph:: You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
-        :param sample_prompts_control_mode: Determines whether sample prompts are enabled in the web experience for an end user.
-        :param subtitle: A subtitle to personalize your Amazon Q Business web experience.
-        :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business web experience. You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-        :param title: The title for your Amazon Q Business web experience.
-        :param welcome_message: A message in an Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_qbusiness as qbusiness
-            
-            cfn_web_experience_props = qbusiness.CfnWebExperienceProps(
-                application_id="applicationId",
-            
-                # the properties below are optional
-                browser_extension_configuration=qbusiness.CfnWebExperience.BrowserExtensionConfigurationProperty(
-                    enabled_browser_extensions=["enabledBrowserExtensions"]
-                ),
-                customization_configuration=qbusiness.CfnWebExperience.CustomizationConfigurationProperty(
-                    custom_css_url="customCssUrl",
-                    favicon_url="faviconUrl",
-                    font_url="fontUrl",
-                    logo_url="logoUrl"
-                ),
-                identity_provider_configuration=qbusiness.CfnWebExperience.IdentityProviderConfigurationProperty(
-                    open_id_connect_configuration=qbusiness.CfnWebExperience.OpenIDConnectProviderConfigurationProperty(
-                        secrets_arn="secretsArn",
-                        secrets_role="secretsRole"
-                    ),
-                    saml_configuration=qbusiness.CfnWebExperience.SamlProviderConfigurationProperty(
-                        authentication_url="authenticationUrl"
-                    )
-                ),
-                origins=["origins"],
-                role_arn="roleArn",
-                sample_prompts_control_mode="samplePromptsControlMode",
-                subtitle="subtitle",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                title="title",
-                welcome_message="welcomeMessage"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58d2b12e60ffd88803f1746b34f5f9b5b77805b460b8074165db15b9de292293)
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-            check_type(argname="argument browser_extension_configuration", value=browser_extension_configuration, expected_type=type_hints["browser_extension_configuration"])
-            check_type(argname="argument customization_configuration", value=customization_configuration, expected_type=type_hints["customization_configuration"])
-            check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
-            check_type(argname="argument origins", value=origins, expected_type=type_hints["origins"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument sample_prompts_control_mode", value=sample_prompts_control_mode, expected_type=type_hints["sample_prompts_control_mode"])
-            check_type(argname="argument subtitle", value=subtitle, expected_type=type_hints["subtitle"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
-            check_type(argname="argument welcome_message", value=welcome_message, expected_type=type_hints["welcome_message"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_id": application_id,
-        }
-        if browser_extension_configuration is not None:
-            self._values["browser_extension_configuration"] = browser_extension_configuration
-        if customization_configuration is not None:
-            self._values["customization_configuration"] = customization_configuration
-        if identity_provider_configuration is not None:
-            self._values["identity_provider_configuration"] = identity_provider_configuration
-        if origins is not None:
-            self._values["origins"] = origins
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if sample_prompts_control_mode is not None:
-            self._values["sample_prompts_control_mode"] = sample_prompts_control_mode
-        if subtitle is not None:
-            self._values["subtitle"] = subtitle
-        if tags is not None:
-            self._values["tags"] = tags
-        if title is not None:
-            self._values["title"] = title
-        if welcome_message is not None:
-            self._values["welcome_message"] = welcome_message
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The identifier of the Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-applicationid
-        '''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def browser_extension_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.BrowserExtensionConfigurationProperty]]:
-        '''The container for browser extension configuration for an Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-browserextensionconfiguration
-        '''
-        result = self._values.get("browser_extension_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.BrowserExtensionConfigurationProperty]], result)
-
-    @builtins.property
-    def customization_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.CustomizationConfigurationProperty]]:
-        '''Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-customizationconfiguration
-        '''
-        result = self._values.get("customization_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.CustomizationConfigurationProperty]], result)
-
-    @builtins.property
-    def identity_provider_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.IdentityProviderConfigurationProperty]]:
-        '''Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-identityproviderconfiguration
-        '''
-        result = self._values.get("identity_provider_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebExperience.IdentityProviderConfigurationProperty]], result)
-
-    @builtins.property
-    def origins(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Sets the website domain origins that are allowed to embed the Amazon Q Business web experience.
-
-        The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified).
-        .. epigraph::
-
-           You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-origins
-        '''
-        result = self._values.get("origins")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the service role attached to your web experience.
-
-        .. epigraph::
-
-           The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sample_prompts_control_mode(self) -> typing.Optional[builtins.str]:
-        '''Determines whether sample prompts are enabled in the web experience for an end user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-samplepromptscontrolmode
-        '''
-        result = self._values.get("sample_prompts_control_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subtitle(self) -> typing.Optional[builtins.str]:
-        '''A subtitle to personalize your Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-subtitle
-        '''
-        result = self._values.get("subtitle")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs that identify or categorize your Amazon Q Business web experience.
-
-        You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-tags
-        :: .
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def title(self) -> typing.Optional[builtins.str]:
-        '''The title for your Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-title
-        '''
-        result = self._values.get("title")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def welcome_message(self) -> typing.Optional[builtins.str]:
-        '''A message in an Amazon Q Business web experience.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-welcomemessage
-        '''
-        result = self._values.get("welcome_message")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebExperienceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnDataAccessor",
@@ -8315,9 +9316,211 @@ __all__ = [
     "CfnRetrieverProps",
     "CfnWebExperience",
     "CfnWebExperienceProps",
+    "DataAccessorReference",
+    "DataSourceReference",
+    "IApplicationRef",
+    "IDataAccessorRef",
+    "IDataSourceRef",
+    "IIndexRef",
+    "IPermissionRef",
+    "IPluginRef",
+    "IRetrieverRef",
+    "IWebExperienceRef",
+    "IndexReference",
+    "PermissionReference",
+    "PluginReference",
+    "RetrieverReference",
+    "WebExperienceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__7c938a5bf091b3ba60a49cedc06a98701cf7b8b03529c3dd1b49b95f08976498(
+    *,
+    application_arn: builtins.str,
+    application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd218bde3aa6ce3304b30e1d4799c501a50db8db5cef8926c28924af066170bb(
+    *,
+    display_name: builtins.str,
+    attachments_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AttachmentsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_subscription_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoSubscriptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_ids_for_oidc: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iam_identity_provider_arn: typing.Optional[builtins.str] = None,
+    identity_center_instance_arn: typing.Optional[builtins.str] = None,
+    identity_type: typing.Optional[builtins.str] = None,
+    personalization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PersonalizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    q_apps_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QAppsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    quick_sight_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QuickSightConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dfde2d4c17793fa3cb9793a9171b9042ac55727b3f0c3a17f1606cab5545458(
+    *,
+    action_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    application_id: builtins.str,
+    display_name: builtins.str,
+    principal: builtins.str,
+    authentication_detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.DataAccessorAuthenticationDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0cb43c018c99c9e24bb29f0d009e1ded318999b690c706f1e2e099d30a9fe07(
+    *,
+    application_id: builtins.str,
+    configuration: typing.Any,
+    display_name: builtins.str,
+    index_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.MediaExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    sync_schedule: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92562a229c76d1c1bf48f7735d22def1e598923d94ebef2d66b70a174c48887e(
+    *,
+    application_id: builtins.str,
+    display_name: builtins.str,
+    capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexCapacityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    document_attribute_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ea87fcda68d4a26468f5e5d1c394a46d117b80b00274f61bbd36b0329a0a8c4(
+    *,
+    actions: typing.Sequence[builtins.str],
+    application_id: builtins.str,
+    principal: builtins.str,
+    statement_id: builtins.str,
+    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermission.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84b206da5d8532987dc555e3bb32deb781317bbd9702ad893387d9a51e07b05f(
+    *,
+    auth_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.PluginAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    display_name: builtins.str,
+    type: builtins.str,
+    application_id: typing.Optional[builtins.str] = None,
+    custom_plugin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.CustomPluginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    server_url: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d26f55565cdfd207bc3128a08abf6cd7e371950c5a332ccf3973859a33980b6(
+    *,
+    application_id: builtins.str,
+    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRetriever.RetrieverConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    display_name: builtins.str,
+    type: builtins.str,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58d2b12e60ffd88803f1746b34f5f9b5b77805b460b8074165db15b9de292293(
+    *,
+    application_id: builtins.str,
+    browser_extension_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.BrowserExtensionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.CustomizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    origins: typing.Optional[typing.Sequence[builtins.str]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    sample_prompts_control_mode: typing.Optional[builtins.str] = None,
+    subtitle: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    title: typing.Optional[builtins.str] = None,
+    welcome_message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35c5b8526677840550f9cd6a8ec472006ecf7866528386e511dbe9c5feed184a(
+    *,
+    application_id: builtins.str,
+    data_accessor_arn: builtins.str,
+    data_accessor_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__168c5e7b814813f96d7fe07b9b3932a7be9dd7dfd35b5b1eb7e43ff74f96b6e0(
+    *,
+    application_id: builtins.str,
+    data_source_arn: builtins.str,
+    data_source_id: builtins.str,
+    index_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84203be71812e79c78ee445d7abd9f8ba7bf29fa9f64302ed56ffee2fc119091(
+    *,
+    application_id: builtins.str,
+    index_arn: builtins.str,
+    index_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27b5d0da13c52c507ede049439cd93f67e5f3c192b3bd5fc70258056a9187376(
+    *,
+    application_id: builtins.str,
+    statement_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__860a4bf54e8c9617ea3c7f589084fcd5003f7881e40280000e0f4d46d8f2c389(
+    *,
+    application_id: builtins.str,
+    plugin_arn: builtins.str,
+    plugin_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24ef3fb59d702ab5a00b853d218b9b80d1de2cbb86135ddf9152af1a37c25233(
+    *,
+    application_id: builtins.str,
+    retriever_arn: builtins.str,
+    retriever_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5640c643fcc450e9b3df098e261b4e8f6a686d54f60e76dfd181f1d976213b89(
+    *,
+    application_id: builtins.str,
+    web_experience_arn: builtins.str,
+    web_experience_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e2c95edfee8896187b03149b15ce3604b3a59bfb3b08abd73c5672b7c0fc870b(
     scope: _constructs_77d1e7e8.Construct,
@@ -8480,26 +9683,6 @@ def _typecheckingstub__2a553c98b052035d7e975a15cd8521cc9a275d10bf22d783650de9883
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cd218bde3aa6ce3304b30e1d4799c501a50db8db5cef8926c28924af066170bb(
-    *,
-    display_name: builtins.str,
-    attachments_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AttachmentsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    auto_subscription_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.AutoSubscriptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    client_ids_for_oidc: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iam_identity_provider_arn: typing.Optional[builtins.str] = None,
-    identity_center_instance_arn: typing.Optional[builtins.str] = None,
-    identity_type: typing.Optional[builtins.str] = None,
-    personalization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PersonalizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    q_apps_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QAppsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    quick_sight_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.QuickSightConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__32b7ecf69912e25edcd2354b3e0497931ea6bf042b1aabc881c8677d2f9be633(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8630,18 +9813,6 @@ def _typecheckingstub__edee8eec89905fde650437fb2fcf2bc7ddeaecc251be16c2ca1d64d79
     long_value: typing.Optional[jsii.Number] = None,
     string_list_value: typing.Optional[typing.Sequence[builtins.str]] = None,
     string_value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4dfde2d4c17793fa3cb9793a9171b9042ac55727b3f0c3a17f1606cab5545458(
-    *,
-    action_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    application_id: builtins.str,
-    display_name: builtins.str,
-    principal: builtins.str,
-    authentication_detail: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAccessor.DataAccessorAuthenticationDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8837,23 +10008,6 @@ def _typecheckingstub__f97caeacd344e3e67dbf0813f2131b0e4d7a3ac8e1f32dcc24431822f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b0cb43c018c99c9e24bb29f0d009e1ded318999b690c706f1e2e099d30a9fe07(
-    *,
-    application_id: builtins.str,
-    configuration: typing.Any,
-    display_name: builtins.str,
-    index_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    document_enrichment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DocumentEnrichmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_extraction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.MediaExtractionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    sync_schedule: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataSource.DataSourceVpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c457625f955b1ba56d35bffbcea827abe87347b80fd33090422ef2a8092cd10e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -8954,19 +10108,6 @@ def _typecheckingstub__53655170c0e554a34ac668a43b8c91b79ec330d9f9720473bc0190dd3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__92562a229c76d1c1bf48f7735d22def1e598923d94ebef2d66b70a174c48887e(
-    *,
-    application_id: builtins.str,
-    display_name: builtins.str,
-    capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexCapacityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    document_attribute_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.DocumentAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aa8b9992ffebedf4dda280be4bd0aa5dade8d62a6c092d850b1b1bb8df042ee8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9027,17 +10168,6 @@ def _typecheckingstub__39a9bd842be75583d990f7774438e331f4161b57ee4d98a449b293c0e
     condition_key: builtins.str,
     condition_operator: builtins.str,
     condition_values: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ea87fcda68d4a26468f5e5d1c394a46d117b80b00274f61bbd36b0329a0a8c4(
-    *,
-    actions: typing.Sequence[builtins.str],
-    application_id: builtins.str,
-    principal: builtins.str,
-    statement_id: builtins.str,
-    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermission.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9170,20 +10300,6 @@ def _typecheckingstub__4f7a033a4dede9d0d05480348522d93d5c1d4a0e27d0009e6612ae5c5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__84b206da5d8532987dc555e3bb32deb781317bbd9702ad893387d9a51e07b05f(
-    *,
-    auth_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.PluginAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    display_name: builtins.str,
-    type: builtins.str,
-    application_id: typing.Optional[builtins.str] = None,
-    custom_plugin_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlugin.CustomPluginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    server_url: typing.Optional[builtins.str] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__793749362ec6ccd890aa9273b100a2ba004492449f0dba0ea4eb4909560d6761(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9264,18 +10380,6 @@ def _typecheckingstub__9a87eb68b4d13ad399e3831bda05bdee7126f9c5a1a3f94de678194cb
     *,
     kendra_index_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRetriever.KendraIndexConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     native_index_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRetriever.NativeIndexConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d26f55565cdfd207bc3128a08abf6cd7e371950c5a332ccf3973859a33980b6(
-    *,
-    application_id: builtins.str,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRetriever.RetrieverConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    display_name: builtins.str,
-    type: builtins.str,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9413,23 +10517,6 @@ def _typecheckingstub__83ea977b859d6c4c1e46fa972ce0e7d691c60d57b7c59adbe13d85152
 def _typecheckingstub__7f19a9da1f3a1cf2eefff3580476a949609debe65a8fc477af11c893d5b4453b(
     *,
     authentication_url: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58d2b12e60ffd88803f1746b34f5f9b5b77805b460b8074165db15b9de292293(
-    *,
-    application_id: builtins.str,
-    browser_extension_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.BrowserExtensionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    customization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.CustomizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    identity_provider_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebExperience.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    origins: typing.Optional[typing.Sequence[builtins.str]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    sample_prompts_control_mode: typing.Optional[builtins.str] = None,
-    subtitle: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    title: typing.Optional[builtins.str] = None,
-    welcome_message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

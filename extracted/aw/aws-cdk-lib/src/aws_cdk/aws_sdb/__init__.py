@@ -65,7 +65,148 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sdb.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={"description": "description"},
+)
+class CfnDomainProps:
+    def __init__(self, *, description: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param description: Information about the SimpleDB domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sdb-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sdb as sdb
+            
+            cfn_domain_props = sdb.CfnDomainProps(
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the SimpleDB domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sdb-domain.html#cfn-sdb-domain-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sdb.DomainReference",
+    jsii_struct_bases=[],
+    name_mapping={"domain_id": "domainId"},
+)
+class DomainReference:
+    def __init__(self, *, domain_id: builtins.str) -> None:
+        '''A reference to a Domain resource.
+
+        :param domain_id: The Id of the Domain resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sdb as sdb
+            
+            domain_reference = sdb.DomainReference(
+                domain_id="domainId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec6058a93cbef634fff67ec6e5a46236bfbb334740f1fead16c9204fc7cb5862)
+            check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_id": domain_id,
+        }
+
+    @builtins.property
+    def domain_id(self) -> builtins.str:
+        '''The Id of the Domain resource.'''
+        result = self._values.get("domain_id")
+        assert result is not None, "Required property 'domain_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sdb.IDomainRef")
+class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Domain.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sdb.IDomainRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''(experimental) A reference to a Domain resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDomainRef)
 class CfnDomain(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -157,6 +298,12 @@ class CfnDomain(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="domainRef")
+    def domain_ref(self) -> DomainReference:
+        '''A reference to a Domain resource.'''
+        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''Information about the SimpleDB domain.'''
@@ -170,64 +317,28 @@ class CfnDomain(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sdb.CfnDomainProps",
-    jsii_struct_bases=[],
-    name_mapping={"description": "description"},
-)
-class CfnDomainProps:
-    def __init__(self, *, description: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnDomain``.
-
-        :param description: Information about the SimpleDB domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sdb-domain.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sdb as sdb
-            
-            cfn_domain_props = sdb.CfnDomainProps(
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the SimpleDB domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sdb-domain.html#cfn-sdb-domain-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDomain",
     "CfnDomainProps",
+    "DomainReference",
+    "IDomainRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc(
+    *,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec6058a93cbef634fff67ec6e5a46236bfbb334740f1fead16c9204fc7cb5862(
+    *,
+    domain_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__ca99937b4ee18835a77edeb59febad8d25a19d38302e7c1f59aeddae7d2ffcbe(
     scope: _constructs_77d1e7e8.Construct,
@@ -252,13 +363,6 @@ def _typecheckingstub__9161435f3b14e2982d20f6f8e6f94519a03f57e26b00ec9d3a9c0ca9b
 
 def _typecheckingstub__fd66f099b2d22986830c01de703f022491b0bc3a685ded9b0f2c19bb1d09dcef(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc(
-    *,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

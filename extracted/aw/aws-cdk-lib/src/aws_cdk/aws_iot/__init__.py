@@ -75,7 +75,7960 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.AccountAuditConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class AccountAuditConfigurationReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a AccountAuditConfiguration resource.
+
+        :param account_id: The AccountId of the AccountAuditConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            account_audit_configuration_reference = iot.AccountAuditConfigurationReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1134fe2a7b950167e52477a85bccbcb38702edacbcf9b347c0107b6e2aa462f)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the AccountAuditConfiguration resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccountAuditConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.AuthorizerReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorizer_arn": "authorizerArn",
+        "authorizer_name": "authorizerName",
+    },
+)
+class AuthorizerReference:
+    def __init__(
+        self,
+        *,
+        authorizer_arn: builtins.str,
+        authorizer_name: builtins.str,
+    ) -> None:
+        '''A reference to a Authorizer resource.
+
+        :param authorizer_arn: The ARN of the Authorizer resource.
+        :param authorizer_name: The AuthorizerName of the Authorizer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            authorizer_reference = iot.AuthorizerReference(
+                authorizer_arn="authorizerArn",
+                authorizer_name="authorizerName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bff748ab073d892e4cd916233d200a6b44ed6825342d45dccebab418bd3ebef4)
+            check_type(argname="argument authorizer_arn", value=authorizer_arn, expected_type=type_hints["authorizer_arn"])
+            check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorizer_arn": authorizer_arn,
+            "authorizer_name": authorizer_name,
+        }
+
+    @builtins.property
+    def authorizer_arn(self) -> builtins.str:
+        '''The ARN of the Authorizer resource.'''
+        result = self._values.get("authorizer_arn")
+        assert result is not None, "Required property 'authorizer_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authorizer_name(self) -> builtins.str:
+        '''The AuthorizerName of the Authorizer resource.'''
+        result = self._values.get("authorizer_name")
+        assert result is not None, "Required property 'authorizer_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AuthorizerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.BillingGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "billing_group_arn": "billingGroupArn",
+        "billing_group_name": "billingGroupName",
+    },
+)
+class BillingGroupReference:
+    def __init__(
+        self,
+        *,
+        billing_group_arn: builtins.str,
+        billing_group_name: builtins.str,
+    ) -> None:
+        '''A reference to a BillingGroup resource.
+
+        :param billing_group_arn: The ARN of the BillingGroup resource.
+        :param billing_group_name: The BillingGroupName of the BillingGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            billing_group_reference = iot.BillingGroupReference(
+                billing_group_arn="billingGroupArn",
+                billing_group_name="billingGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cc529fbc767ed0145651c8cc07a1cd76b399bff4f776c1f345ea720787ea39c)
+            check_type(argname="argument billing_group_arn", value=billing_group_arn, expected_type=type_hints["billing_group_arn"])
+            check_type(argname="argument billing_group_name", value=billing_group_name, expected_type=type_hints["billing_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "billing_group_arn": billing_group_arn,
+            "billing_group_name": billing_group_name,
+        }
+
+    @builtins.property
+    def billing_group_arn(self) -> builtins.str:
+        '''The ARN of the BillingGroup resource.'''
+        result = self._values.get("billing_group_arn")
+        assert result is not None, "Required property 'billing_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def billing_group_name(self) -> builtins.str:
+        '''The BillingGroupName of the BillingGroup resource.'''
+        result = self._values.get("billing_group_name")
+        assert result is not None, "Required property 'billing_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BillingGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CACertificateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ca_certificate_arn": "caCertificateArn",
+        "ca_certificate_id": "caCertificateId",
+    },
+)
+class CACertificateReference:
+    def __init__(
+        self,
+        *,
+        ca_certificate_arn: builtins.str,
+        ca_certificate_id: builtins.str,
+    ) -> None:
+        '''A reference to a CACertificate resource.
+
+        :param ca_certificate_arn: The ARN of the CACertificate resource.
+        :param ca_certificate_id: The Id of the CACertificate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            c_aCertificate_reference = iot.CACertificateReference(
+                ca_certificate_arn="caCertificateArn",
+                ca_certificate_id="caCertificateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__656dddba6e2e8a289754292913754d4c38aad8b689e1a59324b5ccc89c5807e1)
+            check_type(argname="argument ca_certificate_arn", value=ca_certificate_arn, expected_type=type_hints["ca_certificate_arn"])
+            check_type(argname="argument ca_certificate_id", value=ca_certificate_id, expected_type=type_hints["ca_certificate_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ca_certificate_arn": ca_certificate_arn,
+            "ca_certificate_id": ca_certificate_id,
+        }
+
+    @builtins.property
+    def ca_certificate_arn(self) -> builtins.str:
+        '''The ARN of the CACertificate resource.'''
+        result = self._values.get("ca_certificate_arn")
+        assert result is not None, "Required property 'ca_certificate_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ca_certificate_id(self) -> builtins.str:
+        '''The Id of the CACertificate resource.'''
+        result = self._values.get("ca_certificate_id")
+        assert result is not None, "Required property 'ca_certificate_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CACertificateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CertificateProviderReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_provider_arn": "certificateProviderArn",
+        "certificate_provider_name": "certificateProviderName",
+    },
+)
+class CertificateProviderReference:
+    def __init__(
+        self,
+        *,
+        certificate_provider_arn: builtins.str,
+        certificate_provider_name: builtins.str,
+    ) -> None:
+        '''A reference to a CertificateProvider resource.
+
+        :param certificate_provider_arn: The ARN of the CertificateProvider resource.
+        :param certificate_provider_name: The CertificateProviderName of the CertificateProvider resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            certificate_provider_reference = iot.CertificateProviderReference(
+                certificate_provider_arn="certificateProviderArn",
+                certificate_provider_name="certificateProviderName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c2a739ccec2b96bf3bef7e566ee580796297023e33c2e4e808376c30bdf4742)
+            check_type(argname="argument certificate_provider_arn", value=certificate_provider_arn, expected_type=type_hints["certificate_provider_arn"])
+            check_type(argname="argument certificate_provider_name", value=certificate_provider_name, expected_type=type_hints["certificate_provider_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_provider_arn": certificate_provider_arn,
+            "certificate_provider_name": certificate_provider_name,
+        }
+
+    @builtins.property
+    def certificate_provider_arn(self) -> builtins.str:
+        '''The ARN of the CertificateProvider resource.'''
+        result = self._values.get("certificate_provider_arn")
+        assert result is not None, "Required property 'certificate_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_provider_name(self) -> builtins.str:
+        '''The CertificateProviderName of the CertificateProvider resource.'''
+        result = self._values.get("certificate_provider_name")
+        assert result is not None, "Required property 'certificate_provider_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CertificateProviderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CertificateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_arn": "certificateArn",
+        "certificate_id": "certificateId",
+    },
+)
+class CertificateReference:
+    def __init__(
+        self,
+        *,
+        certificate_arn: builtins.str,
+        certificate_id: builtins.str,
+    ) -> None:
+        '''A reference to a Certificate resource.
+
+        :param certificate_arn: The ARN of the Certificate resource.
+        :param certificate_id: The Id of the Certificate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            certificate_reference = iot.CertificateReference(
+                certificate_arn="certificateArn",
+                certificate_id="certificateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78444e51101b94387d9ced012ad349e38af966f76e10a1dd77855e29f8b102a6)
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_arn": certificate_arn,
+            "certificate_id": certificate_id,
+        }
+
+    @builtins.property
+    def certificate_arn(self) -> builtins.str:
+        '''The ARN of the Certificate resource.'''
+        result = self._values.get("certificate_arn")
+        assert result is not None, "Required property 'certificate_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_id(self) -> builtins.str:
+        '''The Id of the Certificate resource.'''
+        result = self._values.get("certificate_id")
+        assert result is not None, "Required property 'certificate_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CertificateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnAccountAuditConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account_id": "accountId",
+        "audit_check_configurations": "auditCheckConfigurations",
+        "role_arn": "roleArn",
+        "audit_notification_target_configurations": "auditNotificationTargetConfigurations",
+    },
+)
+class CfnAccountAuditConfigurationProps:
+    def __init__(
+        self,
+        *,
+        account_id: builtins.str,
+        audit_check_configurations: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        audit_notification_target_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccountAuditConfiguration``.
+
+        :param account_id: The ID of the account. You can use the expression ``!Sub "${AWS::AccountId}"`` to use your account ID.
+        :param audit_check_configurations: Specifies which audit checks are enabled and disabled for this account. Some data collection might start immediately when certain checks are enabled. When a check is disabled, any data collected so far in relation to the check is deleted. To disable a check, set the value of the ``Enabled:`` key to ``false`` . If an enabled check is removed from the template, it will also be disabled. You can't disable a check if it's used by any scheduled audit. You must delete the check from the scheduled audit or delete the scheduled audit itself to disable the check. For more information on available audit checks see `AWS::IoT::AccountAuditConfiguration AuditCheckConfigurations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-accountauditconfiguration-auditcheckconfigurations.html>`_
+        :param role_arn: The Amazon Resource Name (ARN) of the role that grants permission to AWS IoT to access information about your devices, policies, certificates, and other items as required when performing an audit.
+        :param audit_notification_target_configurations: Information about the targets to which audit notifications are sent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_account_audit_configuration_props = iot.CfnAccountAuditConfigurationProps(
+                account_id="accountId",
+                audit_check_configurations=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty(
+                    authenticated_cognito_role_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    ca_certificate_expiring_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    ca_certificate_key_quality_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    conflicting_client_ids_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    device_certificate_age_check=iot.CfnAccountAuditConfiguration.DeviceCertAgeAuditCheckConfigurationProperty(
+                        configuration=iot.CfnAccountAuditConfiguration.CertAgeCheckCustomConfigurationProperty(
+                            cert_age_threshold_in_days="certAgeThresholdInDays"
+                        ),
+                        enabled=False
+                    ),
+                    device_certificate_expiring_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    device_certificate_key_quality_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    device_certificate_shared_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    intermediate_ca_revoked_for_active_device_certificates_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    iot_policy_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    io_tPolicy_potential_mis_configuration_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    iot_role_alias_allows_access_to_unused_services_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    iot_role_alias_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    logging_disabled_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    revoked_ca_certificate_still_active_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    revoked_device_certificate_still_active_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    ),
+                    unauthenticated_cognito_role_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
+                        enabled=False
+                    )
+                ),
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                audit_notification_target_configurations=iot.CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty(
+                    sns=iot.CfnAccountAuditConfiguration.AuditNotificationTargetProperty(
+                        enabled=False,
+                        role_arn="roleArn",
+                        target_arn="targetArn"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fcb08f60d93c7bac3923eba987b721e65ab18e4504eac94738037301467ef30)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+            check_type(argname="argument audit_check_configurations", value=audit_check_configurations, expected_type=type_hints["audit_check_configurations"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument audit_notification_target_configurations", value=audit_notification_target_configurations, expected_type=type_hints["audit_notification_target_configurations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+            "audit_check_configurations": audit_check_configurations,
+            "role_arn": role_arn,
+        }
+        if audit_notification_target_configurations is not None:
+            self._values["audit_notification_target_configurations"] = audit_notification_target_configurations
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The ID of the account.
+
+        You can use the expression ``!Sub "${AWS::AccountId}"`` to use your account ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-accountid
+        '''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def audit_check_configurations(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty"]:
+        '''Specifies which audit checks are enabled and disabled for this account.
+
+        Some data collection might start immediately when certain checks are enabled. When a check is disabled, any data collected so far in relation to the check is deleted. To disable a check, set the value of the ``Enabled:`` key to ``false`` .
+
+        If an enabled check is removed from the template, it will also be disabled.
+
+        You can't disable a check if it's used by any scheduled audit. You must delete the check from the scheduled audit or delete the scheduled audit itself to disable the check.
+
+        For more information on available audit checks see `AWS::IoT::AccountAuditConfiguration AuditCheckConfigurations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-accountauditconfiguration-auditcheckconfigurations.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-auditcheckconfigurations
+        '''
+        result = self._values.get("audit_check_configurations")
+        assert result is not None, "Required property 'audit_check_configurations' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the role that grants permission to AWS IoT to access information about your devices, policies, certificates, and other items as required when performing an audit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def audit_notification_target_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty"]]:
+        '''Information about the targets to which audit notifications are sent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-auditnotificationtargetconfigurations
+        '''
+        result = self._values.get("audit_notification_target_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccountAuditConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnAuthorizerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorizer_function_arn": "authorizerFunctionArn",
+        "authorizer_name": "authorizerName",
+        "enable_caching_for_http": "enableCachingForHttp",
+        "signing_disabled": "signingDisabled",
+        "status": "status",
+        "tags": "tags",
+        "token_key_name": "tokenKeyName",
+        "token_signing_public_keys": "tokenSigningPublicKeys",
+    },
+)
+class CfnAuthorizerProps:
+    def __init__(
+        self,
+        *,
+        authorizer_function_arn: builtins.str,
+        authorizer_name: typing.Optional[builtins.str] = None,
+        enable_caching_for_http: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        signing_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        token_key_name: typing.Optional[builtins.str] = None,
+        token_signing_public_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAuthorizer``.
+
+        :param authorizer_function_arn: The authorizer's Lambda function ARN.
+        :param authorizer_name: The authorizer name.
+        :param enable_caching_for_http: When ``true`` , the result from the authorizer's Lambda function is cached for clients that use persistent HTTP connections. The results are cached for the time specified by the Lambda function in ``refreshAfterInSeconds`` . This value doesn't affect authorization of clients that use MQTT connections.
+        :param signing_disabled: Specifies whether AWS IoT validates the token signature in an authorization request.
+        :param status: The status of the authorizer. Valid values: ``ACTIVE`` | ``INACTIVE``
+        :param tags: Metadata which can be used to manage the custom authorizer. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+        :param token_key_name: The key used to extract the token from the HTTP headers.
+        :param token_signing_public_keys: The public keys used to validate the token signature returned by your custom authentication service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_authorizer_props = iot.CfnAuthorizerProps(
+                authorizer_function_arn="authorizerFunctionArn",
+            
+                # the properties below are optional
+                authorizer_name="authorizerName",
+                enable_caching_for_http=False,
+                signing_disabled=False,
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                token_key_name="tokenKeyName",
+                token_signing_public_keys={
+                    "token_signing_public_keys_key": "tokenSigningPublicKeys"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74e893e3af751a67f1d33d8c491ca675f92ce492c0265bf9a163106dda70c852)
+            check_type(argname="argument authorizer_function_arn", value=authorizer_function_arn, expected_type=type_hints["authorizer_function_arn"])
+            check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
+            check_type(argname="argument enable_caching_for_http", value=enable_caching_for_http, expected_type=type_hints["enable_caching_for_http"])
+            check_type(argname="argument signing_disabled", value=signing_disabled, expected_type=type_hints["signing_disabled"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument token_key_name", value=token_key_name, expected_type=type_hints["token_key_name"])
+            check_type(argname="argument token_signing_public_keys", value=token_signing_public_keys, expected_type=type_hints["token_signing_public_keys"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorizer_function_arn": authorizer_function_arn,
+        }
+        if authorizer_name is not None:
+            self._values["authorizer_name"] = authorizer_name
+        if enable_caching_for_http is not None:
+            self._values["enable_caching_for_http"] = enable_caching_for_http
+        if signing_disabled is not None:
+            self._values["signing_disabled"] = signing_disabled
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+        if token_key_name is not None:
+            self._values["token_key_name"] = token_key_name
+        if token_signing_public_keys is not None:
+            self._values["token_signing_public_keys"] = token_signing_public_keys
+
+    @builtins.property
+    def authorizer_function_arn(self) -> builtins.str:
+        '''The authorizer's Lambda function ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-authorizerfunctionarn
+        '''
+        result = self._values.get("authorizer_function_arn")
+        assert result is not None, "Required property 'authorizer_function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authorizer_name(self) -> typing.Optional[builtins.str]:
+        '''The authorizer name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-authorizername
+        '''
+        result = self._values.get("authorizer_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_caching_for_http(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''When ``true`` , the result from the authorizer's Lambda function is cached for clients that use persistent HTTP connections.
+
+        The results are cached for the time specified by the Lambda function in ``refreshAfterInSeconds`` . This value doesn't affect authorization of clients that use MQTT connections.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-enablecachingforhttp
+        '''
+        result = self._values.get("enable_caching_for_http")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def signing_disabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether AWS IoT validates the token signature in an authorization request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-signingdisabled
+        '''
+        result = self._values.get("signing_disabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the authorizer.
+
+        Valid values: ``ACTIVE`` | ``INACTIVE``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the custom authorizer.
+
+        .. epigraph::
+
+           For URI Request parameters use format: ...key1=value1&key2=value2...
+
+           For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..."
+
+           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def token_key_name(self) -> typing.Optional[builtins.str]:
+        '''The key used to extract the token from the HTTP headers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tokenkeyname
+        '''
+        result = self._values.get("token_key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def token_signing_public_keys(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The public keys used to validate the token signature returned by your custom authentication service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tokensigningpublickeys
+        '''
+        result = self._values.get("token_signing_public_keys")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAuthorizerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnBillingGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "billing_group_name": "billingGroupName",
+        "billing_group_properties": "billingGroupProperties",
+        "tags": "tags",
+    },
+)
+class CfnBillingGroupProps:
+    def __init__(
+        self,
+        *,
+        billing_group_name: typing.Optional[builtins.str] = None,
+        billing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBillingGroup.BillingGroupPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBillingGroup``.
+
+        :param billing_group_name: The name of the billing group.
+        :param billing_group_properties: The properties of the billing group.
+        :param tags: Metadata which can be used to manage the billing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_billing_group_props = iot.CfnBillingGroupProps(
+                billing_group_name="billingGroupName",
+                billing_group_properties=iot.CfnBillingGroup.BillingGroupPropertiesProperty(
+                    billing_group_description="billingGroupDescription"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__525602a7134ed800f47c55a23e5db685defea3c4eeb864eab734acb5724d24f5)
+            check_type(argname="argument billing_group_name", value=billing_group_name, expected_type=type_hints["billing_group_name"])
+            check_type(argname="argument billing_group_properties", value=billing_group_properties, expected_type=type_hints["billing_group_properties"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if billing_group_name is not None:
+            self._values["billing_group_name"] = billing_group_name
+        if billing_group_properties is not None:
+            self._values["billing_group_properties"] = billing_group_properties
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def billing_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the billing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-billinggroupname
+        '''
+        result = self._values.get("billing_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def billing_group_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBillingGroup.BillingGroupPropertiesProperty"]]:
+        '''The properties of the billing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-billinggroupproperties
+        '''
+        result = self._values.get("billing_group_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBillingGroup.BillingGroupPropertiesProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the billing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBillingGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnCACertificateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ca_certificate_pem": "caCertificatePem",
+        "status": "status",
+        "auto_registration_status": "autoRegistrationStatus",
+        "certificate_mode": "certificateMode",
+        "registration_config": "registrationConfig",
+        "remove_auto_registration": "removeAutoRegistration",
+        "tags": "tags",
+        "verification_certificate_pem": "verificationCertificatePem",
+    },
+)
+class CfnCACertificateProps:
+    def __init__(
+        self,
+        *,
+        ca_certificate_pem: builtins.str,
+        status: builtins.str,
+        auto_registration_status: typing.Optional[builtins.str] = None,
+        certificate_mode: typing.Optional[builtins.str] = None,
+        registration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCACertificate.RegistrationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        remove_auto_registration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        verification_certificate_pem: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCACertificate``.
+
+        :param ca_certificate_pem: The certificate data in PEM format.
+        :param status: The status of the CA certificate. Valid values are "ACTIVE" and "INACTIVE".
+        :param auto_registration_status: Whether the CA certificate is configured for auto registration of device certificates. Valid values are "ENABLE" and "DISABLE".
+        :param certificate_mode: The mode of the CA. All the device certificates that are registered using this CA will be registered in the same mode as the CA. For more information about certificate mode for device certificates, see `certificate mode <https://docs.aws.amazon.com//iot/latest/apireference/API_CertificateDescription.html#iot-Type-CertificateDescription-certificateMode>`_ . Valid values are "DEFAULT" and "SNI_ONLY".
+        :param registration_config: Information about the registration configuration.
+        :param remove_auto_registration: If true, removes auto registration.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param verification_certificate_pem: The private key verification certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_cACertificate_props = iot.CfnCACertificateProps(
+                ca_certificate_pem="caCertificatePem",
+                status="status",
+            
+                # the properties below are optional
+                auto_registration_status="autoRegistrationStatus",
+                certificate_mode="certificateMode",
+                registration_config=iot.CfnCACertificate.RegistrationConfigProperty(
+                    role_arn="roleArn",
+                    template_body="templateBody",
+                    template_name="templateName"
+                ),
+                remove_auto_registration=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                verification_certificate_pem="verificationCertificatePem"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4dc1fc8bd40bee99b1f78bec3a4ac719bfd5bcc6c23ac88b18b092192a99e69b)
+            check_type(argname="argument ca_certificate_pem", value=ca_certificate_pem, expected_type=type_hints["ca_certificate_pem"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument auto_registration_status", value=auto_registration_status, expected_type=type_hints["auto_registration_status"])
+            check_type(argname="argument certificate_mode", value=certificate_mode, expected_type=type_hints["certificate_mode"])
+            check_type(argname="argument registration_config", value=registration_config, expected_type=type_hints["registration_config"])
+            check_type(argname="argument remove_auto_registration", value=remove_auto_registration, expected_type=type_hints["remove_auto_registration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument verification_certificate_pem", value=verification_certificate_pem, expected_type=type_hints["verification_certificate_pem"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ca_certificate_pem": ca_certificate_pem,
+            "status": status,
+        }
+        if auto_registration_status is not None:
+            self._values["auto_registration_status"] = auto_registration_status
+        if certificate_mode is not None:
+            self._values["certificate_mode"] = certificate_mode
+        if registration_config is not None:
+            self._values["registration_config"] = registration_config
+        if remove_auto_registration is not None:
+            self._values["remove_auto_registration"] = remove_auto_registration
+        if tags is not None:
+            self._values["tags"] = tags
+        if verification_certificate_pem is not None:
+            self._values["verification_certificate_pem"] = verification_certificate_pem
+
+    @builtins.property
+    def ca_certificate_pem(self) -> builtins.str:
+        '''The certificate data in PEM format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-cacertificatepem
+        '''
+        result = self._values.get("ca_certificate_pem")
+        assert result is not None, "Required property 'ca_certificate_pem' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''The status of the CA certificate.
+
+        Valid values are "ACTIVE" and "INACTIVE".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_registration_status(self) -> typing.Optional[builtins.str]:
+        '''Whether the CA certificate is configured for auto registration of device certificates.
+
+        Valid values are "ENABLE" and "DISABLE".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-autoregistrationstatus
+        '''
+        result = self._values.get("auto_registration_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_mode(self) -> typing.Optional[builtins.str]:
+        '''The mode of the CA.
+
+        All the device certificates that are registered using this CA will be registered in the same mode as the CA. For more information about certificate mode for device certificates, see `certificate mode <https://docs.aws.amazon.com//iot/latest/apireference/API_CertificateDescription.html#iot-Type-CertificateDescription-certificateMode>`_ .
+
+        Valid values are "DEFAULT" and "SNI_ONLY".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-certificatemode
+        '''
+        result = self._values.get("certificate_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def registration_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCACertificate.RegistrationConfigProperty"]]:
+        '''Information about the registration configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-registrationconfig
+        '''
+        result = self._values.get("registration_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCACertificate.RegistrationConfigProperty"]], result)
+
+    @builtins.property
+    def remove_auto_registration(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If true, removes auto registration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-removeautoregistration
+        '''
+        result = self._values.get("remove_auto_registration")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def verification_certificate_pem(self) -> typing.Optional[builtins.str]:
+        '''The private key verification certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-verificationcertificatepem
+        '''
+        result = self._values.get("verification_certificate_pem")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCACertificateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnCertificateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "status": "status",
+        "ca_certificate_pem": "caCertificatePem",
+        "certificate_mode": "certificateMode",
+        "certificate_pem": "certificatePem",
+        "certificate_signing_request": "certificateSigningRequest",
+    },
+)
+class CfnCertificateProps:
+    def __init__(
+        self,
+        *,
+        status: builtins.str,
+        ca_certificate_pem: typing.Optional[builtins.str] = None,
+        certificate_mode: typing.Optional[builtins.str] = None,
+        certificate_pem: typing.Optional[builtins.str] = None,
+        certificate_signing_request: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificate``.
+
+        :param status: The status of the certificate. Valid values are ACTIVE, INACTIVE, REVOKED, PENDING_TRANSFER, and PENDING_ACTIVATION. The status value REGISTER_INACTIVE is deprecated and should not be used.
+        :param ca_certificate_pem: The CA certificate used to sign the device certificate being registered, not available when CertificateMode is SNI_ONLY.
+        :param certificate_mode: Specifies which mode of certificate registration to use with this resource. Valid options are DEFAULT with CaCertificatePem and CertificatePem, SNI_ONLY with CertificatePem, and Default with CertificateSigningRequest. ``DEFAULT`` : A certificate in ``DEFAULT`` mode is either generated by AWS IoT Core or registered with an issuer certificate authority (CA). Devices with certificates in ``DEFAULT`` mode aren't required to send the Server Name Indication (SNI) extension when connecting to AWS IoT Core . However, to use features such as custom domains and VPC endpoints, we recommend that you use the SNI extension when connecting to AWS IoT Core . ``SNI_ONLY`` : A certificate in ``SNI_ONLY`` mode is registered without an issuer CA. Devices with certificates in ``SNI_ONLY`` mode must send the SNI extension when connecting to AWS IoT Core .
+        :param certificate_pem: The certificate data in PEM format. Requires SNI_ONLY for the certificate mode or the accompanying CACertificatePem for registration.
+        :param certificate_signing_request: The certificate signing request (CSR).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_certificate_props = iot.CfnCertificateProps(
+                status="status",
+            
+                # the properties below are optional
+                ca_certificate_pem="caCertificatePem",
+                certificate_mode="certificateMode",
+                certificate_pem="certificatePem",
+                certificate_signing_request="certificateSigningRequest"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e042ee43de887a4629c99a4bbd89c3608552e57b05edd98ed45772daee143941)
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument ca_certificate_pem", value=ca_certificate_pem, expected_type=type_hints["ca_certificate_pem"])
+            check_type(argname="argument certificate_mode", value=certificate_mode, expected_type=type_hints["certificate_mode"])
+            check_type(argname="argument certificate_pem", value=certificate_pem, expected_type=type_hints["certificate_pem"])
+            check_type(argname="argument certificate_signing_request", value=certificate_signing_request, expected_type=type_hints["certificate_signing_request"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "status": status,
+        }
+        if ca_certificate_pem is not None:
+            self._values["ca_certificate_pem"] = ca_certificate_pem
+        if certificate_mode is not None:
+            self._values["certificate_mode"] = certificate_mode
+        if certificate_pem is not None:
+            self._values["certificate_pem"] = certificate_pem
+        if certificate_signing_request is not None:
+            self._values["certificate_signing_request"] = certificate_signing_request
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''The status of the certificate.
+
+        Valid values are ACTIVE, INACTIVE, REVOKED, PENDING_TRANSFER, and PENDING_ACTIVATION.
+
+        The status value REGISTER_INACTIVE is deprecated and should not be used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ca_certificate_pem(self) -> typing.Optional[builtins.str]:
+        '''The CA certificate used to sign the device certificate being registered, not available when CertificateMode is SNI_ONLY.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-cacertificatepem
+        '''
+        result = self._values.get("ca_certificate_pem")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_mode(self) -> typing.Optional[builtins.str]:
+        '''Specifies which mode of certificate registration to use with this resource.
+
+        Valid options are DEFAULT with CaCertificatePem and CertificatePem, SNI_ONLY with CertificatePem, and Default with CertificateSigningRequest.
+
+        ``DEFAULT`` : A certificate in ``DEFAULT`` mode is either generated by AWS IoT Core or registered with an issuer certificate authority (CA). Devices with certificates in ``DEFAULT`` mode aren't required to send the Server Name Indication (SNI) extension when connecting to AWS IoT Core . However, to use features such as custom domains and VPC endpoints, we recommend that you use the SNI extension when connecting to AWS IoT Core .
+
+        ``SNI_ONLY`` : A certificate in ``SNI_ONLY`` mode is registered without an issuer CA. Devices with certificates in ``SNI_ONLY`` mode must send the SNI extension when connecting to AWS IoT Core .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatemode
+        '''
+        result = self._values.get("certificate_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_pem(self) -> typing.Optional[builtins.str]:
+        '''The certificate data in PEM format.
+
+        Requires SNI_ONLY for the certificate mode or the accompanying CACertificatePem for registration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatepem
+        '''
+        result = self._values.get("certificate_pem")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def certificate_signing_request(self) -> typing.Optional[builtins.str]:
+        '''The certificate signing request (CSR).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatesigningrequest
+        '''
+        result = self._values.get("certificate_signing_request")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnCertificateProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account_default_for_operations": "accountDefaultForOperations",
+        "lambda_function_arn": "lambdaFunctionArn",
+        "certificate_provider_name": "certificateProviderName",
+        "tags": "tags",
+    },
+)
+class CfnCertificateProviderProps:
+    def __init__(
+        self,
+        *,
+        account_default_for_operations: typing.Sequence[builtins.str],
+        lambda_function_arn: builtins.str,
+        certificate_provider_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificateProvider``.
+
+        :param account_default_for_operations: A list of the operations that the certificate provider will use to generate certificates. Valid value: ``CreateCertificateFromCsr`` .
+        :param lambda_function_arn: The ARN of the Lambda function.
+        :param certificate_provider_name: The name of the certificate provider.
+        :param tags: Metadata that can be used to manage the certificate provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_certificate_provider_props = iot.CfnCertificateProviderProps(
+                account_default_for_operations=["accountDefaultForOperations"],
+                lambda_function_arn="lambdaFunctionArn",
+            
+                # the properties below are optional
+                certificate_provider_name="certificateProviderName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0744e41536576c861dced01787a6dcedf68212c28aef410b1478e6470df5595)
+            check_type(argname="argument account_default_for_operations", value=account_default_for_operations, expected_type=type_hints["account_default_for_operations"])
+            check_type(argname="argument lambda_function_arn", value=lambda_function_arn, expected_type=type_hints["lambda_function_arn"])
+            check_type(argname="argument certificate_provider_name", value=certificate_provider_name, expected_type=type_hints["certificate_provider_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_default_for_operations": account_default_for_operations,
+            "lambda_function_arn": lambda_function_arn,
+        }
+        if certificate_provider_name is not None:
+            self._values["certificate_provider_name"] = certificate_provider_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def account_default_for_operations(self) -> typing.List[builtins.str]:
+        '''A list of the operations that the certificate provider will use to generate certificates.
+
+        Valid value: ``CreateCertificateFromCsr`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-accountdefaultforoperations
+        '''
+        result = self._values.get("account_default_for_operations")
+        assert result is not None, "Required property 'account_default_for_operations' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def lambda_function_arn(self) -> builtins.str:
+        '''The ARN of the Lambda function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-lambdafunctionarn
+        '''
+        result = self._values.get("lambda_function_arn")
+        assert result is not None, "Required property 'lambda_function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_provider_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the certificate provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-certificateprovidername
+        '''
+        result = self._values.get("certificate_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the certificate provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnCommandProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "command_id": "commandId",
+        "created_at": "createdAt",
+        "deprecated": "deprecated",
+        "description": "description",
+        "display_name": "displayName",
+        "last_updated_at": "lastUpdatedAt",
+        "mandatory_parameters": "mandatoryParameters",
+        "namespace": "namespace",
+        "payload": "payload",
+        "pending_deletion": "pendingDeletion",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnCommandProps:
+    def __init__(
+        self,
+        *,
+        command_id: builtins.str,
+        created_at: typing.Optional[builtins.str] = None,
+        deprecated: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        last_updated_at: typing.Optional[builtins.str] = None,
+        mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCommand.CommandParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        namespace: typing.Optional[builtins.str] = None,
+        payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCommand.CommandPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCommand``.
+
+        :param command_id: The unique identifier of the command.
+        :param created_at: The timestamp, when the command was created.
+        :param deprecated: Indicates whether the command has been deprecated.
+        :param description: The description of the command parameter.
+        :param display_name: The display name of the command.
+        :param last_updated_at: The timestamp, when the command was last updated.
+        :param mandatory_parameters: 
+        :param namespace: The namespace to which the command belongs.
+        :param payload: 
+        :param pending_deletion: Indicates whether the command is pending deletion.
+        :param role_arn: The customer role associated with the command.
+        :param tags: The tags to be associated with the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_command_props = iot.CfnCommandProps(
+                command_id="commandId",
+            
+                # the properties below are optional
+                created_at="createdAt",
+                deprecated=False,
+                description="description",
+                display_name="displayName",
+                last_updated_at="lastUpdatedAt",
+                mandatory_parameters=[iot.CfnCommand.CommandParameterProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    default_value=iot.CfnCommand.CommandParameterValueProperty(
+                        b=False,
+                        bin="bin",
+                        d=123,
+                        i=123,
+                        l="l",
+                        s="s",
+                        ul="ul"
+                    ),
+                    description="description",
+                    value=iot.CfnCommand.CommandParameterValueProperty(
+                        b=False,
+                        bin="bin",
+                        d=123,
+                        i=123,
+                        l="l",
+                        s="s",
+                        ul="ul"
+                    )
+                )],
+                namespace="namespace",
+                payload=iot.CfnCommand.CommandPayloadProperty(
+                    content="content",
+                    content_type="contentType"
+                ),
+                pending_deletion=False,
+                role_arn="roleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6feb02113)
+            check_type(argname="argument command_id", value=command_id, expected_type=type_hints["command_id"])
+            check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
+            check_type(argname="argument deprecated", value=deprecated, expected_type=type_hints["deprecated"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument last_updated_at", value=last_updated_at, expected_type=type_hints["last_updated_at"])
+            check_type(argname="argument mandatory_parameters", value=mandatory_parameters, expected_type=type_hints["mandatory_parameters"])
+            check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
+            check_type(argname="argument pending_deletion", value=pending_deletion, expected_type=type_hints["pending_deletion"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "command_id": command_id,
+        }
+        if created_at is not None:
+            self._values["created_at"] = created_at
+        if deprecated is not None:
+            self._values["deprecated"] = deprecated
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if last_updated_at is not None:
+            self._values["last_updated_at"] = last_updated_at
+        if mandatory_parameters is not None:
+            self._values["mandatory_parameters"] = mandatory_parameters
+        if namespace is not None:
+            self._values["namespace"] = namespace
+        if payload is not None:
+            self._values["payload"] = payload
+        if pending_deletion is not None:
+            self._values["pending_deletion"] = pending_deletion
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def command_id(self) -> builtins.str:
+        '''The unique identifier of the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-commandid
+        '''
+        result = self._values.get("command_id")
+        assert result is not None, "Required property 'command_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def created_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp, when the command was created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-createdat
+        '''
+        result = self._values.get("created_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deprecated(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the command has been deprecated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-deprecated
+        '''
+        result = self._values.get("deprecated")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the command parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_updated_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp, when the command was last updated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-lastupdatedat
+        '''
+        result = self._values.get("last_updated_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mandatory_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCommand.CommandParameterProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-mandatoryparameters
+        '''
+        result = self._values.get("mandatory_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCommand.CommandParameterProperty"]]]], result)
+
+    @builtins.property
+    def namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace to which the command belongs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-namespace
+        '''
+        result = self._values.get("namespace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def payload(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCommand.CommandPayloadProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-payload
+        '''
+        result = self._values.get("payload")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCommand.CommandPayloadProperty"]], result)
+
+    @builtins.property
+    def pending_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the command is pending deletion.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-pendingdeletion
+        '''
+        result = self._values.get("pending_deletion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The customer role associated with the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to be associated with the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCommandProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnCustomMetricProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_type": "metricType",
+        "display_name": "displayName",
+        "metric_name": "metricName",
+        "tags": "tags",
+    },
+)
+class CfnCustomMetricProps:
+    def __init__(
+        self,
+        *,
+        metric_type: builtins.str,
+        display_name: typing.Optional[builtins.str] = None,
+        metric_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCustomMetric``.
+
+        :param metric_type: The type of the custom metric. Types include ``string-list`` , ``ip-address-list`` , ``number-list`` , and ``number`` . .. epigraph:: The type ``number`` only takes a single metric value as an input, but when you submit the metrics value in the DeviceMetrics report, you must pass it as an array with a single value.
+        :param display_name: The friendly name in the console for the custom metric. This name doesn't have to be unique. Don't use this name as the metric identifier in the device metric report. You can update the friendly name after you define it.
+        :param metric_name: The name of the custom metric. This will be used in the metric report submitted from the device/thing. The name can't begin with ``aws:`` . You can’t change the name after you define it.
+        :param tags: Metadata that can be used to manage the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_custom_metric_props = iot.CfnCustomMetricProps(
+                metric_type="metricType",
+            
+                # the properties below are optional
+                display_name="displayName",
+                metric_name="metricName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__991229c51e2720f643956708e6d3c50eac5f03c8bfc0b98c081457c32d0713a4)
+            check_type(argname="argument metric_type", value=metric_type, expected_type=type_hints["metric_type"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_type": metric_type,
+        }
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if metric_name is not None:
+            self._values["metric_name"] = metric_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def metric_type(self) -> builtins.str:
+        '''The type of the custom metric. Types include ``string-list`` , ``ip-address-list`` , ``number-list`` , and ``number`` .
+
+        .. epigraph::
+
+           The type ``number`` only takes a single metric value as an input, but when you submit the metrics value in the DeviceMetrics report, you must pass it as an array with a single value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-metrictype
+        '''
+        result = self._values.get("metric_type")
+        assert result is not None, "Required property 'metric_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The friendly name in the console for the custom metric.
+
+        This name doesn't have to be unique. Don't use this name as the metric identifier in the device metric report. You can update the friendly name after you define it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metric_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the custom metric.
+
+        This will be used in the metric report submitted from the device/thing. The name can't begin with ``aws:`` . You can’t change the name after you define it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-metricname
+        '''
+        result = self._values.get("metric_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the custom metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCustomMetricProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnDimensionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "string_values": "stringValues",
+        "type": "type",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnDimensionProps:
+    def __init__(
+        self,
+        *,
+        string_values: typing.Sequence[builtins.str],
+        type: builtins.str,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDimension``.
+
+        :param string_values: Specifies the value or list of values for the dimension. For ``TOPIC_FILTER`` dimensions, this is a pattern used to match the MQTT topic (for example, "admin/#").
+        :param type: Specifies the type of dimension. Supported types: ``TOPIC_FILTER.``
+        :param name: A unique identifier for the dimension.
+        :param tags: Metadata that can be used to manage the dimension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_dimension_props = iot.CfnDimensionProps(
+                string_values=["stringValues"],
+                type="type",
+            
+                # the properties below are optional
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37f13b590f3614b992d59318bbe236446dc9c8243bcdfdd1201b5415d8bbe16e)
+            check_type(argname="argument string_values", value=string_values, expected_type=type_hints["string_values"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "string_values": string_values,
+            "type": type,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def string_values(self) -> typing.List[builtins.str]:
+        '''Specifies the value or list of values for the dimension.
+
+        For ``TOPIC_FILTER`` dimensions, this is a pattern used to match the MQTT topic (for example, "admin/#").
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-stringvalues
+        '''
+        result = self._values.get("string_values")
+        assert result is not None, "Required property 'string_values' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''Specifies the type of dimension.
+
+        Supported types: ``TOPIC_FILTER.``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for the dimension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the dimension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDimensionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnDomainConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_protocol": "applicationProtocol",
+        "authentication_type": "authenticationType",
+        "authorizer_config": "authorizerConfig",
+        "client_certificate_config": "clientCertificateConfig",
+        "domain_configuration_name": "domainConfigurationName",
+        "domain_configuration_status": "domainConfigurationStatus",
+        "domain_name": "domainName",
+        "server_certificate_arns": "serverCertificateArns",
+        "server_certificate_config": "serverCertificateConfig",
+        "service_type": "serviceType",
+        "tags": "tags",
+        "tls_config": "tlsConfig",
+        "validation_certificate_arn": "validationCertificateArn",
+    },
+)
+class CfnDomainConfigurationProps:
+    def __init__(
+        self,
+        *,
+        application_protocol: typing.Optional[builtins.str] = None,
+        authentication_type: typing.Optional[builtins.str] = None,
+        authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomainConfiguration.AuthorizerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        client_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomainConfiguration.ClientCertificateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain_configuration_name: typing.Optional[builtins.str] = None,
+        domain_configuration_status: typing.Optional[builtins.str] = None,
+        domain_name: typing.Optional[builtins.str] = None,
+        server_certificate_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        server_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomainConfiguration.ServerCertificateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomainConfiguration.TlsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        validation_certificate_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomainConfiguration``.
+
+        :param application_protocol: An enumerated string that speciﬁes the application-layer protocol.
+        :param authentication_type: An enumerated string that speciﬁes the authentication type.
+        :param authorizer_config: An object that specifies the authorization service for a domain.
+        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a domain.
+        :param domain_configuration_name: The name of the domain configuration. This value must be unique to a region.
+        :param domain_configuration_status: The status to which the domain configuration should be updated. Valid values: ``ENABLED`` | ``DISABLED``
+        :param domain_name: The name of the domain.
+        :param server_certificate_arns: The ARNs of the certificates that AWS IoT passes to the device during the TLS handshake. Currently you can specify only one certificate ARN. This value is not required for AWS -managed domains.
+        :param server_certificate_config: The server certificate configuration. For more information, see `Configurable endpoints <https://docs.aws.amazon.com//iot/latest/developerguide/iot-custom-endpoints-configurable.html>`_ from the AWS IoT Core Developer Guide.
+        :param service_type: The type of service delivered by the endpoint. .. epigraph:: AWS IoT Core currently supports only the ``DATA`` service type.
+        :param tags: Metadata which can be used to manage the domain configuration. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+        :param tls_config: An object that specifies the TLS configuration for a domain.
+        :param validation_certificate_arn: The certificate used to validate the server certificate and prove domain name ownership. This certificate must be signed by a public certificate authority. This value is not required for AWS -managed domains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_domain_configuration_props = iot.CfnDomainConfigurationProps(
+                application_protocol="applicationProtocol",
+                authentication_type="authenticationType",
+                authorizer_config=iot.CfnDomainConfiguration.AuthorizerConfigProperty(
+                    allow_authorizer_override=False,
+                    default_authorizer_name="defaultAuthorizerName"
+                ),
+                client_certificate_config=iot.CfnDomainConfiguration.ClientCertificateConfigProperty(
+                    client_certificate_callback_arn="clientCertificateCallbackArn"
+                ),
+                domain_configuration_name="domainConfigurationName",
+                domain_configuration_status="domainConfigurationStatus",
+                domain_name="domainName",
+                server_certificate_arns=["serverCertificateArns"],
+                server_certificate_config=iot.CfnDomainConfiguration.ServerCertificateConfigProperty(
+                    enable_ocsp_check=False,
+                    ocsp_authorized_responder_arn="ocspAuthorizedResponderArn",
+                    ocsp_lambda_arn="ocspLambdaArn"
+                ),
+                service_type="serviceType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tls_config=iot.CfnDomainConfiguration.TlsConfigProperty(
+                    security_policy="securityPolicy"
+                ),
+                validation_certificate_arn="validationCertificateArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af698e1a1ead0a2d7000837dd712796a150772065ad59ab9baf10a759fd99e3e)
+            check_type(argname="argument application_protocol", value=application_protocol, expected_type=type_hints["application_protocol"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument authorizer_config", value=authorizer_config, expected_type=type_hints["authorizer_config"])
+            check_type(argname="argument client_certificate_config", value=client_certificate_config, expected_type=type_hints["client_certificate_config"])
+            check_type(argname="argument domain_configuration_name", value=domain_configuration_name, expected_type=type_hints["domain_configuration_name"])
+            check_type(argname="argument domain_configuration_status", value=domain_configuration_status, expected_type=type_hints["domain_configuration_status"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument server_certificate_arns", value=server_certificate_arns, expected_type=type_hints["server_certificate_arns"])
+            check_type(argname="argument server_certificate_config", value=server_certificate_config, expected_type=type_hints["server_certificate_config"])
+            check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tls_config", value=tls_config, expected_type=type_hints["tls_config"])
+            check_type(argname="argument validation_certificate_arn", value=validation_certificate_arn, expected_type=type_hints["validation_certificate_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if application_protocol is not None:
+            self._values["application_protocol"] = application_protocol
+        if authentication_type is not None:
+            self._values["authentication_type"] = authentication_type
+        if authorizer_config is not None:
+            self._values["authorizer_config"] = authorizer_config
+        if client_certificate_config is not None:
+            self._values["client_certificate_config"] = client_certificate_config
+        if domain_configuration_name is not None:
+            self._values["domain_configuration_name"] = domain_configuration_name
+        if domain_configuration_status is not None:
+            self._values["domain_configuration_status"] = domain_configuration_status
+        if domain_name is not None:
+            self._values["domain_name"] = domain_name
+        if server_certificate_arns is not None:
+            self._values["server_certificate_arns"] = server_certificate_arns
+        if server_certificate_config is not None:
+            self._values["server_certificate_config"] = server_certificate_config
+        if service_type is not None:
+            self._values["service_type"] = service_type
+        if tags is not None:
+            self._values["tags"] = tags
+        if tls_config is not None:
+            self._values["tls_config"] = tls_config
+        if validation_certificate_arn is not None:
+            self._values["validation_certificate_arn"] = validation_certificate_arn
+
+    @builtins.property
+    def application_protocol(self) -> typing.Optional[builtins.str]:
+        '''An enumerated string that speciﬁes the application-layer protocol.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-applicationprotocol
+        '''
+        result = self._values.get("application_protocol")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def authentication_type(self) -> typing.Optional[builtins.str]:
+        '''An enumerated string that speciﬁes the authentication type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def authorizer_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.AuthorizerConfigProperty"]]:
+        '''An object that specifies the authorization service for a domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-authorizerconfig
+        '''
+        result = self._values.get("authorizer_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.AuthorizerConfigProperty"]], result)
+
+    @builtins.property
+    def client_certificate_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.ClientCertificateConfigProperty"]]:
+        '''An object that speciﬁes the client certificate conﬁguration for a domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-clientcertificateconfig
+        '''
+        result = self._values.get("client_certificate_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.ClientCertificateConfigProperty"]], result)
+
+    @builtins.property
+    def domain_configuration_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the domain configuration.
+
+        This value must be unique to a region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainconfigurationname
+        '''
+        result = self._values.get("domain_configuration_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_configuration_status(self) -> typing.Optional[builtins.str]:
+        '''The status to which the domain configuration should be updated.
+
+        Valid values: ``ENABLED`` | ``DISABLED``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainconfigurationstatus
+        '''
+        result = self._values.get("domain_configuration_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainname
+        '''
+        result = self._values.get("domain_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_certificate_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the certificates that AWS IoT passes to the device during the TLS handshake.
+
+        Currently you can specify only one certificate ARN. This value is not required for AWS -managed domains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servercertificatearns
+        '''
+        result = self._values.get("server_certificate_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def server_certificate_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.ServerCertificateConfigProperty"]]:
+        '''The server certificate configuration.
+
+        For more information, see `Configurable endpoints <https://docs.aws.amazon.com//iot/latest/developerguide/iot-custom-endpoints-configurable.html>`_ from the AWS IoT Core Developer Guide.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servercertificateconfig
+        '''
+        result = self._values.get("server_certificate_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.ServerCertificateConfigProperty"]], result)
+
+    @builtins.property
+    def service_type(self) -> typing.Optional[builtins.str]:
+        '''The type of service delivered by the endpoint.
+
+        .. epigraph::
+
+           AWS IoT Core currently supports only the ``DATA`` service type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servicetype
+        '''
+        result = self._values.get("service_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the domain configuration.
+
+        .. epigraph::
+
+           For URI Request parameters use format: ...key1=value1&key2=value2...
+
+           For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..."
+
+           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def tls_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.TlsConfigProperty"]]:
+        '''An object that specifies the TLS configuration for a domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-tlsconfig
+        '''
+        result = self._values.get("tls_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomainConfiguration.TlsConfigProperty"]], result)
+
+    @builtins.property
+    def validation_certificate_arn(self) -> typing.Optional[builtins.str]:
+        '''The certificate used to validate the server certificate and prove domain name ownership.
+
+        This certificate must be signed by a public certificate authority. This value is not required for AWS -managed domains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-validationcertificatearn
+        '''
+        result = self._values.get("validation_certificate_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "encryption_type": "encryptionType",
+        "kms_access_role_arn": "kmsAccessRoleArn",
+        "kms_key_arn": "kmsKeyArn",
+    },
+)
+class CfnEncryptionConfigurationProps:
+    def __init__(
+        self,
+        *,
+        encryption_type: builtins.str,
+        kms_access_role_arn: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEncryptionConfiguration``.
+
+        :param encryption_type: The type of the KMS key.
+        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
+        :param kms_key_arn: The ARN of the customer managed KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_encryption_configuration_props = iot.CfnEncryptionConfigurationProps(
+                encryption_type="encryptionType",
+            
+                # the properties below are optional
+                kms_access_role_arn="kmsAccessRoleArn",
+                kms_key_arn="kmsKeyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab)
+            check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+            check_type(argname="argument kms_access_role_arn", value=kms_access_role_arn, expected_type=type_hints["kms_access_role_arn"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "encryption_type": encryption_type,
+        }
+        if kms_access_role_arn is not None:
+            self._values["kms_access_role_arn"] = kms_access_role_arn
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+
+    @builtins.property
+    def encryption_type(self) -> builtins.str:
+        '''The type of the KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-encryptiontype
+        '''
+        result = self._values.get("encryption_type")
+        assert result is not None, "Required property 'encryption_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmsaccessrolearn
+        '''
+        result = self._values.get("kms_access_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the customer managed KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEncryptionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnFleetMetricProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_name": "metricName",
+        "aggregation_field": "aggregationField",
+        "aggregation_type": "aggregationType",
+        "description": "description",
+        "index_name": "indexName",
+        "period": "period",
+        "query_string": "queryString",
+        "query_version": "queryVersion",
+        "tags": "tags",
+        "unit": "unit",
+    },
+)
+class CfnFleetMetricProps:
+    def __init__(
+        self,
+        *,
+        metric_name: builtins.str,
+        aggregation_field: typing.Optional[builtins.str] = None,
+        aggregation_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleetMetric.AggregationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        index_name: typing.Optional[builtins.str] = None,
+        period: typing.Optional[jsii.Number] = None,
+        query_string: typing.Optional[builtins.str] = None,
+        query_version: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        unit: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFleetMetric``.
+
+        :param metric_name: The name of the fleet metric to create.
+        :param aggregation_field: The field to aggregate.
+        :param aggregation_type: The type of the aggregation query.
+        :param description: The fleet metric description.
+        :param index_name: The name of the index to search.
+        :param period: The time in seconds between fleet metric emissions. Range [60(1 min), 86400(1 day)] and must be multiple of 60.
+        :param query_string: The search query string.
+        :param query_version: The query version.
+        :param tags: Metadata which can be used to manage the fleet metric.
+        :param unit: Used to support unit transformation such as milliseconds to seconds. Must be a unit supported by CW metric. Default to null.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_fleet_metric_props = iot.CfnFleetMetricProps(
+                metric_name="metricName",
+            
+                # the properties below are optional
+                aggregation_field="aggregationField",
+                aggregation_type=iot.CfnFleetMetric.AggregationTypeProperty(
+                    name="name",
+                    values=["values"]
+                ),
+                description="description",
+                index_name="indexName",
+                period=123,
+                query_string="queryString",
+                query_version="queryVersion",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                unit="unit"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c32ae9eaf57bd249c6b754fc4d62115363b123e65d8aa0149b1fdfe3a0c125a)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument aggregation_field", value=aggregation_field, expected_type=type_hints["aggregation_field"])
+            check_type(argname="argument aggregation_type", value=aggregation_type, expected_type=type_hints["aggregation_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+            check_type(argname="argument query_version", value=query_version, expected_type=type_hints["query_version"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_name": metric_name,
+        }
+        if aggregation_field is not None:
+            self._values["aggregation_field"] = aggregation_field
+        if aggregation_type is not None:
+            self._values["aggregation_type"] = aggregation_type
+        if description is not None:
+            self._values["description"] = description
+        if index_name is not None:
+            self._values["index_name"] = index_name
+        if period is not None:
+            self._values["period"] = period
+        if query_string is not None:
+            self._values["query_string"] = query_string
+        if query_version is not None:
+            self._values["query_version"] = query_version
+        if tags is not None:
+            self._values["tags"] = tags
+        if unit is not None:
+            self._values["unit"] = unit
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''The name of the fleet metric to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-metricname
+        '''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def aggregation_field(self) -> typing.Optional[builtins.str]:
+        '''The field to aggregate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-aggregationfield
+        '''
+        result = self._values.get("aggregation_field")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def aggregation_type(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleetMetric.AggregationTypeProperty"]]:
+        '''The type of the aggregation query.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-aggregationtype
+        '''
+        result = self._values.get("aggregation_type")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleetMetric.AggregationTypeProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The fleet metric description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def index_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the index to search.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-indexname
+        '''
+        result = self._values.get("index_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def period(self) -> typing.Optional[jsii.Number]:
+        '''The time in seconds between fleet metric emissions.
+
+        Range [60(1 min), 86400(1 day)] and must be multiple of 60.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-period
+        '''
+        result = self._values.get("period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def query_string(self) -> typing.Optional[builtins.str]:
+        '''The search query string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-querystring
+        '''
+        result = self._values.get("query_string")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def query_version(self) -> typing.Optional[builtins.str]:
+        '''The query version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-queryversion
+        '''
+        result = self._values.get("query_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the fleet metric.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def unit(self) -> typing.Optional[builtins.str]:
+        '''Used to support unit transformation such as milliseconds to seconds.
+
+        Must be a unit supported by CW metric. Default to null.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-unit
+        '''
+        result = self._values.get("unit")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFleetMetricProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnJobTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "job_template_id": "jobTemplateId",
+        "abort_config": "abortConfig",
+        "destination_package_versions": "destinationPackageVersions",
+        "document": "document",
+        "document_source": "documentSource",
+        "job_arn": "jobArn",
+        "job_executions_retry_config": "jobExecutionsRetryConfig",
+        "job_executions_rollout_config": "jobExecutionsRolloutConfig",
+        "maintenance_windows": "maintenanceWindows",
+        "presigned_url_config": "presignedUrlConfig",
+        "tags": "tags",
+        "timeout_config": "timeoutConfig",
+    },
+)
+class CfnJobTemplateProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        job_template_id: builtins.str,
+        abort_config: typing.Any = None,
+        destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        document: typing.Optional[builtins.str] = None,
+        document_source: typing.Optional[builtins.str] = None,
+        job_arn: typing.Optional[builtins.str] = None,
+        job_executions_retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobTemplate.JobExecutionsRetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_executions_rollout_config: typing.Any = None,
+        maintenance_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobTemplate.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        presigned_url_config: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout_config: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnJobTemplate``.
+
+        :param description: A description of the job template.
+        :param job_template_id: A unique identifier for the job template. We recommend using a UUID. Alpha-numeric characters, "-", and "_" are valid for use here.
+        :param abort_config: The criteria that determine when and how a job abort takes place.
+        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device’s reserved named shadow ( ``$package`` ) when the job successfully completes. *Note:* Up to 25 package version ARNS are allowed.
+        :param document: The job document. Required if you don't specify a value for ``documentSource`` .
+        :param document_source: An S3 link, or S3 object URL, to the job document. The link is an Amazon S3 object URL and is required if you don't specify a value for ``document`` . For example, ``--document-source https://s3. *region-code* .amazonaws.com/example-firmware/device-firmware.1.0`` For more information, see `Methods for accessing a bucket <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html>`_ .
+        :param job_arn: The ARN of the job to use as the basis for the job template.
+        :param job_executions_retry_config: Allows you to create the criteria to retry a job.
+        :param job_executions_rollout_config: Allows you to create a staged rollout of a job.
+        :param maintenance_windows: An optional configuration within the SchedulingConfig to setup a recurring maintenance window with a predetermined start time and duration for the rollout of a job document to all devices in a target group for a job.
+        :param presigned_url_config: Configuration for pre-signed S3 URLs.
+        :param tags: Metadata that can be used to manage the job template.
+        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job. A timer is started when the job execution status is set to ``IN_PROGRESS`` . If the job execution status is not set to another terminal state before the timer expires, it will be automatically set to ``TIMED_OUT`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            # abort_config: Any
+            # job_executions_rollout_config: Any
+            # presigned_url_config: Any
+            # timeout_config: Any
+            
+            cfn_job_template_props = iot.CfnJobTemplateProps(
+                description="description",
+                job_template_id="jobTemplateId",
+            
+                # the properties below are optional
+                abort_config=abort_config,
+                destination_package_versions=["destinationPackageVersions"],
+                document="document",
+                document_source="documentSource",
+                job_arn="jobArn",
+                job_executions_retry_config=iot.CfnJobTemplate.JobExecutionsRetryConfigProperty(
+                    retry_criteria_list=[iot.CfnJobTemplate.RetryCriteriaProperty(
+                        failure_type="failureType",
+                        number_of_retries=123
+                    )]
+                ),
+                job_executions_rollout_config=job_executions_rollout_config,
+                maintenance_windows=[iot.CfnJobTemplate.MaintenanceWindowProperty(
+                    duration_in_minutes=123,
+                    start_time="startTime"
+                )],
+                presigned_url_config=presigned_url_config,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                timeout_config=timeout_config
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28c20b8a9676fd9409d3f7cb512490dbf5634f2468a7f4454df1b245a75806a1)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument job_template_id", value=job_template_id, expected_type=type_hints["job_template_id"])
+            check_type(argname="argument abort_config", value=abort_config, expected_type=type_hints["abort_config"])
+            check_type(argname="argument destination_package_versions", value=destination_package_versions, expected_type=type_hints["destination_package_versions"])
+            check_type(argname="argument document", value=document, expected_type=type_hints["document"])
+            check_type(argname="argument document_source", value=document_source, expected_type=type_hints["document_source"])
+            check_type(argname="argument job_arn", value=job_arn, expected_type=type_hints["job_arn"])
+            check_type(argname="argument job_executions_retry_config", value=job_executions_retry_config, expected_type=type_hints["job_executions_retry_config"])
+            check_type(argname="argument job_executions_rollout_config", value=job_executions_rollout_config, expected_type=type_hints["job_executions_rollout_config"])
+            check_type(argname="argument maintenance_windows", value=maintenance_windows, expected_type=type_hints["maintenance_windows"])
+            check_type(argname="argument presigned_url_config", value=presigned_url_config, expected_type=type_hints["presigned_url_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout_config", value=timeout_config, expected_type=type_hints["timeout_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "job_template_id": job_template_id,
+        }
+        if abort_config is not None:
+            self._values["abort_config"] = abort_config
+        if destination_package_versions is not None:
+            self._values["destination_package_versions"] = destination_package_versions
+        if document is not None:
+            self._values["document"] = document
+        if document_source is not None:
+            self._values["document_source"] = document_source
+        if job_arn is not None:
+            self._values["job_arn"] = job_arn
+        if job_executions_retry_config is not None:
+            self._values["job_executions_retry_config"] = job_executions_retry_config
+        if job_executions_rollout_config is not None:
+            self._values["job_executions_rollout_config"] = job_executions_rollout_config
+        if maintenance_windows is not None:
+            self._values["maintenance_windows"] = maintenance_windows
+        if presigned_url_config is not None:
+            self._values["presigned_url_config"] = presigned_url_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout_config is not None:
+            self._values["timeout_config"] = timeout_config
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_template_id(self) -> builtins.str:
+        '''A unique identifier for the job template.
+
+        We recommend using a UUID. Alpha-numeric characters, "-", and "_" are valid for use here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobtemplateid
+        '''
+        result = self._values.get("job_template_id")
+        assert result is not None, "Required property 'job_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def abort_config(self) -> typing.Any:
+        '''The criteria that determine when and how a job abort takes place.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-abortconfig
+        '''
+        result = self._values.get("abort_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def destination_package_versions(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The package version Amazon Resource Names (ARNs) that are installed on the device’s reserved named shadow ( ``$package`` ) when the job successfully completes.
+
+        *Note:* Up to 25 package version ARNS are allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-destinationpackageversions
+        '''
+        result = self._values.get("destination_package_versions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def document(self) -> typing.Optional[builtins.str]:
+        '''The job document.
+
+        Required if you don't specify a value for ``documentSource`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-document
+        '''
+        result = self._values.get("document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_source(self) -> typing.Optional[builtins.str]:
+        '''An S3 link, or S3 object URL, to the job document.
+
+        The link is an Amazon S3 object URL and is required if you don't specify a value for ``document`` .
+
+        For example, ``--document-source https://s3. *region-code* .amazonaws.com/example-firmware/device-firmware.1.0``
+
+        For more information, see `Methods for accessing a bucket <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-documentsource
+        '''
+        result = self._values.get("document_source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the job to use as the basis for the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobarn
+        '''
+        result = self._values.get("job_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_executions_retry_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.JobExecutionsRetryConfigProperty"]]:
+        '''Allows you to create the criteria to retry a job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobexecutionsretryconfig
+        '''
+        result = self._values.get("job_executions_retry_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.JobExecutionsRetryConfigProperty"]], result)
+
+    @builtins.property
+    def job_executions_rollout_config(self) -> typing.Any:
+        '''Allows you to create a staged rollout of a job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobexecutionsrolloutconfig
+        '''
+        result = self._values.get("job_executions_rollout_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def maintenance_windows(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.MaintenanceWindowProperty"]]]]:
+        '''An optional configuration within the SchedulingConfig to setup a recurring maintenance window with a predetermined start time and duration for the rollout of a job document to all devices in a target group for a job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-maintenancewindows
+        '''
+        result = self._values.get("maintenance_windows")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.MaintenanceWindowProperty"]]]], result)
+
+    @builtins.property
+    def presigned_url_config(self) -> typing.Any:
+        '''Configuration for pre-signed S3 URLs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-presignedurlconfig
+        '''
+        result = self._values.get("presigned_url_config")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the job template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def timeout_config(self) -> typing.Any:
+        '''Specifies the amount of time each device has to finish its execution of the job.
+
+        A timer is started when the job execution status is set to ``IN_PROGRESS`` . If the job execution status is not set to another terminal state before the timer expires, it will be automatically set to ``TIMED_OUT`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-timeoutconfig
+        '''
+        result = self._values.get("timeout_config")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnJobTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnLoggingProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account_id": "accountId",
+        "default_log_level": "defaultLogLevel",
+        "role_arn": "roleArn",
+    },
+)
+class CfnLoggingProps:
+    def __init__(
+        self,
+        *,
+        account_id: builtins.str,
+        default_log_level: builtins.str,
+        role_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnLogging``.
+
+        :param account_id: The account ID.
+        :param default_log_level: The default log level. Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
+        :param role_arn: The role ARN used for the log.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_logging_props = iot.CfnLoggingProps(
+                account_id="accountId",
+                default_log_level="defaultLogLevel",
+                role_arn="roleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__901c60f51fbfd8f93f04a87979753e82a4100266e43b803e7617ae6ab99aca15)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+            check_type(argname="argument default_log_level", value=default_log_level, expected_type=type_hints["default_log_level"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+            "default_log_level": default_log_level,
+            "role_arn": role_arn,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The account ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-accountid
+        '''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_log_level(self) -> builtins.str:
+        '''The default log level.
+
+        Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-defaultloglevel
+        '''
+        result = self._values.get("default_log_level")
+        assert result is not None, "Required property 'default_log_level' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The role ARN used for the log.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLoggingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnMitigationActionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_params": "actionParams",
+        "role_arn": "roleArn",
+        "action_name": "actionName",
+        "tags": "tags",
+    },
+)
+class CfnMitigationActionProps:
+    def __init__(
+        self,
+        *,
+        action_params: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMitigationAction.ActionParamsProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        action_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMitigationAction``.
+
+        :param action_params: The set of parameters for this mitigation action. The parameters vary, depending on the kind of action you apply.
+        :param role_arn: The IAM role ARN used to apply this mitigation action.
+        :param action_name: The friendly name of the mitigation action.
+        :param tags: Metadata that can be used to manage the mitigation action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_mitigation_action_props = iot.CfnMitigationActionProps(
+                action_params=iot.CfnMitigationAction.ActionParamsProperty(
+                    add_things_to_thing_group_params=iot.CfnMitigationAction.AddThingsToThingGroupParamsProperty(
+                        thing_group_names=["thingGroupNames"],
+            
+                        # the properties below are optional
+                        override_dynamic_groups=False
+                    ),
+                    enable_io_tLogging_params=iot.CfnMitigationAction.EnableIoTLoggingParamsProperty(
+                        log_level="logLevel",
+                        role_arn_for_logging="roleArnForLogging"
+                    ),
+                    publish_finding_to_sns_params=iot.CfnMitigationAction.PublishFindingToSnsParamsProperty(
+                        topic_arn="topicArn"
+                    ),
+                    replace_default_policy_version_params=iot.CfnMitigationAction.ReplaceDefaultPolicyVersionParamsProperty(
+                        template_name="templateName"
+                    ),
+                    update_ca_certificate_params=iot.CfnMitigationAction.UpdateCACertificateParamsProperty(
+                        action="action"
+                    ),
+                    update_device_certificate_params=iot.CfnMitigationAction.UpdateDeviceCertificateParamsProperty(
+                        action="action"
+                    )
+                ),
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                action_name="actionName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14279d6a7ee85683cde23358dbc7a02f3c5c6be59c3ec3549c642e8450934f0c)
+            check_type(argname="argument action_params", value=action_params, expected_type=type_hints["action_params"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_params": action_params,
+            "role_arn": role_arn,
+        }
+        if action_name is not None:
+            self._values["action_name"] = action_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def action_params(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnMitigationAction.ActionParamsProperty"]:
+        '''The set of parameters for this mitigation action.
+
+        The parameters vary, depending on the kind of action you apply.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-actionparams
+        '''
+        result = self._values.get("action_params")
+        assert result is not None, "Required property 'action_params' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMitigationAction.ActionParamsProperty"], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN used to apply this mitigation action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action_name(self) -> typing.Optional[builtins.str]:
+        '''The friendly name of the mitigation action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-actionname
+        '''
+        result = self._values.get("action_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the mitigation action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMitigationActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnPolicyPrincipalAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy_name": "policyName", "principal": "principal"},
+)
+class CfnPolicyPrincipalAttachmentProps:
+    def __init__(self, *, policy_name: builtins.str, principal: builtins.str) -> None:
+        '''Properties for defining a ``CfnPolicyPrincipalAttachment``.
+
+        :param policy_name: The name of the AWS IoT policy.
+        :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_policy_principal_attachment_props = iot.CfnPolicyPrincipalAttachmentProps(
+                policy_name="policyName",
+                principal="principal"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cec9e8ab68d2c8fd5411fa3c1c1bc654f7978e259464b071891262125aba82f)
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_name": policy_name,
+            "principal": principal,
+        }
+
+    @builtins.property
+    def policy_name(self) -> builtins.str:
+        '''The name of the AWS IoT policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html#cfn-iot-policyprincipalattachment-policyname
+        '''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html#cfn-iot-policyprincipalattachment-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyPrincipalAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "policy_document": "policyDocument",
+        "policy_name": "policyName",
+        "tags": "tags",
+    },
+)
+class CfnPolicyProps:
+    def __init__(
+        self,
+        *,
+        policy_document: typing.Any,
+        policy_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicy``.
+
+        :param policy_document: The JSON document that describes the policy.
+        :param policy_name: The policy name.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            # policy_document: Any
+            
+            cfn_policy_props = iot.CfnPolicyProps(
+                policy_document=policy_document,
+            
+                # the properties below are optional
+                policy_name="policyName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39a3544380c0548a2070535d09348ba9dc65c84944619b0bc6868a040530a55b)
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_document": policy_document,
+        }
+        if policy_name is not None:
+            self._values["policy_name"] = policy_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''The JSON document that describes the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def policy_name(self) -> typing.Optional[builtins.str]:
+        '''The policy name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-policyname
+        '''
+        result = self._values.get("policy_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnProvisioningTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "provisioning_role_arn": "provisioningRoleArn",
+        "template_body": "templateBody",
+        "description": "description",
+        "enabled": "enabled",
+        "pre_provisioning_hook": "preProvisioningHook",
+        "tags": "tags",
+        "template_name": "templateName",
+        "template_type": "templateType",
+    },
+)
+class CfnProvisioningTemplateProps:
+    def __init__(
+        self,
+        *,
+        provisioning_role_arn: builtins.str,
+        template_body: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        pre_provisioning_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProvisioningTemplate.ProvisioningHookProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_name: typing.Optional[builtins.str] = None,
+        template_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProvisioningTemplate``.
+
+        :param provisioning_role_arn: The role ARN for the role associated with the fleet provisioning template. This IoT role grants permission to provision a device.
+        :param template_body: The JSON formatted contents of the fleet provisioning template version.
+        :param description: The description of the fleet provisioning template.
+        :param enabled: True to enable the fleet provisioning template, otherwise false.
+        :param pre_provisioning_hook: Creates a pre-provisioning hook template.
+        :param tags: Metadata that can be used to manage the fleet provisioning template.
+        :param template_name: The name of the fleet provisioning template.
+        :param template_type: The type of the provisioning template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_provisioning_template_props = iot.CfnProvisioningTemplateProps(
+                provisioning_role_arn="provisioningRoleArn",
+                template_body="templateBody",
+            
+                # the properties below are optional
+                description="description",
+                enabled=False,
+                pre_provisioning_hook=iot.CfnProvisioningTemplate.ProvisioningHookProperty(
+                    payload_version="payloadVersion",
+                    target_arn="targetArn"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                template_name="templateName",
+                template_type="templateType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c77f7c34bd0ba7b87a169be036f82876b81e776ee82a74636a925edb8cb3396d)
+            check_type(argname="argument provisioning_role_arn", value=provisioning_role_arn, expected_type=type_hints["provisioning_role_arn"])
+            check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument pre_provisioning_hook", value=pre_provisioning_hook, expected_type=type_hints["pre_provisioning_hook"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument template_type", value=template_type, expected_type=type_hints["template_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "provisioning_role_arn": provisioning_role_arn,
+            "template_body": template_body,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if pre_provisioning_hook is not None:
+            self._values["pre_provisioning_hook"] = pre_provisioning_hook
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_name is not None:
+            self._values["template_name"] = template_name
+        if template_type is not None:
+            self._values["template_type"] = template_type
+
+    @builtins.property
+    def provisioning_role_arn(self) -> builtins.str:
+        '''The role ARN for the role associated with the fleet provisioning template.
+
+        This IoT role grants permission to provision a device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-provisioningrolearn
+        '''
+        result = self._values.get("provisioning_role_arn")
+        assert result is not None, "Required property 'provisioning_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_body(self) -> builtins.str:
+        '''The JSON formatted contents of the fleet provisioning template version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatebody
+        '''
+        result = self._values.get("template_body")
+        assert result is not None, "Required property 'template_body' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the fleet provisioning template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''True to enable the fleet provisioning template, otherwise false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def pre_provisioning_hook(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProvisioningTemplate.ProvisioningHookProperty"]]:
+        '''Creates a pre-provisioning hook template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-preprovisioninghook
+        '''
+        result = self._values.get("pre_provisioning_hook")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProvisioningTemplate.ProvisioningHookProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the fleet provisioning template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def template_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the fleet provisioning template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def template_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the provisioning template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatetype
+        '''
+        result = self._values.get("template_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProvisioningTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnResourceSpecificLoggingProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "log_level": "logLevel",
+        "target_name": "targetName",
+        "target_type": "targetType",
+    },
+)
+class CfnResourceSpecificLoggingProps:
+    def __init__(
+        self,
+        *,
+        log_level: builtins.str,
+        target_name: builtins.str,
+        target_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceSpecificLogging``.
+
+        :param log_level: The default log level.Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``.
+        :param target_name: The target name.
+        :param target_type: The target type. Valid Values: ``DEFAULT | THING_GROUP``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_resource_specific_logging_props = iot.CfnResourceSpecificLoggingProps(
+                log_level="logLevel",
+                target_name="targetName",
+                target_type="targetType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dfc74587c5f8a3e2bf00503c8729419e4520b941ac9d4079c012e67b208920b)
+            check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
+            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
+            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "log_level": log_level,
+            "target_name": target_name,
+            "target_type": target_type,
+        }
+
+    @builtins.property
+    def log_level(self) -> builtins.str:
+        '''The default log level.Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-loglevel
+        '''
+        result = self._values.get("log_level")
+        assert result is not None, "Required property 'log_level' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_name(self) -> builtins.str:
+        '''The target name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-targetname
+        '''
+        result = self._values.get("target_name")
+        assert result is not None, "Required property 'target_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_type(self) -> builtins.str:
+        '''The target type.
+
+        Valid Values: ``DEFAULT | THING_GROUP``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-targettype
+        '''
+        result = self._values.get("target_type")
+        assert result is not None, "Required property 'target_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceSpecificLoggingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnRoleAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "role_arn": "roleArn",
+        "credential_duration_seconds": "credentialDurationSeconds",
+        "role_alias": "roleAlias",
+        "tags": "tags",
+    },
+)
+class CfnRoleAliasProps:
+    def __init__(
+        self,
+        *,
+        role_arn: builtins.str,
+        credential_duration_seconds: typing.Optional[jsii.Number] = None,
+        role_alias: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRoleAlias``.
+
+        :param role_arn: The role ARN.
+        :param credential_duration_seconds: The number of seconds for which the credential is valid. Default: - 3600
+        :param role_alias: The role alias.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_role_alias_props = iot.CfnRoleAliasProps(
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                credential_duration_seconds=123,
+                role_alias="roleAlias",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89734d52567c33f755f92e47698f90933bfc19822c106ff024434f75c7f46d81)
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument credential_duration_seconds", value=credential_duration_seconds, expected_type=type_hints["credential_duration_seconds"])
+            check_type(argname="argument role_alias", value=role_alias, expected_type=type_hints["role_alias"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role_arn": role_arn,
+        }
+        if credential_duration_seconds is not None:
+            self._values["credential_duration_seconds"] = credential_duration_seconds
+        if role_alias is not None:
+            self._values["role_alias"] = role_alias
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The role ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def credential_duration_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds for which the credential is valid.
+
+        :default: - 3600
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-credentialdurationseconds
+        '''
+        result = self._values.get("credential_duration_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def role_alias(self) -> typing.Optional[builtins.str]:
+        '''The role alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-rolealias
+        '''
+        result = self._values.get("role_alias")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRoleAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnScheduledAuditProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "frequency": "frequency",
+        "target_check_names": "targetCheckNames",
+        "day_of_month": "dayOfMonth",
+        "day_of_week": "dayOfWeek",
+        "scheduled_audit_name": "scheduledAuditName",
+        "tags": "tags",
+    },
+)
+class CfnScheduledAuditProps:
+    def __init__(
+        self,
+        *,
+        frequency: builtins.str,
+        target_check_names: typing.Sequence[builtins.str],
+        day_of_month: typing.Optional[builtins.str] = None,
+        day_of_week: typing.Optional[builtins.str] = None,
+        scheduled_audit_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScheduledAudit``.
+
+        :param frequency: How often the scheduled audit occurs.
+        :param target_check_names: Which checks are performed during the scheduled audit. Checks must be enabled for your account. (Use ``DescribeAccountAuditConfiguration`` to see the list of all checks, including those that are enabled or use ``UpdateAccountAuditConfiguration`` to select which checks are enabled.) The following checks are currently available: - ``AUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK`` - ``CA_CERTIFICATE_EXPIRING_CHECK`` - ``CA_CERTIFICATE_KEY_QUALITY_CHECK`` - ``CONFLICTING_CLIENT_IDS_CHECK`` - ``DEVICE_CERTIFICATE_EXPIRING_CHECK`` - ``DEVICE_CERTIFICATE_KEY_QUALITY_CHECK`` - ``DEVICE_CERTIFICATE_SHARED_CHECK`` - ``IOT_POLICY_OVERLY_PERMISSIVE_CHECK`` - ``IOT_ROLE_ALIAS_ALLOWS_ACCESS_TO_UNUSED_SERVICES_CHECK`` - ``IOT_ROLE_ALIAS_OVERLY_PERMISSIVE_CHECK`` - ``LOGGING_DISABLED_CHECK`` - ``REVOKED_CA_CERTIFICATE_STILL_ACTIVE_CHECK`` - ``REVOKED_DEVICE_CERTIFICATE_STILL_ACTIVE_CHECK`` - ``UNAUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
+        :param day_of_month: The day of the month on which the scheduled audit is run (if the ``frequency`` is "MONTHLY"). If days 29-31 are specified, and the month does not have that many days, the audit takes place on the "LAST" day of the month.
+        :param day_of_week: The day of the week on which the scheduled audit is run (if the ``frequency`` is "WEEKLY" or "BIWEEKLY").
+        :param scheduled_audit_name: The name of the scheduled audit.
+        :param tags: Metadata that can be used to manage the scheduled audit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_scheduled_audit_props = iot.CfnScheduledAuditProps(
+                frequency="frequency",
+                target_check_names=["targetCheckNames"],
+            
+                # the properties below are optional
+                day_of_month="dayOfMonth",
+                day_of_week="dayOfWeek",
+                scheduled_audit_name="scheduledAuditName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d89f186b0fe486dac5fcb8401325db3513405133d049339688b1eb14a808aa71)
+            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
+            check_type(argname="argument target_check_names", value=target_check_names, expected_type=type_hints["target_check_names"])
+            check_type(argname="argument day_of_month", value=day_of_month, expected_type=type_hints["day_of_month"])
+            check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
+            check_type(argname="argument scheduled_audit_name", value=scheduled_audit_name, expected_type=type_hints["scheduled_audit_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "frequency": frequency,
+            "target_check_names": target_check_names,
+        }
+        if day_of_month is not None:
+            self._values["day_of_month"] = day_of_month
+        if day_of_week is not None:
+            self._values["day_of_week"] = day_of_week
+        if scheduled_audit_name is not None:
+            self._values["scheduled_audit_name"] = scheduled_audit_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def frequency(self) -> builtins.str:
+        '''How often the scheduled audit occurs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-frequency
+        '''
+        result = self._values.get("frequency")
+        assert result is not None, "Required property 'frequency' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_check_names(self) -> typing.List[builtins.str]:
+        '''Which checks are performed during the scheduled audit.
+
+        Checks must be enabled for your account. (Use ``DescribeAccountAuditConfiguration`` to see the list of all checks, including those that are enabled or use ``UpdateAccountAuditConfiguration`` to select which checks are enabled.)
+
+        The following checks are currently available:
+
+        - ``AUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
+        - ``CA_CERTIFICATE_EXPIRING_CHECK``
+        - ``CA_CERTIFICATE_KEY_QUALITY_CHECK``
+        - ``CONFLICTING_CLIENT_IDS_CHECK``
+        - ``DEVICE_CERTIFICATE_EXPIRING_CHECK``
+        - ``DEVICE_CERTIFICATE_KEY_QUALITY_CHECK``
+        - ``DEVICE_CERTIFICATE_SHARED_CHECK``
+        - ``IOT_POLICY_OVERLY_PERMISSIVE_CHECK``
+        - ``IOT_ROLE_ALIAS_ALLOWS_ACCESS_TO_UNUSED_SERVICES_CHECK``
+        - ``IOT_ROLE_ALIAS_OVERLY_PERMISSIVE_CHECK``
+        - ``LOGGING_DISABLED_CHECK``
+        - ``REVOKED_CA_CERTIFICATE_STILL_ACTIVE_CHECK``
+        - ``REVOKED_DEVICE_CERTIFICATE_STILL_ACTIVE_CHECK``
+        - ``UNAUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-targetchecknames
+        '''
+        result = self._values.get("target_check_names")
+        assert result is not None, "Required property 'target_check_names' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def day_of_month(self) -> typing.Optional[builtins.str]:
+        '''The day of the month on which the scheduled audit is run (if the ``frequency`` is "MONTHLY").
+
+        If days 29-31 are specified, and the month does not have that many days, the audit takes place on the "LAST" day of the month.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-dayofmonth
+        '''
+        result = self._values.get("day_of_month")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def day_of_week(self) -> typing.Optional[builtins.str]:
+        '''The day of the week on which the scheduled audit is run (if the ``frequency`` is "WEEKLY" or "BIWEEKLY").
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-dayofweek
+        '''
+        result = self._values.get("day_of_week")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scheduled_audit_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the scheduled audit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-scheduledauditname
+        '''
+        result = self._values.get("scheduled_audit_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the scheduled audit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduledAuditProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnSecurityProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "additional_metrics_to_retain_v2": "additionalMetricsToRetainV2",
+        "alert_targets": "alertTargets",
+        "behaviors": "behaviors",
+        "metrics_export_config": "metricsExportConfig",
+        "security_profile_description": "securityProfileDescription",
+        "security_profile_name": "securityProfileName",
+        "tags": "tags",
+        "target_arns": "targetArns",
+    },
+)
+class CfnSecurityProfileProps:
+    def __init__(
+        self,
+        *,
+        additional_metrics_to_retain_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityProfile.MetricToRetainProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        alert_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityProfile.AlertTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityProfile.BehaviorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics_export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityProfile.MetricsExportConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_profile_description: typing.Optional[builtins.str] = None,
+        security_profile_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityProfile``.
+
+        :param additional_metrics_to_retain_v2: A list of metrics whose data is retained (stored). By default, data is retained for any metric used in the profile's ``behaviors`` , but it's also retained for any metric specified here. Can be used with custom metrics; can't be used with dimensions.
+        :param alert_targets: Specifies the destinations to which alerts are sent. (Alerts are always sent to the console.) Alerts are generated when a device (thing) violates a behavior.
+        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause an alert.
+        :param metrics_export_config: Specifies the MQTT topic and role ARN required for metric export.
+        :param security_profile_description: A description of the security profile.
+        :param security_profile_name: The name you gave to the security profile.
+        :param tags: Metadata that can be used to manage the security profile.
+        :param target_arns: The ARN of the target (thing group) to which the security profile is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_security_profile_props = iot.CfnSecurityProfileProps(
+                additional_metrics_to_retain_v2=[iot.CfnSecurityProfile.MetricToRetainProperty(
+                    metric="metric",
+            
+                    # the properties below are optional
+                    export_metric=False,
+                    metric_dimension=iot.CfnSecurityProfile.MetricDimensionProperty(
+                        dimension_name="dimensionName",
+            
+                        # the properties below are optional
+                        operator="operator"
+                    )
+                )],
+                alert_targets={
+                    "alert_targets_key": iot.CfnSecurityProfile.AlertTargetProperty(
+                        alert_target_arn="alertTargetArn",
+                        role_arn="roleArn"
+                    )
+                },
+                behaviors=[iot.CfnSecurityProfile.BehaviorProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    criteria=iot.CfnSecurityProfile.BehaviorCriteriaProperty(
+                        comparison_operator="comparisonOperator",
+                        consecutive_datapoints_to_alarm=123,
+                        consecutive_datapoints_to_clear=123,
+                        duration_seconds=123,
+                        ml_detection_config=iot.CfnSecurityProfile.MachineLearningDetectionConfigProperty(
+                            confidence_level="confidenceLevel"
+                        ),
+                        statistical_threshold=iot.CfnSecurityProfile.StatisticalThresholdProperty(
+                            statistic="statistic"
+                        ),
+                        value=iot.CfnSecurityProfile.MetricValueProperty(
+                            cidrs=["cidrs"],
+                            count="count",
+                            number=123,
+                            numbers=[123],
+                            ports=[123],
+                            strings=["strings"]
+                        )
+                    ),
+                    export_metric=False,
+                    metric="metric",
+                    metric_dimension=iot.CfnSecurityProfile.MetricDimensionProperty(
+                        dimension_name="dimensionName",
+            
+                        # the properties below are optional
+                        operator="operator"
+                    ),
+                    suppress_alerts=False
+                )],
+                metrics_export_config=iot.CfnSecurityProfile.MetricsExportConfigProperty(
+                    mqtt_topic="mqttTopic",
+                    role_arn="roleArn"
+                ),
+                security_profile_description="securityProfileDescription",
+                security_profile_name="securityProfileName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_arns=["targetArns"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebb28d586aa0d630c8e29df5bbc78a295e6751c4a5aadaaf79f8f9a23fa9803d)
+            check_type(argname="argument additional_metrics_to_retain_v2", value=additional_metrics_to_retain_v2, expected_type=type_hints["additional_metrics_to_retain_v2"])
+            check_type(argname="argument alert_targets", value=alert_targets, expected_type=type_hints["alert_targets"])
+            check_type(argname="argument behaviors", value=behaviors, expected_type=type_hints["behaviors"])
+            check_type(argname="argument metrics_export_config", value=metrics_export_config, expected_type=type_hints["metrics_export_config"])
+            check_type(argname="argument security_profile_description", value=security_profile_description, expected_type=type_hints["security_profile_description"])
+            check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_arns", value=target_arns, expected_type=type_hints["target_arns"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_metrics_to_retain_v2 is not None:
+            self._values["additional_metrics_to_retain_v2"] = additional_metrics_to_retain_v2
+        if alert_targets is not None:
+            self._values["alert_targets"] = alert_targets
+        if behaviors is not None:
+            self._values["behaviors"] = behaviors
+        if metrics_export_config is not None:
+            self._values["metrics_export_config"] = metrics_export_config
+        if security_profile_description is not None:
+            self._values["security_profile_description"] = security_profile_description
+        if security_profile_name is not None:
+            self._values["security_profile_name"] = security_profile_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_arns is not None:
+            self._values["target_arns"] = target_arns
+
+    @builtins.property
+    def additional_metrics_to_retain_v2(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.MetricToRetainProperty"]]]]:
+        '''A list of metrics whose data is retained (stored).
+
+        By default, data is retained for any metric used in the profile's ``behaviors`` , but it's also retained for any metric specified here. Can be used with custom metrics; can't be used with dimensions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-additionalmetricstoretainv2
+        '''
+        result = self._values.get("additional_metrics_to_retain_v2")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.MetricToRetainProperty"]]]], result)
+
+    @builtins.property
+    def alert_targets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.AlertTargetProperty"]]]]:
+        '''Specifies the destinations to which alerts are sent.
+
+        (Alerts are always sent to the console.) Alerts are generated when a device (thing) violates a behavior.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-alerttargets
+        '''
+        result = self._values.get("alert_targets")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.AlertTargetProperty"]]]], result)
+
+    @builtins.property
+    def behaviors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.BehaviorProperty"]]]]:
+        '''Specifies the behaviors that, when violated by a device (thing), cause an alert.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-behaviors
+        '''
+        result = self._values.get("behaviors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.BehaviorProperty"]]]], result)
+
+    @builtins.property
+    def metrics_export_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.MetricsExportConfigProperty"]]:
+        '''Specifies the MQTT topic and role ARN required for metric export.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-metricsexportconfig
+        '''
+        result = self._values.get("metrics_export_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityProfile.MetricsExportConfigProperty"]], result)
+
+    @builtins.property
+    def security_profile_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-securityprofiledescription
+        '''
+        result = self._values.get("security_profile_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_profile_name(self) -> typing.Optional[builtins.str]:
+        '''The name you gave to the security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-securityprofilename
+        '''
+        result = self._values.get("security_profile_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the security profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def target_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARN of the target (thing group) to which the security profile is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-targetarns
+        '''
+        result = self._values.get("target_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnSoftwarePackageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "package_name": "packageName",
+        "tags": "tags",
+    },
+)
+class CfnSoftwarePackageProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        package_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSoftwarePackage``.
+
+        :param description: A summary of the package being created. This can be used to outline the package's contents or purpose.
+        :param package_name: The name of the new software package.
+        :param tags: Metadata that can be used to manage the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_software_package_props = iot.CfnSoftwarePackageProps(
+                description="description",
+                package_name="packageName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e75272652740c4b3bd44ba16e52293c40475922baea1bac29c22e2841319dbdc)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if package_name is not None:
+            self._values["package_name"] = package_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A summary of the package being created.
+
+        This can be used to outline the package's contents or purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def package_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the new software package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-packagename
+        '''
+        result = self._values.get("package_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSoftwarePackageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnSoftwarePackageVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "package_name": "packageName",
+        "artifact": "artifact",
+        "attributes": "attributes",
+        "description": "description",
+        "recipe": "recipe",
+        "sbom": "sbom",
+        "tags": "tags",
+        "version_name": "versionName",
+    },
+)
+class CfnSoftwarePackageVersionProps:
+    def __init__(
+        self,
+        *,
+        package_name: builtins.str,
+        artifact: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSoftwarePackageVersion.PackageVersionArtifactProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        description: typing.Optional[builtins.str] = None,
+        recipe: typing.Optional[builtins.str] = None,
+        sbom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSoftwarePackageVersion.SbomProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSoftwarePackageVersion``.
+
+        :param package_name: The name of the associated software package.
+        :param artifact: The artifact location of the package version.
+        :param attributes: Metadata that can be used to define a package version’s configuration. For example, the S3 file location, configuration options that are being sent to the device or fleet. The combined size of all the attributes on a package version is limited to 3KB.
+        :param description: A summary of the package version being created. This can be used to outline the package's contents or purpose.
+        :param recipe: The inline json job document associated with a software package version.
+        :param sbom: The sbom zip archive location of the package version.
+        :param tags: Metadata that can be used to manage the package version.
+        :param version_name: The name of the new package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_software_package_version_props = iot.CfnSoftwarePackageVersionProps(
+                package_name="packageName",
+            
+                # the properties below are optional
+                artifact=iot.CfnSoftwarePackageVersion.PackageVersionArtifactProperty(
+                    s3_location=iot.CfnSoftwarePackageVersion.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    )
+                ),
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                description="description",
+                recipe="recipe",
+                sbom=iot.CfnSoftwarePackageVersion.SbomProperty(
+                    s3_location=iot.CfnSoftwarePackageVersion.S3LocationProperty(
+                        bucket="bucket",
+                        key="key",
+                        version="version"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version_name="versionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ee35d011adab7a2d8df83c92656187b403d2781df8df06d9575d380e2f8307c)
+            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument artifact", value=artifact, expected_type=type_hints["artifact"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument recipe", value=recipe, expected_type=type_hints["recipe"])
+            check_type(argname="argument sbom", value=sbom, expected_type=type_hints["sbom"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "package_name": package_name,
+        }
+        if artifact is not None:
+            self._values["artifact"] = artifact
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if description is not None:
+            self._values["description"] = description
+        if recipe is not None:
+            self._values["recipe"] = recipe
+        if sbom is not None:
+            self._values["sbom"] = sbom
+        if tags is not None:
+            self._values["tags"] = tags
+        if version_name is not None:
+            self._values["version_name"] = version_name
+
+    @builtins.property
+    def package_name(self) -> builtins.str:
+        '''The name of the associated software package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-packagename
+        '''
+        result = self._values.get("package_name")
+        assert result is not None, "Required property 'package_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def artifact(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSoftwarePackageVersion.PackageVersionArtifactProperty"]]:
+        '''The artifact location of the package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-artifact
+        '''
+        result = self._values.get("artifact")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSoftwarePackageVersion.PackageVersionArtifactProperty"]], result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Metadata that can be used to define a package version’s configuration.
+
+        For example, the S3 file location, configuration options that are being sent to the device or fleet.
+
+        The combined size of all the attributes on a package version is limited to 3KB.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A summary of the package version being created.
+
+        This can be used to outline the package's contents or purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recipe(self) -> typing.Optional[builtins.str]:
+        '''The inline json job document associated with a software package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-recipe
+        '''
+        result = self._values.get("recipe")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sbom(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSoftwarePackageVersion.SbomProperty"]]:
+        '''The sbom zip archive location of the package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-sbom
+        '''
+        result = self._values.get("sbom")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSoftwarePackageVersion.SbomProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata that can be used to manage the package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def version_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the new package version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-versionname
+        '''
+        result = self._values.get("version_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSoftwarePackageVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnThingGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "parent_group_name": "parentGroupName",
+        "query_string": "queryString",
+        "tags": "tags",
+        "thing_group_name": "thingGroupName",
+        "thing_group_properties": "thingGroupProperties",
+    },
+)
+class CfnThingGroupProps:
+    def __init__(
+        self,
+        *,
+        parent_group_name: typing.Optional[builtins.str] = None,
+        query_string: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        thing_group_name: typing.Optional[builtins.str] = None,
+        thing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnThingGroup.ThingGroupPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThingGroup``.
+
+        :param parent_group_name: The parent thing group name. A Dynamic Thing Group does not have ``parentGroupName`` defined.
+        :param query_string: The dynamic thing group search query string. The ``queryString`` attribute *is* required for ``CreateDynamicThingGroup`` . The ``queryString`` attribute *is not* required for ``CreateThingGroup`` .
+        :param tags: Metadata which can be used to manage the thing group or dynamic thing group.
+        :param thing_group_name: The thing group name.
+        :param thing_group_properties: Thing group properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_thing_group_props = iot.CfnThingGroupProps(
+                parent_group_name="parentGroupName",
+                query_string="queryString",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                thing_group_name="thingGroupName",
+                thing_group_properties=iot.CfnThingGroup.ThingGroupPropertiesProperty(
+                    attribute_payload=iot.CfnThingGroup.AttributePayloadProperty(
+                        attributes={
+                            "attributes_key": "attributes"
+                        }
+                    ),
+                    thing_group_description="thingGroupDescription"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe8b10fbc51b50f02212f7fdaf0c3fbd06b63f119d2266837a7a0d605201b8d8)
+            check_type(argname="argument parent_group_name", value=parent_group_name, expected_type=type_hints["parent_group_name"])
+            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument thing_group_name", value=thing_group_name, expected_type=type_hints["thing_group_name"])
+            check_type(argname="argument thing_group_properties", value=thing_group_properties, expected_type=type_hints["thing_group_properties"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if parent_group_name is not None:
+            self._values["parent_group_name"] = parent_group_name
+        if query_string is not None:
+            self._values["query_string"] = query_string
+        if tags is not None:
+            self._values["tags"] = tags
+        if thing_group_name is not None:
+            self._values["thing_group_name"] = thing_group_name
+        if thing_group_properties is not None:
+            self._values["thing_group_properties"] = thing_group_properties
+
+    @builtins.property
+    def parent_group_name(self) -> typing.Optional[builtins.str]:
+        '''The parent thing group name.
+
+        A Dynamic Thing Group does not have ``parentGroupName`` defined.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-parentgroupname
+        '''
+        result = self._values.get("parent_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def query_string(self) -> typing.Optional[builtins.str]:
+        '''The dynamic thing group search query string.
+
+        The ``queryString`` attribute *is* required for ``CreateDynamicThingGroup`` . The ``queryString`` attribute *is not* required for ``CreateThingGroup`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-querystring
+        '''
+        result = self._values.get("query_string")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the thing group or dynamic thing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def thing_group_name(self) -> typing.Optional[builtins.str]:
+        '''The thing group name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-thinggroupname
+        '''
+        result = self._values.get("thing_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def thing_group_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThingGroup.ThingGroupPropertiesProperty"]]:
+        '''Thing group properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-thinggroupproperties
+        '''
+        result = self._values.get("thing_group_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThingGroup.ThingGroupPropertiesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThingGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnThingPrincipalAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "principal": "principal",
+        "thing_name": "thingName",
+        "thing_principal_type": "thingPrincipalType",
+    },
+)
+class CfnThingPrincipalAttachmentProps:
+    def __init__(
+        self,
+        *,
+        principal: builtins.str,
+        thing_name: builtins.str,
+        thing_principal_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThingPrincipalAttachment``.
+
+        :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
+        :param thing_name: The name of the AWS IoT thing.
+        :param thing_principal_type: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_thing_principal_attachment_props = iot.CfnThingPrincipalAttachmentProps(
+                principal="principal",
+                thing_name="thingName",
+            
+                # the properties below are optional
+                thing_principal_type="thingPrincipalType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84c8fe9c6ac7dd6ea654efc3fff6dfccf459a1bb6ca2a2b3be5d3116fa7d6022)
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
+            check_type(argname="argument thing_principal_type", value=thing_principal_type, expected_type=type_hints["thing_principal_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "principal": principal,
+            "thing_name": thing_name,
+        }
+        if thing_principal_type is not None:
+            self._values["thing_principal_type"] = thing_principal_type
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_name(self) -> builtins.str:
+        '''The name of the AWS IoT thing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-thingname
+        '''
+        result = self._values.get("thing_name")
+        assert result is not None, "Required property 'thing_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_principal_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-thingprincipaltype
+        '''
+        result = self._values.get("thing_principal_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThingPrincipalAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnThingProps",
+    jsii_struct_bases=[],
+    name_mapping={"attribute_payload": "attributePayload", "thing_name": "thingName"},
+)
+class CfnThingProps:
+    def __init__(
+        self,
+        *,
+        attribute_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnThing.AttributePayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        thing_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThing``.
+
+        :param attribute_payload: A string that contains up to three key value pairs. Maximum length of 800. Duplicates not allowed.
+        :param thing_name: The name of the thing to update. You can't change a thing's name. To change a thing's name, you must create a new thing, give it the new name, and then delete the old thing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_thing_props = iot.CfnThingProps(
+                attribute_payload=iot.CfnThing.AttributePayloadProperty(
+                    attributes={
+                        "attributes_key": "attributes"
+                    }
+                ),
+                thing_name="thingName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba3934496b94df046a49e307c9819bef85e3de0f86444390ef6f950faf30d1e9)
+            check_type(argname="argument attribute_payload", value=attribute_payload, expected_type=type_hints["attribute_payload"])
+            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if attribute_payload is not None:
+            self._values["attribute_payload"] = attribute_payload
+        if thing_name is not None:
+            self._values["thing_name"] = thing_name
+
+    @builtins.property
+    def attribute_payload(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThing.AttributePayloadProperty"]]:
+        '''A string that contains up to three key value pairs.
+
+        Maximum length of 800. Duplicates not allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html#cfn-iot-thing-attributepayload
+        '''
+        result = self._values.get("attribute_payload")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThing.AttributePayloadProperty"]], result)
+
+    @builtins.property
+    def thing_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the thing to update.
+
+        You can't change a thing's name. To change a thing's name, you must create a new thing, give it the new name, and then delete the old thing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html#cfn-iot-thing-thingname
+        '''
+        result = self._values.get("thing_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnThingTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "deprecate_thing_type": "deprecateThingType",
+        "tags": "tags",
+        "thing_type_name": "thingTypeName",
+        "thing_type_properties": "thingTypeProperties",
+    },
+)
+class CfnThingTypeProps:
+    def __init__(
+        self,
+        *,
+        deprecate_thing_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        thing_type_name: typing.Optional[builtins.str] = None,
+        thing_type_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnThingType.ThingTypePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThingType``.
+
+        :param deprecate_thing_type: Deprecates a thing type. You can not associate new things with deprecated thing type. Requires permission to access the `DeprecateThingType <https://docs.aws.amazon.com//service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`_ action.
+        :param tags: Metadata which can be used to manage the thing type.
+        :param thing_type_name: The name of the thing type.
+        :param thing_type_properties: The thing type properties for the thing type to create. It contains information about the new thing type including a description, a list of searchable thing attribute names, and a list of propagating attributes. After a thing type is created, you can only update ``Mqtt5Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_thing_type_props = iot.CfnThingTypeProps(
+                deprecate_thing_type=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                thing_type_name="thingTypeName",
+                thing_type_properties=iot.CfnThingType.ThingTypePropertiesProperty(
+                    mqtt5_configuration=iot.CfnThingType.Mqtt5ConfigurationProperty(
+                        propagating_attributes=[iot.CfnThingType.PropagatingAttributeProperty(
+                            user_property_key="userPropertyKey",
+            
+                            # the properties below are optional
+                            connection_attribute="connectionAttribute",
+                            thing_attribute="thingAttribute"
+                        )]
+                    ),
+                    searchable_attributes=["searchableAttributes"],
+                    thing_type_description="thingTypeDescription"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0e7d8d693b9953903ebfffb338891caf23570681be8a1a696442dc23cfa3171)
+            check_type(argname="argument deprecate_thing_type", value=deprecate_thing_type, expected_type=type_hints["deprecate_thing_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument thing_type_name", value=thing_type_name, expected_type=type_hints["thing_type_name"])
+            check_type(argname="argument thing_type_properties", value=thing_type_properties, expected_type=type_hints["thing_type_properties"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if deprecate_thing_type is not None:
+            self._values["deprecate_thing_type"] = deprecate_thing_type
+        if tags is not None:
+            self._values["tags"] = tags
+        if thing_type_name is not None:
+            self._values["thing_type_name"] = thing_type_name
+        if thing_type_properties is not None:
+            self._values["thing_type_properties"] = thing_type_properties
+
+    @builtins.property
+    def deprecate_thing_type(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Deprecates a thing type. You can not associate new things with deprecated thing type.
+
+        Requires permission to access the `DeprecateThingType <https://docs.aws.amazon.com//service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`_ action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-deprecatethingtype
+        '''
+        result = self._values.get("deprecate_thing_type")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the thing type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def thing_type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the thing type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-thingtypename
+        '''
+        result = self._values.get("thing_type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def thing_type_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThingType.ThingTypePropertiesProperty"]]:
+        '''The thing type properties for the thing type to create.
+
+        It contains information about the new thing type including a description, a list of searchable thing attribute names, and a list of propagating attributes. After a thing type is created, you can only update ``Mqtt5Configuration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-thingtypeproperties
+        '''
+        result = self._values.get("thing_type_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnThingType.ThingTypePropertiesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThingTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnTopicRuleDestinationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "http_url_properties": "httpUrlProperties",
+        "status": "status",
+        "vpc_properties": "vpcProperties",
+    },
+)
+class CfnTopicRuleDestinationProps:
+    def __init__(
+        self,
+        *,
+        http_url_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        vpc_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTopicRuleDestination.VpcDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTopicRuleDestination``.
+
+        :param http_url_properties: Properties of the HTTP URL.
+        :param status: - **IN_PROGRESS** - A topic rule destination was created but has not been confirmed. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint. - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` . - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` . - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
+        :param vpc_properties: Properties of the virtual private cloud (VPC) connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_topic_rule_destination_props = iot.CfnTopicRuleDestinationProps(
+                http_url_properties=iot.CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty(
+                    confirmation_url="confirmationUrl"
+                ),
+                status="status",
+                vpc_properties=iot.CfnTopicRuleDestination.VpcDestinationPropertiesProperty(
+                    role_arn="roleArn",
+                    security_groups=["securityGroups"],
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996)
+            check_type(argname="argument http_url_properties", value=http_url_properties, expected_type=type_hints["http_url_properties"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument vpc_properties", value=vpc_properties, expected_type=type_hints["vpc_properties"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if http_url_properties is not None:
+            self._values["http_url_properties"] = http_url_properties
+        if status is not None:
+            self._values["status"] = status
+        if vpc_properties is not None:
+            self._values["vpc_properties"] = vpc_properties
+
+    @builtins.property
+    def http_url_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty"]]:
+        '''Properties of the HTTP URL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-httpurlproperties
+        '''
+        result = self._values.get("http_url_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty"]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''- **IN_PROGRESS** - A topic rule destination was created but has not been confirmed.
+
+        You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
+
+        - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` .
+        - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` .
+        - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTopicRuleDestination.VpcDestinationPropertiesProperty"]]:
+        '''Properties of the virtual private cloud (VPC) connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-vpcproperties
+        '''
+        result = self._values.get("vpc_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTopicRuleDestination.VpcDestinationPropertiesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTopicRuleDestinationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnTopicRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "topic_rule_payload": "topicRulePayload",
+        "rule_name": "ruleName",
+        "tags": "tags",
+    },
+)
+class CfnTopicRuleProps:
+    def __init__(
+        self,
+        *,
+        topic_rule_payload: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTopicRule.TopicRulePayloadProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTopicRule``.
+
+        :param topic_rule_payload: The rule payload.
+        :param rule_name: The name of the rule.
+        :param tags: Metadata which can be used to manage the topic rule. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: --tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_topic_rule_props = iot.CfnTopicRuleProps(
+                topic_rule_payload=iot.CfnTopicRule.TopicRulePayloadProperty(
+                    actions=[iot.CfnTopicRule.ActionProperty(
+                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
+                            alarm_name="alarmName",
+                            role_arn="roleArn",
+                            state_reason="stateReason",
+                            state_value="stateValue"
+                        ),
+                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
+                            log_group_name="logGroupName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False
+                        ),
+                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
+                            metric_name="metricName",
+                            metric_namespace="metricNamespace",
+                            metric_unit="metricUnit",
+                            metric_value="metricValue",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            metric_timestamp="metricTimestamp"
+                        ),
+                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
+                            hash_key_field="hashKeyField",
+                            hash_key_value="hashKeyValue",
+                            role_arn="roleArn",
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            hash_key_type="hashKeyType",
+                            payload_field="payloadField",
+                            range_key_field="rangeKeyField",
+                            range_key_type="rangeKeyType",
+                            range_key_value="rangeKeyValue"
+                        ),
+                        dynamo_dBv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
+                            put_item=iot.CfnTopicRule.PutItemInputProperty(
+                                table_name="tableName"
+                            ),
+                            role_arn="roleArn"
+                        ),
+                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
+                            endpoint="endpoint",
+                            id="id",
+                            index="index",
+                            role_arn="roleArn",
+                            type="type"
+                        ),
+                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
+                            delivery_stream_name="deliveryStreamName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False,
+                            separator="separator"
+                        ),
+                        http=iot.CfnTopicRule.HttpActionProperty(
+                            url="url",
+            
+                            # the properties below are optional
+                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
+                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
+                                    role_arn="roleArn",
+                                    service_name="serviceName",
+                                    signing_region="signingRegion"
+                                )
+                            ),
+                            confirmation_url="confirmationUrl",
+                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
+                                key="key",
+                                value="value"
+                            )]
+                        ),
+                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
+                            channel_name="channelName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False
+                        ),
+                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
+                            input_name="inputName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False,
+                            message_id="messageId"
+                        ),
+                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
+                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
+                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
+                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
+                                        time_in_seconds="timeInSeconds",
+            
+                                        # the properties below are optional
+                                        offset_in_nanos="offsetInNanos"
+                                    ),
+                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
+                                        boolean_value="booleanValue",
+                                        double_value="doubleValue",
+                                        integer_value="integerValue",
+                                        string_value="stringValue"
+                                    ),
+            
+                                    # the properties below are optional
+                                    quality="quality"
+                                )],
+            
+                                # the properties below are optional
+                                asset_id="assetId",
+                                entry_id="entryId",
+                                property_alias="propertyAlias",
+                                property_id="propertyId"
+                            )],
+                            role_arn="roleArn"
+                        ),
+                        kafka=iot.CfnTopicRule.KafkaActionProperty(
+                            client_properties={
+                                "client_properties_key": "clientProperties"
+                            },
+                            destination_arn="destinationArn",
+                            topic="topic",
+            
+                            # the properties below are optional
+                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
+                                key="key",
+                                value="value"
+                            )],
+                            key="key",
+                            partition="partition"
+                        ),
+                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
+                            role_arn="roleArn",
+                            stream_name="streamName",
+            
+                            # the properties below are optional
+                            partition_key="partitionKey"
+                        ),
+                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
+                            function_arn="functionArn"
+                        ),
+                        location=iot.CfnTopicRule.LocationActionProperty(
+                            device_id="deviceId",
+                            latitude="latitude",
+                            longitude="longitude",
+                            role_arn="roleArn",
+                            tracker_name="trackerName",
+            
+                            # the properties below are optional
+                            timestamp=iot.CfnTopicRule.TimestampProperty(
+                                value="value",
+            
+                                # the properties below are optional
+                                unit="unit"
+                            )
+                        ),
+                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
+                            endpoint="endpoint",
+                            id="id",
+                            index="index",
+                            role_arn="roleArn",
+                            type="type"
+                        ),
+                        republish=iot.CfnTopicRule.RepublishActionProperty(
+                            role_arn="roleArn",
+                            topic="topic",
+            
+                            # the properties below are optional
+                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
+                                content_type="contentType",
+                                correlation_data="correlationData",
+                                message_expiry="messageExpiry",
+                                payload_format_indicator="payloadFormatIndicator",
+                                response_topic="responseTopic",
+                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
+                                    key="key",
+                                    value="value"
+                                )]
+                            ),
+                            qos=123
+                        ),
+                        s3=iot.CfnTopicRule.S3ActionProperty(
+                            bucket_name="bucketName",
+                            key="key",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            canned_acl="cannedAcl"
+                        ),
+                        sns=iot.CfnTopicRule.SnsActionProperty(
+                            role_arn="roleArn",
+                            target_arn="targetArn",
+            
+                            # the properties below are optional
+                            message_format="messageFormat"
+                        ),
+                        sqs=iot.CfnTopicRule.SqsActionProperty(
+                            queue_url="queueUrl",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            use_base64=False
+                        ),
+                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
+                            role_arn="roleArn",
+                            state_machine_name="stateMachineName",
+            
+                            # the properties below are optional
+                            execution_name_prefix="executionNamePrefix"
+                        ),
+                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
+                            database_name="databaseName",
+                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            role_arn="roleArn",
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
+                                unit="unit",
+                                value="value"
+                            )
+                        )
+                    )],
+                    sql="sql",
+            
+                    # the properties below are optional
+                    aws_iot_sql_version="awsIotSqlVersion",
+                    description="description",
+                    error_action=iot.CfnTopicRule.ActionProperty(
+                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
+                            alarm_name="alarmName",
+                            role_arn="roleArn",
+                            state_reason="stateReason",
+                            state_value="stateValue"
+                        ),
+                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
+                            log_group_name="logGroupName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False
+                        ),
+                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
+                            metric_name="metricName",
+                            metric_namespace="metricNamespace",
+                            metric_unit="metricUnit",
+                            metric_value="metricValue",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            metric_timestamp="metricTimestamp"
+                        ),
+                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
+                            hash_key_field="hashKeyField",
+                            hash_key_value="hashKeyValue",
+                            role_arn="roleArn",
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            hash_key_type="hashKeyType",
+                            payload_field="payloadField",
+                            range_key_field="rangeKeyField",
+                            range_key_type="rangeKeyType",
+                            range_key_value="rangeKeyValue"
+                        ),
+                        dynamo_dBv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
+                            put_item=iot.CfnTopicRule.PutItemInputProperty(
+                                table_name="tableName"
+                            ),
+                            role_arn="roleArn"
+                        ),
+                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
+                            endpoint="endpoint",
+                            id="id",
+                            index="index",
+                            role_arn="roleArn",
+                            type="type"
+                        ),
+                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
+                            delivery_stream_name="deliveryStreamName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False,
+                            separator="separator"
+                        ),
+                        http=iot.CfnTopicRule.HttpActionProperty(
+                            url="url",
+            
+                            # the properties below are optional
+                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
+                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
+                                    role_arn="roleArn",
+                                    service_name="serviceName",
+                                    signing_region="signingRegion"
+                                )
+                            ),
+                            confirmation_url="confirmationUrl",
+                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
+                                key="key",
+                                value="value"
+                            )]
+                        ),
+                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
+                            channel_name="channelName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False
+                        ),
+                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
+                            input_name="inputName",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            batch_mode=False,
+                            message_id="messageId"
+                        ),
+                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
+                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
+                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
+                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
+                                        time_in_seconds="timeInSeconds",
+            
+                                        # the properties below are optional
+                                        offset_in_nanos="offsetInNanos"
+                                    ),
+                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
+                                        boolean_value="booleanValue",
+                                        double_value="doubleValue",
+                                        integer_value="integerValue",
+                                        string_value="stringValue"
+                                    ),
+            
+                                    # the properties below are optional
+                                    quality="quality"
+                                )],
+            
+                                # the properties below are optional
+                                asset_id="assetId",
+                                entry_id="entryId",
+                                property_alias="propertyAlias",
+                                property_id="propertyId"
+                            )],
+                            role_arn="roleArn"
+                        ),
+                        kafka=iot.CfnTopicRule.KafkaActionProperty(
+                            client_properties={
+                                "client_properties_key": "clientProperties"
+                            },
+                            destination_arn="destinationArn",
+                            topic="topic",
+            
+                            # the properties below are optional
+                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
+                                key="key",
+                                value="value"
+                            )],
+                            key="key",
+                            partition="partition"
+                        ),
+                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
+                            role_arn="roleArn",
+                            stream_name="streamName",
+            
+                            # the properties below are optional
+                            partition_key="partitionKey"
+                        ),
+                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
+                            function_arn="functionArn"
+                        ),
+                        location=iot.CfnTopicRule.LocationActionProperty(
+                            device_id="deviceId",
+                            latitude="latitude",
+                            longitude="longitude",
+                            role_arn="roleArn",
+                            tracker_name="trackerName",
+            
+                            # the properties below are optional
+                            timestamp=iot.CfnTopicRule.TimestampProperty(
+                                value="value",
+            
+                                # the properties below are optional
+                                unit="unit"
+                            )
+                        ),
+                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
+                            endpoint="endpoint",
+                            id="id",
+                            index="index",
+                            role_arn="roleArn",
+                            type="type"
+                        ),
+                        republish=iot.CfnTopicRule.RepublishActionProperty(
+                            role_arn="roleArn",
+                            topic="topic",
+            
+                            # the properties below are optional
+                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
+                                content_type="contentType",
+                                correlation_data="correlationData",
+                                message_expiry="messageExpiry",
+                                payload_format_indicator="payloadFormatIndicator",
+                                response_topic="responseTopic",
+                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
+                                    key="key",
+                                    value="value"
+                                )]
+                            ),
+                            qos=123
+                        ),
+                        s3=iot.CfnTopicRule.S3ActionProperty(
+                            bucket_name="bucketName",
+                            key="key",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            canned_acl="cannedAcl"
+                        ),
+                        sns=iot.CfnTopicRule.SnsActionProperty(
+                            role_arn="roleArn",
+                            target_arn="targetArn",
+            
+                            # the properties below are optional
+                            message_format="messageFormat"
+                        ),
+                        sqs=iot.CfnTopicRule.SqsActionProperty(
+                            queue_url="queueUrl",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            use_base64=False
+                        ),
+                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
+                            role_arn="roleArn",
+                            state_machine_name="stateMachineName",
+            
+                            # the properties below are optional
+                            execution_name_prefix="executionNamePrefix"
+                        ),
+                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
+                            database_name="databaseName",
+                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            role_arn="roleArn",
+                            table_name="tableName",
+            
+                            # the properties below are optional
+                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
+                                unit="unit",
+                                value="value"
+                            )
+                        )
+                    ),
+                    rule_disabled=False
+                ),
+            
+                # the properties below are optional
+                rule_name="ruleName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a58144efe3ee63b9453f5d33647fec5f202850f1807bc4520bc493599e404f50)
+            check_type(argname="argument topic_rule_payload", value=topic_rule_payload, expected_type=type_hints["topic_rule_payload"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "topic_rule_payload": topic_rule_payload,
+        }
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def topic_rule_payload(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnTopicRule.TopicRulePayloadProperty"]:
+        '''The rule payload.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-topicrulepayload
+        '''
+        result = self._values.get("topic_rule_payload")
+        assert result is not None, "Required property 'topic_rule_payload' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTopicRule.TopicRulePayloadProperty"], result)
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-rulename
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the topic rule.
+
+        .. epigraph::
+
+           For URI Request parameters use format: ...key1=value1&key2=value2...
+
+           For the CLI command-line parameter use format: --tags "key1=value1&key2=value2..."
+
+           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTopicRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CommandReference",
+    jsii_struct_bases=[],
+    name_mapping={"command_arn": "commandArn", "command_id": "commandId"},
+)
+class CommandReference:
+    def __init__(self, *, command_arn: builtins.str, command_id: builtins.str) -> None:
+        '''A reference to a Command resource.
+
+        :param command_arn: The ARN of the Command resource.
+        :param command_id: The CommandId of the Command resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            command_reference = iot.CommandReference(
+                command_arn="commandArn",
+                command_id="commandId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b18031bc3a2d8ff497d3b7e5db59c80cc0f42326a25dfa400f56bfb48590f35)
+            check_type(argname="argument command_arn", value=command_arn, expected_type=type_hints["command_arn"])
+            check_type(argname="argument command_id", value=command_id, expected_type=type_hints["command_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "command_arn": command_arn,
+            "command_id": command_id,
+        }
+
+    @builtins.property
+    def command_arn(self) -> builtins.str:
+        '''The ARN of the Command resource.'''
+        result = self._values.get("command_arn")
+        assert result is not None, "Required property 'command_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def command_id(self) -> builtins.str:
+        '''The CommandId of the Command resource.'''
+        result = self._values.get("command_id")
+        assert result is not None, "Required property 'command_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CommandReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CustomMetricReference",
+    jsii_struct_bases=[],
+    name_mapping={"metric_name": "metricName"},
+)
+class CustomMetricReference:
+    def __init__(self, *, metric_name: builtins.str) -> None:
+        '''A reference to a CustomMetric resource.
+
+        :param metric_name: The MetricName of the CustomMetric resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            custom_metric_reference = iot.CustomMetricReference(
+                metric_name="metricName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efc70d3736821b89cb3297b93c71dc3cdf4f0289b3ed9b7719e2b8a4b21cb2c9)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_name": metric_name,
+        }
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''The MetricName of the CustomMetric resource.'''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomMetricReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.DimensionReference",
+    jsii_struct_bases=[],
+    name_mapping={"dimension_arn": "dimensionArn", "dimension_name": "dimensionName"},
+)
+class DimensionReference:
+    def __init__(
+        self,
+        *,
+        dimension_arn: builtins.str,
+        dimension_name: builtins.str,
+    ) -> None:
+        '''A reference to a Dimension resource.
+
+        :param dimension_arn: The ARN of the Dimension resource.
+        :param dimension_name: The Name of the Dimension resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            dimension_reference = iot.DimensionReference(
+                dimension_arn="dimensionArn",
+                dimension_name="dimensionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f41b5a3262ff4b8bc95100d7c2feb022e64793c424decdb298ec31fb51090e99)
+            check_type(argname="argument dimension_arn", value=dimension_arn, expected_type=type_hints["dimension_arn"])
+            check_type(argname="argument dimension_name", value=dimension_name, expected_type=type_hints["dimension_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dimension_arn": dimension_arn,
+            "dimension_name": dimension_name,
+        }
+
+    @builtins.property
+    def dimension_arn(self) -> builtins.str:
+        '''The ARN of the Dimension resource.'''
+        result = self._values.get("dimension_arn")
+        assert result is not None, "Required property 'dimension_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dimension_name(self) -> builtins.str:
+        '''The Name of the Dimension resource.'''
+        result = self._values.get("dimension_name")
+        assert result is not None, "Required property 'dimension_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DimensionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.DomainConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_configuration_arn": "domainConfigurationArn",
+        "domain_configuration_name": "domainConfigurationName",
+    },
+)
+class DomainConfigurationReference:
+    def __init__(
+        self,
+        *,
+        domain_configuration_arn: builtins.str,
+        domain_configuration_name: builtins.str,
+    ) -> None:
+        '''A reference to a DomainConfiguration resource.
+
+        :param domain_configuration_arn: The ARN of the DomainConfiguration resource.
+        :param domain_configuration_name: The DomainConfigurationName of the DomainConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            domain_configuration_reference = iot.DomainConfigurationReference(
+                domain_configuration_arn="domainConfigurationArn",
+                domain_configuration_name="domainConfigurationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5f68174157b947fb80dd4f8b508d6ba29f5e60d2571413092137b52a642d18e)
+            check_type(argname="argument domain_configuration_arn", value=domain_configuration_arn, expected_type=type_hints["domain_configuration_arn"])
+            check_type(argname="argument domain_configuration_name", value=domain_configuration_name, expected_type=type_hints["domain_configuration_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_configuration_arn": domain_configuration_arn,
+            "domain_configuration_name": domain_configuration_name,
+        }
+
+    @builtins.property
+    def domain_configuration_arn(self) -> builtins.str:
+        '''The ARN of the DomainConfiguration resource.'''
+        result = self._values.get("domain_configuration_arn")
+        assert result is not None, "Required property 'domain_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_configuration_name(self) -> builtins.str:
+        '''The DomainConfigurationName of the DomainConfiguration resource.'''
+        result = self._values.get("domain_configuration_name")
+        assert result is not None, "Required property 'domain_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DomainConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.EncryptionConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class EncryptionConfigurationReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a EncryptionConfiguration resource.
+
+        :param account_id: The AccountId of the EncryptionConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            encryption_configuration_reference = iot.EncryptionConfigurationReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8457e740fc90e585a1eaafcfcf245d604b101a420039a9b2fdc2cceab9e00b6b)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the EncryptionConfiguration resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EncryptionConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.FleetMetricReference",
+    jsii_struct_bases=[],
+    name_mapping={"metric_name": "metricName"},
+)
+class FleetMetricReference:
+    def __init__(self, *, metric_name: builtins.str) -> None:
+        '''A reference to a FleetMetric resource.
+
+        :param metric_name: The MetricName of the FleetMetric resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            fleet_metric_reference = iot.FleetMetricReference(
+                metric_name="metricName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef760ca119c81dfd95d4c508bc7dc1274f613990485f8016b24045594558dffc)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_name": metric_name,
+        }
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''The MetricName of the FleetMetric resource.'''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FleetMetricReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IAccountAuditConfigurationRef")
+class IAccountAuditConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccountAuditConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accountAuditConfigurationRef")
+    def account_audit_configuration_ref(self) -> AccountAuditConfigurationReference:
+        '''(experimental) A reference to a AccountAuditConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccountAuditConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccountAuditConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IAccountAuditConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accountAuditConfigurationRef")
+    def account_audit_configuration_ref(self) -> AccountAuditConfigurationReference:
+        '''(experimental) A reference to a AccountAuditConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccountAuditConfigurationReference, jsii.get(self, "accountAuditConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccountAuditConfigurationRef).__jsii_proxy_class__ = lambda : _IAccountAuditConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IAuthorizerRef")
+class IAuthorizerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Authorizer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerRef")
+    def authorizer_ref(self) -> AuthorizerReference:
+        '''(experimental) A reference to a Authorizer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAuthorizerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Authorizer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IAuthorizerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerRef")
+    def authorizer_ref(self) -> AuthorizerReference:
+        '''(experimental) A reference to a Authorizer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AuthorizerReference, jsii.get(self, "authorizerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAuthorizerRef).__jsii_proxy_class__ = lambda : _IAuthorizerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IBillingGroupRef")
+class IBillingGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BillingGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="billingGroupRef")
+    def billing_group_ref(self) -> BillingGroupReference:
+        '''(experimental) A reference to a BillingGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBillingGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BillingGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IBillingGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="billingGroupRef")
+    def billing_group_ref(self) -> BillingGroupReference:
+        '''(experimental) A reference to a BillingGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BillingGroupReference, jsii.get(self, "billingGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBillingGroupRef).__jsii_proxy_class__ = lambda : _IBillingGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ICACertificateRef")
+class ICACertificateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CACertificate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificateRef")
+    def ca_certificate_ref(self) -> CACertificateReference:
+        '''(experimental) A reference to a CACertificate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICACertificateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CACertificate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ICACertificateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificateRef")
+    def ca_certificate_ref(self) -> CACertificateReference:
+        '''(experimental) A reference to a CACertificate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CACertificateReference, jsii.get(self, "caCertificateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICACertificateRef).__jsii_proxy_class__ = lambda : _ICACertificateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ICertificateProviderRef")
+class ICertificateProviderRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateProvider.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateProviderRef")
+    def certificate_provider_ref(self) -> CertificateProviderReference:
+        '''(experimental) A reference to a CertificateProvider resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICertificateProviderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateProvider.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ICertificateProviderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateProviderRef")
+    def certificate_provider_ref(self) -> CertificateProviderReference:
+        '''(experimental) A reference to a CertificateProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CertificateProviderReference, jsii.get(self, "certificateProviderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateProviderRef).__jsii_proxy_class__ = lambda : _ICertificateProviderRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ICertificateRef")
+class ICertificateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Certificate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''(experimental) A reference to a Certificate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICertificateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Certificate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ICertificateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''(experimental) A reference to a Certificate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICertificateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ICommandRef")
+class ICommandRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Command.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="commandRef")
+    def command_ref(self) -> CommandReference:
+        '''(experimental) A reference to a Command resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICommandRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Command.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ICommandRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="commandRef")
+    def command_ref(self) -> CommandReference:
+        '''(experimental) A reference to a Command resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CommandReference, jsii.get(self, "commandRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICommandRef).__jsii_proxy_class__ = lambda : _ICommandRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ICustomMetricRef")
+class ICustomMetricRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a CustomMetric.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="customMetricRef")
+    def custom_metric_ref(self) -> CustomMetricReference:
+        '''(experimental) A reference to a CustomMetric resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICustomMetricRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomMetric.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ICustomMetricRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="customMetricRef")
+    def custom_metric_ref(self) -> CustomMetricReference:
+        '''(experimental) A reference to a CustomMetric resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CustomMetricReference, jsii.get(self, "customMetricRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICustomMetricRef).__jsii_proxy_class__ = lambda : _ICustomMetricRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IDimensionRef")
+class IDimensionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dimension.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensionRef")
+    def dimension_ref(self) -> DimensionReference:
+        '''(experimental) A reference to a Dimension resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDimensionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dimension.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IDimensionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dimensionRef")
+    def dimension_ref(self) -> DimensionReference:
+        '''(experimental) A reference to a Dimension resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DimensionReference, jsii.get(self, "dimensionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDimensionRef).__jsii_proxy_class__ = lambda : _IDimensionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IDomainConfigurationRef")
+class IDomainConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="domainConfigurationRef")
+    def domain_configuration_ref(self) -> DomainConfigurationReference:
+        '''(experimental) A reference to a DomainConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDomainConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DomainConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IDomainConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="domainConfigurationRef")
+    def domain_configuration_ref(self) -> DomainConfigurationReference:
+        '''(experimental) A reference to a DomainConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DomainConfigurationReference, jsii.get(self, "domainConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDomainConfigurationRef).__jsii_proxy_class__ = lambda : _IDomainConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IEncryptionConfigurationRef")
+class IEncryptionConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a EncryptionConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfigurationRef")
+    def encryption_configuration_ref(self) -> EncryptionConfigurationReference:
+        '''(experimental) A reference to a EncryptionConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEncryptionConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EncryptionConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IEncryptionConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfigurationRef")
+    def encryption_configuration_ref(self) -> EncryptionConfigurationReference:
+        '''(experimental) A reference to a EncryptionConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EncryptionConfigurationReference, jsii.get(self, "encryptionConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEncryptionConfigurationRef).__jsii_proxy_class__ = lambda : _IEncryptionConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IFleetMetricRef")
+class IFleetMetricRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FleetMetric.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetMetricRef")
+    def fleet_metric_ref(self) -> FleetMetricReference:
+        '''(experimental) A reference to a FleetMetric resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFleetMetricRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FleetMetric.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IFleetMetricRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetMetricRef")
+    def fleet_metric_ref(self) -> FleetMetricReference:
+        '''(experimental) A reference to a FleetMetric resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FleetMetricReference, jsii.get(self, "fleetMetricRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFleetMetricRef).__jsii_proxy_class__ = lambda : _IFleetMetricRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IJobTemplateRef")
+class IJobTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IJobTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IJobTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("JobTemplateReference", jsii.get(self, "jobTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IJobTemplateRef).__jsii_proxy_class__ = lambda : _IJobTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ILoggingRef")
+class ILoggingRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Logging.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingRef")
+    def logging_ref(self) -> "LoggingReference":
+        '''(experimental) A reference to a Logging resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILoggingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Logging.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ILoggingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingRef")
+    def logging_ref(self) -> "LoggingReference":
+        '''(experimental) A reference to a Logging resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LoggingReference", jsii.get(self, "loggingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILoggingRef).__jsii_proxy_class__ = lambda : _ILoggingRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IMitigationActionRef")
+class IMitigationActionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MitigationAction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mitigationActionRef")
+    def mitigation_action_ref(self) -> "MitigationActionReference":
+        '''(experimental) A reference to a MitigationAction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMitigationActionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MitigationAction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IMitigationActionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mitigationActionRef")
+    def mitigation_action_ref(self) -> "MitigationActionReference":
+        '''(experimental) A reference to a MitigationAction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MitigationActionReference", jsii.get(self, "mitigationActionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMitigationActionRef).__jsii_proxy_class__ = lambda : _IMitigationActionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IPolicyPrincipalAttachmentRef")
+class IPolicyPrincipalAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyPrincipalAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyPrincipalAttachmentRef")
+    def policy_principal_attachment_ref(self) -> "PolicyPrincipalAttachmentReference":
+        '''(experimental) A reference to a PolicyPrincipalAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyPrincipalAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyPrincipalAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IPolicyPrincipalAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyPrincipalAttachmentRef")
+    def policy_principal_attachment_ref(self) -> "PolicyPrincipalAttachmentReference":
+        '''(experimental) A reference to a PolicyPrincipalAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyPrincipalAttachmentReference", jsii.get(self, "policyPrincipalAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyPrincipalAttachmentRef).__jsii_proxy_class__ = lambda : _IPolicyPrincipalAttachmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IPolicyRef")
+class IPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Policy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "PolicyReference":
+        '''(experimental) A reference to a Policy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Policy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "PolicyReference":
+        '''(experimental) A reference to a Policy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyReference", jsii.get(self, "policyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IProvisioningTemplateRef")
+class IProvisioningTemplateRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ProvisioningTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningTemplateRef")
+    def provisioning_template_ref(self) -> "ProvisioningTemplateReference":
+        '''(experimental) A reference to a ProvisioningTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProvisioningTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ProvisioningTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IProvisioningTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningTemplateRef")
+    def provisioning_template_ref(self) -> "ProvisioningTemplateReference":
+        '''(experimental) A reference to a ProvisioningTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProvisioningTemplateReference", jsii.get(self, "provisioningTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProvisioningTemplateRef).__jsii_proxy_class__ = lambda : _IProvisioningTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IResourceSpecificLoggingRef")
+class IResourceSpecificLoggingRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceSpecificLogging.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceSpecificLoggingRef")
+    def resource_specific_logging_ref(self) -> "ResourceSpecificLoggingReference":
+        '''(experimental) A reference to a ResourceSpecificLogging resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceSpecificLoggingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceSpecificLogging.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IResourceSpecificLoggingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceSpecificLoggingRef")
+    def resource_specific_logging_ref(self) -> "ResourceSpecificLoggingReference":
+        '''(experimental) A reference to a ResourceSpecificLogging resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceSpecificLoggingReference", jsii.get(self, "resourceSpecificLoggingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceSpecificLoggingRef).__jsii_proxy_class__ = lambda : _IResourceSpecificLoggingRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IRoleAliasRef")
+class IRoleAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a RoleAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="roleAliasRef")
+    def role_alias_ref(self) -> "RoleAliasReference":
+        '''(experimental) A reference to a RoleAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRoleAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RoleAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IRoleAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="roleAliasRef")
+    def role_alias_ref(self) -> "RoleAliasReference":
+        '''(experimental) A reference to a RoleAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RoleAliasReference", jsii.get(self, "roleAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRoleAliasRef).__jsii_proxy_class__ = lambda : _IRoleAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IScheduledAuditRef")
+class IScheduledAuditRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledAudit.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledAuditRef")
+    def scheduled_audit_ref(self) -> "ScheduledAuditReference":
+        '''(experimental) A reference to a ScheduledAudit resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduledAuditRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledAudit.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IScheduledAuditRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledAuditRef")
+    def scheduled_audit_ref(self) -> "ScheduledAuditReference":
+        '''(experimental) A reference to a ScheduledAudit resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduledAuditReference", jsii.get(self, "scheduledAuditRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduledAuditRef).__jsii_proxy_class__ = lambda : _IScheduledAuditRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ISecurityProfileRef")
+class ISecurityProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> "SecurityProfileReference":
+        '''(experimental) A reference to a SecurityProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ISecurityProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> "SecurityProfileReference":
+        '''(experimental) A reference to a SecurityProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityProfileReference", jsii.get(self, "securityProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityProfileRef).__jsii_proxy_class__ = lambda : _ISecurityProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ISoftwarePackageRef")
+class ISoftwarePackageRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SoftwarePackage.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="softwarePackageRef")
+    def software_package_ref(self) -> "SoftwarePackageReference":
+        '''(experimental) A reference to a SoftwarePackage resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISoftwarePackageRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SoftwarePackage.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ISoftwarePackageRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="softwarePackageRef")
+    def software_package_ref(self) -> "SoftwarePackageReference":
+        '''(experimental) A reference to a SoftwarePackage resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SoftwarePackageReference", jsii.get(self, "softwarePackageRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISoftwarePackageRef).__jsii_proxy_class__ = lambda : _ISoftwarePackageRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ISoftwarePackageVersionRef")
+class ISoftwarePackageVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SoftwarePackageVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="softwarePackageVersionRef")
+    def software_package_version_ref(self) -> "SoftwarePackageVersionReference":
+        '''(experimental) A reference to a SoftwarePackageVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISoftwarePackageVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SoftwarePackageVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ISoftwarePackageVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="softwarePackageVersionRef")
+    def software_package_version_ref(self) -> "SoftwarePackageVersionReference":
+        '''(experimental) A reference to a SoftwarePackageVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SoftwarePackageVersionReference", jsii.get(self, "softwarePackageVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISoftwarePackageVersionRef).__jsii_proxy_class__ = lambda : _ISoftwarePackageVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IThingGroupRef")
+class IThingGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ThingGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="thingGroupRef")
+    def thing_group_ref(self) -> "ThingGroupReference":
+        '''(experimental) A reference to a ThingGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThingGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThingGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IThingGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="thingGroupRef")
+    def thing_group_ref(self) -> "ThingGroupReference":
+        '''(experimental) A reference to a ThingGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThingGroupReference", jsii.get(self, "thingGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThingGroupRef).__jsii_proxy_class__ = lambda : _IThingGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IThingPrincipalAttachmentRef")
+class IThingPrincipalAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThingPrincipalAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="thingPrincipalAttachmentRef")
+    def thing_principal_attachment_ref(self) -> "ThingPrincipalAttachmentReference":
+        '''(experimental) A reference to a ThingPrincipalAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThingPrincipalAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThingPrincipalAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IThingPrincipalAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="thingPrincipalAttachmentRef")
+    def thing_principal_attachment_ref(self) -> "ThingPrincipalAttachmentReference":
+        '''(experimental) A reference to a ThingPrincipalAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThingPrincipalAttachmentReference", jsii.get(self, "thingPrincipalAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThingPrincipalAttachmentRef).__jsii_proxy_class__ = lambda : _IThingPrincipalAttachmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IThingRef")
+class IThingRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Thing.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="thingRef")
+    def thing_ref(self) -> "ThingReference":
+        '''(experimental) A reference to a Thing resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Thing.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IThingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="thingRef")
+    def thing_ref(self) -> "ThingReference":
+        '''(experimental) A reference to a Thing resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThingReference", jsii.get(self, "thingRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThingRef).__jsii_proxy_class__ = lambda : _IThingRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.IThingTypeRef")
+class IThingTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ThingType.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="thingTypeRef")
+    def thing_type_ref(self) -> "ThingTypeReference":
+        '''(experimental) A reference to a ThingType resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IThingTypeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ThingType.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.IThingTypeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="thingTypeRef")
+    def thing_type_ref(self) -> "ThingTypeReference":
+        '''(experimental) A reference to a ThingType resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ThingTypeReference", jsii.get(self, "thingTypeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IThingTypeRef).__jsii_proxy_class__ = lambda : _IThingTypeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ITopicRuleDestinationRef")
+class ITopicRuleDestinationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TopicRuleDestination.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleDestinationRef")
+    def topic_rule_destination_ref(self) -> "TopicRuleDestinationReference":
+        '''(experimental) A reference to a TopicRuleDestination resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITopicRuleDestinationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TopicRuleDestination.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ITopicRuleDestinationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleDestinationRef")
+    def topic_rule_destination_ref(self) -> "TopicRuleDestinationReference":
+        '''(experimental) A reference to a TopicRuleDestination resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TopicRuleDestinationReference", jsii.get(self, "topicRuleDestinationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITopicRuleDestinationRef).__jsii_proxy_class__ = lambda : _ITopicRuleDestinationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iot.ITopicRuleRef")
+class ITopicRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TopicRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleRef")
+    def topic_rule_ref(self) -> "TopicRuleReference":
+        '''(experimental) A reference to a TopicRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITopicRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TopicRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iot.ITopicRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleRef")
+    def topic_rule_ref(self) -> "TopicRuleReference":
+        '''(experimental) A reference to a TopicRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TopicRuleReference", jsii.get(self, "topicRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITopicRuleRef).__jsii_proxy_class__ = lambda : _ITopicRuleRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.JobTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "job_template_arn": "jobTemplateArn",
+        "job_template_id": "jobTemplateId",
+    },
+)
+class JobTemplateReference:
+    def __init__(
+        self,
+        *,
+        job_template_arn: builtins.str,
+        job_template_id: builtins.str,
+    ) -> None:
+        '''A reference to a JobTemplate resource.
+
+        :param job_template_arn: The ARN of the JobTemplate resource.
+        :param job_template_id: The JobTemplateId of the JobTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            job_template_reference = iot.JobTemplateReference(
+                job_template_arn="jobTemplateArn",
+                job_template_id="jobTemplateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a4a706435835e370681039f369b7b9c37b49c1929d03d2d493ea0a51b9b0aa9)
+            check_type(argname="argument job_template_arn", value=job_template_arn, expected_type=type_hints["job_template_arn"])
+            check_type(argname="argument job_template_id", value=job_template_id, expected_type=type_hints["job_template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_template_arn": job_template_arn,
+            "job_template_id": job_template_id,
+        }
+
+    @builtins.property
+    def job_template_arn(self) -> builtins.str:
+        '''The ARN of the JobTemplate resource.'''
+        result = self._values.get("job_template_arn")
+        assert result is not None, "Required property 'job_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_template_id(self) -> builtins.str:
+        '''The JobTemplateId of the JobTemplate resource.'''
+        result = self._values.get("job_template_id")
+        assert result is not None, "Required property 'job_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.LoggingReference",
+    jsii_struct_bases=[],
+    name_mapping={"account_id": "accountId"},
+)
+class LoggingReference:
+    def __init__(self, *, account_id: builtins.str) -> None:
+        '''A reference to a Logging resource.
+
+        :param account_id: The AccountId of the Logging resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            logging_reference = iot.LoggingReference(
+                account_id="accountId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1a9ec6ee021395081b338dd5fb1604d035feffcef0b3dcd5d6537d48d388760)
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_id": account_id,
+        }
+
+    @builtins.property
+    def account_id(self) -> builtins.str:
+        '''The AccountId of the Logging resource.'''
+        result = self._values.get("account_id")
+        assert result is not None, "Required property 'account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LoggingReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.MitigationActionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_name": "actionName",
+        "mitigation_action_arn": "mitigationActionArn",
+    },
+)
+class MitigationActionReference:
+    def __init__(
+        self,
+        *,
+        action_name: builtins.str,
+        mitigation_action_arn: builtins.str,
+    ) -> None:
+        '''A reference to a MitigationAction resource.
+
+        :param action_name: The ActionName of the MitigationAction resource.
+        :param mitigation_action_arn: The ARN of the MitigationAction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            mitigation_action_reference = iot.MitigationActionReference(
+                action_name="actionName",
+                mitigation_action_arn="mitigationActionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd4a13bb171cb36a64ea3ee9cc4e6ee9ffab3f97ba830abd07265eee02c4e0fd)
+            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
+            check_type(argname="argument mitigation_action_arn", value=mitigation_action_arn, expected_type=type_hints["mitigation_action_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_name": action_name,
+            "mitigation_action_arn": mitigation_action_arn,
+        }
+
+    @builtins.property
+    def action_name(self) -> builtins.str:
+        '''The ActionName of the MitigationAction resource.'''
+        result = self._values.get("action_name")
+        assert result is not None, "Required property 'action_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mitigation_action_arn(self) -> builtins.str:
+        '''The ARN of the MitigationAction resource.'''
+        result = self._values.get("mitigation_action_arn")
+        assert result is not None, "Required property 'mitigation_action_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MitigationActionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.PolicyPrincipalAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_principal_attachment_id": "policyPrincipalAttachmentId"},
+)
+class PolicyPrincipalAttachmentReference:
+    def __init__(self, *, policy_principal_attachment_id: builtins.str) -> None:
+        '''A reference to a PolicyPrincipalAttachment resource.
+
+        :param policy_principal_attachment_id: The Id of the PolicyPrincipalAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            policy_principal_attachment_reference = iot.PolicyPrincipalAttachmentReference(
+                policy_principal_attachment_id="policyPrincipalAttachmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd9a72c508e43c2405a04110ca360003017247b68ffa361ac14862fc1ee82660)
+            check_type(argname="argument policy_principal_attachment_id", value=policy_principal_attachment_id, expected_type=type_hints["policy_principal_attachment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_principal_attachment_id": policy_principal_attachment_id,
+        }
+
+    @builtins.property
+    def policy_principal_attachment_id(self) -> builtins.str:
+        '''The Id of the PolicyPrincipalAttachment resource.'''
+        result = self._values.get("policy_principal_attachment_id")
+        assert result is not None, "Required property 'policy_principal_attachment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyPrincipalAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.PolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn", "policy_id": "policyId"},
+)
+class PolicyReference:
+    def __init__(self, *, policy_arn: builtins.str, policy_id: builtins.str) -> None:
+        '''A reference to a Policy resource.
+
+        :param policy_arn: The ARN of the Policy resource.
+        :param policy_id: The Id of the Policy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            policy_reference = iot.PolicyReference(
+                policy_arn="policyArn",
+                policy_id="policyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfceb47e8f680cdd1b46132fd507d9ce28a5626f6d45ca1a47aad26f75abb313)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+            "policy_id": policy_id,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The ARN of the Policy resource.'''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_id(self) -> builtins.str:
+        '''The Id of the Policy resource.'''
+        result = self._values.get("policy_id")
+        assert result is not None, "Required property 'policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ProvisioningTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"template_name": "templateName"},
+)
+class ProvisioningTemplateReference:
+    def __init__(self, *, template_name: builtins.str) -> None:
+        '''A reference to a ProvisioningTemplate resource.
+
+        :param template_name: The TemplateName of the ProvisioningTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            provisioning_template_reference = iot.ProvisioningTemplateReference(
+                template_name="templateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86fed060d0942d560da663743cd087509b84ceaabf29721ff142f3a436e14bd1)
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_name": template_name,
+        }
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The TemplateName of the ProvisioningTemplate resource.'''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProvisioningTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ResourceSpecificLoggingReference",
+    jsii_struct_bases=[],
+    name_mapping={"target_id": "targetId"},
+)
+class ResourceSpecificLoggingReference:
+    def __init__(self, *, target_id: builtins.str) -> None:
+        '''A reference to a ResourceSpecificLogging resource.
+
+        :param target_id: The TargetId of the ResourceSpecificLogging resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            resource_specific_logging_reference = iot.ResourceSpecificLoggingReference(
+                target_id="targetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10624492202f0cc16968393c17f7cf8c95d079bce6e79b45438418bc8c07248b)
+            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "target_id": target_id,
+        }
+
+    @builtins.property
+    def target_id(self) -> builtins.str:
+        '''The TargetId of the ResourceSpecificLogging resource.'''
+        result = self._values.get("target_id")
+        assert result is not None, "Required property 'target_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceSpecificLoggingReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.RoleAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"role_alias": "roleAlias", "role_alias_arn": "roleAliasArn"},
+)
+class RoleAliasReference:
+    def __init__(
+        self,
+        *,
+        role_alias: builtins.str,
+        role_alias_arn: builtins.str,
+    ) -> None:
+        '''A reference to a RoleAlias resource.
+
+        :param role_alias: The RoleAlias of the RoleAlias resource.
+        :param role_alias_arn: The ARN of the RoleAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            role_alias_reference = iot.RoleAliasReference(
+                role_alias="roleAlias",
+                role_alias_arn="roleAliasArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbdc88f837115eef8a8aeec824ff35429c13348067e130c8fa797748e70f1249)
+            check_type(argname="argument role_alias", value=role_alias, expected_type=type_hints["role_alias"])
+            check_type(argname="argument role_alias_arn", value=role_alias_arn, expected_type=type_hints["role_alias_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "role_alias": role_alias,
+            "role_alias_arn": role_alias_arn,
+        }
+
+    @builtins.property
+    def role_alias(self) -> builtins.str:
+        '''The RoleAlias of the RoleAlias resource.'''
+        result = self._values.get("role_alias")
+        assert result is not None, "Required property 'role_alias' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_alias_arn(self) -> builtins.str:
+        '''The ARN of the RoleAlias resource.'''
+        result = self._values.get("role_alias_arn")
+        assert result is not None, "Required property 'role_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RoleAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ScheduledAuditReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "scheduled_audit_arn": "scheduledAuditArn",
+        "scheduled_audit_name": "scheduledAuditName",
+    },
+)
+class ScheduledAuditReference:
+    def __init__(
+        self,
+        *,
+        scheduled_audit_arn: builtins.str,
+        scheduled_audit_name: builtins.str,
+    ) -> None:
+        '''A reference to a ScheduledAudit resource.
+
+        :param scheduled_audit_arn: The ARN of the ScheduledAudit resource.
+        :param scheduled_audit_name: The ScheduledAuditName of the ScheduledAudit resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            scheduled_audit_reference = iot.ScheduledAuditReference(
+                scheduled_audit_arn="scheduledAuditArn",
+                scheduled_audit_name="scheduledAuditName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a95585942b57a2f6f28297bec8ad4815aa81e5a15ab75a07218f01ccc08d49dc)
+            check_type(argname="argument scheduled_audit_arn", value=scheduled_audit_arn, expected_type=type_hints["scheduled_audit_arn"])
+            check_type(argname="argument scheduled_audit_name", value=scheduled_audit_name, expected_type=type_hints["scheduled_audit_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scheduled_audit_arn": scheduled_audit_arn,
+            "scheduled_audit_name": scheduled_audit_name,
+        }
+
+    @builtins.property
+    def scheduled_audit_arn(self) -> builtins.str:
+        '''The ARN of the ScheduledAudit resource.'''
+        result = self._values.get("scheduled_audit_arn")
+        assert result is not None, "Required property 'scheduled_audit_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scheduled_audit_name(self) -> builtins.str:
+        '''The ScheduledAuditName of the ScheduledAudit resource.'''
+        result = self._values.get("scheduled_audit_name")
+        assert result is not None, "Required property 'scheduled_audit_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduledAuditReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.SecurityProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_profile_arn": "securityProfileArn",
+        "security_profile_name": "securityProfileName",
+    },
+)
+class SecurityProfileReference:
+    def __init__(
+        self,
+        *,
+        security_profile_arn: builtins.str,
+        security_profile_name: builtins.str,
+    ) -> None:
+        '''A reference to a SecurityProfile resource.
+
+        :param security_profile_arn: The ARN of the SecurityProfile resource.
+        :param security_profile_name: The SecurityProfileName of the SecurityProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            security_profile_reference = iot.SecurityProfileReference(
+                security_profile_arn="securityProfileArn",
+                security_profile_name="securityProfileName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e625d92837c4d6a31d96171659816e53ad33802ba72f560e87a23473e4f72d6)
+            check_type(argname="argument security_profile_arn", value=security_profile_arn, expected_type=type_hints["security_profile_arn"])
+            check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_profile_arn": security_profile_arn,
+            "security_profile_name": security_profile_name,
+        }
+
+    @builtins.property
+    def security_profile_arn(self) -> builtins.str:
+        '''The ARN of the SecurityProfile resource.'''
+        result = self._values.get("security_profile_arn")
+        assert result is not None, "Required property 'security_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_profile_name(self) -> builtins.str:
+        '''The SecurityProfileName of the SecurityProfile resource.'''
+        result = self._values.get("security_profile_name")
+        assert result is not None, "Required property 'security_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.SoftwarePackageReference",
+    jsii_struct_bases=[],
+    name_mapping={"package_name": "packageName"},
+)
+class SoftwarePackageReference:
+    def __init__(self, *, package_name: builtins.str) -> None:
+        '''A reference to a SoftwarePackage resource.
+
+        :param package_name: The PackageName of the SoftwarePackage resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            software_package_reference = iot.SoftwarePackageReference(
+                package_name="packageName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90bb0e3e1805ef4eaf63200d5ef2f3ff1e4445cb6e2b62cbe4aa9c65561e9298)
+            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "package_name": package_name,
+        }
+
+    @builtins.property
+    def package_name(self) -> builtins.str:
+        '''The PackageName of the SoftwarePackage resource.'''
+        result = self._values.get("package_name")
+        assert result is not None, "Required property 'package_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SoftwarePackageReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.SoftwarePackageVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"package_name": "packageName", "version_name": "versionName"},
+)
+class SoftwarePackageVersionReference:
+    def __init__(
+        self,
+        *,
+        package_name: builtins.str,
+        version_name: builtins.str,
+    ) -> None:
+        '''A reference to a SoftwarePackageVersion resource.
+
+        :param package_name: The PackageName of the SoftwarePackageVersion resource.
+        :param version_name: The VersionName of the SoftwarePackageVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            software_package_version_reference = iot.SoftwarePackageVersionReference(
+                package_name="packageName",
+                version_name="versionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39e5ee93edb3064d58e48b57b0aea1cb3dc732ec62700868a5c157357f37eb41)
+            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "package_name": package_name,
+            "version_name": version_name,
+        }
+
+    @builtins.property
+    def package_name(self) -> builtins.str:
+        '''The PackageName of the SoftwarePackageVersion resource.'''
+        result = self._values.get("package_name")
+        assert result is not None, "Required property 'package_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def version_name(self) -> builtins.str:
+        '''The VersionName of the SoftwarePackageVersion resource.'''
+        result = self._values.get("version_name")
+        assert result is not None, "Required property 'version_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SoftwarePackageVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ThingGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "thing_group_arn": "thingGroupArn",
+        "thing_group_name": "thingGroupName",
+    },
+)
+class ThingGroupReference:
+    def __init__(
+        self,
+        *,
+        thing_group_arn: builtins.str,
+        thing_group_name: builtins.str,
+    ) -> None:
+        '''A reference to a ThingGroup resource.
+
+        :param thing_group_arn: The ARN of the ThingGroup resource.
+        :param thing_group_name: The ThingGroupName of the ThingGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            thing_group_reference = iot.ThingGroupReference(
+                thing_group_arn="thingGroupArn",
+                thing_group_name="thingGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e3987d064d2442666c3396e201a9bbd071ec061664cd633930aeb64e1e03007)
+            check_type(argname="argument thing_group_arn", value=thing_group_arn, expected_type=type_hints["thing_group_arn"])
+            check_type(argname="argument thing_group_name", value=thing_group_name, expected_type=type_hints["thing_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "thing_group_arn": thing_group_arn,
+            "thing_group_name": thing_group_name,
+        }
+
+    @builtins.property
+    def thing_group_arn(self) -> builtins.str:
+        '''The ARN of the ThingGroup resource.'''
+        result = self._values.get("thing_group_arn")
+        assert result is not None, "Required property 'thing_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_group_name(self) -> builtins.str:
+        '''The ThingGroupName of the ThingGroup resource.'''
+        result = self._values.get("thing_group_name")
+        assert result is not None, "Required property 'thing_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThingGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ThingPrincipalAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"thing_principal_attachment_id": "thingPrincipalAttachmentId"},
+)
+class ThingPrincipalAttachmentReference:
+    def __init__(self, *, thing_principal_attachment_id: builtins.str) -> None:
+        '''A reference to a ThingPrincipalAttachment resource.
+
+        :param thing_principal_attachment_id: The Id of the ThingPrincipalAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            thing_principal_attachment_reference = iot.ThingPrincipalAttachmentReference(
+                thing_principal_attachment_id="thingPrincipalAttachmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e857adcdf56f0111b20926c9fddedbc2eec919493013b34c215e37b112f2ff9)
+            check_type(argname="argument thing_principal_attachment_id", value=thing_principal_attachment_id, expected_type=type_hints["thing_principal_attachment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "thing_principal_attachment_id": thing_principal_attachment_id,
+        }
+
+    @builtins.property
+    def thing_principal_attachment_id(self) -> builtins.str:
+        '''The Id of the ThingPrincipalAttachment resource.'''
+        result = self._values.get("thing_principal_attachment_id")
+        assert result is not None, "Required property 'thing_principal_attachment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThingPrincipalAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ThingReference",
+    jsii_struct_bases=[],
+    name_mapping={"thing_arn": "thingArn", "thing_name": "thingName"},
+)
+class ThingReference:
+    def __init__(self, *, thing_arn: builtins.str, thing_name: builtins.str) -> None:
+        '''A reference to a Thing resource.
+
+        :param thing_arn: The ARN of the Thing resource.
+        :param thing_name: The ThingName of the Thing resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            thing_reference = iot.ThingReference(
+                thing_arn="thingArn",
+                thing_name="thingName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd4ff5c694d267497bab5877d833825e1574279ef8c2b38238c8b0e704a873a6)
+            check_type(argname="argument thing_arn", value=thing_arn, expected_type=type_hints["thing_arn"])
+            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "thing_arn": thing_arn,
+            "thing_name": thing_name,
+        }
+
+    @builtins.property
+    def thing_arn(self) -> builtins.str:
+        '''The ARN of the Thing resource.'''
+        result = self._values.get("thing_arn")
+        assert result is not None, "Required property 'thing_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_name(self) -> builtins.str:
+        '''The ThingName of the Thing resource.'''
+        result = self._values.get("thing_name")
+        assert result is not None, "Required property 'thing_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThingReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.ThingTypeReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "thing_type_arn": "thingTypeArn",
+        "thing_type_name": "thingTypeName",
+    },
+)
+class ThingTypeReference:
+    def __init__(
+        self,
+        *,
+        thing_type_arn: builtins.str,
+        thing_type_name: builtins.str,
+    ) -> None:
+        '''A reference to a ThingType resource.
+
+        :param thing_type_arn: The ARN of the ThingType resource.
+        :param thing_type_name: The ThingTypeName of the ThingType resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            thing_type_reference = iot.ThingTypeReference(
+                thing_type_arn="thingTypeArn",
+                thing_type_name="thingTypeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54ed85e98fa0feae46968e56569728960c62a240a6e96a5cc116fe688fa2ab07)
+            check_type(argname="argument thing_type_arn", value=thing_type_arn, expected_type=type_hints["thing_type_arn"])
+            check_type(argname="argument thing_type_name", value=thing_type_name, expected_type=type_hints["thing_type_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "thing_type_arn": thing_type_arn,
+            "thing_type_name": thing_type_name,
+        }
+
+    @builtins.property
+    def thing_type_arn(self) -> builtins.str:
+        '''The ARN of the ThingType resource.'''
+        result = self._values.get("thing_type_arn")
+        assert result is not None, "Required property 'thing_type_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def thing_type_name(self) -> builtins.str:
+        '''The ThingTypeName of the ThingType resource.'''
+        result = self._values.get("thing_type_name")
+        assert result is not None, "Required property 'thing_type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ThingTypeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.TopicRuleDestinationReference",
+    jsii_struct_bases=[],
+    name_mapping={"topic_rule_destination_arn": "topicRuleDestinationArn"},
+)
+class TopicRuleDestinationReference:
+    def __init__(self, *, topic_rule_destination_arn: builtins.str) -> None:
+        '''A reference to a TopicRuleDestination resource.
+
+        :param topic_rule_destination_arn: The Arn of the TopicRuleDestination resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            topic_rule_destination_reference = iot.TopicRuleDestinationReference(
+                topic_rule_destination_arn="topicRuleDestinationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fea0700c8ecba2b622470cfa2053e148cec3e718a7c06b946bca0f354cce56f)
+            check_type(argname="argument topic_rule_destination_arn", value=topic_rule_destination_arn, expected_type=type_hints["topic_rule_destination_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "topic_rule_destination_arn": topic_rule_destination_arn,
+        }
+
+    @builtins.property
+    def topic_rule_destination_arn(self) -> builtins.str:
+        '''The Arn of the TopicRuleDestination resource.'''
+        result = self._values.get("topic_rule_destination_arn")
+        assert result is not None, "Required property 'topic_rule_destination_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TopicRuleDestinationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.TopicRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_name": "ruleName", "topic_rule_arn": "topicRuleArn"},
+)
+class TopicRuleReference:
+    def __init__(
+        self,
+        *,
+        rule_name: builtins.str,
+        topic_rule_arn: builtins.str,
+    ) -> None:
+        '''A reference to a TopicRule resource.
+
+        :param rule_name: The RuleName of the TopicRule resource.
+        :param topic_rule_arn: The ARN of the TopicRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            topic_rule_reference = iot.TopicRuleReference(
+                rule_name="ruleName",
+                topic_rule_arn="topicRuleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0d8ffc7acdd05fd2d0691996fc8e1b1bf5a5cbcb0a985e342e598f039545943)
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument topic_rule_arn", value=topic_rule_arn, expected_type=type_hints["topic_rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_name": rule_name,
+            "topic_rule_arn": topic_rule_arn,
+        }
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The RuleName of the TopicRule resource.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def topic_rule_arn(self) -> builtins.str:
+        '''The ARN of the TopicRule resource.'''
+        result = self._values.get("topic_rule_arn")
+        assert result is not None, "Required property 'topic_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TopicRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAccountAuditConfigurationRef)
 class CfnAccountAuditConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -226,6 +8179,12 @@ class CfnAccountAuditConfiguration(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountAuditConfigurationRef")
+    def account_audit_configuration_ref(self) -> AccountAuditConfigurationReference:
+        '''A reference to a AccountAuditConfiguration resource.'''
+        return typing.cast(AccountAuditConfigurationReference, jsii.get(self, "accountAuditConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1035,191 +8994,7 @@ class CfnAccountAuditConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnAccountAuditConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account_id": "accountId",
-        "audit_check_configurations": "auditCheckConfigurations",
-        "role_arn": "roleArn",
-        "audit_notification_target_configurations": "auditNotificationTargetConfigurations",
-    },
-)
-class CfnAccountAuditConfigurationProps:
-    def __init__(
-        self,
-        *,
-        account_id: builtins.str,
-        audit_check_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        audit_notification_target_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccountAuditConfiguration``.
-
-        :param account_id: The ID of the account. You can use the expression ``!Sub "${AWS::AccountId}"`` to use your account ID.
-        :param audit_check_configurations: Specifies which audit checks are enabled and disabled for this account. Some data collection might start immediately when certain checks are enabled. When a check is disabled, any data collected so far in relation to the check is deleted. To disable a check, set the value of the ``Enabled:`` key to ``false`` . If an enabled check is removed from the template, it will also be disabled. You can't disable a check if it's used by any scheduled audit. You must delete the check from the scheduled audit or delete the scheduled audit itself to disable the check. For more information on available audit checks see `AWS::IoT::AccountAuditConfiguration AuditCheckConfigurations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-accountauditconfiguration-auditcheckconfigurations.html>`_
-        :param role_arn: The Amazon Resource Name (ARN) of the role that grants permission to AWS IoT to access information about your devices, policies, certificates, and other items as required when performing an audit.
-        :param audit_notification_target_configurations: Information about the targets to which audit notifications are sent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_account_audit_configuration_props = iot.CfnAccountAuditConfigurationProps(
-                account_id="accountId",
-                audit_check_configurations=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty(
-                    authenticated_cognito_role_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    ca_certificate_expiring_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    ca_certificate_key_quality_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    conflicting_client_ids_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    device_certificate_age_check=iot.CfnAccountAuditConfiguration.DeviceCertAgeAuditCheckConfigurationProperty(
-                        configuration=iot.CfnAccountAuditConfiguration.CertAgeCheckCustomConfigurationProperty(
-                            cert_age_threshold_in_days="certAgeThresholdInDays"
-                        ),
-                        enabled=False
-                    ),
-                    device_certificate_expiring_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    device_certificate_key_quality_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    device_certificate_shared_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    intermediate_ca_revoked_for_active_device_certificates_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    iot_policy_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    io_tPolicy_potential_mis_configuration_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    iot_role_alias_allows_access_to_unused_services_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    iot_role_alias_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    logging_disabled_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    revoked_ca_certificate_still_active_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    revoked_device_certificate_still_active_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    ),
-                    unauthenticated_cognito_role_overly_permissive_check=iot.CfnAccountAuditConfiguration.AuditCheckConfigurationProperty(
-                        enabled=False
-                    )
-                ),
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                audit_notification_target_configurations=iot.CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty(
-                    sns=iot.CfnAccountAuditConfiguration.AuditNotificationTargetProperty(
-                        enabled=False,
-                        role_arn="roleArn",
-                        target_arn="targetArn"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fcb08f60d93c7bac3923eba987b721e65ab18e4504eac94738037301467ef30)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-            check_type(argname="argument audit_check_configurations", value=audit_check_configurations, expected_type=type_hints["audit_check_configurations"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument audit_notification_target_configurations", value=audit_notification_target_configurations, expected_type=type_hints["audit_notification_target_configurations"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-            "audit_check_configurations": audit_check_configurations,
-            "role_arn": role_arn,
-        }
-        if audit_notification_target_configurations is not None:
-            self._values["audit_notification_target_configurations"] = audit_notification_target_configurations
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The ID of the account.
-
-        You can use the expression ``!Sub "${AWS::AccountId}"`` to use your account ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-accountid
-        '''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def audit_check_configurations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty]:
-        '''Specifies which audit checks are enabled and disabled for this account.
-
-        Some data collection might start immediately when certain checks are enabled. When a check is disabled, any data collected so far in relation to the check is deleted. To disable a check, set the value of the ``Enabled:`` key to ``false`` .
-
-        If an enabled check is removed from the template, it will also be disabled.
-
-        You can't disable a check if it's used by any scheduled audit. You must delete the check from the scheduled audit or delete the scheduled audit itself to disable the check.
-
-        For more information on available audit checks see `AWS::IoT::AccountAuditConfiguration AuditCheckConfigurations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-accountauditconfiguration-auditcheckconfigurations.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-auditcheckconfigurations
-        '''
-        result = self._values.get("audit_check_configurations")
-        assert result is not None, "Required property 'audit_check_configurations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the role that grants permission to AWS IoT to access information about your devices, policies, certificates, and other items as required when performing an audit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def audit_notification_target_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty]]:
-        '''Information about the targets to which audit notifications are sent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-accountauditconfiguration.html#cfn-iot-accountauditconfiguration-auditnotificationtargetconfigurations
-        '''
-        result = self._values.get("audit_notification_target_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccountAuditConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IAuthorizerRef, _ITaggable_36806126)
 class CfnAuthorizer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1337,6 +9112,12 @@ class CfnAuthorizer(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerRef")
+    def authorizer_ref(self) -> AuthorizerReference:
+        '''A reference to a Authorizer resource.'''
+        return typing.cast(AuthorizerReference, jsii.get(self, "authorizerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1469,203 +9250,7 @@ class CfnAuthorizer(
         jsii.set(self, "tokenSigningPublicKeys", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnAuthorizerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authorizer_function_arn": "authorizerFunctionArn",
-        "authorizer_name": "authorizerName",
-        "enable_caching_for_http": "enableCachingForHttp",
-        "signing_disabled": "signingDisabled",
-        "status": "status",
-        "tags": "tags",
-        "token_key_name": "tokenKeyName",
-        "token_signing_public_keys": "tokenSigningPublicKeys",
-    },
-)
-class CfnAuthorizerProps:
-    def __init__(
-        self,
-        *,
-        authorizer_function_arn: builtins.str,
-        authorizer_name: typing.Optional[builtins.str] = None,
-        enable_caching_for_http: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        signing_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        token_key_name: typing.Optional[builtins.str] = None,
-        token_signing_public_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAuthorizer``.
-
-        :param authorizer_function_arn: The authorizer's Lambda function ARN.
-        :param authorizer_name: The authorizer name.
-        :param enable_caching_for_http: When ``true`` , the result from the authorizer's Lambda function is cached for clients that use persistent HTTP connections. The results are cached for the time specified by the Lambda function in ``refreshAfterInSeconds`` . This value doesn't affect authorization of clients that use MQTT connections.
-        :param signing_disabled: Specifies whether AWS IoT validates the token signature in an authorization request.
-        :param status: The status of the authorizer. Valid values: ``ACTIVE`` | ``INACTIVE``
-        :param tags: Metadata which can be used to manage the custom authorizer. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-        :param token_key_name: The key used to extract the token from the HTTP headers.
-        :param token_signing_public_keys: The public keys used to validate the token signature returned by your custom authentication service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_authorizer_props = iot.CfnAuthorizerProps(
-                authorizer_function_arn="authorizerFunctionArn",
-            
-                # the properties below are optional
-                authorizer_name="authorizerName",
-                enable_caching_for_http=False,
-                signing_disabled=False,
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                token_key_name="tokenKeyName",
-                token_signing_public_keys={
-                    "token_signing_public_keys_key": "tokenSigningPublicKeys"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74e893e3af751a67f1d33d8c491ca675f92ce492c0265bf9a163106dda70c852)
-            check_type(argname="argument authorizer_function_arn", value=authorizer_function_arn, expected_type=type_hints["authorizer_function_arn"])
-            check_type(argname="argument authorizer_name", value=authorizer_name, expected_type=type_hints["authorizer_name"])
-            check_type(argname="argument enable_caching_for_http", value=enable_caching_for_http, expected_type=type_hints["enable_caching_for_http"])
-            check_type(argname="argument signing_disabled", value=signing_disabled, expected_type=type_hints["signing_disabled"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument token_key_name", value=token_key_name, expected_type=type_hints["token_key_name"])
-            check_type(argname="argument token_signing_public_keys", value=token_signing_public_keys, expected_type=type_hints["token_signing_public_keys"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authorizer_function_arn": authorizer_function_arn,
-        }
-        if authorizer_name is not None:
-            self._values["authorizer_name"] = authorizer_name
-        if enable_caching_for_http is not None:
-            self._values["enable_caching_for_http"] = enable_caching_for_http
-        if signing_disabled is not None:
-            self._values["signing_disabled"] = signing_disabled
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-        if token_key_name is not None:
-            self._values["token_key_name"] = token_key_name
-        if token_signing_public_keys is not None:
-            self._values["token_signing_public_keys"] = token_signing_public_keys
-
-    @builtins.property
-    def authorizer_function_arn(self) -> builtins.str:
-        '''The authorizer's Lambda function ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-authorizerfunctionarn
-        '''
-        result = self._values.get("authorizer_function_arn")
-        assert result is not None, "Required property 'authorizer_function_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def authorizer_name(self) -> typing.Optional[builtins.str]:
-        '''The authorizer name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-authorizername
-        '''
-        result = self._values.get("authorizer_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_caching_for_http(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''When ``true`` , the result from the authorizer's Lambda function is cached for clients that use persistent HTTP connections.
-
-        The results are cached for the time specified by the Lambda function in ``refreshAfterInSeconds`` . This value doesn't affect authorization of clients that use MQTT connections.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-enablecachingforhttp
-        '''
-        result = self._values.get("enable_caching_for_http")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def signing_disabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether AWS IoT validates the token signature in an authorization request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-signingdisabled
-        '''
-        result = self._values.get("signing_disabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the authorizer.
-
-        Valid values: ``ACTIVE`` | ``INACTIVE``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the custom authorizer.
-
-        .. epigraph::
-
-           For URI Request parameters use format: ...key1=value1&key2=value2...
-
-           For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..."
-
-           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def token_key_name(self) -> typing.Optional[builtins.str]:
-        '''The key used to extract the token from the HTTP headers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tokenkeyname
-        '''
-        result = self._values.get("token_key_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def token_signing_public_keys(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The public keys used to validate the token signature returned by your custom authentication service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-authorizer.html#cfn-iot-authorizer-tokensigningpublickeys
-        '''
-        result = self._values.get("token_signing_public_keys")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAuthorizerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IBillingGroupRef, _ITaggable_36806126)
 class CfnBillingGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1772,6 +9357,12 @@ class CfnBillingGroup(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="billingGroupRef")
+    def billing_group_ref(self) -> BillingGroupReference:
+        '''A reference to a BillingGroup resource.'''
+        return typing.cast(BillingGroupReference, jsii.get(self, "billingGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1884,104 +9475,7 @@ class CfnBillingGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnBillingGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "billing_group_name": "billingGroupName",
-        "billing_group_properties": "billingGroupProperties",
-        "tags": "tags",
-    },
-)
-class CfnBillingGroupProps:
-    def __init__(
-        self,
-        *,
-        billing_group_name: typing.Optional[builtins.str] = None,
-        billing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBillingGroup.BillingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBillingGroup``.
-
-        :param billing_group_name: The name of the billing group.
-        :param billing_group_properties: The properties of the billing group.
-        :param tags: Metadata which can be used to manage the billing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_billing_group_props = iot.CfnBillingGroupProps(
-                billing_group_name="billingGroupName",
-                billing_group_properties=iot.CfnBillingGroup.BillingGroupPropertiesProperty(
-                    billing_group_description="billingGroupDescription"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__525602a7134ed800f47c55a23e5db685defea3c4eeb864eab734acb5724d24f5)
-            check_type(argname="argument billing_group_name", value=billing_group_name, expected_type=type_hints["billing_group_name"])
-            check_type(argname="argument billing_group_properties", value=billing_group_properties, expected_type=type_hints["billing_group_properties"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if billing_group_name is not None:
-            self._values["billing_group_name"] = billing_group_name
-        if billing_group_properties is not None:
-            self._values["billing_group_properties"] = billing_group_properties
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def billing_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the billing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-billinggroupname
-        '''
-        result = self._values.get("billing_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def billing_group_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBillingGroup.BillingGroupPropertiesProperty]]:
-        '''The properties of the billing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-billinggroupproperties
-        '''
-        result = self._values.get("billing_group_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBillingGroup.BillingGroupPropertiesProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the billing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-billinggroup.html#cfn-iot-billinggroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBillingGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ICACertificateRef, _ITaggable_36806126)
 class CfnCACertificate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2116,6 +9610,12 @@ class CfnCACertificate(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="caCertificateRef")
+    def ca_certificate_ref(self) -> CACertificateReference:
+        '''A reference to a CACertificate resource.'''
+        return typing.cast(CACertificateReference, jsii.get(self, "caCertificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2335,201 +9835,7 @@ class CfnCACertificate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnCACertificateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ca_certificate_pem": "caCertificatePem",
-        "status": "status",
-        "auto_registration_status": "autoRegistrationStatus",
-        "certificate_mode": "certificateMode",
-        "registration_config": "registrationConfig",
-        "remove_auto_registration": "removeAutoRegistration",
-        "tags": "tags",
-        "verification_certificate_pem": "verificationCertificatePem",
-    },
-)
-class CfnCACertificateProps:
-    def __init__(
-        self,
-        *,
-        ca_certificate_pem: builtins.str,
-        status: builtins.str,
-        auto_registration_status: typing.Optional[builtins.str] = None,
-        certificate_mode: typing.Optional[builtins.str] = None,
-        registration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCACertificate.RegistrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        remove_auto_registration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        verification_certificate_pem: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCACertificate``.
-
-        :param ca_certificate_pem: The certificate data in PEM format.
-        :param status: The status of the CA certificate. Valid values are "ACTIVE" and "INACTIVE".
-        :param auto_registration_status: Whether the CA certificate is configured for auto registration of device certificates. Valid values are "ENABLE" and "DISABLE".
-        :param certificate_mode: The mode of the CA. All the device certificates that are registered using this CA will be registered in the same mode as the CA. For more information about certificate mode for device certificates, see `certificate mode <https://docs.aws.amazon.com//iot/latest/apireference/API_CertificateDescription.html#iot-Type-CertificateDescription-certificateMode>`_ . Valid values are "DEFAULT" and "SNI_ONLY".
-        :param registration_config: Information about the registration configuration.
-        :param remove_auto_registration: If true, removes auto registration.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param verification_certificate_pem: The private key verification certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_cACertificate_props = iot.CfnCACertificateProps(
-                ca_certificate_pem="caCertificatePem",
-                status="status",
-            
-                # the properties below are optional
-                auto_registration_status="autoRegistrationStatus",
-                certificate_mode="certificateMode",
-                registration_config=iot.CfnCACertificate.RegistrationConfigProperty(
-                    role_arn="roleArn",
-                    template_body="templateBody",
-                    template_name="templateName"
-                ),
-                remove_auto_registration=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                verification_certificate_pem="verificationCertificatePem"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dc1fc8bd40bee99b1f78bec3a4ac719bfd5bcc6c23ac88b18b092192a99e69b)
-            check_type(argname="argument ca_certificate_pem", value=ca_certificate_pem, expected_type=type_hints["ca_certificate_pem"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument auto_registration_status", value=auto_registration_status, expected_type=type_hints["auto_registration_status"])
-            check_type(argname="argument certificate_mode", value=certificate_mode, expected_type=type_hints["certificate_mode"])
-            check_type(argname="argument registration_config", value=registration_config, expected_type=type_hints["registration_config"])
-            check_type(argname="argument remove_auto_registration", value=remove_auto_registration, expected_type=type_hints["remove_auto_registration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument verification_certificate_pem", value=verification_certificate_pem, expected_type=type_hints["verification_certificate_pem"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ca_certificate_pem": ca_certificate_pem,
-            "status": status,
-        }
-        if auto_registration_status is not None:
-            self._values["auto_registration_status"] = auto_registration_status
-        if certificate_mode is not None:
-            self._values["certificate_mode"] = certificate_mode
-        if registration_config is not None:
-            self._values["registration_config"] = registration_config
-        if remove_auto_registration is not None:
-            self._values["remove_auto_registration"] = remove_auto_registration
-        if tags is not None:
-            self._values["tags"] = tags
-        if verification_certificate_pem is not None:
-            self._values["verification_certificate_pem"] = verification_certificate_pem
-
-    @builtins.property
-    def ca_certificate_pem(self) -> builtins.str:
-        '''The certificate data in PEM format.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-cacertificatepem
-        '''
-        result = self._values.get("ca_certificate_pem")
-        assert result is not None, "Required property 'ca_certificate_pem' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def status(self) -> builtins.str:
-        '''The status of the CA certificate.
-
-        Valid values are "ACTIVE" and "INACTIVE".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-status
-        '''
-        result = self._values.get("status")
-        assert result is not None, "Required property 'status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_registration_status(self) -> typing.Optional[builtins.str]:
-        '''Whether the CA certificate is configured for auto registration of device certificates.
-
-        Valid values are "ENABLE" and "DISABLE".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-autoregistrationstatus
-        '''
-        result = self._values.get("auto_registration_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_mode(self) -> typing.Optional[builtins.str]:
-        '''The mode of the CA.
-
-        All the device certificates that are registered using this CA will be registered in the same mode as the CA. For more information about certificate mode for device certificates, see `certificate mode <https://docs.aws.amazon.com//iot/latest/apireference/API_CertificateDescription.html#iot-Type-CertificateDescription-certificateMode>`_ .
-
-        Valid values are "DEFAULT" and "SNI_ONLY".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-certificatemode
-        '''
-        result = self._values.get("certificate_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def registration_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCACertificate.RegistrationConfigProperty]]:
-        '''Information about the registration configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-registrationconfig
-        '''
-        result = self._values.get("registration_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCACertificate.RegistrationConfigProperty]], result)
-
-    @builtins.property
-    def remove_auto_registration(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If true, removes auto registration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-removeautoregistration
-        '''
-        result = self._values.get("remove_auto_registration")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def verification_certificate_pem(self) -> typing.Optional[builtins.str]:
-        '''The private key verification certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-cacertificate.html#cfn-iot-cacertificate-verificationcertificatepem
-        '''
-        result = self._values.get("verification_certificate_pem")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCACertificateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ICertificateRef)
 class CfnCertificate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2647,6 +9953,12 @@ class CfnCertificate(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> CertificateReference:
+        '''A reference to a Certificate resource.'''
+        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -2717,144 +10029,7 @@ class CfnCertificate(
         jsii.set(self, "certificateSigningRequest", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnCertificateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "status": "status",
-        "ca_certificate_pem": "caCertificatePem",
-        "certificate_mode": "certificateMode",
-        "certificate_pem": "certificatePem",
-        "certificate_signing_request": "certificateSigningRequest",
-    },
-)
-class CfnCertificateProps:
-    def __init__(
-        self,
-        *,
-        status: builtins.str,
-        ca_certificate_pem: typing.Optional[builtins.str] = None,
-        certificate_mode: typing.Optional[builtins.str] = None,
-        certificate_pem: typing.Optional[builtins.str] = None,
-        certificate_signing_request: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificate``.
-
-        :param status: The status of the certificate. Valid values are ACTIVE, INACTIVE, REVOKED, PENDING_TRANSFER, and PENDING_ACTIVATION. The status value REGISTER_INACTIVE is deprecated and should not be used.
-        :param ca_certificate_pem: The CA certificate used to sign the device certificate being registered, not available when CertificateMode is SNI_ONLY.
-        :param certificate_mode: Specifies which mode of certificate registration to use with this resource. Valid options are DEFAULT with CaCertificatePem and CertificatePem, SNI_ONLY with CertificatePem, and Default with CertificateSigningRequest. ``DEFAULT`` : A certificate in ``DEFAULT`` mode is either generated by AWS IoT Core or registered with an issuer certificate authority (CA). Devices with certificates in ``DEFAULT`` mode aren't required to send the Server Name Indication (SNI) extension when connecting to AWS IoT Core . However, to use features such as custom domains and VPC endpoints, we recommend that you use the SNI extension when connecting to AWS IoT Core . ``SNI_ONLY`` : A certificate in ``SNI_ONLY`` mode is registered without an issuer CA. Devices with certificates in ``SNI_ONLY`` mode must send the SNI extension when connecting to AWS IoT Core .
-        :param certificate_pem: The certificate data in PEM format. Requires SNI_ONLY for the certificate mode or the accompanying CACertificatePem for registration.
-        :param certificate_signing_request: The certificate signing request (CSR).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_certificate_props = iot.CfnCertificateProps(
-                status="status",
-            
-                # the properties below are optional
-                ca_certificate_pem="caCertificatePem",
-                certificate_mode="certificateMode",
-                certificate_pem="certificatePem",
-                certificate_signing_request="certificateSigningRequest"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e042ee43de887a4629c99a4bbd89c3608552e57b05edd98ed45772daee143941)
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument ca_certificate_pem", value=ca_certificate_pem, expected_type=type_hints["ca_certificate_pem"])
-            check_type(argname="argument certificate_mode", value=certificate_mode, expected_type=type_hints["certificate_mode"])
-            check_type(argname="argument certificate_pem", value=certificate_pem, expected_type=type_hints["certificate_pem"])
-            check_type(argname="argument certificate_signing_request", value=certificate_signing_request, expected_type=type_hints["certificate_signing_request"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "status": status,
-        }
-        if ca_certificate_pem is not None:
-            self._values["ca_certificate_pem"] = ca_certificate_pem
-        if certificate_mode is not None:
-            self._values["certificate_mode"] = certificate_mode
-        if certificate_pem is not None:
-            self._values["certificate_pem"] = certificate_pem
-        if certificate_signing_request is not None:
-            self._values["certificate_signing_request"] = certificate_signing_request
-
-    @builtins.property
-    def status(self) -> builtins.str:
-        '''The status of the certificate.
-
-        Valid values are ACTIVE, INACTIVE, REVOKED, PENDING_TRANSFER, and PENDING_ACTIVATION.
-
-        The status value REGISTER_INACTIVE is deprecated and should not be used.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-status
-        '''
-        result = self._values.get("status")
-        assert result is not None, "Required property 'status' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ca_certificate_pem(self) -> typing.Optional[builtins.str]:
-        '''The CA certificate used to sign the device certificate being registered, not available when CertificateMode is SNI_ONLY.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-cacertificatepem
-        '''
-        result = self._values.get("ca_certificate_pem")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies which mode of certificate registration to use with this resource.
-
-        Valid options are DEFAULT with CaCertificatePem and CertificatePem, SNI_ONLY with CertificatePem, and Default with CertificateSigningRequest.
-
-        ``DEFAULT`` : A certificate in ``DEFAULT`` mode is either generated by AWS IoT Core or registered with an issuer certificate authority (CA). Devices with certificates in ``DEFAULT`` mode aren't required to send the Server Name Indication (SNI) extension when connecting to AWS IoT Core . However, to use features such as custom domains and VPC endpoints, we recommend that you use the SNI extension when connecting to AWS IoT Core .
-
-        ``SNI_ONLY`` : A certificate in ``SNI_ONLY`` mode is registered without an issuer CA. Devices with certificates in ``SNI_ONLY`` mode must send the SNI extension when connecting to AWS IoT Core .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatemode
-        '''
-        result = self._values.get("certificate_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_pem(self) -> typing.Optional[builtins.str]:
-        '''The certificate data in PEM format.
-
-        Requires SNI_ONLY for the certificate mode or the accompanying CACertificatePem for registration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatepem
-        '''
-        result = self._values.get("certificate_pem")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def certificate_signing_request(self) -> typing.Optional[builtins.str]:
-        '''The certificate signing request (CSR).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificate.html#cfn-iot-certificate-certificatesigningrequest
-        '''
-        result = self._values.get("certificate_signing_request")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ICertificateProviderRef, _ITaggableV2_4e6798f8)
 class CfnCertificateProvider(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2970,6 +10145,12 @@ class CfnCertificateProvider(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
+    @jsii.member(jsii_name="certificateProviderRef")
+    def certificate_provider_ref(self) -> CertificateProviderReference:
+        '''A reference to a CertificateProvider resource.'''
+        return typing.cast(CertificateProviderReference, jsii.get(self, "certificateProviderRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -3027,121 +10208,7 @@ class CfnCertificateProvider(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnCertificateProviderProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account_default_for_operations": "accountDefaultForOperations",
-        "lambda_function_arn": "lambdaFunctionArn",
-        "certificate_provider_name": "certificateProviderName",
-        "tags": "tags",
-    },
-)
-class CfnCertificateProviderProps:
-    def __init__(
-        self,
-        *,
-        account_default_for_operations: typing.Sequence[builtins.str],
-        lambda_function_arn: builtins.str,
-        certificate_provider_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificateProvider``.
-
-        :param account_default_for_operations: A list of the operations that the certificate provider will use to generate certificates. Valid value: ``CreateCertificateFromCsr`` .
-        :param lambda_function_arn: The ARN of the Lambda function.
-        :param certificate_provider_name: The name of the certificate provider.
-        :param tags: Metadata that can be used to manage the certificate provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_certificate_provider_props = iot.CfnCertificateProviderProps(
-                account_default_for_operations=["accountDefaultForOperations"],
-                lambda_function_arn="lambdaFunctionArn",
-            
-                # the properties below are optional
-                certificate_provider_name="certificateProviderName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0744e41536576c861dced01787a6dcedf68212c28aef410b1478e6470df5595)
-            check_type(argname="argument account_default_for_operations", value=account_default_for_operations, expected_type=type_hints["account_default_for_operations"])
-            check_type(argname="argument lambda_function_arn", value=lambda_function_arn, expected_type=type_hints["lambda_function_arn"])
-            check_type(argname="argument certificate_provider_name", value=certificate_provider_name, expected_type=type_hints["certificate_provider_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_default_for_operations": account_default_for_operations,
-            "lambda_function_arn": lambda_function_arn,
-        }
-        if certificate_provider_name is not None:
-            self._values["certificate_provider_name"] = certificate_provider_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def account_default_for_operations(self) -> typing.List[builtins.str]:
-        '''A list of the operations that the certificate provider will use to generate certificates.
-
-        Valid value: ``CreateCertificateFromCsr`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-accountdefaultforoperations
-        '''
-        result = self._values.get("account_default_for_operations")
-        assert result is not None, "Required property 'account_default_for_operations' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def lambda_function_arn(self) -> builtins.str:
-        '''The ARN of the Lambda function.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-lambdafunctionarn
-        '''
-        result = self._values.get("lambda_function_arn")
-        assert result is not None, "Required property 'lambda_function_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_provider_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the certificate provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-certificateprovidername
-        '''
-        result = self._values.get("certificate_provider_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the certificate provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-certificateprovider.html#cfn-iot-certificateprovider-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ICommandRef, _ITaggableV2_4e6798f8)
 class CfnCommand(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3310,6 +10377,12 @@ class CfnCommand(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="commandRef")
+    def command_ref(self) -> CommandReference:
+        '''A reference to a Command resource.'''
+        return typing.cast(CommandReference, jsii.get(self, "commandRef"))
 
     @builtins.property
     @jsii.member(jsii_name="commandId")
@@ -3823,279 +10896,7 @@ class CfnCommand(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnCommandProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "command_id": "commandId",
-        "created_at": "createdAt",
-        "deprecated": "deprecated",
-        "description": "description",
-        "display_name": "displayName",
-        "last_updated_at": "lastUpdatedAt",
-        "mandatory_parameters": "mandatoryParameters",
-        "namespace": "namespace",
-        "payload": "payload",
-        "pending_deletion": "pendingDeletion",
-        "role_arn": "roleArn",
-        "tags": "tags",
-    },
-)
-class CfnCommandProps:
-    def __init__(
-        self,
-        *,
-        command_id: builtins.str,
-        created_at: typing.Optional[builtins.str] = None,
-        deprecated: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        last_updated_at: typing.Optional[builtins.str] = None,
-        mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        namespace: typing.Optional[builtins.str] = None,
-        payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCommand``.
-
-        :param command_id: The unique identifier of the command.
-        :param created_at: The timestamp, when the command was created.
-        :param deprecated: Indicates whether the command has been deprecated.
-        :param description: The description of the command parameter.
-        :param display_name: The display name of the command.
-        :param last_updated_at: The timestamp, when the command was last updated.
-        :param mandatory_parameters: 
-        :param namespace: The namespace to which the command belongs.
-        :param payload: 
-        :param pending_deletion: Indicates whether the command is pending deletion.
-        :param role_arn: The customer role associated with the command.
-        :param tags: The tags to be associated with the command.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_command_props = iot.CfnCommandProps(
-                command_id="commandId",
-            
-                # the properties below are optional
-                created_at="createdAt",
-                deprecated=False,
-                description="description",
-                display_name="displayName",
-                last_updated_at="lastUpdatedAt",
-                mandatory_parameters=[iot.CfnCommand.CommandParameterProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    default_value=iot.CfnCommand.CommandParameterValueProperty(
-                        b=False,
-                        bin="bin",
-                        d=123,
-                        i=123,
-                        l="l",
-                        s="s",
-                        ul="ul"
-                    ),
-                    description="description",
-                    value=iot.CfnCommand.CommandParameterValueProperty(
-                        b=False,
-                        bin="bin",
-                        d=123,
-                        i=123,
-                        l="l",
-                        s="s",
-                        ul="ul"
-                    )
-                )],
-                namespace="namespace",
-                payload=iot.CfnCommand.CommandPayloadProperty(
-                    content="content",
-                    content_type="contentType"
-                ),
-                pending_deletion=False,
-                role_arn="roleArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6feb02113)
-            check_type(argname="argument command_id", value=command_id, expected_type=type_hints["command_id"])
-            check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
-            check_type(argname="argument deprecated", value=deprecated, expected_type=type_hints["deprecated"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument last_updated_at", value=last_updated_at, expected_type=type_hints["last_updated_at"])
-            check_type(argname="argument mandatory_parameters", value=mandatory_parameters, expected_type=type_hints["mandatory_parameters"])
-            check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
-            check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
-            check_type(argname="argument pending_deletion", value=pending_deletion, expected_type=type_hints["pending_deletion"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "command_id": command_id,
-        }
-        if created_at is not None:
-            self._values["created_at"] = created_at
-        if deprecated is not None:
-            self._values["deprecated"] = deprecated
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if last_updated_at is not None:
-            self._values["last_updated_at"] = last_updated_at
-        if mandatory_parameters is not None:
-            self._values["mandatory_parameters"] = mandatory_parameters
-        if namespace is not None:
-            self._values["namespace"] = namespace
-        if payload is not None:
-            self._values["payload"] = payload
-        if pending_deletion is not None:
-            self._values["pending_deletion"] = pending_deletion
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def command_id(self) -> builtins.str:
-        '''The unique identifier of the command.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-commandid
-        '''
-        result = self._values.get("command_id")
-        assert result is not None, "Required property 'command_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def created_at(self) -> typing.Optional[builtins.str]:
-        '''The timestamp, when the command was created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-createdat
-        '''
-        result = self._values.get("created_at")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def deprecated(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the command has been deprecated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-deprecated
-        '''
-        result = self._values.get("deprecated")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the command parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the command.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def last_updated_at(self) -> typing.Optional[builtins.str]:
-        '''The timestamp, when the command was last updated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-lastupdatedat
-        '''
-        result = self._values.get("last_updated_at")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def mandatory_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCommand.CommandParameterProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-mandatoryparameters
-        '''
-        result = self._values.get("mandatory_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCommand.CommandParameterProperty]]]], result)
-
-    @builtins.property
-    def namespace(self) -> typing.Optional[builtins.str]:
-        '''The namespace to which the command belongs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-namespace
-        '''
-        result = self._values.get("namespace")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def payload(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCommand.CommandPayloadProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-payload
-        '''
-        result = self._values.get("payload")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCommand.CommandPayloadProperty]], result)
-
-    @builtins.property
-    def pending_deletion(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the command is pending deletion.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-pendingdeletion
-        '''
-        result = self._values.get("pending_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The customer role associated with the command.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to be associated with the command.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCommandProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ICustomMetricRef, _ITaggable_36806126)
 class CfnCustomMetric(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4206,6 +11007,12 @@ class CfnCustomMetric(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="customMetricRef")
+    def custom_metric_ref(self) -> CustomMetricReference:
+        '''A reference to a CustomMetric resource.'''
+        return typing.cast(CustomMetricReference, jsii.get(self, "customMetricRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4267,127 +11074,7 @@ class CfnCustomMetric(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnCustomMetricProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "metric_type": "metricType",
-        "display_name": "displayName",
-        "metric_name": "metricName",
-        "tags": "tags",
-    },
-)
-class CfnCustomMetricProps:
-    def __init__(
-        self,
-        *,
-        metric_type: builtins.str,
-        display_name: typing.Optional[builtins.str] = None,
-        metric_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCustomMetric``.
-
-        :param metric_type: The type of the custom metric. Types include ``string-list`` , ``ip-address-list`` , ``number-list`` , and ``number`` . .. epigraph:: The type ``number`` only takes a single metric value as an input, but when you submit the metrics value in the DeviceMetrics report, you must pass it as an array with a single value.
-        :param display_name: The friendly name in the console for the custom metric. This name doesn't have to be unique. Don't use this name as the metric identifier in the device metric report. You can update the friendly name after you define it.
-        :param metric_name: The name of the custom metric. This will be used in the metric report submitted from the device/thing. The name can't begin with ``aws:`` . You can’t change the name after you define it.
-        :param tags: Metadata that can be used to manage the custom metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_custom_metric_props = iot.CfnCustomMetricProps(
-                metric_type="metricType",
-            
-                # the properties below are optional
-                display_name="displayName",
-                metric_name="metricName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__991229c51e2720f643956708e6d3c50eac5f03c8bfc0b98c081457c32d0713a4)
-            check_type(argname="argument metric_type", value=metric_type, expected_type=type_hints["metric_type"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "metric_type": metric_type,
-        }
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if metric_name is not None:
-            self._values["metric_name"] = metric_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def metric_type(self) -> builtins.str:
-        '''The type of the custom metric. Types include ``string-list`` , ``ip-address-list`` , ``number-list`` , and ``number`` .
-
-        .. epigraph::
-
-           The type ``number`` only takes a single metric value as an input, but when you submit the metrics value in the DeviceMetrics report, you must pass it as an array with a single value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-metrictype
-        '''
-        result = self._values.get("metric_type")
-        assert result is not None, "Required property 'metric_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The friendly name in the console for the custom metric.
-
-        This name doesn't have to be unique. Don't use this name as the metric identifier in the device metric report. You can update the friendly name after you define it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def metric_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the custom metric.
-
-        This will be used in the metric report submitted from the device/thing. The name can't begin with ``aws:`` . You can’t change the name after you define it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-metricname
-        '''
-        result = self._values.get("metric_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the custom metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-custommetric.html#cfn-iot-custommetric-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCustomMetricProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDimensionRef, _ITaggable_36806126)
 class CfnDimension(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4493,6 +11180,12 @@ class CfnDimension(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="dimensionRef")
+    def dimension_ref(self) -> DimensionReference:
+        '''A reference to a Dimension resource.'''
+        return typing.cast(DimensionReference, jsii.get(self, "dimensionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -4551,123 +11244,7 @@ class CfnDimension(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnDimensionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "string_values": "stringValues",
-        "type": "type",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnDimensionProps:
-    def __init__(
-        self,
-        *,
-        string_values: typing.Sequence[builtins.str],
-        type: builtins.str,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDimension``.
-
-        :param string_values: Specifies the value or list of values for the dimension. For ``TOPIC_FILTER`` dimensions, this is a pattern used to match the MQTT topic (for example, "admin/#").
-        :param type: Specifies the type of dimension. Supported types: ``TOPIC_FILTER.``
-        :param name: A unique identifier for the dimension.
-        :param tags: Metadata that can be used to manage the dimension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_dimension_props = iot.CfnDimensionProps(
-                string_values=["stringValues"],
-                type="type",
-            
-                # the properties below are optional
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37f13b590f3614b992d59318bbe236446dc9c8243bcdfdd1201b5415d8bbe16e)
-            check_type(argname="argument string_values", value=string_values, expected_type=type_hints["string_values"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "string_values": string_values,
-            "type": type,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def string_values(self) -> typing.List[builtins.str]:
-        '''Specifies the value or list of values for the dimension.
-
-        For ``TOPIC_FILTER`` dimensions, this is a pattern used to match the MQTT topic (for example, "admin/#").
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-stringvalues
-        '''
-        result = self._values.get("string_values")
-        assert result is not None, "Required property 'string_values' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Specifies the type of dimension.
-
-        Supported types: ``TOPIC_FILTER.``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for the dimension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the dimension.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-dimension.html#cfn-iot-dimension-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDimensionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDomainConfigurationRef, _ITaggable_36806126)
 class CfnDomainConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4837,6 +11414,12 @@ class CfnDomainConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainConfigurationRef")
+    def domain_configuration_ref(self) -> DomainConfigurationReference:
+        '''A reference to a DomainConfiguration resource.'''
+        return typing.cast(DomainConfigurationReference, jsii.get(self, "domainConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5412,301 +11995,7 @@ class CfnDomainConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnDomainConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_protocol": "applicationProtocol",
-        "authentication_type": "authenticationType",
-        "authorizer_config": "authorizerConfig",
-        "client_certificate_config": "clientCertificateConfig",
-        "domain_configuration_name": "domainConfigurationName",
-        "domain_configuration_status": "domainConfigurationStatus",
-        "domain_name": "domainName",
-        "server_certificate_arns": "serverCertificateArns",
-        "server_certificate_config": "serverCertificateConfig",
-        "service_type": "serviceType",
-        "tags": "tags",
-        "tls_config": "tlsConfig",
-        "validation_certificate_arn": "validationCertificateArn",
-    },
-)
-class CfnDomainConfigurationProps:
-    def __init__(
-        self,
-        *,
-        application_protocol: typing.Optional[builtins.str] = None,
-        authentication_type: typing.Optional[builtins.str] = None,
-        authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.AuthorizerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        client_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ClientCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain_configuration_name: typing.Optional[builtins.str] = None,
-        domain_configuration_status: typing.Optional[builtins.str] = None,
-        domain_name: typing.Optional[builtins.str] = None,
-        server_certificate_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        server_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ServerCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        service_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.TlsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        validation_certificate_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDomainConfiguration``.
-
-        :param application_protocol: An enumerated string that speciﬁes the application-layer protocol.
-        :param authentication_type: An enumerated string that speciﬁes the authentication type.
-        :param authorizer_config: An object that specifies the authorization service for a domain.
-        :param client_certificate_config: An object that speciﬁes the client certificate conﬁguration for a domain.
-        :param domain_configuration_name: The name of the domain configuration. This value must be unique to a region.
-        :param domain_configuration_status: The status to which the domain configuration should be updated. Valid values: ``ENABLED`` | ``DISABLED``
-        :param domain_name: The name of the domain.
-        :param server_certificate_arns: The ARNs of the certificates that AWS IoT passes to the device during the TLS handshake. Currently you can specify only one certificate ARN. This value is not required for AWS -managed domains.
-        :param server_certificate_config: The server certificate configuration. For more information, see `Configurable endpoints <https://docs.aws.amazon.com//iot/latest/developerguide/iot-custom-endpoints-configurable.html>`_ from the AWS IoT Core Developer Guide.
-        :param service_type: The type of service delivered by the endpoint. .. epigraph:: AWS IoT Core currently supports only the ``DATA`` service type.
-        :param tags: Metadata which can be used to manage the domain configuration. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-        :param tls_config: An object that specifies the TLS configuration for a domain.
-        :param validation_certificate_arn: The certificate used to validate the server certificate and prove domain name ownership. This certificate must be signed by a public certificate authority. This value is not required for AWS -managed domains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_domain_configuration_props = iot.CfnDomainConfigurationProps(
-                application_protocol="applicationProtocol",
-                authentication_type="authenticationType",
-                authorizer_config=iot.CfnDomainConfiguration.AuthorizerConfigProperty(
-                    allow_authorizer_override=False,
-                    default_authorizer_name="defaultAuthorizerName"
-                ),
-                client_certificate_config=iot.CfnDomainConfiguration.ClientCertificateConfigProperty(
-                    client_certificate_callback_arn="clientCertificateCallbackArn"
-                ),
-                domain_configuration_name="domainConfigurationName",
-                domain_configuration_status="domainConfigurationStatus",
-                domain_name="domainName",
-                server_certificate_arns=["serverCertificateArns"],
-                server_certificate_config=iot.CfnDomainConfiguration.ServerCertificateConfigProperty(
-                    enable_ocsp_check=False,
-                    ocsp_authorized_responder_arn="ocspAuthorizedResponderArn",
-                    ocsp_lambda_arn="ocspLambdaArn"
-                ),
-                service_type="serviceType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tls_config=iot.CfnDomainConfiguration.TlsConfigProperty(
-                    security_policy="securityPolicy"
-                ),
-                validation_certificate_arn="validationCertificateArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af698e1a1ead0a2d7000837dd712796a150772065ad59ab9baf10a759fd99e3e)
-            check_type(argname="argument application_protocol", value=application_protocol, expected_type=type_hints["application_protocol"])
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument authorizer_config", value=authorizer_config, expected_type=type_hints["authorizer_config"])
-            check_type(argname="argument client_certificate_config", value=client_certificate_config, expected_type=type_hints["client_certificate_config"])
-            check_type(argname="argument domain_configuration_name", value=domain_configuration_name, expected_type=type_hints["domain_configuration_name"])
-            check_type(argname="argument domain_configuration_status", value=domain_configuration_status, expected_type=type_hints["domain_configuration_status"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument server_certificate_arns", value=server_certificate_arns, expected_type=type_hints["server_certificate_arns"])
-            check_type(argname="argument server_certificate_config", value=server_certificate_config, expected_type=type_hints["server_certificate_config"])
-            check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tls_config", value=tls_config, expected_type=type_hints["tls_config"])
-            check_type(argname="argument validation_certificate_arn", value=validation_certificate_arn, expected_type=type_hints["validation_certificate_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if application_protocol is not None:
-            self._values["application_protocol"] = application_protocol
-        if authentication_type is not None:
-            self._values["authentication_type"] = authentication_type
-        if authorizer_config is not None:
-            self._values["authorizer_config"] = authorizer_config
-        if client_certificate_config is not None:
-            self._values["client_certificate_config"] = client_certificate_config
-        if domain_configuration_name is not None:
-            self._values["domain_configuration_name"] = domain_configuration_name
-        if domain_configuration_status is not None:
-            self._values["domain_configuration_status"] = domain_configuration_status
-        if domain_name is not None:
-            self._values["domain_name"] = domain_name
-        if server_certificate_arns is not None:
-            self._values["server_certificate_arns"] = server_certificate_arns
-        if server_certificate_config is not None:
-            self._values["server_certificate_config"] = server_certificate_config
-        if service_type is not None:
-            self._values["service_type"] = service_type
-        if tags is not None:
-            self._values["tags"] = tags
-        if tls_config is not None:
-            self._values["tls_config"] = tls_config
-        if validation_certificate_arn is not None:
-            self._values["validation_certificate_arn"] = validation_certificate_arn
-
-    @builtins.property
-    def application_protocol(self) -> typing.Optional[builtins.str]:
-        '''An enumerated string that speciﬁes the application-layer protocol.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-applicationprotocol
-        '''
-        result = self._values.get("application_protocol")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''An enumerated string that speciﬁes the authentication type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def authorizer_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.AuthorizerConfigProperty]]:
-        '''An object that specifies the authorization service for a domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-authorizerconfig
-        '''
-        result = self._values.get("authorizer_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.AuthorizerConfigProperty]], result)
-
-    @builtins.property
-    def client_certificate_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.ClientCertificateConfigProperty]]:
-        '''An object that speciﬁes the client certificate conﬁguration for a domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-clientcertificateconfig
-        '''
-        result = self._values.get("client_certificate_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.ClientCertificateConfigProperty]], result)
-
-    @builtins.property
-    def domain_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the domain configuration.
-
-        This value must be unique to a region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainconfigurationname
-        '''
-        result = self._values.get("domain_configuration_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_configuration_status(self) -> typing.Optional[builtins.str]:
-        '''The status to which the domain configuration should be updated.
-
-        Valid values: ``ENABLED`` | ``DISABLED``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainconfigurationstatus
-        '''
-        result = self._values.get("domain_configuration_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-domainname
-        '''
-        result = self._values.get("domain_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_certificate_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the certificates that AWS IoT passes to the device during the TLS handshake.
-
-        Currently you can specify only one certificate ARN. This value is not required for AWS -managed domains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servercertificatearns
-        '''
-        result = self._values.get("server_certificate_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def server_certificate_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.ServerCertificateConfigProperty]]:
-        '''The server certificate configuration.
-
-        For more information, see `Configurable endpoints <https://docs.aws.amazon.com//iot/latest/developerguide/iot-custom-endpoints-configurable.html>`_ from the AWS IoT Core Developer Guide.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servercertificateconfig
-        '''
-        result = self._values.get("server_certificate_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.ServerCertificateConfigProperty]], result)
-
-    @builtins.property
-    def service_type(self) -> typing.Optional[builtins.str]:
-        '''The type of service delivered by the endpoint.
-
-        .. epigraph::
-
-           AWS IoT Core currently supports only the ``DATA`` service type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-servicetype
-        '''
-        result = self._values.get("service_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the domain configuration.
-
-        .. epigraph::
-
-           For URI Request parameters use format: ...key1=value1&key2=value2...
-
-           For the CLI command-line parameter use format: &&tags "key1=value1&key2=value2..."
-
-           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def tls_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.TlsConfigProperty]]:
-        '''An object that specifies the TLS configuration for a domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-tlsconfig
-        '''
-        result = self._values.get("tls_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainConfiguration.TlsConfigProperty]], result)
-
-    @builtins.property
-    def validation_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''The certificate used to validate the server certificate and prove domain name ownership.
-
-        This certificate must be signed by a public certificate authority. This value is not required for AWS -managed domains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-domainconfiguration.html#cfn-iot-domainconfiguration-validationcertificatearn
-        '''
-        result = self._values.get("validation_certificate_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEncryptionConfigurationRef)
 class CfnEncryptionConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5823,6 +12112,12 @@ class CfnEncryptionConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfigurationRef")
+    def encryption_configuration_ref(self) -> EncryptionConfigurationReference:
+        '''A reference to a EncryptionConfiguration resource.'''
+        return typing.cast(EncryptionConfigurationReference, jsii.get(self, "encryptionConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionType")
@@ -5957,100 +12252,7 @@ class CfnEncryptionConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "encryption_type": "encryptionType",
-        "kms_access_role_arn": "kmsAccessRoleArn",
-        "kms_key_arn": "kmsKeyArn",
-    },
-)
-class CfnEncryptionConfigurationProps:
-    def __init__(
-        self,
-        *,
-        encryption_type: builtins.str,
-        kms_access_role_arn: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEncryptionConfiguration``.
-
-        :param encryption_type: The type of the KMS key.
-        :param kms_access_role_arn: The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
-        :param kms_key_arn: The ARN of the customer managed KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_encryption_configuration_props = iot.CfnEncryptionConfigurationProps(
-                encryption_type="encryptionType",
-            
-                # the properties below are optional
-                kms_access_role_arn="kmsAccessRoleArn",
-                kms_key_arn="kmsKeyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab)
-            check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
-            check_type(argname="argument kms_access_role_arn", value=kms_access_role_arn, expected_type=type_hints["kms_access_role_arn"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "encryption_type": encryption_type,
-        }
-        if kms_access_role_arn is not None:
-            self._values["kms_access_role_arn"] = kms_access_role_arn
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-
-    @builtins.property
-    def encryption_type(self) -> builtins.str:
-        '''The type of the KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-encryptiontype
-        '''
-        result = self._values.get("encryption_type")
-        assert result is not None, "Required property 'encryption_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM role assumed by AWS IoT Core to call AWS KMS on behalf of the customer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmsaccessrolearn
-        '''
-        result = self._values.get("kms_access_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the customer managed KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEncryptionConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFleetMetricRef, _ITaggable_36806126)
 class CfnFleetMetric(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6209,6 +12411,12 @@ class CfnFleetMetric(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fleetMetricRef")
+    def fleet_metric_ref(self) -> FleetMetricReference:
+        '''A reference to a FleetMetric resource.'''
+        return typing.cast(FleetMetricReference, jsii.get(self, "fleetMetricRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6423,224 +12631,7 @@ class CfnFleetMetric(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnFleetMetricProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "metric_name": "metricName",
-        "aggregation_field": "aggregationField",
-        "aggregation_type": "aggregationType",
-        "description": "description",
-        "index_name": "indexName",
-        "period": "period",
-        "query_string": "queryString",
-        "query_version": "queryVersion",
-        "tags": "tags",
-        "unit": "unit",
-    },
-)
-class CfnFleetMetricProps:
-    def __init__(
-        self,
-        *,
-        metric_name: builtins.str,
-        aggregation_field: typing.Optional[builtins.str] = None,
-        aggregation_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleetMetric.AggregationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        index_name: typing.Optional[builtins.str] = None,
-        period: typing.Optional[jsii.Number] = None,
-        query_string: typing.Optional[builtins.str] = None,
-        query_version: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        unit: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFleetMetric``.
-
-        :param metric_name: The name of the fleet metric to create.
-        :param aggregation_field: The field to aggregate.
-        :param aggregation_type: The type of the aggregation query.
-        :param description: The fleet metric description.
-        :param index_name: The name of the index to search.
-        :param period: The time in seconds between fleet metric emissions. Range [60(1 min), 86400(1 day)] and must be multiple of 60.
-        :param query_string: The search query string.
-        :param query_version: The query version.
-        :param tags: Metadata which can be used to manage the fleet metric.
-        :param unit: Used to support unit transformation such as milliseconds to seconds. Must be a unit supported by CW metric. Default to null.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_fleet_metric_props = iot.CfnFleetMetricProps(
-                metric_name="metricName",
-            
-                # the properties below are optional
-                aggregation_field="aggregationField",
-                aggregation_type=iot.CfnFleetMetric.AggregationTypeProperty(
-                    name="name",
-                    values=["values"]
-                ),
-                description="description",
-                index_name="indexName",
-                period=123,
-                query_string="queryString",
-                query_version="queryVersion",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                unit="unit"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c32ae9eaf57bd249c6b754fc4d62115363b123e65d8aa0149b1fdfe3a0c125a)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument aggregation_field", value=aggregation_field, expected_type=type_hints["aggregation_field"])
-            check_type(argname="argument aggregation_type", value=aggregation_type, expected_type=type_hints["aggregation_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
-            check_type(argname="argument query_version", value=query_version, expected_type=type_hints["query_version"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "metric_name": metric_name,
-        }
-        if aggregation_field is not None:
-            self._values["aggregation_field"] = aggregation_field
-        if aggregation_type is not None:
-            self._values["aggregation_type"] = aggregation_type
-        if description is not None:
-            self._values["description"] = description
-        if index_name is not None:
-            self._values["index_name"] = index_name
-        if period is not None:
-            self._values["period"] = period
-        if query_string is not None:
-            self._values["query_string"] = query_string
-        if query_version is not None:
-            self._values["query_version"] = query_version
-        if tags is not None:
-            self._values["tags"] = tags
-        if unit is not None:
-            self._values["unit"] = unit
-
-    @builtins.property
-    def metric_name(self) -> builtins.str:
-        '''The name of the fleet metric to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-metricname
-        '''
-        result = self._values.get("metric_name")
-        assert result is not None, "Required property 'metric_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def aggregation_field(self) -> typing.Optional[builtins.str]:
-        '''The field to aggregate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-aggregationfield
-        '''
-        result = self._values.get("aggregation_field")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def aggregation_type(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleetMetric.AggregationTypeProperty]]:
-        '''The type of the aggregation query.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-aggregationtype
-        '''
-        result = self._values.get("aggregation_type")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleetMetric.AggregationTypeProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The fleet metric description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def index_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the index to search.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-indexname
-        '''
-        result = self._values.get("index_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def period(self) -> typing.Optional[jsii.Number]:
-        '''The time in seconds between fleet metric emissions.
-
-        Range [60(1 min), 86400(1 day)] and must be multiple of 60.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-period
-        '''
-        result = self._values.get("period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def query_string(self) -> typing.Optional[builtins.str]:
-        '''The search query string.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-querystring
-        '''
-        result = self._values.get("query_string")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def query_version(self) -> typing.Optional[builtins.str]:
-        '''The query version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-queryversion
-        '''
-        result = self._values.get("query_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the fleet metric.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def unit(self) -> typing.Optional[builtins.str]:
-        '''Used to support unit transformation such as milliseconds to seconds.
-
-        Must be a unit supported by CW metric. Default to null.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-fleetmetric.html#cfn-iot-fleetmetric-unit
-        '''
-        result = self._values.get("unit")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFleetMetricProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IJobTemplateRef, _ITaggable_36806126)
 class CfnJobTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6794,6 +12785,12 @@ class CfnJobTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> JobTemplateReference:
+        '''A reference to a JobTemplate resource.'''
+        return typing.cast(JobTemplateReference, jsii.get(self, "jobTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7757,296 +13754,7 @@ class CfnJobTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnJobTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "job_template_id": "jobTemplateId",
-        "abort_config": "abortConfig",
-        "destination_package_versions": "destinationPackageVersions",
-        "document": "document",
-        "document_source": "documentSource",
-        "job_arn": "jobArn",
-        "job_executions_retry_config": "jobExecutionsRetryConfig",
-        "job_executions_rollout_config": "jobExecutionsRolloutConfig",
-        "maintenance_windows": "maintenanceWindows",
-        "presigned_url_config": "presignedUrlConfig",
-        "tags": "tags",
-        "timeout_config": "timeoutConfig",
-    },
-)
-class CfnJobTemplateProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        job_template_id: builtins.str,
-        abort_config: typing.Any = None,
-        destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        document: typing.Optional[builtins.str] = None,
-        document_source: typing.Optional[builtins.str] = None,
-        job_arn: typing.Optional[builtins.str] = None,
-        job_executions_retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.JobExecutionsRetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        job_executions_rollout_config: typing.Any = None,
-        maintenance_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        presigned_url_config: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        timeout_config: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnJobTemplate``.
-
-        :param description: A description of the job template.
-        :param job_template_id: A unique identifier for the job template. We recommend using a UUID. Alpha-numeric characters, "-", and "_" are valid for use here.
-        :param abort_config: The criteria that determine when and how a job abort takes place.
-        :param destination_package_versions: The package version Amazon Resource Names (ARNs) that are installed on the device’s reserved named shadow ( ``$package`` ) when the job successfully completes. *Note:* Up to 25 package version ARNS are allowed.
-        :param document: The job document. Required if you don't specify a value for ``documentSource`` .
-        :param document_source: An S3 link, or S3 object URL, to the job document. The link is an Amazon S3 object URL and is required if you don't specify a value for ``document`` . For example, ``--document-source https://s3. *region-code* .amazonaws.com/example-firmware/device-firmware.1.0`` For more information, see `Methods for accessing a bucket <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html>`_ .
-        :param job_arn: The ARN of the job to use as the basis for the job template.
-        :param job_executions_retry_config: Allows you to create the criteria to retry a job.
-        :param job_executions_rollout_config: Allows you to create a staged rollout of a job.
-        :param maintenance_windows: An optional configuration within the SchedulingConfig to setup a recurring maintenance window with a predetermined start time and duration for the rollout of a job document to all devices in a target group for a job.
-        :param presigned_url_config: Configuration for pre-signed S3 URLs.
-        :param tags: Metadata that can be used to manage the job template.
-        :param timeout_config: Specifies the amount of time each device has to finish its execution of the job. A timer is started when the job execution status is set to ``IN_PROGRESS`` . If the job execution status is not set to another terminal state before the timer expires, it will be automatically set to ``TIMED_OUT`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            # abort_config: Any
-            # job_executions_rollout_config: Any
-            # presigned_url_config: Any
-            # timeout_config: Any
-            
-            cfn_job_template_props = iot.CfnJobTemplateProps(
-                description="description",
-                job_template_id="jobTemplateId",
-            
-                # the properties below are optional
-                abort_config=abort_config,
-                destination_package_versions=["destinationPackageVersions"],
-                document="document",
-                document_source="documentSource",
-                job_arn="jobArn",
-                job_executions_retry_config=iot.CfnJobTemplate.JobExecutionsRetryConfigProperty(
-                    retry_criteria_list=[iot.CfnJobTemplate.RetryCriteriaProperty(
-                        failure_type="failureType",
-                        number_of_retries=123
-                    )]
-                ),
-                job_executions_rollout_config=job_executions_rollout_config,
-                maintenance_windows=[iot.CfnJobTemplate.MaintenanceWindowProperty(
-                    duration_in_minutes=123,
-                    start_time="startTime"
-                )],
-                presigned_url_config=presigned_url_config,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                timeout_config=timeout_config
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28c20b8a9676fd9409d3f7cb512490dbf5634f2468a7f4454df1b245a75806a1)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument job_template_id", value=job_template_id, expected_type=type_hints["job_template_id"])
-            check_type(argname="argument abort_config", value=abort_config, expected_type=type_hints["abort_config"])
-            check_type(argname="argument destination_package_versions", value=destination_package_versions, expected_type=type_hints["destination_package_versions"])
-            check_type(argname="argument document", value=document, expected_type=type_hints["document"])
-            check_type(argname="argument document_source", value=document_source, expected_type=type_hints["document_source"])
-            check_type(argname="argument job_arn", value=job_arn, expected_type=type_hints["job_arn"])
-            check_type(argname="argument job_executions_retry_config", value=job_executions_retry_config, expected_type=type_hints["job_executions_retry_config"])
-            check_type(argname="argument job_executions_rollout_config", value=job_executions_rollout_config, expected_type=type_hints["job_executions_rollout_config"])
-            check_type(argname="argument maintenance_windows", value=maintenance_windows, expected_type=type_hints["maintenance_windows"])
-            check_type(argname="argument presigned_url_config", value=presigned_url_config, expected_type=type_hints["presigned_url_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument timeout_config", value=timeout_config, expected_type=type_hints["timeout_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "job_template_id": job_template_id,
-        }
-        if abort_config is not None:
-            self._values["abort_config"] = abort_config
-        if destination_package_versions is not None:
-            self._values["destination_package_versions"] = destination_package_versions
-        if document is not None:
-            self._values["document"] = document
-        if document_source is not None:
-            self._values["document_source"] = document_source
-        if job_arn is not None:
-            self._values["job_arn"] = job_arn
-        if job_executions_retry_config is not None:
-            self._values["job_executions_retry_config"] = job_executions_retry_config
-        if job_executions_rollout_config is not None:
-            self._values["job_executions_rollout_config"] = job_executions_rollout_config
-        if maintenance_windows is not None:
-            self._values["maintenance_windows"] = maintenance_windows
-        if presigned_url_config is not None:
-            self._values["presigned_url_config"] = presigned_url_config
-        if tags is not None:
-            self._values["tags"] = tags
-        if timeout_config is not None:
-            self._values["timeout_config"] = timeout_config
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description of the job template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def job_template_id(self) -> builtins.str:
-        '''A unique identifier for the job template.
-
-        We recommend using a UUID. Alpha-numeric characters, "-", and "_" are valid for use here.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobtemplateid
-        '''
-        result = self._values.get("job_template_id")
-        assert result is not None, "Required property 'job_template_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def abort_config(self) -> typing.Any:
-        '''The criteria that determine when and how a job abort takes place.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-abortconfig
-        '''
-        result = self._values.get("abort_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def destination_package_versions(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''The package version Amazon Resource Names (ARNs) that are installed on the device’s reserved named shadow ( ``$package`` ) when the job successfully completes.
-
-        *Note:* Up to 25 package version ARNS are allowed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-destinationpackageversions
-        '''
-        result = self._values.get("destination_package_versions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def document(self) -> typing.Optional[builtins.str]:
-        '''The job document.
-
-        Required if you don't specify a value for ``documentSource`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-document
-        '''
-        result = self._values.get("document")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_source(self) -> typing.Optional[builtins.str]:
-        '''An S3 link, or S3 object URL, to the job document.
-
-        The link is an Amazon S3 object URL and is required if you don't specify a value for ``document`` .
-
-        For example, ``--document-source https://s3. *region-code* .amazonaws.com/example-firmware/device-firmware.1.0``
-
-        For more information, see `Methods for accessing a bucket <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-documentsource
-        '''
-        result = self._values.get("document_source")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def job_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the job to use as the basis for the job template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobarn
-        '''
-        result = self._values.get("job_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def job_executions_retry_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.JobExecutionsRetryConfigProperty]]:
-        '''Allows you to create the criteria to retry a job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobexecutionsretryconfig
-        '''
-        result = self._values.get("job_executions_retry_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.JobExecutionsRetryConfigProperty]], result)
-
-    @builtins.property
-    def job_executions_rollout_config(self) -> typing.Any:
-        '''Allows you to create a staged rollout of a job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-jobexecutionsrolloutconfig
-        '''
-        result = self._values.get("job_executions_rollout_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def maintenance_windows(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.MaintenanceWindowProperty]]]]:
-        '''An optional configuration within the SchedulingConfig to setup a recurring maintenance window with a predetermined start time and duration for the rollout of a job document to all devices in a target group for a job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-maintenancewindows
-        '''
-        result = self._values.get("maintenance_windows")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.MaintenanceWindowProperty]]]], result)
-
-    @builtins.property
-    def presigned_url_config(self) -> typing.Any:
-        '''Configuration for pre-signed S3 URLs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-presignedurlconfig
-        '''
-        result = self._values.get("presigned_url_config")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the job template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def timeout_config(self) -> typing.Any:
-        '''Specifies the amount of time each device has to finish its execution of the job.
-
-        A timer is started when the job execution status is set to ``IN_PROGRESS`` . If the job execution status is not set to another terminal state before the timer expires, it will be automatically set to ``TIMED_OUT`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-jobtemplate.html#cfn-iot-jobtemplate-timeoutconfig
-        '''
-        result = self._values.get("timeout_config")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnJobTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ILoggingRef)
 class CfnLogging(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8142,6 +13850,12 @@ class CfnLogging(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="loggingRef")
+    def logging_ref(self) -> LoggingReference:
+        '''A reference to a Logging resource.'''
+        return typing.cast(LoggingReference, jsii.get(self, "loggingRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="accountId")
     def account_id(self) -> builtins.str:
         '''The account ID.'''
@@ -8181,100 +13895,7 @@ class CfnLogging(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnLoggingProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account_id": "accountId",
-        "default_log_level": "defaultLogLevel",
-        "role_arn": "roleArn",
-    },
-)
-class CfnLoggingProps:
-    def __init__(
-        self,
-        *,
-        account_id: builtins.str,
-        default_log_level: builtins.str,
-        role_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnLogging``.
-
-        :param account_id: The account ID.
-        :param default_log_level: The default log level. Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
-        :param role_arn: The role ARN used for the log.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_logging_props = iot.CfnLoggingProps(
-                account_id="accountId",
-                default_log_level="defaultLogLevel",
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__901c60f51fbfd8f93f04a87979753e82a4100266e43b803e7617ae6ab99aca15)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-            check_type(argname="argument default_log_level", value=default_log_level, expected_type=type_hints["default_log_level"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-            "default_log_level": default_log_level,
-            "role_arn": role_arn,
-        }
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The account ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-accountid
-        '''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_log_level(self) -> builtins.str:
-        '''The default log level.
-
-        Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-defaultloglevel
-        '''
-        result = self._values.get("default_log_level")
-        assert result is not None, "Required property 'default_log_level' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The role ARN used for the log.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html#cfn-iot-logging-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLoggingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IMitigationActionRef, _ITaggable_36806126)
 class CfnMitigationAction(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8413,6 +14034,12 @@ class CfnMitigationAction(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mitigationActionRef")
+    def mitigation_action_ref(self) -> MitigationActionReference:
+        '''A reference to a MitigationAction resource.'''
+        return typing.cast(MitigationActionReference, jsii.get(self, "mitigationActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9021,146 +14648,7 @@ class CfnMitigationAction(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnMitigationActionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action_params": "actionParams",
-        "role_arn": "roleArn",
-        "action_name": "actionName",
-        "tags": "tags",
-    },
-)
-class CfnMitigationActionProps:
-    def __init__(
-        self,
-        *,
-        action_params: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMitigationAction.ActionParamsProperty, typing.Dict[builtins.str, typing.Any]]],
-        role_arn: builtins.str,
-        action_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMitigationAction``.
-
-        :param action_params: The set of parameters for this mitigation action. The parameters vary, depending on the kind of action you apply.
-        :param role_arn: The IAM role ARN used to apply this mitigation action.
-        :param action_name: The friendly name of the mitigation action.
-        :param tags: Metadata that can be used to manage the mitigation action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_mitigation_action_props = iot.CfnMitigationActionProps(
-                action_params=iot.CfnMitigationAction.ActionParamsProperty(
-                    add_things_to_thing_group_params=iot.CfnMitigationAction.AddThingsToThingGroupParamsProperty(
-                        thing_group_names=["thingGroupNames"],
-            
-                        # the properties below are optional
-                        override_dynamic_groups=False
-                    ),
-                    enable_io_tLogging_params=iot.CfnMitigationAction.EnableIoTLoggingParamsProperty(
-                        log_level="logLevel",
-                        role_arn_for_logging="roleArnForLogging"
-                    ),
-                    publish_finding_to_sns_params=iot.CfnMitigationAction.PublishFindingToSnsParamsProperty(
-                        topic_arn="topicArn"
-                    ),
-                    replace_default_policy_version_params=iot.CfnMitigationAction.ReplaceDefaultPolicyVersionParamsProperty(
-                        template_name="templateName"
-                    ),
-                    update_ca_certificate_params=iot.CfnMitigationAction.UpdateCACertificateParamsProperty(
-                        action="action"
-                    ),
-                    update_device_certificate_params=iot.CfnMitigationAction.UpdateDeviceCertificateParamsProperty(
-                        action="action"
-                    )
-                ),
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                action_name="actionName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14279d6a7ee85683cde23358dbc7a02f3c5c6be59c3ec3549c642e8450934f0c)
-            check_type(argname="argument action_params", value=action_params, expected_type=type_hints["action_params"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action_params": action_params,
-            "role_arn": role_arn,
-        }
-        if action_name is not None:
-            self._values["action_name"] = action_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def action_params(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnMitigationAction.ActionParamsProperty]:
-        '''The set of parameters for this mitigation action.
-
-        The parameters vary, depending on the kind of action you apply.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-actionparams
-        '''
-        result = self._values.get("action_params")
-        assert result is not None, "Required property 'action_params' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnMitigationAction.ActionParamsProperty], result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The IAM role ARN used to apply this mitigation action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action_name(self) -> typing.Optional[builtins.str]:
-        '''The friendly name of the mitigation action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-actionname
-        '''
-        result = self._values.get("action_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the mitigation action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-mitigationaction.html#cfn-iot-mitigationaction-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMitigationActionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPolicyRef, _ITaggableV2_4e6798f8)
 class CfnPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9280,6 +14768,12 @@ class CfnPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> PolicyReference:
+        '''A reference to a Policy resource.'''
+        return typing.cast(PolicyReference, jsii.get(self, "policyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="policyDocument")
     def policy_document(self) -> typing.Any:
         '''The JSON document that describes the policy.'''
@@ -9318,7 +14812,7 @@ class CfnPolicy(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IPolicyPrincipalAttachmentRef)
 class CfnPolicyPrincipalAttachment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9412,6 +14906,12 @@ class CfnPolicyPrincipalAttachment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="policyPrincipalAttachmentRef")
+    def policy_principal_attachment_ref(self) -> PolicyPrincipalAttachmentReference:
+        '''A reference to a PolicyPrincipalAttachment resource.'''
+        return typing.cast(PolicyPrincipalAttachmentReference, jsii.get(self, "policyPrincipalAttachmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="policyName")
     def policy_name(self) -> builtins.str:
         '''The name of the AWS IoT policy.'''
@@ -9438,171 +14938,7 @@ class CfnPolicyPrincipalAttachment(
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnPolicyPrincipalAttachmentProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy_name": "policyName", "principal": "principal"},
-)
-class CfnPolicyPrincipalAttachmentProps:
-    def __init__(self, *, policy_name: builtins.str, principal: builtins.str) -> None:
-        '''Properties for defining a ``CfnPolicyPrincipalAttachment``.
-
-        :param policy_name: The name of the AWS IoT policy.
-        :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_policy_principal_attachment_props = iot.CfnPolicyPrincipalAttachmentProps(
-                policy_name="policyName",
-                principal="principal"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cec9e8ab68d2c8fd5411fa3c1c1bc654f7978e259464b071891262125aba82f)
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_name": policy_name,
-            "principal": principal,
-        }
-
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The name of the AWS IoT policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html#cfn-iot-policyprincipalattachment-policyname
-        '''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policyprincipalattachment.html#cfn-iot-policyprincipalattachment-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPolicyPrincipalAttachmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "policy_document": "policyDocument",
-        "policy_name": "policyName",
-        "tags": "tags",
-    },
-)
-class CfnPolicyProps:
-    def __init__(
-        self,
-        *,
-        policy_document: typing.Any,
-        policy_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPolicy``.
-
-        :param policy_document: The JSON document that describes the policy.
-        :param policy_name: The policy name.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            # policy_document: Any
-            
-            cfn_policy_props = iot.CfnPolicyProps(
-                policy_document=policy_document,
-            
-                # the properties below are optional
-                policy_name="policyName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39a3544380c0548a2070535d09348ba9dc65c84944619b0bc6868a040530a55b)
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_document": policy_document,
-        }
-        if policy_name is not None:
-            self._values["policy_name"] = policy_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def policy_document(self) -> typing.Any:
-        '''The JSON document that describes the policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def policy_name(self) -> typing.Optional[builtins.str]:
-        '''The policy name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-policyname
-        '''
-        result = self._values.get("policy_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-policy.html#cfn-iot-policy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IProvisioningTemplateRef, _ITaggable_36806126)
 class CfnProvisioningTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9726,6 +15062,12 @@ class CfnProvisioningTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningTemplateRef")
+    def provisioning_template_ref(self) -> ProvisioningTemplateReference:
+        '''A reference to a ProvisioningTemplate resource.'''
+        return typing.cast(ProvisioningTemplateReference, jsii.get(self, "provisioningTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9922,192 +15264,7 @@ class CfnProvisioningTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnProvisioningTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "provisioning_role_arn": "provisioningRoleArn",
-        "template_body": "templateBody",
-        "description": "description",
-        "enabled": "enabled",
-        "pre_provisioning_hook": "preProvisioningHook",
-        "tags": "tags",
-        "template_name": "templateName",
-        "template_type": "templateType",
-    },
-)
-class CfnProvisioningTemplateProps:
-    def __init__(
-        self,
-        *,
-        provisioning_role_arn: builtins.str,
-        template_body: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        pre_provisioning_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProvisioningTemplate.ProvisioningHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_name: typing.Optional[builtins.str] = None,
-        template_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProvisioningTemplate``.
-
-        :param provisioning_role_arn: The role ARN for the role associated with the fleet provisioning template. This IoT role grants permission to provision a device.
-        :param template_body: The JSON formatted contents of the fleet provisioning template version.
-        :param description: The description of the fleet provisioning template.
-        :param enabled: True to enable the fleet provisioning template, otherwise false.
-        :param pre_provisioning_hook: Creates a pre-provisioning hook template.
-        :param tags: Metadata that can be used to manage the fleet provisioning template.
-        :param template_name: The name of the fleet provisioning template.
-        :param template_type: The type of the provisioning template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_provisioning_template_props = iot.CfnProvisioningTemplateProps(
-                provisioning_role_arn="provisioningRoleArn",
-                template_body="templateBody",
-            
-                # the properties below are optional
-                description="description",
-                enabled=False,
-                pre_provisioning_hook=iot.CfnProvisioningTemplate.ProvisioningHookProperty(
-                    payload_version="payloadVersion",
-                    target_arn="targetArn"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                template_name="templateName",
-                template_type="templateType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c77f7c34bd0ba7b87a169be036f82876b81e776ee82a74636a925edb8cb3396d)
-            check_type(argname="argument provisioning_role_arn", value=provisioning_role_arn, expected_type=type_hints["provisioning_role_arn"])
-            check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument pre_provisioning_hook", value=pre_provisioning_hook, expected_type=type_hints["pre_provisioning_hook"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument template_type", value=template_type, expected_type=type_hints["template_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "provisioning_role_arn": provisioning_role_arn,
-            "template_body": template_body,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if pre_provisioning_hook is not None:
-            self._values["pre_provisioning_hook"] = pre_provisioning_hook
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_name is not None:
-            self._values["template_name"] = template_name
-        if template_type is not None:
-            self._values["template_type"] = template_type
-
-    @builtins.property
-    def provisioning_role_arn(self) -> builtins.str:
-        '''The role ARN for the role associated with the fleet provisioning template.
-
-        This IoT role grants permission to provision a device.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-provisioningrolearn
-        '''
-        result = self._values.get("provisioning_role_arn")
-        assert result is not None, "Required property 'provisioning_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template_body(self) -> builtins.str:
-        '''The JSON formatted contents of the fleet provisioning template version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatebody
-        '''
-        result = self._values.get("template_body")
-        assert result is not None, "Required property 'template_body' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the fleet provisioning template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''True to enable the fleet provisioning template, otherwise false.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def pre_provisioning_hook(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProvisioningTemplate.ProvisioningHookProperty]]:
-        '''Creates a pre-provisioning hook template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-preprovisioninghook
-        '''
-        result = self._values.get("pre_provisioning_hook")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProvisioningTemplate.ProvisioningHookProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the fleet provisioning template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def template_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the fleet provisioning template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatename
-        '''
-        result = self._values.get("template_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def template_type(self) -> typing.Optional[builtins.str]:
-        '''The type of the provisioning template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-provisioningtemplate.html#cfn-iot-provisioningtemplate-templatetype
-        '''
-        result = self._values.get("template_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProvisioningTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourceSpecificLoggingRef)
 class CfnResourceSpecificLogging(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10203,6 +15360,12 @@ class CfnResourceSpecificLogging(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourceSpecificLoggingRef")
+    def resource_specific_logging_ref(self) -> ResourceSpecificLoggingReference:
+        '''A reference to a ResourceSpecificLogging resource.'''
+        return typing.cast(ResourceSpecificLoggingReference, jsii.get(self, "resourceSpecificLoggingRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="logLevel")
     def log_level(self) -> builtins.str:
         '''The default log level.Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``.'''
@@ -10242,100 +15405,7 @@ class CfnResourceSpecificLogging(
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnResourceSpecificLoggingProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "log_level": "logLevel",
-        "target_name": "targetName",
-        "target_type": "targetType",
-    },
-)
-class CfnResourceSpecificLoggingProps:
-    def __init__(
-        self,
-        *,
-        log_level: builtins.str,
-        target_name: builtins.str,
-        target_type: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceSpecificLogging``.
-
-        :param log_level: The default log level.Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``.
-        :param target_name: The target name.
-        :param target_type: The target type. Valid Values: ``DEFAULT | THING_GROUP``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_resource_specific_logging_props = iot.CfnResourceSpecificLoggingProps(
-                log_level="logLevel",
-                target_name="targetName",
-                target_type="targetType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dfc74587c5f8a3e2bf00503c8729419e4520b941ac9d4079c012e67b208920b)
-            check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
-            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
-            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "log_level": log_level,
-            "target_name": target_name,
-            "target_type": target_type,
-        }
-
-    @builtins.property
-    def log_level(self) -> builtins.str:
-        '''The default log level.Valid Values: ``DEBUG | INFO | ERROR | WARN | DISABLED``.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-loglevel
-        '''
-        result = self._values.get("log_level")
-        assert result is not None, "Required property 'log_level' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_name(self) -> builtins.str:
-        '''The target name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-targetname
-        '''
-        result = self._values.get("target_name")
-        assert result is not None, "Required property 'target_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_type(self) -> builtins.str:
-        '''The target type.
-
-        Valid Values: ``DEFAULT | THING_GROUP``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-resourcespecificlogging.html#cfn-iot-resourcespecificlogging-targettype
-        '''
-        result = self._values.get("target_type")
-        assert result is not None, "Required property 'target_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceSpecificLoggingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRoleAliasRef, _ITaggable_36806126)
 class CfnRoleAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10444,6 +15514,12 @@ class CfnRoleAlias(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="roleAliasRef")
+    def role_alias_ref(self) -> RoleAliasReference:
+        '''A reference to a RoleAlias resource.'''
+        return typing.cast(RoleAliasReference, jsii.get(self, "roleAliasRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -10502,123 +15578,7 @@ class CfnRoleAlias(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnRoleAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "role_arn": "roleArn",
-        "credential_duration_seconds": "credentialDurationSeconds",
-        "role_alias": "roleAlias",
-        "tags": "tags",
-    },
-)
-class CfnRoleAliasProps:
-    def __init__(
-        self,
-        *,
-        role_arn: builtins.str,
-        credential_duration_seconds: typing.Optional[jsii.Number] = None,
-        role_alias: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRoleAlias``.
-
-        :param role_arn: The role ARN.
-        :param credential_duration_seconds: The number of seconds for which the credential is valid. Default: - 3600
-        :param role_alias: The role alias.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_role_alias_props = iot.CfnRoleAliasProps(
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                credential_duration_seconds=123,
-                role_alias="roleAlias",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89734d52567c33f755f92e47698f90933bfc19822c106ff024434f75c7f46d81)
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument credential_duration_seconds", value=credential_duration_seconds, expected_type=type_hints["credential_duration_seconds"])
-            check_type(argname="argument role_alias", value=role_alias, expected_type=type_hints["role_alias"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role_arn": role_arn,
-        }
-        if credential_duration_seconds is not None:
-            self._values["credential_duration_seconds"] = credential_duration_seconds
-        if role_alias is not None:
-            self._values["role_alias"] = role_alias
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The role ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def credential_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The number of seconds for which the credential is valid.
-
-        :default: - 3600
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-credentialdurationseconds
-        '''
-        result = self._values.get("credential_duration_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def role_alias(self) -> typing.Optional[builtins.str]:
-        '''The role alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-rolealias
-        '''
-        result = self._values.get("role_alias")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-rolealias.html#cfn-iot-rolealias-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRoleAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IScheduledAuditRef, _ITaggable_36806126)
 class CfnScheduledAudit(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10735,6 +15695,12 @@ class CfnScheduledAudit(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="scheduledAuditRef")
+    def scheduled_audit_ref(self) -> ScheduledAuditReference:
+        '''A reference to a ScheduledAudit resource.'''
+        return typing.cast(ScheduledAuditReference, jsii.get(self, "scheduledAuditRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -10819,172 +15785,7 @@ class CfnScheduledAudit(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnScheduledAuditProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "frequency": "frequency",
-        "target_check_names": "targetCheckNames",
-        "day_of_month": "dayOfMonth",
-        "day_of_week": "dayOfWeek",
-        "scheduled_audit_name": "scheduledAuditName",
-        "tags": "tags",
-    },
-)
-class CfnScheduledAuditProps:
-    def __init__(
-        self,
-        *,
-        frequency: builtins.str,
-        target_check_names: typing.Sequence[builtins.str],
-        day_of_month: typing.Optional[builtins.str] = None,
-        day_of_week: typing.Optional[builtins.str] = None,
-        scheduled_audit_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnScheduledAudit``.
-
-        :param frequency: How often the scheduled audit occurs.
-        :param target_check_names: Which checks are performed during the scheduled audit. Checks must be enabled for your account. (Use ``DescribeAccountAuditConfiguration`` to see the list of all checks, including those that are enabled or use ``UpdateAccountAuditConfiguration`` to select which checks are enabled.) The following checks are currently available: - ``AUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK`` - ``CA_CERTIFICATE_EXPIRING_CHECK`` - ``CA_CERTIFICATE_KEY_QUALITY_CHECK`` - ``CONFLICTING_CLIENT_IDS_CHECK`` - ``DEVICE_CERTIFICATE_EXPIRING_CHECK`` - ``DEVICE_CERTIFICATE_KEY_QUALITY_CHECK`` - ``DEVICE_CERTIFICATE_SHARED_CHECK`` - ``IOT_POLICY_OVERLY_PERMISSIVE_CHECK`` - ``IOT_ROLE_ALIAS_ALLOWS_ACCESS_TO_UNUSED_SERVICES_CHECK`` - ``IOT_ROLE_ALIAS_OVERLY_PERMISSIVE_CHECK`` - ``LOGGING_DISABLED_CHECK`` - ``REVOKED_CA_CERTIFICATE_STILL_ACTIVE_CHECK`` - ``REVOKED_DEVICE_CERTIFICATE_STILL_ACTIVE_CHECK`` - ``UNAUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
-        :param day_of_month: The day of the month on which the scheduled audit is run (if the ``frequency`` is "MONTHLY"). If days 29-31 are specified, and the month does not have that many days, the audit takes place on the "LAST" day of the month.
-        :param day_of_week: The day of the week on which the scheduled audit is run (if the ``frequency`` is "WEEKLY" or "BIWEEKLY").
-        :param scheduled_audit_name: The name of the scheduled audit.
-        :param tags: Metadata that can be used to manage the scheduled audit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_scheduled_audit_props = iot.CfnScheduledAuditProps(
-                frequency="frequency",
-                target_check_names=["targetCheckNames"],
-            
-                # the properties below are optional
-                day_of_month="dayOfMonth",
-                day_of_week="dayOfWeek",
-                scheduled_audit_name="scheduledAuditName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d89f186b0fe486dac5fcb8401325db3513405133d049339688b1eb14a808aa71)
-            check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
-            check_type(argname="argument target_check_names", value=target_check_names, expected_type=type_hints["target_check_names"])
-            check_type(argname="argument day_of_month", value=day_of_month, expected_type=type_hints["day_of_month"])
-            check_type(argname="argument day_of_week", value=day_of_week, expected_type=type_hints["day_of_week"])
-            check_type(argname="argument scheduled_audit_name", value=scheduled_audit_name, expected_type=type_hints["scheduled_audit_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "frequency": frequency,
-            "target_check_names": target_check_names,
-        }
-        if day_of_month is not None:
-            self._values["day_of_month"] = day_of_month
-        if day_of_week is not None:
-            self._values["day_of_week"] = day_of_week
-        if scheduled_audit_name is not None:
-            self._values["scheduled_audit_name"] = scheduled_audit_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def frequency(self) -> builtins.str:
-        '''How often the scheduled audit occurs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-frequency
-        '''
-        result = self._values.get("frequency")
-        assert result is not None, "Required property 'frequency' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_check_names(self) -> typing.List[builtins.str]:
-        '''Which checks are performed during the scheduled audit.
-
-        Checks must be enabled for your account. (Use ``DescribeAccountAuditConfiguration`` to see the list of all checks, including those that are enabled or use ``UpdateAccountAuditConfiguration`` to select which checks are enabled.)
-
-        The following checks are currently available:
-
-        - ``AUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
-        - ``CA_CERTIFICATE_EXPIRING_CHECK``
-        - ``CA_CERTIFICATE_KEY_QUALITY_CHECK``
-        - ``CONFLICTING_CLIENT_IDS_CHECK``
-        - ``DEVICE_CERTIFICATE_EXPIRING_CHECK``
-        - ``DEVICE_CERTIFICATE_KEY_QUALITY_CHECK``
-        - ``DEVICE_CERTIFICATE_SHARED_CHECK``
-        - ``IOT_POLICY_OVERLY_PERMISSIVE_CHECK``
-        - ``IOT_ROLE_ALIAS_ALLOWS_ACCESS_TO_UNUSED_SERVICES_CHECK``
-        - ``IOT_ROLE_ALIAS_OVERLY_PERMISSIVE_CHECK``
-        - ``LOGGING_DISABLED_CHECK``
-        - ``REVOKED_CA_CERTIFICATE_STILL_ACTIVE_CHECK``
-        - ``REVOKED_DEVICE_CERTIFICATE_STILL_ACTIVE_CHECK``
-        - ``UNAUTHENTICATED_COGNITO_ROLE_OVERLY_PERMISSIVE_CHECK``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-targetchecknames
-        '''
-        result = self._values.get("target_check_names")
-        assert result is not None, "Required property 'target_check_names' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def day_of_month(self) -> typing.Optional[builtins.str]:
-        '''The day of the month on which the scheduled audit is run (if the ``frequency`` is "MONTHLY").
-
-        If days 29-31 are specified, and the month does not have that many days, the audit takes place on the "LAST" day of the month.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-dayofmonth
-        '''
-        result = self._values.get("day_of_month")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def day_of_week(self) -> typing.Optional[builtins.str]:
-        '''The day of the week on which the scheduled audit is run (if the ``frequency`` is "WEEKLY" or "BIWEEKLY").
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-dayofweek
-        '''
-        result = self._values.get("day_of_week")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scheduled_audit_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the scheduled audit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-scheduledauditname
-        '''
-        result = self._values.get("scheduled_audit_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the scheduled audit.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-scheduledaudit.html#cfn-iot-scheduledaudit-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduledAuditProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISecurityProfileRef, _ITaggable_36806126)
 class CfnSecurityProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -11157,6 +15958,12 @@ class CfnSecurityProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="securityProfileRef")
+    def security_profile_ref(self) -> SecurityProfileReference:
+        '''A reference to a SecurityProfile resource.'''
+        return typing.cast(SecurityProfileReference, jsii.get(self, "securityProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -12221,244 +17028,7 @@ class CfnSecurityProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnSecurityProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "additional_metrics_to_retain_v2": "additionalMetricsToRetainV2",
-        "alert_targets": "alertTargets",
-        "behaviors": "behaviors",
-        "metrics_export_config": "metricsExportConfig",
-        "security_profile_description": "securityProfileDescription",
-        "security_profile_name": "securityProfileName",
-        "tags": "tags",
-        "target_arns": "targetArns",
-    },
-)
-class CfnSecurityProfileProps:
-    def __init__(
-        self,
-        *,
-        additional_metrics_to_retain_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricToRetainProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        alert_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.AlertTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.BehaviorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        metrics_export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricsExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        security_profile_description: typing.Optional[builtins.str] = None,
-        security_profile_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityProfile``.
-
-        :param additional_metrics_to_retain_v2: A list of metrics whose data is retained (stored). By default, data is retained for any metric used in the profile's ``behaviors`` , but it's also retained for any metric specified here. Can be used with custom metrics; can't be used with dimensions.
-        :param alert_targets: Specifies the destinations to which alerts are sent. (Alerts are always sent to the console.) Alerts are generated when a device (thing) violates a behavior.
-        :param behaviors: Specifies the behaviors that, when violated by a device (thing), cause an alert.
-        :param metrics_export_config: Specifies the MQTT topic and role ARN required for metric export.
-        :param security_profile_description: A description of the security profile.
-        :param security_profile_name: The name you gave to the security profile.
-        :param tags: Metadata that can be used to manage the security profile.
-        :param target_arns: The ARN of the target (thing group) to which the security profile is attached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_security_profile_props = iot.CfnSecurityProfileProps(
-                additional_metrics_to_retain_v2=[iot.CfnSecurityProfile.MetricToRetainProperty(
-                    metric="metric",
-            
-                    # the properties below are optional
-                    export_metric=False,
-                    metric_dimension=iot.CfnSecurityProfile.MetricDimensionProperty(
-                        dimension_name="dimensionName",
-            
-                        # the properties below are optional
-                        operator="operator"
-                    )
-                )],
-                alert_targets={
-                    "alert_targets_key": iot.CfnSecurityProfile.AlertTargetProperty(
-                        alert_target_arn="alertTargetArn",
-                        role_arn="roleArn"
-                    )
-                },
-                behaviors=[iot.CfnSecurityProfile.BehaviorProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    criteria=iot.CfnSecurityProfile.BehaviorCriteriaProperty(
-                        comparison_operator="comparisonOperator",
-                        consecutive_datapoints_to_alarm=123,
-                        consecutive_datapoints_to_clear=123,
-                        duration_seconds=123,
-                        ml_detection_config=iot.CfnSecurityProfile.MachineLearningDetectionConfigProperty(
-                            confidence_level="confidenceLevel"
-                        ),
-                        statistical_threshold=iot.CfnSecurityProfile.StatisticalThresholdProperty(
-                            statistic="statistic"
-                        ),
-                        value=iot.CfnSecurityProfile.MetricValueProperty(
-                            cidrs=["cidrs"],
-                            count="count",
-                            number=123,
-                            numbers=[123],
-                            ports=[123],
-                            strings=["strings"]
-                        )
-                    ),
-                    export_metric=False,
-                    metric="metric",
-                    metric_dimension=iot.CfnSecurityProfile.MetricDimensionProperty(
-                        dimension_name="dimensionName",
-            
-                        # the properties below are optional
-                        operator="operator"
-                    ),
-                    suppress_alerts=False
-                )],
-                metrics_export_config=iot.CfnSecurityProfile.MetricsExportConfigProperty(
-                    mqtt_topic="mqttTopic",
-                    role_arn="roleArn"
-                ),
-                security_profile_description="securityProfileDescription",
-                security_profile_name="securityProfileName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_arns=["targetArns"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebb28d586aa0d630c8e29df5bbc78a295e6751c4a5aadaaf79f8f9a23fa9803d)
-            check_type(argname="argument additional_metrics_to_retain_v2", value=additional_metrics_to_retain_v2, expected_type=type_hints["additional_metrics_to_retain_v2"])
-            check_type(argname="argument alert_targets", value=alert_targets, expected_type=type_hints["alert_targets"])
-            check_type(argname="argument behaviors", value=behaviors, expected_type=type_hints["behaviors"])
-            check_type(argname="argument metrics_export_config", value=metrics_export_config, expected_type=type_hints["metrics_export_config"])
-            check_type(argname="argument security_profile_description", value=security_profile_description, expected_type=type_hints["security_profile_description"])
-            check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_arns", value=target_arns, expected_type=type_hints["target_arns"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if additional_metrics_to_retain_v2 is not None:
-            self._values["additional_metrics_to_retain_v2"] = additional_metrics_to_retain_v2
-        if alert_targets is not None:
-            self._values["alert_targets"] = alert_targets
-        if behaviors is not None:
-            self._values["behaviors"] = behaviors
-        if metrics_export_config is not None:
-            self._values["metrics_export_config"] = metrics_export_config
-        if security_profile_description is not None:
-            self._values["security_profile_description"] = security_profile_description
-        if security_profile_name is not None:
-            self._values["security_profile_name"] = security_profile_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_arns is not None:
-            self._values["target_arns"] = target_arns
-
-    @builtins.property
-    def additional_metrics_to_retain_v2(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.MetricToRetainProperty]]]]:
-        '''A list of metrics whose data is retained (stored).
-
-        By default, data is retained for any metric used in the profile's ``behaviors`` , but it's also retained for any metric specified here. Can be used with custom metrics; can't be used with dimensions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-additionalmetricstoretainv2
-        '''
-        result = self._values.get("additional_metrics_to_retain_v2")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.MetricToRetainProperty]]]], result)
-
-    @builtins.property
-    def alert_targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.AlertTargetProperty]]]]:
-        '''Specifies the destinations to which alerts are sent.
-
-        (Alerts are always sent to the console.) Alerts are generated when a device (thing) violates a behavior.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-alerttargets
-        '''
-        result = self._values.get("alert_targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.AlertTargetProperty]]]], result)
-
-    @builtins.property
-    def behaviors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.BehaviorProperty]]]]:
-        '''Specifies the behaviors that, when violated by a device (thing), cause an alert.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-behaviors
-        '''
-        result = self._values.get("behaviors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.BehaviorProperty]]]], result)
-
-    @builtins.property
-    def metrics_export_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.MetricsExportConfigProperty]]:
-        '''Specifies the MQTT topic and role ARN required for metric export.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-metricsexportconfig
-        '''
-        result = self._values.get("metrics_export_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.MetricsExportConfigProperty]], result)
-
-    @builtins.property
-    def security_profile_description(self) -> typing.Optional[builtins.str]:
-        '''A description of the security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-securityprofiledescription
-        '''
-        result = self._values.get("security_profile_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_profile_name(self) -> typing.Optional[builtins.str]:
-        '''The name you gave to the security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-securityprofilename
-        '''
-        result = self._values.get("security_profile_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the security profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARN of the target (thing group) to which the security profile is attached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-securityprofile.html#cfn-iot-securityprofile-targetarns
-        '''
-        result = self._values.get("target_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISoftwarePackageRef, _ITaggableV2_4e6798f8)
 class CfnSoftwarePackage(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12565,6 +17135,12 @@ class CfnSoftwarePackage(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="softwarePackageRef")
+    def software_package_ref(self) -> SoftwarePackageReference:
+        '''A reference to a SoftwarePackage resource.'''
+        return typing.cast(SoftwarePackageReference, jsii.get(self, "softwarePackageRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A summary of the package being created.'''
@@ -12604,102 +17180,7 @@ class CfnSoftwarePackage(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnSoftwarePackageProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "package_name": "packageName",
-        "tags": "tags",
-    },
-)
-class CfnSoftwarePackageProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        package_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSoftwarePackage``.
-
-        :param description: A summary of the package being created. This can be used to outline the package's contents or purpose.
-        :param package_name: The name of the new software package.
-        :param tags: Metadata that can be used to manage the package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_software_package_props = iot.CfnSoftwarePackageProps(
-                description="description",
-                package_name="packageName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e75272652740c4b3bd44ba16e52293c40475922baea1bac29c22e2841319dbdc)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if package_name is not None:
-            self._values["package_name"] = package_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A summary of the package being created.
-
-        This can be used to outline the package's contents or purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def package_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the new software package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-packagename
-        '''
-        result = self._values.get("package_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackage.html#cfn-iot-softwarepackage-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSoftwarePackageProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISoftwarePackageVersionRef, _ITaggableV2_4e6798f8)
 class CfnSoftwarePackageVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12876,6 +17357,12 @@ class CfnSoftwarePackageVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="softwarePackageVersionRef")
+    def software_package_version_ref(self) -> SoftwarePackageVersionReference:
+        '''A reference to a SoftwarePackageVersion resource.'''
+        return typing.cast(SoftwarePackageVersionReference, jsii.get(self, "softwarePackageVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="packageName")
@@ -13207,209 +17694,7 @@ class CfnSoftwarePackageVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnSoftwarePackageVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "package_name": "packageName",
-        "artifact": "artifact",
-        "attributes": "attributes",
-        "description": "description",
-        "recipe": "recipe",
-        "sbom": "sbom",
-        "tags": "tags",
-        "version_name": "versionName",
-    },
-)
-class CfnSoftwarePackageVersionProps:
-    def __init__(
-        self,
-        *,
-        package_name: builtins.str,
-        artifact: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.PackageVersionArtifactProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        recipe: typing.Optional[builtins.str] = None,
-        sbom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.SbomProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        version_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSoftwarePackageVersion``.
-
-        :param package_name: The name of the associated software package.
-        :param artifact: The artifact location of the package version.
-        :param attributes: Metadata that can be used to define a package version’s configuration. For example, the S3 file location, configuration options that are being sent to the device or fleet. The combined size of all the attributes on a package version is limited to 3KB.
-        :param description: A summary of the package version being created. This can be used to outline the package's contents or purpose.
-        :param recipe: The inline json job document associated with a software package version.
-        :param sbom: The sbom zip archive location of the package version.
-        :param tags: Metadata that can be used to manage the package version.
-        :param version_name: The name of the new package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_software_package_version_props = iot.CfnSoftwarePackageVersionProps(
-                package_name="packageName",
-            
-                # the properties below are optional
-                artifact=iot.CfnSoftwarePackageVersion.PackageVersionArtifactProperty(
-                    s3_location=iot.CfnSoftwarePackageVersion.S3LocationProperty(
-                        bucket="bucket",
-                        key="key",
-                        version="version"
-                    )
-                ),
-                attributes={
-                    "attributes_key": "attributes"
-                },
-                description="description",
-                recipe="recipe",
-                sbom=iot.CfnSoftwarePackageVersion.SbomProperty(
-                    s3_location=iot.CfnSoftwarePackageVersion.S3LocationProperty(
-                        bucket="bucket",
-                        key="key",
-                        version="version"
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                version_name="versionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee35d011adab7a2d8df83c92656187b403d2781df8df06d9575d380e2f8307c)
-            check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
-            check_type(argname="argument artifact", value=artifact, expected_type=type_hints["artifact"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument recipe", value=recipe, expected_type=type_hints["recipe"])
-            check_type(argname="argument sbom", value=sbom, expected_type=type_hints["sbom"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "package_name": package_name,
-        }
-        if artifact is not None:
-            self._values["artifact"] = artifact
-        if attributes is not None:
-            self._values["attributes"] = attributes
-        if description is not None:
-            self._values["description"] = description
-        if recipe is not None:
-            self._values["recipe"] = recipe
-        if sbom is not None:
-            self._values["sbom"] = sbom
-        if tags is not None:
-            self._values["tags"] = tags
-        if version_name is not None:
-            self._values["version_name"] = version_name
-
-    @builtins.property
-    def package_name(self) -> builtins.str:
-        '''The name of the associated software package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-packagename
-        '''
-        result = self._values.get("package_name")
-        assert result is not None, "Required property 'package_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def artifact(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSoftwarePackageVersion.PackageVersionArtifactProperty]]:
-        '''The artifact location of the package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-artifact
-        '''
-        result = self._values.get("artifact")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSoftwarePackageVersion.PackageVersionArtifactProperty]], result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Metadata that can be used to define a package version’s configuration.
-
-        For example, the S3 file location, configuration options that are being sent to the device or fleet.
-
-        The combined size of all the attributes on a package version is limited to 3KB.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-attributes
-        '''
-        result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A summary of the package version being created.
-
-        This can be used to outline the package's contents or purpose.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recipe(self) -> typing.Optional[builtins.str]:
-        '''The inline json job document associated with a software package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-recipe
-        '''
-        result = self._values.get("recipe")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sbom(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSoftwarePackageVersion.SbomProperty]]:
-        '''The sbom zip archive location of the package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-sbom
-        '''
-        result = self._values.get("sbom")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSoftwarePackageVersion.SbomProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata that can be used to manage the package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def version_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the new package version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-softwarepackageversion.html#cfn-iot-softwarepackageversion-versionname
-        '''
-        result = self._values.get("version_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSoftwarePackageVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IThingRef)
 class CfnThing(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13517,6 +17802,12 @@ class CfnThing(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="thingRef")
+    def thing_ref(self) -> ThingReference:
+        '''A reference to a Thing resource.'''
+        return typing.cast(ThingReference, jsii.get(self, "thingRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="attributePayload")
     def attribute_payload(
         self,
@@ -13611,7 +17902,7 @@ class CfnThing(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IThingGroupRef, _ITaggable_36806126)
 class CfnThingGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13747,6 +18038,12 @@ class CfnThingGroup(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="thingGroupRef")
+    def thing_group_ref(self) -> ThingGroupReference:
+        '''A reference to a ThingGroup resource.'''
+        return typing.cast(ThingGroupReference, jsii.get(self, "thingGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="parentGroupName")
@@ -13959,145 +18256,7 @@ class CfnThingGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnThingGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "parent_group_name": "parentGroupName",
-        "query_string": "queryString",
-        "tags": "tags",
-        "thing_group_name": "thingGroupName",
-        "thing_group_properties": "thingGroupProperties",
-    },
-)
-class CfnThingGroupProps:
-    def __init__(
-        self,
-        *,
-        parent_group_name: typing.Optional[builtins.str] = None,
-        query_string: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        thing_group_name: typing.Optional[builtins.str] = None,
-        thing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingGroup.ThingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThingGroup``.
-
-        :param parent_group_name: The parent thing group name. A Dynamic Thing Group does not have ``parentGroupName`` defined.
-        :param query_string: The dynamic thing group search query string. The ``queryString`` attribute *is* required for ``CreateDynamicThingGroup`` . The ``queryString`` attribute *is not* required for ``CreateThingGroup`` .
-        :param tags: Metadata which can be used to manage the thing group or dynamic thing group.
-        :param thing_group_name: The thing group name.
-        :param thing_group_properties: Thing group properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_thing_group_props = iot.CfnThingGroupProps(
-                parent_group_name="parentGroupName",
-                query_string="queryString",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                thing_group_name="thingGroupName",
-                thing_group_properties=iot.CfnThingGroup.ThingGroupPropertiesProperty(
-                    attribute_payload=iot.CfnThingGroup.AttributePayloadProperty(
-                        attributes={
-                            "attributes_key": "attributes"
-                        }
-                    ),
-                    thing_group_description="thingGroupDescription"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe8b10fbc51b50f02212f7fdaf0c3fbd06b63f119d2266837a7a0d605201b8d8)
-            check_type(argname="argument parent_group_name", value=parent_group_name, expected_type=type_hints["parent_group_name"])
-            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument thing_group_name", value=thing_group_name, expected_type=type_hints["thing_group_name"])
-            check_type(argname="argument thing_group_properties", value=thing_group_properties, expected_type=type_hints["thing_group_properties"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if parent_group_name is not None:
-            self._values["parent_group_name"] = parent_group_name
-        if query_string is not None:
-            self._values["query_string"] = query_string
-        if tags is not None:
-            self._values["tags"] = tags
-        if thing_group_name is not None:
-            self._values["thing_group_name"] = thing_group_name
-        if thing_group_properties is not None:
-            self._values["thing_group_properties"] = thing_group_properties
-
-    @builtins.property
-    def parent_group_name(self) -> typing.Optional[builtins.str]:
-        '''The parent thing group name.
-
-        A Dynamic Thing Group does not have ``parentGroupName`` defined.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-parentgroupname
-        '''
-        result = self._values.get("parent_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def query_string(self) -> typing.Optional[builtins.str]:
-        '''The dynamic thing group search query string.
-
-        The ``queryString`` attribute *is* required for ``CreateDynamicThingGroup`` . The ``queryString`` attribute *is not* required for ``CreateThingGroup`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-querystring
-        '''
-        result = self._values.get("query_string")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the thing group or dynamic thing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def thing_group_name(self) -> typing.Optional[builtins.str]:
-        '''The thing group name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-thinggroupname
-        '''
-        result = self._values.get("thing_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def thing_group_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThingGroup.ThingGroupPropertiesProperty]]:
-        '''Thing group properties.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thinggroup.html#cfn-iot-thinggroup-thinggroupproperties
-        '''
-        result = self._values.get("thing_group_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThingGroup.ThingGroupPropertiesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThingGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IThingPrincipalAttachmentRef)
 class CfnThingPrincipalAttachment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14198,6 +18357,12 @@ class CfnThingPrincipalAttachment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="thingPrincipalAttachmentRef")
+    def thing_principal_attachment_ref(self) -> ThingPrincipalAttachmentReference:
+        '''A reference to a ThingPrincipalAttachment resource.'''
+        return typing.cast(ThingPrincipalAttachmentReference, jsii.get(self, "thingPrincipalAttachmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="principal")
     def principal(self) -> builtins.str:
         '''The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.'''
@@ -14236,180 +18401,7 @@ class CfnThingPrincipalAttachment(
         jsii.set(self, "thingPrincipalType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnThingPrincipalAttachmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "principal": "principal",
-        "thing_name": "thingName",
-        "thing_principal_type": "thingPrincipalType",
-    },
-)
-class CfnThingPrincipalAttachmentProps:
-    def __init__(
-        self,
-        *,
-        principal: builtins.str,
-        thing_name: builtins.str,
-        thing_principal_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThingPrincipalAttachment``.
-
-        :param principal: The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
-        :param thing_name: The name of the AWS IoT thing.
-        :param thing_principal_type: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_thing_principal_attachment_props = iot.CfnThingPrincipalAttachmentProps(
-                principal="principal",
-                thing_name="thingName",
-            
-                # the properties below are optional
-                thing_principal_type="thingPrincipalType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84c8fe9c6ac7dd6ea654efc3fff6dfccf459a1bb6ca2a2b3be5d3116fa7d6022)
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
-            check_type(argname="argument thing_principal_type", value=thing_principal_type, expected_type=type_hints["thing_principal_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "principal": principal,
-            "thing_name": thing_name,
-        }
-        if thing_principal_type is not None:
-            self._values["thing_principal_type"] = thing_principal_type
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''The principal, which can be a certificate ARN (as returned from the ``CreateCertificate`` operation) or an Amazon Cognito ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def thing_name(self) -> builtins.str:
-        '''The name of the AWS IoT thing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-thingname
-        '''
-        result = self._values.get("thing_name")
-        assert result is not None, "Required property 'thing_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def thing_principal_type(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingprincipalattachment.html#cfn-iot-thingprincipalattachment-thingprincipaltype
-        '''
-        result = self._values.get("thing_principal_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThingPrincipalAttachmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnThingProps",
-    jsii_struct_bases=[],
-    name_mapping={"attribute_payload": "attributePayload", "thing_name": "thingName"},
-)
-class CfnThingProps:
-    def __init__(
-        self,
-        *,
-        attribute_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThing.AttributePayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        thing_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThing``.
-
-        :param attribute_payload: A string that contains up to three key value pairs. Maximum length of 800. Duplicates not allowed.
-        :param thing_name: The name of the thing to update. You can't change a thing's name. To change a thing's name, you must create a new thing, give it the new name, and then delete the old thing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_thing_props = iot.CfnThingProps(
-                attribute_payload=iot.CfnThing.AttributePayloadProperty(
-                    attributes={
-                        "attributes_key": "attributes"
-                    }
-                ),
-                thing_name="thingName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba3934496b94df046a49e307c9819bef85e3de0f86444390ef6f950faf30d1e9)
-            check_type(argname="argument attribute_payload", value=attribute_payload, expected_type=type_hints["attribute_payload"])
-            check_type(argname="argument thing_name", value=thing_name, expected_type=type_hints["thing_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if attribute_payload is not None:
-            self._values["attribute_payload"] = attribute_payload
-        if thing_name is not None:
-            self._values["thing_name"] = thing_name
-
-    @builtins.property
-    def attribute_payload(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThing.AttributePayloadProperty]]:
-        '''A string that contains up to three key value pairs.
-
-        Maximum length of 800. Duplicates not allowed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html#cfn-iot-thing-attributepayload
-        '''
-        result = self._values.get("attribute_payload")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThing.AttributePayloadProperty]], result)
-
-    @builtins.property
-    def thing_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the thing to update.
-
-        You can't change a thing's name. To change a thing's name, you must create a new thing, give it the new name, and then delete the old thing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thing.html#cfn-iot-thing-thingname
-        '''
-        result = self._values.get("thing_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThingProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IThingTypeRef, _ITaggable_36806126)
 class CfnThingType(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14539,6 +18531,12 @@ class CfnThingType(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="thingTypeRef")
+    def thing_type_ref(self) -> ThingTypeReference:
+        '''A reference to a ThingType resource.'''
+        return typing.cast(ThingTypeReference, jsii.get(self, "thingTypeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deprecateThingType")
@@ -14860,136 +18858,7 @@ class CfnThingType(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnThingTypeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "deprecate_thing_type": "deprecateThingType",
-        "tags": "tags",
-        "thing_type_name": "thingTypeName",
-        "thing_type_properties": "thingTypeProperties",
-    },
-)
-class CfnThingTypeProps:
-    def __init__(
-        self,
-        *,
-        deprecate_thing_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        thing_type_name: typing.Optional[builtins.str] = None,
-        thing_type_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingType.ThingTypePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnThingType``.
-
-        :param deprecate_thing_type: Deprecates a thing type. You can not associate new things with deprecated thing type. Requires permission to access the `DeprecateThingType <https://docs.aws.amazon.com//service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`_ action.
-        :param tags: Metadata which can be used to manage the thing type.
-        :param thing_type_name: The name of the thing type.
-        :param thing_type_properties: The thing type properties for the thing type to create. It contains information about the new thing type including a description, a list of searchable thing attribute names, and a list of propagating attributes. After a thing type is created, you can only update ``Mqtt5Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_thing_type_props = iot.CfnThingTypeProps(
-                deprecate_thing_type=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                thing_type_name="thingTypeName",
-                thing_type_properties=iot.CfnThingType.ThingTypePropertiesProperty(
-                    mqtt5_configuration=iot.CfnThingType.Mqtt5ConfigurationProperty(
-                        propagating_attributes=[iot.CfnThingType.PropagatingAttributeProperty(
-                            user_property_key="userPropertyKey",
-            
-                            # the properties below are optional
-                            connection_attribute="connectionAttribute",
-                            thing_attribute="thingAttribute"
-                        )]
-                    ),
-                    searchable_attributes=["searchableAttributes"],
-                    thing_type_description="thingTypeDescription"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0e7d8d693b9953903ebfffb338891caf23570681be8a1a696442dc23cfa3171)
-            check_type(argname="argument deprecate_thing_type", value=deprecate_thing_type, expected_type=type_hints["deprecate_thing_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument thing_type_name", value=thing_type_name, expected_type=type_hints["thing_type_name"])
-            check_type(argname="argument thing_type_properties", value=thing_type_properties, expected_type=type_hints["thing_type_properties"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if deprecate_thing_type is not None:
-            self._values["deprecate_thing_type"] = deprecate_thing_type
-        if tags is not None:
-            self._values["tags"] = tags
-        if thing_type_name is not None:
-            self._values["thing_type_name"] = thing_type_name
-        if thing_type_properties is not None:
-            self._values["thing_type_properties"] = thing_type_properties
-
-    @builtins.property
-    def deprecate_thing_type(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Deprecates a thing type. You can not associate new things with deprecated thing type.
-
-        Requires permission to access the `DeprecateThingType <https://docs.aws.amazon.com//service-authorization/latest/reference/list_awsiot.html#awsiot-actions-as-permissions>`_ action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-deprecatethingtype
-        '''
-        result = self._values.get("deprecate_thing_type")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the thing type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def thing_type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the thing type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-thingtypename
-        '''
-        result = self._values.get("thing_type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def thing_type_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThingType.ThingTypePropertiesProperty]]:
-        '''The thing type properties for the thing type to create.
-
-        It contains information about the new thing type including a description, a list of searchable thing attribute names, and a list of propagating attributes. After a thing type is created, you can only update ``Mqtt5Configuration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-thingtype.html#cfn-iot-thingtype-thingtypeproperties
-        '''
-        result = self._values.get("thing_type_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnThingType.ThingTypePropertiesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnThingTypeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ITopicRuleRef, _ITaggable_36806126)
 class CfnTopicRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15559,6 +19428,12 @@ class CfnTopicRule(
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleRef")
+    def topic_rule_ref(self) -> TopicRuleReference:
+        '''A reference to a TopicRule resource.'''
+        return typing.cast(TopicRuleReference, jsii.get(self, "topicRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="topicRulePayload")
@@ -20624,7 +24499,7 @@ class CfnTopicRule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITopicRuleDestinationRef)
 class CfnTopicRuleDestination(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -20736,6 +24611,12 @@ class CfnTopicRuleDestination(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRuleDestinationRef")
+    def topic_rule_destination_ref(self) -> TopicRuleDestinationReference:
+        '''A reference to a TopicRuleDestination resource.'''
+        return typing.cast(TopicRuleDestinationReference, jsii.get(self, "topicRuleDestinationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpUrlProperties")
@@ -20947,683 +24828,13 @@ class CfnTopicRuleDestination(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnTopicRuleDestinationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "http_url_properties": "httpUrlProperties",
-        "status": "status",
-        "vpc_properties": "vpcProperties",
-    },
-)
-class CfnTopicRuleDestinationProps:
-    def __init__(
-        self,
-        *,
-        http_url_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        vpc_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.VpcDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTopicRuleDestination``.
-
-        :param http_url_properties: Properties of the HTTP URL.
-        :param status: - **IN_PROGRESS** - A topic rule destination was created but has not been confirmed. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint. - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` . - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` . - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
-        :param vpc_properties: Properties of the virtual private cloud (VPC) connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_topic_rule_destination_props = iot.CfnTopicRuleDestinationProps(
-                http_url_properties=iot.CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty(
-                    confirmation_url="confirmationUrl"
-                ),
-                status="status",
-                vpc_properties=iot.CfnTopicRuleDestination.VpcDestinationPropertiesProperty(
-                    role_arn="roleArn",
-                    security_groups=["securityGroups"],
-                    subnet_ids=["subnetIds"],
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996)
-            check_type(argname="argument http_url_properties", value=http_url_properties, expected_type=type_hints["http_url_properties"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument vpc_properties", value=vpc_properties, expected_type=type_hints["vpc_properties"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if http_url_properties is not None:
-            self._values["http_url_properties"] = http_url_properties
-        if status is not None:
-            self._values["status"] = status
-        if vpc_properties is not None:
-            self._values["vpc_properties"] = vpc_properties
-
-    @builtins.property
-    def http_url_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty]]:
-        '''Properties of the HTTP URL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-httpurlproperties
-        '''
-        result = self._values.get("http_url_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''- **IN_PROGRESS** - A topic rule destination was created but has not been confirmed.
-
-        You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
-
-        - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` .
-        - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` .
-        - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_properties(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTopicRuleDestination.VpcDestinationPropertiesProperty]]:
-        '''Properties of the virtual private cloud (VPC) connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-vpcproperties
-        '''
-        result = self._values.get("vpc_properties")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTopicRuleDestination.VpcDestinationPropertiesProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTopicRuleDestinationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iot.CfnTopicRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "topic_rule_payload": "topicRulePayload",
-        "rule_name": "ruleName",
-        "tags": "tags",
-    },
-)
-class CfnTopicRuleProps:
-    def __init__(
-        self,
-        *,
-        topic_rule_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRule.TopicRulePayloadProperty, typing.Dict[builtins.str, typing.Any]]],
-        rule_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTopicRule``.
-
-        :param topic_rule_payload: The rule payload.
-        :param rule_name: The name of the rule.
-        :param tags: Metadata which can be used to manage the topic rule. .. epigraph:: For URI Request parameters use format: ...key1=value1&key2=value2... For the CLI command-line parameter use format: --tags "key1=value1&key2=value2..." For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
-            
-            cfn_topic_rule_props = iot.CfnTopicRuleProps(
-                topic_rule_payload=iot.CfnTopicRule.TopicRulePayloadProperty(
-                    actions=[iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_dBv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-            
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            confirmation_url="confirmationUrl",
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-            
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-            
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-            
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-            
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-            
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-            
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-            
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    )],
-                    sql="sql",
-            
-                    # the properties below are optional
-                    aws_iot_sql_version="awsIotSqlVersion",
-                    description="description",
-                    error_action=iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_dBv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-            
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            confirmation_url="confirmationUrl",
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-            
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-            
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-            
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-            
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-            
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-            
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-            
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    ),
-                    rule_disabled=False
-                ),
-            
-                # the properties below are optional
-                rule_name="ruleName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a58144efe3ee63b9453f5d33647fec5f202850f1807bc4520bc493599e404f50)
-            check_type(argname="argument topic_rule_payload", value=topic_rule_payload, expected_type=type_hints["topic_rule_payload"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "topic_rule_payload": topic_rule_payload,
-        }
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def topic_rule_payload(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnTopicRule.TopicRulePayloadProperty]:
-        '''The rule payload.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-topicrulepayload
-        '''
-        result = self._values.get("topic_rule_payload")
-        assert result is not None, "Required property 'topic_rule_payload' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnTopicRule.TopicRulePayloadProperty], result)
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-rulename
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the topic rule.
-
-        .. epigraph::
-
-           For URI Request parameters use format: ...key1=value1&key2=value2...
-
-           For the CLI command-line parameter use format: --tags "key1=value1&key2=value2..."
-
-           For the cli-input-json file use format: "tags": "key1=value1&key2=value2..."
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicrule.html#cfn-iot-topicrule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTopicRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccountAuditConfigurationReference",
+    "AuthorizerReference",
+    "BillingGroupReference",
+    "CACertificateReference",
+    "CertificateProviderReference",
+    "CertificateReference",
     "CfnAccountAuditConfiguration",
     "CfnAccountAuditConfigurationProps",
     "CfnAuthorizer",
@@ -21684,9 +24895,635 @@ __all__ = [
     "CfnTopicRuleDestination",
     "CfnTopicRuleDestinationProps",
     "CfnTopicRuleProps",
+    "CommandReference",
+    "CustomMetricReference",
+    "DimensionReference",
+    "DomainConfigurationReference",
+    "EncryptionConfigurationReference",
+    "FleetMetricReference",
+    "IAccountAuditConfigurationRef",
+    "IAuthorizerRef",
+    "IBillingGroupRef",
+    "ICACertificateRef",
+    "ICertificateProviderRef",
+    "ICertificateRef",
+    "ICommandRef",
+    "ICustomMetricRef",
+    "IDimensionRef",
+    "IDomainConfigurationRef",
+    "IEncryptionConfigurationRef",
+    "IFleetMetricRef",
+    "IJobTemplateRef",
+    "ILoggingRef",
+    "IMitigationActionRef",
+    "IPolicyPrincipalAttachmentRef",
+    "IPolicyRef",
+    "IProvisioningTemplateRef",
+    "IResourceSpecificLoggingRef",
+    "IRoleAliasRef",
+    "IScheduledAuditRef",
+    "ISecurityProfileRef",
+    "ISoftwarePackageRef",
+    "ISoftwarePackageVersionRef",
+    "IThingGroupRef",
+    "IThingPrincipalAttachmentRef",
+    "IThingRef",
+    "IThingTypeRef",
+    "ITopicRuleDestinationRef",
+    "ITopicRuleRef",
+    "JobTemplateReference",
+    "LoggingReference",
+    "MitigationActionReference",
+    "PolicyPrincipalAttachmentReference",
+    "PolicyReference",
+    "ProvisioningTemplateReference",
+    "ResourceSpecificLoggingReference",
+    "RoleAliasReference",
+    "ScheduledAuditReference",
+    "SecurityProfileReference",
+    "SoftwarePackageReference",
+    "SoftwarePackageVersionReference",
+    "ThingGroupReference",
+    "ThingPrincipalAttachmentReference",
+    "ThingReference",
+    "ThingTypeReference",
+    "TopicRuleDestinationReference",
+    "TopicRuleReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__b1134fe2a7b950167e52477a85bccbcb38702edacbcf9b347c0107b6e2aa462f(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bff748ab073d892e4cd916233d200a6b44ed6825342d45dccebab418bd3ebef4(
+    *,
+    authorizer_arn: builtins.str,
+    authorizer_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3cc529fbc767ed0145651c8cc07a1cd76b399bff4f776c1f345ea720787ea39c(
+    *,
+    billing_group_arn: builtins.str,
+    billing_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__656dddba6e2e8a289754292913754d4c38aad8b689e1a59324b5ccc89c5807e1(
+    *,
+    ca_certificate_arn: builtins.str,
+    ca_certificate_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c2a739ccec2b96bf3bef7e566ee580796297023e33c2e4e808376c30bdf4742(
+    *,
+    certificate_provider_arn: builtins.str,
+    certificate_provider_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78444e51101b94387d9ced012ad349e38af966f76e10a1dd77855e29f8b102a6(
+    *,
+    certificate_arn: builtins.str,
+    certificate_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fcb08f60d93c7bac3923eba987b721e65ab18e4504eac94738037301467ef30(
+    *,
+    account_id: builtins.str,
+    audit_check_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    audit_notification_target_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74e893e3af751a67f1d33d8c491ca675f92ce492c0265bf9a163106dda70c852(
+    *,
+    authorizer_function_arn: builtins.str,
+    authorizer_name: typing.Optional[builtins.str] = None,
+    enable_caching_for_http: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    signing_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_key_name: typing.Optional[builtins.str] = None,
+    token_signing_public_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__525602a7134ed800f47c55a23e5db685defea3c4eeb864eab734acb5724d24f5(
+    *,
+    billing_group_name: typing.Optional[builtins.str] = None,
+    billing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBillingGroup.BillingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dc1fc8bd40bee99b1f78bec3a4ac719bfd5bcc6c23ac88b18b092192a99e69b(
+    *,
+    ca_certificate_pem: builtins.str,
+    status: builtins.str,
+    auto_registration_status: typing.Optional[builtins.str] = None,
+    certificate_mode: typing.Optional[builtins.str] = None,
+    registration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCACertificate.RegistrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    remove_auto_registration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    verification_certificate_pem: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e042ee43de887a4629c99a4bbd89c3608552e57b05edd98ed45772daee143941(
+    *,
+    status: builtins.str,
+    ca_certificate_pem: typing.Optional[builtins.str] = None,
+    certificate_mode: typing.Optional[builtins.str] = None,
+    certificate_pem: typing.Optional[builtins.str] = None,
+    certificate_signing_request: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0744e41536576c861dced01787a6dcedf68212c28aef410b1478e6470df5595(
+    *,
+    account_default_for_operations: typing.Sequence[builtins.str],
+    lambda_function_arn: builtins.str,
+    certificate_provider_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6feb02113(
+    *,
+    command_id: builtins.str,
+    created_at: typing.Optional[builtins.str] = None,
+    deprecated: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    last_updated_at: typing.Optional[builtins.str] = None,
+    mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    namespace: typing.Optional[builtins.str] = None,
+    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__991229c51e2720f643956708e6d3c50eac5f03c8bfc0b98c081457c32d0713a4(
+    *,
+    metric_type: builtins.str,
+    display_name: typing.Optional[builtins.str] = None,
+    metric_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37f13b590f3614b992d59318bbe236446dc9c8243bcdfdd1201b5415d8bbe16e(
+    *,
+    string_values: typing.Sequence[builtins.str],
+    type: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af698e1a1ead0a2d7000837dd712796a150772065ad59ab9baf10a759fd99e3e(
+    *,
+    application_protocol: typing.Optional[builtins.str] = None,
+    authentication_type: typing.Optional[builtins.str] = None,
+    authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.AuthorizerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ClientCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain_configuration_name: typing.Optional[builtins.str] = None,
+    domain_configuration_status: typing.Optional[builtins.str] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    server_certificate_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    server_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ServerCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.TlsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validation_certificate_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab(
+    *,
+    encryption_type: builtins.str,
+    kms_access_role_arn: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c32ae9eaf57bd249c6b754fc4d62115363b123e65d8aa0149b1fdfe3a0c125a(
+    *,
+    metric_name: builtins.str,
+    aggregation_field: typing.Optional[builtins.str] = None,
+    aggregation_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleetMetric.AggregationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    index_name: typing.Optional[builtins.str] = None,
+    period: typing.Optional[jsii.Number] = None,
+    query_string: typing.Optional[builtins.str] = None,
+    query_version: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28c20b8a9676fd9409d3f7cb512490dbf5634f2468a7f4454df1b245a75806a1(
+    *,
+    description: builtins.str,
+    job_template_id: builtins.str,
+    abort_config: typing.Any = None,
+    destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    document: typing.Optional[builtins.str] = None,
+    document_source: typing.Optional[builtins.str] = None,
+    job_arn: typing.Optional[builtins.str] = None,
+    job_executions_retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.JobExecutionsRetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_executions_rollout_config: typing.Any = None,
+    maintenance_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    presigned_url_config: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_config: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__901c60f51fbfd8f93f04a87979753e82a4100266e43b803e7617ae6ab99aca15(
+    *,
+    account_id: builtins.str,
+    default_log_level: builtins.str,
+    role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14279d6a7ee85683cde23358dbc7a02f3c5c6be59c3ec3549c642e8450934f0c(
+    *,
+    action_params: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMitigationAction.ActionParamsProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    action_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cec9e8ab68d2c8fd5411fa3c1c1bc654f7978e259464b071891262125aba82f(
+    *,
+    policy_name: builtins.str,
+    principal: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39a3544380c0548a2070535d09348ba9dc65c84944619b0bc6868a040530a55b(
+    *,
+    policy_document: typing.Any,
+    policy_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c77f7c34bd0ba7b87a169be036f82876b81e776ee82a74636a925edb8cb3396d(
+    *,
+    provisioning_role_arn: builtins.str,
+    template_body: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pre_provisioning_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProvisioningTemplate.ProvisioningHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_name: typing.Optional[builtins.str] = None,
+    template_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dfc74587c5f8a3e2bf00503c8729419e4520b941ac9d4079c012e67b208920b(
+    *,
+    log_level: builtins.str,
+    target_name: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89734d52567c33f755f92e47698f90933bfc19822c106ff024434f75c7f46d81(
+    *,
+    role_arn: builtins.str,
+    credential_duration_seconds: typing.Optional[jsii.Number] = None,
+    role_alias: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d89f186b0fe486dac5fcb8401325db3513405133d049339688b1eb14a808aa71(
+    *,
+    frequency: builtins.str,
+    target_check_names: typing.Sequence[builtins.str],
+    day_of_month: typing.Optional[builtins.str] = None,
+    day_of_week: typing.Optional[builtins.str] = None,
+    scheduled_audit_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebb28d586aa0d630c8e29df5bbc78a295e6751c4a5aadaaf79f8f9a23fa9803d(
+    *,
+    additional_metrics_to_retain_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricToRetainProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    alert_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.AlertTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.BehaviorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics_export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricsExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    security_profile_description: typing.Optional[builtins.str] = None,
+    security_profile_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e75272652740c4b3bd44ba16e52293c40475922baea1bac29c22e2841319dbdc(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    package_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ee35d011adab7a2d8df83c92656187b403d2781df8df06d9575d380e2f8307c(
+    *,
+    package_name: builtins.str,
+    artifact: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.PackageVersionArtifactProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    recipe: typing.Optional[builtins.str] = None,
+    sbom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.SbomProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe8b10fbc51b50f02212f7fdaf0c3fbd06b63f119d2266837a7a0d605201b8d8(
+    *,
+    parent_group_name: typing.Optional[builtins.str] = None,
+    query_string: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    thing_group_name: typing.Optional[builtins.str] = None,
+    thing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingGroup.ThingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84c8fe9c6ac7dd6ea654efc3fff6dfccf459a1bb6ca2a2b3be5d3116fa7d6022(
+    *,
+    principal: builtins.str,
+    thing_name: builtins.str,
+    thing_principal_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba3934496b94df046a49e307c9819bef85e3de0f86444390ef6f950faf30d1e9(
+    *,
+    attribute_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThing.AttributePayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    thing_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0e7d8d693b9953903ebfffb338891caf23570681be8a1a696442dc23cfa3171(
+    *,
+    deprecate_thing_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    thing_type_name: typing.Optional[builtins.str] = None,
+    thing_type_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingType.ThingTypePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996(
+    *,
+    http_url_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    vpc_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.VpcDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a58144efe3ee63b9453f5d33647fec5f202850f1807bc4520bc493599e404f50(
+    *,
+    topic_rule_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRule.TopicRulePayloadProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b18031bc3a2d8ff497d3b7e5db59c80cc0f42326a25dfa400f56bfb48590f35(
+    *,
+    command_arn: builtins.str,
+    command_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efc70d3736821b89cb3297b93c71dc3cdf4f0289b3ed9b7719e2b8a4b21cb2c9(
+    *,
+    metric_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f41b5a3262ff4b8bc95100d7c2feb022e64793c424decdb298ec31fb51090e99(
+    *,
+    dimension_arn: builtins.str,
+    dimension_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5f68174157b947fb80dd4f8b508d6ba29f5e60d2571413092137b52a642d18e(
+    *,
+    domain_configuration_arn: builtins.str,
+    domain_configuration_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8457e740fc90e585a1eaafcfcf245d604b101a420039a9b2fdc2cceab9e00b6b(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef760ca119c81dfd95d4c508bc7dc1274f613990485f8016b24045594558dffc(
+    *,
+    metric_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a4a706435835e370681039f369b7b9c37b49c1929d03d2d493ea0a51b9b0aa9(
+    *,
+    job_template_arn: builtins.str,
+    job_template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1a9ec6ee021395081b338dd5fb1604d035feffcef0b3dcd5d6537d48d388760(
+    *,
+    account_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd4a13bb171cb36a64ea3ee9cc4e6ee9ffab3f97ba830abd07265eee02c4e0fd(
+    *,
+    action_name: builtins.str,
+    mitigation_action_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd9a72c508e43c2405a04110ca360003017247b68ffa361ac14862fc1ee82660(
+    *,
+    policy_principal_attachment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfceb47e8f680cdd1b46132fd507d9ce28a5626f6d45ca1a47aad26f75abb313(
+    *,
+    policy_arn: builtins.str,
+    policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86fed060d0942d560da663743cd087509b84ceaabf29721ff142f3a436e14bd1(
+    *,
+    template_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10624492202f0cc16968393c17f7cf8c95d079bce6e79b45438418bc8c07248b(
+    *,
+    target_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbdc88f837115eef8a8aeec824ff35429c13348067e130c8fa797748e70f1249(
+    *,
+    role_alias: builtins.str,
+    role_alias_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a95585942b57a2f6f28297bec8ad4815aa81e5a15ab75a07218f01ccc08d49dc(
+    *,
+    scheduled_audit_arn: builtins.str,
+    scheduled_audit_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e625d92837c4d6a31d96171659816e53ad33802ba72f560e87a23473e4f72d6(
+    *,
+    security_profile_arn: builtins.str,
+    security_profile_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90bb0e3e1805ef4eaf63200d5ef2f3ff1e4445cb6e2b62cbe4aa9c65561e9298(
+    *,
+    package_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39e5ee93edb3064d58e48b57b0aea1cb3dc732ec62700868a5c157357f37eb41(
+    *,
+    package_name: builtins.str,
+    version_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e3987d064d2442666c3396e201a9bbd071ec061664cd633930aeb64e1e03007(
+    *,
+    thing_group_arn: builtins.str,
+    thing_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e857adcdf56f0111b20926c9fddedbc2eec919493013b34c215e37b112f2ff9(
+    *,
+    thing_principal_attachment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd4ff5c694d267497bab5877d833825e1574279ef8c2b38238c8b0e704a873a6(
+    *,
+    thing_arn: builtins.str,
+    thing_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54ed85e98fa0feae46968e56569728960c62a240a6e96a5cc116fe688fa2ab07(
+    *,
+    thing_type_arn: builtins.str,
+    thing_type_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fea0700c8ecba2b622470cfa2053e148cec3e718a7c06b946bca0f354cce56f(
+    *,
+    topic_rule_destination_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0d8ffc7acdd05fd2d0691996fc8e1b1bf5a5cbcb0a985e342e598f039545943(
+    *,
+    rule_name: builtins.str,
+    topic_rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5948e29543f1607cc8ee287e8e24b77030d47498a579e0c05c8d7263bf76288d(
     scope: _constructs_77d1e7e8.Construct,
@@ -21797,16 +25634,6 @@ def _typecheckingstub__18ab03de098b1b7a6716b4a376b5187d413526dd875bd88adeab4f6f3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2fcb08f60d93c7bac3923eba987b721e65ab18e4504eac94738037301467ef30(
-    *,
-    account_id: builtins.str,
-    audit_check_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditCheckConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    audit_notification_target_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccountAuditConfiguration.AuditNotificationTargetConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4e4fa4db2b2f39dbc6512c349a1f375506fa414803e0c743e3c239b767f87458(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -21883,20 +25710,6 @@ def _typecheckingstub__292c5d20f52e15072af8a106dd16ac2741974991e592d6bd74453dcc9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__74e893e3af751a67f1d33d8c491ca675f92ce492c0265bf9a163106dda70c852(
-    *,
-    authorizer_function_arn: builtins.str,
-    authorizer_name: typing.Optional[builtins.str] = None,
-    enable_caching_for_http: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    signing_disabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    token_key_name: typing.Optional[builtins.str] = None,
-    token_signing_public_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9800cd08bb1d66b3bd0eb0dfcdd44bd57f861cc577346b257704a3a822a39d59(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -21941,15 +25754,6 @@ def _typecheckingstub__b3c5eda5a38a4adae250954d4038b3e27d46a9d6214a6da9bbd9f5c20
 def _typecheckingstub__7abecc164041d06c3948e71fe372a658775f50a88acba0a2a64c4c096ba2e2b0(
     *,
     billing_group_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__525602a7134ed800f47c55a23e5db685defea3c4eeb864eab734acb5724d24f5(
-    *,
-    billing_group_name: typing.Optional[builtins.str] = None,
-    billing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBillingGroup.BillingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22039,20 +25843,6 @@ def _typecheckingstub__bbb0d2a31e3a0efa98a397c75d7cba73c4c6e9a36ea6630db25d36e1a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4dc1fc8bd40bee99b1f78bec3a4ac719bfd5bcc6c23ac88b18b092192a99e69b(
-    *,
-    ca_certificate_pem: builtins.str,
-    status: builtins.str,
-    auto_registration_status: typing.Optional[builtins.str] = None,
-    certificate_mode: typing.Optional[builtins.str] = None,
-    registration_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCACertificate.RegistrationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    remove_auto_registration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    verification_certificate_pem: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__46aee44d4d6a9733c85214e26c075d74543dcab8e828397dcca352833ce76883(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22108,17 +25898,6 @@ def _typecheckingstub__e5c4a13970a0443db335de06b795b19c3f8517b557d829d6b80830585
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e042ee43de887a4629c99a4bbd89c3608552e57b05edd98ed45772daee143941(
-    *,
-    status: builtins.str,
-    ca_certificate_pem: typing.Optional[builtins.str] = None,
-    certificate_mode: typing.Optional[builtins.str] = None,
-    certificate_pem: typing.Optional[builtins.str] = None,
-    certificate_signing_request: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aa47c66749868972aaf4a345219010725c3e649282a1cdc821cea25f36063a30(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22163,16 +25942,6 @@ def _typecheckingstub__513927b609c485f557ef00e03f00f5dc9085d884f40451e8fe11098b2
 
 def _typecheckingstub__12247eb57a1af046f6da6ac517ed9b00e8e63df490a5d5134fd3bc4483e0ef9b(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0744e41536576c861dced01787a6dcedf68212c28aef410b1478e6470df5595(
-    *,
-    account_default_for_operations: typing.Sequence[builtins.str],
-    lambda_function_arn: builtins.str,
-    certificate_provider_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22312,24 +26081,6 @@ def _typecheckingstub__1e2e87d93da3ad14b634890062b3687c3deae32866ba45aa8cc32f4b9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6feb02113(
-    *,
-    command_id: builtins.str,
-    created_at: typing.Optional[builtins.str] = None,
-    deprecated: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    last_updated_at: typing.Optional[builtins.str] = None,
-    mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    namespace: typing.Optional[builtins.str] = None,
-    payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b5d4b322e821a4658786c2a37bf522048717e259abfffbbac6e69e0d25abd532(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22378,16 +26129,6 @@ def _typecheckingstub__db923b814ce2bc3ba6388f16f297d7c7442cd88cdc8392ee295be4fdf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__991229c51e2720f643956708e6d3c50eac5f03c8bfc0b98c081457c32d0713a4(
-    *,
-    metric_type: builtins.str,
-    display_name: typing.Optional[builtins.str] = None,
-    metric_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9286d29081a37ed320df129ad3a910f5794612db8e193487b1e0eed45eb57771(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22432,16 +26173,6 @@ def _typecheckingstub__98eb3d082a07e6ffa0e0228e1a60a15e324088a4fe335346947ebd8a5
 
 def _typecheckingstub__096e518a3ecb7c11af4f571ea40c00adc34fd83b1487e626950a3bd65bf3f631(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__37f13b590f3614b992d59318bbe236446dc9c8243bcdfdd1201b5415d8bbe16e(
-    *,
-    string_values: typing.Sequence[builtins.str],
-    type: builtins.str,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22597,25 +26328,6 @@ def _typecheckingstub__08eed2b30e1da3e19675726a328ce586ef896b30d6ce5aa7a6322d863
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__af698e1a1ead0a2d7000837dd712796a150772065ad59ab9baf10a759fd99e3e(
-    *,
-    application_protocol: typing.Optional[builtins.str] = None,
-    authentication_type: typing.Optional[builtins.str] = None,
-    authorizer_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.AuthorizerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    client_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ClientCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain_configuration_name: typing.Optional[builtins.str] = None,
-    domain_configuration_status: typing.Optional[builtins.str] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    server_certificate_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    server_certificate_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.ServerCertificateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.TlsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    validation_certificate_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__590a310b1ce9a41bd611fc7e92d5bb9381ff548973b6322c201006617fc000f1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22662,15 +26374,6 @@ def _typecheckingstub__177ce092c0e88e844eafa9e6b2f72e02413a4aecda7bf05efcdfd6fbf
     configuration_status: typing.Optional[builtins.str] = None,
     error_code: typing.Optional[builtins.str] = None,
     error_message: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab(
-    *,
-    encryption_type: builtins.str,
-    kms_access_role_arn: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22769,22 +26472,6 @@ def _typecheckingstub__0812c755acebd37cf868a64a2da71e2058b79aeaf2f17e1144fa2bf86
     *,
     name: builtins.str,
     values: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c32ae9eaf57bd249c6b754fc4d62115363b123e65d8aa0149b1fdfe3a0c125a(
-    *,
-    metric_name: builtins.str,
-    aggregation_field: typing.Optional[builtins.str] = None,
-    aggregation_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleetMetric.AggregationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    index_name: typing.Optional[builtins.str] = None,
-    period: typing.Optional[jsii.Number] = None,
-    query_string: typing.Optional[builtins.str] = None,
-    query_version: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unit: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22980,25 +26667,6 @@ def _typecheckingstub__ddd6fed4397361ce22058e6006b5feaf49f796e525e3c8210482b0410
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__28c20b8a9676fd9409d3f7cb512490dbf5634f2468a7f4454df1b245a75806a1(
-    *,
-    description: builtins.str,
-    job_template_id: builtins.str,
-    abort_config: typing.Any = None,
-    destination_package_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    document: typing.Optional[builtins.str] = None,
-    document_source: typing.Optional[builtins.str] = None,
-    job_arn: typing.Optional[builtins.str] = None,
-    job_executions_retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.JobExecutionsRetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_executions_rollout_config: typing.Any = None,
-    maintenance_windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    presigned_url_config: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout_config: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__42c0eb8383930c0ee820507c3ca84a084d9791dd182b3af6e1ef31e37e390b76(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23036,15 +26704,6 @@ def _typecheckingstub__9717fba78065c0f4d4c8bcf60c4f2311919196040e0ad408187ec1bb7
 
 def _typecheckingstub__157734f07e525e2c1c903f3a72894577538f3eb1c02f0893a46522e7a228c751(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__901c60f51fbfd8f93f04a87979753e82a4100266e43b803e7617ae6ab99aca15(
-    *,
-    account_id: builtins.str,
-    default_log_level: builtins.str,
-    role_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23153,16 +26812,6 @@ def _typecheckingstub__77502c34fd80b841eaa89f8de8229ea325e4bd11bf85b8598f000937e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__14279d6a7ee85683cde23358dbc7a02f3c5c6be59c3ec3549c642e8450934f0c(
-    *,
-    action_params: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMitigationAction.ActionParamsProperty, typing.Dict[builtins.str, typing.Any]]],
-    role_arn: builtins.str,
-    action_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__012a05ab891ef9948d58962bfcaaa5fbbf8453e113dbbe575de08c281c40b4d6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23234,23 +26883,6 @@ def _typecheckingstub__209ebe092b8eb032a53f5be01b35cff48695672eaa841420b02c8183d
 
 def _typecheckingstub__15484a8dc7d327a8df97885a95163d33fc870a1400809a54522a467d5615b2bb(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0cec9e8ab68d2c8fd5411fa3c1c1bc654f7978e259464b071891262125aba82f(
-    *,
-    policy_name: builtins.str,
-    principal: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__39a3544380c0548a2070535d09348ba9dc65c84944619b0bc6868a040530a55b(
-    *,
-    policy_document: typing.Any,
-    policy_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23339,20 +26971,6 @@ def _typecheckingstub__ec0e3ed2f7ba2ae28cc3664c20f4375da353cf4745fc034770dad2555
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c77f7c34bd0ba7b87a169be036f82876b81e776ee82a74636a925edb8cb3396d(
-    *,
-    provisioning_role_arn: builtins.str,
-    template_body: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    pre_provisioning_hook: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProvisioningTemplate.ProvisioningHookProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_name: typing.Optional[builtins.str] = None,
-    template_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__786b3d0fe8e23c2436b440b0dcf2a073c57fa31b69a0b329ae4cfe2117dbe1d7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23390,15 +27008,6 @@ def _typecheckingstub__0088abfb7bc0327dd3f1f687ebf00638b37f628d8735c678bc283a5cd
 
 def _typecheckingstub__9f78274dc001ea92d580911f0475ceff66a8c1a1558938d873c14e00ac9a0e81(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5dfc74587c5f8a3e2bf00503c8729419e4520b941ac9d4079c012e67b208920b(
-    *,
-    log_level: builtins.str,
-    target_name: builtins.str,
-    target_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23447,16 +27056,6 @@ def _typecheckingstub__b2d5856ac8f32021f9f70f9f4b23fb28a9fe0a692fec3b2d16cf4df21
 
 def _typecheckingstub__d2352c1a8d22a8f103dd785adf934aa19ab3df57269d51fd6a4d82d221a582db(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89734d52567c33f755f92e47698f90933bfc19822c106ff024434f75c7f46d81(
-    *,
-    role_arn: builtins.str,
-    credential_duration_seconds: typing.Optional[jsii.Number] = None,
-    role_alias: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23519,18 +27118,6 @@ def _typecheckingstub__8554df8dadd9c3d24178d782847b5f9934108dcc13e0ca55ab1adccc9
 
 def _typecheckingstub__3a6c40d069d52bd4e9c711de21441a770a6a753f250ce5301233af807e300951(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d89f186b0fe486dac5fcb8401325db3513405133d049339688b1eb14a808aa71(
-    *,
-    frequency: builtins.str,
-    target_check_names: typing.Sequence[builtins.str],
-    day_of_month: typing.Optional[builtins.str] = None,
-    day_of_week: typing.Optional[builtins.str] = None,
-    scheduled_audit_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23695,20 +27282,6 @@ def _typecheckingstub__d93a5784b56edaad76c54fedd480e6c542ec2771cdb9700432103afb9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ebb28d586aa0d630c8e29df5bbc78a295e6751c4a5aadaaf79f8f9a23fa9803d(
-    *,
-    additional_metrics_to_retain_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricToRetainProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    alert_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.AlertTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    behaviors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.BehaviorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metrics_export_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.MetricsExportConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    security_profile_description: typing.Optional[builtins.str] = None,
-    security_profile_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__94c7c8e186e68cde7a8264af8ace7c73f6ac201c314e1535a6ab915b3eb8e233(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23746,15 +27319,6 @@ def _typecheckingstub__b9f247b2189515fc77ec8e1e3b530005dc0976b88f5f7f5da9934d0f7
 
 def _typecheckingstub__52bd98db72c254315d460ad032c500cccdb51730608ace5ecc37eeded0dfbb80(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e75272652740c4b3bd44ba16e52293c40475922baea1bac29c22e2841319dbdc(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    package_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23854,20 +27418,6 @@ def _typecheckingstub__c526545becdc09015b2550f550ff021354d46170016741ed6b2dba0ac
 def _typecheckingstub__4805184390da2efb550b69bb1cd02ffc973608d20c4f6bf6be43c42215ca74f7(
     *,
     s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ee35d011adab7a2d8df83c92656187b403d2781df8df06d9575d380e2f8307c(
-    *,
-    package_name: builtins.str,
-    artifact: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.PackageVersionArtifactProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    recipe: typing.Optional[builtins.str] = None,
-    sbom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSoftwarePackageVersion.SbomProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23983,17 +27533,6 @@ def _typecheckingstub__3836b29eabce77e3232ffcbd8b5edd3bb581e93d1fd2cce6da605fd16
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fe8b10fbc51b50f02212f7fdaf0c3fbd06b63f119d2266837a7a0d605201b8d8(
-    *,
-    parent_group_name: typing.Optional[builtins.str] = None,
-    query_string: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    thing_group_name: typing.Optional[builtins.str] = None,
-    thing_group_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingGroup.ThingGroupPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0e0ce886b8c49b98afe43e3750b4827324240eaec344ca9ed6af433373fcce30(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -24031,23 +27570,6 @@ def _typecheckingstub__01b5ff1ad27492252f4daa6f98df93fe2358c63120a39227eea2f7555
 
 def _typecheckingstub__60f0b73c23e6d7837ba574cbb8e459baf1d53fca094b69ea965b6eeb45ad479e(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84c8fe9c6ac7dd6ea654efc3fff6dfccf459a1bb6ca2a2b3be5d3116fa7d6022(
-    *,
-    principal: builtins.str,
-    thing_name: builtins.str,
-    thing_principal_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba3934496b94df046a49e307c9819bef85e3de0f86444390ef6f950faf30d1e9(
-    *,
-    attribute_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThing.AttributePayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    thing_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24121,16 +27643,6 @@ def _typecheckingstub__c0b12b02aa04c428c8a4b0b009149238daf6e731dcbea61b9c059735a
     mqtt5_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingType.Mqtt5ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     searchable_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     thing_type_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c0e7d8d693b9953903ebfffb338891caf23570681be8a1a696442dc23cfa3171(
-    *,
-    deprecate_thing_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    thing_type_name: typing.Optional[builtins.str] = None,
-    thing_type_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnThingType.ThingTypePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24612,24 +28124,6 @@ def _typecheckingstub__91cd844cdd4eed473307ab1f4d7547c8e6bbd690302e69147a6fca835
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996(
-    *,
-    http_url_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    vpc_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRuleDestination.VpcDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a58144efe3ee63b9453f5d33647fec5f202850f1807bc4520bc493599e404f50(
-    *,
-    topic_rule_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTopicRule.TopicRulePayloadProperty, typing.Dict[builtins.str, typing.Any]]],
-    rule_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -68,7 +68,437 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_oam.CfnLinkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_types": "resourceTypes",
+        "sink_identifier": "sinkIdentifier",
+        "label_template": "labelTemplate",
+        "link_configuration": "linkConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnLinkProps:
+    def __init__(
+        self,
+        *,
+        resource_types: typing.Sequence[builtins.str],
+        sink_identifier: builtins.str,
+        label_template: typing.Optional[builtins.str] = None,
+        link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLink.LinkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLink``.
+
+        :param resource_types: An array of strings that define which types of data that the source account shares with the monitoring account. Valid values are ``AWS::CloudWatch::Metric | AWS::Logs::LogGroup | AWS::XRay::Trace | AWS::ApplicationInsights::Application | AWS::InternetMonitor::Monitor`` .
+        :param sink_identifier: The ARN of the sink in the monitoring account that you want to link to. You can use `ListSinks <https://docs.aws.amazon.com/OAM/latest/APIReference/API_ListSinks.html>`_ to find the ARNs of sinks.
+        :param label_template: Specify a friendly human-readable name to use to identify this source account when you are viewing data from it in the monitoring account. You can include the following variables in your template: - ``$AccountName`` is the name of the account - ``$AccountEmail`` is a globally-unique email address, which includes the email domain, such as ``mariagarcia@example.com`` - ``$AccountEmailNoDomain`` is an email address without the domain name, such as ``mariagarcia`` .. epigraph:: In the and Regions, the only supported option is to use custom labels, and the ``$AccountName`` , ``$AccountEmail`` , and ``$AccountEmailNoDomain`` variables all resolve as *account-id* instead of the specified variable.
+        :param link_configuration: Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
+        :param tags: An array of key-value pairs to apply to the link. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_oam as oam
+            
+            cfn_link_props = oam.CfnLinkProps(
+                resource_types=["resourceTypes"],
+                sink_identifier="sinkIdentifier",
+            
+                # the properties below are optional
+                label_template="labelTemplate",
+                link_configuration=oam.CfnLink.LinkConfigurationProperty(
+                    log_group_configuration=oam.CfnLink.LinkFilterProperty(
+                        filter="filter"
+                    ),
+                    metric_configuration=oam.CfnLink.LinkFilterProperty(
+                        filter="filter"
+                    )
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12)
+            check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
+            check_type(argname="argument sink_identifier", value=sink_identifier, expected_type=type_hints["sink_identifier"])
+            check_type(argname="argument label_template", value=label_template, expected_type=type_hints["label_template"])
+            check_type(argname="argument link_configuration", value=link_configuration, expected_type=type_hints["link_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_types": resource_types,
+            "sink_identifier": sink_identifier,
+        }
+        if label_template is not None:
+            self._values["label_template"] = label_template
+        if link_configuration is not None:
+            self._values["link_configuration"] = link_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def resource_types(self) -> typing.List[builtins.str]:
+        '''An array of strings that define which types of data that the source account shares with the monitoring account.
+
+        Valid values are ``AWS::CloudWatch::Metric | AWS::Logs::LogGroup | AWS::XRay::Trace | AWS::ApplicationInsights::Application | AWS::InternetMonitor::Monitor`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-resourcetypes
+        '''
+        result = self._values.get("resource_types")
+        assert result is not None, "Required property 'resource_types' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def sink_identifier(self) -> builtins.str:
+        '''The ARN of the sink in the monitoring account that you want to link to.
+
+        You can use `ListSinks <https://docs.aws.amazon.com/OAM/latest/APIReference/API_ListSinks.html>`_ to find the ARNs of sinks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-sinkidentifier
+        '''
+        result = self._values.get("sink_identifier")
+        assert result is not None, "Required property 'sink_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def label_template(self) -> typing.Optional[builtins.str]:
+        '''Specify a friendly human-readable name to use to identify this source account when you are viewing data from it in the monitoring account.
+
+        You can include the following variables in your template:
+
+        - ``$AccountName`` is the name of the account
+        - ``$AccountEmail`` is a globally-unique email address, which includes the email domain, such as ``mariagarcia@example.com``
+        - ``$AccountEmailNoDomain`` is an email address without the domain name, such as ``mariagarcia``
+
+        .. epigraph::
+
+           In the  and  Regions, the only supported option is to use custom labels, and the ``$AccountName`` , ``$AccountEmail`` , and ``$AccountEmailNoDomain`` variables all resolve as *account-id* instead of the specified variable.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-labeltemplate
+        '''
+        result = self._values.get("label_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def link_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLink.LinkConfigurationProperty"]]:
+        '''Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-linkconfiguration
+        '''
+        result = self._values.get("link_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLink.LinkConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An array of key-value pairs to apply to the link.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLinkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_oam.CfnSinkProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "policy": "policy", "tags": "tags"},
+)
+class CfnSinkProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        policy: typing.Any = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSink``.
+
+        :param name: A name for the sink.
+        :param policy: The IAM policy that grants permissions to source accounts to link to this sink. The policy can grant permission in the following ways: - Include organization IDs or organization paths to permit all accounts in an organization - Include account IDs to permit the specified accounts
+        :param tags: An array of key-value pairs to apply to the sink. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_oam as oam
+            
+            # policy: Any
+            
+            cfn_sink_props = oam.CfnSinkProps(
+                name="name",
+            
+                # the properties below are optional
+                policy=policy,
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if policy is not None:
+            self._values["policy"] = policy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the sink.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The IAM policy that grants permissions to source accounts to link to this sink.
+
+        The policy can grant permission in the following ways:
+
+        - Include organization IDs or organization paths to permit all accounts in an organization
+        - Include account IDs to permit the specified accounts
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''An array of key-value pairs to apply to the sink.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSinkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_oam.ILinkRef")
+class ILinkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Link.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRef")
+    def link_ref(self) -> "LinkReference":
+        '''(experimental) A reference to a Link resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILinkRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Link.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_oam.ILinkRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRef")
+    def link_ref(self) -> "LinkReference":
+        '''(experimental) A reference to a Link resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LinkReference", jsii.get(self, "linkRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILinkRef).__jsii_proxy_class__ = lambda : _ILinkRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_oam.ISinkRef")
+class ISinkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Sink.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sinkRef")
+    def sink_ref(self) -> "SinkReference":
+        '''(experimental) A reference to a Sink resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISinkRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Sink.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_oam.ISinkRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sinkRef")
+    def sink_ref(self) -> "SinkReference":
+        '''(experimental) A reference to a Sink resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SinkReference", jsii.get(self, "sinkRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISinkRef).__jsii_proxy_class__ = lambda : _ISinkRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_oam.LinkReference",
+    jsii_struct_bases=[],
+    name_mapping={"link_arn": "linkArn"},
+)
+class LinkReference:
+    def __init__(self, *, link_arn: builtins.str) -> None:
+        '''A reference to a Link resource.
+
+        :param link_arn: The Arn of the Link resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_oam as oam
+            
+            link_reference = oam.LinkReference(
+                link_arn="linkArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c067088cda788e0f4de3f705c3db97527c9ab432f150034714ad9c008d99626)
+            check_type(argname="argument link_arn", value=link_arn, expected_type=type_hints["link_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "link_arn": link_arn,
+        }
+
+    @builtins.property
+    def link_arn(self) -> builtins.str:
+        '''The Arn of the Link resource.'''
+        result = self._values.get("link_arn")
+        assert result is not None, "Required property 'link_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LinkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_oam.SinkReference",
+    jsii_struct_bases=[],
+    name_mapping={"sink_arn": "sinkArn"},
+)
+class SinkReference:
+    def __init__(self, *, sink_arn: builtins.str) -> None:
+        '''A reference to a Sink resource.
+
+        :param sink_arn: The Arn of the Sink resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_oam as oam
+            
+            sink_reference = oam.SinkReference(
+                sink_arn="sinkArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63148a9a9d1286c3e8ef9c4dbf60dc9d676ad0899e4b3f4df4a95f8058fb1484)
+            check_type(argname="argument sink_arn", value=sink_arn, expected_type=type_hints["sink_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sink_arn": sink_arn,
+        }
+
+    @builtins.property
+    def sink_arn(self) -> builtins.str:
+        '''The Arn of the Sink resource.'''
+        result = self._values.get("sink_arn")
+        assert result is not None, "Required property 'sink_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SinkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ILinkRef, _ITaggable_36806126)
 class CfnLink(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -204,6 +634,12 @@ class CfnLink(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRef")
+    def link_ref(self) -> LinkReference:
+        '''A reference to a Link resource.'''
+        return typing.cast(LinkReference, jsii.get(self, "linkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -445,159 +881,7 @@ class CfnLink(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_oam.CfnLinkProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_types": "resourceTypes",
-        "sink_identifier": "sinkIdentifier",
-        "label_template": "labelTemplate",
-        "link_configuration": "linkConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnLinkProps:
-    def __init__(
-        self,
-        *,
-        resource_types: typing.Sequence[builtins.str],
-        sink_identifier: builtins.str,
-        label_template: typing.Optional[builtins.str] = None,
-        link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLink``.
-
-        :param resource_types: An array of strings that define which types of data that the source account shares with the monitoring account. Valid values are ``AWS::CloudWatch::Metric | AWS::Logs::LogGroup | AWS::XRay::Trace | AWS::ApplicationInsights::Application | AWS::InternetMonitor::Monitor`` .
-        :param sink_identifier: The ARN of the sink in the monitoring account that you want to link to. You can use `ListSinks <https://docs.aws.amazon.com/OAM/latest/APIReference/API_ListSinks.html>`_ to find the ARNs of sinks.
-        :param label_template: Specify a friendly human-readable name to use to identify this source account when you are viewing data from it in the monitoring account. You can include the following variables in your template: - ``$AccountName`` is the name of the account - ``$AccountEmail`` is a globally-unique email address, which includes the email domain, such as ``mariagarcia@example.com`` - ``$AccountEmailNoDomain`` is an email address without the domain name, such as ``mariagarcia`` .. epigraph:: In the and Regions, the only supported option is to use custom labels, and the ``$AccountName`` , ``$AccountEmail`` , and ``$AccountEmailNoDomain`` variables all resolve as *account-id* instead of the specified variable.
-        :param link_configuration: Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
-        :param tags: An array of key-value pairs to apply to the link. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_oam as oam
-            
-            cfn_link_props = oam.CfnLinkProps(
-                resource_types=["resourceTypes"],
-                sink_identifier="sinkIdentifier",
-            
-                # the properties below are optional
-                label_template="labelTemplate",
-                link_configuration=oam.CfnLink.LinkConfigurationProperty(
-                    log_group_configuration=oam.CfnLink.LinkFilterProperty(
-                        filter="filter"
-                    ),
-                    metric_configuration=oam.CfnLink.LinkFilterProperty(
-                        filter="filter"
-                    )
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12)
-            check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
-            check_type(argname="argument sink_identifier", value=sink_identifier, expected_type=type_hints["sink_identifier"])
-            check_type(argname="argument label_template", value=label_template, expected_type=type_hints["label_template"])
-            check_type(argname="argument link_configuration", value=link_configuration, expected_type=type_hints["link_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_types": resource_types,
-            "sink_identifier": sink_identifier,
-        }
-        if label_template is not None:
-            self._values["label_template"] = label_template
-        if link_configuration is not None:
-            self._values["link_configuration"] = link_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def resource_types(self) -> typing.List[builtins.str]:
-        '''An array of strings that define which types of data that the source account shares with the monitoring account.
-
-        Valid values are ``AWS::CloudWatch::Metric | AWS::Logs::LogGroup | AWS::XRay::Trace | AWS::ApplicationInsights::Application | AWS::InternetMonitor::Monitor`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-resourcetypes
-        '''
-        result = self._values.get("resource_types")
-        assert result is not None, "Required property 'resource_types' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def sink_identifier(self) -> builtins.str:
-        '''The ARN of the sink in the monitoring account that you want to link to.
-
-        You can use `ListSinks <https://docs.aws.amazon.com/OAM/latest/APIReference/API_ListSinks.html>`_ to find the ARNs of sinks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-sinkidentifier
-        '''
-        result = self._values.get("sink_identifier")
-        assert result is not None, "Required property 'sink_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def label_template(self) -> typing.Optional[builtins.str]:
-        '''Specify a friendly human-readable name to use to identify this source account when you are viewing data from it in the monitoring account.
-
-        You can include the following variables in your template:
-
-        - ``$AccountName`` is the name of the account
-        - ``$AccountEmail`` is a globally-unique email address, which includes the email domain, such as ``mariagarcia@example.com``
-        - ``$AccountEmailNoDomain`` is an email address without the domain name, such as ``mariagarcia``
-
-        .. epigraph::
-
-           In the  and  Regions, the only supported option is to use custom labels, and the ``$AccountName`` , ``$AccountEmail`` , and ``$AccountEmailNoDomain`` variables all resolve as *account-id* instead of the specified variable.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-labeltemplate
-        '''
-        result = self._values.get("label_template")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def link_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLink.LinkConfigurationProperty]]:
-        '''Use this structure to optionally create filters that specify that only some metric namespaces or log groups are to be shared from the source account to the monitoring account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-linkconfiguration
-        '''
-        result = self._values.get("link_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLink.LinkConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An array of key-value pairs to apply to the link.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLinkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ISinkRef, _ITaggable_36806126)
 class CfnSink(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -705,6 +989,12 @@ class CfnSink(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="sinkRef")
+    def sink_ref(self) -> SinkReference:
+        '''A reference to a Sink resource.'''
+        return typing.cast(SinkReference, jsii.get(self, "sinkRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -753,114 +1043,52 @@ class CfnSink(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_oam.CfnSinkProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "policy": "policy", "tags": "tags"},
-)
-class CfnSinkProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        policy: typing.Any = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSink``.
-
-        :param name: A name for the sink.
-        :param policy: The IAM policy that grants permissions to source accounts to link to this sink. The policy can grant permission in the following ways: - Include organization IDs or organization paths to permit all accounts in an organization - Include account IDs to permit the specified accounts
-        :param tags: An array of key-value pairs to apply to the sink. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_oam as oam
-            
-            # policy: Any
-            
-            cfn_sink_props = oam.CfnSinkProps(
-                name="name",
-            
-                # the properties below are optional
-                policy=policy,
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if policy is not None:
-            self._values["policy"] = policy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the sink.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The IAM policy that grants permissions to source accounts to link to this sink.
-
-        The policy can grant permission in the following ways:
-
-        - Include organization IDs or organization paths to permit all accounts in an organization
-        - Include account IDs to permit the specified accounts
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''An array of key-value pairs to apply to the sink.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-sink.html#cfn-oam-sink-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSinkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnLink",
     "CfnLinkProps",
     "CfnSink",
     "CfnSinkProps",
+    "ILinkRef",
+    "ISinkRef",
+    "LinkReference",
+    "SinkReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12(
+    *,
+    resource_types: typing.Sequence[builtins.str],
+    sink_identifier: builtins.str,
+    label_template: typing.Optional[builtins.str] = None,
+    link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47(
+    *,
+    name: builtins.str,
+    policy: typing.Any = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c067088cda788e0f4de3f705c3db97527c9ab432f150034714ad9c008d99626(
+    *,
+    link_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63148a9a9d1286c3e8ef9c4dbf60dc9d676ad0899e4b3f4df4a95f8058fb1484(
+    *,
+    sink_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__2ffbd6521de55eb2e3d4f2bc8edac2d144f850a53dbdfd3dac4b1591612aaeac(
     scope: _constructs_77d1e7e8.Construct,
@@ -932,17 +1160,6 @@ def _typecheckingstub__3a6822df441121f7f9fd0663c8f7c4745082bfd61605fab5fc6e5ce1c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__debdd90801a5b490b9ec98da9bb17f5329c1db3816f558321a3ce7bdfb7aab12(
-    *,
-    resource_types: typing.Sequence[builtins.str],
-    sink_identifier: builtins.str,
-    label_template: typing.Optional[builtins.str] = None,
-    link_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLink.LinkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9fc6909cf2fa64c817adc7144cbdc866a604a4bcf1e0859e6a2301142ad88158(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -980,15 +1197,6 @@ def _typecheckingstub__17b105d896dac211275e0427a07a7c1ef0096d9d405b1f2c26c9622c3
 
 def _typecheckingstub__ce98d825cec971a8da063461fb01433d96941b6c426c46a2e2fb6fbe9a48d059(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dd29c4cd77d22ee5292aed2b76dafa78094044e68522a05f311c0ee028231e47(
-    *,
-    name: builtins.str,
-    policy: typing.Any = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

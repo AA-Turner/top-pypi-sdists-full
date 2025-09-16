@@ -69,7 +69,485 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourcegroups.CfnGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "configuration": "configuration",
+        "description": "description",
+        "resource_query": "resourceQuery",
+        "resources": "resources",
+        "tags": "tags",
+    },
+)
+class CfnGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.ConfigurationItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        resource_query: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.ResourceQueryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGroup``.
+
+        :param name: The name of a resource group. The name must be unique within the AWS Region in which you create the resource. To create multiple resource groups based on the same CloudFormation stack, you must generate unique names for each.
+        :param configuration: The service configuration currently associated with the resource group and in effect for the members of the resource group. A ``Configuration`` consists of one or more ``ConfigurationItem`` entries. For information about service configurations for resource groups and how to construct them, see `Service configurations for resource groups <https://docs.aws.amazon.com//ARG/latest/APIReference/about-slg.html>`_ in the *AWS Resource Groups User Guide* . .. epigraph:: You can include either a ``Configuration`` or a ``ResourceQuery`` , but not both.
+        :param description: The description of the resource group.
+        :param resource_query: The resource query structure that is used to dynamically determine which AWS resources are members of the associated resource group. For more information about queries and how to construct them, see `Build queries and groups in AWS Resource Groups <https://docs.aws.amazon.com//ARG/latest/userguide/gettingstarted-query.html>`_ in the *AWS Resource Groups User Guide* .. epigraph:: - You can include either a ``ResourceQuery`` or a ``Configuration`` , but not both. - You can specify the group's membership either by using a ``ResourceQuery`` or by using a list of ``Resources`` , but not both.
+        :param resources: A list of the Amazon Resource Names (ARNs) of AWS resources that you want to add to the specified group. .. epigraph:: - You can specify the group membership either by using a list of ``Resources`` or by using a ``ResourceQuery`` , but not both. - You can include a ``Resources`` property only if you also specify a ``Configuration`` property.
+        :param tags: The tag key and value pairs that are attached to the resource group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourcegroups as resourcegroups
+            
+            cfn_group_props = resourcegroups.CfnGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                configuration=[resourcegroups.CfnGroup.ConfigurationItemProperty(
+                    parameters=[resourcegroups.CfnGroup.ConfigurationParameterProperty(
+                        name="name",
+                        values=["values"]
+                    )],
+                    type="type"
+                )],
+                description="description",
+                resource_query=resourcegroups.CfnGroup.ResourceQueryProperty(
+                    query=resourcegroups.CfnGroup.QueryProperty(
+                        resource_type_filters=["resourceTypeFilters"],
+                        stack_identifier="stackIdentifier",
+                        tag_filters=[resourcegroups.CfnGroup.TagFilterProperty(
+                            key="key",
+                            values=["values"]
+                        )]
+                    ),
+                    type="type"
+                ),
+                resources=["resources"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb026100b2da91b258c8101dddf16a77684d48ca689302721dfecf0e236a7782)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument resource_query", value=resource_query, expected_type=type_hints["resource_query"])
+            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if configuration is not None:
+            self._values["configuration"] = configuration
+        if description is not None:
+            self._values["description"] = description
+        if resource_query is not None:
+            self._values["resource_query"] = resource_query
+        if resources is not None:
+            self._values["resources"] = resources
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of a resource group.
+
+        The name must be unique within the AWS Region in which you create the resource. To create multiple resource groups based on the same CloudFormation stack, you must generate unique names for each.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.ConfigurationItemProperty"]]]]:
+        '''The service configuration currently associated with the resource group and in effect for the members of the resource group.
+
+        A ``Configuration`` consists of one or more ``ConfigurationItem`` entries. For information about service configurations for resource groups and how to construct them, see `Service configurations for resource groups <https://docs.aws.amazon.com//ARG/latest/APIReference/about-slg.html>`_ in the *AWS Resource Groups User Guide* .
+        .. epigraph::
+
+           You can include either a ``Configuration`` or a ``ResourceQuery`` , but not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-configuration
+        '''
+        result = self._values.get("configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.ConfigurationItemProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the resource group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_query(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.ResourceQueryProperty"]]:
+        '''The resource query structure that is used to dynamically determine which AWS resources are members of the associated resource group.
+
+        For more information about queries and how to construct them, see `Build queries and groups in AWS Resource Groups <https://docs.aws.amazon.com//ARG/latest/userguide/gettingstarted-query.html>`_ in the *AWS Resource Groups User Guide*
+        .. epigraph::
+
+           - You can include either a ``ResourceQuery`` or a ``Configuration`` , but not both.
+           - You can specify the group's membership either by using a ``ResourceQuery`` or by using a list of ``Resources`` , but not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-resourcequery
+        '''
+        result = self._values.get("resource_query")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGroup.ResourceQueryProperty"]], result)
+
+    @builtins.property
+    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of the Amazon Resource Names (ARNs) of AWS resources that you want to add to the specified group.
+
+        .. epigraph::
+
+           - You can specify the group membership either by using a list of ``Resources`` or by using a ``ResourceQuery`` , but not both.
+           - You can include a ``Resources`` property only if you also specify a ``Configuration`` property.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-resources
+        '''
+        result = self._values.get("resources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tag key and value pairs that are attached to the resource group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourcegroups.CfnTagSyncTaskProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group": "group",
+        "role_arn": "roleArn",
+        "tag_key": "tagKey",
+        "tag_value": "tagValue",
+    },
+)
+class CfnTagSyncTaskProps:
+    def __init__(
+        self,
+        *,
+        group: builtins.str,
+        role_arn: builtins.str,
+        tag_key: builtins.str,
+        tag_value: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnTagSyncTask``.
+
+        :param group: The Amazon resource name (ARN) or name of the application group for which you want to create a tag-sync task.
+        :param role_arn: The Amazon resource name (ARN) of the role assumed by the service to tag and untag resources on your behalf.
+        :param tag_key: The tag key.
+        :param tag_value: The tag value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourcegroups as resourcegroups
+            
+            cfn_tag_sync_task_props = resourcegroups.CfnTagSyncTaskProps(
+                group="group",
+                role_arn="roleArn",
+                tag_key="tagKey",
+                tag_value="tagValue"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92e2f4c3b48ee7233cae450c356891144695748bdb5f027bc5b13135d8eeea4e)
+            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
+            check_type(argname="argument tag_value", value=tag_value, expected_type=type_hints["tag_value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group": group,
+            "role_arn": role_arn,
+            "tag_key": tag_key,
+            "tag_value": tag_value,
+        }
+
+    @builtins.property
+    def group(self) -> builtins.str:
+        '''The Amazon resource name (ARN) or name of the application group for which you want to create a tag-sync task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-group
+        '''
+        result = self._values.get("group")
+        assert result is not None, "Required property 'group' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon resource name (ARN) of the role assumed by the service to tag and untag resources on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tag_key(self) -> builtins.str:
+        '''The tag key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-tagkey
+        '''
+        result = self._values.get("tag_key")
+        assert result is not None, "Required property 'tag_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tag_value(self) -> builtins.str:
+        '''The tag value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-tagvalue
+        '''
+        result = self._values.get("tag_value")
+        assert result is not None, "Required property 'tag_value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTagSyncTaskProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourcegroups.GroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_arn": "groupArn", "group_name": "groupName"},
+)
+class GroupReference:
+    def __init__(self, *, group_arn: builtins.str, group_name: builtins.str) -> None:
+        '''A reference to a Group resource.
+
+        :param group_arn: The ARN of the Group resource.
+        :param group_name: The Name of the Group resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourcegroups as resourcegroups
+            
+            group_reference = resourcegroups.GroupReference(
+                group_arn="groupArn",
+                group_name="groupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__172158203e3d1e790cbe54067844c18225f013ecdcc3fd2e2b6a08d99890299c)
+            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_arn": group_arn,
+            "group_name": group_name,
+        }
+
+    @builtins.property
+    def group_arn(self) -> builtins.str:
+        '''The ARN of the Group resource.'''
+        result = self._values.get("group_arn")
+        assert result is not None, "Required property 'group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def group_name(self) -> builtins.str:
+        '''The Name of the Group resource.'''
+        result = self._values.get("group_name")
+        assert result is not None, "Required property 'group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_resourcegroups.IGroupRef")
+class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resourcegroups.IGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_resourcegroups.ITagSyncTaskRef")
+class ITagSyncTaskRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TagSyncTask.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tagSyncTaskRef")
+    def tag_sync_task_ref(self) -> "TagSyncTaskReference":
+        '''(experimental) A reference to a TagSyncTask resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITagSyncTaskRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TagSyncTask.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_resourcegroups.ITagSyncTaskRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tagSyncTaskRef")
+    def tag_sync_task_ref(self) -> "TagSyncTaskReference":
+        '''(experimental) A reference to a TagSyncTask resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TagSyncTaskReference", jsii.get(self, "tagSyncTaskRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITagSyncTaskRef).__jsii_proxy_class__ = lambda : _ITagSyncTaskRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_resourcegroups.TagSyncTaskReference",
+    jsii_struct_bases=[],
+    name_mapping={"task_arn": "taskArn"},
+)
+class TagSyncTaskReference:
+    def __init__(self, *, task_arn: builtins.str) -> None:
+        '''A reference to a TagSyncTask resource.
+
+        :param task_arn: The TaskArn of the TagSyncTask resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_resourcegroups as resourcegroups
+            
+            tag_sync_task_reference = resourcegroups.TagSyncTaskReference(
+                task_arn="taskArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5986e6db1d8d55cda92bf3c2408c0a0f158e3243b72c161366d88cb677dbc341)
+            check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "task_arn": task_arn,
+        }
+
+    @builtins.property
+    def task_arn(self) -> builtins.str:
+        '''The TaskArn of the TagSyncTask resource.'''
+        result = self._values.get("task_arn")
+        assert result is not None, "Required property 'task_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagSyncTaskReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IGroupRef, _ITaggable_36806126)
 class CfnGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -206,6 +684,12 @@ class CfnGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''A reference to a Group resource.'''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -741,189 +1225,7 @@ class CfnGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resourcegroups.CfnGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "configuration": "configuration",
-        "description": "description",
-        "resource_query": "resourceQuery",
-        "resources": "resources",
-        "tags": "tags",
-    },
-)
-class CfnGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ConfigurationItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        resource_query: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ResourceQueryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGroup``.
-
-        :param name: The name of a resource group. The name must be unique within the AWS Region in which you create the resource. To create multiple resource groups based on the same CloudFormation stack, you must generate unique names for each.
-        :param configuration: The service configuration currently associated with the resource group and in effect for the members of the resource group. A ``Configuration`` consists of one or more ``ConfigurationItem`` entries. For information about service configurations for resource groups and how to construct them, see `Service configurations for resource groups <https://docs.aws.amazon.com//ARG/latest/APIReference/about-slg.html>`_ in the *AWS Resource Groups User Guide* . .. epigraph:: You can include either a ``Configuration`` or a ``ResourceQuery`` , but not both.
-        :param description: The description of the resource group.
-        :param resource_query: The resource query structure that is used to dynamically determine which AWS resources are members of the associated resource group. For more information about queries and how to construct them, see `Build queries and groups in AWS Resource Groups <https://docs.aws.amazon.com//ARG/latest/userguide/gettingstarted-query.html>`_ in the *AWS Resource Groups User Guide* .. epigraph:: - You can include either a ``ResourceQuery`` or a ``Configuration`` , but not both. - You can specify the group's membership either by using a ``ResourceQuery`` or by using a list of ``Resources`` , but not both.
-        :param resources: A list of the Amazon Resource Names (ARNs) of AWS resources that you want to add to the specified group. .. epigraph:: - You can specify the group membership either by using a list of ``Resources`` or by using a ``ResourceQuery`` , but not both. - You can include a ``Resources`` property only if you also specify a ``Configuration`` property.
-        :param tags: The tag key and value pairs that are attached to the resource group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resourcegroups as resourcegroups
-            
-            cfn_group_props = resourcegroups.CfnGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                configuration=[resourcegroups.CfnGroup.ConfigurationItemProperty(
-                    parameters=[resourcegroups.CfnGroup.ConfigurationParameterProperty(
-                        name="name",
-                        values=["values"]
-                    )],
-                    type="type"
-                )],
-                description="description",
-                resource_query=resourcegroups.CfnGroup.ResourceQueryProperty(
-                    query=resourcegroups.CfnGroup.QueryProperty(
-                        resource_type_filters=["resourceTypeFilters"],
-                        stack_identifier="stackIdentifier",
-                        tag_filters=[resourcegroups.CfnGroup.TagFilterProperty(
-                            key="key",
-                            values=["values"]
-                        )]
-                    ),
-                    type="type"
-                ),
-                resources=["resources"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb026100b2da91b258c8101dddf16a77684d48ca689302721dfecf0e236a7782)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument resource_query", value=resource_query, expected_type=type_hints["resource_query"])
-            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if configuration is not None:
-            self._values["configuration"] = configuration
-        if description is not None:
-            self._values["description"] = description
-        if resource_query is not None:
-            self._values["resource_query"] = resource_query
-        if resources is not None:
-            self._values["resources"] = resources
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of a resource group.
-
-        The name must be unique within the AWS Region in which you create the resource. To create multiple resource groups based on the same CloudFormation stack, you must generate unique names for each.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroup.ConfigurationItemProperty]]]]:
-        '''The service configuration currently associated with the resource group and in effect for the members of the resource group.
-
-        A ``Configuration`` consists of one or more ``ConfigurationItem`` entries. For information about service configurations for resource groups and how to construct them, see `Service configurations for resource groups <https://docs.aws.amazon.com//ARG/latest/APIReference/about-slg.html>`_ in the *AWS Resource Groups User Guide* .
-        .. epigraph::
-
-           You can include either a ``Configuration`` or a ``ResourceQuery`` , but not both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-configuration
-        '''
-        result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroup.ConfigurationItemProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the resource group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_query(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.ResourceQueryProperty]]:
-        '''The resource query structure that is used to dynamically determine which AWS resources are members of the associated resource group.
-
-        For more information about queries and how to construct them, see `Build queries and groups in AWS Resource Groups <https://docs.aws.amazon.com//ARG/latest/userguide/gettingstarted-query.html>`_ in the *AWS Resource Groups User Guide*
-        .. epigraph::
-
-           - You can include either a ``ResourceQuery`` or a ``Configuration`` , but not both.
-           - You can specify the group's membership either by using a ``ResourceQuery`` or by using a list of ``Resources`` , but not both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-resourcequery
-        '''
-        result = self._values.get("resource_query")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.ResourceQueryProperty]], result)
-
-    @builtins.property
-    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of the Amazon Resource Names (ARNs) of AWS resources that you want to add to the specified group.
-
-        .. epigraph::
-
-           - You can specify the group membership either by using a list of ``Resources`` or by using a ``ResourceQuery`` , but not both.
-           - You can include a ``Resources`` property only if you also specify a ``Configuration`` property.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-resources
-        '''
-        result = self._values.get("resources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tag key and value pairs that are attached to the resource group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-group.html#cfn-resourcegroups-group-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ITagSyncTaskRef)
 class CfnTagSyncTask(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1062,6 +1364,12 @@ class CfnTagSyncTask(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="tagSyncTaskRef")
+    def tag_sync_task_ref(self) -> TagSyncTaskReference:
+        '''A reference to a TagSyncTask resource.'''
+        return typing.cast(TagSyncTaskReference, jsii.get(self, "tagSyncTaskRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="group")
     def group(self) -> builtins.str:
         '''The Amazon resource name (ARN) or name of the application group for which you want to create a tag-sync task.'''
@@ -1114,121 +1422,55 @@ class CfnTagSyncTask(
         jsii.set(self, "tagValue", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_resourcegroups.CfnTagSyncTaskProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "group": "group",
-        "role_arn": "roleArn",
-        "tag_key": "tagKey",
-        "tag_value": "tagValue",
-    },
-)
-class CfnTagSyncTaskProps:
-    def __init__(
-        self,
-        *,
-        group: builtins.str,
-        role_arn: builtins.str,
-        tag_key: builtins.str,
-        tag_value: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnTagSyncTask``.
-
-        :param group: The Amazon resource name (ARN) or name of the application group for which you want to create a tag-sync task.
-        :param role_arn: The Amazon resource name (ARN) of the role assumed by the service to tag and untag resources on your behalf.
-        :param tag_key: The tag key.
-        :param tag_value: The tag value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_resourcegroups as resourcegroups
-            
-            cfn_tag_sync_task_props = resourcegroups.CfnTagSyncTaskProps(
-                group="group",
-                role_arn="roleArn",
-                tag_key="tagKey",
-                tag_value="tagValue"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92e2f4c3b48ee7233cae450c356891144695748bdb5f027bc5b13135d8eeea4e)
-            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
-            check_type(argname="argument tag_value", value=tag_value, expected_type=type_hints["tag_value"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group": group,
-            "role_arn": role_arn,
-            "tag_key": tag_key,
-            "tag_value": tag_value,
-        }
-
-    @builtins.property
-    def group(self) -> builtins.str:
-        '''The Amazon resource name (ARN) or name of the application group for which you want to create a tag-sync task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-group
-        '''
-        result = self._values.get("group")
-        assert result is not None, "Required property 'group' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon resource name (ARN) of the role assumed by the service to tag and untag resources on your behalf.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tag_key(self) -> builtins.str:
-        '''The tag key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-tagkey
-        '''
-        result = self._values.get("tag_key")
-        assert result is not None, "Required property 'tag_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tag_value(self) -> builtins.str:
-        '''The tag value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourcegroups-tagsynctask.html#cfn-resourcegroups-tagsynctask-tagvalue
-        '''
-        result = self._values.get("tag_value")
-        assert result is not None, "Required property 'tag_value' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTagSyncTaskProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnGroup",
     "CfnGroupProps",
     "CfnTagSyncTask",
     "CfnTagSyncTaskProps",
+    "GroupReference",
+    "IGroupRef",
+    "ITagSyncTaskRef",
+    "TagSyncTaskReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__fb026100b2da91b258c8101dddf16a77684d48ca689302721dfecf0e236a7782(
+    *,
+    name: builtins.str,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ConfigurationItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    resource_query: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ResourceQueryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92e2f4c3b48ee7233cae450c356891144695748bdb5f027bc5b13135d8eeea4e(
+    *,
+    group: builtins.str,
+    role_arn: builtins.str,
+    tag_key: builtins.str,
+    tag_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__172158203e3d1e790cbe54067844c18225f013ecdcc3fd2e2b6a08d99890299c(
+    *,
+    group_arn: builtins.str,
+    group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5986e6db1d8d55cda92bf3c2408c0a0f158e3243b72c161366d88cb677dbc341(
+    *,
+    task_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__b5a62cc8e7383e674185642c2fff396c4c4bfc5896a81d18b8b2d31ba4883f65(
     scope: _constructs_77d1e7e8.Construct,
@@ -1333,18 +1575,6 @@ def _typecheckingstub__06ed0dfdfea869bea87e76e8e8df14e297ec044bd63d07ef243b2eaf9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fb026100b2da91b258c8101dddf16a77684d48ca689302721dfecf0e236a7782(
-    *,
-    name: builtins.str,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ConfigurationItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    resource_query: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.ResourceQueryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5cc3fe2babfae90c2893ec2e64dba324eb7f1354bc8586a2157b1e9493be9d2a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1389,16 +1619,6 @@ def _typecheckingstub__36f0fe44c7515735b59ea6297b6cb7c5a2b5bddb1a4da3e9f0910baab
 
 def _typecheckingstub__66392dc23dc3e7ed8bf3c5d524bd90c2953712bb7e49a797537fda8d836525c3(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92e2f4c3b48ee7233cae450c356891144695748bdb5f027bc5b13135d8eeea4e(
-    *,
-    group: builtins.str,
-    role_arn: builtins.str,
-    tag_key: builtins.str,
-    tag_value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

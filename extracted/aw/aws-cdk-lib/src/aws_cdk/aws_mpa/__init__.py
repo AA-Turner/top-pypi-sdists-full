@@ -79,7 +79,443 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mpa.ApprovalTeamReference",
+    jsii_struct_bases=[],
+    name_mapping={"approval_team_arn": "approvalTeamArn"},
+)
+class ApprovalTeamReference:
+    def __init__(self, *, approval_team_arn: builtins.str) -> None:
+        '''A reference to a ApprovalTeam resource.
+
+        :param approval_team_arn: The Arn of the ApprovalTeam resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mpa as mpa
+            
+            approval_team_reference = mpa.ApprovalTeamReference(
+                approval_team_arn="approvalTeamArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03111694d6519c444de1e6c7f93f269500cd39551cf4bfe417f0bc59462422c2)
+            check_type(argname="argument approval_team_arn", value=approval_team_arn, expected_type=type_hints["approval_team_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "approval_team_arn": approval_team_arn,
+        }
+
+    @builtins.property
+    def approval_team_arn(self) -> builtins.str:
+        '''The Arn of the ApprovalTeam resource.'''
+        result = self._values.get("approval_team_arn")
+        assert result is not None, "Required property 'approval_team_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApprovalTeamReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mpa.CfnApprovalTeamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "approval_strategy": "approvalStrategy",
+        "approvers": "approvers",
+        "description": "description",
+        "name": "name",
+        "policies": "policies",
+        "tags": "tags",
+    },
+)
+class CfnApprovalTeamProps:
+    def __init__(
+        self,
+        *,
+        approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApprovalTeam.ApprovalStrategyProperty", typing.Dict[builtins.str, typing.Any]]],
+        approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApprovalTeam.ApproverProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: builtins.str,
+        name: builtins.str,
+        policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApprovalTeam.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApprovalTeam``.
+
+        :param approval_strategy: Contains details for how an approval team grants approval.
+        :param approvers: Contains details for an approver.
+        :param description: Description for the team.
+        :param name: Name of the team.
+        :param policies: Contains details for a policy. Policies define what operations a team that define the permissions for team resources.
+        :param tags: Tags that you have added to the specified resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mpa as mpa
+            
+            cfn_approval_team_props = mpa.CfnApprovalTeamProps(
+                approval_strategy=mpa.CfnApprovalTeam.ApprovalStrategyProperty(
+                    mof_n=mpa.CfnApprovalTeam.MofNApprovalStrategyProperty(
+                        min_approvals_required=123
+                    )
+                ),
+                approvers=[mpa.CfnApprovalTeam.ApproverProperty(
+                    primary_identity_id="primaryIdentityId",
+                    primary_identity_source_arn="primaryIdentitySourceArn",
+            
+                    # the properties below are optional
+                    approver_id="approverId",
+                    primary_identity_status="primaryIdentityStatus",
+                    response_time="responseTime"
+                )],
+                description="description",
+                name="name",
+                policies=[mpa.CfnApprovalTeam.PolicyProperty(
+                    policy_arn="policyArn"
+                )],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98)
+            check_type(argname="argument approval_strategy", value=approval_strategy, expected_type=type_hints["approval_strategy"])
+            check_type(argname="argument approvers", value=approvers, expected_type=type_hints["approvers"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "approval_strategy": approval_strategy,
+            "approvers": approvers,
+            "description": description,
+            "name": name,
+            "policies": policies,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def approval_strategy(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.ApprovalStrategyProperty"]:
+        '''Contains details for how an approval team grants approval.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvalstrategy
+        '''
+        result = self._values.get("approval_strategy")
+        assert result is not None, "Required property 'approval_strategy' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.ApprovalStrategyProperty"], result)
+
+    @builtins.property
+    def approvers(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.ApproverProperty"]]]:
+        '''Contains details for an approver.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvers
+        '''
+        result = self._values.get("approvers")
+        assert result is not None, "Required property 'approvers' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.ApproverProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''Description for the team.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name of the team.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policies(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.PolicyProperty"]]]:
+        '''Contains details for a policy.
+
+        Policies define what operations a team that define the permissions for team resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-policies
+        '''
+        result = self._values.get("policies")
+        assert result is not None, "Required property 'policies' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApprovalTeam.PolicyProperty"]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags that you have added to the specified resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApprovalTeamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mpa.CfnIdentitySourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_source_parameters": "identitySourceParameters",
+        "tags": "tags",
+    },
+)
+class CfnIdentitySourceProps:
+    def __init__(
+        self,
+        *,
+        identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdentitySource.IdentitySourceParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIdentitySource``.
+
+        :param identity_source_parameters: A ``IdentitySourceParameters`` object. Contains details for the resource that provides identities to the identity source. For example, an IAM Identity Center instance.
+        :param tags: Tags that you have added to the specified resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mpa as mpa
+            
+            cfn_identity_source_props = mpa.CfnIdentitySourceProps(
+                identity_source_parameters=mpa.CfnIdentitySource.IdentitySourceParametersProperty(
+                    iam_identity_center=mpa.CfnIdentitySource.IamIdentityCenterProperty(
+                        instance_arn="instanceArn",
+                        region="region",
+            
+                        # the properties below are optional
+                        approval_portal_url="approvalPortalUrl"
+                    )
+                ),
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b)
+            check_type(argname="argument identity_source_parameters", value=identity_source_parameters, expected_type=type_hints["identity_source_parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_source_parameters": identity_source_parameters,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def identity_source_parameters(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnIdentitySource.IdentitySourceParametersProperty"]:
+        '''A ``IdentitySourceParameters`` object.
+
+        Contains details for the resource that provides identities to the identity source. For example, an IAM Identity Center instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html#cfn-mpa-identitysource-identitysourceparameters
+        '''
+        result = self._values.get("identity_source_parameters")
+        assert result is not None, "Required property 'identity_source_parameters' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIdentitySource.IdentitySourceParametersProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags that you have added to the specified resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html#cfn-mpa-identitysource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIdentitySourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mpa.IApprovalTeamRef")
+class IApprovalTeamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovalTeam.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="approvalTeamRef")
+    def approval_team_ref(self) -> ApprovalTeamReference:
+        '''(experimental) A reference to a ApprovalTeam resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApprovalTeamRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApprovalTeam.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mpa.IApprovalTeamRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="approvalTeamRef")
+    def approval_team_ref(self) -> ApprovalTeamReference:
+        '''(experimental) A reference to a ApprovalTeam resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApprovalTeamReference, jsii.get(self, "approvalTeamRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApprovalTeamRef).__jsii_proxy_class__ = lambda : _IApprovalTeamRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mpa.IIdentitySourceRef")
+class IIdentitySourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a IdentitySource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="identitySourceRef")
+    def identity_source_ref(self) -> "IdentitySourceReference":
+        '''(experimental) A reference to a IdentitySource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIdentitySourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IdentitySource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mpa.IIdentitySourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="identitySourceRef")
+    def identity_source_ref(self) -> "IdentitySourceReference":
+        '''(experimental) A reference to a IdentitySource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IdentitySourceReference", jsii.get(self, "identitySourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIdentitySourceRef).__jsii_proxy_class__ = lambda : _IIdentitySourceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mpa.IdentitySourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"identity_source_arn": "identitySourceArn"},
+)
+class IdentitySourceReference:
+    def __init__(self, *, identity_source_arn: builtins.str) -> None:
+        '''A reference to a IdentitySource resource.
+
+        :param identity_source_arn: The IdentitySourceArn of the IdentitySource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mpa as mpa
+            
+            identity_source_reference = mpa.IdentitySourceReference(
+                identity_source_arn="identitySourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3f46223ef28f00ec52c26ed724122607a54063b8ad6f0591532877397fc5cf5)
+            check_type(argname="argument identity_source_arn", value=identity_source_arn, expected_type=type_hints["identity_source_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_source_arn": identity_source_arn,
+        }
+
+    @builtins.property
+    def identity_source_arn(self) -> builtins.str:
+        '''The IdentitySourceArn of the IdentitySource resource.'''
+        result = self._values.get("identity_source_arn")
+        assert result is not None, "Required property 'identity_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IdentitySourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApprovalTeamRef, _ITaggableV2_4e6798f8)
 class CfnApprovalTeam(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -194,6 +630,12 @@ class CfnApprovalTeam(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="approvalTeamRef")
+    def approval_team_ref(self) -> ApprovalTeamReference:
+        '''A reference to a ApprovalTeam resource.'''
+        return typing.cast(ApprovalTeamReference, jsii.get(self, "approvalTeamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -678,173 +1120,7 @@ class CfnApprovalTeam(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mpa.CfnApprovalTeamProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "approval_strategy": "approvalStrategy",
-        "approvers": "approvers",
-        "description": "description",
-        "name": "name",
-        "policies": "policies",
-        "tags": "tags",
-    },
-)
-class CfnApprovalTeamProps:
-    def __init__(
-        self,
-        *,
-        approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-        approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: builtins.str,
-        name: builtins.str,
-        policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApprovalTeam``.
-
-        :param approval_strategy: Contains details for how an approval team grants approval.
-        :param approvers: Contains details for an approver.
-        :param description: Description for the team.
-        :param name: Name of the team.
-        :param policies: Contains details for a policy. Policies define what operations a team that define the permissions for team resources.
-        :param tags: Tags that you have added to the specified resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mpa as mpa
-            
-            cfn_approval_team_props = mpa.CfnApprovalTeamProps(
-                approval_strategy=mpa.CfnApprovalTeam.ApprovalStrategyProperty(
-                    mof_n=mpa.CfnApprovalTeam.MofNApprovalStrategyProperty(
-                        min_approvals_required=123
-                    )
-                ),
-                approvers=[mpa.CfnApprovalTeam.ApproverProperty(
-                    primary_identity_id="primaryIdentityId",
-                    primary_identity_source_arn="primaryIdentitySourceArn",
-            
-                    # the properties below are optional
-                    approver_id="approverId",
-                    primary_identity_status="primaryIdentityStatus",
-                    response_time="responseTime"
-                )],
-                description="description",
-                name="name",
-                policies=[mpa.CfnApprovalTeam.PolicyProperty(
-                    policy_arn="policyArn"
-                )],
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98)
-            check_type(argname="argument approval_strategy", value=approval_strategy, expected_type=type_hints["approval_strategy"])
-            check_type(argname="argument approvers", value=approvers, expected_type=type_hints["approvers"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "approval_strategy": approval_strategy,
-            "approvers": approvers,
-            "description": description,
-            "name": name,
-            "policies": policies,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def approval_strategy(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApprovalStrategyProperty]:
-        '''Contains details for how an approval team grants approval.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvalstrategy
-        '''
-        result = self._values.get("approval_strategy")
-        assert result is not None, "Required property 'approval_strategy' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApprovalStrategyProperty], result)
-
-    @builtins.property
-    def approvers(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApproverProperty]]]:
-        '''Contains details for an approver.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-approvers
-        '''
-        result = self._values.get("approvers")
-        assert result is not None, "Required property 'approvers' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.ApproverProperty]]], result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''Description for the team.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Name of the team.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policies(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.PolicyProperty]]]:
-        '''Contains details for a policy.
-
-        Policies define what operations a team that define the permissions for team resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-policies
-        '''
-        result = self._values.get("policies")
-        assert result is not None, "Required property 'policies' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApprovalTeam.PolicyProperty]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags that you have added to the specified resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-approvalteam.html#cfn-mpa-approvalteam-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApprovalTeamProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IIdentitySourceRef, _ITaggableV2_4e6798f8)
 class CfnIdentitySource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1016,6 +1292,12 @@ class CfnIdentitySource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="identitySourceRef")
+    def identity_source_ref(self) -> IdentitySourceReference:
+        '''A reference to a IdentitySource resource.'''
+        return typing.cast(IdentitySourceReference, jsii.get(self, "identitySourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identitySourceParameters")
@@ -1209,106 +1491,52 @@ class CfnIdentitySource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mpa.CfnIdentitySourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity_source_parameters": "identitySourceParameters",
-        "tags": "tags",
-    },
-)
-class CfnIdentitySourceProps:
-    def __init__(
-        self,
-        *,
-        identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIdentitySource``.
-
-        :param identity_source_parameters: A ``IdentitySourceParameters`` object. Contains details for the resource that provides identities to the identity source. For example, an IAM Identity Center instance.
-        :param tags: Tags that you have added to the specified resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mpa as mpa
-            
-            cfn_identity_source_props = mpa.CfnIdentitySourceProps(
-                identity_source_parameters=mpa.CfnIdentitySource.IdentitySourceParametersProperty(
-                    iam_identity_center=mpa.CfnIdentitySource.IamIdentityCenterProperty(
-                        instance_arn="instanceArn",
-                        region="region",
-            
-                        # the properties below are optional
-                        approval_portal_url="approvalPortalUrl"
-                    )
-                ),
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b)
-            check_type(argname="argument identity_source_parameters", value=identity_source_parameters, expected_type=type_hints["identity_source_parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity_source_parameters": identity_source_parameters,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def identity_source_parameters(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnIdentitySource.IdentitySourceParametersProperty]:
-        '''A ``IdentitySourceParameters`` object.
-
-        Contains details for the resource that provides identities to the identity source. For example, an IAM Identity Center instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html#cfn-mpa-identitysource-identitysourceparameters
-        '''
-        result = self._values.get("identity_source_parameters")
-        assert result is not None, "Required property 'identity_source_parameters' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnIdentitySource.IdentitySourceParametersProperty], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags that you have added to the specified resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mpa-identitysource.html#cfn-mpa-identitysource-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIdentitySourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApprovalTeamReference",
     "CfnApprovalTeam",
     "CfnApprovalTeamProps",
     "CfnIdentitySource",
     "CfnIdentitySourceProps",
+    "IApprovalTeamRef",
+    "IIdentitySourceRef",
+    "IdentitySourceReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__03111694d6519c444de1e6c7f93f269500cd39551cf4bfe417f0bc59462422c2(
+    *,
+    approval_team_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98(
+    *,
+    approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
+    approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: builtins.str,
+    name: builtins.str,
+    policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b(
+    *,
+    identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3f46223ef28f00ec52c26ed724122607a54063b8ad6f0591532877397fc5cf5(
+    *,
+    identity_source_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__386990d7f44b867156b4ae1be61f59dcf68b732d47a10262382c529e91f18365(
     scope: _constructs_77d1e7e8.Construct,
@@ -1404,18 +1632,6 @@ def _typecheckingstub__75ccc78545af23823b4f234ee8de6d1d0e7b956206086f97f9aa04f82
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__23c8b69a9c24f10b33222467e81cbea79a3fbb6feb302fe9dea7e9fc448dae98(
-    *,
-    approval_strategy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApprovalStrategyProperty, typing.Dict[builtins.str, typing.Any]]],
-    approvers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.ApproverProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: builtins.str,
-    name: builtins.str,
-    policies: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApprovalTeam.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4ccadabc10958f9b34637bf63683a7ae402b738916eaae8b4554005edd9a7f4e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1462,14 +1678,6 @@ def _typecheckingstub__ad03e7c03292e16adba0239cd21aae5665927b223a3d024fb5b1e7a0e
 def _typecheckingstub__cdb131b4f18fdc2f28197cd3ec3c8e53cc57a860dfad6d92280cc24753500fc2(
     *,
     iam_identity_center: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IamIdentityCenterProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__acb62a986f58f3a0fe81121a9d10976dc06320f2f60c079b3562b20316f0e79b(
-    *,
-    identity_source_parameters: typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentitySource.IdentitySourceParametersProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

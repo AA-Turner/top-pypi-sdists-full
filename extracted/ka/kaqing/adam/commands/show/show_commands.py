@@ -52,6 +52,9 @@ class ShowKubectlCommands(Command):
         return cmds
 
     def completion(self, state: ReplState):
+        if not state.sts:
+            return {}
+
         return super().completion(state)
 
     def help(self, _: ReplState):

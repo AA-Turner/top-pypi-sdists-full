@@ -1,5 +1,6 @@
 # coding=utf-8
 from .._impl import (
+    scout_notebook_api_AssetsFilter as AssetsFilter,
     scout_notebook_api_ChartWithOverlays as ChartWithOverlays,
     scout_notebook_api_CreateNotebookRequest as CreateNotebookRequest,
     scout_notebook_api_GetAllLabelsAndPropertiesResponse as GetAllLabelsAndPropertiesResponse,
@@ -10,6 +11,8 @@ from .._impl import (
     scout_notebook_api_NotebookMetadata as NotebookMetadata,
     scout_notebook_api_NotebookMetadataWithRid as NotebookMetadataWithRid,
     scout_notebook_api_NotebookType as NotebookType,
+    scout_notebook_api_NotebookTypesFilter as NotebookTypesFilter,
+    scout_notebook_api_RunsFilter as RunsFilter,
     scout_notebook_api_SearchNotebooksQuery as SearchNotebooksQuery,
     scout_notebook_api_SearchNotebooksQueryVisitor as SearchNotebooksQueryVisitor,
     scout_notebook_api_SearchNotebooksRequest as SearchNotebooksRequest,
@@ -22,6 +25,7 @@ from .._impl import (
 )
 
 __all__ = [
+    'AssetsFilter',
     'ChartWithOverlays',
     'CreateNotebookRequest',
     'GetAllLabelsAndPropertiesResponse',
@@ -32,6 +36,8 @@ __all__ = [
     'NotebookMetadata',
     'NotebookMetadataWithRid',
     'NotebookType',
+    'NotebookTypesFilter',
+    'RunsFilter',
     'SearchNotebooksQuery',
     'SearchNotebooksQueryVisitor',
     'SearchNotebooksRequest',

@@ -587,14 +587,26 @@ class SnapshotTableInfo(PydanticModel, SnapshotInfoMixin, frozen=True):
         """Returns the name and version of the snapshot."""
         return SnapshotNameVersion(name=self.name, version=self.version)
 
+    @property
+    def id_and_version(self) -> SnapshotIdAndVersion:
+        return SnapshotIdAndVersion(
+            name=self.name,
+            kind_name=self.kind_name,
+            identifier=self.identifier,
+            version=self.version,
+            dev_version=self.dev_version,
+            fingerprint=self.fingerprint,
+        )
 
-class SnapshotIdAndVersion(PydanticModel):
+
+class SnapshotIdAndVersion(PydanticModel, ModelKindMixin):
     """A stripped down version of a snapshot that is used in situations where we want to fetch the main fields of the snapshots table
     without the overhead of parsing the full snapshot payload and fetching intervals.
     """
 
     name: str
     version: str
+    kind_name_: t.Optional[ModelKindName] = Field(default=None, alias="kind_name")
     dev_version_: t.Optional[str] = Field(alias="dev_version")
     identifier: str
     fingerprint_: t.Union[str, SnapshotFingerprint] = Field(alias="fingerprint")
@@ -602,6 +614,10 @@ class SnapshotIdAndVersion(PydanticModel):
     @property
     def snapshot_id(self) -> SnapshotId:
         return SnapshotId(name=self.name, identifier=self.identifier)
+
+    @property
+    def id_and_version(self) -> SnapshotIdAndVersion:
+        return self
 
     @property
     def name_version(self) -> SnapshotNameVersion:
@@ -617,6 +633,20 @@ class SnapshotIdAndVersion(PydanticModel):
     @property
     def dev_version(self) -> str:
         return self.dev_version_ or self.fingerprint.to_version()
+
+    @property
+    def model_kind_name(self) -> t.Optional[ModelKindName]:
+        return self.kind_name_
+
+    def display_name(
+        self,
+        environment_naming_info: EnvironmentNamingInfo,
+        default_catalog: t.Optional[str],
+        dialect: DialectType = None,
+    ) -> str:
+        return model_display_name(
+            self.name, environment_naming_info, default_catalog, dialect=dialect
+        )
 
 
 class Snapshot(PydanticModel, SnapshotInfoMixin):
@@ -1425,6 +1455,10 @@ class Snapshot(PydanticModel, SnapshotInfoMixin):
         return SnapshotNameVersion(name=self.name, version=self.version)
 
     @property
+    def id_and_version(self) -> SnapshotIdAndVersion:
+        return self.table_info.id_and_version
+
+    @property
     def disable_restatement(self) -> bool:
         """Is restatement disabled for the node"""
         return self.is_model and self.model.disable_restatement
@@ -1494,7 +1528,8 @@ class SnapshotTableCleanupTask(PydanticModel):
     dev_table_only: bool
 
 
-SnapshotIdLike = t.Union[SnapshotId, SnapshotTableInfo, SnapshotIdAndVersion, Snapshot]
+SnapshotIdLike = t.Union[SnapshotId, SnapshotIdAndVersion, SnapshotTableInfo, Snapshot]
+SnapshotIdAndVersionLike = t.Union[SnapshotIdAndVersion, SnapshotTableInfo, Snapshot]
 SnapshotInfoLike = t.Union[SnapshotTableInfo, Snapshot]
 SnapshotNameVersionLike = t.Union[
     SnapshotNameVersion, SnapshotTableInfo, SnapshotIdAndVersion, Snapshot
@@ -1763,7 +1798,19 @@ def display_name(
     """
     if snapshot_info_like.is_audit:
         return snapshot_info_like.name
-    view_name = exp.to_table(snapshot_info_like.name)
+
+    return model_display_name(
+        snapshot_info_like.name, environment_naming_info, default_catalog, dialect
+    )
+
+
+def model_display_name(
+    node_name: str,
+    environment_naming_info: EnvironmentNamingInfo,
+    default_catalog: t.Optional[str],
+    dialect: DialectType = None,
+) -> str:
+    view_name = exp.to_table(node_name)
 
     catalog = (
         None

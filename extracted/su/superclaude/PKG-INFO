@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SuperClaude
-Version: 4.1.0
+Version: 4.1.1
 Summary: SuperClaude Framework Management Hub - AI-enhanced development framework for Claude Code
 Author-email: NomenAK <anton.knoery@gmail.com>, Mithun Gowda B <mithungowda.b7411@gmail.com>
 License-Expression: MIT
@@ -46,7 +46,10 @@ Dynamic: license-file
 ### **Transform Claude Code into a Structured Development Platform**
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.1.0-blue" alt="Version">
+  <a href="https://github.com/hesreallyhim/awesome-claude-code/">
+  <img src="https://awesome.re/mentioned-badge-flat.svg" alt="Mentioned in Awesome Claude Code">
+  </a>
+  <img src="https://img.shields.io/badge/version-4.1.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
 </p>
@@ -93,8 +96,10 @@ Dynamic: license-file
 
 | **Commands** | **Agents** | **Modes** | **MCP Servers** |
 |:------------:|:----------:|:---------:|:---------------:|
-| **23** | **14** | **6** | **6** |
+| **24** | **14** | **6** | **6** |
 | Slash Commands | Specialized AI | Behavioral | Integrations |
+
+Use the new `/sc:help` command to see a full list of all available commands.
 
 </div>
 

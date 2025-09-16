@@ -1,0 +1,155 @@
+[project]
+name = "rustworkx"
+version = "0.17.1"
+description = "A High-Performance Graph Library for Python"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.16.0,<3"
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+license-files = ["LICENSE"]
+classifiers=[
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+keywords = ["Networks", "Network", "Graph", "Graph Theory", "DAG"]
+
+[tool.setuptools]
+packages = ["rustworkx", "rustworkx.visualization"]
+include-package-data = true
+
+[tool.distutils.bdist_wheel]
+py-limited-api = "cp39"
+
+[[tool.setuptools-rust.ext-modules]]
+target = "rustworkx.rustworkx"
+path = "Cargo.toml"
+binding = "PyO3"
+
+[project.optional-dependencies]
+mpl = ["matplotlib>=3.0"]
+graphviz = ["pillow>=5.4"]
+# TODO: use self-referential rustworkx[mpl] and rustworkx[graphivz]
+# once it is better suported.
+all = [
+    "matplotlib>=3.0",
+    "pillow>=5.4",
+]
+
+[project.urls]
+issues = "https://github.com/Qiskit/rustworkx/issues"
+source = "https://github.com/Qiskit/rustworkx"
+documentation ="https://www.rustworkx.org/"
+releasenotes = "https://www.rustworkx.org/release_notes.html"
+
+[[project.authors]]
+name = "Matthew Treinish"
+email = "mtreinish@kortar.org"
+
+[[project.maintainers]]
+name = "Ivan Carvalho"
+email = "ivancarvalho@gatech.edu"
+
+[build-system]
+requires = ["setuptools>=77.0.0", "setuptools-rust>=1.9"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+testinfra = [
+    "nox==2025.5.1",
+    "uv==0.7.8",
+]
+test = [
+  "setuptools-rust",
+  "testtools>=2.5.0",
+  "networkx>=3.2",
+  "stestr>=4.1",
+]
+lint = [
+    "black~=24.8",
+    "ruff==0.11.9",
+    "setuptools-rust",
+    "typos~=1.28",
+]
+stubs = [
+    "mypy==1.11.2",
+    "typing-extensions>=4.4",
+]
+docs = [
+    "m2r2",
+    "sphinx>=5.0",
+    "jupyter-sphinx",
+    "pydot",
+    "pillow>=4.2.1",
+    "reno>=3.4.0",
+    "qiskit-sphinx-theme==1.16.1",
+    "matplotlib>=3.4",
+    "sphinx-reredirects",
+    "sphinxemoji",
+    "ipykernel",
+    "lxml_html_clean",
+]
+releaseinfra = [
+    "cibuildwheel==2.23.2",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+
+[tool.ruff]
+line-length = 105 # more lenient than black due to long function signatures
+src = ["rustworkx", "setup.py", "tests"]
+lint.select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "PYI", # flake8-pyi
+    "Q",   # flake8-quotes
+]
+target-version = "py39"
+extend-exclude = ["doc"]
+
+[tool.ruff.lint.per-file-ignores]
+"rustworkx/__init__.py" = ["F405", "F403"]
+"*.pyi" = ["F403", "F405", "PYI001", "PYI002"]
+
+[tool.typos.default]
+extend-ignore-words-re = [
+  "[Ss]toer",
+]
+
+[tool.cibuildwheel]
+manylinux-x86_64-image = "manylinux2014"
+manylinux-i686-image = "manylinux2014"
+skip = "pp* cp36-* cp37-* cp38-* *win32 *musllinux*i686"
+test-requires = "networkx"
+test-command = "python -m unittest discover {project}/tests"
+before-build = "pip install -U setuptools-rust"
+test-skip = "*linux_s390x *ppc64le *i686 *win32"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y wget && {package}/tools/install_rust.sh"
+environment = 'PATH="$PATH:$HOME/.cargo/bin" CARGO_NET_GIT_FETCH_WITH_CLI="true"'
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel} && pipx run abi3audit==0.0.9 --strict --report {wheel}"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+before-all = "apk add --no-cache curl gcc && curl https://sh.rustup.rs -sSf | sh -s -- -y && source $HOME/.cargo/env && rustup install stable && rustup default stable"
+
+[tool.cibuildwheel.macos]
+environment = "MACOSX_DEPLOYMENT_TARGET=10.12"
+repair-wheel-command = "brew install pipx && pipx ensurepath && pipx run --spec delocate==0.11.0  delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel} && pipx run abi3audit==0.0.9 --strict --report {wheel}"
+
+[tool.cibuildwheel.windows]
+repair-wheel-command = "cp {wheel} {dest_dir}/. && pipx run abi3audit==0.0.9 --strict --report {wheel}"

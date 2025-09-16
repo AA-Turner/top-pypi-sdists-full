@@ -69,150 +69,64 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAccessPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnAccessPolicy",
-):
-    '''Creates a data access policy for OpenSearch Serverless.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.AccessPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"access_policy_name": "accessPolicyName", "type": "type"},
+)
+class AccessPolicyReference:
+    def __init__(self, *, access_policy_name: builtins.str, type: builtins.str) -> None:
+        '''A reference to a AccessPolicy resource.
 
-    Access policies limit access to collections and the resources within them, and allow a user to access that data irrespective of the access mechanism or network source. For more information, see `Data access control for Amazon OpenSearch Serverless <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-data-access.html>`_ .
+        :param access_policy_name: The Name of the AccessPolicy resource.
+        :param type: The Type of the AccessPolicy resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-accesspolicy.html
-    :cloudformationResource: AWS::OpenSearchServerless::AccessPolicy
-    :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=_generated
 
-    Example::
+        Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_opensearchserverless as opensearchserverless
-        
-        cfn_access_policy = opensearchserverless.CfnAccessPolicy(self, "MyCfnAccessPolicy",
-            name="name",
-            policy="policy",
-            type="type",
-        
-            # the properties below are optional
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        policy: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the policy.
-        :param policy: The JSON policy document without any whitespaces.
-        :param type: The type of access policy. Currently the only option is ``data`` .
-        :param description: The description of the policy.
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            access_policy_reference = opensearchserverless.AccessPolicyReference(
+                access_policy_name="accessPolicyName",
+                type="type"
+            )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f3695018b497271b2884c3d90b44513c0e4644d1625baefd3c5f2880a1223da)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAccessPolicyProps(
-            name=name, policy=policy, type=type, description=description
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21888f21364bcb4177baf2ccd610dc59283ab52bb27386322330ad2d3381e0de)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e00c49a5052cb7959a45d9347290149a3138d4d622e0aca3118485fae647010e)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+            type_hints = typing.get_type_hints(_typecheckingstub__0c236f6a98ddf415b6183b1741c17c2ed03adbce515b363afa346952eb1c0bdc)
+            check_type(argname="argument access_policy_name", value=access_policy_name, expected_type=type_hints["access_policy_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_policy_name": access_policy_name,
+            "type": type,
+        }
 
     @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+    def access_policy_name(self) -> builtins.str:
+        '''The Name of the AccessPolicy resource.'''
+        result = self._values.get("access_policy_name")
+        assert result is not None, "Required property 'access_policy_name' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54b3786c37ee33848fa7b21ba500dd1920002dea0fe9ec5bd1440f81686f4638)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> builtins.str:
-        '''The JSON policy document without any whitespaces.'''
-        return typing.cast(builtins.str, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7da9c131bb5f7ae3527dc4b4934b48aac60a8f0b88b51d40a50c13df36532b7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
-        '''The type of access policy.'''
-        return typing.cast(builtins.str, jsii.get(self, "type"))
+        '''The Type of the AccessPolicy resource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
 
-    @type.setter
-    def type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d72ffab9810a9603f58d764e6a8f7a88c9198aea6ffc88f14cc048f6834586e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
 
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the policy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
 
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__768c8582758ca3add7a55a7e6ef420b56cc700d0f10d913632558c56f7cb16b4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+    def __repr__(self) -> str:
+        return "AccessPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -326,7 +240,1561 @@ class CfnAccessPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "standby_replicas": "standbyReplicas",
+        "tags": "tags",
+        "type": "type",
+    },
+)
+class CfnCollectionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        standby_replicas: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCollection``.
+
+        :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
+        :param description: A description of the collection.
+        :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
+        :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_collection_props = opensearchserverless.CfnCollectionProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                standby_replicas="standbyReplicas",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37d4f540e)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if standby_replicas is not None:
+            self._values["standby_replicas"] = standby_replicas
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the collection.
+
+        Collection names must meet the following criteria:
+
+        - Starts with a lowercase letter
+        - Unique to your account and AWS Region
+        - Contains between 3 and 28 characters
+        - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def standby_replicas(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether to use standby replicas for the collection.
+
+        You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-standbyreplicas
+        '''
+        result = self._values.get("standby_replicas")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An arbitrary set of tags (key–value pairs) to associate with the collection.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of collection.
+
+        Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCollectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnIndexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_endpoint": "collectionEndpoint",
+        "index_name": "indexName",
+        "mappings": "mappings",
+        "settings": "settings",
+    },
+)
+class CfnIndexProps:
+    def __init__(
+        self,
+        *,
+        collection_endpoint: builtins.str,
+        index_name: builtins.str,
+        mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.MappingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIndex.IndexSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIndex``.
+
+        :param collection_endpoint: The endpoint for the collection.
+        :param index_name: The name of the OpenSearch Serverless index.
+        :param mappings: Index mappings for the OpenSearch Serverless index.
+        :param settings: Index settings for the OpenSearch Serverless index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            # property_mapping_property_: opensearchserverless.CfnIndex.PropertyMappingProperty
+            
+            cfn_index_props = opensearchserverless.CfnIndexProps(
+                collection_endpoint="collectionEndpoint",
+                index_name="indexName",
+            
+                # the properties below are optional
+                mappings=opensearchserverless.CfnIndex.MappingsProperty(
+                    properties={
+                        "properties_key": opensearchserverless.CfnIndex.PropertyMappingProperty(
+                            type="type",
+            
+                            # the properties below are optional
+                            dimension=123,
+                            index=False,
+                            method=opensearchserverless.CfnIndex.MethodProperty(
+                                engine="engine",
+                                name="name",
+            
+                                # the properties below are optional
+                                parameters=opensearchserverless.CfnIndex.ParametersProperty(
+                                    ef_construction=123,
+                                    m=123
+                                ),
+                                space_type="spaceType"
+                            ),
+                            properties={
+                                "properties_key": property_mapping_property_
+                            },
+                            value="value"
+                        )
+                    }
+                ),
+                settings=opensearchserverless.CfnIndex.IndexSettingsProperty(
+                    index=opensearchserverless.CfnIndex.IndexProperty(
+                        knn=False,
+                        knn_algo_param_ef_search=123,
+                        refresh_interval="refreshInterval"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__663cdeaeaa67ae562243597848e75d79ee7310523ecd791e0c37af19d4197d1a)
+            check_type(argname="argument collection_endpoint", value=collection_endpoint, expected_type=type_hints["collection_endpoint"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+            check_type(argname="argument mappings", value=mappings, expected_type=type_hints["mappings"])
+            check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_endpoint": collection_endpoint,
+            "index_name": index_name,
+        }
+        if mappings is not None:
+            self._values["mappings"] = mappings
+        if settings is not None:
+            self._values["settings"] = settings
+
+    @builtins.property
+    def collection_endpoint(self) -> builtins.str:
+        '''The endpoint for the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-collectionendpoint
+        '''
+        result = self._values.get("collection_endpoint")
+        assert result is not None, "Required property 'collection_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The name of the OpenSearch Serverless index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-indexname
+        '''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.MappingsProperty"]]:
+        '''Index mappings for the OpenSearch Serverless index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-mappings
+        '''
+        result = self._values.get("mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.MappingsProperty"]], result)
+
+    @builtins.property
+    def settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.IndexSettingsProperty"]]:
+        '''Index settings for the OpenSearch Serverless index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-settings
+        '''
+        result = self._values.get("settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIndex.IndexSettingsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIndexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnLifecyclePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "policy": "policy",
+        "type": "type",
+        "description": "description",
+    },
+)
+class CfnLifecyclePolicyProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        policy: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLifecyclePolicy``.
+
+        :param name: The name of the lifecycle policy.
+        :param policy: The JSON policy document without any whitespaces.
+        :param type: The type of lifecycle policy.
+        :param description: The description of the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_lifecycle_policy_props = opensearchserverless.CfnLifecyclePolicyProps(
+                name="name",
+                policy="policy",
+                type="type",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e73912f69bcf372f36058fe91d3360e53142205e8eb7f06190c7963adf67c8df)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "policy": policy,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> builtins.str:
+        '''The JSON policy document without any whitespaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the lifecycle policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnSecurityConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "iam_identity_center_options": "iamIdentityCenterOptions",
+        "name": "name",
+        "saml_options": "samlOptions",
+        "type": "type",
+    },
+)
+class CfnSecurityConfigProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSecurityConfig.SamlConfigOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityConfig``.
+
+        :param description: The description of the security configuration.
+        :param iam_identity_center_options: Describes IAM Identity Center options in the form of a key-value map.
+        :param name: The name of the security configuration.
+        :param saml_options: SAML options for the security configuration in the form of a key-value map.
+        :param type: The type of security configuration. Currently the only option is ``saml`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_security_config_props = opensearchserverless.CfnSecurityConfigProps(
+                description="description",
+                iam_identity_center_options=opensearchserverless.CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty(
+                    instance_arn="instanceArn",
+            
+                    # the properties below are optional
+                    application_arn="applicationArn",
+                    application_description="applicationDescription",
+                    application_name="applicationName",
+                    group_attribute="groupAttribute",
+                    user_attribute="userAttribute"
+                ),
+                name="name",
+                saml_options=opensearchserverless.CfnSecurityConfig.SamlConfigOptionsProperty(
+                    metadata="metadata",
+            
+                    # the properties below are optional
+                    group_attribute="groupAttribute",
+                    open_search_serverless_entity_id="openSearchServerlessEntityId",
+                    session_timeout=123,
+                    user_attribute="userAttribute"
+                ),
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83172f8fcf5e40df2e2a8ddc136c744969aad86c37d45de37b6d75f0dc154be4)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument iam_identity_center_options", value=iam_identity_center_options, expected_type=type_hints["iam_identity_center_options"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument saml_options", value=saml_options, expected_type=type_hints["saml_options"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if iam_identity_center_options is not None:
+            self._values["iam_identity_center_options"] = iam_identity_center_options
+        if name is not None:
+            self._values["name"] = name
+        if saml_options is not None:
+            self._values["saml_options"] = saml_options
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_identity_center_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty"]]:
+        '''Describes IAM Identity Center options in the form of a key-value map.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-iamidentitycenteroptions
+        '''
+        result = self._values.get("iam_identity_center_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def saml_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityConfig.SamlConfigOptionsProperty"]]:
+        '''SAML options for the security configuration in the form of a key-value map.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-samloptions
+        '''
+        result = self._values.get("saml_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSecurityConfig.SamlConfigOptionsProperty"]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of security configuration.
+
+        Currently the only option is ``saml`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnSecurityPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "policy": "policy",
+        "type": "type",
+        "description": "description",
+    },
+)
+class CfnSecurityPolicyProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        policy: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSecurityPolicy``.
+
+        :param name: The name of the policy.
+        :param policy: The JSON policy document without any whitespaces.
+        :param type: The type of security policy. Can be either ``encryption`` or ``network`` .
+        :param description: The description of the security policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_security_policy_props = opensearchserverless.CfnSecurityPolicyProps(
+                name="name",
+                policy="policy",
+                type="type",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4075edd6277d95d95112af6e1299774fad3d68ddeaf766c63e97d6deae2b5216)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "policy": policy,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy(self) -> builtins.str:
+        '''The JSON policy document without any whitespaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of security policy.
+
+        Can be either ``encryption`` or ``network`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the security policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSecurityPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnVpcEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "subnet_ids": "subnetIds",
+        "vpc_id": "vpcId",
+        "security_group_ids": "securityGroupIds",
+    },
+)
+class CfnVpcEndpointProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        subnet_ids: typing.Sequence[builtins.str],
+        vpc_id: builtins.str,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVpcEndpoint``.
+
+        :param name: The name of the endpoint.
+        :param subnet_ids: The ID of the subnets from which you access OpenSearch Serverless.
+        :param vpc_id: The ID of the VPC from which you access OpenSearch Serverless.
+        :param security_group_ids: The unique identifiers of the security groups that define the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_vpc_endpoint_props = opensearchserverless.CfnVpcEndpointProps(
+                name="name",
+                subnet_ids=["subnetIds"],
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                security_group_ids=["securityGroupIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e4b9618641af3075893df923c3e35190dd8ae1fdea8503917862efecb66990a)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "subnet_ids": subnet_ids,
+            "vpc_id": vpc_id,
+        }
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''The ID of the subnets from which you access OpenSearch Serverless.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The ID of the VPC from which you access OpenSearch Serverless.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The unique identifiers of the security groups that define the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVpcEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CollectionReference",
+    jsii_struct_bases=[],
+    name_mapping={"collection_arn": "collectionArn", "collection_id": "collectionId"},
+)
+class CollectionReference:
+    def __init__(
+        self,
+        *,
+        collection_arn: builtins.str,
+        collection_id: builtins.str,
+    ) -> None:
+        '''A reference to a Collection resource.
+
+        :param collection_arn: The ARN of the Collection resource.
+        :param collection_id: The Id of the Collection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            collection_reference = opensearchserverless.CollectionReference(
+                collection_arn="collectionArn",
+                collection_id="collectionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7919958c981df9d082162b8ca79ed1c32dfd457b6692bcaf872b8c940ba1be41)
+            check_type(argname="argument collection_arn", value=collection_arn, expected_type=type_hints["collection_arn"])
+            check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_arn": collection_arn,
+            "collection_id": collection_id,
+        }
+
+    @builtins.property
+    def collection_arn(self) -> builtins.str:
+        '''The ARN of the Collection resource.'''
+        result = self._values.get("collection_arn")
+        assert result is not None, "Required property 'collection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def collection_id(self) -> builtins.str:
+        '''The Id of the Collection resource.'''
+        result = self._values.get("collection_id")
+        assert result is not None, "Required property 'collection_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CollectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.IAccessPolicyRef")
+class IAccessPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''(experimental) A reference to a AccessPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.IAccessPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''(experimental) A reference to a AccessPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPolicyReference, jsii.get(self, "accessPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPolicyRef).__jsii_proxy_class__ = lambda : _IAccessPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.ICollectionRef")
+class ICollectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Collection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''(experimental) A reference to a Collection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICollectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Collection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.ICollectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''(experimental) A reference to a Collection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CollectionReference, jsii.get(self, "collectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICollectionRef).__jsii_proxy_class__ = lambda : _ICollectionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.IIndexRef")
+class IIndexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIndexRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Index.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.IIndexRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> "IndexReference":
+        '''(experimental) A reference to a Index resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IndexReference", jsii.get(self, "indexRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.ILifecyclePolicyRef")
+class ILifecyclePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILifecyclePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.ILifecyclePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> "LifecyclePolicyReference":
+        '''(experimental) A reference to a LifecyclePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LifecyclePolicyReference", jsii.get(self, "lifecyclePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _ILifecyclePolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.ISecurityConfigRef")
+class ISecurityConfigRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityConfigRef")
+    def security_config_ref(self) -> "SecurityConfigReference":
+        '''(experimental) A reference to a SecurityConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.ISecurityConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityConfigRef")
+    def security_config_ref(self) -> "SecurityConfigReference":
+        '''(experimental) A reference to a SecurityConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityConfigReference", jsii.get(self, "securityConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityConfigRef).__jsii_proxy_class__ = lambda : _ISecurityConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.ISecurityPolicyRef")
+class ISecurityPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="securityPolicyRef")
+    def security_policy_ref(self) -> "SecurityPolicyReference":
+        '''(experimental) A reference to a SecurityPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecurityPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecurityPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.ISecurityPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="securityPolicyRef")
+    def security_policy_ref(self) -> "SecurityPolicyReference":
+        '''(experimental) A reference to a SecurityPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecurityPolicyReference", jsii.get(self, "securityPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecurityPolicyRef).__jsii_proxy_class__ = lambda : _ISecurityPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opensearchserverless.IVpcEndpointRef")
+class IVpcEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a VpcEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcEndpointRef")
+    def vpc_endpoint_ref(self) -> "VpcEndpointReference":
+        '''(experimental) A reference to a VpcEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVpcEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a VpcEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opensearchserverless.IVpcEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcEndpointRef")
+    def vpc_endpoint_ref(self) -> "VpcEndpointReference":
+        '''(experimental) A reference to a VpcEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VpcEndpointReference", jsii.get(self, "vpcEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVpcEndpointRef).__jsii_proxy_class__ = lambda : _IVpcEndpointRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.IndexReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "collection_endpoint": "collectionEndpoint",
+        "index_name": "indexName",
+    },
+)
+class IndexReference:
+    def __init__(
+        self,
+        *,
+        collection_endpoint: builtins.str,
+        index_name: builtins.str,
+    ) -> None:
+        '''A reference to a Index resource.
+
+        :param collection_endpoint: The CollectionEndpoint of the Index resource.
+        :param index_name: The IndexName of the Index resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            index_reference = opensearchserverless.IndexReference(
+                collection_endpoint="collectionEndpoint",
+                index_name="indexName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a489fcb46113c941453176c7d0da1368cd7e9a9baac90af0e9b3443370593f9d)
+            check_type(argname="argument collection_endpoint", value=collection_endpoint, expected_type=type_hints["collection_endpoint"])
+            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collection_endpoint": collection_endpoint,
+            "index_name": index_name,
+        }
+
+    @builtins.property
+    def collection_endpoint(self) -> builtins.str:
+        '''The CollectionEndpoint of the Index resource.'''
+        result = self._values.get("collection_endpoint")
+        assert result is not None, "Required property 'collection_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def index_name(self) -> builtins.str:
+        '''The IndexName of the Index resource.'''
+        result = self._values.get("index_name")
+        assert result is not None, "Required property 'index_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IndexReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.LifecyclePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"lifecycle_policy_name": "lifecyclePolicyName", "type": "type"},
+)
+class LifecyclePolicyReference:
+    def __init__(
+        self,
+        *,
+        lifecycle_policy_name: builtins.str,
+        type: builtins.str,
+    ) -> None:
+        '''A reference to a LifecyclePolicy resource.
+
+        :param lifecycle_policy_name: The Name of the LifecyclePolicy resource.
+        :param type: The Type of the LifecyclePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            lifecycle_policy_reference = opensearchserverless.LifecyclePolicyReference(
+                lifecycle_policy_name="lifecyclePolicyName",
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f153f818d2db05c04488f34f2708aa06c890542eef24878180d71c10d8176aee)
+            check_type(argname="argument lifecycle_policy_name", value=lifecycle_policy_name, expected_type=type_hints["lifecycle_policy_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lifecycle_policy_name": lifecycle_policy_name,
+            "type": type,
+        }
+
+    @builtins.property
+    def lifecycle_policy_name(self) -> builtins.str:
+        '''The Name of the LifecyclePolicy resource.'''
+        result = self._values.get("lifecycle_policy_name")
+        assert result is not None, "Required property 'lifecycle_policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The Type of the LifecyclePolicy resource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LifecyclePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.SecurityConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"security_config_id": "securityConfigId"},
+)
+class SecurityConfigReference:
+    def __init__(self, *, security_config_id: builtins.str) -> None:
+        '''A reference to a SecurityConfig resource.
+
+        :param security_config_id: The Id of the SecurityConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            security_config_reference = opensearchserverless.SecurityConfigReference(
+                security_config_id="securityConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__389c759acf06d8ca01d9b8362ab8c7d05b6c61bf6cb2ed379792512692a5557d)
+            check_type(argname="argument security_config_id", value=security_config_id, expected_type=type_hints["security_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_config_id": security_config_id,
+        }
+
+    @builtins.property
+    def security_config_id(self) -> builtins.str:
+        '''The Id of the SecurityConfig resource.'''
+        result = self._values.get("security_config_id")
+        assert result is not None, "Required property 'security_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.SecurityPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"security_policy_name": "securityPolicyName", "type": "type"},
+)
+class SecurityPolicyReference:
+    def __init__(
+        self,
+        *,
+        security_policy_name: builtins.str,
+        type: builtins.str,
+    ) -> None:
+        '''A reference to a SecurityPolicy resource.
+
+        :param security_policy_name: The Name of the SecurityPolicy resource.
+        :param type: The Type of the SecurityPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            security_policy_reference = opensearchserverless.SecurityPolicyReference(
+                security_policy_name="securityPolicyName",
+                type="type"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__523b4e96750b632719ede350e0efbc022865c1e3079990b7963356daf209b3b7)
+            check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_policy_name": security_policy_name,
+            "type": type,
+        }
+
+    @builtins.property
+    def security_policy_name(self) -> builtins.str:
+        '''The Name of the SecurityPolicy resource.'''
+        result = self._values.get("security_policy_name")
+        assert result is not None, "Required property 'security_policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The Type of the SecurityPolicy resource.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.VpcEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"vpc_endpoint_id": "vpcEndpointId"},
+)
+class VpcEndpointReference:
+    def __init__(self, *, vpc_endpoint_id: builtins.str) -> None:
+        '''A reference to a VpcEndpoint resource.
+
+        :param vpc_endpoint_id: The Id of the VpcEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            vpc_endpoint_reference = opensearchserverless.VpcEndpointReference(
+                vpc_endpoint_id="vpcEndpointId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3640816c2dc4c3d889d2c97b05de0aadeae2f2c5bddb4da90ab3480499438efe)
+            check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "vpc_endpoint_id": vpc_endpoint_id,
+        }
+
+    @builtins.property
+    def vpc_endpoint_id(self) -> builtins.str:
+        '''The Id of the VpcEndpoint resource.'''
+        result = self._values.get("vpc_endpoint_id")
+        assert result is not None, "Required property 'vpc_endpoint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VpcEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessPolicyRef)
+class CfnAccessPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnAccessPolicy",
+):
+    '''Creates a data access policy for OpenSearch Serverless.
+
+    Access policies limit access to collections and the resources within them, and allow a user to access that data irrespective of the access mechanism or network source. For more information, see `Data access control for Amazon OpenSearch Serverless <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-data-access.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-accesspolicy.html
+    :cloudformationResource: AWS::OpenSearchServerless::AccessPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_opensearchserverless as opensearchserverless
+        
+        cfn_access_policy = opensearchserverless.CfnAccessPolicy(self, "MyCfnAccessPolicy",
+            name="name",
+            policy="policy",
+            type="type",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        policy: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the policy.
+        :param policy: The JSON policy document without any whitespaces.
+        :param type: The type of access policy. Currently the only option is ``data`` .
+        :param description: The description of the policy.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f3695018b497271b2884c3d90b44513c0e4644d1625baefd3c5f2880a1223da)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccessPolicyProps(
+            name=name, policy=policy, type=type, description=description
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21888f21364bcb4177baf2ccd610dc59283ab52bb27386322330ad2d3381e0de)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e00c49a5052cb7959a45d9347290149a3138d4d622e0aca3118485fae647010e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicyRef")
+    def access_policy_ref(self) -> AccessPolicyReference:
+        '''A reference to a AccessPolicy resource.'''
+        return typing.cast(AccessPolicyReference, jsii.get(self, "accessPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54b3786c37ee33848fa7b21ba500dd1920002dea0fe9ec5bd1440f81686f4638)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> builtins.str:
+        '''The JSON policy document without any whitespaces.'''
+        return typing.cast(builtins.str, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7da9c131bb5f7ae3527dc4b4934b48aac60a8f0b88b51d40a50c13df36532b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        '''The type of access policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d72ffab9810a9603f58d764e6a8f7a88c9198aea6ffc88f14cc048f6834586e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__768c8582758ca3add7a55a7e6ef420b56cc700d0f10d913632558c56f7cb16b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ICollectionRef, _ITaggable_36806126)
 class CfnCollection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -477,6 +1945,12 @@ class CfnCollection(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="collectionRef")
+    def collection_ref(self) -> CollectionReference:
+        '''A reference to a Collection resource.'''
+        return typing.cast(CollectionReference, jsii.get(self, "collectionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -548,148 +2022,7 @@ class CfnCollection(
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "standby_replicas": "standbyReplicas",
-        "tags": "tags",
-        "type": "type",
-    },
-)
-class CfnCollectionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        standby_replicas: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCollection``.
-
-        :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
-        :param description: A description of the collection.
-        :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
-        :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            cfn_collection_props = opensearchserverless.CfnCollectionProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                standby_replicas="standbyReplicas",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                type="type"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37d4f540e)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if standby_replicas is not None:
-            self._values["standby_replicas"] = standby_replicas
-        if tags is not None:
-            self._values["tags"] = tags
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the collection.
-
-        Collection names must meet the following criteria:
-
-        - Starts with a lowercase letter
-        - Unique to your account and AWS Region
-        - Contains between 3 and 28 characters
-        - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def standby_replicas(self) -> typing.Optional[builtins.str]:
-        '''Indicates whether to use standby replicas for the collection.
-
-        You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-standbyreplicas
-        '''
-        result = self._values.get("standby_replicas")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An arbitrary set of tags (key–value pairs) to associate with the collection.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of collection.
-
-        Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCollectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IIndexRef)
 class CfnIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -824,6 +2157,12 @@ class CfnIndex(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexRef")
+    def index_ref(self) -> IndexReference:
+        '''A reference to a Index resource.'''
+        return typing.cast(IndexReference, jsii.get(self, "indexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="collectionEndpoint")
@@ -1469,153 +2808,7 @@ class CfnIndex(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnIndexProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "collection_endpoint": "collectionEndpoint",
-        "index_name": "indexName",
-        "mappings": "mappings",
-        "settings": "settings",
-    },
-)
-class CfnIndexProps:
-    def __init__(
-        self,
-        *,
-        collection_endpoint: builtins.str,
-        index_name: builtins.str,
-        mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MappingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIndex``.
-
-        :param collection_endpoint: The endpoint for the collection.
-        :param index_name: The name of the OpenSearch Serverless index.
-        :param mappings: Index mappings for the OpenSearch Serverless index.
-        :param settings: Index settings for the OpenSearch Serverless index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            # property_mapping_property_: opensearchserverless.CfnIndex.PropertyMappingProperty
-            
-            cfn_index_props = opensearchserverless.CfnIndexProps(
-                collection_endpoint="collectionEndpoint",
-                index_name="indexName",
-            
-                # the properties below are optional
-                mappings=opensearchserverless.CfnIndex.MappingsProperty(
-                    properties={
-                        "properties_key": opensearchserverless.CfnIndex.PropertyMappingProperty(
-                            type="type",
-            
-                            # the properties below are optional
-                            dimension=123,
-                            index=False,
-                            method=opensearchserverless.CfnIndex.MethodProperty(
-                                engine="engine",
-                                name="name",
-            
-                                # the properties below are optional
-                                parameters=opensearchserverless.CfnIndex.ParametersProperty(
-                                    ef_construction=123,
-                                    m=123
-                                ),
-                                space_type="spaceType"
-                            ),
-                            properties={
-                                "properties_key": property_mapping_property_
-                            },
-                            value="value"
-                        )
-                    }
-                ),
-                settings=opensearchserverless.CfnIndex.IndexSettingsProperty(
-                    index=opensearchserverless.CfnIndex.IndexProperty(
-                        knn=False,
-                        knn_algo_param_ef_search=123,
-                        refresh_interval="refreshInterval"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__663cdeaeaa67ae562243597848e75d79ee7310523ecd791e0c37af19d4197d1a)
-            check_type(argname="argument collection_endpoint", value=collection_endpoint, expected_type=type_hints["collection_endpoint"])
-            check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
-            check_type(argname="argument mappings", value=mappings, expected_type=type_hints["mappings"])
-            check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "collection_endpoint": collection_endpoint,
-            "index_name": index_name,
-        }
-        if mappings is not None:
-            self._values["mappings"] = mappings
-        if settings is not None:
-            self._values["settings"] = settings
-
-    @builtins.property
-    def collection_endpoint(self) -> builtins.str:
-        '''The endpoint for the collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-collectionendpoint
-        '''
-        result = self._values.get("collection_endpoint")
-        assert result is not None, "Required property 'collection_endpoint' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def index_name(self) -> builtins.str:
-        '''The name of the OpenSearch Serverless index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-indexname
-        '''
-        result = self._values.get("index_name")
-        assert result is not None, "Required property 'index_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mappings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.MappingsProperty]]:
-        '''Index mappings for the OpenSearch Serverless index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-mappings
-        '''
-        result = self._values.get("mappings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.MappingsProperty]], result)
-
-    @builtins.property
-    def settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.IndexSettingsProperty]]:
-        '''Index settings for the OpenSearch Serverless index.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-index.html#cfn-opensearchserverless-index-settings
-        '''
-        result = self._values.get("settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIndex.IndexSettingsProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIndexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ILifecyclePolicyRef)
 class CfnLifecyclePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1709,6 +2902,12 @@ class CfnLifecyclePolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="lifecyclePolicyRef")
+    def lifecycle_policy_ref(self) -> LifecyclePolicyReference:
+        '''A reference to a LifecyclePolicy resource.'''
+        return typing.cast(LifecyclePolicyReference, jsii.get(self, "lifecyclePolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the lifecycle policy.'''
@@ -1761,116 +2960,7 @@ class CfnLifecyclePolicy(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnLifecyclePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "policy": "policy",
-        "type": "type",
-        "description": "description",
-    },
-)
-class CfnLifecyclePolicyProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        policy: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLifecyclePolicy``.
-
-        :param name: The name of the lifecycle policy.
-        :param policy: The JSON policy document without any whitespaces.
-        :param type: The type of lifecycle policy.
-        :param description: The description of the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            cfn_lifecycle_policy_props = opensearchserverless.CfnLifecyclePolicyProps(
-                name="name",
-                policy="policy",
-                type="type",
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e73912f69bcf372f36058fe91d3360e53142205e8eb7f06190c7963adf67c8df)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "policy": policy,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> builtins.str:
-        '''The JSON policy document without any whitespaces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the lifecycle policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-lifecyclepolicy.html#cfn-opensearchserverless-lifecyclepolicy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLifecyclePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISecurityConfigRef)
 class CfnSecurityConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2022,6 +3112,12 @@ class CfnSecurityConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="securityConfigRef")
+    def security_config_ref(self) -> SecurityConfigReference:
+        '''A reference to a SecurityConfig resource.'''
+        return typing.cast(SecurityConfigReference, jsii.get(self, "securityConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2369,152 +3465,7 @@ class CfnSecurityConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnSecurityConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "iam_identity_center_options": "iamIdentityCenterOptions",
-        "name": "name",
-        "saml_options": "samlOptions",
-        "type": "type",
-    },
-)
-class CfnSecurityConfigProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.SamlConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityConfig``.
-
-        :param description: The description of the security configuration.
-        :param iam_identity_center_options: Describes IAM Identity Center options in the form of a key-value map.
-        :param name: The name of the security configuration.
-        :param saml_options: SAML options for the security configuration in the form of a key-value map.
-        :param type: The type of security configuration. Currently the only option is ``saml`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            cfn_security_config_props = opensearchserverless.CfnSecurityConfigProps(
-                description="description",
-                iam_identity_center_options=opensearchserverless.CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty(
-                    instance_arn="instanceArn",
-            
-                    # the properties below are optional
-                    application_arn="applicationArn",
-                    application_description="applicationDescription",
-                    application_name="applicationName",
-                    group_attribute="groupAttribute",
-                    user_attribute="userAttribute"
-                ),
-                name="name",
-                saml_options=opensearchserverless.CfnSecurityConfig.SamlConfigOptionsProperty(
-                    metadata="metadata",
-            
-                    # the properties below are optional
-                    group_attribute="groupAttribute",
-                    open_search_serverless_entity_id="openSearchServerlessEntityId",
-                    session_timeout=123,
-                    user_attribute="userAttribute"
-                ),
-                type="type"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83172f8fcf5e40df2e2a8ddc136c744969aad86c37d45de37b6d75f0dc154be4)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument iam_identity_center_options", value=iam_identity_center_options, expected_type=type_hints["iam_identity_center_options"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument saml_options", value=saml_options, expected_type=type_hints["saml_options"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if iam_identity_center_options is not None:
-            self._values["iam_identity_center_options"] = iam_identity_center_options
-        if name is not None:
-            self._values["name"] = name
-        if saml_options is not None:
-            self._values["saml_options"] = saml_options
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def iam_identity_center_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty]]:
-        '''Describes IAM Identity Center options in the form of a key-value map.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-iamidentitycenteroptions
-        '''
-        result = self._values.get("iam_identity_center_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def saml_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityConfig.SamlConfigOptionsProperty]]:
-        '''SAML options for the security configuration in the form of a key-value map.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-samloptions
-        '''
-        result = self._values.get("saml_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecurityConfig.SamlConfigOptionsProperty]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of security configuration.
-
-        Currently the only option is ``saml`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securityconfig.html#cfn-opensearchserverless-securityconfig-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISecurityPolicyRef)
 class CfnSecurityPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2610,6 +3561,12 @@ class CfnSecurityPolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="securityPolicyRef")
+    def security_policy_ref(self) -> SecurityPolicyReference:
+        '''A reference to a SecurityPolicy resource.'''
+        return typing.cast(SecurityPolicyReference, jsii.get(self, "securityPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the policy.'''
@@ -2662,118 +3619,7 @@ class CfnSecurityPolicy(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnSecurityPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "policy": "policy",
-        "type": "type",
-        "description": "description",
-    },
-)
-class CfnSecurityPolicyProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        policy: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSecurityPolicy``.
-
-        :param name: The name of the policy.
-        :param policy: The JSON policy document without any whitespaces.
-        :param type: The type of security policy. Can be either ``encryption`` or ``network`` .
-        :param description: The description of the security policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            cfn_security_policy_props = opensearchserverless.CfnSecurityPolicyProps(
-                name="name",
-                policy="policy",
-                type="type",
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4075edd6277d95d95112af6e1299774fad3d68ddeaf766c63e97d6deae2b5216)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "policy": policy,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy(self) -> builtins.str:
-        '''The JSON policy document without any whitespaces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of security policy.
-
-        Can be either ``encryption`` or ``network`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the security policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-securitypolicy.html#cfn-opensearchserverless-securitypolicy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSecurityPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IVpcEndpointRef)
 class CfnVpcEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2881,6 +3727,12 @@ class CfnVpcEndpoint(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="vpcEndpointRef")
+    def vpc_endpoint_ref(self) -> VpcEndpointReference:
+        '''A reference to a VpcEndpoint resource.'''
+        return typing.cast(VpcEndpointReference, jsii.get(self, "vpcEndpointRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of the endpoint.'''
@@ -2936,116 +3788,8 @@ class CfnVpcEndpoint(
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnVpcEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "subnet_ids": "subnetIds",
-        "vpc_id": "vpcId",
-        "security_group_ids": "securityGroupIds",
-    },
-)
-class CfnVpcEndpointProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        vpc_id: builtins.str,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVpcEndpoint``.
-
-        :param name: The name of the endpoint.
-        :param subnet_ids: The ID of the subnets from which you access OpenSearch Serverless.
-        :param vpc_id: The ID of the VPC from which you access OpenSearch Serverless.
-        :param security_group_ids: The unique identifiers of the security groups that define the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opensearchserverless as opensearchserverless
-            
-            cfn_vpc_endpoint_props = opensearchserverless.CfnVpcEndpointProps(
-                name="name",
-                subnet_ids=["subnetIds"],
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                security_group_ids=["securityGroupIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e4b9618641af3075893df923c3e35190dd8ae1fdea8503917862efecb66990a)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "subnet_ids": subnet_ids,
-            "vpc_id": vpc_id,
-        }
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''The ID of the subnets from which you access OpenSearch Serverless.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The ID of the VPC from which you access OpenSearch Serverless.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The unique identifiers of the security groups that define the ports, protocols, and sources for inbound traffic that you are authorizing into your endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-vpcendpoint.html#cfn-opensearchserverless-vpcendpoint-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVpcEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessPolicyReference",
     "CfnAccessPolicy",
     "CfnAccessPolicyProps",
     "CfnCollection",
@@ -3060,9 +3804,148 @@ __all__ = [
     "CfnSecurityPolicyProps",
     "CfnVpcEndpoint",
     "CfnVpcEndpointProps",
+    "CollectionReference",
+    "IAccessPolicyRef",
+    "ICollectionRef",
+    "IIndexRef",
+    "ILifecyclePolicyRef",
+    "ISecurityConfigRef",
+    "ISecurityPolicyRef",
+    "IVpcEndpointRef",
+    "IndexReference",
+    "LifecyclePolicyReference",
+    "SecurityConfigReference",
+    "SecurityPolicyReference",
+    "VpcEndpointReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0c236f6a98ddf415b6183b1741c17c2ed03adbce515b363afa346952eb1c0bdc(
+    *,
+    access_policy_name: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fd3a5bd693a196541a3a98339eef4fd1a25680f2e37fa2c50932ab018651a65(
+    *,
+    name: builtins.str,
+    policy: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37d4f540e(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    standby_replicas: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__663cdeaeaa67ae562243597848e75d79ee7310523ecd791e0c37af19d4197d1a(
+    *,
+    collection_endpoint: builtins.str,
+    index_name: builtins.str,
+    mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MappingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e73912f69bcf372f36058fe91d3360e53142205e8eb7f06190c7963adf67c8df(
+    *,
+    name: builtins.str,
+    policy: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83172f8fcf5e40df2e2a8ddc136c744969aad86c37d45de37b6d75f0dc154be4(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.SamlConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4075edd6277d95d95112af6e1299774fad3d68ddeaf766c63e97d6deae2b5216(
+    *,
+    name: builtins.str,
+    policy: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e4b9618641af3075893df923c3e35190dd8ae1fdea8503917862efecb66990a(
+    *,
+    name: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_id: builtins.str,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7919958c981df9d082162b8ca79ed1c32dfd457b6692bcaf872b8c940ba1be41(
+    *,
+    collection_arn: builtins.str,
+    collection_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a489fcb46113c941453176c7d0da1368cd7e9a9baac90af0e9b3443370593f9d(
+    *,
+    collection_endpoint: builtins.str,
+    index_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f153f818d2db05c04488f34f2708aa06c890542eef24878180d71c10d8176aee(
+    *,
+    lifecycle_policy_name: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__389c759acf06d8ca01d9b8362ab8c7d05b6c61bf6cb2ed379792512692a5557d(
+    *,
+    security_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__523b4e96750b632719ede350e0efbc022865c1e3079990b7963356daf209b3b7(
+    *,
+    security_policy_name: builtins.str,
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3640816c2dc4c3d889d2c97b05de0aadeae2f2c5bddb4da90ab3480499438efe(
+    *,
+    vpc_endpoint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__0f3695018b497271b2884c3d90b44513c0e4644d1625baefd3c5f2880a1223da(
     scope: _constructs_77d1e7e8.Construct,
@@ -3108,16 +3991,6 @@ def _typecheckingstub__4d72ffab9810a9603f58d764e6a8f7a88c9198aea6ffc88f14cc048f6
 
 def _typecheckingstub__768c8582758ca3add7a55a7e6ef420b56cc700d0f10d913632558c56f7cb16b4(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1fd3a5bd693a196541a3a98339eef4fd1a25680f2e37fa2c50932ab018651a65(
-    *,
-    name: builtins.str,
-    policy: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3173,17 +4046,6 @@ def _typecheckingstub__7cfcacecc11d4e30df3a59ae6680ab93be461bc979a2e413a2a77eab2
 
 def _typecheckingstub__f407bc0eeb99c42f4a9d1d97573b8b10069685ea3e596d162939418b9ddce0ab(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37d4f540e(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    standby_replicas: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3289,16 +4151,6 @@ def _typecheckingstub__3f7c10818297058609492c7bc5b994ff55948eef9013ef34074e5e42d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__663cdeaeaa67ae562243597848e75d79ee7310523ecd791e0c37af19d4197d1a(
-    *,
-    collection_endpoint: builtins.str,
-    index_name: builtins.str,
-    mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MappingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.IndexSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c2b4914847f05bdf08e17005048ebb9904d2b6ed6657b54ce1cd05b975532b69(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3343,16 +4195,6 @@ def _typecheckingstub__bf5256649189217c6e468732c9804810a03866c558be69a399dbe3b58
 
 def _typecheckingstub__4c81c3df41fd5687002fc21d059d65a24285a46691ea0b5927cb8bed64ce7b34(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e73912f69bcf372f36058fe91d3360e53142205e8eb7f06190c7963adf67c8df(
-    *,
-    name: builtins.str,
-    policy: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3435,17 +4277,6 @@ def _typecheckingstub__0390198d9b44e1b80737604ac5328dbfc7481d5b1ba8f915caa2e8c2a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__83172f8fcf5e40df2e2a8ddc136c744969aad86c37d45de37b6d75f0dc154be4(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.IamIdentityCenterConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    saml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityConfig.SamlConfigOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6d59762ee8817ade49618bf2f3f983fdef4c91ba0b7b556420f82eddfb0b1816(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3494,16 +4325,6 @@ def _typecheckingstub__32e52e449f522d03728147da62ce5f50c6d6fbd70bb94d13ddb359a01
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4075edd6277d95d95112af6e1299774fad3d68ddeaf766c63e97d6deae2b5216(
-    *,
-    name: builtins.str,
-    policy: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__dbe678d204c3b8154a4eab3294ad9caae2eddc54ea43a540534d5f5624ad1d38(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3548,16 +4369,6 @@ def _typecheckingstub__51ceb4d899497efe9654e160fb2cbb074280677360f698cdb3bbd71b6
 
 def _typecheckingstub__129e2ed568043eda0de359b0547f1ce5769e90a17a23c8ec9e16b8fb0b424f23(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1e4b9618641af3075893df923c3e35190dd8ae1fdea8503917862efecb66990a(
-    *,
-    name: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    vpc_id: builtins.str,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -69,7 +69,837 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.CfnConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={"config_data": "configData", "name": "name", "tags": "tags"},
+)
+class CfnConfigProps:
+    def __init__(
+        self,
+        *,
+        config_data: typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfig.ConfigDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfig``.
+
+        :param config_data: Object containing the parameters of a config. Only one subtype may be specified per config. See the subtype definitions for a description of each config subtype.
+        :param name: The name of the config object.
+        :param tags: Tags assigned to a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            cfn_config_props = groundstation.CfnConfigProps(
+                config_data=groundstation.CfnConfig.ConfigDataProperty(
+                    antenna_downlink_config=groundstation.CfnConfig.AntennaDownlinkConfigProperty(
+                        spectrum_config=groundstation.CfnConfig.SpectrumConfigProperty(
+                            bandwidth=groundstation.CfnConfig.FrequencyBandwidthProperty(
+                                units="units",
+                                value=123
+                            ),
+                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
+                                units="units",
+                                value=123
+                            ),
+                            polarization="polarization"
+                        )
+                    ),
+                    antenna_downlink_demod_decode_config=groundstation.CfnConfig.AntennaDownlinkDemodDecodeConfigProperty(
+                        decode_config=groundstation.CfnConfig.DecodeConfigProperty(
+                            unvalidated_json="unvalidatedJson"
+                        ),
+                        demodulation_config=groundstation.CfnConfig.DemodulationConfigProperty(
+                            unvalidated_json="unvalidatedJson"
+                        ),
+                        spectrum_config=groundstation.CfnConfig.SpectrumConfigProperty(
+                            bandwidth=groundstation.CfnConfig.FrequencyBandwidthProperty(
+                                units="units",
+                                value=123
+                            ),
+                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
+                                units="units",
+                                value=123
+                            ),
+                            polarization="polarization"
+                        )
+                    ),
+                    antenna_uplink_config=groundstation.CfnConfig.AntennaUplinkConfigProperty(
+                        spectrum_config=groundstation.CfnConfig.UplinkSpectrumConfigProperty(
+                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
+                                units="units",
+                                value=123
+                            ),
+                            polarization="polarization"
+                        ),
+                        target_eirp=groundstation.CfnConfig.EirpProperty(
+                            units="units",
+                            value=123
+                        ),
+                        transmit_disabled=False
+                    ),
+                    dataflow_endpoint_config=groundstation.CfnConfig.DataflowEndpointConfigProperty(
+                        dataflow_endpoint_name="dataflowEndpointName",
+                        dataflow_endpoint_region="dataflowEndpointRegion"
+                    ),
+                    s3_recording_config=groundstation.CfnConfig.S3RecordingConfigProperty(
+                        bucket_arn="bucketArn",
+                        prefix="prefix",
+                        role_arn="roleArn"
+                    ),
+                    tracking_config=groundstation.CfnConfig.TrackingConfigProperty(
+                        autotrack="autotrack"
+                    ),
+                    uplink_echo_config=groundstation.CfnConfig.UplinkEchoConfigProperty(
+                        antenna_uplink_config_arn="antennaUplinkConfigArn",
+                        enabled=False
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25)
+            check_type(argname="argument config_data", value=config_data, expected_type=type_hints["config_data"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "config_data": config_data,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def config_data(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnConfig.ConfigDataProperty"]:
+        '''Object containing the parameters of a config.
+
+        Only one subtype may be specified per config. See the subtype definitions for a description of each config subtype.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-configdata
+        '''
+        result = self._values.get("config_data")
+        assert result is not None, "Required property 'config_data' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnConfig.ConfigDataProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the config object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags assigned to a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "endpoint_details": "endpointDetails",
+        "contact_post_pass_duration_seconds": "contactPostPassDurationSeconds",
+        "contact_pre_pass_duration_seconds": "contactPrePassDurationSeconds",
+        "tags": "tags",
+    },
+)
+class CfnDataflowEndpointGroupProps:
+    def __init__(
+        self,
+        *,
+        endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataflowEndpointGroup.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+        contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataflowEndpointGroup``.
+
+        :param endpoint_details: List of Endpoint Details, containing address and port for each endpoint. All dataflow endpoints within a single dataflow endpoint group must be of the same type. You cannot mix AWS Ground Station Agent endpoints with Dataflow endpoints in the same group. If your use case requires both types of endpoints, you must create separate dataflow endpoint groups for each type.
+        :param contact_post_pass_duration_seconds: Amount of time, in seconds, after a contact ends that the Ground Station Dataflow Endpoint Group will be in a ``POSTPASS`` state. A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``POSTPASS`` state.
+        :param contact_pre_pass_duration_seconds: Amount of time, in seconds, before a contact starts that the Ground Station Dataflow Endpoint Group will be in a ``PREPASS`` state. A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``PREPASS`` state.
+        :param tags: Tags assigned to a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            cfn_dataflow_endpoint_group_props = groundstation.CfnDataflowEndpointGroupProps(
+                endpoint_details=[groundstation.CfnDataflowEndpointGroup.EndpointDetailsProperty(
+                    aws_ground_station_agent_endpoint=groundstation.CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty(
+                        agent_status="agentStatus",
+                        audit_results="auditResults",
+                        egress_address=groundstation.CfnDataflowEndpointGroup.ConnectionDetailsProperty(
+                            mtu=123,
+                            socket_address=groundstation.CfnDataflowEndpointGroup.SocketAddressProperty(
+                                name="name",
+                                port=123
+                            )
+                        ),
+                        ingress_address=groundstation.CfnDataflowEndpointGroup.RangedConnectionDetailsProperty(
+                            mtu=123,
+                            socket_address=groundstation.CfnDataflowEndpointGroup.RangedSocketAddressProperty(
+                                name="name",
+                                port_range=groundstation.CfnDataflowEndpointGroup.IntegerRangeProperty(
+                                    maximum=123,
+                                    minimum=123
+                                )
+                            )
+                        ),
+                        name="name"
+                    ),
+                    endpoint=groundstation.CfnDataflowEndpointGroup.DataflowEndpointProperty(
+                        address=groundstation.CfnDataflowEndpointGroup.SocketAddressProperty(
+                            name="name",
+                            port=123
+                        ),
+                        mtu=123,
+                        name="name"
+                    ),
+                    security_details=groundstation.CfnDataflowEndpointGroup.SecurityDetailsProperty(
+                        role_arn="roleArn",
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )
+                )],
+            
+                # the properties below are optional
+                contact_post_pass_duration_seconds=123,
+                contact_pre_pass_duration_seconds=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51)
+            check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
+            check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
+            check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_details": endpoint_details,
+        }
+        if contact_post_pass_duration_seconds is not None:
+            self._values["contact_post_pass_duration_seconds"] = contact_post_pass_duration_seconds
+        if contact_pre_pass_duration_seconds is not None:
+            self._values["contact_pre_pass_duration_seconds"] = contact_pre_pass_duration_seconds
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def endpoint_details(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]]:
+        '''List of Endpoint Details, containing address and port for each endpoint.
+
+        All dataflow endpoints within a single dataflow endpoint group must be of the same type. You cannot mix AWS Ground Station Agent endpoints with Dataflow endpoints in the same group. If your use case requires both types of endpoints, you must create separate dataflow endpoint groups for each type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-endpointdetails
+        '''
+        result = self._values.get("endpoint_details")
+        assert result is not None, "Required property 'endpoint_details' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataflowEndpointGroup.EndpointDetailsProperty"]]], result)
+
+    @builtins.property
+    def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Amount of time, in seconds, after a contact ends that the Ground Station Dataflow Endpoint Group will be in a ``POSTPASS`` state.
+
+        A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``POSTPASS`` state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-contactpostpassdurationseconds
+        '''
+        result = self._values.get("contact_post_pass_duration_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def contact_pre_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Amount of time, in seconds, before a contact starts that the Ground Station Dataflow Endpoint Group will be in a ``PREPASS`` state.
+
+        A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``PREPASS`` state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-contactprepassdurationseconds
+        '''
+        result = self._values.get("contact_pre_pass_duration_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags assigned to a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataflowEndpointGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.CfnMissionProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataflow_edges": "dataflowEdges",
+        "minimum_viable_contact_duration_seconds": "minimumViableContactDurationSeconds",
+        "name": "name",
+        "tracking_config_arn": "trackingConfigArn",
+        "contact_post_pass_duration_seconds": "contactPostPassDurationSeconds",
+        "contact_pre_pass_duration_seconds": "contactPrePassDurationSeconds",
+        "streams_kms_key": "streamsKmsKey",
+        "streams_kms_role": "streamsKmsRole",
+        "tags": "tags",
+    },
+)
+class CfnMissionProfileProps:
+    def __init__(
+        self,
+        *,
+        dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMissionProfile.DataflowEdgeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        minimum_viable_contact_duration_seconds: jsii.Number,
+        name: builtins.str,
+        tracking_config_arn: builtins.str,
+        contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+        contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+        streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        streams_kms_role: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMissionProfile``.
+
+        :param dataflow_edges: A list containing lists of config ARNs. Each list of config ARNs is an edge, with a "from" config and a "to" config.
+        :param minimum_viable_contact_duration_seconds: Minimum length of a contact in seconds that Ground Station will return when listing contacts. Ground Station will not return contacts shorter than this duration.
+        :param name: The name of the mission profile.
+        :param tracking_config_arn: The ARN of a tracking config objects that defines how to track the satellite through the sky during a contact.
+        :param contact_post_pass_duration_seconds: Amount of time in seconds after a contact ends that you’d like to receive a Ground Station Contact State Change indicating the pass has finished.
+        :param contact_pre_pass_duration_seconds: Amount of time in seconds prior to contact start that you'd like to receive a Ground Station Contact State Change Event indicating an upcoming pass.
+        :param streams_kms_key: KMS key to use for encrypting streams.
+        :param streams_kms_role: Role to use for encrypting streams with KMS key.
+        :param tags: Tags assigned to the mission profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            cfn_mission_profile_props = groundstation.CfnMissionProfileProps(
+                dataflow_edges=[groundstation.CfnMissionProfile.DataflowEdgeProperty(
+                    destination="destination",
+                    source="source"
+                )],
+                minimum_viable_contact_duration_seconds=123,
+                name="name",
+                tracking_config_arn="trackingConfigArn",
+            
+                # the properties below are optional
+                contact_post_pass_duration_seconds=123,
+                contact_pre_pass_duration_seconds=123,
+                streams_kms_key=groundstation.CfnMissionProfile.StreamsKmsKeyProperty(
+                    kms_alias_arn="kmsAliasArn",
+                    kms_alias_name="kmsAliasName",
+                    kms_key_arn="kmsKeyArn"
+                ),
+                streams_kms_role="streamsKmsRole",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0)
+            check_type(argname="argument dataflow_edges", value=dataflow_edges, expected_type=type_hints["dataflow_edges"])
+            check_type(argname="argument minimum_viable_contact_duration_seconds", value=minimum_viable_contact_duration_seconds, expected_type=type_hints["minimum_viable_contact_duration_seconds"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tracking_config_arn", value=tracking_config_arn, expected_type=type_hints["tracking_config_arn"])
+            check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
+            check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
+            check_type(argname="argument streams_kms_key", value=streams_kms_key, expected_type=type_hints["streams_kms_key"])
+            check_type(argname="argument streams_kms_role", value=streams_kms_role, expected_type=type_hints["streams_kms_role"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataflow_edges": dataflow_edges,
+            "minimum_viable_contact_duration_seconds": minimum_viable_contact_duration_seconds,
+            "name": name,
+            "tracking_config_arn": tracking_config_arn,
+        }
+        if contact_post_pass_duration_seconds is not None:
+            self._values["contact_post_pass_duration_seconds"] = contact_post_pass_duration_seconds
+        if contact_pre_pass_duration_seconds is not None:
+            self._values["contact_pre_pass_duration_seconds"] = contact_pre_pass_duration_seconds
+        if streams_kms_key is not None:
+            self._values["streams_kms_key"] = streams_kms_key
+        if streams_kms_role is not None:
+            self._values["streams_kms_role"] = streams_kms_role
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataflow_edges(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMissionProfile.DataflowEdgeProperty"]]]:
+        '''A list containing lists of config ARNs.
+
+        Each list of config ARNs is an edge, with a "from" config and a "to" config.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-dataflowedges
+        '''
+        result = self._values.get("dataflow_edges")
+        assert result is not None, "Required property 'dataflow_edges' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMissionProfile.DataflowEdgeProperty"]]], result)
+
+    @builtins.property
+    def minimum_viable_contact_duration_seconds(self) -> jsii.Number:
+        '''Minimum length of a contact in seconds that Ground Station will return when listing contacts.
+
+        Ground Station will not return contacts shorter than this duration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-minimumviablecontactdurationseconds
+        '''
+        result = self._values.get("minimum_viable_contact_duration_seconds")
+        assert result is not None, "Required property 'minimum_viable_contact_duration_seconds' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the mission profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tracking_config_arn(self) -> builtins.str:
+        '''The ARN of a tracking config objects that defines how to track the satellite through the sky during a contact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-trackingconfigarn
+        '''
+        result = self._values.get("tracking_config_arn")
+        assert result is not None, "Required property 'tracking_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Amount of time in seconds after a contact ends that you’d like to receive a Ground Station Contact State Change indicating the pass has finished.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-contactpostpassdurationseconds
+        '''
+        result = self._values.get("contact_post_pass_duration_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def contact_pre_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Amount of time in seconds prior to contact start that you'd like to receive a Ground Station Contact State Change Event indicating an upcoming pass.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-contactprepassdurationseconds
+        '''
+        result = self._values.get("contact_pre_pass_duration_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def streams_kms_key(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMissionProfile.StreamsKmsKeyProperty"]]:
+        '''KMS key to use for encrypting streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-streamskmskey
+        '''
+        result = self._values.get("streams_kms_key")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMissionProfile.StreamsKmsKeyProperty"]], result)
+
+    @builtins.property
+    def streams_kms_role(self) -> typing.Optional[builtins.str]:
+        '''Role to use for encrypting streams with KMS key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-streamskmsrole
+        '''
+        result = self._values.get("streams_kms_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags assigned to the mission profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMissionProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.ConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"config_arn": "configArn"},
+)
+class ConfigReference:
+    def __init__(self, *, config_arn: builtins.str) -> None:
+        '''A reference to a Config resource.
+
+        :param config_arn: The Arn of the Config resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            config_reference = groundstation.ConfigReference(
+                config_arn="configArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57d0926da2bec6ccb6d6c339d0ec6934ae77b4bf7e84bb2c346963f5addff162)
+            check_type(argname="argument config_arn", value=config_arn, expected_type=type_hints["config_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "config_arn": config_arn,
+        }
+
+    @builtins.property
+    def config_arn(self) -> builtins.str:
+        '''The Arn of the Config resource.'''
+        result = self._values.get("config_arn")
+        assert result is not None, "Required property 'config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.DataflowEndpointGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataflow_endpoint_group_arn": "dataflowEndpointGroupArn",
+        "dataflow_endpoint_group_id": "dataflowEndpointGroupId",
+    },
+)
+class DataflowEndpointGroupReference:
+    def __init__(
+        self,
+        *,
+        dataflow_endpoint_group_arn: builtins.str,
+        dataflow_endpoint_group_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataflowEndpointGroup resource.
+
+        :param dataflow_endpoint_group_arn: The ARN of the DataflowEndpointGroup resource.
+        :param dataflow_endpoint_group_id: The Id of the DataflowEndpointGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            dataflow_endpoint_group_reference = groundstation.DataflowEndpointGroupReference(
+                dataflow_endpoint_group_arn="dataflowEndpointGroupArn",
+                dataflow_endpoint_group_id="dataflowEndpointGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d7bd04f99ed16ca7a4dde7370adbda2d379ad3485553c267beb46b8676c5903)
+            check_type(argname="argument dataflow_endpoint_group_arn", value=dataflow_endpoint_group_arn, expected_type=type_hints["dataflow_endpoint_group_arn"])
+            check_type(argname="argument dataflow_endpoint_group_id", value=dataflow_endpoint_group_id, expected_type=type_hints["dataflow_endpoint_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataflow_endpoint_group_arn": dataflow_endpoint_group_arn,
+            "dataflow_endpoint_group_id": dataflow_endpoint_group_id,
+        }
+
+    @builtins.property
+    def dataflow_endpoint_group_arn(self) -> builtins.str:
+        '''The ARN of the DataflowEndpointGroup resource.'''
+        result = self._values.get("dataflow_endpoint_group_arn")
+        assert result is not None, "Required property 'dataflow_endpoint_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dataflow_endpoint_group_id(self) -> builtins.str:
+        '''The Id of the DataflowEndpointGroup resource.'''
+        result = self._values.get("dataflow_endpoint_group_id")
+        assert result is not None, "Required property 'dataflow_endpoint_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataflowEndpointGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_groundstation.IConfigRef")
+class IConfigRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Config.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configRef")
+    def config_ref(self) -> ConfigReference:
+        '''(experimental) A reference to a Config resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Config.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_groundstation.IConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configRef")
+    def config_ref(self) -> ConfigReference:
+        '''(experimental) A reference to a Config resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigReference, jsii.get(self, "configRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigRef).__jsii_proxy_class__ = lambda : _IConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_groundstation.IDataflowEndpointGroupRef")
+class IDataflowEndpointGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataflowEndpointGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataflowEndpointGroupRef")
+    def dataflow_endpoint_group_ref(self) -> DataflowEndpointGroupReference:
+        '''(experimental) A reference to a DataflowEndpointGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataflowEndpointGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataflowEndpointGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_groundstation.IDataflowEndpointGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataflowEndpointGroupRef")
+    def dataflow_endpoint_group_ref(self) -> DataflowEndpointGroupReference:
+        '''(experimental) A reference to a DataflowEndpointGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataflowEndpointGroupReference, jsii.get(self, "dataflowEndpointGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataflowEndpointGroupRef).__jsii_proxy_class__ = lambda : _IDataflowEndpointGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_groundstation.IMissionProfileRef")
+class IMissionProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a MissionProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="missionProfileRef")
+    def mission_profile_ref(self) -> "MissionProfileReference":
+        '''(experimental) A reference to a MissionProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMissionProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MissionProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_groundstation.IMissionProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="missionProfileRef")
+    def mission_profile_ref(self) -> "MissionProfileReference":
+        '''(experimental) A reference to a MissionProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MissionProfileReference", jsii.get(self, "missionProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMissionProfileRef).__jsii_proxy_class__ = lambda : _IMissionProfileRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_groundstation.MissionProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "mission_profile_arn": "missionProfileArn",
+        "mission_profile_id": "missionProfileId",
+    },
+)
+class MissionProfileReference:
+    def __init__(
+        self,
+        *,
+        mission_profile_arn: builtins.str,
+        mission_profile_id: builtins.str,
+    ) -> None:
+        '''A reference to a MissionProfile resource.
+
+        :param mission_profile_arn: The Arn of the MissionProfile resource.
+        :param mission_profile_id: The Id of the MissionProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_groundstation as groundstation
+            
+            mission_profile_reference = groundstation.MissionProfileReference(
+                mission_profile_arn="missionProfileArn",
+                mission_profile_id="missionProfileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef16f33ea844656c6426defba02716fc206afba2926028f72966bb53a1d873b4)
+            check_type(argname="argument mission_profile_arn", value=mission_profile_arn, expected_type=type_hints["mission_profile_arn"])
+            check_type(argname="argument mission_profile_id", value=mission_profile_id, expected_type=type_hints["mission_profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mission_profile_arn": mission_profile_arn,
+            "mission_profile_id": mission_profile_id,
+        }
+
+    @builtins.property
+    def mission_profile_arn(self) -> builtins.str:
+        '''The Arn of the MissionProfile resource.'''
+        result = self._values.get("mission_profile_arn")
+        assert result is not None, "Required property 'mission_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mission_profile_id(self) -> builtins.str:
+        '''The Id of the MissionProfile resource.'''
+        result = self._values.get("mission_profile_id")
+        assert result is not None, "Required property 'mission_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MissionProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IConfigRef, _ITaggable_36806126)
 class CfnConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -249,6 +1079,12 @@ class CfnConfig(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configRef")
+    def config_ref(self) -> ConfigReference:
+        '''A reference to a Config resource.'''
+        return typing.cast(ConfigReference, jsii.get(self, "configRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1638,166 +2474,7 @@ class CfnConfig(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_groundstation.CfnConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={"config_data": "configData", "name": "name", "tags": "tags"},
-)
-class CfnConfigProps:
-    def __init__(
-        self,
-        *,
-        config_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfig``.
-
-        :param config_data: Object containing the parameters of a config. Only one subtype may be specified per config. See the subtype definitions for a description of each config subtype.
-        :param name: The name of the config object.
-        :param tags: Tags assigned to a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_groundstation as groundstation
-            
-            cfn_config_props = groundstation.CfnConfigProps(
-                config_data=groundstation.CfnConfig.ConfigDataProperty(
-                    antenna_downlink_config=groundstation.CfnConfig.AntennaDownlinkConfigProperty(
-                        spectrum_config=groundstation.CfnConfig.SpectrumConfigProperty(
-                            bandwidth=groundstation.CfnConfig.FrequencyBandwidthProperty(
-                                units="units",
-                                value=123
-                            ),
-                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
-                                units="units",
-                                value=123
-                            ),
-                            polarization="polarization"
-                        )
-                    ),
-                    antenna_downlink_demod_decode_config=groundstation.CfnConfig.AntennaDownlinkDemodDecodeConfigProperty(
-                        decode_config=groundstation.CfnConfig.DecodeConfigProperty(
-                            unvalidated_json="unvalidatedJson"
-                        ),
-                        demodulation_config=groundstation.CfnConfig.DemodulationConfigProperty(
-                            unvalidated_json="unvalidatedJson"
-                        ),
-                        spectrum_config=groundstation.CfnConfig.SpectrumConfigProperty(
-                            bandwidth=groundstation.CfnConfig.FrequencyBandwidthProperty(
-                                units="units",
-                                value=123
-                            ),
-                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
-                                units="units",
-                                value=123
-                            ),
-                            polarization="polarization"
-                        )
-                    ),
-                    antenna_uplink_config=groundstation.CfnConfig.AntennaUplinkConfigProperty(
-                        spectrum_config=groundstation.CfnConfig.UplinkSpectrumConfigProperty(
-                            center_frequency=groundstation.CfnConfig.FrequencyProperty(
-                                units="units",
-                                value=123
-                            ),
-                            polarization="polarization"
-                        ),
-                        target_eirp=groundstation.CfnConfig.EirpProperty(
-                            units="units",
-                            value=123
-                        ),
-                        transmit_disabled=False
-                    ),
-                    dataflow_endpoint_config=groundstation.CfnConfig.DataflowEndpointConfigProperty(
-                        dataflow_endpoint_name="dataflowEndpointName",
-                        dataflow_endpoint_region="dataflowEndpointRegion"
-                    ),
-                    s3_recording_config=groundstation.CfnConfig.S3RecordingConfigProperty(
-                        bucket_arn="bucketArn",
-                        prefix="prefix",
-                        role_arn="roleArn"
-                    ),
-                    tracking_config=groundstation.CfnConfig.TrackingConfigProperty(
-                        autotrack="autotrack"
-                    ),
-                    uplink_echo_config=groundstation.CfnConfig.UplinkEchoConfigProperty(
-                        antenna_uplink_config_arn="antennaUplinkConfigArn",
-                        enabled=False
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25)
-            check_type(argname="argument config_data", value=config_data, expected_type=type_hints["config_data"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "config_data": config_data,
-            "name": name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def config_data(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnConfig.ConfigDataProperty]:
-        '''Object containing the parameters of a config.
-
-        Only one subtype may be specified per config. See the subtype definitions for a description of each config subtype.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-configdata
-        '''
-        result = self._values.get("config_data")
-        assert result is not None, "Required property 'config_data' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnConfig.ConfigDataProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the config object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags assigned to a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-config.html#cfn-groundstation-config-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDataflowEndpointGroupRef, _ITaggable_36806126)
 class CfnDataflowEndpointGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1951,6 +2628,12 @@ class CfnDataflowEndpointGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataflowEndpointGroupRef")
+    def dataflow_endpoint_group_ref(self) -> DataflowEndpointGroupReference:
+        '''A reference to a DataflowEndpointGroup resource.'''
+        return typing.cast(DataflowEndpointGroupReference, jsii.get(self, "dataflowEndpointGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2844,163 +3527,7 @@ class CfnDataflowEndpointGroup(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "endpoint_details": "endpointDetails",
-        "contact_post_pass_duration_seconds": "contactPostPassDurationSeconds",
-        "contact_pre_pass_duration_seconds": "contactPrePassDurationSeconds",
-        "tags": "tags",
-    },
-)
-class CfnDataflowEndpointGroupProps:
-    def __init__(
-        self,
-        *,
-        endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataflowEndpointGroup``.
-
-        :param endpoint_details: List of Endpoint Details, containing address and port for each endpoint. All dataflow endpoints within a single dataflow endpoint group must be of the same type. You cannot mix AWS Ground Station Agent endpoints with Dataflow endpoints in the same group. If your use case requires both types of endpoints, you must create separate dataflow endpoint groups for each type.
-        :param contact_post_pass_duration_seconds: Amount of time, in seconds, after a contact ends that the Ground Station Dataflow Endpoint Group will be in a ``POSTPASS`` state. A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``POSTPASS`` state.
-        :param contact_pre_pass_duration_seconds: Amount of time, in seconds, before a contact starts that the Ground Station Dataflow Endpoint Group will be in a ``PREPASS`` state. A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``PREPASS`` state.
-        :param tags: Tags assigned to a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_groundstation as groundstation
-            
-            cfn_dataflow_endpoint_group_props = groundstation.CfnDataflowEndpointGroupProps(
-                endpoint_details=[groundstation.CfnDataflowEndpointGroup.EndpointDetailsProperty(
-                    aws_ground_station_agent_endpoint=groundstation.CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty(
-                        agent_status="agentStatus",
-                        audit_results="auditResults",
-                        egress_address=groundstation.CfnDataflowEndpointGroup.ConnectionDetailsProperty(
-                            mtu=123,
-                            socket_address=groundstation.CfnDataflowEndpointGroup.SocketAddressProperty(
-                                name="name",
-                                port=123
-                            )
-                        ),
-                        ingress_address=groundstation.CfnDataflowEndpointGroup.RangedConnectionDetailsProperty(
-                            mtu=123,
-                            socket_address=groundstation.CfnDataflowEndpointGroup.RangedSocketAddressProperty(
-                                name="name",
-                                port_range=groundstation.CfnDataflowEndpointGroup.IntegerRangeProperty(
-                                    maximum=123,
-                                    minimum=123
-                                )
-                            )
-                        ),
-                        name="name"
-                    ),
-                    endpoint=groundstation.CfnDataflowEndpointGroup.DataflowEndpointProperty(
-                        address=groundstation.CfnDataflowEndpointGroup.SocketAddressProperty(
-                            name="name",
-                            port=123
-                        ),
-                        mtu=123,
-                        name="name"
-                    ),
-                    security_details=groundstation.CfnDataflowEndpointGroup.SecurityDetailsProperty(
-                        role_arn="roleArn",
-                        security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
-                    )
-                )],
-            
-                # the properties below are optional
-                contact_post_pass_duration_seconds=123,
-                contact_pre_pass_duration_seconds=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51)
-            check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
-            check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
-            check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_details": endpoint_details,
-        }
-        if contact_post_pass_duration_seconds is not None:
-            self._values["contact_post_pass_duration_seconds"] = contact_post_pass_duration_seconds
-        if contact_pre_pass_duration_seconds is not None:
-            self._values["contact_pre_pass_duration_seconds"] = contact_pre_pass_duration_seconds
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def endpoint_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataflowEndpointGroup.EndpointDetailsProperty]]]:
-        '''List of Endpoint Details, containing address and port for each endpoint.
-
-        All dataflow endpoints within a single dataflow endpoint group must be of the same type. You cannot mix AWS Ground Station Agent endpoints with Dataflow endpoints in the same group. If your use case requires both types of endpoints, you must create separate dataflow endpoint groups for each type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-endpointdetails
-        '''
-        result = self._values.get("endpoint_details")
-        assert result is not None, "Required property 'endpoint_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataflowEndpointGroup.EndpointDetailsProperty]]], result)
-
-    @builtins.property
-    def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Amount of time, in seconds, after a contact ends that the Ground Station Dataflow Endpoint Group will be in a ``POSTPASS`` state.
-
-        A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``POSTPASS`` state.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-contactpostpassdurationseconds
-        '''
-        result = self._values.get("contact_post_pass_duration_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def contact_pre_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Amount of time, in seconds, before a contact starts that the Ground Station Dataflow Endpoint Group will be in a ``PREPASS`` state.
-
-        A Ground Station Dataflow Endpoint Group State Change event will be emitted when the Dataflow Endpoint Group enters and exits the ``PREPASS`` state.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-contactprepassdurationseconds
-        '''
-        result = self._values.get("contact_pre_pass_duration_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags assigned to a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-dataflowendpointgroup.html#cfn-groundstation-dataflowendpointgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataflowEndpointGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IMissionProfileRef, _ITaggable_36806126)
 class CfnMissionProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3150,6 +3677,12 @@ class CfnMissionProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="missionProfileRef")
+    def mission_profile_ref(self) -> MissionProfileReference:
+        '''A reference to a MissionProfile resource.'''
+        return typing.cast(MissionProfileReference, jsii.get(self, "missionProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3454,213 +3987,6 @@ class CfnMissionProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_groundstation.CfnMissionProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataflow_edges": "dataflowEdges",
-        "minimum_viable_contact_duration_seconds": "minimumViableContactDurationSeconds",
-        "name": "name",
-        "tracking_config_arn": "trackingConfigArn",
-        "contact_post_pass_duration_seconds": "contactPostPassDurationSeconds",
-        "contact_pre_pass_duration_seconds": "contactPrePassDurationSeconds",
-        "streams_kms_key": "streamsKmsKey",
-        "streams_kms_role": "streamsKmsRole",
-        "tags": "tags",
-    },
-)
-class CfnMissionProfileProps:
-    def __init__(
-        self,
-        *,
-        dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        minimum_viable_contact_duration_seconds: jsii.Number,
-        name: builtins.str,
-        tracking_config_arn: builtins.str,
-        contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-        streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        streams_kms_role: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMissionProfile``.
-
-        :param dataflow_edges: A list containing lists of config ARNs. Each list of config ARNs is an edge, with a "from" config and a "to" config.
-        :param minimum_viable_contact_duration_seconds: Minimum length of a contact in seconds that Ground Station will return when listing contacts. Ground Station will not return contacts shorter than this duration.
-        :param name: The name of the mission profile.
-        :param tracking_config_arn: The ARN of a tracking config objects that defines how to track the satellite through the sky during a contact.
-        :param contact_post_pass_duration_seconds: Amount of time in seconds after a contact ends that you’d like to receive a Ground Station Contact State Change indicating the pass has finished.
-        :param contact_pre_pass_duration_seconds: Amount of time in seconds prior to contact start that you'd like to receive a Ground Station Contact State Change Event indicating an upcoming pass.
-        :param streams_kms_key: KMS key to use for encrypting streams.
-        :param streams_kms_role: Role to use for encrypting streams with KMS key.
-        :param tags: Tags assigned to the mission profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_groundstation as groundstation
-            
-            cfn_mission_profile_props = groundstation.CfnMissionProfileProps(
-                dataflow_edges=[groundstation.CfnMissionProfile.DataflowEdgeProperty(
-                    destination="destination",
-                    source="source"
-                )],
-                minimum_viable_contact_duration_seconds=123,
-                name="name",
-                tracking_config_arn="trackingConfigArn",
-            
-                # the properties below are optional
-                contact_post_pass_duration_seconds=123,
-                contact_pre_pass_duration_seconds=123,
-                streams_kms_key=groundstation.CfnMissionProfile.StreamsKmsKeyProperty(
-                    kms_alias_arn="kmsAliasArn",
-                    kms_alias_name="kmsAliasName",
-                    kms_key_arn="kmsKeyArn"
-                ),
-                streams_kms_role="streamsKmsRole",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0)
-            check_type(argname="argument dataflow_edges", value=dataflow_edges, expected_type=type_hints["dataflow_edges"])
-            check_type(argname="argument minimum_viable_contact_duration_seconds", value=minimum_viable_contact_duration_seconds, expected_type=type_hints["minimum_viable_contact_duration_seconds"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tracking_config_arn", value=tracking_config_arn, expected_type=type_hints["tracking_config_arn"])
-            check_type(argname="argument contact_post_pass_duration_seconds", value=contact_post_pass_duration_seconds, expected_type=type_hints["contact_post_pass_duration_seconds"])
-            check_type(argname="argument contact_pre_pass_duration_seconds", value=contact_pre_pass_duration_seconds, expected_type=type_hints["contact_pre_pass_duration_seconds"])
-            check_type(argname="argument streams_kms_key", value=streams_kms_key, expected_type=type_hints["streams_kms_key"])
-            check_type(argname="argument streams_kms_role", value=streams_kms_role, expected_type=type_hints["streams_kms_role"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataflow_edges": dataflow_edges,
-            "minimum_viable_contact_duration_seconds": minimum_viable_contact_duration_seconds,
-            "name": name,
-            "tracking_config_arn": tracking_config_arn,
-        }
-        if contact_post_pass_duration_seconds is not None:
-            self._values["contact_post_pass_duration_seconds"] = contact_post_pass_duration_seconds
-        if contact_pre_pass_duration_seconds is not None:
-            self._values["contact_pre_pass_duration_seconds"] = contact_pre_pass_duration_seconds
-        if streams_kms_key is not None:
-            self._values["streams_kms_key"] = streams_kms_key
-        if streams_kms_role is not None:
-            self._values["streams_kms_role"] = streams_kms_role
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dataflow_edges(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.DataflowEdgeProperty]]]:
-        '''A list containing lists of config ARNs.
-
-        Each list of config ARNs is an edge, with a "from" config and a "to" config.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-dataflowedges
-        '''
-        result = self._values.get("dataflow_edges")
-        assert result is not None, "Required property 'dataflow_edges' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.DataflowEdgeProperty]]], result)
-
-    @builtins.property
-    def minimum_viable_contact_duration_seconds(self) -> jsii.Number:
-        '''Minimum length of a contact in seconds that Ground Station will return when listing contacts.
-
-        Ground Station will not return contacts shorter than this duration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-minimumviablecontactdurationseconds
-        '''
-        result = self._values.get("minimum_viable_contact_duration_seconds")
-        assert result is not None, "Required property 'minimum_viable_contact_duration_seconds' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the mission profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tracking_config_arn(self) -> builtins.str:
-        '''The ARN of a tracking config objects that defines how to track the satellite through the sky during a contact.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-trackingconfigarn
-        '''
-        result = self._values.get("tracking_config_arn")
-        assert result is not None, "Required property 'tracking_config_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def contact_post_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Amount of time in seconds after a contact ends that you’d like to receive a Ground Station Contact State Change indicating the pass has finished.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-contactpostpassdurationseconds
-        '''
-        result = self._values.get("contact_post_pass_duration_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def contact_pre_pass_duration_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Amount of time in seconds prior to contact start that you'd like to receive a Ground Station Contact State Change Event indicating an upcoming pass.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-contactprepassdurationseconds
-        '''
-        result = self._values.get("contact_pre_pass_duration_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def streams_kms_key(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.StreamsKmsKeyProperty]]:
-        '''KMS key to use for encrypting streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-streamskmskey
-        '''
-        result = self._values.get("streams_kms_key")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMissionProfile.StreamsKmsKeyProperty]], result)
-
-    @builtins.property
-    def streams_kms_role(self) -> typing.Optional[builtins.str]:
-        '''Role to use for encrypting streams with KMS key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-streamskmsrole
-        '''
-        result = self._values.get("streams_kms_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags assigned to the mission profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMissionProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConfig",
     "CfnConfigProps",
@@ -3668,9 +3994,72 @@ __all__ = [
     "CfnDataflowEndpointGroupProps",
     "CfnMissionProfile",
     "CfnMissionProfileProps",
+    "ConfigReference",
+    "DataflowEndpointGroupReference",
+    "IConfigRef",
+    "IDataflowEndpointGroupRef",
+    "IMissionProfileRef",
+    "MissionProfileReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25(
+    *,
+    config_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51(
+    *,
+    endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+    contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0(
+    *,
+    dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    minimum_viable_contact_duration_seconds: jsii.Number,
+    name: builtins.str,
+    tracking_config_arn: builtins.str,
+    contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+    contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
+    streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streams_kms_role: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57d0926da2bec6ccb6d6c339d0ec6934ae77b4bf7e84bb2c346963f5addff162(
+    *,
+    config_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d7bd04f99ed16ca7a4dde7370adbda2d379ad3485553c267beb46b8676c5903(
+    *,
+    dataflow_endpoint_group_arn: builtins.str,
+    dataflow_endpoint_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef16f33ea844656c6426defba02716fc206afba2926028f72966bb53a1d873b4(
+    *,
+    mission_profile_arn: builtins.str,
+    mission_profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__13b5342b1ca67f4a4ccbf4e2d71441ec8ac6775411c783b3c9c933f4caeaeb44(
     scope: _constructs_77d1e7e8.Construct,
@@ -3838,15 +4227,6 @@ def _typecheckingstub__27edccf82a0971febe19a69f59300574fa0a8a86e8860e33b5b5b5fac
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ed41d945f02014619043ab4e725d6fc3de8df5c042bab0ce35128c1603f4ea25(
-    *,
-    config_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.ConfigDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__669b82a6c91e9541f061b9397341fc4b6628a648faf22449b040ab31e2879b6f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3973,16 +4353,6 @@ def _typecheckingstub__0be1cdd898189d7b0a27924e382d426d33c11750a250da2b52f6b3ef9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__063930c43a6ff97faaee9a4c322e7e786cb86ec9ca51ac8c6d171f9a49195f51(
-    *,
-    endpoint_details: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataflowEndpointGroup.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9502d0c4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4079,21 +4449,6 @@ def _typecheckingstub__9b72d6af08de28c6ebdf730f46ed7f026b1f417a505f1cd3c52737731
     kms_alias_arn: typing.Optional[builtins.str] = None,
     kms_alias_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27b191ab0(
-    *,
-    dataflow_edges: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.DataflowEdgeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    minimum_viable_contact_duration_seconds: jsii.Number,
-    name: builtins.str,
-    tracking_config_arn: builtins.str,
-    contact_post_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    contact_pre_pass_duration_seconds: typing.Optional[jsii.Number] = None,
-    streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    streams_kms_role: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

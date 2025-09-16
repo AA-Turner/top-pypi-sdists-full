@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import datetime
 import logging
-import re
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .constants import BatteryCameraWorkMode, DeviceSwitchType, SoundMode
 from .exceptions import PyEzvizError
 from .models import EzvizDeviceRecord
-from .utils import fetch_nested_value, string_to_list
+from .utils import (
+    compute_motion_from_alarm,
+    fetch_nested_value,
+    parse_timezone_value,
+    string_to_list,
+)
 
 if TYPE_CHECKING:
     from .client import EzvizClient
@@ -99,6 +102,7 @@ class EzvizCamera:
         self._alarmmotiontrigger: dict[str, Any] = {
             "alarm_trigger_active": False,
             "timepassed": None,
+            "last_alarm_time_str": None,
         }
         self._record: EzvizDeviceRecord | None = None
 
@@ -171,100 +175,21 @@ class EzvizCamera:
 
         Prefer numeric epoch fields if available to avoid parsing localized strings.
         """
-        # Use timezone-aware datetimes based on camera or local timezone.
         tzinfo = self._get_tzinfo()
-        now = datetime.datetime.now(tz=tzinfo).replace(microsecond=0)
-
-        # Prefer epoch fields if available
-        epoch = self._last_alarm.get("alarmStartTime") or self._last_alarm.get(
-            "alarmTime"
+        active, seconds_out, last_alarm_str = compute_motion_from_alarm(
+            self._last_alarm, tzinfo
         )
-        last_alarm_dt: datetime.datetime | None = None
-        if epoch is not None:
-            try:
-                # Accept int/float/str; auto-detect ms vs s
-                if isinstance(epoch, str):
-                    epoch = float(epoch)
-                ts = float(epoch)
-                if ts > 1e11:  # very likely milliseconds
-                    ts = ts / 1000.0
-                last_alarm_dt = datetime.datetime.fromtimestamp(ts, tz=tzinfo)
-            except (
-                TypeError,
-                ValueError,
-                OSError,
-            ):  # fall back to string parsing below
-                last_alarm_dt = None
-
-        if last_alarm_dt is None:
-            # Fall back to string parsing
-            raw = str(
-                self._last_alarm.get("alarmStartTimeStr")
-                or self._last_alarm.get("alarmTimeStr")
-                or ""
-            )
-            if not raw:
-                return
-            if "Today" in raw:
-                raw = raw.replace("Today", str(now.date()))
-            try:
-                last_alarm_dt = datetime.datetime.strptime(
-                    raw, "%Y-%m-%d %H:%M:%S"
-                ).replace(tzinfo=tzinfo)
-            except ValueError:  # Unrecognized format; give up gracefully
-                _LOGGER.debug(
-                    "Unrecognized alarm time format for %s: %s", self._serial, raw
-                )
-                self._alarmmotiontrigger = {
-                    "alarm_trigger_active": False,
-                    "timepassed": None,
-                }
-                return
-
-        timepassed = now - last_alarm_dt
-        seconds = max(0.0, timepassed.total_seconds()) if timepassed else None
 
         self._alarmmotiontrigger = {
-            "alarm_trigger_active": bool(timepassed < datetime.timedelta(seconds=60)),
-            "timepassed": seconds,
+            "alarm_trigger_active": active,
+            "timepassed": seconds_out,
+            "last_alarm_time_str": last_alarm_str,
         }
 
     def _get_tzinfo(self) -> datetime.tzinfo:
-        """Return tzinfo from camera setting if recognizable, else local tzinfo.
-
-        Attempts to parse common formats like 'UTC+02:00', 'GMT+8', '+0530', or IANA names.
-        Falls back to local timezone.
-        """
+        """Return tzinfo from camera setting if recognizable, else local tzinfo."""
         tz_val = self.fetch_key(["STATUS", "optionals", "timeZone"])
-        # IANA zone name
-        if isinstance(tz_val, str) and "/" in tz_val:
-            try:
-                return ZoneInfo(tz_val)
-            except ZoneInfoNotFoundError:
-                pass
-        # Offset formats
-        offset_minutes: int | None = None
-        if isinstance(tz_val, int):
-            # Heuristic: treat small absolute values as hours, large as minutes/seconds
-            if -14 <= tz_val <= 14:
-                offset_minutes = tz_val * 60
-            elif -24 * 60 <= tz_val <= 24 * 60:
-                offset_minutes = tz_val
-            elif -24 * 3600 <= tz_val <= 24 * 3600:
-                offset_minutes = int(tz_val / 60)
-        elif isinstance(tz_val, str):
-            s = tz_val.strip().upper().replace("UTC", "").replace("GMT", "")
-            # Normalize formats like '+02:00', '+0200', '+2'
-            m = re.match(r"^([+-]?)(\d{1,2})(?::?(\d{2}))?$", s)
-            if m:
-                sign = -1 if m.group(1) == "-" else 1
-                hours = int(m.group(2))
-                minutes = int(m.group(3)) if m.group(3) else 0
-                offset_minutes = sign * (hours * 60 + minutes)
-        if offset_minutes is not None:
-            return datetime.timezone(datetime.timedelta(minutes=offset_minutes))
-        # Fallback to local timezone
-        return datetime.datetime.now().astimezone().tzinfo or datetime.UTC
+        return parse_timezone_value(tz_val)
 
     def _is_alarm_schedules_enabled(self) -> bool:
         """Check if alarm schedules enabled."""
@@ -370,7 +295,10 @@ class EzvizCamera:
             "PIR_Status": self.fetch_key(["STATUS", "pirStatus"]),
             "Motion_Trigger": self._alarmmotiontrigger["alarm_trigger_active"],
             "Seconds_Last_Trigger": self._alarmmotiontrigger["timepassed"],
-            "last_alarm_time": self._last_alarm.get("alarmStartTimeStr"),
+            # Keep last_alarm_time in sync with the time actually used to
+            # compute Motion_Trigger/Seconds_Last_Trigger.
+            "last_alarm_time": self._alarmmotiontrigger.get("last_alarm_time_str")
+            or self._last_alarm.get("alarmStartTimeStr"),
             "last_alarm_pic": self._last_alarm.get(
                 "picUrl",
                 "https://eustatics.ezvizlife.com/ovs_mall/web/img/index/EZVIZ_logo.png?ver=3007907502",

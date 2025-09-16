@@ -1,22 +1,23 @@
 from orionis.container.facades.facade import Facade
-from orionis.services.file.contracts.directory import IDirectory
 
 class Directory(Facade):
 
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Get the registered name of the component in the service container.
+        Returns the binding key used by the service container to resolve the directory service.
 
-        This method provides the binding key that the service container uses to
-        resolve the workers service implementation. It serves as the bridge between
-        the facade and the underlying service registration.
+        This method provides the unique identifier (binding key) that the service container uses
+        to locate and instantiate the implementation of the directory service. It acts as a bridge
+        between the facade and the underlying service registration, ensuring that the correct
+        service is retrieved when requested.
 
         Returns
         -------
         str
-            The service container binding key 'x-orionis.services.file.contracts.directory.IDirectory'
-            that identifies the workers service implementation.
+            The binding key for the directory service implementation:
+            'x-orionis.services.file.contracts.directory.IDirectory'.
         """
 
-        return f"x-{IDirectory.__module__}.{IDirectory.__name__}"
+        # Return the unique binding key for the directory service in the container
+        return "x-orionis.services.file.contracts.directory.IDirectory"

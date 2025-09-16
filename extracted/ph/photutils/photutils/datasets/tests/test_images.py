@@ -68,6 +68,31 @@ def test_make_model_image_units():
         make_model_image(shape, model, params, model_shape=model_shape)
 
 
+def test_make_model_image_units_no_overlap():
+    """
+    Test that the model image is created with the correct units when
+    there is no overlap between the model and the image.
+    """
+    unit = u.Jy
+    params = QTable()
+    params['x_0'] = [50, 70.5]
+    params['y_0'] = [50, 50.5]
+    params['flux'] = [2, 3] * unit
+    model = CircularGaussianSigmaPRF(sigma=1.5)
+    shape = (10, 12)
+    image = make_model_image(shape, model, params)
+    assert image.shape == shape
+    assert isinstance(image, u.Quantity)
+    assert image.unit == unit
+    assert model.flux == 1.0  # default flux (unchanged)
+
+    params['flux'] = [2, 3]
+    image = make_model_image(shape, model, params)
+    assert image.shape == shape
+    assert not isinstance(image, u.Quantity)
+    assert model.flux == 1.0  # default flux (unchanged)
+
+
 def test_make_model_image_discretize_method():
     params = QTable()
     params['x_0'] = [50, 70, 90]
@@ -197,3 +222,31 @@ def test_make_model_image_params_map():
     image2 = make_model_image(shape, model, params, model_shape=model_shape,
                               params_map=params_map)
     assert_allclose(image, image2)
+
+
+def test_make_model_image_nonfinite():
+    params = QTable()
+    params['x_0'] = [50, np.nan, 90, 100]
+    params['y_0'] = [50, 50, 50, 50]
+    params['gamma'] = [1.7, 2.32, 5.8, np.inf]
+    params['alpha'] = [2.9, 5.7, 4.6, 3.1]
+    model = Moffat2D(amplitude=1)
+    shape = (300, 500)
+    model_shape = (11, 11)
+    image = make_model_image(shape, model, params, model_shape=model_shape)
+    assert image.shape == shape
+    assert image.sum() < 33
+    assert image[50, 100] == 0
+
+    # all invalid sources
+    params = QTable()
+    params['x_0'] = [50, np.nan, 90, 100]
+    params['y_0'] = [-np.inf, 50, 50, 50]
+    params['gamma'] = [1.7, 2.32, 5.8, np.inf]
+    params['alpha'] = [2.9, 5.7, np.nan, 3.1]
+    model = Moffat2D(amplitude=1)
+    shape = (300, 500)
+    model_shape = (11, 11)
+    image = make_model_image(shape, model, params, model_shape=model_shape)
+    assert image.shape == shape
+    assert image.sum() == 0

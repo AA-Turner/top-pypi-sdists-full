@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
     from mypy_boto3_observabilityadmin.paginator import (
+        ListCentralizationRulesForOrganizationPaginator,
         ListResourceTelemetryForOrganizationPaginator,
         ListResourceTelemetryPaginator,
         ListTelemetryRulesForOrganizationPaginator,
@@ -21,6 +22,7 @@ Usage::
     session = Session()
     client: CloudWatchObservabilityAdminServiceClient = session.client("observabilityadmin")
 
+    list_centralization_rules_for_organization_paginator: ListCentralizationRulesForOrganizationPaginator = client.get_paginator("list_centralization_rules_for_organization")
     list_resource_telemetry_for_organization_paginator: ListResourceTelemetryForOrganizationPaginator = client.get_paginator("list_resource_telemetry_for_organization")
     list_resource_telemetry_paginator: ListResourceTelemetryPaginator = client.get_paginator("list_resource_telemetry")
     list_telemetry_rules_for_organization_paginator: ListTelemetryRulesForOrganizationPaginator = client.get_paginator("list_telemetry_rules_for_organization")
@@ -36,6 +38,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListCentralizationRulesForOrganizationInputPaginateTypeDef,
+    ListCentralizationRulesForOrganizationOutputTypeDef,
     ListResourceTelemetryForOrganizationInputPaginateTypeDef,
     ListResourceTelemetryForOrganizationOutputTypeDef,
     ListResourceTelemetryInputPaginateTypeDef,
@@ -52,11 +56,34 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListCentralizationRulesForOrganizationPaginator",
     "ListResourceTelemetryForOrganizationPaginator",
     "ListResourceTelemetryPaginator",
     "ListTelemetryRulesForOrganizationPaginator",
     "ListTelemetryRulesPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListCentralizationRulesForOrganizationPaginatorBase = Paginator[
+        ListCentralizationRulesForOrganizationOutputTypeDef
+    ]
+else:
+    _ListCentralizationRulesForOrganizationPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCentralizationRulesForOrganizationPaginator(
+    _ListCentralizationRulesForOrganizationPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListCentralizationRulesForOrganization.html#CloudWatchObservabilityAdminService.Paginator.ListCentralizationRulesForOrganization)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listcentralizationrulesfororganizationpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCentralizationRulesForOrganizationInputPaginateTypeDef]
+    ) -> PageIterator[ListCentralizationRulesForOrganizationOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListCentralizationRulesForOrganization.html#CloudWatchObservabilityAdminService.Paginator.ListCentralizationRulesForOrganization.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listcentralizationrulesfororganizationpaginator)
+        """
 
 if TYPE_CHECKING:
     _ListResourceTelemetryForOrganizationPaginatorBase = Paginator[
